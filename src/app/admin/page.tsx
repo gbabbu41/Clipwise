@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -102,16 +101,10 @@ export default function AdminPage() {
   // ── Load all platform data ──────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: shopData }, { data: txData }, { data: apptData }, { count: userCount }] = await Promise.all([
-      supabase.from("shops").select("*, users(name, email)").order("created_at", { ascending: false }),
-      supabase.from("transactions").select("amount"),
-      supabase.from("appointments").select("id"),
-      supabase.from("users").select("id", { count: "exact", head: true }),
-    ]);
-
-    // Enrich shops with revenue + appt counts
-    const shopList = (shopData ?? []) as ShopWithOwner[];
-    setShops(shopList);
+    const res = await fetch("/api/admin/shops");
+    if (!res.ok) { setLoading(false); return; }
+    const { shops: shopData, transactions: txData, appointments: apptData, userCount } = await res.json();
+    setShops((shopData ?? []) as ShopWithOwner[]);
     setPlatformRevenue((txData ?? []).reduce((s: number, t: { amount: number }) => s + (t.amount ?? 0), 0));
     setTotalAppts((apptData ?? []).length);
     setTotalUsers(userCount ?? 0);
@@ -121,11 +114,14 @@ export default function AdminPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ── Approve shop ────────────────────────────────────────────────────────────
+  const patchShop = (id: string, body: Record<string, string>) =>
+    fetch("/api/admin/shops", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...body }) });
+
   const approveShop = async (shop: ShopWithOwner) => {
     setSavingId(shop.id);
-    const { error } = await supabase.from("shops").update({ status: "approved" }).eq("id", shop.id);
+    const res = await patchShop(shop.id, { status: "approved" });
     setSavingId(null);
-    if (error) { showToast("Failed to approve shop", false); return; }
+    if (!res.ok) { showToast("Failed to approve shop", false); return; }
     setShops((prev) => prev.map((s) => s.id === shop.id ? { ...s, status: "approved" } : s));
     fetch("/api/send-email", {
       method: "POST",
@@ -140,9 +136,9 @@ export default function AdminPage() {
     if (!rejectModal) return;
     const shop = rejectModal;
     setSavingId(shop.id);
-    const { error } = await supabase.from("shops").update({ status: "rejected", rejection_reason: rejectReason }).eq("id", shop.id);
+    const res = await patchShop(shop.id, { status: "rejected", rejection_reason: rejectReason });
     setSavingId(null);
-    if (error) { showToast("Failed to reject shop", false); return; }
+    if (!res.ok) { showToast("Failed to reject shop", false); return; }
     setShops((prev) => prev.map((s) => s.id === shop.id ? { ...s, status: "rejected", rejection_reason: rejectReason } : s));
     fetch("/api/send-email", {
       method: "POST",
@@ -158,7 +154,7 @@ export default function AdminPage() {
   const toggleSuspend = async (shop: ShopWithOwner) => {
     const newStatus = shop.status === "suspended" ? "approved" : "suspended";
     setSavingId(shop.id);
-    await supabase.from("shops").update({ status: newStatus }).eq("id", shop.id);
+    await patchShop(shop.id, { status: newStatus });
     setSavingId(null);
     setShops((prev) => prev.map((s) => s.id === shop.id ? { ...s, status: newStatus } : s));
     showToast(`${shop.name} ${newStatus === "suspended" ? "suspended" : "reactivated"}`);

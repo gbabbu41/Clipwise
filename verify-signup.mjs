@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
-const SUPABASE_URL = "https://avetaceptfpdovkuihcf.supabase.co";
-const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZXRhY2VwdGZwZG92a3VpaGNmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTc2MDU3OSwiZXhwIjoyMDk1MzM2NTc5fQ.AzD1SGKhgzvfq0RtXQDRksnIRQPEswa9WiLzW04DkJI";
+import "dotenv/config";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
 const BASE = "http://localhost:3000";
 const SS = "C:/Users/gbabb/Desktop/Auth-app/clipwise/verify-screenshots";
 const TS = Date.now();
