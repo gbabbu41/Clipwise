@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
   // ── Load appointments ───────────────────────────────────────────────────────
   const loadAppointments = useCallback(async () => {
-    if (!shop) return;
+    if (!shop) { setLoadingAppts(false); return; }
     setLoadingAppts(true);
     const [start, end] = getDateRange(dateFilter, customStart, customEnd);
     const { data } = await supabase
@@ -171,6 +171,28 @@ export default function DashboardPage() {
   const calDateStr = (d: number) => `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
   const filterDateRange = getDateRange(dateFilter, customStart, customEnd);
+
+  // No-shop state — barber not yet linked to a shop, or account without a shop
+  if (!loadingAppts && !shop) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-16 h-16 bg-gold/10 border border-gold/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Calendar size={28} className="text-gold" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">
+          {profile?.role === "barber" ? "You're not linked to a shop yet" : "No shop found"}
+        </h2>
+        <p className="text-gray-500 text-sm max-w-sm mb-6">
+          {profile?.role === "barber"
+            ? "Ask your shop owner to add you as a barber, or join a shop once it's approved."
+            : "Set up your barbershop to start managing appointments, clients, and more."}
+        </p>
+        {profile?.role !== "barber" && (
+          <Link href="/onboarding"><Button>Set Up My Shop</Button></Link>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-8 animate-fade-in">

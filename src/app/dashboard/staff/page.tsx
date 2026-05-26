@@ -76,7 +76,7 @@ export default function StaffPage() {
 
   // ── Load barbers + their schedules + appt counts ────────────────────────────
   const loadBarbers = useCallback(async () => {
-    if (!shop) return;
+    if (!shop) { setLoading(false); return; }
     setLoading(true);
     const now = new Date();
     const monthStart = formatDateForDb(new Date(now.getFullYear(), now.getMonth(), 1));

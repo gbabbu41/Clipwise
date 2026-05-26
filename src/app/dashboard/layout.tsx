@@ -5,18 +5,20 @@ import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, shop, loading } = useAuth();
+  const { user, profile, shop, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
+    // Customers don't have a shop dashboard — send them home
+    if (profile?.role === "customer") { router.push("/"); return; }
     // If shop exists but not approved and we're not already on /pending
     if (shop && shop.status !== "approved" && pathname !== "/dashboard/pending") {
       router.push("/dashboard/pending");
     }
-  }, [user, shop, loading, router, pathname]);
+  }, [user, profile, shop, loading, router, pathname]);
 
   if (loading) {
     return (
