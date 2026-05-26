@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0A0A0A;
+  --foreground: #FFFFFF;
+  --surface: #1C1C1E;
+  --surface-raised: #2C2C2E;
+  --gold: #C9A84C;
+  --gold-light: #E4C97A;
+  --border: #2C2C2E;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1C1C1E;
+}
+::-webkit-scrollbar-thumb {
+  background: #3A3A3C;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C9A84C;
+}
+
+/* Gold gradient text */
+.gold-text {
+  background: linear-gradient(135deg, #C9A84C, #E4C97A);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gold border glow */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.15);
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(28, 28, 30, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(201, 168, 76, 0.1);
+}
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #1C1C1E 0%,
+    #2C2C2E 50%,
+    #1C1C1E 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+/* Status badge colors */
+.status-confirmed { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
+.status-pending { @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30; }
+.status-completed { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
+.status-cancelled { @apply bg-red-500/20 text-red-400 border border-red-500/30; }
+.status-no-show { @apply bg-orange-500/20 text-orange-400 border border-orange-500/30; }
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
