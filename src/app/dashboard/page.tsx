@@ -81,6 +81,7 @@ export default function DashboardPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
+  const [myBarberId, setMyBarberId] = useState<string | null>(null);
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showAddWalkin, setShowAddWalkin] = useState(false);
@@ -92,12 +93,19 @@ export default function DashboardPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
+  // ── Resolve barber record ID for logged-in barbers ─────────────────────────
+  useEffect(() => {
+    if (!profile || profile.role !== "barber" || !shop) return;
+    supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => { if (data) setMyBarberId(data.id); });
+  }, [profile, shop]);
+
   // ── Load appointments ───────────────────────────────────────────────────────
   const loadAppointments = useCallback(async () => {
     if (!shop) { setLoadingAppts(false); return; }
     setLoadingAppts(true);
     const [start, end] = getDateRange(dateFilter, customStart, customEnd);
-    const { data } = await supabase
+    let q = supabase
       .from("appointments")
       .select("*, barbers(id, name), services(id, name, price, category)")
       .eq("shop_id", shop.id)
@@ -105,9 +113,14 @@ export default function DashboardPage() {
       .lte("date", end)
       .order("date", { ascending: true })
       .order("time_slot", { ascending: true });
+    // Barbers only see their own appointments
+    if (profile?.role === "barber" && myBarberId) {
+      q = q.eq("barber_id", myBarberId);
+    }
+    const { data } = await q;
     setAppointments((data ?? []) as AppointmentWithDetails[]);
     setLoadingAppts(false);
-  }, [shop, dateFilter, customStart, customEnd]);
+  }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
 
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
@@ -125,16 +138,20 @@ export default function DashboardPage() {
     if (!shop) return;
     const firstDay = formatDateForDb(new Date(calYear, calMonth, 1));
     const lastDay = formatDateForDb(new Date(calYear, calMonth + 1, 0));
-    const { data } = await supabase
+    let calQ = supabase
       .from("appointments")
       .select("date")
       .eq("shop_id", shop.id)
       .gte("date", firstDay)
       .lte("date", lastDay);
+    if (profile?.role === "barber" && myBarberId) {
+      calQ = calQ.eq("barber_id", myBarberId);
+    }
+    const { data } = await calQ;
     const counts: Record<string, number> = {};
     (data ?? []).forEach((a: { date: string }) => { counts[a.date] = (counts[a.date] ?? 0) + 1; });
     setApptCounts(counts);
-  }, [shop, calYear, calMonth]);
+  }, [shop, calYear, calMonth, profile, myBarberId]);
 
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
   useEffect(() => { loadSideData(); }, [loadSideData]);

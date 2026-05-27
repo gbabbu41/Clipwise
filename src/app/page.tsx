@@ -112,6 +112,7 @@ export default function LandingPage() {
             <a href="#compare" className="hover:text-white transition-colors">Compare</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/shops" className="hover:text-gold transition-colors text-gold/80">Find a Barber</Link>
+            <Link href="/my-bookings" className="hover:text-white transition-colors">My Bookings</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
@@ -126,6 +127,8 @@ export default function LandingPage() {
             {["Features", "Pricing", "Compare", "FAQ"].map((item) => (
               <a key={item} href={`#${item.toLowerCase()}`} className="block text-sm text-gray-400 hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>{item}</a>
             ))}
+            <Link href="/shops" className="block text-sm text-gold py-1" onClick={() => setMobileMenuOpen(false)}>Find a Barber</Link>
+            <Link href="/my-bookings" className="block text-sm text-gray-400 hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>My Bookings</Link>
             <div className="pt-2 flex gap-2">
               <Link href="/login" className="flex-1"><Button variant="outline" className="w-full" size="sm">Log in</Button></Link>
               <Link href="/signup" className="flex-1"><Button className="w-full" size="sm">Sign Up</Button></Link>

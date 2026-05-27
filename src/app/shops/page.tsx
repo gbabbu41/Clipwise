@@ -67,6 +67,7 @@ export default function ShopsPage() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <Link href="/"><Logo size="sm" /></Link>
           <div className="flex gap-3">
+            <Link href="/my-bookings"><Button variant="ghost" size="sm">My Bookings</Button></Link>
             <Link href="/login"><Button variant="outline" size="sm">Sign In</Button></Link>
             <Link href="/signup"><Button size="sm">Get Started</Button></Link>
           </div>

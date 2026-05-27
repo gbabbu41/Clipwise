@@ -26,7 +26,7 @@ const STATUS_OPTIONS = ["confirmed", "pending", "completed", "cancelled", "no-sh
 type AppStatus = typeof STATUS_OPTIONS[number];
 
 export default function AppointmentsPage() {
-  const { shop } = useAuth();
+  const { shop, profile } = useAuth();
   const [tab, setTab] = useState<"appointments" | "waitlist">("appointments");
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
@@ -46,8 +46,16 @@ export default function AppointmentsPage() {
   // Add appointment form state
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM" });
   const [savingAdd, setSavingAdd] = useState(false);
+  const [myBarberId, setMyBarberId] = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  // Resolve barber record for logged-in barbers
+  useEffect(() => {
+    if (!profile || profile.role !== "barber" || !shop) return;
+    supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => { if (data) setMyBarberId(data.id); });
+  }, [profile, shop]);
 
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
@@ -67,6 +75,11 @@ export default function AppointmentsPage() {
     if (dateFilter === "today") apptQuery = apptQuery.eq("date", today);
     else if (dateFilter === "week") apptQuery = apptQuery.gte("date", weekAgo).lte("date", weekAhead);
 
+    // Barbers only see their own appointments
+    if (profile?.role === "barber" && myBarberId) {
+      apptQuery = apptQuery.eq("barber_id", myBarberId);
+    }
+
     const [{ data: appts }, { data: bs }, { data: svcs }, { data: wl }] = await Promise.all([
       apptQuery,
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
@@ -79,7 +92,7 @@ export default function AppointmentsPage() {
     setServices((svcs ?? []) as Service[]);
     setWaitlist(wl ?? []);
     setLoading(false);
-  }, [shop, dateFilter]);
+  }, [shop, dateFilter, profile, myBarberId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
