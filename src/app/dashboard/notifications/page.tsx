@@ -1,31 +1,25 @@
 "use client";
-import { useState, useMemo } from "react";
-import { mockNotifications } from "@/lib/mock-data";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import type { Notification } from "@/lib/database.types";
 
 type NotificationType = "booking" | "cancellation" | "no-show" | "review" | "inventory";
 
 const TYPE_ICONS: Record<string, string> = {
-  booking: "📅",
-  cancellation: "❌",
-  "no-show": "⚠️",
-  review: "⭐",
-  inventory: "📦",
+  booking: "📅", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
 };
-
 const TYPE_COLORS: Record<string, string> = {
-  booking: "text-emerald-400",
-  cancellation: "text-red-400",
-  "no-show": "text-orange-400",
-  review: "text-gold",
-  inventory: "text-blue-400",
+  booking: "text-emerald-400", cancellation: "text-red-400", "no-show": "text-orange-400",
+  review: "text-gold", inventory: "text-blue-400",
 };
 
 function timeAgo(dateStr: string) {
-  const now = new Date("2026-05-24T16:00:00");
+  const now = new Date();
   const date = new Date(dateStr);
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -44,29 +38,49 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
   const [toast, setToast] = useState("");
   const [notifSettings, setNotifSettings] = useState({
-    new_booking: true,
-    cancellation: true,
-    no_show: true,
-    low_inventory: true,
-    new_review: true,
+    new_booking: true, cancellation: true, no_show: true, low_inventory: true, new_review: true,
   });
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  const markRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-  const markAllRead = () => { setNotifications(prev => prev.map(n => ({ ...n, is_read: true }))); showToast("All marked as read"); };
+  const loadNotifications = useCallback(async () => {
+    if (!user) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setNotifications(data);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+
+  const markRead = async (id: string) => {
+    const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    if (!error) setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+  };
+
+  const markAllRead = async () => {
+    if (!user) return;
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds);
+    if (!error) { setNotifications(prev => prev.map(n => ({ ...n, is_read: true }))); showToast("All marked as read"); }
+  };
 
   const filtered = useMemo(() => {
     const typeMap: Record<string, string[]> = {
-      bookings: ["booking"],
-      "no-shows": ["no-show"],
-      reviews: ["review"],
-      inventory: ["inventory"],
-      cancellations: ["cancellation"],
+      bookings: ["booking"], "no-shows": ["no-show"], reviews: ["review"],
+      inventory: ["inventory"], cancellations: ["cancellation"],
     };
     if (typeFilter === "all") return notifications;
     return notifications.filter(n => (typeMap[typeFilter] || []).includes(n.type));
@@ -94,7 +108,6 @@ export default function NotificationsPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Main notifications */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Filter Tabs */}
           <div className="flex gap-1 flex-wrap">
             {[["all","All"],["bookings","Bookings"],["no-shows","No-Shows"],["reviews","Reviews"],["inventory","Inventory"]].map(([v,l]) => (
               <button key={v} onClick={() => setTypeFilter(v)}
@@ -108,43 +121,48 @@ export default function NotificationsPage() {
             ))}
           </div>
 
-          {/* Notifications List */}
-          <div className="space-y-2">
-            {filtered.length === 0 ? (
-              <Card>
-                <div className="text-center py-12">
-                  <p className="text-4xl mb-3">🔔</p>
-                  <p className="text-gray-400">No notifications</p>
-                </div>
-              </Card>
-            ) : filtered.map(notif => (
-              <div key={notif.id}
-                onClick={() => markRead(notif.id)}
-                className={cn(
-                  "relative flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all",
-                  notif.is_read
-                    ? "bg-surface border-border hover:border-border/80"
-                    : "bg-surface border-l-2 border-l-gold border-t-border border-r-border border-b-border hover:bg-surface-raised"
-                )}>
-                <div className="text-2xl flex-shrink-0">{TYPE_ICONS[notif.type] ?? "🔔"}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={cn("text-sm font-semibold", notif.is_read ? "text-gray-300" : "text-white")}>{notif.title}</p>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {!notif.is_read && <span className="w-2 h-2 rounded-full bg-gold" />}
-                      <span className="text-xs text-gray-500">{timeAgo(notif.created_at)}</span>
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-surface-raised animate-pulse" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Card>
+              <div className="text-center py-12">
+                <p className="text-4xl mb-3">🔔</p>
+                <p className="text-gray-400">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(notif => (
+                <div key={notif.id}
+                  onClick={() => markRead(notif.id)}
+                  className={cn(
+                    "relative flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all",
+                    notif.is_read
+                      ? "bg-surface border-border hover:border-border/80"
+                      : "bg-surface border-l-2 border-l-gold border-t-border border-r-border border-b-border hover:bg-surface-raised"
+                  )}>
+                  <div className="text-2xl flex-shrink-0">{TYPE_ICONS[notif.type] ?? "🔔"}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={cn("text-sm font-semibold", notif.is_read ? "text-gray-300" : "text-white")}>{notif.title}</p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!notif.is_read && <span className="w-2 h-2 rounded-full bg-gold" />}
+                        <span className="text-xs text-gray-500">{timeAgo(notif.created_at)}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-0.5 leading-relaxed">{notif.message}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={cn("text-xs font-medium capitalize", TYPE_COLORS[notif.type] ?? "text-gray-400")}>
+                        {notif.type}
+                      </span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400 mt-0.5 leading-relaxed">{notif.message}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={cn("text-xs font-medium capitalize", TYPE_COLORS[notif.type] ?? "text-gray-400")}>
-                      {notif.type}
-                    </span>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Settings Panel */}
@@ -172,7 +190,7 @@ export default function NotificationsPage() {
                       className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
                         notifSettings[s.key] ? "bg-gold" : "bg-surface-raised border border-border")}>
                       <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all",
-                        notifSettings[s.key] ? "left-5.5 translate-x-0.5" : "left-0.5")} />
+                        notifSettings[s.key] ? "left-[22px]" : "left-0.5")} />
                     </button>
                   </div>
                 ))}
@@ -180,7 +198,6 @@ export default function NotificationsPage() {
             </CardContent>
           </Card>
 
-          {/* Summary */}
           <Card className="mt-4">
             <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
             <CardContent>

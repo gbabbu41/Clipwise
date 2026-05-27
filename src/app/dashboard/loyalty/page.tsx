@@ -1,13 +1,13 @@
 "use client";
-import { useState } from "react";
-import { mockClients, mockPromoCodes } from "@/lib/mock-data";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
-
-type PromoCode = typeof mockPromoCodes[0];
+import type { Client, PromoCode } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -18,45 +18,102 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-const sortedClients = [...mockClients].sort((a, b) => b.loyalty_points - a.loyalty_points);
+const BLANK_PROMO = { code: "", discount_type: "percent", discount_value: "", uses_left: "", expires_at: "", is_active: true };
 
 export default function LoyaltyPage() {
+  const { shop } = useAuth();
   const [tab, setTab] = useState<"loyalty" | "promos">("loyalty");
   const [toast, setToast] = useState("");
-  const [promos, setPromos] = useState(mockPromoCodes);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [promos, setPromos] = useState<PromoCode[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [editPromo, setEditPromo] = useState<PromoCode | null>(null);
-  const [addPointsFor, setAddPointsFor] = useState<string | null>(null);
+  const [addPointsFor, setAddPointsFor] = useState<Client | null>(null);
   const [pointsToAdd, setPointsToAdd] = useState("10");
+  const [saving, setSaving] = useState(false);
   const [reminders, setReminders] = useState({
-    appointment_24h: true,
-    rebooking_30d: true,
-    birthday: false,
-    winback_60d: false,
+    appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
   });
   const [settings, setSettings] = useState({ points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
-  const [newPromo, setNewPromo] = useState({ code: "", discount_type: "percent", discount_value: "", uses_left: "", expires_at: "", is_active: true });
+  const [newPromo, setNewPromo] = useState(BLANK_PROMO);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  const savePromo = () => {
-    if (editPromo) {
-      setPromos(prev => prev.map(p => p.id === editPromo.id ? { ...p, ...newPromo, discount_value: Number(newPromo.discount_value), uses_left: Number(newPromo.uses_left) } : p));
-      showToast("Promo updated!");
-    } else {
-      const id = `promo-${Date.now()}`;
-      setPromos(prev => [...prev, { id, code: newPromo.code.toUpperCase(), discount_type: newPromo.discount_type, discount_value: Number(newPromo.discount_value), uses_left: Number(newPromo.uses_left), total_uses: 0, expires_at: newPromo.expires_at, is_active: newPromo.is_active }]);
-      showToast("Promo code created!");
+  const loadData = useCallback(async () => {
+    if (!shop) { setLoading(false); return; }
+    setLoading(true);
+    const [clientRes, promoRes] = await Promise.all([
+      supabase.from("clients").select("*").eq("shop_id", shop.id).order("loyalty_points", { ascending: false }),
+      supabase.from("promo_codes").select("*").eq("shop_id", shop.id).order("created_at", { ascending: false }),
+    ]);
+    if (clientRes.data) setClients(clientRes.data);
+    if (promoRes.data) setPromos(promoRes.data);
+    setLoading(false);
+  }, [shop]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const addPoints = async () => {
+    if (!addPointsFor || !shop) return;
+    const pts = Number(pointsToAdd);
+    const newTotal = addPointsFor.loyalty_points + pts;
+    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", addPointsFor.id);
+    if (!error) {
+      setClients(prev => prev.map(c => c.id === addPointsFor.id ? { ...c, loyalty_points: newTotal } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
+      showToast(`${pts} points added to ${addPointsFor.name}!`);
     }
+    setAddPointsFor(null);
+  };
+
+  const savePromo = async () => {
+    if (!shop || !newPromo.code.trim()) return;
+    setSaving(true);
+    const payload = {
+      shop_id: shop.id,
+      code: newPromo.code.toUpperCase().trim(),
+      discount_type: newPromo.discount_type as "percent" | "fixed",
+      discount_value: Number(newPromo.discount_value),
+      uses_left: newPromo.uses_left ? Number(newPromo.uses_left) : undefined,
+      total_uses: 0,
+      expires_at: newPromo.expires_at || undefined,
+      is_active: newPromo.is_active,
+    };
+    if (editPromo) {
+      const { error } = await supabase.from("promo_codes").update(payload).eq("id", editPromo.id);
+      if (!error) { showToast("Promo updated!"); loadData(); }
+      else showToast("Error: " + error.message);
+    } else {
+      const { error } = await supabase.from("promo_codes").insert(payload);
+      if (!error) { showToast("Promo code created!"); loadData(); }
+      else showToast("Error: " + error.message);
+    }
+    setSaving(false);
     setShowPromoModal(false);
     setEditPromo(null);
-    setNewPromo({ code: "", discount_type: "percent", discount_value: "", uses_left: "", expires_at: "", is_active: true });
+    setNewPromo(BLANK_PROMO);
+  };
+
+  const deletePromo = async (id: string) => {
+    const { error } = await supabase.from("promo_codes").delete().eq("id", id);
+    if (!error) { setPromos(prev => prev.filter(p => p.id !== id)); showToast("Promo deleted"); }
+    else showToast("Error: " + error.message);
   };
 
   const toggleReminder = (key: keyof typeof reminders) => {
     setReminders(prev => ({ ...prev, [key]: !prev[key] }));
-    showToast(`Reminder ${reminders[key] ? "disabled" : "enabled"} (Demo mode)`);
+    showToast(`Reminder ${reminders[key] ? "disabled" : "enabled"}`);
   };
+
+  if (!shop) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <p className="text-2xl mb-2">🎁</p>
+        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
+        <p className="text-sm text-gray-400">Loyalty program will be available once your shop is set up.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -87,24 +144,18 @@ export default function LoyaltyPage() {
             <CardHeader><CardTitle>Program Settings</CardTitle></CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-3 gap-4 mb-4">
-                <div className="p-4 bg-surface-raised rounded-xl border border-border">
-                  <p className="text-xs text-gray-400 mb-2">Points per Visit</p>
-                  <input type="number" value={settings.points_per_visit}
-                    onChange={e => setSettings(p => ({ ...p, points_per_visit: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50 text-center text-lg font-bold" />
-                </div>
-                <div className="p-4 bg-surface-raised rounded-xl border border-border">
-                  <p className="text-xs text-gray-400 mb-2">Points per Dollar</p>
-                  <input type="number" value={settings.points_per_dollar}
-                    onChange={e => setSettings(p => ({ ...p, points_per_dollar: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50 text-center text-lg font-bold" />
-                </div>
-                <div className="p-4 bg-surface-raised rounded-xl border border-border">
-                  <p className="text-xs text-gray-400 mb-2">100 pts = $X</p>
-                  <input type="number" value={settings.redemption}
-                    onChange={e => setSettings(p => ({ ...p, redemption: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50 text-center text-lg font-bold" />
-                </div>
+                {[
+                  { label: "Points per Visit", key: "points_per_visit" as const },
+                  { label: "Points per Dollar", key: "points_per_dollar" as const },
+                  { label: "100 pts = $X", key: "redemption" as const },
+                ].map(s => (
+                  <div key={s.key} className="p-4 bg-surface-raised rounded-xl border border-border">
+                    <p className="text-xs text-gray-400 mb-2">{s.label}</p>
+                    <input type="number" value={settings[s.key]}
+                      onChange={e => setSettings(p => ({ ...p, [s.key]: Number(e.target.value) }))}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50 text-center text-lg font-bold" />
+                  </div>
+                ))}
               </div>
               <Button onClick={() => showToast("Settings saved!")}>Save Settings</Button>
             </CardContent>
@@ -114,55 +165,61 @@ export default function LoyaltyPage() {
           <Card>
             <CardHeader>
               <CardTitle>Points Leaderboard</CardTitle>
-              <Badge variant="gold">{sortedClients.length} clients</Badge>
+              <Badge variant="gold">{clients.length} clients</Badge>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Rank</th>
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Client</th>
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Points</th>
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Visits</th>
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Last Visit</th>
-                      <th className="text-left text-xs text-gray-400 px-3 py-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedClients.map((client, idx) => (
-                      <tr key={client.id} className="border-b border-border/50 hover:bg-surface-raised/30">
-                        <td className="px-3 py-3">
-                          <span className={cn("text-sm font-bold", idx === 0 ? "text-gold" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-yellow-600" : "text-gray-500")}>
-                            #{idx + 1}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-gold/20 flex items-center justify-center text-xs text-gold font-bold">
-                              {client.name.split(" ").map(n => n[0]).join("")}
-                            </div>
-                            <span className="text-sm text-white">{client.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-gold">{client.loyalty_points}</span>
-                            <div className="w-16 h-1.5 rounded-full bg-surface-raised overflow-hidden">
-                              <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-sm text-gray-300">{client.total_visits}</td>
-                        <td className="px-3 py-3 text-sm text-gray-400">{client.last_visit}</td>
-                        <td className="px-3 py-3">
-                          <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client.id)}>+ Points</Button>
-                        </td>
+              {loading ? (
+                <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-surface-raised animate-pulse" />)}</div>
+              ) : clients.length === 0 ? (
+                <div className="text-center py-8"><p className="text-gray-400 text-sm">No clients yet</p></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Rank</th>
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Client</th>
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Points</th>
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Visits</th>
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Last Visit</th>
+                        <th className="text-left text-xs text-gray-400 px-3 py-2">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {clients.map((client, idx) => (
+                        <tr key={client.id} className="border-b border-border/50 hover:bg-surface-raised/30">
+                          <td className="px-3 py-3">
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-gold" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-yellow-600" : "text-gray-500")}>
+                              #{idx + 1}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-gold/20 flex items-center justify-center text-xs text-gold font-bold">
+                                {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                              </div>
+                              <span className="text-sm text-white">{client.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-gold">{client.loyalty_points}</span>
+                              <div className="w-16 h-1.5 rounded-full bg-surface-raised overflow-hidden">
+                                <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-300">{client.total_visits}</td>
+                          <td className="px-3 py-3 text-sm text-gray-400">{client.last_visit ?? "—"}</td>
+                          <td className="px-3 py-3">
+                            <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -183,12 +240,11 @@ export default function LoyaltyPage() {
                       <div>
                         <p className="text-sm font-medium text-white">{r.label}</p>
                         <p className="text-xs text-gray-400">{r.desc}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">Mock — toast only</p>
                       </div>
                     </div>
                     <button onClick={() => toggleReminder(r.key)}
                       className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", reminders[r.key] ? "bg-gold" : "bg-surface border border-border")}>
-                      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", reminders[r.key] ? "left-5.5 translate-x-0.5" : "left-0.5")} />
+                      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", reminders[r.key] ? "left-[22px]" : "left-0.5")} />
                     </button>
                   </div>
                 ))}
@@ -199,54 +255,68 @@ export default function LoyaltyPage() {
       ) : (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => { setEditPromo(null); setNewPromo({ code: "", discount_type: "percent", discount_value: "", uses_left: "", expires_at: "", is_active: true }); setShowPromoModal(true); }}>
+            <Button onClick={() => { setEditPromo(null); setNewPromo(BLANK_PROMO); setShowPromoModal(true); }}>
               + Create Promo Code
             </Button>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {promos.map(promo => {
-              const usagePercent = promo.total_uses > 0 ? (promo.total_uses / (promo.total_uses + promo.uses_left)) * 100 : 0;
-              return (
-                <Card key={promo.id} className={cn(!promo.is_active && "opacity-60")}>
-                  <div className="flex items-start justify-between mb-3">
-                    <code className="text-lg font-bold text-gold tracking-widest">{promo.code}</code>
-                    <Badge variant={promo.is_active ? "success" : "danger"}>{promo.is_active ? "Active" : "Inactive"}</Badge>
-                  </div>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Discount</span>
-                      <span className="text-white font-semibold">
-                        {promo.discount_type === "percent" ? `${promo.discount_value}% off` : `$${promo.discount_value} off`}
-                      </span>
+          {loading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-48 rounded-2xl bg-surface-raised animate-pulse" />)}
+            </div>
+          ) : promos.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-3xl mb-3">🎟️</p>
+              <p className="text-gray-400 text-sm">No promo codes yet. Create your first promo above.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {promos.map(promo => {
+                const totalAlloc = promo.total_uses + (promo.uses_left ?? 0);
+                const usagePercent = totalAlloc > 0 ? (promo.total_uses / totalAlloc) * 100 : 0;
+                return (
+                  <Card key={promo.id} className={cn(!promo.is_active && "opacity-60")}>
+                    <div className="flex items-start justify-between mb-3">
+                      <code className="text-lg font-bold text-gold tracking-widest">{promo.code}</code>
+                      <Badge variant={promo.is_active ? "success" : "danger"}>{promo.is_active ? "Active" : "Inactive"}</Badge>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Uses Left</span>
-                      <span className="text-white">{promo.uses_left} / {promo.uses_left + promo.total_uses}</span>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Discount</span>
+                        <span className="text-white font-semibold">
+                          {promo.discount_type === "percent" ? `${promo.discount_value}% off` : `$${promo.discount_value} off`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Uses Left</span>
+                        <span className="text-white">{promo.uses_left ?? "∞"} / {totalAlloc > 0 ? totalAlloc : "∞"}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Expires</span>
+                        <span className="text-white">{promo.expires_at ?? "Never"}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Expires</span>
-                      <span className="text-white">{promo.expires_at}</span>
+                    {totalAlloc > 0 && (
+                      <div className="mb-4">
+                        <div className="w-full h-2 rounded-full bg-surface-raised overflow-hidden">
+                          <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                        setEditPromo(promo);
+                        setNewPromo({ code: promo.code, discount_type: promo.discount_type, discount_value: String(promo.discount_value), uses_left: String(promo.uses_left ?? ""), expires_at: promo.expires_at ?? "", is_active: promo.is_active });
+                        setShowPromoModal(true);
+                      }}>Edit</Button>
+                      <Button variant="danger" size="sm" className="flex-1" onClick={() => deletePromo(promo.id)}>Delete</Button>
                     </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="w-full h-2 rounded-full bg-surface-raised overflow-hidden">
-                      <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{Math.round(usagePercent)}% used</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => {
-                      setEditPromo(promo);
-                      setNewPromo({ code: promo.code, discount_type: promo.discount_type, discount_value: String(promo.discount_value), uses_left: String(promo.uses_left), expires_at: promo.expires_at, is_active: promo.is_active });
-                      setShowPromoModal(true);
-                    }}>Edit</Button>
-                    <Button variant="danger" size="sm" className="flex-1" onClick={() => { setPromos(prev => prev.filter(p => p.id !== promo.id)); showToast("Promo deleted"); }}>Delete</Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -257,11 +327,11 @@ export default function LoyaltyPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Add Loyalty Points</h3>
-              <p className="text-sm text-gray-400">For: {mockClients.find(c => c.id === addPointsFor)?.name}</p>
+              <p className="text-sm text-gray-400">For: {addPointsFor.name}</p>
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsFor(null)}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={() => { setAddPointsFor(null); showToast(`${pointsToAdd} points added!`); }}>Add Points</Button>
+                <Button size="sm" className="flex-1" onClick={addPoints}>Add Points</Button>
               </div>
             </div>
           </div>
@@ -284,11 +354,11 @@ export default function LoyaltyPage() {
                 <option value="fixed">Fixed ($)</option>
               </Select>
               <Input label={newPromo.discount_type === "percent" ? "Discount %" : "Discount $"} type="number" value={newPromo.discount_value} onChange={e => setNewPromo(p => ({ ...p, discount_value: e.target.value }))} />
-              <Input label="Uses Allowed" type="number" value={newPromo.uses_left} onChange={e => setNewPromo(p => ({ ...p, uses_left: e.target.value }))} placeholder="50" />
-              <Input label="Expiry Date" type="date" value={newPromo.expires_at} onChange={e => setNewPromo(p => ({ ...p, expires_at: e.target.value }))} />
+              <Input label="Uses Allowed (blank = unlimited)" type="number" value={newPromo.uses_left} onChange={e => setNewPromo(p => ({ ...p, uses_left: e.target.value }))} placeholder="50" />
+              <Input label="Expiry Date (optional)" type="date" value={newPromo.expires_at} onChange={e => setNewPromo(p => ({ ...p, expires_at: e.target.value }))} />
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowPromoModal(false)}>Cancel</Button>
-                <Button className="flex-1" onClick={savePromo}>{editPromo ? "Update" : "Create"}</Button>
+                <Button className="flex-1" loading={saving} onClick={savePromo}>{editPromo ? "Update" : "Create"}</Button>
               </div>
             </div>
           </div>
