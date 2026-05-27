@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MapPin, Star, Search, Scissors, ArrowRight } from "lucide-react";
+import { MapPin, Star, Search, Scissors, ArrowRight, Users } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,9 @@ interface ShopListing {
   address: string;
   description?: string;
   logo?: string;
+  avgRating?: number;
+  reviewCount?: number;
+  barberCount?: number;
 }
 
 function Skeleton({ className }: { className?: string }) {
@@ -36,7 +39,32 @@ export default function ShopsPage() {
         .eq("status", "approved")
         .eq("is_active", true)
         .order("name");
-      setShops((data ?? []) as ShopListing[]);
+      if (!data) { setLoading(false); return; }
+
+      // Fetch ratings and barber counts in parallel
+      const shopIds = data.map((s: { id: string }) => s.id);
+      const [{ data: reviews }, { data: barbers }] = await Promise.all([
+        supabase.from("reviews").select("shop_id, rating").in("shop_id", shopIds),
+        supabase.from("barbers").select("shop_id").in("shop_id", shopIds).eq("is_active", true),
+      ]);
+
+      const ratingMap: Record<string, { sum: number; count: number }> = {};
+      (reviews ?? []).forEach((r: { shop_id: string; rating: number }) => {
+        if (!ratingMap[r.shop_id]) ratingMap[r.shop_id] = { sum: 0, count: 0 };
+        ratingMap[r.shop_id].sum += r.rating;
+        ratingMap[r.shop_id].count += 1;
+      });
+      const barberCount: Record<string, number> = {};
+      (barbers ?? []).forEach((b: { shop_id: string }) => {
+        barberCount[b.shop_id] = (barberCount[b.shop_id] ?? 0) + 1;
+      });
+
+      setShops(data.map((s: ShopListing) => ({
+        ...s,
+        avgRating: ratingMap[s.id] ? ratingMap[s.id].sum / ratingMap[s.id].count : undefined,
+        reviewCount: ratingMap[s.id]?.count ?? 0,
+        barberCount: barberCount[s.id] ?? 0,
+      })));
       setLoading(false);
     })();
   }, []);
@@ -137,7 +165,7 @@ export default function ShopsPage() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map(shop => (
-              <Link key={shop.id} href={`/book/${shop.slug}`}
+              <Link key={shop.id} href={`/shops/${shop.slug}`}
                 className="group bg-surface border border-border rounded-2xl p-6 hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200 block">
                 <div className="flex items-start gap-4 mb-4">
                   {shop.logo ? (
@@ -161,13 +189,27 @@ export default function ShopsPage() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-gold">
-                    <Star size={14} fill="currentColor" />
-                    <Star size={14} fill="currentColor" />
-                    <Star size={14} fill="currentColor" />
-                    <Star size={14} fill="currentColor" />
-                    <Star size={14} fill="currentColor" />
-                    <span className="text-xs text-gray-500 ml-1">New</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      {shop.avgRating !== undefined ? (
+                        <>
+                          <Star size={13} className="text-gold fill-gold" />
+                          <span className="text-sm font-semibold text-white">{shop.avgRating.toFixed(1)}</span>
+                          <span className="text-xs text-gray-500">({shop.reviewCount})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Star size={13} className="text-gray-600" />
+                          <span className="text-xs text-gray-500">New</span>
+                        </>
+                      )}
+                    </div>
+                    {(shop.barberCount ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 text-gray-500 text-xs">
+                        <Users size={11} />
+                        {shop.barberCount} barber{shop.barberCount !== 1 ? "s" : ""}
+                      </div>
+                    )}
                   </div>
                   <span className="text-gold text-sm font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                     Book Now <ArrowRight size={14} />
