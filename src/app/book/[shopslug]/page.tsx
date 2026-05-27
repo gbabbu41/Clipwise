@@ -237,6 +237,28 @@ export default function BookingPage() {
     if (error) { showToast("Failed to book. Please try again.", false); return; }
     setBookingId(data.id);
     setConfirmed(true);
+
+    // Send confirmation email (fire-and-forget)
+    if (clientInfo.email) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "booking_confirmation",
+          data: {
+            clientName: clientInfo.name,
+            clientEmail: clientInfo.email,
+            shopName: shop.name,
+            barberName: barber?.name ?? "Any Available",
+            serviceName: service?.name ?? "",
+            date: selectedDate ? formatDateForDb(selectedDate) : "",
+            time: selectedTime ?? "",
+            total: `$${total.toFixed(2)}`,
+            bookingId: data.id.slice(0, 8).toUpperCase(),
+          },
+        }),
+      }).catch(() => null);
+    }
   };
 
   // ── Computed values ────────────────────────────────────────────────────────

@@ -125,6 +125,26 @@ function ownerRejected(data: Record<string, string>) {
   `);
 }
 
+function bookingConfirmation(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">✓ Booking Confirmed</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>Your appointment at <span class="highlight">${data.shopName}</span> is confirmed!</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Booking ID</span><span class="val">${data.bookingId}</span></div>
+    <div class="row"><span class="label">Shop</span><span class="val">${data.shopName}</span></div>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName || "Any Available"}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    <hr class="divider">
+    <p style="font-size:12px;color:#6B7280">If you need to cancel or reschedule, contact the shop directly.</p>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function shopOwnerNewBarberRequest(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -176,6 +196,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = "Application Update — ClipWise";
         html = ownerRejected(data);
+        break;
+      case "booking_confirmation":
+        to = data.clientEmail;
+        subject = `Booking Confirmed — ${data.shopName}`;
+        html = bookingConfirmation(data);
         break;
       case "new_barber_request":
         to = data.ownerEmail;

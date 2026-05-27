@@ -111,6 +111,7 @@ export default function LandingPage() {
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#compare" className="hover:text-white transition-colors">Compare</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <Link href="/shops" className="hover:text-gold transition-colors text-gold/80">Find a Barber</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
@@ -151,9 +152,9 @@ export default function LandingPage() {
               Start Free 14-Day Trial <ArrowRight size={18} />
             </Button>
           </Link>
-          <Link href="/book/fresh-cutz">
+          <Link href="/shops">
             <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8">
-              See Demo Booking Page
+              Find a Barbershop
             </Button>
           </Link>
         </div>
