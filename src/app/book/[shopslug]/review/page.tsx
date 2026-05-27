@@ -79,6 +79,22 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
       comment: comment.trim() || null,
     });
 
+    // Notify shop owner
+    const { data: shopRow } = await supabase
+      .from("shops")
+      .select("owner_id")
+      .eq("id", appt.shop_id)
+      .single();
+    if (shopRow?.owner_id) {
+      supabase.from("notifications").insert({
+        user_id: shopRow.owner_id,
+        title: `New ${rating}-Star Review`,
+        message: `${appt.client_name} left a ${rating}-star review${comment.trim() ? `: "${comment.trim().slice(0, 60)}..."` : ""}`,
+        type: "review",
+        is_read: false,
+      }).then(null, () => null);
+    }
+
     setSubmitting(false);
     setSubmitted(true);
   };

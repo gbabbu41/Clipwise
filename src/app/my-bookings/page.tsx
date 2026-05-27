@@ -51,7 +51,27 @@ export default function MyBookingsPage() {
 
   const cancelBooking = async (id: string) => {
     setCancelling(true);
+    const booking = bookings.find(b => b.id === id);
     await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
+
+    // Notify shop owner if we can find them
+    if (booking?.shops) {
+      const { data: shopRow } = await supabase
+        .from("shops")
+        .select("owner_id")
+        .eq("slug", booking.shops.slug)
+        .single();
+      if (shopRow?.owner_id) {
+        supabase.from("notifications").insert({
+          user_id: shopRow.owner_id,
+          title: "Appointment Cancelled",
+          message: `${booking.client_name} cancelled their ${booking.services?.name ?? "appointment"} on ${booking.date} at ${booking.time_slot}`,
+          type: "cancellation",
+          is_read: false,
+        }).then(null, () => null);
+      }
+    }
+
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
     setCancelId(null);
     setCancelling(false);

@@ -238,6 +238,15 @@ export default function BookingPage() {
     setBookingId(data.id);
     setConfirmed(true);
 
+    // Create in-app notification for shop owner (fire-and-forget)
+    supabase.from("notifications").insert({
+      user_id: shop.owner_id,
+      title: "New Booking",
+      message: `${clientInfo.name} booked ${service?.name ?? "a service"} on ${formatDateForDb(selectedDate!)} at ${selectedTime}`,
+      type: "booking",
+      is_read: false,
+    }).then(null, () => null);
+
     // Send confirmation email (fire-and-forget)
     if (clientInfo.email) {
       fetch("/api/send-email", {
