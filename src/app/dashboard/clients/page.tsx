@@ -1,12 +1,12 @@
 "use client";
-import { useState, useMemo } from "react";
-import { mockClients, mockAppointments, mockBarbers } from "@/lib/mock-data";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency, getTagColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-
-type Client = typeof mockClients[0];
+import type { Client, Appointment } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -17,38 +17,129 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+type AppointmentRow = Pick<Appointment, "id" | "date" | "time_slot" | "total_amount" | "status"> & {
+  barbers?: { name: string } | null;
+  services?: { name: string } | null;
+};
+
+type NewClient = { name: string; phone: string; email: string; notes: string };
+const BLANK_CLIENT: NewClient = { name: "", phone: "", email: "", notes: "" };
+
 export default function ClientsPage() {
+  const { shop } = useAuth();
   const [tagFilter, setTagFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientAppointments, setClientAppointments] = useState<AppointmentRow[]>([]);
   const [notes, setNotes] = useState("");
   const [toast, setToast] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [addPointsClient, setAddPointsClient] = useState<Client | null>(null);
   const [pointsToAdd, setPointsToAdd] = useState("10");
+  const [saving, setSaving] = useState(false);
+  const [newClient, setNewClient] = useState<NewClient>(BLANK_CLIENT);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
+  const loadClients = useCallback(async () => {
+    if (!shop) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("shop_id", shop.id)
+      .order("total_visits", { ascending: false });
+    if (data) setClients(data);
+    setLoading(false);
+  }, [shop]);
+
+  useEffect(() => { loadClients(); }, [loadClients]);
+
+  const openClient = async (client: Client) => {
+    setSelectedClient(client);
+    setNotes(client.notes ?? "");
+    const { data } = await supabase
+      .from("appointments")
+      .select("id, date, time_slot, total_amount, status, barbers(name), services(name)")
+      .eq("shop_id", shop!.id)
+      .eq("client_name", client.name)
+      .order("date", { ascending: false })
+      .limit(10);
+    setClientAppointments((data as unknown as AppointmentRow[]) ?? []);
+  };
+
+  const saveNotes = async () => {
+    if (!selectedClient) return;
+    setSaving(true);
+    const { error } = await supabase.from("clients").update({ notes }).eq("id", selectedClient.id);
+    if (!error) {
+      setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, notes } : c));
+      showToast("Notes saved!");
+    } else showToast("Error saving notes");
+    setSaving(false);
+  };
+
+  const addPoints = async () => {
+    if (!addPointsClient) return;
+    const pts = Number(pointsToAdd);
+    const newTotal = addPointsClient.loyalty_points + pts;
+    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", addPointsClient.id);
+    if (!error) {
+      setClients(prev => prev.map(c => c.id === addPointsClient.id ? { ...c, loyalty_points: newTotal } : c));
+      if (selectedClient?.id === addPointsClient.id) setSelectedClient(c => c ? { ...c, loyalty_points: newTotal } : c);
+      showToast(`${pts} points added!`);
+    }
+    setAddPointsClient(null);
+  };
+
+  const addClient = async () => {
+    if (!shop || !newClient.name.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("clients").insert({
+      shop_id: shop.id,
+      name: newClient.name.trim(),
+      phone: newClient.phone,
+      email: newClient.email,
+      notes: newClient.notes,
+      total_visits: 0,
+      total_spent: 0,
+      loyalty_points: 0,
+      tag: "New",
+    });
+    if (!error) { showToast("Client added!"); loadClients(); setShowAddModal(false); setNewClient(BLANK_CLIENT); }
+    else showToast("Error: " + error.message);
+    setSaving(false);
+  };
+
   const stats = {
-    total: mockClients.length,
-    vip: mockClients.filter(c => c.tag === "VIP").length,
-    atRisk: mockClients.filter(c => c.tag === "At Risk").length,
-    newThisMonth: mockClients.filter(c => c.tag === "New").length,
+    total: clients.length,
+    vip: clients.filter(c => c.tag === "VIP").length,
+    atRisk: clients.filter(c => c.tag === "At Risk").length,
+    newThisMonth: clients.filter(c => c.tag === "New").length,
   };
 
   const filtered = useMemo(() => {
-    let clients = [...mockClients];
-    if (tagFilter !== "All") clients = clients.filter(c => c.tag === tagFilter);
-    if (search) clients = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search));
-    return clients;
-  }, [tagFilter, search]);
+    let list = [...clients];
+    if (tagFilter !== "All") list = list.filter(c => c.tag === tagFilter);
+    if (search) list = list.filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.phone ?? "").includes(search)
+    );
+    return list;
+  }, [clients, tagFilter, search]);
 
-  const clientAppointments = selectedClient
-    ? mockAppointments.filter(a => a.customer_id === selectedClient.id)
-    : [];
-
-  const getBarberName = (id: string | null) => mockBarbers.find(b => b.id === id)?.name ?? "Any Barber";
+  if (!shop) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <p className="text-2xl mb-2">👥</p>
+        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
+        <p className="text-sm text-gray-400">Client profiles will appear here once your shop is active.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -68,7 +159,7 @@ export default function ClientsPage() {
           { label: "Total Clients", value: stats.total, color: "text-white" },
           { label: "VIP Clients", value: stats.vip, color: "text-yellow-400" },
           { label: "At Risk", value: stats.atRisk, color: "text-red-400" },
-          { label: "New This Month", value: stats.newThisMonth, color: "text-emerald-400" },
+          { label: "New", value: stats.newThisMonth, color: "text-emerald-400" },
         ].map(s => (
           <Card key={s.label} className="py-4 px-5">
             <p className="text-xs text-gray-400">{s.label}</p>
@@ -94,14 +185,22 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Grid/List */}
-      {viewMode === "grid" ? (
+      {loading ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-44 rounded-2xl bg-surface-raised animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-3xl mb-3">👥</p>
+          <p className="text-gray-400 text-sm">{clients.length === 0 ? "No clients yet. Add your first client above." : "No clients match your filters."}</p>
+        </div>
+      ) : viewMode === "grid" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
-            <Card key={client.id} className="hover:border-gold/30 transition-colors cursor-pointer" onClick={() => { setSelectedClient(client); setNotes(client.notes); }}>
+            <Card key={client.id} className="hover:border-gold/30 transition-colors cursor-pointer" onClick={() => openClient(client)}>
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm">
-                  {client.name.split(" ").map(n => n[0]).join("")}
+                  {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
                 <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
                   {client.tag}
@@ -110,24 +209,11 @@ export default function ClientsPage() {
               <h3 className="text-white font-semibold">{client.name}</h3>
               <p className="text-sm text-gray-400">{client.phone}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-xs text-gray-500">Visits</p>
-                  <p className="text-sm font-semibold text-white">{client.total_visits}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Spent</p>
-                  <p className="text-sm font-semibold text-gold">{formatCurrency(client.total_spent)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Points</p>
-                  <p className="text-sm font-semibold text-white">{client.loyalty_points}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Last Visit</p>
-                  <p className="text-sm font-semibold text-white">{client.last_visit}</p>
-                </div>
+                <div><p className="text-xs text-gray-500">Visits</p><p className="text-sm font-semibold text-white">{client.total_visits}</p></div>
+                <div><p className="text-xs text-gray-500">Spent</p><p className="text-sm font-semibold text-gold">{formatCurrency(client.total_spent)}</p></div>
+                <div><p className="text-xs text-gray-500">Points</p><p className="text-sm font-semibold text-white">{client.loyalty_points}</p></div>
+                <div><p className="text-xs text-gray-500">Last Visit</p><p className="text-sm font-semibold text-white">{client.last_visit ?? "—"}</p></div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">Preferred: {getBarberName(client.preferred_barber_id)}</p>
               <Button variant="outline" size="sm" className="w-full mt-3">View Profile</Button>
             </Card>
           ))}
@@ -144,7 +230,7 @@ export default function ClientsPage() {
             </thead>
             <tbody>
               {filtered.map(client => (
-                <tr key={client.id} onClick={() => { setSelectedClient(client); setNotes(client.notes); }}
+                <tr key={client.id} onClick={() => openClient(client)}
                   className="border-b border-border/50 hover:bg-surface-raised/50 cursor-pointer">
                   <td className="px-4 py-3 text-sm font-medium text-white">{client.name}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{client.phone}</td>
@@ -154,7 +240,7 @@ export default function ClientsPage() {
                   <td className="px-4 py-3 text-sm text-white">{client.total_visits}</td>
                   <td className="px-4 py-3 text-sm text-gold">{formatCurrency(client.total_spent)}</td>
                   <td className="px-4 py-3 text-sm text-white">{client.loyalty_points}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{client.last_visit}</td>
+                  <td className="px-4 py-3 text-sm text-gray-400">{client.last_visit ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -173,7 +259,7 @@ export default function ClientsPage() {
             </div>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-lg">
-                {selectedClient.name.split(" ").map(n => n[0]).join("")}
+                {selectedClient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <div>
                 <h3 className="text-white font-bold text-lg">{selectedClient.name}</h3>
@@ -184,13 +270,12 @@ export default function ClientsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Phone", value: selectedClient.phone },
-                { label: "Email", value: selectedClient.email },
+                { label: "Phone", value: selectedClient.phone ?? "—" },
+                { label: "Email", value: selectedClient.email ?? "—" },
                 { label: "Total Visits", value: String(selectedClient.total_visits) },
                 { label: "Total Spent", value: formatCurrency(selectedClient.total_spent) },
                 { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
-                { label: "Last Visit", value: selectedClient.last_visit },
-                { label: "Preferred Barber", value: getBarberName(selectedClient.preferred_barber_id) },
+                { label: "Last Visit", value: selectedClient.last_visit ?? "—" },
               ].map(item => (
                 <div key={item.label} className="p-3 bg-surface-raised rounded-xl border border-border">
                   <p className="text-xs text-gray-400">{item.label}</p>
@@ -207,7 +292,7 @@ export default function ClientsPage() {
                   {clientAppointments.map(apt => (
                     <div key={apt.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
                       <div>
-                        <p className="text-sm text-white">{apt.service_name} · {apt.barber_name}</p>
+                        <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
                         <p className="text-xs text-gray-400">{apt.date} {apt.time_slot}</p>
                       </div>
                       <div className="text-right">
@@ -221,7 +306,7 @@ export default function ClientsPage() {
             </div>
             <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
             <div className="flex gap-2">
-              <Button className="flex-1" size="sm" onClick={() => showToast("Notes saved!")}>Save Notes</Button>
+              <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
               <Button variant="outline" size="sm" className="flex-1" onClick={() => showToast("SMS reminder sent!")}>Send Reminder</Button>
             </div>
             <div className="p-4 bg-surface-raised rounded-xl border border-border">
@@ -248,7 +333,7 @@ export default function ClientsPage() {
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsClient(null)}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={() => { setAddPointsClient(null); showToast(`${pointsToAdd} points added!`); }}>Add Points</Button>
+                <Button size="sm" className="flex-1" onClick={addPoints}>Add Points</Button>
               </div>
             </div>
           </div>
@@ -265,13 +350,13 @@ export default function ClientsPage() {
                 <h2 className="text-lg font-bold text-white">Add New Client</h2>
                 <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white">✕</button>
               </div>
-              <Input label="Full Name" placeholder="John Doe" />
-              <Input label="Phone" placeholder="(506) 555-0000" />
-              <Input label="Email" placeholder="john@email.com" />
-              <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} />
+              <Input label="Full Name" placeholder="John Doe" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} />
+              <Input label="Phone" placeholder="(506) 555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: e.target.value }))} />
+              <Input label="Email" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
+              <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button className="flex-1" onClick={() => { setShowAddModal(false); showToast("Client added!"); }}>Add Client</Button>
+                <Button className="flex-1" loading={saving} onClick={addClient}>Add Client</Button>
               </div>
             </div>
           </div>
