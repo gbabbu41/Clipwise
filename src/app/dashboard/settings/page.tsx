@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { Building2, Plus, ExternalLink } from "lucide-react";
 import { generate24hSlots, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,14 +57,20 @@ const PERMISSIONS: { feature: string; barber: boolean; admin: boolean }[] = [
   { feature: "Settings", barber: false, admin: true },
 ];
 
+type NewLocation = { name: string; address: string; city: string; province: string; phone: string; email: string };
+const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "", email: "" };
+
 export default function SettingsPage() {
-  const { shop } = useAuth();
+  const { shop, shops, setActiveShop, profile: authProfile, refreshShop } = useAuth();
   const [tab, setTab] = useState("profile");
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showAddLocation, setShowAddLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState<NewLocation>(BLANK_LOCATION);
+  const [addingLocation, setAddingLocation] = useState(false);
 
   const [profile, setProfile] = useState({
     name: "", address: "", city: "", province: "", postal_code: "",
@@ -168,7 +175,33 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  const TABS = ["profile","hours","booking","subscription","permissions","danger"];
+  const addLocation = async () => {
+    if (!newLocation.name.trim() || !authProfile) return;
+    setAddingLocation(true);
+    const slug = newLocation.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
+    const { error } = await supabase.from("shops").insert({
+      owner_id: authProfile.id,
+      name: newLocation.name.trim(),
+      address: newLocation.address,
+      city: newLocation.city,
+      province: newLocation.province,
+      phone: newLocation.phone,
+      email: newLocation.email,
+      slug,
+      subscription_plan: shop?.subscription_plan ?? "starter",
+      is_active: true,
+      status: "pending",
+      postal_code: "",
+    });
+    setAddingLocation(false);
+    if (error) { showToast("Failed to add location: " + error.message); return; }
+    showToast("New location added! Awaiting approval.");
+    setShowAddLocation(false);
+    setNewLocation(BLANK_LOCATION);
+    await refreshShop();
+  };
+
+  const TABS = ["profile","hours","booking","subscription","locations","permissions","danger"];
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange}
@@ -193,7 +226,7 @@ export default function SettingsPage() {
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
               tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
-            {t === "hours" ? "Business Hours" : t === "subscription" ? "Subscription" : t}
+            {t === "hours" ? "Business Hours" : t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t}
           </button>
         ))}
       </div>
@@ -376,6 +409,83 @@ export default function SettingsPage() {
             <Button className="mt-4" onClick={() => showToast("Permissions saved!")}>Save Permissions</Button>
           </CardContent>
         </Card>
+      )}
+
+      {tab === "locations" && (
+        <div className="space-y-4 max-w-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
+            </div>
+            <Button size="sm" onClick={() => setShowAddLocation(true)}>
+              <Plus size={14} /> Add Location
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {shops.map(s => (
+              <Card key={s.id} className={cn("border", s.id === shop?.id && "border-gold/40")}>
+                <CardContent>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 size={18} className="text-gold" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-white">{s.name}</p>
+                          {s.id === shop?.id && <span className="text-xs text-gold border border-gold/30 rounded-full px-2 py-0.5">Active</span>}
+                        </div>
+                        <p className="text-xs text-gray-400">{s.city}{s.province ? `, ${s.province}` : ""}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">/book/{s.slug}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full border capitalize",
+                        s.status === "approved" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
+                        s.status === "pending" ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/10" :
+                        "text-red-400 border-red-500/30 bg-red-500/10"
+                      )}>{s.status}</span>
+                      {s.id !== shop?.id && s.status === "approved" && (
+                        <Button size="sm" variant="outline" onClick={() => setActiveShop(s)}>Switch</Button>
+                      )}
+                      <a href={`/book/${s.slug}`} target="_blank" rel="noreferrer"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-surface-raised transition-colors">
+                        <ExternalLink size={13} />
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {showAddLocation && (
+            <>
+              <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddLocation(false)} />
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-white">Add New Location</h2>
+                    <button onClick={() => setShowAddLocation(false)} className="text-gray-400 hover:text-white">✕</button>
+                  </div>
+                  <p className="text-sm text-gray-400">New locations go through our approval process (usually under 24 hours).</p>
+                  <Input label="Shop Name" placeholder="Fresh Cutz — Downtown" value={newLocation.name} onChange={e => setNewLocation(p => ({ ...p, name: e.target.value }))} />
+                  <Input label="Address" placeholder="123 Main St" value={newLocation.address} onChange={e => setNewLocation(p => ({ ...p, address: e.target.value }))} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="City" value={newLocation.city} onChange={e => setNewLocation(p => ({ ...p, city: e.target.value }))} />
+                    <Input label="Province" placeholder="NB" value={newLocation.province} onChange={e => setNewLocation(p => ({ ...p, province: e.target.value }))} />
+                  </div>
+                  <Input label="Phone" value={newLocation.phone} onChange={e => setNewLocation(p => ({ ...p, phone: e.target.value }))} />
+                  <Input label="Email" value={newLocation.email} onChange={e => setNewLocation(p => ({ ...p, email: e.target.value }))} />
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setShowAddLocation(false)}>Cancel</Button>
+                    <Button className="flex-1" loading={addingLocation} onClick={addLocation}>Add Location</Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {tab === "danger" && (

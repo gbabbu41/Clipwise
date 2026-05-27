@@ -8,25 +8,29 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   shop: Shop | null;
+  shops: Shop[];
   loading: boolean;
   signOut: () => Promise<void>;
   refreshShop: () => Promise<void>;
+  setActiveShop: (shop: Shop) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   shop: null,
+  shops: [],
   loading: true,
   signOut: async () => {},
   refreshShop: async () => {},
+  setActiveShop: () => {},
 });
 
-async function fetchProfileAndShop(accessToken: string): Promise<{ profile: UserProfile | null; shop: Shop | null }> {
+async function fetchProfileAndShop(accessToken: string): Promise<{ profile: UserProfile | null; shop: Shop | null; shops: Shop[] }> {
   const res = await fetch("/api/profile", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) return { profile: null, shop: null };
+  if (!res.ok) return { profile: null, shop: null, shops: [] };
   return res.json();
 }
 
@@ -34,43 +38,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
+  const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const setActiveShop = useCallback((s: Shop) => {
+    setShop(s);
+  }, []);
 
   const refreshShop = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
-    const { shop: s } = await fetchProfileAndShop(session.access_token);
-    setShop(s);
+    const { shop: s, shops: all } = await fetchProfileAndShop(session.access_token);
+    if (all.length > 0) setShops(all);
+    setShop(prev => {
+      if (!prev) return s;
+      const refreshed = all.find(x => x.id === prev.id);
+      return refreshed ?? s;
+    });
   }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      setUser(session?.user ?? null);
-      if (session?.access_token) {
-        const { profile: p, shop: s } = await fetchProfileAndShop(session.access_token);
-        if (!mounted) return;
-        setProfile(p);
-        setShop(s);
-      }
-      setLoading(false);
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       setUser(session?.user ?? null);
-      if (session?.access_token) {
-        const { profile: p, shop: s } = await fetchProfileAndShop(session.access_token);
-        if (!mounted) return;
-        setProfile(p);
-        setShop(s);
-      } else {
-        setProfile(null);
-        setShop(null);
+      try {
+        if (session?.access_token) {
+          const { profile: p, shop: s, shops: all } = await fetchProfileAndShop(session.access_token);
+          if (!mounted) return;
+          setProfile(p);
+          setShops(all);
+          setShop(s);
+        } else {
+          setProfile(null);
+          setShop(null);
+          setShops([]);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -84,10 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setShop(null);
+    setShops([]);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, shop, loading, signOut, refreshShop }}>
+    <AuthContext.Provider value={{ user, profile, shop, shops, loading, signOut, refreshShop, setActiveShop }}>
       {children}
     </AuthContext.Provider>
   );

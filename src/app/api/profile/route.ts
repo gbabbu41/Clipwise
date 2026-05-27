@@ -15,16 +15,16 @@ export async function GET(request: NextRequest) {
     .single();
 
   let shop = null;
+  let shops: typeof shop[] = [];
 
   if (profile?.role === "shop_owner" || profile?.role === "super_admin") {
     const { data } = await supabaseAdmin
       .from("shops")
       .select("*")
       .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    shop = data;
+      .order("created_at", { ascending: false });
+    shops = data ?? [];
+    shop = shops[0] ?? null;
   } else if (profile?.role === "barber") {
     // Barbers belong to a shop via the barbers table (user_id FK)
     const { data: barberRecord } = await supabaseAdmin
@@ -43,5 +43,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ profile, shop });
+  return NextResponse.json({ profile, shop, shops });
 }

@@ -1,16 +1,18 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet,
+  ChevronsUpDown, Check, Building2,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import type { Shop } from "@/lib/database.types";
 
 interface NavItem {
   href: string;
@@ -44,9 +46,51 @@ const navItems: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
 
+function ShopSwitcher({ shop, shops, setActiveShop }: { shop: Shop | null; shops: Shop[]; setActiveShop: (s: Shop) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  if (shops.length < 2) return null;
+
+  return (
+    <div ref={ref} className="relative px-3 pt-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-raised border border-border hover:border-gold/40 transition-colors text-left"
+      >
+        <Building2 size={14} className="text-gold flex-shrink-0" />
+        <span className="flex-1 text-sm text-white truncate">{shop?.name ?? "Select Shop"}</span>
+        <ChevronsUpDown size={14} className="text-gray-500 flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl overflow-hidden">
+          {shops.map(s => (
+            <button
+              key={s.id}
+              onClick={() => { setActiveShop(s); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-surface-raised transition-colors text-left"
+            >
+              <Check size={13} className={cn("flex-shrink-0", s.id === shop?.id ? "text-gold" : "text-transparent")} />
+              <span className={cn("truncate", s.id === shop?.id ? "text-white font-medium" : "text-gray-400")}>{s.name}</span>
+              {s.status === "pending" && <span className="ml-auto text-xs text-yellow-400">Pending</span>}
+              {s.status === "suspended" && <span className="ml-auto text-xs text-red-400">Suspended</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, profile, shop, signOut } = useAuth();
+  const { user, profile, shop, shops, setActiveShop, signOut } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -87,6 +131,8 @@ export function Sidebar() {
         <Logo size="md" />
         <p className="text-xs text-gray-500 mt-1">{shopName}</p>
       </div>
+
+      <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
