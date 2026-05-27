@@ -111,11 +111,22 @@ export default function POSPage() {
 
     if (txError) { showToast("Error saving transaction"); setCharging(false); return; }
 
-    // Decrement inventory for product items
+    // Decrement inventory for product items, alert on low stock
     for (const item of cart.filter(i => i.type === "product" && i.inventoryId)) {
       const inv = inventory.find(i => i.id === item.inventoryId);
       if (inv) {
-        await supabase.from("inventory").update({ quantity: Math.max(0, inv.quantity - item.qty) }).eq("id", inv.id);
+        const newQty = Math.max(0, inv.quantity - item.qty);
+        await supabase.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
+        // Create low-stock notification if below threshold
+        if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold) {
+          supabase.from("notifications").insert({
+            user_id: shop!.owner_id,
+            title: "Low Stock Alert",
+            message: `${inv.name} is running low — only ${newQty} units remaining.`,
+            type: "inventory",
+            is_read: false,
+          }).then(null, () => null);
+        }
       }
     }
 
