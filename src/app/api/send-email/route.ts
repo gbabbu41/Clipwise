@@ -182,6 +182,25 @@ function bookingConfirmation(data: Record<string, string>) {
   `);
 }
 
+function appointmentCancelled(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="red-badge">❌ Appointment Cancelled</div>
+    <h1>Appointment Cancelled</h1>
+    <p>A client has cancelled their appointment at <span class="highlight">${data.shopName}</span>.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <hr class="divider">
+    <p style="font-size:13px;color:#6B7280">This time slot is now available for new bookings.</p>
+    <a href="${BASE_URL}/dashboard/appointments" class="btn">View Appointments →</a>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function shopOwnerNewBarberRequest(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -248,6 +267,11 @@ export async function POST(req: NextRequest) {
         to = data.clientEmail;
         subject = `How was your visit to ${data.shopName}? ⭐`;
         html = reviewRequest(data);
+        break;
+      case "appointment_cancelled":
+        to = data.ownerEmail;
+        subject = `Appointment Cancelled — ${data.clientName}`;
+        html = appointmentCancelled(data);
         break;
       case "new_barber_request":
         to = data.ownerEmail;

@@ -54,11 +54,11 @@ export default function MyBookingsPage() {
     const booking = bookings.find(b => b.id === id);
     await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
 
-    // Notify shop owner if we can find them
+    // Notify shop owner via in-app notification + email
     if (booking?.shops) {
       const { data: shopRow } = await supabase
         .from("shops")
-        .select("owner_id")
+        .select("owner_id, email, name")
         .eq("slug", booking.shops.slug)
         .single();
       if (shopRow?.owner_id) {
@@ -69,6 +69,26 @@ export default function MyBookingsPage() {
           type: "cancellation",
           is_read: false,
         }).then(null, () => null);
+
+        // Email the shop owner
+        if (shopRow.email) {
+          fetch("/api/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "appointment_cancelled",
+              data: {
+                ownerEmail: shopRow.email,
+                shopName: shopRow.name,
+                clientName: booking.client_name,
+                serviceName: booking.services?.name ?? "Appointment",
+                date: booking.date,
+                time: booking.time_slot,
+                barberName: booking.barbers?.name ?? "—",
+              },
+            }),
+          }).catch(() => null);
+        }
       }
     }
 
