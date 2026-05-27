@@ -145,12 +145,41 @@ export default function ClientsPage() {
     <div className="p-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Clients</h1>
           <p className="text-sm text-gray-400 mt-0.5">Manage your client base</p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>+ Add Client</Button>
+        <div className="flex gap-3">
+          {stats.atRisk > 0 && (
+            <Button variant="outline" size="sm" onClick={async () => {
+              if (!shop) return;
+              const atRiskWithEmail = clients.filter(c => c.tag === "At Risk" && c.email);
+              if (atRiskWithEmail.length === 0) { showToast("No at-risk clients have email addresses on file"); return; }
+              let sent = 0;
+              for (const c of atRiskWithEmail) {
+                const res = await fetch("/api/send-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "rebooking_reminder",
+                    data: {
+                      clientName: c.name,
+                      clientEmail: c.email,
+                      shopName: shop.name,
+                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                    },
+                  }),
+                });
+                if (res.ok) sent++;
+              }
+              showToast(`Re-engagement emails sent to ${sent} at-risk clients`);
+            }}>
+              Re-engage {stats.atRisk} At-Risk
+            </Button>
+          )}
+          <Button onClick={() => setShowAddModal(true)}>+ Add Client</Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -307,7 +336,25 @@ export default function ClientsPage() {
             <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
             <div className="flex gap-2">
               <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => showToast("SMS reminder sent!")}>Send Reminder</Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={async () => {
+                if (!selectedClient.email || !shop) { showToast("No email on file for this client"); return; }
+                const res = await fetch("/api/send-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "rebooking_reminder",
+                    data: {
+                      clientName: selectedClient.name,
+                      clientEmail: selectedClient.email,
+                      shopName: shop.name,
+                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                    },
+                  }),
+                });
+                showToast(res.ok ? "Re-engagement email sent!" : "Failed to send email");
+              }}>
+                {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
+              </Button>
             </div>
             <div className="p-4 bg-surface-raised rounded-xl border border-border">
               <div className="flex items-center justify-between mb-2">

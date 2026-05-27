@@ -13,10 +13,10 @@ import { cn } from "@/lib/utils";
 const features = [
   { icon: Calendar, title: "Smart Booking", desc: "Online booking with real-time availability. Clients book 24/7 from their phones." },
   { icon: CreditCard, title: "Built-in POS", desc: "Accept card, cash, and online payments. Track every dollar, every tip." },
-  { icon: BarChart3, title: "Deep Analytics", desc: "Revenue reports, barber performance, client retention — all at a glance." },
-  { icon: MessageSquare, title: "Auto Reminders", desc: "SMS and email reminders slash no-shows by up to 40%." },
-  { icon: Star, title: "Loyalty Program", desc: "Reward loyal clients with points and keep them coming back." },
-  { icon: Package, title: "Inventory Tracking", desc: "Track products and supplies. Get alerted before you run out." },
+  { icon: BarChart3, title: "Deep Analytics", desc: "Revenue reports, barber performance, staff payroll — all at a glance." },
+  { icon: MessageSquare, title: "Auto Reminders", desc: "Email reminders slash no-shows. Automated review requests after every visit." },
+  { icon: Star, title: "Loyalty & Gift Cards", desc: "Reward loyal clients with points. Sell and redeem gift cards in seconds." },
+  { icon: Package, title: "Inventory & Waitlist", desc: "Track product stock levels. Manage walk-in clients with a real-time queue." },
 ];
 
 const plans = [
@@ -48,8 +48,11 @@ const competitors = [
   { feature: "Loyalty Program", clipwise: true, squire: false, booksy: true },
   { feature: "Analytics & Reports", clipwise: true, squire: true, booksy: false },
   { feature: "Inventory Management", clipwise: true, squire: false, booksy: false },
-  { feature: "SMS Reminders", clipwise: true, squire: true, booksy: true },
-  { feature: "No-Show Protection", clipwise: true, squire: false, booksy: false },
+  { feature: "Gift Cards", clipwise: true, squire: true, booksy: false },
+  { feature: "Walk-in Waitlist", clipwise: true, squire: true, booksy: false },
+  { feature: "Staff Payroll Reports", clipwise: true, squire: false, booksy: false },
+  { feature: "Email Reminders", clipwise: true, squire: true, booksy: true },
+  { feature: "No-Show Follow-up Email", clipwise: true, squire: false, booksy: false },
   { feature: "Barber Commission Tracking", clipwise: true, squire: false, booksy: false },
   { feature: "Custom Booking Page", clipwise: true, squire: true, booksy: true },
   { feature: "Starting Price", clipwise: "$29/mo", squire: "$49/mo", booksy: "$39/mo" },
