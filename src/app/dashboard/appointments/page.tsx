@@ -87,6 +87,49 @@ export default function AppointmentsPage() {
     setSavingStatus(id);
     await supabase.from("appointments").update({ status }).eq("id", id);
     setSavingStatus("");
+
+    const appt = appointments.find(a => a.id === id);
+
+    if (status === "completed" && appt && shop) {
+      // Update client stats: increment visits, add spent, update last_visit
+      if (appt.client_email || appt.client_phone) {
+        const matchField = appt.client_email ? "email" : "phone";
+        const matchVal = appt.client_email || appt.client_phone;
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id, total_visits, total_spent")
+          .eq("shop_id", shop.id)
+          .eq(matchField, matchVal)
+          .maybeSingle();
+        if (clientRow) {
+          await supabase.from("clients").update({
+            total_visits: (clientRow.total_visits ?? 0) + 1,
+            total_spent: (clientRow.total_spent ?? 0) + (appt.total_amount ?? 0),
+            last_visit: appt.date,
+          }).eq("id", clientRow.id);
+        }
+      }
+
+      // Send review request email (fire-and-forget)
+      if (appt.client_email) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "review_request",
+            data: {
+              clientName: appt.client_name,
+              clientEmail: appt.client_email,
+              shopName: shop.name,
+              barberName: (appt.barbers as { name: string } | null)?.name ?? "Your barber",
+              serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+              reviewUrl: `${window.location.origin}/book/${shop.slug}/review?booking=${id}`,
+            },
+          }),
+        }).catch(() => null);
+      }
+    }
+
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     showToast(`Marked as ${status}`);

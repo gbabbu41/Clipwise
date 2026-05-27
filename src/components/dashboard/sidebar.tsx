@@ -12,19 +12,27 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: boolean;
+  ownerOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/appointments", label: "Appointments", icon: Calendar },
-  { href: "/dashboard/clients", label: "Clients", icon: Users },
-  { href: "/dashboard/staff", label: "Staff", icon: UserCheck },
+  { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
+  { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true },
   { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/services", label: "Services", icon: Scissors },
-  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift },
-  { href: "/dashboard/reviews", label: "Reviews", icon: Star },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
+  { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
+  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true },
+  { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true },
   { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
-  { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
 
 export function Sidebar() {
@@ -56,7 +64,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems.filter(item => !item.ownerOnly || profile?.role !== "barber").map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (

@@ -4,7 +4,7 @@ import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Store, DollarSign, Calendar, Clock, TrendingUp, Search, X, Check, Copy, ExternalLink, Users, Shield } from "lucide-react";
+import { Store, DollarSign, Calendar, Clock, TrendingUp, Search, X, Check, Copy, ExternalLink, Users, Shield, Bell } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { Shop } from "@/lib/database.types";
 
@@ -88,6 +88,7 @@ export default function AdminPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
   const [platformRevenue, setPlatformRevenue] = useState(0);
   const [totalAppts, setTotalAppts] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -266,6 +267,21 @@ export default function AdminPage() {
                 </a>
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => setTab("pending")}>
                   <Clock size={14} /> Review Pending ({pendingShops.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  loading={sendingReminders}
+                  onClick={async () => {
+                    setSendingReminders(true);
+                    const res = await fetch("/api/reminders", { method: "POST" });
+                    const json = await res.json();
+                    setSendingReminders(false);
+                    showToast(res.ok ? `Reminders sent: ${json.sent} emails` : "Failed to send reminders", res.ok);
+                  }}
+                >
+                  <Bell size={14} /> Send Tomorrow&apos;s Reminders
                 </Button>
               </div>
             </CardContent>

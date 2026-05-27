@@ -125,6 +125,43 @@ function ownerRejected(data: Record<string, string>) {
   `);
 }
 
+function reviewRequest(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">🌟 How was your visit?</div>
+    <h1>Thanks for visiting, ${data.clientName}!</h1>
+    <p>We hope you loved your experience at <span class="highlight">${data.shopName}</span>. Your feedback means everything to us and helps other clients find the best barbers.</p>
+    <hr class="divider">
+    <p style="font-weight:600;color:#fff;margin-bottom:4px">Your appointment:</p>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <hr class="divider">
+    <a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">Only takes 30 seconds!</p>
+    <hr class="divider">
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
+function appointmentReminder(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">⏰ Appointment Tomorrow</div>
+    <h1>See you tomorrow, ${data.clientName}!</h1>
+    <p>This is a reminder for your appointment at <span class="highlight">${data.shopName}</span> tomorrow.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Booking ID</span><span class="val">${data.bookingId}</span></div>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    <hr class="divider">
+    <p style="font-size:12px;color:#6B7280">Need to cancel? Please contact the shop as soon as possible.</p>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function bookingConfirmation(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -201,6 +238,16 @@ export async function POST(req: NextRequest) {
         to = data.clientEmail;
         subject = `Booking Confirmed — ${data.shopName}`;
         html = bookingConfirmation(data);
+        break;
+      case "appointment_reminder":
+        to = data.clientEmail;
+        subject = `Reminder: Your appointment tomorrow at ${data.shopName}`;
+        html = appointmentReminder(data);
+        break;
+      case "review_request":
+        to = data.clientEmail;
+        subject = `How was your visit to ${data.shopName}? ⭐`;
+        html = reviewRequest(data);
         break;
       case "new_barber_request":
         to = data.ownerEmail;

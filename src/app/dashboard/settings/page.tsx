@@ -18,7 +18,25 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const ALL_TIMES = generate24hSlots(); // 12:00 AM → 11:30 PM, 30-min increments
+const ALL_TIMES = generate24hSlots();
+
+type HoursMap = Record<string, { open: string; close: string; closed: boolean }>;
+type BookingSettings = {
+  advance_days: number;
+  cancellation_hours: number;
+  deposit: boolean;
+  deposit_amount: number;
+  no_show_protection: boolean;
+  auto_confirm: boolean;
+};
+
+const DEFAULT_HOURS: HoursMap = Object.fromEntries(
+  DAYS.map(d => [d, { open: "9:00 AM", close: "7:00 PM", closed: false }])
+);
+const DEFAULT_BOOKING: BookingSettings = {
+  advance_days: 30, cancellation_hours: 24, deposit: false,
+  deposit_amount: 10, no_show_protection: true, auto_confirm: false,
+};
 
 const PLANS = [
   { name: "Starter", price: "$19/mo", features: ["1 Barber","50 Appointments/mo","Basic Analytics"], current: false },
@@ -52,16 +70,11 @@ export default function SettingsPage() {
     phone: "", email: "", description: "",
   });
 
-  const [hours, setHours] = useState(Object.fromEntries(
-    DAYS.map(d => [d, { open: "9:00 AM", close: "7:00 PM", closed: false }])
-  ));
-
-  const [booking, setBooking] = useState({
-    advance_days: 30, cancellation_hours: 24, deposit: false, deposit_amount: 10,
-    no_show_protection: true, auto_confirm: false,
-  });
-
+  const [hours, setHours] = useState<HoursMap>(DEFAULT_HOURS);
+  const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
   const [permissions, setPermissions] = useState(PERMISSIONS.map(p => ({ ...p })));
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   useEffect(() => {
     if (!shop) return;
@@ -75,9 +88,44 @@ export default function SettingsPage() {
       email: shop.email ?? "",
       description: shop.description ?? "",
     });
-  }, [shop]);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+    // Load hours + booking settings — try Supabase first, fall back to localStorage
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("shops")
+          .select("business_hours, booking_settings")
+          .eq("id", shop.id)
+          .single();
+
+        if (!error && data) {
+          if (data.business_hours && typeof data.business_hours === "object") {
+            setHours(data.business_hours as HoursMap);
+          } else {
+            const cached = localStorage.getItem(`hours_${shop.id}`);
+            if (cached) setHours(JSON.parse(cached) as HoursMap);
+          }
+          if (data.booking_settings && typeof data.booking_settings === "object") {
+            setBooking(data.booking_settings as BookingSettings);
+          } else {
+            const cached = localStorage.getItem(`booking_${shop.id}`);
+            if (cached) setBooking(JSON.parse(cached) as BookingSettings);
+          }
+        } else {
+          // Columns may not exist yet — use localStorage
+          const cachedH = localStorage.getItem(`hours_${shop.id}`);
+          const cachedB = localStorage.getItem(`booking_${shop.id}`);
+          if (cachedH) setHours(JSON.parse(cachedH) as HoursMap);
+          if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
+        }
+      } catch {
+        const cachedH = localStorage.getItem(`hours_${shop.id}`);
+        const cachedB = localStorage.getItem(`booking_${shop.id}`);
+        if (cachedH) setHours(JSON.parse(cachedH) as HoursMap);
+        if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
+      }
+    })();
+  }, [shop]);
 
   const saveProfile = async () => {
     if (!shop) return;
@@ -91,12 +139,41 @@ export default function SettingsPage() {
     showToast(error ? "Failed to save profile." : "Profile saved!");
   };
 
+  const saveHours = async () => {
+    if (!shop) return;
+    setSaving(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("shops").update({ business_hours: hours } as any).eq("id", shop.id));
+    if (error) {
+      // Column not yet added to DB — persist locally until migration runs
+      localStorage.setItem(`hours_${shop.id}`, JSON.stringify(hours));
+      showToast("Hours saved locally!");
+    } else {
+      showToast("Hours saved!");
+    }
+    setSaving(false);
+  };
+
+  const saveBooking = async () => {
+    if (!shop) return;
+    setSaving(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("shops").update({ booking_settings: booking } as any).eq("id", shop.id));
+    if (error) {
+      localStorage.setItem(`booking_${shop.id}`, JSON.stringify(booking));
+      showToast("Booking settings saved locally!");
+    } else {
+      showToast("Booking settings saved!");
+    }
+    setSaving(false);
+  };
+
   const TABS = ["profile","hours","booking","subscription","permissions","danger"];
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange}
       className={cn("relative w-11 h-6 rounded-full transition-colors", value ? "bg-gold" : "bg-surface-raised border border-border")}>
-      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", value ? "left-5.5 translate-x-0.5" : "left-0.5")} />
+      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", value ? "left-[22px]" : "left-0.5")} />
     </button>
   );
 
@@ -125,7 +202,6 @@ export default function SettingsPage() {
         <Card className="max-w-2xl">
           <CardHeader><CardTitle>Shop Profile</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {/* Logo Upload */}
             <div>
               <p className="text-sm font-medium text-gray-300 mb-2">Shop Logo</p>
               <div className="flex items-center gap-4">
@@ -183,7 +259,9 @@ export default function SettingsPage() {
                 );
               })}
             </div>
-            <Button className="mt-4" onClick={() => showToast("Hours saved!")}>Save Hours</Button>
+            <Button className="mt-4" disabled={saving} onClick={saveHours}>
+              {saving ? "Saving…" : "Save Hours"}
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -226,7 +304,9 @@ export default function SettingsPage() {
               </div>
               <Toggle value={booking.auto_confirm} onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
-            <Button onClick={() => showToast("Booking settings saved!")}>Save Settings</Button>
+            <Button disabled={saving} onClick={saveBooking}>
+              {saving ? "Saving…" : "Save Settings"}
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -318,7 +398,13 @@ export default function SettingsPage() {
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeactivateConfirm(false); setDeactivateInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deactivateInput !== profile.name}
-                      onClick={() => { setShowDeactivateConfirm(false); setDeactivateInput(""); showToast("Shop deactivated (Demo mode)"); }}>
+                      onClick={async () => {
+                        if (!shop) return;
+                        const { error } = await supabase.from("shops").update({ is_active: false }).eq("id", shop.id);
+                        setShowDeactivateConfirm(false);
+                        setDeactivateInput("");
+                        showToast(error ? "Failed to deactivate." : "Shop deactivated.");
+                      }}>
                       Confirm Deactivate
                     </Button>
                   </div>
@@ -329,7 +415,6 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Upgrade Modal */}
       {showUpgradeModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowUpgradeModal(false)} />
