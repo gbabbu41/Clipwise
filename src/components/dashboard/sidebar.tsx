@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
-  Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff,
+  Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true },
   { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt },
   { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
+  { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true },
   { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
   { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true },

@@ -387,10 +387,24 @@ export default function BookingPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => window.print()}>
+            <Button variant="outline" className="flex-1" onClick={() => {
+              if (!selectedDate || !selectedTime || !service) return;
+              const [time, period] = selectedTime.split(" ");
+              const [hoursStr, minutesStr] = time.split(":");
+              let hours = parseInt(hoursStr, 10);
+              const minutes = parseInt(minutesStr || "0", 10);
+              if (period === "PM" && hours !== 12) hours += 12;
+              if (period === "AM" && hours === 12) hours = 0;
+              const start = new Date(selectedDate);
+              start.setHours(hours, minutes, 0, 0);
+              const end = new Date(start.getTime() + (service.duration_minutes ?? 60) * 60000);
+              const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+              const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Haircut at ${shop.name}`)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Service: ${service.name}\nBarber: ${barber?.name ?? "Any Available"}\nBooking ID: ${bookingId?.slice(0, 8).toUpperCase() ?? ""}`)}&location=${encodeURIComponent(`${shop.address ?? ""}, ${shop.city ?? ""}`)}`;
+              window.open(url, "_blank");
+            }}>
               <Calendar size={16} /> Add to Calendar
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: "My Booking", text: `${shop.name} — ${selectedTime}` }); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${selectedDate?.toLocaleDateString()} at ${selectedTime}`, url: window.location.href }); }}>
               <Share2 size={16} /> Share
             </Button>
           </div>
