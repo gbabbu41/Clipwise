@@ -82,6 +82,8 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
+  const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showAddWalkin, setShowAddWalkin] = useState(false);
@@ -162,12 +164,18 @@ export default function DashboardPage() {
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     if (!shop || !profile) return;
-    const [{ data: b }, { data: n }] = await Promise.all([
+    const [{ data: b }, { data: n }, { data: rev }] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
       supabase.from("notifications").select("*").eq("user_id", profile.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("reviews").select("rating").eq("shop_id", shop.id),
     ]);
     setBarbers((b ?? []) as Barber[]);
     setNotifications((n ?? []) as Notification[]);
+    if (rev && rev.length > 0) {
+      const avg = rev.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / rev.length;
+      setAvgRating(Math.round(avg * 10) / 10);
+      setTotalReviews(rev.length);
+    }
   }, [shop, profile]);
 
   // ── Load calendar appointment counts for current month ─────────────────────
@@ -304,7 +312,7 @@ export default function DashboardPage() {
           }).length)} sub="This period" icon={Users} color="blue" />
           <StatCard label="Avg Ticket" value={formatCurrency(avgTicket)} sub="Per completed visit" icon={TrendingUp} color="purple" />
           <StatCard label="No-Show Rate" value={`${noShowRate.toFixed(1)}%`} sub={`${noShows} no-shows`} icon={UserX} color="orange" />
-          <StatCard label="Avg Rating" value="4.8★" sub="127 total reviews" icon={Star} color="purple" />
+          <StatCard label="Avg Rating" value={avgRating != null ? `${avgRating}★` : "—"} sub={totalReviews > 0 ? `${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"} icon={Star} color="purple" />
         </div>
       )}
 

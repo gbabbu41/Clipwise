@@ -182,6 +182,20 @@ function bookingConfirmation(data: Record<string, string>) {
   `);
 }
 
+function noShowFollowUp(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">👋 We Missed You!</div>
+    <h1>Hey ${data.clientName}, we missed you!</h1>
+    <p>It looks like you weren't able to make it to your appointment at <span class="highlight">${data.shopName}</span>. No worries — life happens!</p>
+    <p>We'd love to see you. Book your next appointment at a time that works for you.</p>
+    <hr class="divider">
+    <a href="${data.bookingUrl}" class="btn">Book Again →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function appointmentCancelled(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -272,6 +286,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `Appointment Cancelled — ${data.clientName}`;
         html = appointmentCancelled(data);
+        break;
+      case "no_show_followup":
+        to = data.clientEmail;
+        subject = `We missed you — Book again at ${data.shopName}`;
+        html = noShowFollowUp(data);
         break;
       case "new_barber_request":
         to = data.ownerEmail;

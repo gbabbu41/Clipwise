@@ -143,6 +143,23 @@ export default function AppointmentsPage() {
       }
     }
 
+    // Send no-show follow-up email
+    if (status === "no-show" && appt?.client_email && shop) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "no_show_followup",
+          data: {
+            clientName: appt.client_name,
+            clientEmail: appt.client_email,
+            shopName: shop.name,
+            bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+          },
+        }),
+      }).catch(() => null);
+    }
+
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     showToast(`Marked as ${status}`);

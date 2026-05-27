@@ -137,9 +137,9 @@ export function MobileNav() {
   const mobileItems = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
     { href: "/dashboard/appointments", label: "Bookings", icon: Calendar },
+    { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+    { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
     { href: "/dashboard/pos", label: "POS", icon: Receipt },
-    { href: "/dashboard/clients", label: "Clients", icon: Users },
-    { href: "/dashboard/analytics", label: "Reports", icon: BarChart3 },
   ];
 
   return (
