@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
-  Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet,
+  Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   ChevronsUpDown, Check, Building2,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true },
   { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true },
   { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true },
+  { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
   { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
   { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
   { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },

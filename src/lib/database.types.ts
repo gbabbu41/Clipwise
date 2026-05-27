@@ -186,3 +186,15 @@ export interface DaySchedule {
   startTime: string; // display: "9:00 AM"
   endTime: string;   // display: "7:00 PM"
 }
+
+export interface Message {
+  id: string;
+  shop_id: string;
+  client_id?: string;
+  client_name: string;
+  client_phone?: string;
+  sender: "shop" | "client";
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
