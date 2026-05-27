@@ -41,6 +41,7 @@ export default function POSPage() {
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState("");
   const [lastCharge, setLastCharge] = useState<{ total: number; method: PM; items: CartItem[]; tip: number; discount: number } | null>(null);
+  const [lastReceiptId, setLastReceiptId] = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -97,7 +98,7 @@ export default function POSPage() {
     const serviceItems = cart.filter(i => i.type === "service");
     const primaryService = serviceItems[0];
 
-    const { error: txError } = await supabase.from("transactions").insert({
+    const { data: txData, error: txError } = await supabase.from("transactions").insert({
       shop_id: shop!.id,
       barber_id: barberId || null,
       client_name: client,
@@ -107,9 +108,10 @@ export default function POSPage() {
       commission_amount: selectedBarber ? Math.round(subtotal * (selectedBarber.commission_percent / 100) * 100) / 100 : null,
       payment_method: paymentMethod,
       type: serviceItems.length > 0 ? "service" : "product",
-    });
+    }).select("id").single();
 
     if (txError) { showToast("Error saving transaction"); setCharging(false); return; }
+    if (txData?.id) setLastReceiptId(txData.id);
 
     // Decrement inventory for product items, alert on low stock
     for (const item of cart.filter(i => i.type === "product" && i.inventoryId)) {
@@ -140,7 +142,7 @@ export default function POSPage() {
 
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
-    setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setClient("Walk-in");
+    setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("Walk-in");
     if (barbers.length > 0) setBarberId(barbers[0].id);
   };
 
@@ -187,7 +189,14 @@ export default function POSPage() {
               <span className="text-white capitalize">{lastCharge.method}</span>
             </div>
           </Card>
-          <Button className="w-full" size="lg" onClick={reset}>New Sale</Button>
+          <div className="flex gap-3">
+            {lastReceiptId && (
+              <a href={`/receipt/${lastReceiptId}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+                <Button variant="outline" className="w-full" size="lg">🧾 View Receipt</Button>
+              </a>
+            )}
+            <Button className={lastReceiptId ? "flex-1" : "w-full"} size="lg" onClick={reset}>New Sale</Button>
+          </div>
         </div>
       </div>
     );
