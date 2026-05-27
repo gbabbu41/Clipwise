@@ -42,12 +42,29 @@ export function Sidebar() {
 
   useEffect(() => {
     if (!user) return;
+
+    // Initial load
     supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("is_read", false)
       .then(({ count }) => setUnreadCount(count ?? 0));
+
+    // Real-time updates
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => {
+        supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("is_read", false)
+          .then(({ count }) => setUnreadCount(count ?? 0));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const displayName = profile?.name ?? user?.email ?? "User";

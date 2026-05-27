@@ -201,10 +201,12 @@ export default function DashboardPage() {
         </h2>
         <p className="text-gray-500 text-sm max-w-sm mb-6">
           {profile?.role === "barber"
-            ? "Ask your shop owner to add you as a barber, or join a shop once it's approved."
+            ? "You're not linked to a shop yet. Browse approved shops and request to join."
             : "Set up your barbershop to start managing appointments, clients, and more."}
         </p>
-        {profile?.role !== "barber" && (
+        {profile?.role === "barber" ? (
+          <Link href="/join-shop"><Button>Browse Shops to Join</Button></Link>
+        ) : (
           <Link href="/onboarding"><Button>Set Up My Shop</Button></Link>
         )}
       </div>
