@@ -224,7 +224,25 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
           <p className="text-sm text-gray-400 mt-0.5">Business performance overview</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => showToast("Export coming soon")}>Export CSV</Button>
+        <Button variant="outline" size="sm" onClick={() => {
+          const rows = [
+            ["Date", "Client", "Service", "Barber", "Status", "Amount"],
+            ...filteredAppts.map(a => [
+              a.date, a.client_name,
+              ((a as unknown as { services?: { name?: string } }).services)?.name ?? "",
+              ((a as unknown as { barbers?: { name?: string } }).barbers)?.name ?? "",
+              a.status,
+              a.total_amount,
+            ]),
+          ];
+          const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `clipwise-appointments-${period}.csv`; a.click();
+          URL.revokeObjectURL(url);
+          showToast("CSV exported!");
+        }}>Export CSV</Button>
       </div>
 
       {/* Filter bar */}
@@ -369,6 +387,61 @@ export default function AnalyticsPage() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Staff Performance Table */}
+      {barbers.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Staff Performance</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Barber", "Appointments", "Completed", "No-Shows", "Revenue", "Avg Ticket", "Completion Rate"].map(h => (
+                      <th key={h} className="text-left text-xs font-medium text-gray-400 px-3 py-2">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {barbers.map(b => {
+                    const bAppts = filteredAppts.filter(a => a.barber_id === b.id);
+                    const bCompleted = bAppts.filter(a => a.status === "completed");
+                    const bNoShows = bAppts.filter(a => a.status === "no-show").length;
+                    const bRevenue = bCompleted.reduce((s, a) => s + a.total_amount, 0);
+                    const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
+                    const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
+                    return (
+                      <tr key={b.id} className="border-b border-border/50 hover:bg-surface-raised/20">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold text-xs font-bold">
+                              {b.name[0]}
+                            </div>
+                            <span className="text-sm text-white font-medium">{b.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-white">{bAppts.length}</td>
+                        <td className="px-3 py-3 text-sm text-emerald-400">{bCompleted.length}</td>
+                        <td className="px-3 py-3 text-sm text-orange-400">{bNoShows}</td>
+                        <td className="px-3 py-3 text-sm text-gold font-semibold">{formatCurrency(bRevenue)}</td>
+                        <td className="px-3 py-3 text-sm text-gray-300">{formatCurrency(bAvg)}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-surface-raised rounded-full overflow-hidden">
+                              <div className="h-full bg-gold rounded-full" style={{ width: `${completionRate}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-400">{completionRate}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
