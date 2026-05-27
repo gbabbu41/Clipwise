@@ -163,6 +163,7 @@ function appointmentReminder(data: Record<string, string>) {
 }
 
 function bookingConfirmation(data: Record<string, string>) {
+  const manageUrl = data.appointmentId ? `${BASE_URL}/my-booking/${data.appointmentId}` : null;
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
     <div class="green-badge">✓ Booking Confirmed</div>
@@ -177,7 +178,9 @@ function bookingConfirmation(data: Record<string, string>) {
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     <hr class="divider">
-    <p style="font-size:12px;color:#6B7280">If you need to cancel or reschedule, contact the shop directly.</p>
+    ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">You can reschedule or cancel from the link above.</p>
+    <hr class="divider">` : ""}
     <p style="color:#4B5563">— The ClipWise Team</p>
   `);
 }

@@ -264,6 +264,7 @@ export default function BookingPage() {
             time: selectedTime ?? "",
             total: `$${total.toFixed(2)}`,
             bookingId: data.id.slice(0, 8).toUpperCase(),
+            appointmentId: data.id,
           },
         }),
       }).catch(() => null);
@@ -367,7 +368,8 @@ export default function BookingPage() {
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
           {bookingId && <p className="text-xs text-gray-500 mb-1">Booking ID: <span className="text-gold font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
-          <p className="text-gray-400 mb-8">We&apos;ll send a confirmation to {clientInfo.email}</p>
+          <p className="text-gray-400 mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-gold hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="bg-surface border border-border rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: shop.name },
