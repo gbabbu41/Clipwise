@@ -90,6 +90,8 @@ export default function DashboardPage() {
   const [walkinService, setWalkinService] = useState("");
   const [savingWalkin, setSavingWalkin] = useState(false);
   const [toast, setToast] = useState("");
+  const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
+  const [clockLoading, setClockLoading] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -99,6 +101,41 @@ export default function DashboardPage() {
     supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
       .then(({ data }) => { if (data) setMyBarberId(data.id); });
   }, [profile, shop]);
+
+  // ── Load clock-in status for barbers ────────────────────────────────────────
+  useEffect(() => {
+    if (!myBarberId || !shop) return;
+    const today = formatDateForDb(new Date());
+    supabase.from("staff_hours").select("id, clock_in").eq("barber_id", myBarberId).eq("date", today).is("clock_out", null).maybeSingle()
+      .then(({ data }) => { if (data) setClockedIn({ id: data.id, clock_in: data.clock_in }); });
+  }, [myBarberId, shop]);
+
+  const handleClockIn = async () => {
+    if (!myBarberId || !shop) return;
+    setClockLoading(true);
+    const now = new Date();
+    const { data } = await supabase.from("staff_hours").insert({
+      barber_id: myBarberId,
+      shop_id: shop.id,
+      date: formatDateForDb(now),
+      clock_in: now.toTimeString().slice(0, 5),
+    }).select("id, clock_in").single();
+    if (data) { setClockedIn({ id: data.id, clock_in: data.clock_in }); showToast("Clocked in!"); }
+    setClockLoading(false);
+  };
+
+  const handleClockOut = async () => {
+    if (!clockedIn) return;
+    setClockLoading(true);
+    const now = new Date();
+    const outStr = now.toTimeString().slice(0, 5);
+    const [inH, inM] = clockedIn.clock_in.split(":").map(Number);
+    const hours = Math.round(((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60 * 100) / 100;
+    await supabase.from("staff_hours").update({ clock_out: outStr, hours_worked: hours }).eq("id", clockedIn.id);
+    setClockedIn(null);
+    showToast(`Clocked out! ${hours}h worked`);
+    setClockLoading(false);
+  };
 
   // ── Load appointments ───────────────────────────────────────────────────────
   const loadAppointments = useCallback(async () => {
@@ -389,6 +426,27 @@ export default function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-4">
+          {/* Clock In/Out — barbers only */}
+          {profile?.role === "barber" && (
+            <Card className={clockedIn ? "border-emerald-500/30" : ""}>
+              <CardHeader>
+                <CardTitle>Time Clock</CardTitle>
+                {clockedIn && <span className="text-xs text-emerald-400 font-medium">● Clocked in {clockedIn.clock_in}</span>}
+              </CardHeader>
+              <CardContent>
+                {clockedIn ? (
+                  <Button variant="danger" className="w-full" loading={clockLoading} onClick={handleClockOut}>
+                    Clock Out
+                  </Button>
+                ) : (
+                  <Button className="w-full" loading={clockLoading} onClick={handleClockIn}>
+                    Clock In
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
           <Card>
             <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
