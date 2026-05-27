@@ -317,6 +317,11 @@ export async function POST(req: NextRequest) {
         subject = `New Barber Request — ${data.barberName}`;
         html = shopOwnerNewBarberRequest(data);
         break;
+      case "marketing_campaign":
+        to = data.to;
+        subject = data.subject;
+        html = data.htmlBody;
+        break;
       default:
         return NextResponse.json({ error: "Unknown email type" }, { status: 400 });
     }
