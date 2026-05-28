@@ -49,8 +49,14 @@ export default function AdminShopsPage() {
 
   const loadShops = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("shops").select("*, users(name, email)").order("created_at", { ascending: false });
-    setShops((data ?? []) as ShopWithOwner[]);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/admin/shops", {
+      headers: { "Authorization": `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      setShops((json.shops ?? []) as ShopWithOwner[]);
+    }
     setLoading(false);
   }, []);
 
