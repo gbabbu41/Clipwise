@@ -29,6 +29,11 @@ export interface Shop {
   description?: string;
   slug: string;
   stripe_account_id?: string;
+  instagram?: string;
+  tiktok?: string;
+  facebook?: string;
+  youtube?: string;
+  website?: string;
   subscription_plan: SubscriptionPlan;
   is_active: boolean;
   status: ShopStatus;

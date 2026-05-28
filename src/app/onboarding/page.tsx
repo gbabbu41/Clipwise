@@ -22,7 +22,7 @@ type DayHours = { open: boolean; start: string; end: string };
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, accessToken } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -39,6 +39,7 @@ export default function OnboardingPage() {
   const [createdShopId, setCreatedShopId] = useState("");
   const [createdShopSlug, setCreatedShopSlug] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [barber, setBarber] = useState({ name: "", email: "", commission: "50" });
   const [createdBarberId, setCreatedBarberId] = useState("");
   const [services, setServices] = useState<ServiceRow[]>([
@@ -138,6 +139,33 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleLogoStep = async () => {
+    if (!logoFile) { setStep((s) => s + 1); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", logoFile);
+      form.append("shopId", createdShopId);
+      const res = await fetch("/api/upload-logo", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error((json as { error?: string }).error ?? "Logo upload failed");
+      }
+      const { url } = await res.json() as { url: string };
+      setLogoPreview(url);
+      setStep((s) => s + 1);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://app.clipwise.ca"}/book/${createdShopSlug}`;
 
   return (
@@ -212,7 +240,7 @@ export default function OnboardingPage() {
               <label className="cursor-pointer">
                 <div className="px-4 py-2 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">Choose Image</div>
                 <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setLogoPreview(URL.createObjectURL(f)); }} />
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
               </label>
               <p className="text-xs text-gray-600 text-center">You can add your logo later from Settings.</p>
             </div>
@@ -350,8 +378,8 @@ export default function OnboardingPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 py-3">
           <div className="max-w-lg mx-auto flex gap-3">
             {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
-            <Button className="flex-1" disabled={!canProceed() || saving} loading={saving} onClick={step === 1 ? () => setStep(step + 1) : handleNext}>
-              {saving ? "Saving..." : step === 1 ? "Skip — Add Later" : step === 4 ? "Finish Setup" : "Continue"}
+            <Button className="flex-1" disabled={!canProceed() || saving} loading={saving} onClick={step === 1 ? handleLogoStep : handleNext}>
+              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : "Continue"}
               {!saving && <ChevronRight size={16} />}
             </Button>
           </div>

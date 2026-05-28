@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Phone, Star, Scissors, Clock, ChevronRight, Mail, Users, MessageSquare } from "lucide-react";
+import { MapPin, Phone, Star, Scissors, Clock, ChevronRight, Mail, Users, MessageSquare, Globe } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +150,42 @@ export default function ShopProfilePage() {
                 {shop.phone && <span className="flex items-center gap-1.5"><Phone size={13} />{shop.phone}</span>}
                 {shop.email && <span className="flex items-center gap-1.5"><Mail size={13} />{shop.email}</span>}
               </div>
+
+              {/* Social media links */}
+              {(shop.instagram || shop.tiktok || shop.facebook || shop.youtube || shop.website) && (
+                <div className="flex flex-wrap gap-3 mt-4">
+                  {shop.instagram && (
+                    <a href={shop.instagram} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-border text-gray-400 hover:text-pink-400 hover:border-pink-400/40 transition-colors">
+                      <Globe size={11} /> Instagram
+                    </a>
+                  )}
+                  {shop.tiktok && (
+                    <a href={shop.tiktok} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-border text-gray-400 hover:text-white hover:border-white/40 transition-colors">
+                      <Globe size={11} /> TikTok
+                    </a>
+                  )}
+                  {shop.facebook && (
+                    <a href={shop.facebook} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-border text-gray-400 hover:text-blue-400 hover:border-blue-400/40 transition-colors">
+                      <Globe size={11} /> Facebook
+                    </a>
+                  )}
+                  {shop.youtube && (
+                    <a href={shop.youtube} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-border text-gray-400 hover:text-red-400 hover:border-red-400/40 transition-colors">
+                      <Globe size={11} /> YouTube
+                    </a>
+                  )}
+                  {shop.website && (
+                    <a href={shop.website} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-border text-gray-400 hover:text-gold hover:border-gold/40 transition-colors">
+                      <Globe size={11} /> Website
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Quick stats */}
               <div className="flex gap-4 mt-4 text-xs text-gray-500">

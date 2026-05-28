@@ -61,13 +61,15 @@ type NewLocation = { name: string; address: string; city: string; province: stri
 const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "", email: "" };
 
 export default function SettingsPage() {
-  const { shop, shops, setActiveShop, profile: authProfile, refreshShop } = useAuth();
+  const { shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
   const [tab, setTab] = useState("profile");
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState<NewLocation>(BLANK_LOCATION);
   const [addingLocation, setAddingLocation] = useState(false);
@@ -75,6 +77,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState({
     name: "", address: "", city: "", province: "", postal_code: "",
     phone: "", email: "", description: "",
+    instagram: "", tiktok: "", facebook: "", youtube: "", website: "",
   });
 
   const [hours, setHours] = useState<HoursMap>(DEFAULT_HOURS);
@@ -82,6 +85,36 @@ export default function SettingsPage() {
   const [permissions, setPermissions] = useState(PERMISSIONS.map(p => ({ ...p })));
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  const uploadLogo = async (file: File) => {
+    if (!shop) return;
+    setLogoUploading(true);
+    setLogoPreview(URL.createObjectURL(file));
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("shopId", shop.id);
+      const res = await fetch("/api/upload-logo", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+        body: form,
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as { error?: string }).error ?? "Upload failed"); }
+      const { url } = await res.json() as { url: string };
+      setLogoPreview(url);
+      await refreshShop();
+      showToast("Logo updated!");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Upload failed");
+      setLogoPreview(shop.logo ?? null);
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (shop?.logo) setLogoPreview(shop.logo);
+  }, [shop?.logo]);
 
   useEffect(() => {
     if (!shop) return;
@@ -94,6 +127,11 @@ export default function SettingsPage() {
       phone: shop.phone ?? "",
       email: shop.email ?? "",
       description: shop.description ?? "",
+      instagram: shop.instagram ?? "",
+      tiktok: shop.tiktok ?? "",
+      facebook: shop.facebook ?? "",
+      youtube: shop.youtube ?? "",
+      website: shop.website ?? "",
     });
 
     // Load hours + booking settings — try Supabase first, fall back to localStorage
@@ -141,6 +179,11 @@ export default function SettingsPage() {
       name: profile.name, address: profile.address, city: profile.city,
       province: profile.province, postal_code: profile.postal_code,
       phone: profile.phone, email: profile.email, description: profile.description,
+      instagram: profile.instagram || null,
+      tiktok: profile.tiktok || null,
+      facebook: profile.facebook || null,
+      youtube: profile.youtube || null,
+      website: profile.website || null,
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
@@ -238,12 +281,20 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-gray-300 mb-2">Shop Logo</p>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center">
-                  <span className="text-3xl">💈</span>
+                <div className="w-20 h-20 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {logoPreview
+                    ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                    : <span className="text-3xl">💈</span>}
                 </div>
                 <div>
-                  <Button variant="outline" size="sm" onClick={() => showToast("Logo upload coming soon!")}>Upload Logo</Button>
-                  <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB</p>
+                  <label className={cn("cursor-pointer", logoUploading && "pointer-events-none opacity-60")}>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">
+                      {logoUploading ? "Uploading…" : logoPreview ? "Change Logo" : "Upload Logo"}
+                    </div>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP up to 5MB</p>
                 </div>
               </div>
             </div>
@@ -257,6 +308,19 @@ export default function SettingsPage() {
             <Input label="Phone" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
             <Input label="Email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
             <Textarea label="Description" value={profile.description} onChange={e => setProfile(p => ({ ...p, description: e.target.value }))} rows={3} />
+
+            {/* Social Media */}
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-3">Social Media & Website</p>
+              <div className="space-y-3">
+                <Input label="Instagram URL" placeholder="https://instagram.com/yourshop" value={profile.instagram} onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))} />
+                <Input label="TikTok URL" placeholder="https://tiktok.com/@yourshop" value={profile.tiktok} onChange={e => setProfile(p => ({ ...p, tiktok: e.target.value }))} />
+                <Input label="Facebook URL" placeholder="https://facebook.com/yourshop" value={profile.facebook} onChange={e => setProfile(p => ({ ...p, facebook: e.target.value }))} />
+                <Input label="YouTube URL" placeholder="https://youtube.com/@yourshop" value={profile.youtube} onChange={e => setProfile(p => ({ ...p, youtube: e.target.value }))} />
+                <Input label="Website URL" placeholder="https://yourshop.com" value={profile.website} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} />
+              </div>
+            </div>
+
             <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving…" : "Save Profile"}</Button>
           </CardContent>
         </Card>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Store, DollarSign, Calendar, Clock, TrendingUp, Search, X, Check, Copy, ExternalLink, Users, Shield, Bell } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { Shop } from "@/lib/database.types";
 
@@ -83,6 +84,7 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { va
 }
 
 export default function AdminPage() {
+  const { accessToken } = useAuth();
   const [tab, setTab] = useState<AdminTab>("overview");
   const [shops, setShops] = useState<ShopWithOwner[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -102,7 +104,9 @@ export default function AdminPage() {
   // ── Load all platform data ──────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/shops");
+    const res = await fetch("/api/admin/shops", {
+      headers: { "Authorization": `Bearer ${accessToken ?? ""}` },
+    });
     if (!res.ok) { setLoading(false); return; }
     const { shops: shopData, transactions: txData, appointments: apptData, userCount } = await res.json();
     setShops((shopData ?? []) as ShopWithOwner[]);
@@ -110,13 +114,13 @@ export default function AdminPage() {
     setTotalAppts((apptData ?? []).length);
     setTotalUsers(userCount ?? 0);
     setLoading(false);
-  }, []);
+  }, [accessToken]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { if (accessToken) loadData(); }, [accessToken, loadData]);
 
   // ── Approve shop ────────────────────────────────────────────────────────────
   const patchShop = (id: string, body: Record<string, string>) =>
-    fetch("/api/admin/shops", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...body }) });
+    fetch("/api/admin/shops", { method: "PATCH", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${accessToken ?? ""}` }, body: JSON.stringify({ id, ...body }) });
 
   const approveShop = async (shop: ShopWithOwner) => {
     setSavingId(shop.id);

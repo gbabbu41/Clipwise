@@ -438,8 +438,10 @@ export default function BookingPage() {
       <div className="bg-surface border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-5">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gold/20 border border-gold/30 flex items-center justify-center flex-shrink-0">
-              <Logo size="sm" showText={false} />
+            <div className="w-14 h-14 rounded-2xl bg-gold/20 border border-gold/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {shop.logo
+                ? <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover" />
+                : <Logo size="sm" showText={false} />}
             </div>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-white">{shop.name}</h1>

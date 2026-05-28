@@ -3,10 +3,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 async function requireSuperAdmin(req: NextRequest) {
   const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  console.log("[admin] token present:", !!token, "| length:", token?.length ?? 0);
   if (!token) return null;
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  console.log("[admin] user:", user?.id ?? "null", "| authError:", authError?.message ?? "none");
   if (!user) return null;
-  const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
+  const { data: profile, error: profileError } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
+  console.log("[admin] role:", profile?.role ?? "null", "| profileError:", profileError?.message ?? "none");
   return profile?.role === "super_admin" ? user : null;
 }
 
