@@ -78,9 +78,13 @@ export default function OnboardingPage() {
       if (step === 0) {
         const baseSlug = slugify(shop.name);
         const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+        const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
+        const chosenPlan = planData.plan || "starter";
+        const autoApprove = planData.autoApprove === true;
+        sessionStorage.removeItem("clipwise_plan");
         const { data, error: err } = await supabase
           .from("shops")
-          .insert({ ...shop, owner_id: user!.id, slug, status: "pending", subscription_plan: "starter" })
+          .insert({ ...shop, owner_id: user!.id, slug, status: autoApprove ? "approved" : "pending", subscription_plan: chosenPlan })
           .select()
           .single();
         if (err) throw err;

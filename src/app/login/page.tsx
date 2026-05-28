@@ -47,7 +47,7 @@ export default function LoginPage() {
         if (profile?.role === "super_admin") {
           router.push("/admin");
         } else if (profile?.role === "shop_owner") {
-          router.push(shop ? "/dashboard" : "/onboarding");
+          router.push(shop ? "/dashboard" : "/onboarding/plan");
         } else if (profile?.role === "barber") {
           router.push("/barber-dashboard");
         } else {

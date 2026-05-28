@@ -47,7 +47,7 @@ export default function SignupPage() {
         .from("users")
         .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
         .eq("id", data.user.id);
-      router.push(selectedRole === "shop_owner" ? "/onboarding" : "/");
+      router.push(selectedRole === "shop_owner" ? "/onboarding/plan" : "/");
     } else if (data.user && !data.session) {
       setEmailSent(true);
       setLoading(false);
