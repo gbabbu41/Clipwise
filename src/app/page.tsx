@@ -21,24 +21,22 @@ const features = [
 
 const plans = [
   {
-    name: "Starter", price: 29, highlight: false,
-    features: ["1 Barber", "100 appointments/mo", "Online booking", "Basic analytics", "Email reminders"],
-    missing: ["Multi-barber", "POS system", "Loyalty program", "Priority support"],
+    name: "Starter", price: "Free", priceLabel: "forever", highlight: false,
+    features: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"],
+    missing: ["Customer payments", "POS system", "Multi-barber", "Inventory"],
+    cta: "Get Started Free",
   },
   {
-    name: "Pro", price: 49, highlight: true,
-    features: ["Up to 3 Barbers", "Unlimited appointments", "Online booking", "Full analytics", "SMS + Email reminders", "POS system", "Loyalty program"],
-    missing: ["Unlimited barbers", "Custom branding", "API access"],
+    name: "Pro", price: "$23", priceLabel: "/month", highlight: true,
+    features: ["Up to 4 barbers", "Online booking + payments", "Advanced analytics", "SMS reminders", "Stripe Connect payouts"],
+    missing: ["POS hardware", "Inventory management"],
+    cta: "Start Pro Trial",
   },
   {
-    name: "Premium", price: 79, highlight: false,
-    features: ["Up to 6 Barbers", "Unlimited appointments", "Online booking", "Full analytics", "SMS + Email reminders", "POS system", "Loyalty program", "Custom branding"],
-    missing: ["Unlimited barbers", "API access"],
-  },
-  {
-    name: "Business", price: 99, highlight: false,
-    features: ["Unlimited Barbers", "Unlimited appointments", "Online booking", "Full analytics", "SMS + Email reminders", "POS system", "Loyalty program", "Custom branding", "API access", "Priority support", "Dedicated onboarding"],
+    name: "Premium", price: "$49", priceLabel: "/month", highlight: false,
+    features: ["Up to 9 barbers", "Everything in Pro", "Full POS via Stripe Terminal", "Inventory management", "Staff management", "Full analytics & reports", "Dedicated support"],
     missing: [],
+    cta: "Start Premium Trial",
   },
 ];
 
@@ -59,7 +57,7 @@ const competitors = [
   { feature: "Barber Commission Tracking", clipwise: true, squire: false, booksy: false },
   { feature: "Client Self-Service Portal", clipwise: true, squire: true, booksy: false },
   { feature: "Custom Booking Page", clipwise: true, squire: true, booksy: true },
-  { feature: "Starting Price", clipwise: "$29/mo", squire: "$49/mo", booksy: "$39/mo" },
+  { feature: "Starting Price", clipwise: "Free", squire: "$49/mo", booksy: "$39/mo" },
 ];
 
 const testimonials = [
@@ -81,7 +79,7 @@ const testimonials = [
 ];
 
 const faqs = [
-  { q: "Is there a free trial?", a: "Yes — all plans come with a 14-day free trial. No credit card required." },
+  { q: "Is there a free plan?", a: "Yes — our Starter plan is free forever with no credit card required. Pro and Premium plans come with a 14-day money-back guarantee." },
   { q: "Can I switch plans at any time?", a: "Absolutely. Upgrade or downgrade anytime from your settings page." },
   { q: "Do my clients need to download an app?", a: "No. Clients book directly from your custom URL in any browser — no app needed." },
   { q: "How does the POS work?", a: "ClipWise connects with Stripe Terminal for card payments, or you can manually log cash and online transactions. Everything syncs to your reports instantly." },
@@ -216,9 +214,9 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 px-4 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, transparent pricing</h2>
-          <p className="text-gray-400">Start free for 14 days. No contracts. Cancel anytime.</p>
+          <p className="text-gray-400">Start free forever. Upgrade when you&apos;re ready. No contracts.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <div key={plan.name} className={cn(
               "rounded-2xl border p-6 flex flex-col relative",
@@ -231,8 +229,8 @@ export default function LandingPage() {
               )}
               <h3 className="font-bold text-xl text-white mb-1">{plan.name}</h3>
               <div className="mb-6">
-                <span className="text-4xl font-bold text-gold">${plan.price}</span>
-                <span className="text-gray-500 text-sm">/mo</span>
+                <span className="text-4xl font-bold text-gold">{plan.price}</span>
+                <span className="text-gray-500 text-sm">{plan.priceLabel}</span>
               </div>
               <div className="space-y-2.5 flex-1 mb-6">
                 {plan.features.map((f) => (
@@ -250,7 +248,7 @@ export default function LandingPage() {
               </div>
               <Link href="/signup">
                 <Button variant={plan.highlight ? "gold" : "outline"} className="w-full">
-                  Start Free Trial
+                  {plan.cta}
                 </Button>
               </Link>
             </div>
