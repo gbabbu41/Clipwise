@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { cookies } from "next/headers";
 
 export async function GET(req: NextRequest) {
-  // Verify the caller is a super_admin via their session
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  );
+  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
@@ -30,13 +23,9 @@ export async function GET(req: NextRequest) {
 }
 
 async function requireSuperAdmin(req: NextRequest) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
+  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return null;
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return null;
   const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
   return profile?.role === "super_admin" ? user : null;
