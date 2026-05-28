@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ function Toast({ msg, ok, onClose }: { msg: string; ok: boolean; onClose: () => 
 type StatusFilter = "all" | "pending" | "approved" | "suspended" | "rejected";
 
 export default function AdminShopsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [shops, setShops] = useState<ShopWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -60,14 +62,16 @@ export default function AdminShopsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadShops(); }, [loadShops]);
+  useEffect(() => {
+    if (!authLoading && user) loadShops();
+  }, [authLoading, user, loadShops]);
 
   const updateStatus = async (shopId: string, status: string, rejection_reason?: string) => {
     const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/admin/shop-status", {
-      method: "POST",
+    const res = await fetch("/api/admin/shops", {
+      method: "PATCH",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
-      body: JSON.stringify({ shopId, status, rejection_reason }),
+      body: JSON.stringify({ id: shopId, status, rejection_reason }),
     });
     return res.ok;
   };
