@@ -56,11 +56,21 @@ export default function AdminShopsPage() {
 
   useEffect(() => { loadShops(); }, [loadShops]);
 
+  const updateStatus = async (shopId: string, status: string, rejection_reason?: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/admin/shop-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ shopId, status, rejection_reason }),
+    });
+    return res.ok;
+  };
+
   const approveShop = async (shop: ShopWithOwner) => {
     setSavingId(shop.id);
-    const { error } = await supabase.from("shops").update({ status: "approved" }).eq("id", shop.id);
+    const ok = await updateStatus(shop.id, "approved");
     setSavingId(null);
-    if (error) { showToast("Failed to approve", false); return; }
+    if (!ok) { showToast("Failed to approve", false); return; }
     setShops(prev => prev.map(s => s.id === shop.id ? { ...s, status: "approved" } : s));
     showToast(`${shop.name} approved!`);
     fetch("/api/send-email", {
@@ -75,9 +85,9 @@ export default function AdminShopsPage() {
     const modal = rejectModal;
     const reason = rejectReason;
     setSavingId(modal.id);
-    const { error } = await supabase.from("shops").update({ status: "rejected", rejection_reason: reason }).eq("id", modal.id);
+    const ok = await updateStatus(modal.id, "rejected", reason);
     setSavingId(null);
-    if (error) { showToast("Failed to reject", false); return; }
+    if (!ok) { showToast("Failed to reject", false); return; }
     setShops(prev => prev.map(s => s.id === modal.id ? { ...s, status: "rejected", rejection_reason: reason } : s));
     setRejectModal(null);
     setRejectReason("");
@@ -92,8 +102,9 @@ export default function AdminShopsPage() {
   const toggleSuspend = async (shop: ShopWithOwner) => {
     const newStatus = shop.status === "suspended" ? "approved" : "suspended";
     setSavingId(shop.id);
-    await supabase.from("shops").update({ status: newStatus }).eq("id", shop.id);
+    const ok = await updateStatus(shop.id, newStatus);
     setSavingId(null);
+    if (!ok) { showToast("Failed to update", false); return; }
     setShops(prev => prev.map(s => s.id === shop.id ? { ...s, status: newStatus } : s));
     showToast(`${shop.name} ${newStatus === "suspended" ? "suspended" : "reactivated"}`);
   };
