@@ -566,3 +566,32 @@ create policy "loyalty_manage_owner" on public.loyalty_rewards for all using (
   exists(select 1 from public.shops where id = loyalty_rewards.shop_id and owner_id = auth.uid())
   or public.is_super_admin()
 );
+
+
+-- ============================================================
+-- MESSAGES TABLE (client messaging feature)
+-- Added: 2026-05-27
+-- ============================================================
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete set null,
+  client_name text not null,
+  client_phone text,
+  sender text not null check (sender in ('shop', 'client')),
+  content text not null,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_shop_client_idx
+  on public.messages (shop_id, client_name, created_at);
+
+-- RLS
+alter table public.messages enable row level security;
+
+create policy "messages_shop_owner" on public.messages for all using (
+  exists(select 1 from public.shops where id = messages.shop_id and owner_id = auth.uid())
+  or exists(select 1 from public.barbers where shop_id = messages.shop_id and user_id = auth.uid())
+  or public.is_super_admin()
+);
