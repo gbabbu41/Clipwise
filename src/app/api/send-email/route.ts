@@ -233,6 +233,29 @@ function appointmentCancelled(data: Record<string, string>) {
   `);
 }
 
+function barberInvite(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">✂️ You're Invited!</div>
+    <h1>Hi ${data.barberName},</h1>
+    <p><span class="highlight">${data.shopName}</span> has invited you to join their team on ClipWise — the barbershop management platform.</p>
+    <p>Click the button below to set up your account and access your personal barber dashboard.</p>
+    <hr class="divider">
+    <p style="font-weight:600;color:#fff;margin-bottom:8px">With your barber portal you can:</p>
+    <ul class="steps">
+      <li><span class="step-num">1</span>View your daily schedule and upcoming appointments</li>
+      <li><span class="step-num">2</span>Manage your availability hours</li>
+      <li><span class="step-num">3</span>Track your earnings and commission</li>
+      <li><span class="step-num">4</span>See your client history</li>
+    </ul>
+    <hr class="divider">
+    <a href="${data.inviteLink}" class="btn">Accept Invite & Set Up Account →</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link expires in 24 hours. If you didn't expect this, you can ignore it.</p>
+    <hr class="divider">
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function shopOwnerNewBarberRequest(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -319,6 +342,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `New Barber Request — ${data.barberName}`;
         html = shopOwnerNewBarberRequest(data);
+        break;
+      case "barber_invite":
+        to = data.barberEmail;
+        subject = `You're invited to join ${data.shopName} on ClipWise`;
+        html = barberInvite(data);
         break;
       case "marketing_campaign":
         to = data.to;

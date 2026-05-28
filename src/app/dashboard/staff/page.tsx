@@ -84,7 +84,9 @@ export default function StaffPage() {
   const [scheduleBarber, setScheduleBarber] = useState<BarberWithSchedule | null>(null);
   const [editSchedule, setEditSchedule] = useState<DaySchedule[]>(defaultSchedule());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addTab, setAddTab] = useState<"manual" | "invite">("invite");
   const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "50" });
+  const [inviteSent, setInviteSent] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [savingAdd, setSavingAdd] = useState(false);
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
@@ -178,7 +180,7 @@ export default function StaffPage() {
     showToast("Commission updated!");
   };
 
-  // ── Add barber ──────────────────────────────────────────────────────────────
+  // ── Add barber manually ─────────────────────────────────────────────────────
   const addBarber = async () => {
     if (!shop || !addForm.name.trim()) return;
     setSavingAdd(true);
@@ -188,7 +190,7 @@ export default function StaffPage() {
       email: addForm.email.trim() || null,
       commission_percent: parseInt(addForm.commission_percent) || 50,
       is_active: true,
-      rating: 5,
+      rating: 0,
       total_reviews: 0,
     });
     setSavingAdd(false);
@@ -196,6 +198,27 @@ export default function StaffPage() {
     setShowAddModal(false);
     setAddForm({ name: "", email: "", commission_percent: "50" });
     showToast("Barber added successfully!");
+    loadBarbers();
+  };
+
+  // ── Invite barber by email ──────────────────────────────────────────────────
+  const inviteBarber = async () => {
+    if (!addForm.name.trim() || !addForm.email.trim()) return;
+    if (!accessToken) return;
+    setSavingAdd(true);
+    const res = await fetch("/api/admin/barber/invite", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: addForm.name.trim(),
+        email: addForm.email.trim(),
+        commission_percent: parseInt(addForm.commission_percent) || 50,
+      }),
+    });
+    const data = await res.json();
+    setSavingAdd(false);
+    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
+    setInviteSent(true);
     loadBarbers();
   };
 
@@ -517,36 +540,76 @@ export default function StaffPage() {
         </>
       )}
 
-      {/* Add Barber Modal */}
+      {/* Add / Invite Barber Modal */}
       {showAddModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Barber</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
               </div>
-              {[
-                { key: "name" as const, label: "Full Name", placeholder: "John Doe", type: "text" },
-                { key: "email" as const, label: "Email (optional)", placeholder: "john@barbershop.com", type: "email" },
-                { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number" },
-              ].map(({ key, label, placeholder, type }) => (
-                <div key={key} className="space-y-1.5">
-                  <label className="text-sm text-gray-400">{label}</label>
-                  <input
-                    type={type}
-                    value={addForm[key]}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={placeholder}
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
-                  />
+
+              {/* Tabs */}
+              <div className="flex gap-1 bg-surface-raised border border-border rounded-xl p-1">
+                {(["invite", "manual"] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => { setAddTab(tab); setInviteSent(false); }}
+                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-gold/15 text-gold border border-gold/20" : "text-gray-400 hover:text-white")}
+                  >
+                    {tab === "invite" ? "✉️ Invite by Email" : "➕ Add Manually"}
+                  </button>
+                ))}
+              </div>
+
+              {inviteSent ? (
+                <div className="py-6 text-center">
+                  <div className="text-4xl mb-3">✉️</div>
+                  <p className="font-semibold text-white">Invite sent!</p>
+                  <p className="text-sm text-gray-400 mt-1">{addForm.name} will get an email with a link to set up their account.</p>
+                  <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Done</Button>
                 </div>
-              ))}
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button className="flex-1" loading={savingAdd} onClick={addBarber}>Add Barber</Button>
-              </div>
+              ) : (
+                <>
+                  {addTab === "invite" && (
+                    <p className="text-xs text-gray-500 bg-surface-raised border border-border rounded-xl px-3 py-2">
+                      An invite email will be sent. The barber clicks the link to create their account and gets access to their barber portal automatically.
+                    </p>
+                  )}
+                  {addTab === "manual" && (
+                    <p className="text-xs text-gray-500 bg-surface-raised border border-border rounded-xl px-3 py-2">
+                      Adds the barber to your roster without sending an invite. Useful for barbers who won't use the portal.
+                    </p>
+                  )}
+
+                  {[
+                    { key: "name" as const, label: "Full Name", placeholder: "John Doe", type: "text", required: true },
+                    { key: "email" as const, label: addTab === "invite" ? "Email" : "Email (optional)", placeholder: "john@barbershop.com", type: "email", required: addTab === "invite" },
+                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false },
+                  ].map(({ key, label, placeholder, type, required }) => (
+                    <div key={key} className="space-y-1.5">
+                      <label className="text-sm text-gray-400">{label}</label>
+                      <input
+                        type={type}
+                        value={addForm[key]}
+                        onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        required={required}
+                        className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
+                      />
+                    </div>
+                  ))}
+
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Cancel</Button>
+                    <Button className="flex-1" loading={savingAdd} onClick={addTab === "invite" ? inviteBarber : addBarber}>
+                      {addTab === "invite" ? "Send Invite" : "Add Barber"}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </>
