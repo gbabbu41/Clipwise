@@ -12,9 +12,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
-    // Customers don't have a shop dashboard — send them home
+    if (profile?.role === "barber") { router.push("/barber-dashboard"); return; }
     if (profile?.role === "customer") { router.push("/"); return; }
-    // If shop exists but not approved and we're not already on /pending
     if (shop && shop.status !== "approved" && pathname !== "/dashboard/pending") {
       router.push("/dashboard/pending");
     }

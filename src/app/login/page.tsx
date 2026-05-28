@@ -48,9 +48,10 @@ export default function LoginPage() {
           router.push("/admin");
         } else if (profile?.role === "shop_owner") {
           router.push(shop ? "/dashboard" : "/onboarding");
+        } else if (profile?.role === "barber") {
+          router.push("/barber-dashboard");
         } else {
-          // barbers and customers go straight to dashboard
-          router.push("/dashboard");
+          router.push("/");
         }
       }
     } catch {
