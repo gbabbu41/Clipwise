@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function GET(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+async function getAdminUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll() } }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
   const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
-  if (profile?.role !== "super_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return profile?.role === "super_admin" ? user : null;
+}
 
-  // Fetch all data using admin client (bypasses RLS)
+export async function GET() {
+  const admin = await getAdminUser();
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const [{ data: shops }, { data: transactions }, { data: appointments }, { count: userCount }] = await Promise.all([
     supabaseAdmin.from("shops").select("*, users(name, email)").order("created_at", { ascending: false }),
     supabaseAdmin.from("transactions").select("amount"),
@@ -22,17 +30,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ shops: shops ?? [], transactions: transactions ?? [], appointments: appointments ?? [], userCount: userCount ?? 0 });
 }
 
-async function requireSuperAdmin(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) return null;
-  const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
-  return profile?.role === "super_admin" ? user : null;
-}
-
 export async function PATCH(req: NextRequest) {
-  const admin = await requireSuperAdmin(req);
+  const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id, status, rejection_reason } = await req.json();

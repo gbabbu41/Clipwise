@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,10 +50,7 @@ export default function AdminShopsPage() {
 
   const loadShops = useCallback(async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/admin/shops", {
-      headers: { "Authorization": `Bearer ${session?.access_token ?? ""}` },
-    });
+    const res = await fetch("/api/admin/shops");
     if (res.ok) {
       const json = await res.json();
       setShops((json.shops ?? []) as ShopWithOwner[]);
@@ -67,10 +63,9 @@ export default function AdminShopsPage() {
   }, [authLoading, user, loadShops]);
 
   const updateStatus = async (shopId: string, status: string, rejection_reason?: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch("/api/admin/shops", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: shopId, status, rejection_reason }),
     });
     return res.ok;
