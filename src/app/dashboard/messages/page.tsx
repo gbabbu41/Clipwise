@@ -198,7 +198,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex h-screen overflow-hidden">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* Thread List */}
