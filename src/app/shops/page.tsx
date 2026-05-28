@@ -225,7 +225,7 @@ export default function ShopsPage() {
           <p className="text-gold text-sm font-medium mb-2">Are you a barber or shop owner?</p>
           <h2 className="text-2xl font-bold text-white mb-3">Get Your Shop on ClipWise</h2>
           <p className="text-gray-400 text-sm mb-6 max-w-lg mx-auto">Join hundreds of barbershops using ClipWise to manage bookings, staff, and payments — all in one place.</p>
-          <Link href="/signup"><Button size="lg">Start Free Trial →</Button></Link>
+          <Link href="/signup"><Button size="lg">Get Started Free →</Button></Link>
         </div>
       </div>
     </div>

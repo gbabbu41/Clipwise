@@ -79,7 +79,7 @@ const testimonials = [
 ];
 
 const faqs = [
-  { q: "Is there a free plan?", a: "Yes — our Starter plan is free forever with no credit card required. Pro and Premium plans come with a 14-day money-back guarantee." },
+  { q: "Is there a free plan?", a: "Yes — our Starter plan is free forever with no credit card required. Pro and Premium plans are billed monthly with no contracts." },
   { q: "Can I switch plans at any time?", a: "Absolutely. Upgrade or downgrade anytime from your settings page." },
   { q: "Do my clients need to download an app?", a: "No. Clients book directly from your custom URL in any browser — no app needed." },
   { q: "How does the POS work?", a: "ClipWise connects with Stripe Terminal for card payments, or you can manually log cash and online transactions. Everything syncs to your reports instantly." },
@@ -121,7 +121,7 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
-            <Link href="/signup"><Button size="sm">Start Free Trial</Button></Link>
+            <Link href="/signup"><Button size="sm">Get Started</Button></Link>
           </div>
           <button className="md:hidden text-gray-400" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             <Menu size={24} />
@@ -334,7 +334,7 @@ export default function LandingPage() {
           <p className="text-gray-400 mb-8">Join hundreds of barbers already using ClipWise to grow their business.</p>
           <Link href="/signup">
             <Button size="lg" className="text-base px-10">
-              Start Free Trial — No Card Needed <ArrowRight size={18} />
+              Get Started — No Card Needed <ArrowRight size={18} />
             </Button>
           </Link>
         </div>

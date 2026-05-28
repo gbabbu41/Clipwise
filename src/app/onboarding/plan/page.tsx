@@ -261,7 +261,7 @@ export default function PlanPage() {
         </div>
 
         <p className="text-center text-xs text-gray-600 mt-8">
-          All plans include a 14-day money-back guarantee. Stripe integration coming soon.
+          Starter is free forever. Pro and Premium are billed monthly, no contracts. Stripe integration coming soon.
         </p>
       </div>
     </div>

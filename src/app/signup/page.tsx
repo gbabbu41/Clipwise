@@ -83,7 +83,7 @@ export default function SignupPage() {
             <>
               <h1 className="text-2xl font-bold text-white">Create your account</h1>
               <p className="text-gray-500 text-sm mt-1">
-                {selectedRole === "shop_owner" ? "Start your 14-day free trial. No credit card required." : "Book appointments at top barbershops near you."}
+                {selectedRole === "shop_owner" ? "Set up your shop in minutes. No credit card required." : "Book appointments at top barbershops near you."}
               </p>
             </>
           )}
@@ -170,7 +170,7 @@ export default function SignupPage() {
               </p>
 
               <Button type="submit" className="w-full" size="lg" loading={loading}>
-                {loading ? "Creating account..." : selectedRole === "shop_owner" ? "Start Free Trial" : "Create Account"}
+                {loading ? "Creating account..." : selectedRole === "shop_owner" ? "Create Account" : "Create Account"}
               </Button>
             </form>
 
