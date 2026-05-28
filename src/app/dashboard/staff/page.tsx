@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { KeyRound, Trash2, Copy, Check } from "lucide-react";
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -32,6 +33,24 @@ interface BarberWithSchedule extends Barber {
   schedule: DaySchedule[];
 }
 
+// ─── Reset link copy ──────────────────────────────────────────────────────────
+function ResetLinkCopy({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="flex items-center gap-2 bg-surface-raised border border-border rounded-xl p-3">
+      <p className="flex-1 text-xs text-gray-400 truncate">{link}</p>
+      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-gray-400 hover:text-white")}>
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+      </button>
+    </div>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse bg-surface-raised rounded-xl", className)} />;
@@ -53,7 +72,7 @@ function defaultSchedule(): DaySchedule[] {
 }
 
 export default function StaffPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [barbers, setBarbers] = useState<BarberWithSchedule[]>([]);
@@ -71,6 +90,10 @@ export default function StaffPage() {
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
   const [commissions, setCommissions] = useState<Record<string, number>>({});
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
+  const [resetModal, setResetModal] = useState<{ link: string; email: string; name: string } | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<BarberWithSchedule | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -173,6 +196,31 @@ export default function StaffPage() {
     setShowAddModal(false);
     setAddForm({ name: "", email: "", commission_percent: "50" });
     showToast("Barber added successfully!");
+    loadBarbers();
+  };
+
+  // ── Password reset ──────────────────────────────────────────────────────────
+  const resetPassword = async (barber: BarberWithSchedule) => {
+    if (!accessToken) return;
+    setResettingId(barber.id);
+    const res = await fetch("/api/admin/barber/reset-password", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ barber_id: barber.id }),
+    });
+    const data = await res.json();
+    setResettingId(null);
+    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
+    setResetModal(data);
+  };
+
+  // ── Remove barber ───────────────────────────────────────────────────────────
+  const removeBarber = async (barber: BarberWithSchedule) => {
+    setRemovingId(barber.id);
+    await supabase.from("barbers").delete().eq("id", barber.id);
+    setRemovingId(null);
+    setConfirmRemove(null);
+    showToast(`${barber.name} removed from staff`);
     loadBarbers();
   };
 
@@ -288,6 +336,28 @@ export default function StaffPage() {
                 </Button>
               </div>
 
+              {/* Admin controls */}
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                  loading={resettingId === barber.id}
+                  onClick={() => resetPassword(barber)}
+                >
+                  <KeyRound size={13} className="mr-1.5" />
+                  Reset Password
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-400 border-red-400/30 hover:bg-red-400/10 px-3"
+                  onClick={() => setConfirmRemove(barber)}
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
@@ -390,6 +460,57 @@ export default function StaffPage() {
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setScheduleBarber(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingSchedule} onClick={saveSchedule}>Save Schedule</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Password Reset Modal */}
+      {resetModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Password Reset Link</h2>
+                <button onClick={() => setResetModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <p className="text-sm text-gray-400">
+                Share this link with <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.
+              </p>
+              <ResetLinkCopy link={resetModal.link} />
+              <p className="text-xs text-gray-600">The barber will be prompted to set a new password when they open this link.</p>
+              <Button className="w-full" onClick={() => setResetModal(null)}>Done</Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Confirm Remove Modal */}
+      {confirmRemove && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-sm space-y-4">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
+                  <Trash2 size={20} className="text-red-400" />
+                </div>
+                <h2 className="text-lg font-bold text-white">Remove Barber?</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  This will remove <span className="text-white font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>
+                <Button
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                  loading={removingId === confirmRemove.id}
+                  onClick={() => removeBarber(confirmRemove)}
+                >
+                  Remove
+                </Button>
               </div>
             </div>
           </div>

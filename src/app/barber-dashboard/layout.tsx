@@ -2,8 +2,48 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { BarberProvider } from "@/lib/barber-context";
+import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
+
+function BarberGuard({ children }: { children: React.ReactNode }) {
+  const { barber, loading, error } = useBarber();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !barber) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="text-5xl mb-4">✂️</div>
+          <h2 className="text-xl font-bold text-white mb-2">Account not linked</h2>
+          <p className="text-gray-400 text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!barber.is_active) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">🔒</span>
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Account suspended</h2>
+          <p className="text-gray-400 text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 export default function BarberDashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -18,10 +58,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Loading...</p>
-        </div>
+        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
       </div>
     );
   }
@@ -30,13 +67,15 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
 
   return (
     <BarberProvider>
-      <div className="min-h-screen bg-background">
-        <BarberSidebar />
-        <main className="lg:ml-64 pb-20 lg:pb-0">
-          {children}
-        </main>
-        <BarberMobileNav />
-      </div>
+      <BarberGuard>
+        <div className="min-h-screen bg-background">
+          <BarberSidebar />
+          <main className="lg:ml-64 pb-20 lg:pb-0">
+            {children}
+          </main>
+          <BarberMobileNav />
+        </div>
+      </BarberGuard>
     </BarberProvider>
   );
 }
