@@ -233,6 +233,85 @@ function appointmentCancelled(data: Record<string, string>) {
   `);
 }
 
+function newBookingOwner(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">📅 New Booking</div>
+    <h1>New appointment at ${data.shopName}</h1>
+    <p>A client has just booked through your ClipWise page.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+    <div class="row"><span class="label">Email</span><span class="val">${data.clientEmail}</span></div>
+    <div class="row"><span class="label">Phone</span><span class="val">${data.clientPhone}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    <div class="row"><span class="label">Booking ID</span><span class="val">#${data.bookingId}</span></div>
+    <hr class="divider">
+    <a href="${BASE_URL}/dashboard/appointments" class="btn">View in Dashboard →</a>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
+function newBookingBarber(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">✂️ New Appointment</div>
+    <h1>Hi ${data.barberName}, you have a new booking!</h1>
+    <p>A client has booked with you at <span class="highlight">${data.shopName}</span>.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+    <div class="row"><span class="label">Phone</span><span class="val">${data.clientPhone}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    <hr class="divider">
+    <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
+function appointmentRejected(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="red-badge">Appointment Cancelled</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>Unfortunately, your appointment at <span class="highlight">${data.shopName}</span> has been cancelled by the shop.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${data.reason ? `<hr class="divider">
+    <p style="font-weight:600;color:#fff;margin-bottom:4px">Reason from the shop:</p>
+    <p style="background:#1a1a1a;border:1px solid #2D2D2D;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason}</p>` : ""}
+    <hr class="divider">
+    <p>We're sorry for the inconvenience. You're welcome to book a new time that works for you.</p>
+    <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Again →</a>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
+function refundIssued(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">💳 Refund Issued</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>A refund has been issued for your cancelled appointment at <span class="highlight">${data.shopName}</span>.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Original Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Refund Amount</span><span class="val">${data.total}</span></div>
+    <hr class="divider">
+    <p style="font-size:13px;color:#6B7280">Refunds typically appear on your statement within 5–10 business days depending on your bank.</p>
+    <p>We hope to see you again soon.</p>
+    <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Again →</a>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function barberInvite(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -342,6 +421,26 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `New Barber Request — ${data.barberName}`;
         html = shopOwnerNewBarberRequest(data);
+        break;
+      case "new_booking_owner":
+        to = data.ownerEmail;
+        subject = `New booking — ${data.clientName} · ${data.shopName}`;
+        html = newBookingOwner(data);
+        break;
+      case "new_booking_barber":
+        to = data.barberEmail;
+        subject = `New appointment — ${data.clientName} on ${data.date}`;
+        html = newBookingBarber(data);
+        break;
+      case "appointment_rejected":
+        to = data.clientEmail;
+        subject = `Your appointment at ${data.shopName} has been cancelled`;
+        html = appointmentRejected(data);
+        break;
+      case "refund_issued":
+        to = data.clientEmail;
+        subject = `Refund issued — ${data.shopName}`;
+        html = refundIssued(data);
         break;
       case "barber_invite":
         to = data.barberEmail;

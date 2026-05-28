@@ -42,6 +42,10 @@ export default function AppointmentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState("");
   const [savingStatus, setSavingStatus] = useState("");
+  const [rejectModal, setRejectModal] = useState<{ appt: AppointmentWithDetails; reason: string } | null>(null);
+  const [savingReject, setSavingReject] = useState(false);
+  const [refundModal, setRefundModal] = useState<AppointmentWithDetails | null>(null);
+  const [savingRefund, setSavingRefund] = useState(false);
 
   // Add appointment form state
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM" });
@@ -170,6 +174,75 @@ export default function AppointmentsPage() {
     await supabase.from("appointments").update({ notes }).eq("id", selectedApt.id);
     setAppointments(prev => prev.map(a => a.id === selectedApt.id ? { ...a, notes } : a));
     showToast("Notes saved");
+  };
+
+  const rejectAppointment = async () => {
+    if (!rejectModal || !shop) return;
+    const { appt, reason } = rejectModal;
+    setSavingReject(true);
+    const updatedNotes = reason
+      ? `[Rejected by shop: ${reason}]${appt.notes ? `\n${appt.notes}` : ""}`
+      : appt.notes ?? "";
+    await supabase.from("appointments").update({ status: "cancelled", notes: updatedNotes }).eq("id", appt.id);
+    setSavingReject(false);
+    setRejectModal(null);
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", notes: updatedNotes } : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", notes: updatedNotes } : null);
+
+    // Email customer if they have an email
+    if (appt.client_email) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "appointment_rejected",
+          data: {
+            clientName: appt.client_name,
+            clientEmail: appt.client_email,
+            shopName: shop.name,
+            shopSlug: shop.slug,
+            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+            date: appt.date,
+            time: appt.time_slot,
+            reason: reason || "",
+          },
+        }),
+      }).catch(() => null);
+    }
+    showToast("Appointment rejected" + (appt.client_email ? " · Email sent to client" : ""));
+  };
+
+  const issueRefund = async () => {
+    if (!refundModal || !shop) return;
+    const appt = refundModal;
+    setSavingRefund(true);
+    const refundNote = `[Refund issued ${new Date().toLocaleDateString("en-CA")}]`;
+    const updatedNotes = appt.notes ? `${appt.notes}\n${refundNote}` : refundNote;
+    await supabase.from("appointments").update({ notes: updatedNotes }).eq("id", appt.id);
+    setSavingRefund(false);
+    setRefundModal(null);
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, notes: updatedNotes } : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, notes: updatedNotes } : null);
+
+    if (appt.client_email) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "refund_issued",
+          data: {
+            clientName: appt.client_name,
+            clientEmail: appt.client_email,
+            shopName: shop.name,
+            shopSlug: shop.slug,
+            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+            date: appt.date,
+            total: `$${(appt.total_amount ?? 0).toFixed(2)}`,
+          },
+        }),
+      }).catch(() => null);
+    }
+    showToast("Refund marked" + (appt.client_email ? " · Confirmation email sent" : ""));
   };
 
   const addAppointment = async () => {
@@ -324,8 +397,8 @@ export default function AppointmentsPage() {
                               className="text-xs px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">✓</button>
                             <button onClick={() => updateStatus(apt.id, "completed")} disabled={savingStatus === apt.id}
                               className="text-xs px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50">Done</button>
-                            <button onClick={() => updateStatus(apt.id, "cancelled")} disabled={savingStatus === apt.id}
-                              className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50">✕</button>
+                            <button onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
+                              className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50">Reject</button>
                           </div>
                         </td>
                       </tr>
@@ -405,8 +478,81 @@ export default function AppointmentsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => updateStatus(selectedApt.id, "confirmed")}>Confirm</Button>
                 <Button variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={() => updateStatus(selectedApt.id, "completed")}>Complete</Button>
-                <Button variant="danger" onClick={() => updateStatus(selectedApt.id, "cancelled")}>Cancel</Button>
+                <Button variant="danger" onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</Button>
                 <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10" onClick={() => updateStatus(selectedApt.id, "no-show")}>No-Show</Button>
+              </div>
+              {selectedApt.status === "cancelled" && selectedApt.client_email && (
+                <Button variant="outline" className="w-full border-gold/30 text-gold hover:bg-gold/10 mt-2" onClick={() => setRefundModal(selectedApt)}>
+                  💳 Issue Refund
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Reject Modal */}
+      {rejectModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRejectModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
+                <button onClick={() => setRejectModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-surface-raised rounded-xl p-3 text-sm text-gray-400">
+                <span className="text-white font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {rejectModal.appt.date} {rejectModal.appt.time_slot}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">Reason (optional)</label>
+                <textarea
+                  value={rejectModal.reason}
+                  onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                  rows={3}
+                  placeholder="e.g. Barber unavailable, fully booked, shop closed…"
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                />
+              </div>
+              {rejectModal.appt.client_email && (
+                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
+                  A cancellation email will be sent to <span className="text-gray-300">{rejectModal.appt.client_email}</span> with this reason.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setRejectModal(null)}>Back</Button>
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingReject} onClick={rejectAppointment}>
+                  Reject & Notify
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Refund Modal */}
+      {refundModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRefundModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Issue Refund</h2>
+                <button onClick={() => setRefundModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-surface-raised rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-gray-400">Client</span><span className="text-white">{refundModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Amount</span><span className="text-gold font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+              </div>
+              <p className="text-sm text-gray-400">
+                This will mark the appointment as refunded and send a confirmation email to <span className="text-gray-300">{refundModal.client_email}</span>. Process the actual payment refund through your payment provider.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
+                <Button className="flex-1" loading={savingRefund} onClick={issueRefund}>
+                  Confirm Refund
+                </Button>
               </div>
             </div>
           </div>

@@ -247,26 +247,46 @@ export default function BookingPage() {
       is_read: false,
     }).then(null, () => null);
 
-    // Send confirmation email (fire-and-forget)
+    const bookingData = {
+      clientName: clientInfo.name,
+      clientEmail: clientInfo.email || "—",
+      clientPhone: clientInfo.phone || "—",
+      shopName: shop.name,
+      shopSlug: shop.slug,
+      barberName: barbers.find(b => b.id === finalBarberId)?.name ?? "Any Available",
+      serviceName: service?.name ?? "—",
+      date: selectedDate ? formatDateForDb(selectedDate) : "",
+      time: selectedTime ?? "",
+      total: `$${total.toFixed(2)}`,
+      bookingId: data.id.slice(0, 8).toUpperCase(),
+      appointmentId: data.id,
+    };
+
+    // Confirmation email to customer
     if (clientInfo.email) {
       fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "booking_confirmation",
-          data: {
-            clientName: clientInfo.name,
-            clientEmail: clientInfo.email,
-            shopName: shop.name,
-            barberName: barber?.name ?? "Any Available",
-            serviceName: service?.name ?? "",
-            date: selectedDate ? formatDateForDb(selectedDate) : "",
-            time: selectedTime ?? "",
-            total: `$${total.toFixed(2)}`,
-            bookingId: data.id.slice(0, 8).toUpperCase(),
-            appointmentId: data.id,
-          },
-        }),
+        body: JSON.stringify({ type: "booking_confirmation", data: { ...bookingData, clientEmail: clientInfo.email } }),
+      }).catch(() => null);
+    }
+
+    // Notification email to shop owner
+    if (shop.email) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "new_booking_owner", data: { ...bookingData, ownerEmail: shop.email } }),
+      }).catch(() => null);
+    }
+
+    // Notification email to assigned barber
+    const assignedBarber = barbers.find(b => b.id === finalBarberId);
+    if (assignedBarber?.email) {
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "new_booking_barber", data: { ...bookingData, barberEmail: assignedBarber.email, barberName: assignedBarber.name } }),
       }).catch(() => null);
     }
   };
