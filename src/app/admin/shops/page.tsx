@@ -36,7 +36,7 @@ function Toast({ msg, ok, onClose }: { msg: string; ok: boolean; onClose: () => 
 type StatusFilter = "all" | "pending" | "approved" | "suspended" | "rejected";
 
 export default function AdminShopsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, accessToken } = useAuth();
   const [shops, setShops] = useState<ShopWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -50,13 +50,15 @@ export default function AdminShopsPage() {
 
   const loadShops = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/shops");
+    const res = await fetch("/api/admin/shops", {
+      headers: { "Authorization": `Bearer ${accessToken ?? ""}` },
+    });
     if (res.ok) {
       const json = await res.json();
       setShops((json.shops ?? []) as ShopWithOwner[]);
     }
     setLoading(false);
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     if (!authLoading && user) loadShops();
@@ -65,7 +67,7 @@ export default function AdminShopsPage() {
   const updateStatus = async (shopId: string, status: string, rejection_reason?: string) => {
     const res = await fetch("/api/admin/shops", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${accessToken ?? ""}` },
       body: JSON.stringify({ id: shopId, status, rejection_reason }),
     });
     return res.ok;

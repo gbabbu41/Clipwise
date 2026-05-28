@@ -10,6 +10,7 @@ interface AuthContextType {
   shop: Shop | null;
   shops: Shop[];
   loading: boolean;
+  accessToken: string | null;
   signOut: () => Promise<void>;
   refreshShop: () => Promise<void>;
   setActiveShop: (shop: Shop) => void;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   shop: null,
   shops: [],
   loading: true,
+  accessToken: null,
   signOut: async () => {},
   refreshShop: async () => {},
   setActiveShop: () => {},
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [shop, setShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const setActiveShop = useCallback((s: Shop) => {
     setShop(s);
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       setUser(session?.user ?? null);
+      setAccessToken(session?.access_token ?? null);
       try {
         if (session?.access_token) {
           const { profile: p, shop: s, shops: all } = await fetchProfileAndShop(session.access_token);
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           setShop(null);
           setShops([]);
+          setAccessToken(null);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -95,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, shop, shops, loading, signOut, refreshShop, setActiveShop }}>
+    <AuthContext.Provider value={{ user, profile, shop, shops, loading, accessToken, signOut, refreshShop, setActiveShop }}>
       {children}
     </AuthContext.Provider>
   );
