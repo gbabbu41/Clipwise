@@ -157,7 +157,7 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/signup">
             <Button size="lg" className="w-full sm:w-auto text-base px-8">
-              Start Free 14-Day Trial <ArrowRight size={18} />
+              Get Started Free <ArrowRight size={18} />
             </Button>
           </Link>
           <Link href="/shops">
