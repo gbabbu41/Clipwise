@@ -89,3 +89,79 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ── Focus rings — visible on dark backgrounds ────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #E4C97A;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #E4C97A;
+  outline-offset: 2px;
+}
+
+/* ── Touch targets — minimum 44px ─────────────────────────────────────────── */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Card hover lift ──────────────────────────────────────────────────────── */
+.card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Tooltip ──────────────────────────────────────────────────────────────── */
+.tooltip-container {
+  position: relative;
+}
+.tooltip-content {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2C2C2E;
+  border: 1px solid #3A3A3C;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #E0E0E0;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 60;
+}
+.tooltip-container:hover .tooltip-content {
+  opacity: 1;
+}
+
+/* ── Smooth fade-in for page sections ─────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease forwards;
+}
+
+/* ── Slide up for toasts ──────────────────────────────────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.2s ease forwards;
+}

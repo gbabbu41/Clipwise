@@ -81,6 +81,13 @@ export default function ClientsPage() {
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
+  // Keyboard: Escape closes panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedClient(null); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const openClient = async (client: Client) => {
     setSelectedClient(client);
     setNotes(client.notes ?? "");
@@ -281,17 +288,32 @@ export default function ClientsPage() {
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-44 rounded-2xl bg-surface-raised animate-pulse" />)}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-surface border border-border rounded-2xl p-5 space-y-3 animate-pulse">
+              <div className="flex items-start justify-between">
+                <div className="w-10 h-10 rounded-full bg-surface-raised" />
+                <div className="h-5 w-16 rounded-full bg-surface-raised" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="h-4 w-32 bg-surface-raised rounded" />
+                <div className="h-3 w-24 bg-surface-raised rounded" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[1,2,3,4].map(j => <div key={j} className="h-10 bg-surface-raised rounded-xl" />)}
+              </div>
+            </div>
+          ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-3xl mb-3">👥</p>
-          <p className="text-gray-400 text-sm">{clients.length === 0 ? "No clients yet. Add your first client above." : "No clients match your filters."}</p>
+        <div className="text-center py-16">
+          <p className="text-4xl mb-3">👥</p>
+          <p className="text-white font-medium mb-1">{clients.length === 0 ? "Your client list is empty" : "No clients match your filters"}</p>
+          <p className="text-sm text-gray-500">{clients.length === 0 ? "Clients are added automatically when they book, or you can add them manually above." : "Try a different search or filter."}</p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
-            <Card key={client.id} className="hover:border-gold/30 transition-colors cursor-pointer" onClick={() => openClient(client)}>
+            <Card key={client.id} className="hover:border-gold/30 transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm">
                   {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}

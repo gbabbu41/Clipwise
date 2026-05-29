@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KeyRound, Trash2, Copy, Check } from "lucide-react";
 import { getPlanLimit } from "@/lib/validation";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -304,17 +305,23 @@ export default function StaffPage() {
           <h1 className="text-2xl font-bold text-white">Staff</h1>
           <p className="text-sm text-gray-400 mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
+        {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
+          <Tooltip content={`${shop.subscription_plan} plan: max ${getPlanLimit(shop.subscription_plan)} barber${getPlanLimit(shop.subscription_plan) > 1 ? "s" : ""}. Upgrade to add more.`}>
+            <Button disabled>+ Add Barber</Button>
+          </Tooltip>
+        ) : (
+          <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
+        )}
       </div>
 
       {/* Barber Cards */}
       {barbers.length === 0 ? (
         <Card>
-          <div className="py-16 text-center text-gray-500">
+          <div className="py-16 text-center">
             <p className="text-4xl mb-3">💈</p>
-            <p className="font-medium text-white">No barbers yet</p>
-            <p className="text-sm mt-1">Add your first barber to get started</p>
-            <Button className="mt-4" onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
+            <p className="font-medium text-white mb-1">No barbers yet</p>
+            <p className="text-sm text-gray-500 mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
+            <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
           </div>
         </Card>
       ) : (

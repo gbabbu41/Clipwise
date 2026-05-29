@@ -101,6 +101,19 @@ export default function AppointmentsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Keyboard: Escape closes side panel and modals
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedApt(null);
+        setRejectModal(null);
+        setRefundModal(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const updateStatus = async (id: string, status: AppStatus) => {
     setSavingStatus(id);
     await supabase.from("appointments").update({ status }).eq("id", id);
@@ -363,7 +376,20 @@ export default function AppointmentsPage() {
           </div>
 
           {loading ? (
-            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+            <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-border/50 last:border-0">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16" />
+                <div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-20" /></div>
+                <Skeleton className="h-3.5 w-20" />
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-4 w-12" />
+                <div className="flex gap-1"><Skeleton className="h-6 w-6 rounded-lg" /><Skeleton className="h-6 w-12 rounded-lg" /><Skeleton className="h-6 w-14 rounded-lg" /></div>
+              </div>
+            ))}
+          </div>
           ) : (
             <Card className="p-0 overflow-hidden">
               <div className="overflow-x-auto">
@@ -377,7 +403,11 @@ export default function AppointmentsPage() {
                   </thead>
                   <tbody>
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-12 text-gray-400">No appointments found</td></tr>
+                      <tr><td colSpan={8} className="text-center py-16">
+                        <p className="text-3xl mb-3">📅</p>
+                        <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                        <p className="text-sm text-gray-500">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                      </td></tr>
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
                         className="border-b border-border/50 hover:bg-surface-raised/50 cursor-pointer transition-colors">

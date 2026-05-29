@@ -243,11 +243,13 @@ export default function MessagesPage() {
           ) : filteredThreads.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-6">
               <MessageSquare size={36} className="text-gray-600 mb-3" />
-              <p className="text-sm font-medium text-white mb-1">No conversations yet</p>
-              <p className="text-xs text-gray-500 mb-4">Start a conversation with a client</p>
-              <Button size="sm" variant="outline" onClick={startCompose}>
-                <Plus size={14} /> New Message
-              </Button>
+              <p className="text-sm font-medium text-white mb-1">{search ? "No conversations match" : "No messages yet"}</p>
+              <p className="text-xs text-gray-500 mb-4">{search ? "Try a different search term" : "Send your first message to a client to get started"}</p>
+              {!search && (
+                <Button size="sm" variant="outline" onClick={startCompose}>
+                  <Plus size={14} /> Send First Message
+                </Button>
+              )}
             </div>
           ) : (
             filteredThreads.map(thread => {

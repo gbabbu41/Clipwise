@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [toast, setToast] = useState("");
   const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
   const [clockLoading, setClockLoading] = useState(false);
+  const [newBookingNotif, setNewBookingNotif] = useState<{ title: string; message: string } | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -111,6 +113,22 @@ export default function DashboardPage() {
     supabase.from("staff_hours").select("id, clock_in").eq("barber_id", myBarberId).eq("date", today).is("clock_out", null).maybeSingle()
       .then(({ data }) => { if (data) setClockedIn({ id: data.id, clock_in: data.clock_in }); });
   }, [myBarberId, shop]);
+
+  // ── Realtime new booking notifications for shop owners ─────────────────────
+  useEffect(() => {
+    if (!shop || profile?.role !== "shop_owner") return;
+    const channel = supabase
+      .channel(`booking-notifs:${shop.id}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "notifications",
+        filter: `user_id=eq.${shop.owner_id}`,
+      }, (payload) => {
+        const n = payload.new as { type: string; title: string; message: string };
+        if (n.type === "booking") setNewBookingNotif({ title: n.title, message: n.message });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [shop, profile]);
 
   const handleClockIn = async () => {
     if (!myBarberId || !shop) return;
@@ -261,6 +279,35 @@ export default function DashboardPage() {
   return (
     <div className="p-4 lg:p-8 animate-fade-in">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
+
+      {/* New Booking Notification Modal */}
+      {newBookingNotif && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setNewBookingNotif(null)} />
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            <div className="bg-surface border border-gold/30 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
+              <div className="w-14 h-14 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center mx-auto mb-4">
+                <Calendar size={24} className="text-gold" />
+              </div>
+              <h2 className="text-lg font-bold text-white mb-1">{newBookingNotif.title}</h2>
+              <p className="text-sm text-gray-400 mb-5">{newBookingNotif.message}</p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setNewBookingNotif(null)}>Dismiss</Button>
+                <Link href="/dashboard/appointments" className="flex-1">
+                  <Button className="w-full" onClick={() => setNewBookingNotif(null)}>View Booking</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Onboarding banner — shown to new shop owners */}
+      {shop && profile?.role === "shop_owner" && (
+        <div className="mb-6">
+          <OnboardingBanner shop={shop} />
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
