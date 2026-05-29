@@ -25,6 +25,17 @@ type AppointmentRow = Pick<Appointment, "id" | "date" | "time_slot" | "total_amo
 type NewClient = { name: string; phone: string; email: string; notes: string };
 const BLANK_CLIENT: NewClient = { name: "", phone: "", email: "", notes: "" };
 
+interface HairProfile {
+  topGuard: string;
+  sidesGuard: string;
+  fadeType: string;
+  beardStyle: string;
+  styleNotes: string;
+  productsUsed: string;
+  barberNotes: string;
+}
+const BLANK_HAIR: HairProfile = { topGuard: "", sidesGuard: "", fadeType: "", beardStyle: "", styleNotes: "", productsUsed: "", barberNotes: "" };
+
 export default function ClientsPage() {
   const { shop } = useAuth();
   const [tagFilter, setTagFilter] = useState("All");
@@ -42,6 +53,9 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false);
   const [newClient, setNewClient] = useState<NewClient>(BLANK_CLIENT);
   const [noShowCounts, setNoShowCounts] = useState<Record<string, number>>({});
+  const [activeTab, setActiveTab] = useState<"overview" | "hair" | "history">("overview");
+  const [hairProfile, setHairProfile] = useState<HairProfile>(BLANK_HAIR);
+  const [savingHair, setSavingHair] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -66,6 +80,9 @@ export default function ClientsPage() {
   const openClient = async (client: Client) => {
     setSelectedClient(client);
     setNotes(client.notes ?? "");
+    setActiveTab("overview");
+    const hp = (client as Client & { hair_profile?: HairProfile }).hair_profile;
+    setHairProfile(hp ?? BLANK_HAIR);
     const { data } = await supabase
       .from("appointments")
       .select("id, date, time_slot, total_amount, status, barbers(name), services(name)")
@@ -85,6 +102,14 @@ export default function ClientsPage() {
       showToast("Notes saved!");
     } else showToast("Error saving notes");
     setSaving(false);
+  };
+
+  const saveHairProfile = async () => {
+    if (!selectedClient) return;
+    setSavingHair(true);
+    const { error } = await supabase.from("clients").update({ hair_profile: hairProfile }).eq("id", selectedClient.id);
+    setSavingHair(false);
+    showToast(error ? "Error saving hair profile" : "Hair profile saved!");
   };
 
   const addPoints = async () => {
@@ -323,75 +348,164 @@ export default function ClientsPage() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Phone", value: selectedClient.phone ?? "—" },
-                { label: "Email", value: selectedClient.email ?? "—" },
-                { label: "Total Visits", value: String(selectedClient.total_visits) },
-                { label: "Total Spent", value: formatCurrency(selectedClient.total_spent) },
-                { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
-                { label: "Last Visit", value: selectedClient.last_visit ?? "—" },
-              ].map(item => (
-                <div key={item.label} className="p-3 bg-surface-raised rounded-xl border border-border">
-                  <p className="text-xs text-gray-400">{item.label}</p>
-                  <p className="text-sm text-white mt-0.5 break-all">{item.value}</p>
-                </div>
+            {/* Tabs */}
+            <div className="flex gap-1 bg-surface-raised border border-border rounded-xl p-1">
+              {(["overview", "hair", "history"] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
+                    activeTab === tab ? "bg-gold/15 text-gold border border-gold/20" : "text-gray-400 hover:text-white")}>
+                  {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
+                </button>
               ))}
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Appointment History</p>
-              {clientAppointments.length === 0 ? (
-                <p className="text-sm text-gray-500">No appointments found</p>
-              ) : (
-                <div className="space-y-2">
-                  {clientAppointments.map(apt => (
-                    <div key={apt.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
-                      <div>
-                        <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
-                        <p className="text-xs text-gray-400">{apt.date} {apt.time_slot}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gold">{formatCurrency(apt.total_amount)}</p>
-                        <span className={cn("text-xs", apt.status === "completed" ? "text-blue-400" : "text-gray-400")}>{apt.status}</span>
-                      </div>
+
+            {/* Overview tab */}
+            {activeTab === "overview" && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Phone", value: selectedClient.phone ?? "—" },
+                    { label: "Email", value: selectedClient.email ?? "—" },
+                    { label: "Total Visits", value: String(selectedClient.total_visits) },
+                    { label: "Total Spent", value: formatCurrency(selectedClient.total_spent) },
+                    { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
+                    { label: "Last Visit", value: selectedClient.last_visit ?? "—" },
+                  ].map(item => (
+                    <div key={item.label} className="p-3 bg-surface-raised rounded-xl border border-border">
+                      <p className="text-xs text-gray-400">{item.label}</p>
+                      <p className="text-sm text-white mt-0.5 break-all">{item.value}</p>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-            <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
-            <div className="flex gap-2">
-              <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={async () => {
-                if (!selectedClient.email || !shop) { showToast("No email on file for this client"); return; }
-                const res = await fetch("/api/send-email", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "rebooking_reminder",
-                    data: {
-                      clientName: selectedClient.name,
-                      clientEmail: selectedClient.email,
-                      shopName: shop.name,
-                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
-                    },
-                  }),
-                });
-                showToast(res.ok ? "Re-engagement email sent!" : "Failed to send email");
-              }}>
-                {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
-              </Button>
-            </div>
-            <div className="p-4 bg-surface-raised rounded-xl border border-border">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-white">Loyalty Points</p>
-                <p className="text-xl font-bold text-gold">{selectedClient.loyalty_points} pts</p>
+                <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
+                <div className="flex gap-2">
+                  <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
+                  <Button variant="outline" size="sm" className="flex-1" onClick={async () => {
+                    if (!selectedClient.email || !shop) { showToast("No email on file for this client"); return; }
+                    const res = await fetch("/api/send-email", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        type: "rebooking_reminder",
+                        data: {
+                          clientName: selectedClient.name,
+                          clientEmail: selectedClient.email,
+                          shopName: shop.name,
+                          bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                        },
+                      }),
+                    });
+                    showToast(res.ok ? "Re-engagement email sent!" : "Failed to send email");
+                  }}>
+                    {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
+                  </Button>
+                </div>
+                <div className="p-4 bg-surface-raised rounded-xl border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-white">Loyalty Points</p>
+                    <p className="text-xl font-bold text-gold">{selectedClient.loyalty_points} pts</p>
+                  </div>
+                  <div className="w-full h-2 bg-surface rounded-full overflow-hidden mb-3">
+                    <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setAddPointsClient(selectedClient)}>+ Add Points</Button>
+                </div>
+              </>
+            )}
+
+            {/* Hair Profile tab */}
+            {activeTab === "hair" && (
+              <div className="space-y-4">
+                <p className="text-xs text-gray-500">Saved per client — visible to all barbers at your shop.</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "topGuard" as keyof HairProfile, label: "Top — Guard #", placeholder: "e.g. 4" },
+                    { key: "sidesGuard" as keyof HairProfile, label: "Sides — Guard #", placeholder: "e.g. 1.5" },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="space-y-1.5">
+                      <label className="text-xs font-medium text-gray-400">{label}</label>
+                      <input
+                        value={hairProfile[key]}
+                        onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-gold/50"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-400">Fade Type</label>
+                    <select
+                      value={hairProfile.fadeType}
+                      onChange={e => setHairProfile(p => ({ ...p, fadeType: e.target.value }))}
+                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                    >
+                      <option value="">— select —</option>
+                      {["None", "Low Fade", "Mid Fade", "High Fade", "Skin Fade", "Taper"].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-400">Beard</label>
+                    <select
+                      value={hairProfile.beardStyle}
+                      onChange={e => setHairProfile(p => ({ ...p, beardStyle: e.target.value }))}
+                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                    >
+                      <option value="">— select —</option>
+                      {["None", "Shape Up", "Light Trim", "Full Trim", "Full Beard", "Shave"].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {[
+                  { key: "styleNotes" as keyof HairProfile, label: "Style Notes", placeholder: "e.g. Deep part on left side, leave length on top, textured finish…" },
+                  { key: "productsUsed" as keyof HairProfile, label: "Products Used", placeholder: "e.g. Matte pomade, edge control…" },
+                  { key: "barberNotes" as keyof HairProfile, label: "Barber Notes (internal)", placeholder: "e.g. Comes in every 3 weeks, sensitive around ears…" },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key} className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-400">{label}</label>
+                    <textarea
+                      value={hairProfile[key]}
+                      onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      rows={2}
+                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                    />
+                  </div>
+                ))}
+
+                <Button className="w-full" loading={savingHair} onClick={saveHairProfile}>Save Hair Profile</Button>
               </div>
-              <div className="w-full h-2 bg-surface rounded-full overflow-hidden mb-3">
-                <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
+            )}
+
+            {/* History tab */}
+            {activeTab === "history" && (
+              <div>
+                {clientAppointments.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No appointments found</p>
+                ) : (
+                  <div className="space-y-2">
+                    {clientAppointments.map(apt => (
+                      <div key={apt.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
+                        <div>
+                          <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
+                          <p className="text-xs text-gray-400">{apt.date} {apt.time_slot}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gold">{formatCurrency(apt.total_amount)}</p>
+                          <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-gray-400")}>
+                            {apt.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => setAddPointsClient(selectedClient)}>+ Add Points</Button>
-            </div>
+            )}
           </div>
         </>
       )}
