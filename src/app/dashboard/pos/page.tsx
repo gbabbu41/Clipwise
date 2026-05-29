@@ -91,7 +91,15 @@ export default function POSPage() {
   };
 
   const charge = async () => {
-    if (cart.length === 0) { showToast("Add items first!"); return; }
+    if (cart.length === 0) { showToast("Please select a service first"); return; }
+    if (total <= 0) { showToast("Cannot charge $0 — please add items"); return; }
+    const tipPct = tipPercent !== null ? tipPercent : customTip ? (Number(customTip) / subtotal) * 100 : 0;
+    if (tipPct > 100) { showToast("Tip cannot exceed 100%"); return; }
+    if (paymentMethod === "cash") {
+      const cashEl = document.getElementById("cash-input") as HTMLInputElement | null;
+      const cashVal = cashEl ? parseFloat(cashEl.value) : NaN;
+      if (!isNaN(cashVal) && cashVal < total) { showToast(`Cash amount ($${cashVal.toFixed(2)}) is less than total ($${total.toFixed(2)})`); return; }
+    }
     setCharging(true);
 
     const selectedBarber = barbers.find(b => b.id === barberId);

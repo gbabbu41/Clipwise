@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KeyRound, Trash2, Copy, Check } from "lucide-react";
+import { getPlanLimit } from "@/lib/validation";
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -184,6 +185,11 @@ export default function StaffPage() {
   // ── Add barber manually ─────────────────────────────────────────────────────
   const addBarber = async () => {
     if (!shop || !addForm.name.trim()) return;
+    const limit = getPlanLimit(shop.subscription_plan);
+    if (barbers.length >= limit) {
+      showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
+      return;
+    }
     setSavingAdd(true);
     const { error } = await supabase.from("barbers").insert({
       shop_id: shop.id,
@@ -205,6 +211,11 @@ export default function StaffPage() {
   // ── Invite barber by email ──────────────────────────────────────────────────
   const inviteBarber = async () => {
     if (!addForm.name.trim() || !addForm.email.trim()) return;
+    const limit = getPlanLimit(shop?.subscription_plan ?? "starter");
+    if (barbers.length >= limit) {
+      showToast(`${shop?.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
+      return;
+    }
     if (!accessToken) return;
     setSavingAdd(true);
     const res = await fetch("/api/admin/barber/invite", {

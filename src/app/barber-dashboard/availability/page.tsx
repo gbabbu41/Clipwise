@@ -56,6 +56,14 @@ export default function BarberAvailabilityPage() {
 
   async function save() {
     if (!accessToken) return;
+    // Validate: end time after start time for each active day
+    for (const slot of slots) {
+      if (slot.is_available && slot.start_time >= slot.end_time) {
+        setSaved(false);
+        alert(`${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][slot.day_of_week]}: closing time must be after opening time`);
+        return;
+      }
+    }
     setSaving(true);
     await fetch("/api/barber/availability", {
       method: "PUT",

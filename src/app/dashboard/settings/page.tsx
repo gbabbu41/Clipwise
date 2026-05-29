@@ -214,6 +214,18 @@ export default function SettingsPage() {
 
   const saveHours = async () => {
     if (!shop) return;
+    // Validate: at least one day open
+    const openDays = Object.values(hours).filter(h => !h.closed);
+    if (openDays.length === 0) { showToast("Please set hours for at least one day"); return; }
+    // Validate: close time after open time for each open day
+    const ALL_TIMES_LIST = generate24hSlots();
+    for (const [day, h] of Object.entries(hours)) {
+      if (!h.closed) {
+        const openIdx = ALL_TIMES_LIST.indexOf(h.open);
+        const closeIdx = ALL_TIMES_LIST.indexOf(h.close);
+        if (closeIdx <= openIdx) { showToast(`${day}: closing time must be after opening time`); return; }
+      }
+    }
     setSaving(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from("shops").update({ business_hours: hours } as any).eq("id", shop.id));

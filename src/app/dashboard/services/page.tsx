@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
+import { validatePrice, validateDuration } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -87,7 +88,12 @@ export default function ServicesPage() {
   };
 
   const saveService = async () => {
-    if (!shop || !newSvc.name.trim()) return;
+    if (!shop) return;
+    if (!newSvc.name.trim() || newSvc.name.trim().length < 3) { showToast("Service name must be at least 3 characters"); return; }
+    const priceErr = validatePrice(newSvc.price);
+    if (priceErr) { showToast(priceErr); return; }
+    const durErr = validateDuration(newSvc.duration_minutes);
+    if (durErr) { showToast(durErr); return; }
     setSaving(true);
     const payload = {
       shop_id: shop.id,
@@ -116,6 +122,15 @@ export default function ServicesPage() {
   };
 
   const deleteService = async (id: string) => {
+    // Check for upcoming appointments
+    const today = new Date().toISOString().split("T")[0];
+    const { count } = await supabase.from("appointments").select("id", { count: "exact", head: true })
+      .eq("service_id", id).gte("date", today).in("status", ["pending", "confirmed"]);
+    if (count && count > 0) {
+      showToast(`Cannot delete — has ${count} upcoming booking${count > 1 ? "s" : ""}`);
+      setDeleteConfirm(null);
+      return;
+    }
     const { error } = await supabase.from("services").delete().eq("id", id);
     if (!error) { setServices(prev => prev.filter(s => s.id !== id)); showToast("Service deleted."); }
     else showToast("Error: " + error.message);

@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange } from "@/lib/utils";
+import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
 
@@ -65,6 +66,7 @@ export default function BookingPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
   // ── Availability state ─────────────────────────────────────────────────────
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -203,6 +205,9 @@ export default function BookingPage() {
   const confirmBooking = async () => {
     if (!shop || !selectedService || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
+    if (!isWithin6Months(selectedDate)) { showToast("Cannot book more than 6 months in advance.", false); return; }
+    const clientErrs = validateClientInfo();
+    if (Object.keys(clientErrs).length > 0) { setClientErrors(clientErrs); return; }
     setSaving(true);
     const service = services.find((s) => s.id === selectedService);
     const discount = promoApplied
@@ -303,28 +308,39 @@ export default function BookingPage() {
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category)))];
   const filteredServices = services.filter((s) => s.is_active && (categoryFilter === "All" || s.category === categoryFilter));
 
-  // Calendar: 21 days from today
+  // Calendar: 6 months from today (was 21 days)
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const calendarDays = Array.from({ length: 21 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; });
+  const calendarDays = Array.from({ length: 180 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
+    .filter(d => isWithin6Months(d));
 
   // Steps
   const STEPS_TIME_FIRST = ["Service", "Date", "Time & Barber", "Your Info", "Promo", "Confirm"];
   const STEPS_BARBER_FIRST = ["Barber", "Service", "Date", "Time", "Your Info", "Promo", "Confirm"];
   const STEPS = flow === "time-first" ? STEPS_TIME_FIRST : STEPS_BARBER_FIRST;
 
+  const validateClientInfo = () => {
+    const errs: Record<string, string> = {};
+    if (!clientInfo.name.trim()) errs.name = "Name is required";
+    const emailErr = validateEmail(clientInfo.email);
+    if (emailErr) errs.email = emailErr;
+    const phoneErr = validatePhone(clientInfo.phone);
+    if (phoneErr) errs.phone = phoneErr;
+    return errs;
+  };
+
   const canNext = () => {
     if (flow === "time-first") {
       if (step === 0) return !!selectedService;
-      if (step === 1) return !!selectedDate;
+      if (step === 1) return !!selectedDate && isWithin6Months(selectedDate);
       if (step === 2) return !!selectedTime;
-      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone);
+      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
       return true;
     } else {
       if (step === 0) return !!selectedBarber;
       if (step === 1) return !!selectedService;
-      if (step === 2) return !!selectedDate;
+      if (step === 2) return !!selectedDate && isWithin6Months(selectedDate);
       if (step === 3) return !!selectedTime;
-      if (step === 4) return !!(clientInfo.name && clientInfo.email && clientInfo.phone);
+      if (step === 4) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
       return true;
     }
   };
@@ -640,7 +656,10 @@ export default function BookingPage() {
             )}
             {!slotsLoading && slotGrid.length > 0 && (
               <div className="space-y-2">
-                {slotGrid.map(({ slot, available, barberIds }) => {
+                {slotGrid.filter(({ slot }) => {
+                  const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
+                  return !(isToday && isSlotInPast(slot));
+                }).map(({ slot, available, barberIds }) => {
                   const isSelected = selectedTime === slot;
                   const isExpanded = expandedSlot === slot;
                   const slotBarbers = barbers.filter((b) => barberIds.includes(b.id));
@@ -725,7 +744,10 @@ export default function BookingPage() {
             )}
             {!slotsLoading && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {slotGrid.map(({ slot, available }) => (
+                {slotGrid.filter(({ slot }) => {
+                  const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
+                  return !(isToday && isSlotInPast(slot));
+                }).map(({ slot, available }) => (
                   <button key={slot} onClick={() => available && setSelectedTime(slot)} disabled={!available}
                     className={cn(
                       "py-2.5 px-3 rounded-xl border text-sm font-medium transition-all",
@@ -746,14 +768,21 @@ export default function BookingPage() {
             {([
               { key: "name" as const, label: "Full Name", placeholder: "Devon Williams", type: "text" },
               { key: "email" as const, label: "Email Address", placeholder: "devon@email.com", type: "email" },
-              { key: "phone" as const, label: "Phone Number", placeholder: "(506) 555-0201", type: "tel" },
+              { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
             ]).map(({ key, label, placeholder, type }) => (
               <div key={key} className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">{label}</label>
-                <input type={type} value={clientInfo[key]} onChange={(e) => setClientInfo({ ...clientInfo, [key]: e.target.value })}
+                <input type={type} value={clientInfo[key]}
+                  onChange={(e) => {
+                    const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
+                    setClientInfo({ ...clientInfo, [key]: val });
+                    if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+                  }}
                   placeholder={placeholder}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                  className={cn("w-full bg-surface-raised border rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50")}
                 />
+                {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
               </div>
             ))}
             <p className="text-xs text-gray-600">You&apos;ll receive a confirmation to the details provided.</p>
