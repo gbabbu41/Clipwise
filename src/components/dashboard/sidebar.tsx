@@ -12,6 +12,7 @@ import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
 import type { Shop } from "@/lib/database.types";
 
 interface NavItem {
@@ -20,6 +21,7 @@ interface NavItem {
   icon: React.ElementType;
   badge?: boolean;
   ownerOnly?: boolean;
+  feature?: PlanFeature;
 }
 
 const navItems: NavItem[] = [
@@ -29,20 +31,21 @@ const navItems: NavItem[] = [
   { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
   { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true },
   { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true },
-  { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt },
+  { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
   { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
   { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true },
-  { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true },
+  { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
-  { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true },
+  { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
   { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
   { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true },
-  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true },
-  { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true },
+  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
+  { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
   { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true },
   { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
   { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
   { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
@@ -137,7 +140,15 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {navItems.filter(item => !item.ownerOnly || profile?.role !== "barber").map((item) => {
+        {navItems.filter(item => {
+          if (item.ownerOnly && profile?.role === "barber") return false;
+          // Feature-gated items hidden unless the shop's active plan unlocks them
+          if (item.feature) {
+            const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+            return planHasFeature(plan, item.feature);
+          }
+          return true;
+        }).map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (

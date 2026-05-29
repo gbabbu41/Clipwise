@@ -237,6 +237,20 @@ function appointmentCancelled(data: Record<string, string>) {
   `);
 }
 
+function subscriptionCancelled(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="red-badge">Subscription Cancelled</div>
+    <h1>Your subscription was cancelled</h1>
+    <p>Your ClipWise subscription for <span class="highlight">${data.shopName}</span> has been cancelled. Your shop has been moved to the free <span class="highlight">Starter</span> plan.</p>
+    <hr class="divider">
+    <p>Premium features (customer payments, POS, extra barbers) are now locked. You can resubscribe anytime to restore them.</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">Reactivate Subscription →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function birthdayWish(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -444,6 +458,11 @@ export async function POST(req: NextRequest) {
         to = data.clientEmail;
         subject = `Happy Birthday from ${data.shopName}! 🎂`;
         html = birthdayWish(data);
+        break;
+      case "subscription_cancelled":
+        to = data.ownerEmail;
+        subject = "Your ClipWise subscription was cancelled";
+        html = subscriptionCancelled(data);
         break;
       case "new_booking_owner":
         to = data.ownerEmail;

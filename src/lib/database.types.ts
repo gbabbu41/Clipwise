@@ -29,6 +29,11 @@ export interface Shop {
   description?: string;
   slug: string;
   stripe_account_id?: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  subscription_status?: "active" | "cancelled" | "past_due" | "inactive";
+  stripe_connected?: boolean;
+  stripe_connect_status?: "pending" | "active";
   instagram?: string;
   tiktok?: string;
   facebook?: string;
@@ -96,6 +101,8 @@ export interface Appointment {
   deposit_paid: boolean;
   total_amount: number;
   payment_method?: PaymentMethod;
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid";
+  payment_intent_id?: string;
   created_at: string;
 }
 

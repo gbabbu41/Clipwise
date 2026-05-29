@@ -81,10 +81,16 @@ export default function OnboardingPage() {
         const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
         const chosenPlan = planData.plan || "starter";
         const autoApprove = planData.autoApprove === true;
-        sessionStorage.removeItem("clipwise_plan");
         const { data, error: err } = await supabase
           .from("shops")
-          .insert({ ...shop, owner_id: user!.id, slug, status: autoApprove ? "approved" : "pending", subscription_plan: chosenPlan })
+          .insert({
+            ...shop, owner_id: user!.id, slug,
+            status: autoApprove ? "approved" : "pending",
+            subscription_plan: chosenPlan,
+            stripe_subscription_id: planData.subscriptionId ?? null,
+            stripe_customer_id: planData.customerId ?? null,
+            subscription_status: autoApprove ? "active" : "inactive",
+          })
           .select()
           .single();
         if (err) throw err;
@@ -372,7 +378,15 @@ export default function OnboardingPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>
-              <Button className="flex-1" onClick={() => router.push("/dashboard")}>Go to Dashboard <ChevronRight size={16} /></Button>
+              <Button className="flex-1" onClick={() => {
+                const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
+                sessionStorage.removeItem("clipwise_plan");
+                if (planData.autoApprove && (planData.plan === "pro" || planData.plan === "premium")) {
+                  router.push("/onboarding/stripe-connect");
+                } else {
+                  router.push("/dashboard");
+                }
+              }}>Continue <ChevronRight size={16} /></Button>
             </div>
           </div>
         )}

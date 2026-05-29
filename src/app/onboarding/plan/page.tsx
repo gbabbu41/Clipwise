@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Check, Lock, Zap, Crown, CreditCard, ArrowRight } from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Check, Zap, Crown, ArrowRight, AlertCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 type Plan = "starter" | "pro" | "premium";
 
@@ -74,113 +75,73 @@ const PLANS = [
   },
 ];
 
-// Fake card number formatting
-function formatCardNumber(val: string) {
-  return val.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
-}
-function formatExpiry(val: string) {
-  const digits = val.replace(/\D/g, "").slice(0, 4);
-  if (digits.length >= 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return digits;
-}
-
-export default function PlanPage() {
+function PlanPageInner() {
   const router = useRouter();
-  const [selected, setSelected] = useState<Plan | null>(null);
-  const [step, setStep] = useState<"pick" | "pay" | "success">("pick");
-  const [card, setCard] = useState({ name: "", number: "", expiry: "", cvv: "" });
-  const [processing, setProcessing] = useState(false);
+  const searchParams = useSearchParams();
+  const { accessToken } = useAuth();
+  const [step, setStep] = useState<"pick" | "redirecting" | "verifying" | "success">("pick");
+  const [error, setError] = useState("");
 
-  const chosenPlan = PLANS.find(p => p.id === selected);
+  // Handle return from Stripe Checkout
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "cancelled") {
+      setError("Payment cancelled. Choose a plan to continue.");
+      router.replace("/onboarding/plan");
+      return;
+    }
+    if (status === "success") {
+      const sessionId = searchParams.get("session_id");
+      const plan = searchParams.get("plan");
+      if (!sessionId || !plan) return;
+      setStep("verifying");
+      fetch(`/api/stripe/verify-session?session_id=${sessionId}`)
+        .then(r => r.json())
+        .then(({ paid, subscriptionId, customerId }) => {
+          if (paid) {
+            sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan, autoApprove: true, subscriptionId, customerId, sessionId }));
+            setStep("success");
+            setTimeout(() => router.push("/onboarding"), 1400);
+          } else {
+            setError("We couldn't confirm your payment. Please try again.");
+            setStep("pick");
+          }
+        })
+        .catch(() => { setError("Payment verification failed. Please try again."); setStep("pick"); });
+    }
+  }, [searchParams, router]);
 
-  function selectPlan(plan: Plan) {
-    setSelected(plan);
+  async function selectPlan(plan: Plan) {
+    setError("");
     if (plan === "starter") {
       sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan: "starter", autoApprove: false }));
       router.push("/onboarding");
-    } else {
-      setStep("pay");
+      return;
+    }
+    if (!accessToken) { setError("Please sign in again to continue."); return; }
+    setStep("redirecting");
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) { setError(data.error ?? "Could not start checkout."); setStep("pick"); return; }
+      window.location.href = data.url; // redirect to Stripe hosted checkout
+    } catch {
+      setError("Connection error. Please try again.");
+      setStep("pick");
     }
   }
 
-  async function handlePay(e: React.FormEvent) {
-    e.preventDefault();
-    setProcessing(true);
-    // Simulate payment processing
-    await new Promise(r => setTimeout(r, 2000));
-    setProcessing(false);
-    setStep("success");
-    sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan: selected, autoApprove: true }));
-    await new Promise(r => setTimeout(r, 1500));
-    router.push("/onboarding");
-  }
-
-  if (step === "pay" && chosenPlan) {
+  if (step === "redirecting" || step === "verifying") {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <Logo size="md" className="justify-center mb-4" />
-            <h1 className="text-2xl font-bold text-white">Complete your subscription</h1>
-            <p className="text-gray-500 text-sm mt-1">{chosenPlan.name} — {chosenPlan.price}{chosenPlan.sub}</p>
-          </div>
-
-          {step === "success" as typeof step ? null : (
-            <div className="bg-surface border border-border rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-6 p-3 bg-gold/10 border border-gold/20 rounded-xl">
-                <Lock size={14} className="text-gold flex-shrink-0" />
-                <p className="text-xs text-gray-300">Your payment info is secured. Stripe will be integrated in a future update — this is a demo checkout.</p>
-              </div>
-
-              <form onSubmit={handlePay} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-300">Name on card</label>
-                  <input required value={card.name} onChange={e => setCard(c => ({ ...c, name: e.target.value }))}
-                    placeholder="Marcus Johnson"
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-300">Card number</label>
-                  <div className="relative">
-                    <CreditCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                    <input required value={card.number} onChange={e => setCard(c => ({ ...c, number: formatCardNumber(e.target.value) }))}
-                      placeholder="1234 5678 9012 3456" maxLength={19}
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 font-mono tracking-wider" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-300">Expiry</label>
-                    <input required value={card.expiry} onChange={e => setCard(c => ({ ...c, expiry: formatExpiry(e.target.value) }))}
-                      placeholder="MM/YY" maxLength={5}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 font-mono" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-300">CVV</label>
-                    <input required value={card.cvv} onChange={e => setCard(c => ({ ...c, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
-                      placeholder="•••" maxLength={4}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 font-mono" />
-                  </div>
-                </div>
-
-                <div className="pt-2 space-y-3">
-                  <div className="flex justify-between text-sm border-t border-border pt-3">
-                    <span className="text-gray-400">ClipWise {chosenPlan.name}</span>
-                    <span className="text-white font-semibold">{chosenPlan.price}{chosenPlan.sub}</span>
-                  </div>
-                  <Button type="submit" className="w-full" size="lg" loading={processing}>
-                    {processing ? "Processing…" : `Pay ${chosenPlan.price} →`}
-                  </Button>
-                </div>
-              </form>
-
-              <button onClick={() => setStep("pick")} className="w-full text-center text-xs text-gray-500 hover:text-gray-300 mt-4 transition-colors">
-                ← Back to plans
-              </button>
-            </div>
-          )}
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-semibold text-white">{step === "redirecting" ? "Taking you to secure checkout…" : "Confirming your payment…"}</p>
+          <p className="text-gray-500 text-sm mt-1">Powered by Stripe</p>
         </div>
       </div>
     );
@@ -194,7 +155,7 @@ export default function PlanPage() {
             <Check size={28} className="text-green-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-1">Payment successful!</h2>
-          <p className="text-gray-400 text-sm">Setting up your dashboard…</p>
+          <p className="text-gray-400 text-sm">Setting up your shop…</p>
         </div>
       </div>
     );
@@ -208,6 +169,13 @@ export default function PlanPage() {
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
           <p className="text-gray-500 mt-2">Start free, upgrade anytime. No hidden fees.</p>
         </div>
+
+        {error && (
+          <div className="max-w-md mx-auto mb-6 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+            <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-3 gap-6">
           {PLANS.map(plan => {
@@ -261,9 +229,17 @@ export default function PlanPage() {
         </div>
 
         <p className="text-center text-xs text-gray-600 mt-8">
-          Starter is free forever. Pro and Premium are billed monthly, no contracts. Stripe integration coming soon.
+          Starter is free forever. Pro and Premium are billed monthly, no contracts. Secure checkout by Stripe.
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <PlanPageInner />
+    </Suspense>
   );
 }

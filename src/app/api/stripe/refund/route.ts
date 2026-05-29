@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+
+export async function POST(request: NextRequest) {
+  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { appointment_id } = await request.json() as { appointment_id: string };
+
+  const { data: appt } = await supabaseAdmin
+    .from("appointments")
+    .select("*, services(name)")
+    .eq("id", appointment_id)
+    .single();
+  if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+
+  // Verify the caller owns the shop
+  const { data: shop } = await supabaseAdmin
+    .from("shops").select("id, name, slug, owner_id, stripe_account_id").eq("id", appt.shop_id).single();
+  if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // 30-day window
+  const apptDate = new Date(appt.date);
+  const daysSince = (Date.now() - apptDate.getTime()) / 86400000;
+  if (daysSince > 30) return NextResponse.json({ error: "Refunds are only available within 30 days of the appointment." }, { status: 400 });
+
+  if (appt.payment_status === "refunded") return NextResponse.json({ error: "This appointment was already refunded." }, { status: 400 });
+
+  try {
+    // Real Stripe refund when there's a captured payment on the connected account
+    if (appt.payment_intent_id && shop.stripe_account_id) {
+      await stripe.refunds.create(
+        { payment_intent: appt.payment_intent_id },
+        { stripeAccount: shop.stripe_account_id }
+      );
+    }
+    // (If no payment_intent — e.g. cash booking — we still mark it refunded for records)
+
+    await supabaseAdmin.from("appointments")
+      .update({ status: "cancelled", payment_status: "refunded" })
+      .eq("id", appointment_id);
+
+    // Email the customer
+    if (appt.client_email) {
+      fetch(`${BASE_URL}/api/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "refund_issued",
+          data: {
+            clientName: appt.client_name,
+            clientEmail: appt.client_email,
+            shopName: shop.name,
+            shopSlug: shop.slug,
+            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+            date: appt.date,
+            total: `$${(appt.total_amount ?? 0).toFixed(2)}`,
+          },
+        }),
+      }).catch(() => null);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+  }
+}

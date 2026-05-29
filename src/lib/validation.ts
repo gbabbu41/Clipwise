@@ -106,3 +106,25 @@ export const PLAN_BARBER_LIMITS: Record<string, number> = {
 export function getPlanLimit(plan: string): number {
   return PLAN_BARBER_LIMITS[plan] ?? 1;
 }
+
+// ── Plan feature gating ─────────────────────────────────────────────────────────
+
+export type PlanFeature = "payments" | "loyalty" | "pos" | "inventory" | "staff_portal" | "commission";
+
+const PLAN_FEATURES: Record<string, PlanFeature[]> = {
+  starter: [],
+  pro: ["payments", "loyalty"],
+  premium: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"],
+  business: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"],
+};
+
+export function planHasFeature(plan: string | undefined, feature: PlanFeature): boolean {
+  return (PLAN_FEATURES[plan ?? "starter"] ?? []).includes(feature);
+}
+
+// A subscription that is cancelled/past_due/inactive means the shop falls back to starter
+export function effectivePlan(plan: string | undefined, subscriptionStatus: string | undefined): string {
+  if (plan === "starter" || !plan) return "starter";
+  if (subscriptionStatus === "active") return plan;
+  return "starter"; // expired/cancelled/past_due → downgrade
+}

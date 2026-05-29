@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function BookingPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const shopslug = params?.shopslug as string;
 
   // ── Page-level state ───────────────────────────────────────────────────────
@@ -101,6 +102,33 @@ export default function BookingPage() {
       setPageLoading(false);
     })();
   }, [shopslug]);
+
+  // ── Handle return from Stripe payment ──────────────────────────────────────
+  useEffect(() => {
+    if (!shop) return;
+    if (searchParams.get("cancelled") === "1") {
+      showToast("Payment cancelled — your booking was not created.", false);
+      return;
+    }
+    if (searchParams.get("paid") === "1") {
+      const sessionId = searchParams.get("session_id");
+      if (!sessionId) return;
+      (async () => {
+        const res = await fetch("/api/stripe/booking-finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, shop_id: shop.id }),
+        });
+        const data = await res.json();
+        if (res.ok && data.paid && data.appointmentId) {
+          setBookingId(data.appointmentId);
+          setConfirmed(true);
+        } else {
+          showToast("We couldn't confirm your payment. Contact the shop.", false);
+        }
+      })();
+    }
+  }, [shop, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load barber work days (for Option B calendar greying) ──────────────────
   useEffect(() => {
@@ -222,6 +250,40 @@ export default function BookingPage() {
     if (!finalBarberId || finalBarberId === "any") {
       const slot = slotGrid.find((s) => s.slot === selectedTime);
       finalBarberId = slot?.barberIds[0] ?? barbers[0]?.id ?? null;
+    }
+
+    // If this service requires a deposit AND the shop accepts online payments,
+    // route through Stripe Checkout. The appointment is created after payment.
+    const depositAmount = service?.deposit_required ? (service.deposit_amount ?? 0) : 0;
+    if (depositAmount > 0 && shop.stripe_connected) {
+      try {
+        const res = await fetch("/api/stripe/booking-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shop_id: shop.id,
+            shop_slug: shop.slug,
+            barber_id: finalBarberId,
+            service_id: selectedService,
+            service_name: service?.name ?? "Service",
+            client_name: clientInfo.name,
+            client_email: clientInfo.email,
+            client_phone: clientInfo.phone,
+            date: formatDateForDb(selectedDate),
+            time_slot: selectedTime,
+            amount: depositAmount,
+            total_amount: total,
+          }),
+        });
+        const pay = await res.json();
+        if (!res.ok || !pay.url) { showToast(pay.error ?? "Could not start payment.", false); setSaving(false); return; }
+        window.location.href = pay.url; // redirect to Stripe Checkout
+        return;
+      } catch {
+        showToast("Connection error. Please try again.", false);
+        setSaving(false);
+        return;
+      }
     }
 
     const { data, error } = await supabase.from("appointments").insert({

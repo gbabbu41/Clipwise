@@ -27,7 +27,7 @@ const STATUS_OPTIONS = ["confirmed", "pending", "completed", "cancelled", "no-sh
 type AppStatus = typeof STATUS_OPTIONS[number];
 
 export default function AppointmentsPage() {
-  const { shop, profile } = useAuth();
+  const { shop, profile, accessToken } = useAuth();
   const [tab, setTab] = useState<"appointments" | "waitlist">("appointments");
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
@@ -228,36 +228,21 @@ export default function AppointmentsPage() {
   };
 
   const issueRefund = async () => {
-    if (!refundModal || !shop) return;
+    if (!refundModal || !shop || !accessToken) return;
     const appt = refundModal;
     setSavingRefund(true);
-    const refundNote = `[Refund issued ${new Date().toLocaleDateString("en-CA")}]`;
-    const updatedNotes = appt.notes ? `${appt.notes}\n${refundNote}` : refundNote;
-    await supabase.from("appointments").update({ notes: updatedNotes }).eq("id", appt.id);
+    const res = await fetch("/api/stripe/refund", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id }),
+    });
+    const data = await res.json();
     setSavingRefund(false);
+    if (!res.ok) { showToast(`Refund failed: ${data.error}`); return; }
     setRefundModal(null);
-    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, notes: updatedNotes } : a));
-    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, notes: updatedNotes } : null);
-
-    if (appt.client_email) {
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "refund_issued",
-          data: {
-            clientName: appt.client_name,
-            clientEmail: appt.client_email,
-            shopName: shop.name,
-            shopSlug: shop.slug,
-            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-            date: appt.date,
-            total: `$${(appt.total_amount ?? 0).toFixed(2)}`,
-          },
-        }),
-      }).catch(() => null);
-    }
-    showToast("Refund marked" + (appt.client_email ? " · Confirmation email sent" : ""));
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: "refunded" } : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: "refunded" } : null);
+    showToast("Refund processed" + (appt.client_email ? " · Email sent to client" : ""));
   };
 
   const addAppointment = async () => {
@@ -515,10 +500,13 @@ export default function AppointmentsPage() {
                 <Button variant="danger" onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</Button>
                 <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10" onClick={() => updateStatus(selectedApt.id, "no-show")}>No-Show</Button>
               </div>
-              {selectedApt.status === "cancelled" && selectedApt.client_email && (
+              {selectedApt.payment_status === "paid" && (Date.now() - new Date(selectedApt.date).getTime()) / 86400000 <= 30 && (
                 <Button variant="outline" className="w-full border-gold/30 text-gold hover:bg-gold/10 mt-2" onClick={() => setRefundModal(selectedApt)}>
-                  💳 Issue Refund
+                  💳 Issue Refund (${(selectedApt.total_amount ?? 0).toFixed(2)})
                 </Button>
+              )}
+              {selectedApt.payment_status === "refunded" && (
+                <p className="text-center text-xs text-gray-500 mt-2">✓ Refunded</p>
               )}
             </div>
           </div>
@@ -580,12 +568,12 @@ export default function AppointmentsPage() {
                 <div className="flex justify-between"><span className="text-gray-400">Amount</span><span className="text-gold font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
               <p className="text-sm text-gray-400">
-                This will mark the appointment as refunded and send a confirmation email to <span className="text-gray-300">{refundModal.client_email}</span>. Process the actual payment refund through your payment provider.
+                This refunds <span className="text-gold font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
-                <Button className="flex-1" loading={savingRefund} onClick={issueRefund}>
-                  Confirm Refund
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingRefund} onClick={issueRefund}>
+                  Refund ${(refundModal.total_amount ?? 0).toFixed(2)}
                 </Button>
               </div>
             </div>

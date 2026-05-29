@@ -302,6 +302,19 @@ export default function DashboardPage() {
         </>
       )}
 
+      {/* Expired / past-due subscription banner */}
+      {shop && profile?.role === "shop_owner" && (shop.subscription_status === "cancelled" || shop.subscription_status === "past_due") && shop.subscription_plan !== "starter" && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={18} className="text-orange-400 flex-shrink-0" />
+            <p className="text-sm text-orange-200">
+              Your subscription has {shop.subscription_status === "past_due" ? "a past-due payment" : "expired"}. Premium features are locked until you reactivate.
+            </p>
+          </div>
+          <Link href="/dashboard/billing"><Button size="sm">Restore Features</Button></Link>
+        </div>
+      )}
+
       {/* Onboarding banner — shown to new shop owners */}
       {shop && profile?.role === "shop_owner" && (
         <div className="mb-6">
