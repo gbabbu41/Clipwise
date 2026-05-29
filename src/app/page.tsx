@@ -41,6 +41,10 @@ const plans = [
 ];
 
 const competitors = [
+  { feature: "Client-side booking fees", clipwise: "$0 — none, ever", squire: "$1–5 per booking", booksy: "30% Boost commission" },
+  { feature: "Competitor marketplace exposure", clipwise: true, squire: false, booksy: false },
+  { feature: "Clients book without app download", clipwise: true, squire: false, booksy: false },
+  { feature: "Public transparent pricing", clipwise: true, squire: false, booksy: true },
   { feature: "Online Booking", clipwise: true, squire: true, booksy: true },
   { feature: "Built-in POS", clipwise: true, squire: true, booksy: false },
   { feature: "Loyalty Program", clipwise: true, squire: false, booksy: true },
@@ -48,16 +52,12 @@ const competitors = [
   { feature: "Inventory Management", clipwise: true, squire: false, booksy: false },
   { feature: "Gift Cards", clipwise: true, squire: true, booksy: false },
   { feature: "Walk-in Waitlist", clipwise: true, squire: true, booksy: false },
-  { feature: "Walk-in Kiosk (Self Check-in)", clipwise: true, squire: true, booksy: false },
   { feature: "Staff Payroll Reports", clipwise: true, squire: false, booksy: false },
-  { feature: "Staff Time-Off Management", clipwise: true, squire: false, booksy: false },
-  { feature: "Email Marketing Campaigns", clipwise: true, squire: false, booksy: true },
   { feature: "Email Reminders", clipwise: true, squire: true, booksy: true },
   { feature: "No-Show Follow-up Email", clipwise: true, squire: false, booksy: false },
   { feature: "Barber Commission Tracking", clipwise: true, squire: false, booksy: false },
-  { feature: "Client Self-Service Portal", clipwise: true, squire: true, booksy: false },
   { feature: "Custom Booking Page", clipwise: true, squire: true, booksy: true },
-  { feature: "Starting Price", clipwise: "Free", squire: "$49/mo", booksy: "$39/mo" },
+  { feature: "Starting Price", clipwise: "Free", squire: "No public pricing", booksy: "$29.99/mo + fees" },
 ];
 
 const testimonials = [
@@ -167,6 +167,13 @@ export default function LandingPage() {
           </Link>
         </div>
         <p className="text-xs text-gray-600 mt-4">No credit card required · Cancel anytime · Canadian-made</p>
+        <div className="flex flex-wrap justify-center gap-3 mt-5">
+          {["$0 booking fees for your clients", "No competitor marketplace", "Sign up in 60 seconds — no sales call"].map(p => (
+            <span key={p} className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5">
+              <Check size={12} /> {p}
+            </span>
+          ))}
+        </div>
 
         <div className="mt-16 relative">
           <div className="rounded-2xl border border-border/50 bg-surface overflow-hidden shadow-2xl shadow-black/50 gold-glow">
@@ -190,6 +197,61 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Attack section — competitor pain points */}
+      <section className="py-16 px-4 lg:px-8 max-w-5xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-xs font-semibold uppercase tracking-widest text-red-400 mb-3">The hidden cost of the other guys</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-white">Why barbers are switching to ClipWise</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5 mb-10">
+          {[
+            {
+              label: "Squire",
+              color: "border-orange-500/30 bg-orange-500/5",
+              badgeColor: "bg-orange-500/15 text-orange-400",
+              icon: "💸",
+              title: "Squire charges your clients to book you",
+              body: "Squire adds a $1–5 booking fee on every online appointment — paid by your client, on top of your monthly subscription. On 200 bookings/month that's $1,000+/year your clients pay directly to Squire.",
+              quote: '"fees mounted up to nearly $5 per client after booking online" — barber, Capterra',
+            },
+            {
+              label: "Booksy",
+              color: "border-red-500/30 bg-red-500/5",
+              badgeColor: "bg-red-500/15 text-red-400",
+              icon: "🪤",
+              title: "Booksy takes 30% of your own clients",
+              body: "Booksy Boost charges a 30% commission on new bookings — even clients who found you through your own Instagram or Google. One barber paid £20,000 in commissions over 9 years.",
+              quote: '"These were my followers and my traffic." — barber, Trustpilot',
+            },
+            {
+              label: "Both",
+              color: "border-purple-500/30 bg-purple-500/5",
+              badgeColor: "bg-purple-500/15 text-purple-400",
+              icon: "👁",
+              title: "Both apps show your competitors to your clients",
+              body: "When clients open Squire or Booksy to book with you, they see every competing shop nearby. You pay a monthly fee to advertise for them. Your clients can browse away in seconds.",
+              quote: '"The app lets them see everyone else in your area you’re competing with" — barber, Capterra',
+            },
+          ].map(card => (
+            <div key={card.label} className={cn("rounded-2xl border p-5 flex flex-col gap-4", card.color)}>
+              <div className="flex items-center gap-2">
+                <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", card.badgeColor)}>{card.label}</span>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white mb-2">{card.icon} {card.title}</p>
+                <p className="text-sm text-gray-400 leading-relaxed">{card.body}</p>
+              </div>
+              <p className="text-xs text-gray-600 italic border-t border-white/5 pt-3">{card.quote}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center p-6 bg-gold/5 border border-gold/20 rounded-2xl">
+          <p className="text-lg font-bold text-white mb-1">ClipWise is different.</p>
+          <p className="text-gray-400 text-sm mb-4">Your page. Your clients. Your data. Zero commissions. Zero client-side fees. No competitor exposure. Ever.</p>
+          <Link href="/signup"><Button size="sm">See for yourself — free forever</Button></Link>
         </div>
       </section>
 

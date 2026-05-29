@@ -41,18 +41,23 @@ export default function ClientsPage() {
   const [pointsToAdd, setPointsToAdd] = useState("10");
   const [saving, setSaving] = useState(false);
   const [newClient, setNewClient] = useState<NewClient>(BLANK_CLIENT);
+  const [noShowCounts, setNoShowCounts] = useState<Record<string, number>>({});
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const loadClients = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("shop_id", shop.id)
-      .order("total_visits", { ascending: false });
+    const [{ data }, { data: nsData }] = await Promise.all([
+      supabase.from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false }),
+      supabase.from("appointments").select("client_name").eq("shop_id", shop.id).eq("status", "no-show"),
+    ]);
     if (data) setClients(data);
+    if (nsData) {
+      const counts: Record<string, number> = {};
+      for (const r of nsData) counts[r.client_name] = (counts[r.client_name] ?? 0) + 1;
+      setNoShowCounts(counts);
+    }
     setLoading(false);
   }, [shop]);
 
@@ -231,9 +236,16 @@ export default function ClientsPage() {
                 <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm">
                   {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
-                <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
-                  {client.tag}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {noShowCounts[client.name] > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
+                      ⚠ {noShowCounts[client.name]} no-show{noShowCounts[client.name] > 1 ? "s" : ""}
+                    </span>
+                  )}
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
+                    {client.tag}
+                  </span>
+                </div>
               </div>
               <h3 className="text-white font-semibold">{client.name}</h3>
               <p className="text-sm text-gray-400">{client.phone}</p>
@@ -264,7 +276,14 @@ export default function ClientsPage() {
                   <td className="px-4 py-3 text-sm font-medium text-white">{client.name}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{client.phone}</td>
                   <td className="px-4 py-3">
-                    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
+                      {noShowCounts[client.name] > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
+                          ⚠ {noShowCounts[client.name]}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-white">{client.total_visits}</td>
                   <td className="px-4 py-3 text-sm text-gold">{formatCurrency(client.total_spent)}</td>
@@ -292,9 +311,16 @@ export default function ClientsPage() {
               </div>
               <div>
                 <h3 className="text-white font-bold text-lg">{selectedClient.name}</h3>
-                <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
-                  {selectedClient.tag}
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
+                    {selectedClient.tag}
+                  </span>
+                  {noShowCounts[selectedClient.name] > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
+                      ⚠ {noShowCounts[selectedClient.name]} no-show{noShowCounts[selectedClient.name] > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
