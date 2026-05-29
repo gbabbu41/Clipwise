@@ -819,9 +819,18 @@ export default function BookingPage() {
                   <span className="text-white">Total</span>
                   <span className="text-gold text-lg">{formatCurrency(total)}</span>
                 </div>
+                {service?.deposit_required && service.deposit_amount && service.deposit_amount > 0 && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-gold">Deposit due now</span>
+                    <span className="text-gold font-semibold">{formatCurrency(service.deposit_amount)}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <p className="text-xs text-gray-600 text-center">Payment collected at the shop · Free cancellation 24h before</p>
+            {service?.deposit_required && service.deposit_amount && service.deposit_amount > 0
+              ? <p className="text-xs text-gold/70 text-center">💳 A ${service.deposit_amount} deposit is required to secure this booking · Balance paid at the shop</p>
+              : <p className="text-xs text-gray-600 text-center">Payment collected at the shop · Free cancellation 24h before</p>
+            }
           </div>
         )}
       </div>

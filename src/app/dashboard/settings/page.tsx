@@ -84,6 +84,15 @@ export default function SettingsPage() {
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
   const [permissions, setPermissions] = useState(PERMISSIONS.map(p => ({ ...p })));
 
+  const DEFAULT_TEMPLATES = {
+    booking_confirmation: { subject: "Booking Confirmed — {shopName}", body: "Hi {clientName},\n\nYour appointment at {shopName} is confirmed!\n\nService: {serviceName}\nBarber: {barberName}\nDate: {date}\nTime: {time}\n\nSee you soon!" },
+    appointment_reminder: { subject: "Reminder: Your appointment tomorrow at {shopName}", body: "Hi {clientName},\n\nJust a reminder — you have an appointment at {shopName} tomorrow.\n\nBarber: {barberName}\nService: {serviceName}\nTime: {time}\n\nSee you then!" },
+    appointment_rejected: { subject: "Your appointment at {shopName} has been cancelled", body: "Hi {clientName},\n\nUnfortunately your appointment at {shopName} has been cancelled.\n\nWe hope to see you again soon!" },
+  };
+  type TemplateKey = keyof typeof DEFAULT_TEMPLATES;
+  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
+  const [savingTemplates, setSavingTemplates] = useState(false);
+
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const uploadLogo = async (file: File) => {
@@ -156,6 +165,9 @@ export default function SettingsPage() {
             const cached = localStorage.getItem(`booking_${shop.id}`);
             if (cached) setBooking(JSON.parse(cached) as BookingSettings);
           }
+          if ((data as { notification_templates?: typeof DEFAULT_TEMPLATES }).notification_templates) {
+            setTemplates(prev => ({ ...prev, ...(data as { notification_templates?: typeof DEFAULT_TEMPLATES }).notification_templates }));
+          }
         } else {
           // Columns may not exist yet — use localStorage
           const cachedH = localStorage.getItem(`hours_${shop.id}`);
@@ -171,6 +183,14 @@ export default function SettingsPage() {
       }
     })();
   }, [shop]);
+
+  const saveTemplates = async () => {
+    if (!shop) return;
+    setSavingTemplates(true);
+    await supabase.from("shops").update({ notification_templates: templates }).eq("id", shop.id);
+    setSavingTemplates(false);
+    showToast("Templates saved!");
+  };
 
   const saveProfile = async () => {
     if (!shop) return;
@@ -244,7 +264,7 @@ export default function SettingsPage() {
     await refreshShop();
   };
 
-  const TABS = ["profile","hours","booking","subscription","locations","permissions","danger"];
+  const TABS = ["profile","hours","booking","notifications","subscription","locations","permissions","danger"];
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange}
@@ -269,7 +289,7 @@ export default function SettingsPage() {
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
               tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
-            {t === "hours" ? "Business Hours" : t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t}
+            {t === "hours" ? "Business Hours" : t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
           </button>
         ))}
       </div>
@@ -473,6 +493,48 @@ export default function SettingsPage() {
             <Button className="mt-4" onClick={() => showToast("Permissions saved!")}>Save Permissions</Button>
           </CardContent>
         </Card>
+      )}
+
+      {tab === "notifications" && (
+        <div className="space-y-6 max-w-2xl">
+          <div>
+            <p className="text-sm text-gray-400">Customize the emails sent to your clients. Use <span className="text-gold font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {["{clientName}","{shopName}","{barberName}","{serviceName}","{date}","{time}"].map(v => (
+                <span key={v} className="text-xs bg-gold/10 border border-gold/20 text-gold rounded-full px-2.5 py-1 font-mono">{v}</span>
+              ))}
+            </div>
+          </div>
+          {(Object.keys(DEFAULT_TEMPLATES) as TemplateKey[]).map(key => (
+            <Card key={key}>
+              <CardHeader>
+                <CardTitle className="capitalize text-sm">
+                  {key === "booking_confirmation" ? "Booking Confirmation" : key === "appointment_reminder" ? "Appointment Reminder" : "Appointment Cancelled"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-400">Subject Line</label>
+                  <input
+                    value={templates[key].subject}
+                    onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
+                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-400">Message Body</label>
+                  <textarea
+                    rows={5}
+                    value={templates[key].body}
+                    onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
+                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none font-mono"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          <Button loading={savingTemplates} onClick={saveTemplates}>Save Templates</Button>
+        </div>
       )}
 
       {tab === "locations" && (

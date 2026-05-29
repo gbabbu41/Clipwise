@@ -24,7 +24,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Packages: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
 };
 
-const BLANK_SVC = { name: "", price: "", duration_minutes: "", category: "Hair", description: "", is_active: true };
+const BLANK_SVC = { name: "", price: "", duration_minutes: "", category: "Hair", description: "", is_active: true, deposit_required: false, deposit_amount: "" };
 const BLANK_INV = { name: "", category: "", price: "", cost_price: "", quantity: "", low_stock_threshold: "" };
 
 export default function ServicesPage() {
@@ -71,7 +71,7 @@ export default function ServicesPage() {
 
   const openEditService = (s: Service) => {
     setEditService(s);
-    setNewSvc({ name: s.name, price: String(s.price), duration_minutes: String(s.duration_minutes), category: s.category, description: s.description ?? "", is_active: s.is_active });
+    setNewSvc({ name: s.name, price: String(s.price), duration_minutes: String(s.duration_minutes), category: s.category, description: s.description ?? "", is_active: s.is_active, deposit_required: s.deposit_required ?? false, deposit_amount: String(s.deposit_amount ?? "") });
     setShowServiceModal(true);
   };
 
@@ -97,6 +97,8 @@ export default function ServicesPage() {
       category: newSvc.category,
       description: newSvc.description,
       is_active: newSvc.is_active,
+      deposit_required: newSvc.deposit_required,
+      deposit_amount: newSvc.deposit_required ? Number(newSvc.deposit_amount) : 0,
     };
     if (editService) {
       const { error } = await supabase.from("services").update(payload).eq("id", editService.id);
@@ -234,7 +236,12 @@ export default function ServicesPage() {
                           <p className="text-xs text-gray-400">{svc.duration_minutes} min</p>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-400 mb-4">{svc.description}</p>
+                      <p className="text-xs text-gray-400 mb-2">{svc.description}</p>
+                      {svc.deposit_required && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5 mb-3">
+                          💳 ${svc.deposit_amount} deposit required
+                        </span>
+                      )}
                       <div className="flex items-center justify-between">
                         <button onClick={() => toggleServiceActive(svc)}
                           className={cn("relative w-10 h-5 rounded-full transition-colors", svc.is_active ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
@@ -343,12 +350,24 @@ export default function ServicesPage() {
                 <option value="Other">Other</option>
               </Select>
               <Textarea label="Description" value={newSvc.description} onChange={e => setNewSvc(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Brief description..." />
-              <div className="flex items-center gap-3">
-                <button onClick={() => setNewSvc(p => ({ ...p, is_active: !p.is_active }))}
-                  className={cn("relative w-10 h-5 rounded-full transition-colors", newSvc.is_active ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
-                  <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", newSvc.is_active ? "left-[22px]" : "left-0.5")} />
-                </button>
-                <span className="text-sm text-gray-300">Active</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setNewSvc(p => ({ ...p, is_active: !p.is_active }))}
+                    className={cn("relative w-10 h-5 rounded-full transition-colors", newSvc.is_active ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
+                    <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", newSvc.is_active ? "left-[22px]" : "left-0.5")} />
+                  </button>
+                  <span className="text-sm text-gray-300">Active</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setNewSvc(p => ({ ...p, deposit_required: !p.deposit_required }))}
+                    className={cn("relative w-10 h-5 rounded-full transition-colors", newSvc.deposit_required ? "bg-gold" : "bg-surface-raised border border-border")}>
+                    <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", newSvc.deposit_required ? "left-[22px]" : "left-0.5")} />
+                  </button>
+                  <span className="text-sm text-gray-300">Require deposit</span>
+                </div>
+                {newSvc.deposit_required && (
+                  <Input label="Deposit Amount ($)" type="number" value={newSvc.deposit_amount} onChange={e => setNewSvc(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="e.g. 20" />
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowServiceModal(false)}>Cancel</Button>

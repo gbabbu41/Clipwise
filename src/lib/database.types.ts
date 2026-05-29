@@ -38,6 +38,7 @@ export interface Shop {
   is_active: boolean;
   status: ShopStatus;
   rejection_reason?: string;
+  notification_templates?: Record<string, { subject: string; body: string }>;
   created_at: string;
 }
 
@@ -74,6 +75,8 @@ export interface Service {
   description?: string;
   category: string;
   is_active: boolean;
+  deposit_required?: boolean;
+  deposit_amount?: number;
 }
 
 export interface Appointment {

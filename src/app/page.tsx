@@ -115,6 +115,7 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#compare" className="hover:text-white transition-colors">Compare</a>
+            <Link href="/why-clipwise" className="hover:text-white transition-colors">Why ClipWise</Link>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/shops" className="hover:text-gold transition-colors text-gold/80">Find a Barber</Link>
             <Link href="/my-bookings" className="hover:text-white transition-colors">My Bookings</Link>
