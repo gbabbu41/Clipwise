@@ -22,8 +22,8 @@ type AppointmentRow = Pick<Appointment, "id" | "date" | "time_slot" | "total_amo
   services?: { name: string } | null;
 };
 
-type NewClient = { name: string; phone: string; email: string; notes: string };
-const BLANK_CLIENT: NewClient = { name: "", phone: "", email: "", notes: "" };
+type NewClient = { name: string; phone: string; email: string; notes: string; birthday: string };
+const BLANK_CLIENT: NewClient = { name: "", phone: "", email: "", notes: "", birthday: "" };
 
 interface HairProfile {
   topGuard: string;
@@ -56,6 +56,9 @@ export default function ClientsPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "hair" | "history">("overview");
   const [hairProfile, setHairProfile] = useState<HairProfile>(BLANK_HAIR);
   const [savingHair, setSavingHair] = useState(false);
+  const [birthday, setBirthday] = useState("");
+  const [savingBirthday, setSavingBirthday] = useState(false);
+  const [sendingBirthday, setSendingBirthday] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -83,6 +86,7 @@ export default function ClientsPage() {
     setActiveTab("overview");
     const hp = (client as Client & { hair_profile?: HairProfile }).hair_profile;
     setHairProfile(hp ?? BLANK_HAIR);
+    setBirthday(client.birthday ?? "");
     const { data } = await supabase
       .from("appointments")
       .select("id, date, time_slot, total_amount, status, barbers(name), services(name)")
@@ -112,6 +116,35 @@ export default function ClientsPage() {
     showToast(error ? "Error saving hair profile" : "Hair profile saved!");
   };
 
+  const saveBirthday = async () => {
+    if (!selectedClient) return;
+    setSavingBirthday(true);
+    await supabase.from("clients").update({ birthday }).eq("id", selectedClient.id);
+    setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, birthday } : c));
+    setSavingBirthday(false);
+    showToast("Birthday saved!");
+  };
+
+  const sendBirthdayEmail = async () => {
+    if (!selectedClient?.email || !shop) { showToast("No email on file for this client"); return; }
+    setSendingBirthday(true);
+    const res = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "birthday_wish",
+        data: {
+          clientName: selectedClient.name,
+          clientEmail: selectedClient.email,
+          shopName: shop.name,
+          shopSlug: shop.slug,
+        },
+      }),
+    });
+    setSendingBirthday(false);
+    showToast(res.ok ? "Birthday email sent! 🎂" : "Failed to send email");
+  };
+
   const addPoints = async () => {
     if (!addPointsClient) return;
     const pts = Number(pointsToAdd);
@@ -134,6 +167,7 @@ export default function ClientsPage() {
       phone: newClient.phone,
       email: newClient.email,
       notes: newClient.notes,
+      birthday: newClient.birthday || null,
       total_visits: 0,
       total_spent: 0,
       loyalty_points: 0,
@@ -377,6 +411,21 @@ export default function ClientsPage() {
                     </div>
                   ))}
                 </div>
+                {/* Birthday */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-400">Birthday</label>
+                  <div className="flex gap-2">
+                    <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
+                      className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                    <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
+                  </div>
+                  {selectedClient.email && birthday && (
+                    <Button size="sm" variant="outline" className="w-full text-gold border-gold/30 hover:bg-gold/10" loading={sendingBirthday} onClick={sendBirthdayEmail}>
+                      🎂 Send Birthday Email
+                    </Button>
+                  )}
+                </div>
+
                 <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
                 <div className="flex gap-2">
                   <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
@@ -541,6 +590,11 @@ export default function ClientsPage() {
               <Input label="Phone" placeholder="(506) 555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: e.target.value }))} />
               <Input label="Email" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
               <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
+              <div className="space-y-1.5">
+                <label className="text-sm text-gray-400">Birthday (optional)</label>
+                <input type="date" value={newClient.birthday} onChange={e => setNewClient(p => ({ ...p, birthday: e.target.value }))}
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50" />
+              </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={addClient}>Add Client</Button>

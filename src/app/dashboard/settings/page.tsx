@@ -78,6 +78,7 @@ export default function SettingsPage() {
     name: "", address: "", city: "", province: "", postal_code: "",
     phone: "", email: "", description: "",
     instagram: "", tiktok: "", facebook: "", youtube: "", website: "",
+    google_place_id: "",
   });
 
   const [hours, setHours] = useState<HoursMap>(DEFAULT_HOURS);
@@ -141,6 +142,7 @@ export default function SettingsPage() {
       facebook: shop.facebook ?? "",
       youtube: shop.youtube ?? "",
       website: shop.website ?? "",
+      google_place_id: shop.google_place_id ?? "",
     });
 
     // Load hours + booking settings — try Supabase first, fall back to localStorage
@@ -204,6 +206,7 @@ export default function SettingsPage() {
       facebook: profile.facebook || null,
       youtube: profile.youtube || null,
       website: profile.website || null,
+      google_place_id: profile.google_place_id || null,
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
@@ -339,6 +342,13 @@ export default function SettingsPage() {
                 <Input label="YouTube URL" placeholder="https://youtube.com/@yourshop" value={profile.youtube} onChange={e => setProfile(p => ({ ...p, youtube: e.target.value }))} />
                 <Input label="Website URL" placeholder="https://yourshop.com" value={profile.website} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} />
               </div>
+            </div>
+
+            {/* Google Reviews */}
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-1">Google Reviews</p>
+              <p className="text-xs text-gray-500 mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">Find your Place ID →</a></p>
+              <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
             <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving…" : "Save Profile"}</Button>

@@ -39,6 +39,7 @@ export interface Shop {
   status: ShopStatus;
   rejection_reason?: string;
   notification_templates?: Record<string, { subject: string; body: string }>;
+  google_place_id?: string;
   created_at: string;
 }
 
@@ -116,6 +117,7 @@ export interface Client {
   preferred_barber_id?: string;
   loyalty_points: number;
   tag: "New" | "Returning" | "VIP" | "At Risk";
+  birthday?: string;
 }
 
 export interface Transaction {

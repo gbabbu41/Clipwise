@@ -126,6 +126,9 @@ function ownerRejected(data: Record<string, string>) {
 }
 
 function reviewRequest(data: Record<string, string>) {
+  const googleUrl = data.googlePlaceId
+    ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
+    : null;
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
     <div class="green-badge">🌟 How was your visit?</div>
@@ -136,8 +139,9 @@ function reviewRequest(data: Record<string, string>) {
     <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <hr class="divider">
-    <a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
-    <p style="font-size:12px;color:#4B5563;margin-top:8px">Only takes 30 seconds!</p>
+    ${googleUrl ? `<a href="${googleUrl}" class="btn">⭐ Leave a Google Review</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">Takes 30 seconds and makes a huge difference!</p>` : `<a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">Only takes 30 seconds!</p>`}
     <hr class="divider">
     <p style="color:#4B5563">— The ClipWise Team</p>
   `);
@@ -230,6 +234,20 @@ function appointmentCancelled(data: Record<string, string>) {
     <p style="font-size:13px;color:#6B7280">This time slot is now available for new bookings.</p>
     <a href="${BASE_URL}/dashboard/appointments" class="btn">View Appointments →</a>
     <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
+function birthdayWish(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">🎂 Happy Birthday!</div>
+    <h1>Happy Birthday, ${data.clientName}!</h1>
+    <p>Everyone at <span class="highlight">${data.shopName}</span> is wishing you a fantastic birthday today.</p>
+    <hr class="divider">
+    <p>To celebrate, we'd love to treat you to a fresh cut. Book your birthday appointment and come in looking your best!</p>
+    <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Your Birthday Cut →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -421,6 +439,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `New Barber Request — ${data.barberName}`;
         html = shopOwnerNewBarberRequest(data);
+        break;
+      case "birthday_wish":
+        to = data.clientEmail;
+        subject = `Happy Birthday from ${data.shopName}! 🎂`;
+        html = birthdayWish(data);
         break;
       case "new_booking_owner":
         to = data.ownerEmail;

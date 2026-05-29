@@ -96,6 +96,7 @@ export default function StaffPage() {
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<BarberWithSchedule | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -237,6 +238,20 @@ export default function StaffPage() {
     setResetModal(data);
   };
 
+  // ── Resend invite ───────────────────────────────────────────────────────────
+  const resendInvite = async (barber: BarberWithSchedule) => {
+    if (!accessToken) return;
+    setResendingInviteId(barber.id);
+    const res = await fetch("/api/admin/barber/resend-invite", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ barber_id: barber.id }),
+    });
+    const data = await res.json();
+    setResendingInviteId(null);
+    showToast(res.ok ? `Invite resent to ${barber.email}` : `Error: ${data.error}`);
+  };
+
   // ── Remove barber ───────────────────────────────────────────────────────────
   const removeBarber = async (barber: BarberWithSchedule) => {
     setRemovingId(barber.id);
@@ -305,10 +320,15 @@ export default function StaffPage() {
                   <div>
                     <h3 className="text-white font-semibold">{barber.name}</h3>
                     {barber.email && <p className="text-xs text-gray-500">{barber.email}</p>}
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-gold text-xs">★</span>
-                      <span className="text-xs text-gray-300">{barber.rating}</span>
-                      <span className="text-xs text-gray-500">({barber.total_reviews})</span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {barber.user_id ? (
+                        <span className="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5">✓ Portal active</span>
+                      ) : barber.email ? (
+                        <span className="text-xs bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 rounded-full px-2 py-0.5">⏳ Invite pending</span>
+                      ) : (
+                        <span className="text-xs bg-surface-raised border border-border text-gray-500 rounded-full px-2 py-0.5">Manual</span>
+                      )}
+                      <span className="text-gold text-xs">★ {barber.rating}</span>
                     </div>
                   </div>
                 </div>
@@ -361,16 +381,28 @@ export default function StaffPage() {
 
               {/* Admin controls */}
               <div className="flex gap-2 mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
-                  loading={resettingId === barber.id}
-                  onClick={() => resetPassword(barber)}
-                >
-                  <KeyRound size={13} className="mr-1.5" />
-                  Reset Password
-                </Button>
+                {!barber.user_id && barber.email ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10"
+                    loading={resendingInviteId === barber.id}
+                    onClick={() => resendInvite(barber)}
+                  >
+                    ✉️ Resend Invite
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                    loading={resettingId === barber.id}
+                    onClick={() => resetPassword(barber)}
+                  >
+                    <KeyRound size={13} className="mr-1.5" />
+                    Reset Password
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
