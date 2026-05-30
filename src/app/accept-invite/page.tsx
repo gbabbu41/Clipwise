@@ -69,8 +69,10 @@ export default function AcceptInvitePage() {
       }
 
       setStatus("done");
-      // Short pause so user sees the success state, then redirect
-      setTimeout(() => router.push("/barber-dashboard"), 1500);
+      // Hard navigation so the auth context re-fetches the profile (which now
+      // has role='barber' after the API update). A soft router.push() keeps
+      // the cached profile and the barber dashboard would bounce them.
+      setTimeout(() => { window.location.href = "/barber-dashboard"; }, 1500);
     }
 
     handle();
