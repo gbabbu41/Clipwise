@@ -95,6 +95,7 @@ export default function StaffPage() {
   const [commissions, setCommissions] = useState<Record<string, number>>({});
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
   const [resetModal, setResetModal] = useState<{ link: string; email: string; name: string } | null>(null);
+  const [inviteLinkModal, setInviteLinkModal] = useState<{ link: string; email: string; name: string; existingAccount: boolean } | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<BarberWithSchedule | null>(null);
@@ -254,6 +255,14 @@ export default function StaffPage() {
     setSavingAdd(false);
     if (!res.ok) { showToast(`Error: ${data.error}`); return; }
     setInviteSent(true);
+    if (data.inviteLink) {
+      setInviteLinkModal({
+        link: data.inviteLink,
+        email: addForm.email.trim(),
+        name: addForm.name.trim(),
+        existingAccount: !!data.existingAccount,
+      });
+    }
     loadBarbers();
   };
 
@@ -283,7 +292,17 @@ export default function StaffPage() {
     });
     const data = await res.json();
     setResendingInviteId(null);
-    showToast(res.ok ? `Invite resent to ${barber.email}` : `Error: ${data.error}`);
+    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
+    if (data.inviteLink && barber.email) {
+      setInviteLinkModal({
+        link: data.inviteLink,
+        email: barber.email,
+        name: barber.name,
+        existingAccount: !!data.existingAccount,
+      });
+    } else {
+      showToast(`Invite resent to ${barber.email}`);
+    }
   };
 
   // ── Remove barber ───────────────────────────────────────────────────────────
@@ -556,6 +575,35 @@ export default function StaffPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setScheduleBarber(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingSchedule} onClick={saveSchedule}>Save Schedule</Button>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Invite Link Modal — shown after invite/resend so the owner can
+          copy/paste it directly (email delivery isn't always reliable) */}
+      {inviteLinkModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
+                <button onClick={() => setInviteLinkModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <p className="text-sm text-gray-400">
+                An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, sandbox limits, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
+              </p>
+              <ResetLinkCopy link={inviteLinkModal.link} />
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300">
+                <p className="font-semibold mb-1">⚠ Link expires in ~1 hour</p>
+                <p className="text-yellow-200/80">
+                  {inviteLinkModal.existingAccount
+                    ? "This email already has a ClipWise account. The link signs them in instantly — no password needed."
+                    : "When they open the link they'll be asked to set their password."}
+                </p>
+              </div>
+              <Button className="w-full" onClick={() => setInviteLinkModal(null)}>Done</Button>
             </div>
           </div>
         </>
