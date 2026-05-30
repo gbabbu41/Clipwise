@@ -8,13 +8,14 @@ import { supabase } from "@/lib/supabase";
 import { getPasswordStrength } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
-type Status = "loading" | "linking" | "password" | "saving-password" | "done" | "error";
+type Status = "loading" | "linking" | "password" | "saving-password" | "verify-password" | "verifying-password" | "done" | "error";
 
 export default function AcceptInvitePage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState("");
   const [linkType, setLinkType] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -56,6 +57,7 @@ export default function AcceptInvitePage() {
         setStatus("error");
         return;
       }
+      setUserEmail(session.user.email ?? "");
 
       setStatus("linking");
 
@@ -75,11 +77,13 @@ export default function AcceptInvitePage() {
 
       // 6. Branch:
       //    - invite link (brand new auth user) → password setup screen
-      //    - magic link (existing user) → straight to dashboard, they already have a password
+      //    - magic link (existing user) → password verify screen so they sign
+      //      in normally and the password gets reinforced; 'forgot password'
+      //      escape hatch is provided.
       if (tokenType === "invite") {
         setStatus("password");
       } else {
-        finalize();
+        setStatus("verify-password");
       }
     }
 
@@ -95,6 +99,20 @@ export default function AcceptInvitePage() {
 
   const pwStrength = getPasswordStrength(password);
 
+  async function verifyPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError("");
+    if (!password) { setPwError("Enter your password"); return; }
+    setStatus("verifying-password");
+    const { error } = await supabase.auth.signInWithPassword({ email: userEmail, password });
+    if (error) {
+      setPwError("That password didn't match. Try again, or use 'Forgot password' below.");
+      setStatus("verify-password");
+      return;
+    }
+    finalize();
+  }
+
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwError("");
@@ -108,6 +126,55 @@ export default function AcceptInvitePage() {
       return;
     }
     finalize();
+  }
+
+  // ── Existing-account password verification screen ───────────────────────────
+  if (status === "verify-password" || status === "verifying-password") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+        <div className="mb-8"><Logo size="md" /></div>
+        <div className="bg-surface border border-border rounded-2xl p-8 w-full max-w-md space-y-5">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center mx-auto mb-3">
+              <Lock size={20} className="text-blue-400" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Welcome back!</h1>
+            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+              You already have a ClipWise account with <span className="text-white font-medium">{userEmail}</span>. Sign in with your existing password to continue.
+            </p>
+          </div>
+
+          {pwError && (
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+              <AlertCircle size={15} className="text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-400">{pwError}</p>
+            </div>
+          )}
+
+          <form onSubmit={verifyPassword} className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300">Password</label>
+                <a href="/forgot-password" className="text-xs text-gold hover:underline">Forgot password?</a>
+              </div>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Your existing ClipWise password" autoFocus
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" size="lg" loading={status === "verifying-password"}>
+              {status === "verifying-password" ? "Verifying…" : "Sign In & Enter Dashboard"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   // ── Password setup screen ───────────────────────────────────────────────────
