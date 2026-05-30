@@ -149,18 +149,23 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {!isStarter && (
+          {!isStarter && (billing?.nextBilling || billing?.cardLast4 ? (
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="p-3 bg-surface-raised rounded-xl border border-border">
                 <p className="text-xs text-gray-400">Next billing date</p>
-                <p className="text-sm text-white mt-0.5">{billing?.nextBilling ? new Date(billing.nextBilling).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
+                <p className="text-sm text-white mt-0.5">{billing.nextBilling ? new Date(billing.nextBilling).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
               </div>
               <div className="p-3 bg-surface-raised rounded-xl border border-border">
                 <p className="text-xs text-gray-400">Payment method</p>
-                <p className="text-sm text-white mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-gray-500" /> {billing?.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
+                <p className="text-sm text-white mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-gray-500" /> {billing.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
               </div>
             </div>
-          )}
+          ) : (
+            <div className="p-3 bg-surface-raised rounded-xl border border-border mb-5 text-center">
+              <p className="text-xs text-gray-400">Syncing subscription details from Stripe…</p>
+              <p className="text-xs text-gray-500 mt-0.5">Refresh in a moment, or check your email for the receipt.</p>
+            </div>
+          ))}
 
           <div className="flex flex-wrap gap-3">
             {isStarter ? (

@@ -129,7 +129,7 @@ export function Sidebar() {
   const shopName = shop?.name ?? "Your Shop";
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
+    <aside className="hidden md:flex flex-col w-64 min-h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-border">
         <Logo size="md" />
@@ -205,7 +205,7 @@ export function MobileNav() {
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2 safe-area-bottom">
       <div className="flex items-center justify-around">
         {mobileItems.map((item) => {
           const Icon = item.icon;

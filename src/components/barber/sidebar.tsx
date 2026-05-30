@@ -25,7 +25,7 @@ export function BarberSidebar() {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
+    <aside className="hidden md:flex flex-col w-64 min-h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
       <div className="px-6 py-5 border-b border-border">
         <Logo size="md" />
         <div className="flex items-center gap-1.5 mt-1">
@@ -86,7 +86,7 @@ export function BarberMobileNav() {
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2">
       <div className="flex items-center justify-around">
         {mobileItems.map((item) => {
           const Icon = item.icon;

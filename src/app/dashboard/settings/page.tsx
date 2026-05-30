@@ -148,27 +148,29 @@ export default function SettingsPage() {
     // Load hours + booking settings — try Supabase first, fall back to localStorage
     (async () => {
       try {
+        // Use select("*") so missing optional columns don't trigger a 400 from PostgREST
         const { data, error } = await supabase
           .from("shops")
-          .select("business_hours, booking_settings")
+          .select("*")
           .eq("id", shop.id)
           .single();
+        const row = data as Record<string, unknown> | null;
 
-        if (!error && data) {
-          if (data.business_hours && typeof data.business_hours === "object") {
-            setHours(data.business_hours as HoursMap);
+        if (!error && row) {
+          if (row.business_hours && typeof row.business_hours === "object") {
+            setHours(row.business_hours as HoursMap);
           } else {
             const cached = localStorage.getItem(`hours_${shop.id}`);
             if (cached) setHours(JSON.parse(cached) as HoursMap);
           }
-          if (data.booking_settings && typeof data.booking_settings === "object") {
-            setBooking(data.booking_settings as BookingSettings);
+          if (row.booking_settings && typeof row.booking_settings === "object") {
+            setBooking(row.booking_settings as BookingSettings);
           } else {
             const cached = localStorage.getItem(`booking_${shop.id}`);
             if (cached) setBooking(JSON.parse(cached) as BookingSettings);
           }
-          if ((data as { notification_templates?: typeof DEFAULT_TEMPLATES }).notification_templates) {
-            setTemplates(prev => ({ ...prev, ...(data as { notification_templates?: typeof DEFAULT_TEMPLATES }).notification_templates }));
+          if (row.notification_templates) {
+            setTemplates(prev => ({ ...prev, ...(row.notification_templates as typeof DEFAULT_TEMPLATES) }));
           }
         } else {
           // Columns may not exist yet — use localStorage

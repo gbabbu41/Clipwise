@@ -70,7 +70,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
       <BarberGuard>
         <div className="min-h-screen bg-background">
           <BarberSidebar />
-          <main className="lg:ml-64 pb-20 lg:pb-0">
+          <main className="md:ml-64 pb-24 md:pb-0">
             {children}
           </main>
           <BarberMobileNav />

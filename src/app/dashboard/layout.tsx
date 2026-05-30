@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="lg:ml-64 pb-20 lg:pb-0">
+      <main className="md:ml-64 pb-24 md:pb-0">
         {children}
       </main>
       <MobileNav />
