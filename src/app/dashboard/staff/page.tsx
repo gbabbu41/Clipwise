@@ -191,18 +191,40 @@ export default function StaffPage() {
       showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
       return;
     }
+    // Normalize email (matches Supabase auth lowercasing) so dupe checks
+    // and future DB unique constraint stay consistent.
+    const email = addForm.email.trim().toLowerCase() || null;
+    // Friendly pre-check before hitting the DB
+    if (email) {
+      const { data: existing } = await supabase
+        .from("barbers")
+        .select("id")
+        .eq("shop_id", shop.id)
+        .ilike("email", email)
+        .maybeSingle();
+      if (existing) { showToast("A barber with this email is already on your team."); return; }
+    }
     setSavingAdd(true);
     const { error } = await supabase.from("barbers").insert({
       shop_id: shop.id,
       name: addForm.name.trim(),
-      email: addForm.email.trim() || null,
+      email,
       commission_percent: parseInt(addForm.commission_percent) || 50,
       is_active: true,
       rating: 0,
       total_reviews: 0,
     });
     setSavingAdd(false);
-    if (error) { showToast("Error adding barber"); return; }
+    if (error) {
+      // Postgres unique-violation (code 23505) — friendlier message if the
+      // DB constraint catches a race / direct-insert that slipped past the check.
+      if (error.code === "23505") {
+        showToast("A barber with this email is already on your team.");
+      } else {
+        showToast(`Error adding barber: ${error.message}`);
+      }
+      return;
+    }
     setShowAddModal(false);
     setAddForm({ name: "", email: "", commission_percent: "50" });
     showToast("Barber added successfully!");

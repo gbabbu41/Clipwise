@@ -56,7 +56,14 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
 
-  if (barberError) return NextResponse.json({ error: barberError.message }, { status: 500 });
+  if (barberError) {
+    // 23505 = Postgres unique-violation. Surface a friendly message if the
+    // DB unique constraint catches a race that slipped past the pre-check.
+    if ((barberError as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
+    }
+    return NextResponse.json({ error: barberError.message }, { status: 500 });
+  }
 
   const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite`;
 
