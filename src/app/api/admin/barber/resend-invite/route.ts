@@ -39,9 +39,11 @@ export async function POST(request: NextRequest) {
   });
 
   let inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
+  let existingAccount = false;
 
   if (inviteError) {
     // User exists — generate magic link instead
+    existingAccount = true;
     const { data: magicData } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: barber.email,
@@ -58,7 +60,11 @@ export async function POST(request: NextRequest) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       type: "barber_invite",
-      data: { barberName: barber.name, barberEmail: barber.email, shopName: shop?.name ?? "your shop", inviteLink },
+      data: {
+        barberName: barber.name, barberEmail: barber.email,
+        shopName: shop?.name ?? "your shop", inviteLink,
+        existingAccount: existingAccount ? "true" : "false",
+      },
     }),
   });
 

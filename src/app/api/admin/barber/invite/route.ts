@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
 
   // Try invite link (new user); fall back to magic link (existing user)
   let inviteLink: string | null = null;
+  let existingAccount = false;
 
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
     type: "invite",
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
     inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
   } else {
     // User already exists — generate a magic link instead
+    existingAccount = true;
     const { data: magicData } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email,
@@ -109,6 +111,7 @@ export async function POST(request: NextRequest) {
         barberEmail: email,
         shopName: shop.name,
         inviteLink,
+        existingAccount: existingAccount ? "true" : "false",
       },
     }),
   });

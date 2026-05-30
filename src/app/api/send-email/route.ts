@@ -345,12 +345,22 @@ function refundIssued(data: Record<string, string>) {
 }
 
 function barberInvite(data: Record<string, string>) {
+  const existing = data.existingAccount === "true";
+  const ctaText = existing ? "Open My Barber Dashboard →" : "Accept Invite & Set Up Account →";
+  const leadParagraph = existing
+    ? `<p>Good news — you already have a ClipWise account. Click the button below to sign in instantly and start managing your schedule at <span class="highlight">${data.shopName}</span>.</p>
+       <p style="font-size:13px;color:#9CA3AF;background:#1a1a1a;border:1px solid #2D2D2D;border-radius:8px;padding:12px 16px">
+         The link below logs you in automatically.
+         You can keep using your <strong style="color:#fff">existing ClipWise password</strong> to sign in normally any time at <a href="${BASE_URL}/login" style="color:#C9A84C">${BASE_URL}/login</a> — or
+         <a href="${BASE_URL}/forgot-password" style="color:#C9A84C">reset your password</a> if you've forgotten it.
+       </p>`
+    : `<p>Click the button below to set up your account and access your personal barber dashboard. You'll be asked to choose a password.</p>`;
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
     <div class="badge">✂️ You're Invited!</div>
     <h1>Hi ${data.barberName},</h1>
     <p><span class="highlight">${data.shopName}</span> has invited you to join their team on ClipWise — the barbershop management platform.</p>
-    <p>Click the button below to set up your account and access your personal barber dashboard.</p>
+    ${leadParagraph}
     <hr class="divider">
     <p style="font-weight:600;color:#fff;margin-bottom:8px">With your barber portal you can:</p>
     <ul class="steps">
@@ -360,8 +370,8 @@ function barberInvite(data: Record<string, string>) {
       <li><span class="step-num">4</span>See your client history</li>
     </ul>
     <hr class="divider">
-    <a href="${data.inviteLink}" class="btn">Accept Invite & Set Up Account →</a>
-    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link expires in 24 hours. If you didn't expect this, you can ignore it.</p>
+    <a href="${data.inviteLink}" class="btn">${ctaText}</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link expires in 1 hour. If you didn't expect this, you can ignore it.</p>
     <hr class="divider">
     <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
