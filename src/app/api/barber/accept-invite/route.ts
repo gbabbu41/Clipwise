@@ -12,19 +12,25 @@ export async function POST(request: NextRequest) {
 
   let barberId = barber_id;
 
-  // Fallback: find barber by email if no ID in metadata
-  if (!barberId) {
+  // Fallback: find barber by email if no ID in metadata.
+  // Use case-insensitive match — Supabase normalizes auth emails to lowercase
+  // but the barbers table may have been seeded before that normalization.
+  const lookupEmail = (user.email ?? "").trim().toLowerCase();
+  if (!barberId && lookupEmail) {
     const { data: found } = await supabaseAdmin
       .from("barbers")
-      .select("id")
-      .eq("email", user.email ?? "")
+      .select("id, created_at")
+      .ilike("email", lookupEmail)
       .is("user_id", null)
-      .maybeSingle();
-    barberId = found?.id;
+      .order("created_at", { ascending: false })
+      .limit(1);
+    barberId = found?.[0]?.id;
   }
 
   if (!barberId) {
-    return NextResponse.json({ error: "No pending invite found for your email address" }, { status: 404 });
+    return NextResponse.json({
+      error: `No pending invite found for ${user.email ?? "this email"}. Ask your shop owner to resend the invite to the exact same email address.`,
+    }, { status: 404 });
   }
 
   // Link the auth user to the barber record

@@ -22,18 +22,21 @@ export async function POST(request: NextRequest) {
 
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
-  const { name, email, commission_percent = 50 } = await request.json() as {
+  const { name, email: rawEmail, commission_percent = 50 } = await request.json() as {
     name: string; email: string; commission_percent?: number;
   };
 
-  if (!name || !email) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+  if (!name || !rawEmail) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
 
-  // Check if a barber with this email is already on the team
+  // Normalize email to match how Supabase auth stores it (lowercase + trimmed)
+  const email = rawEmail.trim().toLowerCase();
+
+  // Check if a barber with this email is already on the team (case-insensitive)
   const { data: existing } = await supabaseAdmin
     .from("barbers")
     .select("id")
     .eq("shop_id", shop.id)
-    .eq("email", email)
+    .ilike("email", email)
     .maybeSingle();
 
   if (existing) return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
