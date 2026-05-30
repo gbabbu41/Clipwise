@@ -30,14 +30,9 @@ export async function POST(request: NextRequest) {
 
   // Normalize email to match how Supabase auth stores it (lowercase + trimmed)
   const email = rawEmail.trim().toLowerCase();
-
-  // Block owner self-invite — accept-invite would overwrite their role from
-  // shop_owner to barber and they'd lose access to their dashboard.
-  if ((user.email ?? "").toLowerCase() === email) {
-    return NextResponse.json({
-      error: "You're the shop owner — you can already manage everything from your own dashboard. Invite a different email for a barber.",
-    }, { status: 400 });
-  }
+  // (Owner self-invite is allowed — many shop owners cut hair too and want
+  //  their own barber profile alongside ownership. accept-invite preserves
+  //  the shop_owner role and just links the new barber row to them.)
 
   // Check if a barber with this email is already on the team (case-insensitive)
   const { data: existing } = await supabaseAdmin

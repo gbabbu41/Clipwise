@@ -52,7 +52,9 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
-    if (profile && profile.role !== "barber") { router.push("/dashboard"); return; }
+    // Allow barbers OR shop_owners who also cut hair (have a linked barber row).
+    // If they're a customer, no business here.
+    if (profile && profile.role === "customer") { router.push("/"); return; }
   }, [user, profile, loading, router]);
 
   if (loading) {

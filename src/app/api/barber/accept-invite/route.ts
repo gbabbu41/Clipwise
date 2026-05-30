@@ -42,11 +42,17 @@ export async function POST(request: NextRequest) {
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });
 
-  // Set role to barber in the users table (the trigger creates them as 'customer')
-  await supabaseAdmin
-    .from("users")
-    .update({ role: "barber" })
-    .eq("id", user.id);
+  // Only upgrade role to 'barber' if they were a plain customer. Don't downgrade
+  // a shop_owner or super_admin — many owner-operators cut hair too and need
+  // both their owner dashboard AND a barber profile under the same login.
+  const { data: profile } = await supabaseAdmin
+    .from("users").select("role").eq("id", user.id).single();
+  if (profile?.role !== "shop_owner" && profile?.role !== "super_admin") {
+    await supabaseAdmin
+      .from("users")
+      .update({ role: "barber" })
+      .eq("id", user.id);
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, role: profile?.role ?? "barber" });
 }

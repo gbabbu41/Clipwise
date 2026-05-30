@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors } from "lucide-react";
+import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -55,6 +55,16 @@ export function BarberSidebar() {
             </Link>
           );
         })}
+
+        {/* Owner-also-barber: show a way back to the owner dashboard */}
+        {profile?.role === "shop_owner" && (
+          <Link href="/dashboard"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-gray-400 hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            <Building2 size={18} className="text-gray-500 group-hover:text-white" />
+            <span className="flex-1">Owner Dashboard</span>
+            <ChevronRight size={14} className="opacity-50" />
+          </Link>
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-border">
@@ -64,7 +74,7 @@ export function BarberSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-gray-500">Barber</p>
+            <p className="text-xs text-gray-500">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
           </div>
           <button onClick={signOut} className="text-gray-500 hover:text-red-400 transition-colors">
             <LogOut size={16} />

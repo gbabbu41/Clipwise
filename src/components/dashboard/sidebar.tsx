@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
+  { href: "/barber-dashboard", label: "My Barber View", icon: Scissors, ownerOnly: true },
 ];
 
 function ShopSwitcher({ shop, shops, setActiveShop }: { shop: Shop | null; shops: Shop[]; setActiveShop: (s: Shop) => void }) {
