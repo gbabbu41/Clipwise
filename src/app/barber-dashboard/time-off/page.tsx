@@ -115,6 +115,38 @@ export default function BarberTimeOffPage() {
     });
     setSaving(false);
     if (error) { showToast(`Could not submit: ${error.message}`); return; }
+
+    // Notify the shop owner (in-app + email — both fire-and-forget)
+    const dateRange = form.start_date + (form.end_date !== form.start_date ? ` → ${form.end_date}` : "");
+    const timeRange = form.type === "blocked_hours" && form.start_time && form.end_time
+      ? ` (${form.start_time}–${form.end_time})` : "";
+    const summary = `${TYPE_LABELS[form.type]} · ${dateRange}${timeRange}`;
+    supabase.from("notifications").insert({
+      user_id: shop.owner_id,
+      title: "New Time-Off Request",
+      message: `${barber.name}: ${summary}${form.reason ? ` — "${form.reason}"` : ""}`,
+      type: "system",
+      is_read: false,
+    }).then(null, () => null);
+
+    fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "time_off_request",
+        data: {
+          shopName: shop.name,
+          shopEmail: shop.email ?? "",
+          ownerEmail: shop.email ?? "",
+          barberName: barber.name,
+          requestType: TYPE_LABELS[form.type],
+          dateRange,
+          timeRange: form.type === "blocked_hours" && form.start_time && form.end_time ? `${form.start_time}–${form.end_time}` : "",
+          reason: form.reason ?? "",
+        },
+      }),
+    }).catch(() => null);
+
     setShowModal(false);
     setForm({ type: "day_off", start_date: today, end_date: today, start_time: "", end_time: "", reason: "" });
     showToast("Request submitted — your shop owner will approve it.");

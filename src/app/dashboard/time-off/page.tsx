@@ -33,7 +33,7 @@ interface TimeOffRequest {
   reason?: string | null;
   status: TimeOffStatus;
   created_at: string;
-  barbers?: { name: string } | null;
+  barbers?: { name: string; user_id?: string | null } | null;
 }
 
 const TYPE_LABELS: Record<BlockType, string> = {
@@ -96,7 +96,7 @@ export default function TimeOffPage() {
     if (!shop) return;
     const { data } = await supabase
       .from("time_off_requests")
-      .select("*, barbers(name)")
+      .select("*, barbers(name, user_id)")
       .eq("shop_id", shop.id)
       .order("start_date", { ascending: false });
     if (data && data.length > 0) setRequests(data as unknown as TimeOffRequest[]);
@@ -122,7 +122,7 @@ export default function TimeOffPage() {
         reason: form.reason || null,
         status: isOwner ? "approved" : "pending",
       })
-      .select("*, barbers(name)")
+      .select("*, barbers(name, user_id)")
       .single();
 
     setSaving(false);
@@ -154,8 +154,22 @@ export default function TimeOffPage() {
   };
 
   const updateStatus = async (id: string, status: TimeOffStatus) => {
+    const req = requests.find(r => r.id === id);
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     await supabase.from("time_off_requests").update({ status }).eq("id", id).then(null, () => null);
+
+    // Notify the barber that the owner acted on their request
+    if (req?.barbers?.user_id) {
+      const dateRange = req.start_date + (req.end_date !== req.start_date ? ` → ${req.end_date}` : "");
+      supabase.from("notifications").insert({
+        user_id: req.barbers.user_id,
+        title: status === "approved" ? "Time-Off Approved" : "Time-Off Denied",
+        message: `Your ${TYPE_LABELS[req.type]} request for ${dateRange} was ${status} by the shop owner.`,
+        type: "system",
+        is_read: false,
+      }).then(null, () => null);
+    }
+
     showToast(status === "approved" ? "Request approved!" : "Request denied.");
   };
 

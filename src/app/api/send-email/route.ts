@@ -344,6 +344,25 @@ function refundIssued(data: Record<string, string>) {
   `);
 }
 
+function timeOffRequest(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">📅 Time-Off Request</div>
+    <h1>${data.barberName} requested time off</h1>
+    <p>One of your barbers has submitted a new time-off request for <span class="highlight">${data.shopName}</span>. Review and approve or deny it from your dashboard.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Type</span><span class="val">${data.requestType}</span></div>
+    <div class="row"><span class="label">Dates</span><span class="val">${data.dateRange}</span></div>
+    ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
+    ${data.reason ? `<hr class="divider"><p style="font-weight:600;color:#fff;margin-bottom:4px">Reason from ${data.barberName}:</p>
+    <p style="background:#1a1a1a;border:1px solid #2D2D2D;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason}</p>` : ""}
+    <hr class="divider">
+    <a href="${BASE_URL}/dashboard/time-off" class="btn">Review in Dashboard →</a>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function barberInvite(data: Record<string, string>) {
   const existing = data.existingAccount === "true";
   const ctaText = existing ? "Open My Barber Dashboard →" : "Accept Invite & Set Up Account →";
@@ -473,6 +492,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = "Your ClipWise subscription was cancelled";
         html = subscriptionCancelled(data);
+        break;
+      case "time_off_request":
+        to = data.ownerEmail;
+        subject = `Time-off request — ${data.barberName} (${data.requestType})`;
+        html = timeOffRequest(data);
         break;
       case "new_booking_owner":
         to = data.ownerEmail;
