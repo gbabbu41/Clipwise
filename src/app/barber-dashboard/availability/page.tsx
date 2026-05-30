@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Save, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useBarber } from "@/lib/barber-context";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -30,6 +31,7 @@ const DEFAULT_SLOTS: DaySlot[] = DAYS.map((_, i) => ({
 
 export default function BarberAvailabilityPage() {
   const { accessToken } = useAuth();
+  const { shop } = useBarber();
   const [slots, setSlots] = useState<DaySlot[]>(DEFAULT_SLOTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,7 +39,8 @@ export default function BarberAvailabilityPage() {
 
   useEffect(() => {
     if (!accessToken) return;
-    fetch("/api/barber/availability", { headers: { Authorization: `Bearer ${accessToken}` } })
+    const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
+    fetch(`/api/barber/availability${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(({ slots: s }) => {
         if (!s || s.length === 0) return;
@@ -47,7 +50,7 @@ export default function BarberAvailabilityPage() {
         }));
       })
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  }, [accessToken, shop?.id]);
 
   function update(day: number, field: keyof DaySlot, value: string | boolean) {
     setSlots(prev => prev.map(s => s.day_of_week === day ? { ...s, [field]: value } : s));
@@ -65,7 +68,8 @@ export default function BarberAvailabilityPage() {
       }
     }
     setSaving(true);
-    await fetch("/api/barber/availability", {
+    const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
+    await fetch(`/api/barber/availability${shopParam}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ slots }),

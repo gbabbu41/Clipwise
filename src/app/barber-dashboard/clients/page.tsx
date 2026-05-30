@@ -15,7 +15,7 @@ interface ClientRow {
 
 export default function BarberClientsPage() {
   const { accessToken } = useAuth();
-  const { barber } = useBarber();
+  const { barber, shop } = useBarber();
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,8 @@ export default function BarberClientsPage() {
   useEffect(() => {
     if (!accessToken) return;
     // Aggregate clients from appointments
-    fetch("/api/barber/appointments", { headers: { Authorization: `Bearer ${accessToken}` } })
+    const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
+    fetch(`/api/barber/appointments${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(({ appointments }) => {
         const map = new Map<string, ClientRow>();
@@ -51,7 +52,7 @@ export default function BarberClientsPage() {
         setClients(Array.from(map.values()).sort((a, b) => b.visits - a.visits));
       })
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  }, [accessToken, shop?.id]);
 
   const filtered = clients.filter(c =>
     c.client_name.toLowerCase().includes(query.toLowerCase()) ||

@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function BarberOverviewPage() {
   const { accessToken } = useAuth();
-  const { barber, loading: barberLoading } = useBarber();
+  const { barber, shop, loading: barberLoading } = useBarber();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,13 +37,14 @@ export default function BarberOverviewPage() {
 
   useEffect(() => {
     if (!accessToken) return;
-    fetch(`/api/barber/appointments?date=${todayStr}`, {
+    const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
+    fetch(`/api/barber/appointments?date=${todayStr}${shopParam}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(r => r.json())
       .then(({ appointments: a }) => setAppointments(a ?? []))
       .finally(() => setLoading(false));
-  }, [accessToken, todayStr]);
+  }, [accessToken, todayStr, shop?.id]);
 
   const upcoming = appointments.filter(a => a.status !== "completed" && a.status !== "cancelled" && a.status !== "no-show");
   const completed = appointments.filter(a => a.status === "completed");

@@ -8,19 +8,28 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: barber } = await supabaseAdmin
+  // A user can be linked to multiple barber rows — one per shop they work at.
+  const { data: barbers } = await supabaseAdmin
     .from("barbers")
     .select("*")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
-  if (!barber) return NextResponse.json({ error: "No barber record linked to this account" }, { status: 404 });
+  if (!barbers || barbers.length === 0) {
+    return NextResponse.json({ error: "No barber record linked to this account" }, { status: 404 });
+  }
 
-  const { data: shop } = await supabaseAdmin
+  const shopIds = Array.from(new Set(barbers.map(b => b.shop_id)));
+  const { data: shops } = await supabaseAdmin
     .from("shops")
     .select("*")
-    .eq("id", barber.shop_id)
-    .single();
+    .in("id", shopIds);
 
-  return NextResponse.json({ barber, shop });
+  // Return both the arrays AND the first pair for back-compat with single-shop callers
+  return NextResponse.json({
+    barbers,
+    shops: shops ?? [],
+    barber: barbers[0],
+    shop: (shops ?? []).find(s => s.id === barbers[0].shop_id) ?? null,
+  });
 }

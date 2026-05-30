@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { DollarSign, TrendingUp, Scissors, Receipt } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useBarber } from "@/lib/barber-context";
 import { cn } from "@/lib/utils";
 
 type Period = "week" | "month" | "year";
@@ -26,6 +27,7 @@ interface Transaction {
 
 export default function BarberEarningsPage() {
   const { accessToken } = useAuth();
+  const { shop } = useBarber();
   const [period, setPeriod] = useState<Period>("month");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -34,11 +36,12 @@ export default function BarberEarningsPage() {
   useEffect(() => {
     if (!accessToken) return;
     setLoading(true);
-    fetch(`/api/barber/earnings?period=${period}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
+    fetch(`/api/barber/earnings?period=${period}${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(({ summary: s, transactions: t }) => { setSummary(s); setTransactions(t ?? []); })
       .finally(() => setLoading(false));
-  }, [accessToken, period]);
+  }, [accessToken, period, shop?.id]);
 
   const periodLabel = period === "week" ? "This Week" : period === "month" ? "This Month" : "This Year";
 

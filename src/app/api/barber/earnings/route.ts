@@ -8,15 +8,15 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: barber } = await supabaseAdmin
-    .from("barbers")
-    .select("id, commission_percent")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { searchParams } = new URL(request.url);
+  const shopId = searchParams.get("shop_id");
+  let barberQuery = supabaseAdmin.from("barbers").select("id, commission_percent").eq("user_id", user.id);
+  if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
+  const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
+  const barber = barberRows?.[0];
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
 
-  const { searchParams } = new URL(request.url);
   const period = searchParams.get("period") ?? "month";
 
   const now = new Date();

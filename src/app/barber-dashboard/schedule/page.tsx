@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useBarber } from "@/lib/barber-context";
 import { cn } from "@/lib/utils";
 
 interface Appointment {
@@ -37,6 +38,7 @@ function getWeekDates(offset = 0) {
 
 export default function BarberSchedulePage() {
   const { accessToken } = useAuth();
+  const { shop } = useBarber();
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -49,13 +51,14 @@ export default function BarberSchedulePage() {
   useEffect(() => {
     if (!accessToken) return;
     setLoading(true);
-    fetch(`/api/barber/appointments?from=${from}&to=${to}`, {
+    const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
+    fetch(`/api/barber/appointments?from=${from}&to=${to}${shopParam}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(r => r.json())
       .then(({ appointments: a }) => setAppointments(a ?? []))
       .finally(() => setLoading(false));
-  }, [accessToken, from, to]);
+  }, [accessToken, from, to, shop?.id]);
 
   const selectedDate = weekDates[selectedDay];
   const selectedDateStr = selectedDate.toISOString().split("T")[0];

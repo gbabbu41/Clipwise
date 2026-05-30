@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
+import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 
 const navItems = [
   { href: "/barber-dashboard", label: "Overview", icon: LayoutDashboard },
@@ -19,7 +20,7 @@ const navItems = [
 export function BarberSidebar() {
   const pathname = usePathname();
   const { user, profile, signOut } = useAuth();
-  const { barber, shop } = useBarber();
+  const { barber, shop, shops, setActiveShop } = useBarber();
 
   const displayName = barber?.name ?? profile?.name ?? user?.email ?? "Barber";
   const initial = displayName.charAt(0).toUpperCase();
@@ -33,6 +34,9 @@ export function BarberSidebar() {
           <p className="text-xs text-gray-500">{shop?.name ?? "Barber Portal"}</p>
         </div>
       </div>
+
+      {/* Reused from the owner sidebar — only renders when shops.length > 1 */}
+      <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.map((item) => {

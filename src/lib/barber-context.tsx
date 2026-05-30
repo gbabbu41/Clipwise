@@ -1,38 +1,63 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./auth-context";
 import type { Barber, Shop } from "./database.types";
 
 interface BarberContextType {
-  barber: Barber | null;
-  shop: Shop | null;
+  barber: Barber | null;       // active barber row (one per shop)
+  shop: Shop | null;           // active shop
+  barbers: Barber[];           // all barber rows for this user (multi-shop)
+  shops: Shop[];               // all shops for those barber rows
   loading: boolean;
   error: string | null;
+  setActiveShop: (s: Shop) => void;
 }
 
-const BarberContext = createContext<BarberContextType>({ barber: null, shop: null, loading: true, error: null });
+const BarberContext = createContext<BarberContextType>({
+  barber: null, shop: null, barbers: [], shops: [],
+  loading: true, error: null, setActiveShop: () => {},
+});
+
+const ACTIVE_KEY = (userId: string) => `clipwise_active_barber_shop_${userId}`;
 
 export function BarberProvider({ children }: { children: React.ReactNode }) {
-  const { accessToken } = useAuth();
-  const [barber, setBarber] = useState<Barber | null>(null);
+  const { accessToken, user } = useAuth();
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [shops, setShops] = useState<Shop[]>([]);
   const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const setActiveShop = useCallback((s: Shop) => {
+    setShop(s);
+    if (user?.id) localStorage.setItem(ACTIVE_KEY(user.id), s.id);
+  }, [user?.id]);
+
+  // Derive active barber from active shop
+  const barber = shop ? barbers.find(b => b.shop_id === shop.id) ?? null : null;
 
   useEffect(() => {
     if (!accessToken) { setLoading(false); return; }
     fetch("/api/barber/me", { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
-      .then(({ barber: b, shop: s, error: e }) => {
-        if (e) setError(e);
-        else { setBarber(b); setShop(s); }
+      .then(({ barbers: bs, shops: ss, error: e }) => {
+        if (e) { setError(e); return; }
+        const barberList: Barber[] = bs ?? [];
+        const shopList: Shop[] = ss ?? [];
+        setBarbers(barberList);
+        setShops(shopList);
+
+        // Pick the active shop: localStorage preference → first shop
+        const stored = user?.id ? localStorage.getItem(ACTIVE_KEY(user.id)) : null;
+        const preferred = stored ? shopList.find(s => s.id === stored) : null;
+        setShop(preferred ?? shopList[0] ?? null);
       })
       .catch(() => setError("Failed to load barber profile"))
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  }, [accessToken, user?.id]);
 
   return (
-    <BarberContext.Provider value={{ barber, shop, loading, error }}>
+    <BarberContext.Provider value={{ barber, shop, barbers, shops, loading, error, setActiveShop }}>
       {children}
     </BarberContext.Provider>
   );
