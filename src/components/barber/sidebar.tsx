@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2 } from "lucide-react";
+import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2, CalendarOff } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/barber-dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/barber-dashboard/schedule", label: "My Schedule", icon: Calendar },
   { href: "/barber-dashboard/availability", label: "Availability", icon: Clock },
+  { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users },
   { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign },
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },

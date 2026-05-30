@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Calendar, Clock, DollarSign, Star, ChevronRight, User } from "lucide-react";
+import { Calendar, Clock, DollarSign, Star, ChevronRight, User, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
+import { supabase } from "@/lib/supabase";
+import { formatDateForDb } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface Appointment {
@@ -29,6 +32,47 @@ export default function BarberOverviewPage() {
   const { barber, shop, loading: barberLoading } = useBarber();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
+  const [clockLoading, setClockLoading] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
+
+  // Check if already clocked in today
+  useEffect(() => {
+    if (!barber?.id || !shop?.id) return;
+    const today = formatDateForDb(new Date());
+    supabase.from("staff_hours").select("id, clock_in")
+      .eq("barber_id", barber.id).eq("date", today).is("clock_out", null).maybeSingle()
+      .then(({ data }) => { if (data) setClockedIn({ id: data.id, clock_in: data.clock_in }); });
+  }, [barber?.id, shop?.id]);
+
+  const handleClockIn = async () => {
+    if (!barber?.id || !shop?.id) return;
+    setClockLoading(true);
+    const now = new Date();
+    const { data } = await supabase.from("staff_hours").insert({
+      barber_id: barber.id,
+      shop_id: shop.id,
+      date: formatDateForDb(now),
+      clock_in: now.toTimeString().slice(0, 5),
+    }).select("id, clock_in").single();
+    if (data) { setClockedIn({ id: data.id, clock_in: data.clock_in }); showToast("Clocked in!"); }
+    setClockLoading(false);
+  };
+
+  const handleClockOut = async () => {
+    if (!clockedIn) return;
+    setClockLoading(true);
+    const now = new Date();
+    const outStr = now.toTimeString().slice(0, 5);
+    const [inH, inM] = clockedIn.clock_in.split(":").map(Number);
+    const hours = Math.round(((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60 * 100) / 100;
+    await supabase.from("staff_hours").update({ clock_out: outStr, hours_worked: hours }).eq("id", clockedIn.id);
+    setClockedIn(null);
+    showToast(`Clocked out · ${hours}h worked today`);
+    setClockLoading(false);
+  };
 
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
@@ -59,10 +103,36 @@ export default function BarberOverviewPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">{greeting}, {barber?.name?.split(" ")[0] ?? "there"} ✂️</h1>
-        <p className="text-gray-500 text-sm mt-1">{dayLabel}</p>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+          <span className="text-gold">✓</span> {toast}
+        </div>
+      )}
+
+      {/* Header + Clock In/Out */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">{greeting}, {barber?.name?.split(" ")[0] ?? "there"} ✂️</h1>
+          <p className="text-gray-500 text-sm mt-1">{dayLabel}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {clockedIn && (
+            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Clocked in {clockedIn.clock_in}
+            </span>
+          )}
+          {clockedIn ? (
+            <Button variant="danger" size="sm" loading={clockLoading} onClick={handleClockOut}>
+              <LogOut size={14} /> Clock Out
+            </Button>
+          ) : (
+            <Button size="sm" loading={clockLoading} onClick={handleClockIn}>
+              <LogIn size={14} /> Clock In
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
