@@ -13,7 +13,33 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     async function handle() {
-      // Supabase client picks up hash tokens from the URL automatically
+      // 1. First check if Supabase returned an error in the URL hash
+      //    (e.g. otp_expired, access_denied). This must run BEFORE getSession
+      //    because a stale session from another user can mask the real cause.
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+      const urlError = hashParams.get("error_code") || hashParams.get("error");
+      if (urlError) {
+        if (urlError.includes("expired") || urlError === "otp_expired") {
+          setError("This invite link has expired. Invite links are only valid for a short time — ask your shop owner to resend you a fresh one from their Staff page.");
+        } else if (urlError === "access_denied") {
+          setError(`The invite link could not be used (${hashParams.get("error_description") ?? "access denied"}). Ask your shop owner to resend the invite.`);
+        } else {
+          setError(`Invite link error: ${hashParams.get("error_description") ?? urlError}`);
+        }
+        setStatus("error");
+        return;
+      }
+
+      // 2. If the URL carries fresh tokens, force them to become the active
+      //    session so an owner-already-logged-in browser doesn't take over.
+      const access_token = hashParams.get("access_token");
+      const refresh_token = hashParams.get("refresh_token");
+      if (access_token && refresh_token) {
+        await supabase.auth.setSession({ access_token, refresh_token }).catch(() => null);
+      }
+
+      // 3. Now read the session — it'll be the invitee if tokens were present
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
