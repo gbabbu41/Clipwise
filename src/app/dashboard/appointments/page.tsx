@@ -360,8 +360,55 @@ export default function AppointmentsPage() {
             </select>
           </div>
 
+          {/* ── Mobile card list (md:hidden) ──────────────────────────── */}
+          <div className="md:hidden space-y-3">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-surface border border-border rounded-2xl p-4 space-y-3 animate-pulse">
+                  <div className="flex justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-16 rounded-full" /></div>
+                  <Skeleton className="h-3 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                  <div className="flex gap-2"><Skeleton className="h-8 flex-1 rounded-lg" /><Skeleton className="h-8 flex-1 rounded-lg" /><Skeleton className="h-8 flex-1 rounded-lg" /></div>
+                </div>
+              ))
+            ) : filtered.length === 0 ? (
+              <div className="bg-surface border border-border rounded-2xl py-12 text-center">
+                <p className="text-3xl mb-3">📅</p>
+                <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                <p className="text-sm text-gray-500 px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+              </div>
+            ) : filtered.map(apt => (
+              <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
+                className="bg-surface border border-border rounded-2xl p-4 active:bg-surface-raised/50 cursor-pointer transition-colors space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
+                    <p className="text-xs text-gray-400">{apt.client_phone || "—"}</p>
+                  </div>
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border flex-shrink-0", getStatusColor(apt.status))}>
+                    {apt.status}
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  <p className="text-white font-medium">{apt.date} · <span className="text-gold">{apt.time_slot}</span></p>
+                  <p className="text-gray-400">{apt.services?.name ?? "—"} · <span className="text-gold">{formatCurrency(apt.total_amount)}</span></p>
+                  <p className="text-xs text-gray-500">Barber: {apt.barbers?.name ?? "—"}</p>
+                </div>
+                <div className="flex gap-2 pt-1" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => updateStatus(apt.id, "confirmed")} disabled={savingStatus === apt.id}
+                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">✓ Confirm</button>
+                  <button onClick={() => updateStatus(apt.id, "completed")} disabled={savingStatus === apt.id}
+                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50">Done</button>
+                  <button onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
+                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50">Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
           {loading ? (
-            <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-surface border border-border rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-border/50 last:border-0">
                 <Skeleton className="h-4 w-20" />
@@ -376,7 +423,7 @@ export default function AppointmentsPage() {
             ))}
           </div>
           ) : (
-            <Card className="p-0 overflow-hidden">
+            <Card className="hidden md:block p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="border-b border-border">
