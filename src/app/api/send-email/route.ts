@@ -509,11 +509,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Reply-To routing ────────────────────────────────────────────────────
-    // The "From" address (hello@clipwise.ca) has no inbox — replies need to
-    // land somewhere a human reads. Route them based on email type:
-    //  · Customer/barber-facing emails → the shop owner (they're the contact)
-    //  · Owner-facing system emails    → platform admin
-    //  · Admin/system emails           → platform admin
+    // The "From" address (hello@clipwise.ca) has no inbox, so a Reply-To is
+    // needed for replies to land somewhere a human reads. Route by type:
+    //  · Customer/barber-facing → shop owner ONLY. Never the platform admin
+    //    (would expose ADMIN_EMAIL to the public). If shop email is somehow
+    //    missing, omit replyTo so the reply bounces to From rather than us.
+    //  · Owner-facing + admin emails → platform admin is appropriate.
     const customerOrBarberFacing = [
       "booking_confirmation", "appointment_reminder", "review_request",
       "appointment_rejected", "refund_issued", "rebooking_reminder",
@@ -521,10 +522,12 @@ export async function POST(req: NextRequest) {
       "barber_invite", "new_booking_barber",
     ];
     const replyTo = customerOrBarberFacing.includes(type)
-      ? (data.shopEmail || ADMIN_EMAIL)
+      ? (data.shopEmail || undefined)
       : (data.replyTo || ADMIN_EMAIL);
 
-    const { error } = await resend.emails.send({ from: FROM, to, subject, html, replyTo });
+    const sendArgs: Parameters<typeof resend.emails.send>[0] = { from: FROM, to, subject, html };
+    if (replyTo) sendArgs.replyTo = replyTo;
+    const { error } = await resend.emails.send(sendArgs);
     if (error) return NextResponse.json({ error }, { status: 400 });
 
     return NextResponse.json({ success: true });
