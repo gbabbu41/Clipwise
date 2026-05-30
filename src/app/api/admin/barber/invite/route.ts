@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   // Get caller's shop
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("id, name")
+    .select("id, name, email")
     .eq("owner_id", user.id)
     .single();
 
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         barberName: name,
         barberEmail: email,
         shopName: shop.name,
+        shopEmail: shop.email ?? "",
         inviteLink,
         existingAccount: existingAccount ? "true" : "false",
       },

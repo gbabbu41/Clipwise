@@ -508,7 +508,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unknown email type" }, { status: 400 });
     }
 
-    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+    // ── Reply-To routing ────────────────────────────────────────────────────
+    // The "From" address (hello@clipwise.ca) has no inbox — replies need to
+    // land somewhere a human reads. Route them based on email type:
+    //  · Customer/barber-facing emails → the shop owner (they're the contact)
+    //  · Owner-facing system emails    → platform admin
+    //  · Admin/system emails           → platform admin
+    const customerOrBarberFacing = [
+      "booking_confirmation", "appointment_reminder", "review_request",
+      "appointment_rejected", "refund_issued", "rebooking_reminder",
+      "no_show_followup", "birthday_wish",
+      "barber_invite", "new_booking_barber",
+    ];
+    const replyTo = customerOrBarberFacing.includes(type)
+      ? (data.shopEmail || ADMIN_EMAIL)
+      : (data.replyTo || ADMIN_EMAIL);
+
+    const { error } = await resend.emails.send({ from: FROM, to, subject, html, replyTo });
     if (error) return NextResponse.json({ error }, { status: 400 });
 
     return NextResponse.json({ success: true });

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   // Verify the caller owns the shop
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, name, slug, owner_id, stripe_account_id").eq("id", appt.shop_id).single();
+    .from("shops").select("id, name, email, slug, owner_id, stripe_account_id").eq("id", appt.shop_id).single();
   if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // 30-day window
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
             clientName: appt.client_name,
             clientEmail: appt.client_email,
             shopName: shop.name,
+            shopEmail: shop.email ?? "",
             shopSlug: shop.slug,
             serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
             date: appt.date,

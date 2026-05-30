@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!barber.email) return NextResponse.json({ error: "Barber has no email address" }, { status: 400 });
   if (barber.user_id) return NextResponse.json({ error: "Barber already accepted their invite" }, { status: 400 });
 
-  const { data: shop } = await supabaseAdmin.from("shops").select("name, owner_id").eq("id", barber.shop_id).single();
+  const { data: shop } = await supabaseAdmin.from("shops").select("name, email, owner_id").eq("id", barber.shop_id).single();
   if (callerProfile.role === "shop_owner" && shop?.owner_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -62,7 +62,9 @@ export async function POST(request: NextRequest) {
       type: "barber_invite",
       data: {
         barberName: barber.name, barberEmail: barber.email,
-        shopName: shop?.name ?? "your shop", inviteLink,
+        shopName: shop?.name ?? "your shop",
+        shopEmail: shop?.email ?? "",
+        inviteLink,
         existingAccount: existingAccount ? "true" : "false",
       },
     }),

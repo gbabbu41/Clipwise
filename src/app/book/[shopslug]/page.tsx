@@ -319,6 +319,7 @@ export default function BookingPage() {
       clientEmail: clientInfo.email || "—",
       clientPhone: clientInfo.phone || "—",
       shopName: shop.name,
+      shopEmail: shop.email ?? "",
       shopSlug: shop.slug,
       barberName: barbers.find(b => b.id === finalBarberId)?.name ?? "Any Available",
       serviceName: service?.name ?? "—",
