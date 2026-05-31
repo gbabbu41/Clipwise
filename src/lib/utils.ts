@@ -93,6 +93,41 @@ export function formatDateForDb(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
+/**
+ * Human-friendly date label:
+ *   today      → "Today, June 3, 2026"
+ *   tomorrow   → "Tomorrow, June 4, 2026"
+ *   other date → "Tuesday, June 10, 2026"
+ * Accepts either a Date or a "YYYY-MM-DD" string.
+ */
+export function formatFriendlyDate(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d + "T00:00:00") : new Date(d);
+  date.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const monthDay = date.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" });
+  if (date.getTime() === today.getTime()) return `Today, ${monthDay}`;
+  if (date.getTime() === tomorrow.getTime()) return `Tomorrow, ${monthDay}`;
+  const weekday = date.toLocaleDateString("en-CA", { weekday: "long" });
+  return `${weekday}, ${monthDay}`;
+}
+
+/**
+ * Convert a stored time value ("HH:MM", "HH:MM:SS", "17:00", "17:00:00")
+ * to a 12-hour display like "5:00 PM" / "9:00 AM" / "12:30 PM".
+ * Returns "" for falsy input.
+ */
+export function formatFriendlyTime(t: string | null | undefined): string {
+  if (!t) return "";
+  const [hStr, mStr = "0"] = t.split(":");
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const period = h < 12 ? "AM" : "PM";
+  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 /** True if the given date is strictly before today (local time) */
 export function isDateInPast(date: Date): boolean {
   const today = new Date();

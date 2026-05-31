@@ -35,6 +35,20 @@ export async function PUT(request: NextRequest) {
   const barber = await getBarber(token, shopId);
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
 
+  // Per-barber permission check: the owner can revoke this barber's
+  // ability to edit their own schedule from the Staff page. Without this
+  // guard a barber could still PUT manually after the toggle was flipped.
+  const { data: permsRow } = await supabaseAdmin
+    .from("barbers").select("permissions").eq("id", barber.id).single();
+  const perms = (permsRow?.permissions ?? {}) as { edit_schedule?: boolean };
+  // Default true when the column is absent or the field is unset.
+  if (perms.edit_schedule === false) {
+    return NextResponse.json(
+      { error: "Your shop owner has disabled schedule editing for you." },
+      { status: 403 }
+    );
+  }
+
   const { slots } = await request.json() as {
     slots: Array<{ day_of_week: number; start_time: string; end_time: string; is_available: boolean }>
   };

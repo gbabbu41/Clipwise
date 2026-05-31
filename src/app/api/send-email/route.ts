@@ -363,6 +363,29 @@ function timeOffRequest(data: Record<string, string>) {
   `);
 }
 
+function timeOffDecision(data: Record<string, string>) {
+  const approved = data.decision === "approved";
+  const headline = approved ? "Your time off was approved" : "Your time off was denied";
+  const badge = approved ? "✅ Time Off Approved" : "❌ Time Off Denied";
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">${badge}</div>
+    <h1>${headline}</h1>
+    <p>${data.shopName} reviewed your time-off request.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Type</span><span class="val">${data.requestType}</span></div>
+    <div class="row"><span class="label">Dates</span><span class="val">${data.dateRange}</span></div>
+    ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
+    <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#10B981" : "#EF4444"};text-transform:uppercase;font-weight:600">${data.decision}</span></div>
+    ${approved
+      ? `<p style="color:#9CA3AF">Your schedule has been updated — these slots will no longer be offered to customers during this window.</p>`
+      : `<p style="color:#9CA3AF">If you need to talk this through, message your shop directly.</p>`}
+    <hr class="divider">
+    <a href="${BASE_URL}/barber-dashboard/time-off" class="btn">View My Requests →</a>
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function barberInvite(data: Record<string, string>) {
   const existing = data.existingAccount === "true";
   const ctaText = existing ? "Open My Barber Dashboard →" : "Accept Invite & Set Up Account →";
@@ -497,6 +520,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `Time-off request — ${data.barberName} (${data.requestType})`;
         html = timeOffRequest(data);
+        break;
+      case "time_off_decision":
+        to = data.barberEmail;
+        subject = `Your time-off request was ${data.decision} — ${data.shopName}`;
+        html = timeOffDecision(data);
         break;
       case "new_booking_owner":
         to = data.ownerEmail;

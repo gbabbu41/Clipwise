@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar,
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -187,12 +187,32 @@ export default function BookingPage() {
     const slotMap: Record<string, { available: boolean; barberIds: string[] }> = {};
 
     await Promise.all(barberList.map(async (b) => {
-      const [{ data: ts }, { data: booked }] = await Promise.all([
+      const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
         supabase.from("time_slots").select("*").eq("barber_id", b.id).eq("day_of_week", dow).eq("is_available", true).single(),
         supabase.from("appointments").select("time_slot").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+        supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", b.id).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
       ]);
       if (!ts) return;
-      const bookedSlots = (booked ?? []).map((a: { time_slot: string }) => a.time_slot);
+      // A whole-day type-off (day_off/vacation/sick) means this barber doesn't
+      // contribute ANY slots on this date — skip them entirely.
+      const fullDayOff = (timeOff ?? []).some(o => o.type === "day_off" || o.type === "vacation" || o.type === "sick");
+      if (fullDayOff) return;
+      // blocked_hours mark a partial window — convert each window to the set
+      // of 30-min slot labels it covers and add to the booked set.
+      const blockedSlotSet = new Set<string>();
+      for (const o of (timeOff ?? [])) {
+        if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
+        const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
+        const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
+        for (const slot of generate24hSlots()) {
+          const m = timeToMinutes(slot);
+          if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
+        }
+      }
+      const bookedSlots = [
+        ...((booked ?? []).map((a: { time_slot: string }) => a.time_slot)),
+        ...Array.from(blockedSlotSet),
+      ];
       const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
       slots.forEach(({ slot, available }) => {
         if (!slotMap[slot]) slotMap[slot] = { available: false, barberIds: [] };
@@ -218,12 +238,28 @@ export default function BookingPage() {
     setSlotGrid([]);
     const dateStr = formatDateForDb(date);
     const dow = date.getDay();
-    const [{ data: ts }, { data: booked }] = await Promise.all([
+    const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
       supabase.from("time_slots").select("*").eq("barber_id", barberId).eq("day_of_week", dow).eq("is_available", true).single(),
       supabase.from("appointments").select("time_slot").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+      supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", barberId).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
     ]);
     if (!ts) { setSlotsLoading(false); return; }
-    const bookedSlots = (booked ?? []).map((a: { time_slot: string }) => a.time_slot);
+    const fullDayOff = (timeOff ?? []).some(o => o.type === "day_off" || o.type === "vacation" || o.type === "sick");
+    if (fullDayOff) { setSlotGrid([]); setSlotsLoading(false); return; }
+    const blockedSlotSet = new Set<string>();
+    for (const o of (timeOff ?? [])) {
+      if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
+      const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
+      const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
+      for (const slot of generate24hSlots()) {
+        const m = timeToMinutes(slot);
+        if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
+      }
+    }
+    const bookedSlots = [
+      ...((booked ?? []).map((a: { time_slot: string }) => a.time_slot)),
+      ...Array.from(blockedSlotSet),
+    ];
     const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
     setSlotGrid(slots.map(({ slot, available }) => ({ slot, available, barberIds: available ? [barberId] : [] })));
     setSlotsLoading(false);
@@ -267,6 +303,7 @@ export default function BookingPage() {
       .channel(`book_slots:${shop.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_slots" }, onTimeSlots)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, refreshSlots)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, refreshSlots)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays]);

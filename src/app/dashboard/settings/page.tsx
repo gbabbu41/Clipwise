@@ -51,18 +51,6 @@ const PLAN_INFO: PlanInfo[] = [
   },
 ];
 
-const PERMISSIONS: { feature: string; barber: boolean; admin: boolean }[] = [
-  { feature: "View Appointments", barber: true, admin: true },
-  { feature: "Add/Edit Appointments", barber: true, admin: true },
-  { feature: "View Analytics", barber: false, admin: true },
-  { feature: "Manage Clients", barber: false, admin: true },
-  { feature: "Access POS", barber: true, admin: true },
-  { feature: "Manage Services", barber: false, admin: true },
-  { feature: "Manage Staff", barber: false, admin: true },
-  { feature: "View Revenue", barber: false, admin: true },
-  { feature: "Settings", barber: false, admin: true },
-];
-
 type NewLocation = { name: string; address: string; city: string; province: string; phone: string; email: string };
 const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "", email: "" };
 
@@ -93,7 +81,6 @@ export default function SettingsPage() {
   });
 
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
-  const [permissions, setPermissions] = useState(PERMISSIONS.map(p => ({ ...p })));
 
   const DEFAULT_TEMPLATES = {
     booking_confirmation: { subject: "Booking Confirmed — {shopName}", body: "Hi {clientName},\n\nYour appointment at {shopName} is confirmed!\n\nService: {serviceName}\nBarber: {barberName}\nDate: {date}\nTime: {time}\n\nSee you soon!" },
@@ -252,7 +239,7 @@ export default function SettingsPage() {
     await refreshShop();
   };
 
-  const TABS = ["profile","account","booking","notifications","subscription","locations","permissions","danger"];
+  const TABS = ["profile","account","booking","notifications","subscription","locations","danger"];
 
   const changePassword = async () => {
     if (newPassword.length < 8) { setToast("Password must be at least 8 characters."); return; }
@@ -482,45 +469,6 @@ export default function SettingsPage() {
           </div>
         );
       })()}
-
-      {tab === "permissions" && (
-        <Card className="max-w-2xl">
-          <CardHeader><CardTitle>Role Permissions</CardTitle></CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left text-xs font-medium text-gray-400 px-3 py-2">Feature</th>
-                    <th className="text-center text-xs font-medium text-gray-400 px-3 py-2">Barber</th>
-                    <th className="text-center text-xs font-medium text-gray-400 px-3 py-2">Admin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permissions.map((perm, idx) => (
-                    <tr key={perm.feature} className="border-b border-border/50">
-                      <td className="px-3 py-3 text-sm text-white">{perm.feature}</td>
-                      <td className="px-3 py-3 text-center">
-                        <button onClick={() => setPermissions(prev => prev.map((p, i) => i === idx ? { ...p, barber: !p.barber } : p))}
-                          className={cn("w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors",
-                            perm.barber ? "bg-gold border-gold text-black" : "border-border")}>
-                          {perm.barber && <span className="text-xs font-bold">✓</span>}
-                        </button>
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <div className="w-5 h-5 rounded bg-emerald-500 border-2 border-emerald-500 flex items-center justify-center mx-auto">
-                          <span className="text-xs font-bold text-white">✓</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Button className="mt-4" onClick={() => showToast("Permissions saved!")}>Save Permissions</Button>
-          </CardContent>
-        </Card>
-      )}
 
       {tab === "notifications" && (
         <div className="space-y-6 max-w-2xl">

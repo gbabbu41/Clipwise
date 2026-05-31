@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Save, Clock } from "lucide-react";
+import { Save, Clock, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { DEFAULT_BARBER_PERMISSIONS } from "@/lib/database.types";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -136,6 +137,9 @@ export default function BarberAvailabilityPage() {
     </div>
   );
 
+  // Owner-controlled per-barber permission: when off, this page is read-only.
+  const canEditSchedule = (barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS).edit_schedule;
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       {syncedFromOwner && (
@@ -144,14 +148,22 @@ export default function BarberAvailabilityPage() {
           Your shop owner just updated your schedule — these are the latest hours.
         </div>
       )}
+      {!canEditSchedule && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-xs text-amber-200">
+          <Lock size={14} className="text-amber-400" />
+          Your shop owner manages your schedule. Contact them for any changes.
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Availability</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Set the hours you're available each day</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {canEditSchedule ? "Set the hours you're available each day" : "View your current hours (read-only)"}
+          </p>
         </div>
         <button
           onClick={save}
-          disabled={saving}
+          disabled={saving || !canEditSchedule}
           className={cn(
             "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
             saved
@@ -176,9 +188,10 @@ export default function BarberAvailabilityPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => update(slot.day_of_week, "is_available", !slot.is_available)}
+                  onClick={() => canEditSchedule && update(slot.day_of_week, "is_available", !slot.is_available)}
+                  disabled={!canEditSchedule}
                   className={cn(
-                    "relative w-10 h-5 rounded-full transition-colors",
+                    "relative w-10 h-5 rounded-full transition-colors disabled:cursor-not-allowed",
                     slot.is_available ? "bg-gold" : "bg-gray-700"
                   )}
                 >
@@ -199,16 +212,18 @@ export default function BarberAvailabilityPage() {
                 <Clock size={14} className="text-gold flex-shrink-0" />
                 <select
                   value={slot.start_time}
+                  disabled={!canEditSchedule}
                   onChange={e => update(slot.day_of_week, "start_time", e.target.value)}
-                  className="bg-surface-raised border border-border rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                  className="bg-surface-raised border border-border rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {TIME_OPTIONS.map(t => <option key={t} value={t}>{fmt(t)}</option>)}
                 </select>
                 <span className="text-gray-500 text-sm">to</span>
                 <select
                   value={slot.end_time}
+                  disabled={!canEditSchedule}
                   onChange={e => update(slot.day_of_week, "end_time", e.target.value)}
-                  className="bg-surface-raised border border-border rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                  className="bg-surface-raised border border-border rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {TIME_OPTIONS.filter(t => t > slot.start_time).map(t => <option key={t} value={t}>{fmt(t)}</option>)}
                 </select>

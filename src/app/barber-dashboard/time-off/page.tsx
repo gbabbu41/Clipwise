@@ -2,10 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb } from "@/lib/utils";
+import { cn, formatDateForDb, formatFriendlyDate, formatFriendlyTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { CalendarOff, Plus, Clock, X } from "lucide-react";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -218,9 +219,14 @@ export default function BarberTimeOffPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white">
-                    {req.start_date}{req.start_date !== req.end_date && ` → ${req.end_date}`}
+                    {formatFriendlyDate(req.start_date)}
+                    {req.start_date !== req.end_date && (
+                      <span className="text-gray-400"> → {formatFriendlyDate(req.end_date)}</span>
+                    )}
                     {req.type === "blocked_hours" && req.start_time && req.end_time && (
-                      <span className="text-gray-400 ml-2"><Clock size={11} className="inline" /> {req.start_time}–{req.end_time}</span>
+                      <span className="text-gray-400 ml-2 inline-flex items-center gap-1">
+                        <Clock size={11} /> {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
+                      </span>
                     )}
                   </p>
                   {req.reason && <p className="text-xs text-gray-500 mt-0.5">{req.reason}</p>}
@@ -254,7 +260,13 @@ export default function BarberTimeOffPage() {
                 <label className="text-sm font-medium text-gray-300">Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(TYPE_LABELS) as BlockType[]).map(t => (
-                    <button key={t} onClick={() => setForm(f => ({ ...f, type: t }))}
+                    <button key={t} onClick={() => setForm(f => ({
+                      ...f,
+                      type: t,
+                      // Blocked-hours is single-date; collapse the range if the
+                      // user previously had one set.
+                      end_date: t === "blocked_hours" ? f.start_date : f.end_date,
+                    }))}
                       className={cn("py-2 px-3 rounded-xl text-sm border transition-colors",
                         form.type === t ? "bg-gold/15 text-gold border-gold/30" : "bg-surface-raised text-gray-300 border-border hover:border-gold/30")}>
                       {TYPE_LABELS[t]}
@@ -263,19 +275,42 @@ export default function BarberTimeOffPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Start date" type="date" value={form.start_date} min={today}
-                  onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
-                <Input label="End date" type="date" value={form.end_date} min={form.start_date}
-                  onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
-              </div>
-
-              {form.type === "blocked_hours" && (
+              {form.type === "blocked_hours" ? (
+                <>
+                  {/* Blocked hours covers a single date + a time window (e.g. 2 PM–3 PM
+                      on one day) — no range, since blocking a multi-day window is
+                      better expressed as Day Off / Vacation. */}
+                  <DatePicker
+                    label="Date"
+                    value={form.start_date}
+                    onChange={v => setForm(f => ({ ...f, start_date: v, end_date: v }))}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <TimePicker label="From" value={form.start_time}
+                      onChange={v => setForm(f => ({ ...f, start_time: v }))} />
+                    <TimePicker label="To" value={form.end_time}
+                      minTime={form.start_time}
+                      onChange={v => setForm(f => ({ ...f, end_time: v }))} />
+                  </div>
+                  {form.start_date && form.start_time && form.end_time && (
+                    <div className="text-xs text-gold/90 bg-gold/5 border border-gold/20 rounded-xl px-3 py-2">
+                      {formatFriendlyDate(form.start_date)} · {formatFriendlyTime(form.start_time)} – {formatFriendlyTime(form.end_time)}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="Start time" type="time" value={form.start_time}
-                    onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
-                  <Input label="End time" type="time" value={form.end_time}
-                    onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
+                  <DatePicker
+                    label="Start date"
+                    value={form.start_date}
+                    onChange={v => setForm(f => ({ ...f, start_date: v, end_date: f.end_date < v ? v : f.end_date }))}
+                  />
+                  <DatePicker
+                    label="End date"
+                    value={form.end_date}
+                    minDate={form.start_date ? new Date(form.start_date + "T00:00:00") : null}
+                    onChange={v => setForm(f => ({ ...f, end_date: v }))}
+                  />
                 </div>
               )}
 

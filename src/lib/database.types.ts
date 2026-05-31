@@ -48,6 +48,24 @@ export interface Shop {
   created_at: string;
 }
 
+// Per-barber toggles for what that barber can do in their portal.
+// Default (when the column is absent or null): all true.
+export interface BarberPermissions {
+  edit_schedule: boolean;
+  request_time_off: boolean;
+  view_earnings: boolean;
+  view_clients: boolean;
+  block_hours: boolean;
+}
+
+export const DEFAULT_BARBER_PERMISSIONS: BarberPermissions = {
+  edit_schedule: true,
+  request_time_off: true,
+  view_earnings: true,
+  view_clients: true,
+  block_hours: true,
+};
+
 export interface Barber {
   id: string;
   user_id?: string;
@@ -60,6 +78,7 @@ export interface Barber {
   commission_percent: number;
   rating: number;
   total_reviews: number;
+  permissions?: BarberPermissions;
   created_at: string;
 }
 

@@ -2,10 +2,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb } from "@/lib/utils";
+import { cn, formatDateForDb, formatFriendlyDate, formatFriendlyTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { CalendarOff, Plus, Check, X, Clock, User } from "lucide-react";
 import type { Barber } from "@/lib/database.types";
 
@@ -33,7 +35,7 @@ interface TimeOffRequest {
   reason?: string | null;
   status: TimeOffStatus;
   created_at: string;
-  barbers?: { name: string; user_id?: string | null } | null;
+  barbers?: { name: string; user_id?: string | null; email?: string | null } | null;
 }
 
 const TYPE_LABELS: Record<BlockType, string> = {
@@ -96,7 +98,7 @@ export default function TimeOffPage() {
     if (!shop) return;
     const { data } = await supabase
       .from("time_off_requests")
-      .select("*, barbers(name, user_id)")
+      .select("*, barbers(name, user_id, email)")
       .eq("shop_id", shop.id)
       .order("start_date", { ascending: false });
     if (data && data.length > 0) setRequests(data as unknown as TimeOffRequest[]);
@@ -122,7 +124,7 @@ export default function TimeOffPage() {
         reason: form.reason || null,
         status: isOwner ? "approved" : "pending",
       })
-      .select("*, barbers(name, user_id)")
+      .select("*, barbers(name, user_id, email)")
       .single();
 
     setSaving(false);
@@ -158,19 +160,44 @@ export default function TimeOffPage() {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     await supabase.from("time_off_requests").update({ status }).eq("id", id).then(null, () => null);
 
-    // Notify the barber that the owner acted on their request
-    if (req?.barbers?.user_id) {
+    if (req) {
       const dateRange = req.start_date + (req.end_date !== req.start_date ? ` → ${req.end_date}` : "");
-      supabase.from("notifications").insert({
-        user_id: req.barbers.user_id,
-        title: status === "approved" ? "Time-Off Approved" : "Time-Off Denied",
-        message: `Your ${TYPE_LABELS[req.type]} request for ${dateRange} was ${status} by the shop owner.`,
-        type: "system",
-        is_read: false,
-      }).then(null, () => null);
+      const timeRange = req.type === "blocked_hours" && req.start_time && req.end_time ? `${req.start_time}–${req.end_time}` : "";
+
+      // In-app notification (only works if barber has a user_id)
+      if (req.barbers?.user_id) {
+        supabase.from("notifications").insert({
+          user_id: req.barbers.user_id,
+          title: status === "approved" ? "Time-Off Approved" : "Time-Off Denied",
+          message: `Your ${TYPE_LABELS[req.type]} request for ${dateRange} was ${status} by the shop owner.`,
+          type: "system",
+          is_read: false,
+        }).then(null, () => null);
+      }
+
+      // Email the barber (works even for invited-but-not-yet-active barbers)
+      if (req.barbers?.email && shop) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "time_off_decision",
+            data: {
+              barberEmail: req.barbers.email,
+              barberName: req.barbers.name,
+              shopName: shop.name,
+              shopEmail: shop.email ?? "",
+              decision: status,
+              requestType: TYPE_LABELS[req.type],
+              dateRange,
+              timeRange,
+            },
+          }),
+        }).catch(() => null);
+      }
     }
 
-    showToast(status === "approved" ? "Request approved!" : "Request denied.");
+    showToast(status === "approved" ? "Request approved! Barber emailed." : "Request denied. Barber emailed.");
   };
 
   const deleteRequest = async (id: string) => {
@@ -255,17 +282,17 @@ export default function TimeOffPage() {
                     {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 mt-1.5">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
                     <CalendarOff size={12} />
                     {req.start_date === req.end_date
-                      ? req.start_date
-                      : `${req.start_date} → ${req.end_date}`}
+                      ? formatFriendlyDate(req.start_date)
+                      : `${formatFriendlyDate(req.start_date)} → ${formatFriendlyDate(req.end_date)}`}
                   </div>
                   {req.start_time && req.end_time && (
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
                       <Clock size={12} />
-                      {req.start_time} – {req.end_time}
+                      {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
                     </div>
                   )}
                 </div>
@@ -324,7 +351,9 @@ export default function TimeOffPage() {
                     <div className="w-2 h-2 rounded-full bg-gold flex-shrink-0" />
                     <p className="text-sm text-white flex-1">{req.barbers?.name ?? "Unknown"}</p>
                     <p className="text-xs text-gray-400">
-                      {req.start_date === req.end_date ? req.start_date : `${req.start_date} – ${req.end_date}`}
+                      {req.start_date === req.end_date
+                        ? formatFriendlyDate(req.start_date)
+                        : `${formatFriendlyDate(req.start_date)} – ${formatFriendlyDate(req.end_date)}`}
                     </p>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full border", TYPE_COLORS[req.type])}>
                       {TYPE_LABELS[req.type]}
@@ -377,15 +406,28 @@ export default function TimeOffPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Start Date" type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value, end_date: p.end_date || e.target.value }))} />
-                <Input label="End Date" type="date" value={form.end_date} onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))} />
-              </div>
-
-              {form.type === "blocked_hours" && (
+              {form.type === "blocked_hours" ? (
+                <>
+                  <DatePicker
+                    label="Date"
+                    value={form.start_date}
+                    onChange={v => setForm(p => ({ ...p, start_date: v, end_date: v }))}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <TimePicker label="From" value={form.start_time}
+                      onChange={v => setForm(p => ({ ...p, start_time: v }))} />
+                    <TimePicker label="To" value={form.end_time}
+                      minTime={form.start_time}
+                      onChange={v => setForm(p => ({ ...p, end_time: v }))} />
+                  </div>
+                </>
+              ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="Start Time" type="time" value={form.start_time} onChange={e => setForm(p => ({ ...p, start_time: e.target.value }))} />
-                  <Input label="End Time" type="time" value={form.end_time} onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))} />
+                  <DatePicker label="Start Date" value={form.start_date}
+                    onChange={v => setForm(p => ({ ...p, start_date: v, end_date: p.end_date && p.end_date >= v ? p.end_date : v }))} />
+                  <DatePicker label="End Date" value={form.end_date}
+                    minDate={form.start_date ? new Date(form.start_date + "T00:00:00") : null}
+                    onChange={v => setForm(p => ({ ...p, end_date: v }))} />
                 </div>
               )}
 

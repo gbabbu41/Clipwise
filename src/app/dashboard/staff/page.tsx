@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { KeyRound, Trash2, Copy, Check } from "lucide-react";
+import { KeyRound, Trash2, Copy, Check, Shield, X } from "lucide-react";
+import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 import { getPlanLimit, validateEmail } from "@/lib/validation";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
@@ -89,6 +90,11 @@ export default function StaffPage() {
   const [addTab, setAddTab] = useState<"manual" | "invite">("invite");
   const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "50" });
   const [inviteSent, setInviteSent] = useState(false);
+
+  // Permissions modal state
+  const [permBarber, setPermBarber] = useState<BarberWithSchedule | null>(null);
+  const [permDraft, setPermDraft] = useState<BarberPermissions>(DEFAULT_BARBER_PERMISSIONS);
+  const [savingPerms, setSavingPerms] = useState(false);
 
   // Is the owner already on the team as a barber?
   const alreadyOwnerBarber = !!(user?.email && barbers.some(b => b.email?.toLowerCase() === user.email!.toLowerCase()));
@@ -310,6 +316,23 @@ export default function StaffPage() {
     loadBarbers();
   };
 
+  // ── Open permissions modal ─────────────────────────────────────────────────
+  const openPermissions = (b: BarberWithSchedule) => {
+    setPermDraft({ ...DEFAULT_BARBER_PERMISSIONS, ...(b.permissions ?? {}) });
+    setPermBarber(b);
+  };
+  const savePermissions = async () => {
+    if (!permBarber) return;
+    setSavingPerms(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("barbers").update({ permissions: permDraft } as any).eq("id", permBarber.id));
+    setSavingPerms(false);
+    if (error) { showToast(`Failed: ${error.message}`); return; }
+    showToast(`Permissions saved for ${permBarber.name}`);
+    setPermBarber(null);
+    loadBarbers();
+  };
+
   // ── Open schedule modal ─────────────────────────────────────────────────────
   // Always refetch the barber's current time_slots from the DB before populating
   // the editor — the cached `b.schedule` may be stale if the barber updated
@@ -443,7 +466,12 @@ export default function StaffPage() {
               {/* Actions */}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => openSchedule(barber)}>Set Schedule</Button>
-                <Button variant="secondary" size="sm" className="flex-1" onClick={() => document.getElementById("clock-history")?.scrollIntoView({ behavior: "smooth" })}>
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => openPermissions(barber)}>
+                  <Shield size={13} className="mr-1.5" /> Permissions
+                </Button>
+              </div>
+              <div className="mt-2">
+                <Button variant="secondary" size="sm" className="w-full" onClick={() => document.getElementById("clock-history")?.scrollIntoView({ behavior: "smooth" })}>
                   Clock History
                 </Button>
               </div>
@@ -535,6 +563,50 @@ export default function StaffPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Permissions Modal */}
+      {permBarber && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Permissions — {permBarber.name}</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
+                </div>
+                <button onClick={() => setPermBarber(null)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+              </div>
+              <div className="space-y-2 pt-1">
+                {([
+                  { key: "edit_schedule",    label: "Edit own schedule",    description: "Change working hours from their Availability page." },
+                  { key: "request_time_off", label: "Request time off",     description: "Submit time-off requests for your approval." },
+                  { key: "block_hours",      label: "Block hours mid-day",  description: "Mark a window unavailable on the fly." },
+                  { key: "view_earnings",    label: "View earnings",        description: "See their commission totals and payouts." },
+                  { key: "view_clients",     label: "View clients",         description: "Access their client list with appointment history." },
+                ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (
+                  <div key={key} className="flex items-start gap-4 p-3 bg-surface-raised rounded-xl border border-border">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-white">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+                    </div>
+                    <button
+                      onClick={() => setPermDraft(prev => ({ ...prev, [key]: !prev[key] }))}
+                      className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", permDraft[key] ? "bg-gold" : "bg-surface border border-border")}
+                    >
+                      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", permDraft[key] ? "left-[22px]" : "left-0.5")} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setPermBarber(null)}>Cancel</Button>
+                <Button className="flex-1" loading={savingPerms} onClick={savePermissions}>Save</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Schedule Modal */}
       {scheduleBarber && (

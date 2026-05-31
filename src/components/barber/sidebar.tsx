@@ -7,14 +7,24 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
+import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  permKey?: keyof BarberPermissions;
+};
+
+const navItems: NavItem[] = [
   { href: "/barber-dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/barber-dashboard/schedule", label: "My Schedule", icon: Calendar },
+  // Availability stays visible even when edit is disabled — the page itself
+  // shows a read-only view with a lock banner.
   { href: "/barber-dashboard/availability", label: "Availability", icon: Clock },
-  { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff },
-  { href: "/barber-dashboard/clients", label: "My Clients", icon: Users },
-  { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign },
+  { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
+  { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
+  { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, permKey: "view_earnings" },
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
 
@@ -40,7 +50,11 @@ export function BarberSidebar() {
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems.filter(item => {
+          if (!item.permKey) return true;
+          const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
+          return perms[item.permKey] !== false;
+        }).map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
@@ -92,13 +106,15 @@ export function BarberSidebar() {
 
 export function BarberMobileNav() {
   const pathname = usePathname();
+  const { barber } = useBarber();
+  const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const mobileItems = [
-    { href: "/barber-dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Calendar },
-    { href: "/barber-dashboard/availability", label: "Hours", icon: Clock },
-    { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign },
-    { href: "/barber-dashboard/profile", label: "Profile", icon: User },
-  ];
+    { href: "/barber-dashboard", label: "Home", icon: LayoutDashboard, show: true },
+    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Calendar, show: true },
+    { href: "/barber-dashboard/availability", label: "Hours", icon: Clock, show: true },
+    { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, show: perms.view_earnings !== false },
+    { href: "/barber-dashboard/profile", label: "Profile", icon: User, show: true },
+  ].filter(i => i.show);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2">
