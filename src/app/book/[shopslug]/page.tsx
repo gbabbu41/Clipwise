@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -84,6 +84,7 @@ export default function BookingPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotGrid, setSlotGrid] = useState<SlotAvailability[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const [barberWorkDays, setBarberWorkDays] = useState<Set<number>>(new Set());
   const [shopWorkDays, setShopWorkDays] = useState<Set<number>>(new Set());
 
@@ -143,32 +144,30 @@ export default function BookingPage() {
   }, [shop, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load barber work days (for Option B calendar greying) ──────────────────
-  useEffect(() => {
+  const loadBarberWorkDays = useCallback(async () => {
     if (flow !== "barber-first" || !selectedBarber) { setBarberWorkDays(new Set()); return; }
-    (async () => {
-      const { data } = await supabase
-        .from("time_slots")
-        .select("day_of_week")
-        .eq("barber_id", selectedBarber)
-        .eq("is_available", true);
-      setBarberWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
-    })();
+    const { data } = await supabase
+      .from("time_slots")
+      .select("day_of_week")
+      .eq("barber_id", selectedBarber)
+      .eq("is_available", true);
+    setBarberWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
   }, [selectedBarber, flow]);
+  useEffect(() => { loadBarberWorkDays(); }, [loadBarberWorkDays]);
 
   // ── Load shop-wide work days (union of all barbers' schedules) ────────────
   // Used by Option A (time-first) calendar greying: a day where no barber
   // is scheduled at all is shown as disabled.
-  useEffect(() => {
+  const loadShopWorkDays = useCallback(async () => {
     if (barbers.length === 0) { setShopWorkDays(new Set()); return; }
-    (async () => {
-      const { data } = await supabase
-        .from("time_slots")
-        .select("day_of_week")
-        .in("barber_id", barbers.map(b => b.id))
-        .eq("is_available", true);
-      setShopWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
-    })();
+    const { data } = await supabase
+      .from("time_slots")
+      .select("day_of_week")
+      .in("barber_id", barbers.map(b => b.id))
+      .eq("is_available", true);
+    setShopWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
   }, [barbers]);
+  useEffect(() => { loadShopWorkDays(); }, [loadShopWorkDays]);
 
   // ── Load slot grid (Option A — time first) ─────────────────────────────────
   const loadTimeFirstSlots = useCallback(async (date: Date) => {
@@ -237,6 +236,53 @@ export default function BookingPage() {
     else if (flow === "barber-first" && selectedBarber) loadBarberFirstSlots(selectedBarber, selectedDate);
   }, [selectedDate, flow, selectedBarber, loadTimeFirstSlots, loadBarberFirstSlots]);
 
+  // Refs hold the latest selection so the realtime callback below always
+  // sees the customer's *current* picks without having to re-subscribe every
+  // time they change. Re-subscribing on every date/flow change was leaving
+  // brief windows where realtime events could be missed.
+  const selectedDateRef = useRef<Date | null>(null);
+  const flowRef = useRef(flow);
+  const selectedBarberRef = useRef<string | null>(null);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+  useEffect(() => { flowRef.current = flow; }, [flow]);
+  useEffect(() => { selectedBarberRef.current = selectedBarber; }, [selectedBarber]);
+
+  // ── Real-time sync: refresh slot grid + work-day Sets whenever the owner
+  //    edits a barber's schedule or a new appointment is booked elsewhere.
+  useEffect(() => {
+    if (!shop?.id) return;
+    const refreshSlots = () => {
+      const date = selectedDateRef.current;
+      if (!date) return;
+      if (flowRef.current === "time-first") loadTimeFirstSlots(date);
+      else if (selectedBarberRef.current) loadBarberFirstSlots(selectedBarberRef.current, date);
+    };
+    const onTimeSlots = () => {
+      // Schedule edits affect both the slot grid AND the calendar's day-greying.
+      refreshSlots();
+      loadBarberWorkDays();
+      loadShopWorkDays();
+    };
+    const channel = supabase
+      .channel(`book_slots:${shop.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_slots" }, onTimeSlots)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, refreshSlots)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays]);
+
+
+  // ── Auto-scroll the When-step timeline to 9 AM on open ─────────────────────
+  // The 0–24h timeline would otherwise open at midnight; landing at 9 AM gives
+  // the customer the usual "morning" reference point regardless of when the
+  // shop's first slot actually starts.
+  useEffect(() => {
+    if (slotGrid.length === 0) return;
+    if (!timelineRef.current) return;
+    const ROW_PX = 64;
+    timelineRef.current.scrollTop = 9 * ROW_PX;
+  }, [slotGrid]);
+
   // ── Apply promo code ───────────────────────────────────────────────────────
   const applyPromo = async () => {
     if (!promoCode.trim() || !shop) return;
@@ -261,6 +307,13 @@ export default function BookingPage() {
     if (!shop || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
     if (!isWithin6Months(selectedDate)) { showToast("Cannot book more than 6 months in advance.", false); return; }
+    // If the customer left the page open past the slot they picked, the slot
+    // is no longer valid. Re-check at submit time.
+    const bookingIsToday = formatDateForDb(selectedDate) === formatDateForDb(new Date());
+    if (bookingIsToday && isSlotInPast(selectedTime)) {
+      showToast("That time has just passed. Please pick a later slot.", false);
+      return;
+    }
     const clientErrs = validateClientInfo();
     if (Object.keys(clientErrs).length > 0) { setClientErrors(clientErrs); return; }
     setSaving(true);
@@ -450,9 +503,9 @@ export default function BookingPage() {
     return true;
   }).map(s => ({ ...s }));
 
-  // Steps
-  const STEPS_TIME_FIRST = ["Service", "Date", "Time & Barber", "Your Info", "Promo", "Confirm"];
-  const STEPS_BARBER_FIRST = ["Barber", "Service", "Date", "Time", "Your Info", "Promo", "Confirm"];
+  // Steps — Date + Time merged into one Apple-style "When" step.
+  const STEPS_TIME_FIRST = ["Service", "When", "Your Info", "Promo", "Confirm"];
+  const STEPS_BARBER_FIRST = ["Barber", "Service", "When", "Your Info", "Promo", "Confirm"];
   const STEPS = flow === "time-first" ? STEPS_TIME_FIRST : STEPS_BARBER_FIRST;
 
   const validateClientInfo = () => {
@@ -468,16 +521,14 @@ export default function BookingPage() {
   const canNext = () => {
     if (flow === "time-first") {
       if (step === 0) return !!selectedService;
-      if (step === 1) return !!selectedDate && isWithin6Months(selectedDate);
-      if (step === 2) return !!selectedTime;
-      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
+      if (step === 1) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
+      if (step === 2) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
       return true;
     } else {
       if (step === 0) return !!selectedBarber;
       if (step === 1) return !!selectedService;
-      if (step === 2) return !!selectedDate && isWithin6Months(selectedDate);
-      if (step === 3) return !!selectedTime;
-      if (step === 4) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
+      if (step === 2) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
+      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
       return true;
     }
   };
@@ -595,13 +646,12 @@ export default function BookingPage() {
   const isTimeFirstStep = (s: number) => flow === "time-first" ? s : -1;
   const isBarberFirstStep = (s: number) => flow === "barber-first" ? s : -1;
 
-  // Shared steps
+  // Shared steps (Date + Time merged into one Apple-style "When" step)
   const serviceStepIndex = flow === "time-first" ? 0 : 1;
-  const dateStepIndex = flow === "time-first" ? 1 : 2;
-
-  const clientStepIndex = flow === "time-first" ? 3 : 4;
-  const promoStepIndex = flow === "time-first" ? 4 : 5;
-  const confirmStepIndex = flow === "time-first" ? 5 : 6;
+  const whenStepIndex = flow === "time-first" ? 1 : 2;
+  const clientStepIndex = flow === "time-first" ? 2 : 3;
+  const promoStepIndex = flow === "time-first" ? 3 : 4;
+  const confirmStepIndex = flow === "time-first" ? 4 : 5;
 
   return (
     <div className="min-h-screen bg-background">
@@ -773,175 +823,222 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Date Step */}
-        {step === dateStepIndex && (
-          <div className="space-y-6 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Pick a date</h2>
-            <div className="flex gap-2 overflow-x-auto pb-2 snap-x">
-              {calendarDays.map((day, i) => {
-                const isPast = isDateInPast(day);
-                const dow = day.getDay();
-                const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && barberWorkDays.size > 0 && !barberWorkDays.has(dow);
-                const isShopClosed = flow !== "barber-first" && shopWorkDays.size > 0 && !shopWorkDays.has(dow);
-                const disabled = isPast || !!isBarberOff || isShopClosed;
-                const isSelected = selectedDate?.toDateString() === day.toDateString();
-                const isToday = day.toDateString() === today.toDateString();
-                return (
-                  <button key={i} onClick={() => !disabled && setSelectedDate(day)} disabled={disabled}
-                    className={cn(
-                      "flex-shrink-0 snap-start flex flex-col items-center px-3 py-2.5 rounded-xl border transition-all min-w-[56px]",
-                      disabled ? "border-border bg-surface opacity-30 cursor-not-allowed" :
-                      isSelected ? "border-gold bg-gold/10 text-gold" :
-                      isToday ? "border-gold/40 bg-surface text-white" : "border-border bg-surface text-gray-400 hover:border-gold/40"
-                    )}
-                  >
-                    <span className="text-xs">{day.toLocaleDateString("en-CA", { weekday: "short" })}</span>
-                    <span className={cn("text-lg font-bold", isSelected ? "text-gold" : "text-white")}>{day.getDate()}</span>
-                    <span className="text-xs">{day.toLocaleDateString("en-CA", { month: "short" })}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* When Step — Apple-style: week strip + day timeline of available slots */}
+        {step === whenStepIndex && (() => {
+          // Compute the visible week from selectedDate (or today's week if none picked)
+          const anchor = selectedDate ?? today;
+          const weekStart = new Date(anchor);
+          weekStart.setDate(anchor.getDate() - anchor.getDay());
+          const weekDays = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
+          });
 
-        {/* Time Step (Option A — smart grid with barber expand) */}
-        {step === isTimeFirstStep(2) && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">
-              Pick a time{selectedDate && ` — ${selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`}
-            </h2>
-            {slotsLoading && (
-              <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+          const formatHourLabel = (h: number) => {
+            if (h === 0) return "12 AM";
+            if (h === 12) return "Noon";
+            if (h < 12) return `${h} AM`;
+            return `${h - 12} PM`;
+          };
+          const parseHour = (slotStr: string) => {
+            const [time, period] = slotStr.split(" ");
+            const [h, m] = time.split(":").map(Number);
+            let hour = h;
+            if (period === "PM" && h !== 12) hour += 12;
+            if (period === "AM" && h === 12) hour = 0;
+            return hour + m / 60;
+          };
+
+          const ROW_PX = 64;
+          const startHour = 0, endHour = 24;
+          const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+
+          const blockSlotSet = new Set(slotGridForBlock.map(s => s.slot));
+          const todayStr = formatDateForDb(new Date());
+          const dateStr = selectedDate ? formatDateForDb(selectedDate) : null;
+          const isTodaySelected = dateStr === todayStr;
+          const bookableSlots = slotGrid.filter(({ slot }) => {
+            const past = isTodaySelected && isSlotInPast(slot);
+            return !past && blockSlotSet.has(slot);
+          });
+
+          return (
+            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100vh - 280px)", minHeight: "500px" }}>
+              {/* Header row: back / next week arrows (icon-only) */}
+              <div className="flex items-center justify-between px-4 pb-2">
+                <button
+                  aria-label="Previous week"
+                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
+                  className="w-9 h-9 rounded-full bg-surface-raised hover:bg-surface-raised/80 flex items-center justify-center text-white transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  aria-label="Next week"
+                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
+                  className="w-9 h-9 rounded-full bg-surface-raised hover:bg-surface-raised/80 flex items-center justify-center text-white transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
               </div>
-            )}
-            {!slotsLoading && slotGrid.length === 0 && (
-              <div className="py-12 text-center text-gray-500">
-                <Clock size={32} className="mx-auto mb-2 opacity-30" />
-                <p>No available slots for this date</p>
-              </div>
-            )}
-            {!slotsLoading && slotGrid.length > 0 && slotGridForBlock.length === 0 && servicesPicked.length > 1 && (
-              <div className="py-10 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-2xl px-4">
-                <Clock size={28} className="text-yellow-400 mx-auto mb-2" />
-                <p className="text-yellow-300 font-medium">No barber available for all services at once</p>
-                <p className="text-xs text-gray-500 mt-1">You need a {totalDuration}-min block. Try a different date, or book the services separately.</p>
-              </div>
-            )}
-            {!slotsLoading && slotGridForBlock.length > 0 && (
-              <div className="space-y-2">
-                {slotGridForBlock.filter(({ slot }) => {
-                  const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
-                  return !(isToday && isSlotInPast(slot));
-                }).map(({ slot, available, barberIds }) => {
-                  const isSelected = selectedTime === slot;
-                  const isExpanded = expandedSlot === slot;
-                  const slotBarbers = barbers.filter((b) => barberIds.includes(b.id));
+
+              {/* Week strip */}
+              <div className="grid grid-cols-7 px-2 pb-2">
+                {weekDays.map((day) => {
+                  const dayStr = formatDateForDb(day);
+                  const isSelectedDay = dayStr === dateStr;
+                  const isPast = isDateInPast(day);
+                  const dow = day.getDay();
+                  const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && barberWorkDays.size > 0 && !barberWorkDays.has(dow);
+                  const isShopClosed = flow !== "barber-first" && shopWorkDays.size > 0 && !shopWorkDays.has(dow);
+                  const disabled = isPast || !!isBarberOff || isShopClosed;
+                  const isTodayDay = dayStr === todayStr;
                   return (
-                    <div key={slot}>
-                      <button
-                        onClick={() => {
-                          if (!available) return;
-                          if (barberIds.length === 1) {
-                            setSelectedTime(slot);
-                            setSelectedBarber(barberIds[0]);
-                            setExpandedSlot(null);
-                          } else {
-                            setExpandedSlot(isExpanded ? null : slot);
-                            if (isSelected) { setSelectedTime(null); setSelectedBarber(null); }
-                          }
-                        }}
-                        disabled={!available}
-                        className={cn(
-                          "w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all",
-                          !available ? "border-border text-gray-700 cursor-not-allowed line-through opacity-50" :
-                          isSelected ? "border-gold bg-gold/10 text-gold" :
-                          "border-border text-white hover:border-gold/40"
-                        )}
-                      >
-                        <span>{slot}</span>
-                        {available && (
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <User size={11} /> {barberIds.length} available
-                            {barberIds.length > 1 && <ChevronRight size={12} className={cn("transition-transform", isExpanded && "rotate-90")} />}
-                          </span>
-                        )}
-                        {isSelected && <Check size={16} className="text-gold" />}
-                      </button>
-                      {isExpanded && slotBarbers.length > 0 && (
-                        <div className="mt-1 ml-4 space-y-1 animate-fade-in">
-                          {slotBarbers.map((b) => (
-                            <button key={b.id}
-                              onClick={() => { setSelectedTime(slot); setSelectedBarber(b.id); setExpandedSlot(null); }}
-                              className={cn(
-                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all",
-                                selectedBarber === b.id && selectedTime === slot ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40"
-                              )}
-                            >
-                              {b.photo
-                                ? <img src={b.photo} alt={b.name} className="w-8 h-8 rounded-full object-cover" />
-                                : <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-gold text-sm font-bold">{b.name[0]}</div>
-                              }
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-white">{b.name}</p>
-                                <p className="text-xs text-gold flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating}</p>
-                              </div>
-                              {selectedBarber === b.id && selectedTime === slot && <Check size={14} className="text-gold" />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <button key={dayStr} disabled={disabled}
+                      onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
+                      className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
+                    >
+                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-gray-700" : "text-gray-400")}>
+                        {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
+                      </span>
+                      <span className={cn(
+                        "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center",
+                        isSelectedDay ? "bg-white text-black font-semibold" :
+                        isTodayDay && !disabled ? "text-gold" :
+                        disabled ? "text-gray-700" : "text-white",
+                      )}>
+                        {day.getDate()}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Time Step (Option B — barber first) */}
-        {step === isBarberFirstStep(3) && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">
-              Available times{selectedDate && ` — ${selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`}
-            </h2>
-            {slotsLoading && (
-              <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+              {/* Date title row (center) */}
+              <div className="px-4 py-2 border-t border-border/40 text-center">
+                <p className="text-sm font-medium text-white">
+                  {selectedDate
+                    ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
+                    : "Pick a day"}
+                </p>
               </div>
-            )}
-            {!slotsLoading && slotGrid.length === 0 && (
-              <div className="py-12 text-center text-gray-500">
-                <Clock size={32} className="mx-auto mb-2 opacity-30" />
-                <p>No available slots for this date</p>
+
+              {/* Timeline */}
+              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-border/40">
+                {!selectedDate && (
+                  <div className="py-16 text-center text-gray-500 text-sm">Tap a day above to see openings.</div>
+                )}
+                {selectedDate && slotsLoading && (
+                  <div className="py-16 text-center text-gray-500 text-sm">
+                    <div className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-3" />
+                    Loading…
+                  </div>
+                )}
+                {selectedDate && !slotsLoading && slotGrid.length === 0 && (
+                  <div className="py-16 text-center text-gray-500 text-sm">No openings on this day.</div>
+                )}
+                {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && servicesPicked.length > 1 && (
+                  <div className="m-4 py-5 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-xl px-4">
+                    <p className="text-yellow-300 text-sm font-medium">
+                      {flow === "barber-first" ? "This barber doesn't have" : "No barber has"} {totalDuration} min open on this day
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Try another day.</p>
+                  </div>
+                )}
+                {selectedDate && !slotsLoading && bookableSlots.length > 0 && (
+                  <div className="relative" style={{ height: `${(endHour - startHour) * ROW_PX + 24}px` }}>
+                    {/* Hour lines */}
+                    {hoursToShow.map((h, i) => (
+                      <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: `${i * ROW_PX}px` }}>
+                        <div className="w-14 pl-3 pr-2 text-[10px] text-gray-500 pt-0">
+                          {formatHourLabel(h)}
+                        </div>
+                        <div className="flex-1 h-px bg-border/30 mt-1.5" />
+                      </div>
+                    ))}
+
+                    {/* Slot chips — fixed-height pills, one per available start time. Barber
+                        identity is revealed on tap (popup) or shown on the selected chip only. */}
+                    {bookableSlots.map(({ slot, barberIds }) => {
+                      const slotHour = parseHour(slot);
+                      if (slotHour < startHour || slotHour >= endHour) return null;
+                      const top = (slotHour - startHour) * ROW_PX;
+                      const isSelectedSlot = selectedTime === slot;
+                      return (
+                        <button key={slot}
+                          onClick={() => {
+                            if (barberIds.length === 1) {
+                              setSelectedTime(slot);
+                              setSelectedBarber(barberIds[0]);
+                            } else {
+                              setExpandedSlot(slot);
+                            }
+                          }}
+                          style={{ top: `${top + 4}px`, height: "26px", left: "60px", right: "12px", position: "absolute" }}
+                          className={cn(
+                            "rounded-md text-left pl-2.5 pr-2 flex items-center justify-between overflow-hidden transition-all border-l-2",
+                            isSelectedSlot
+                              ? "bg-gold/25 border-gold ring-1 ring-gold/50"
+                              : "bg-sky-500/15 hover:bg-sky-500/25 border-sky-400",
+                          )}
+                        >
+                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-gold" : "text-sky-200")}>
+                            {slot}
+                          </span>
+                          <span className={cn("text-[10px] leading-none ml-2", isSelectedSlot ? "text-gold/80" : "text-sky-300/70")}>
+                            {barberIds.length === 1
+                              ? (isSelectedSlot ? barbers.find(b => b.id === barberIds[0])?.name : "")
+                              : `${barberIds.length} free`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-            {!slotsLoading && slotGrid.length > 0 && slotGridForBlock.length === 0 && servicesPicked.length > 1 && (
-              <div className="py-10 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-2xl px-4">
-                <Clock size={28} className="text-yellow-400 mx-auto mb-2" />
-                <p className="text-yellow-300 font-medium">This barber doesn&apos;t have {totalDuration} min available</p>
-                <p className="text-xs text-gray-500 mt-1">Try a different date, or book the services separately.</p>
-              </div>
-            )}
-            {!slotsLoading && (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {slotGridForBlock.filter(({ slot }) => {
-                  const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
-                  return !(isToday && isSlotInPast(slot));
-                }).map(({ slot, available }) => (
-                  <button key={slot} onClick={() => available && setSelectedTime(slot)} disabled={!available}
-                    className={cn(
-                      "py-2.5 px-3 rounded-xl border text-sm font-medium transition-all",
-                      !available ? "border-border text-gray-700 cursor-not-allowed opacity-40" :
-                      selectedTime === slot ? "border-gold bg-gold/10 text-gold" : "border-border text-white hover:border-gold/40"
-                    )}
-                  >{slot}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+
+              {/* Barber-picker popup — for slots with multiple barbers free */}
+              {expandedSlot && (() => {
+                const slotEntry = slotGrid.find(s => s.slot === expandedSlot);
+                if (!slotEntry) return null;
+                const slotBarbers = barbers.filter(b => slotEntry.barberIds.includes(b.id));
+                return (
+                  <>
+                    <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setExpandedSlot(null)} />
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                      <div className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-base font-bold text-white">Choose a barber</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
+                          </div>
+                          <button onClick={() => setExpandedSlot(null)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+                        </div>
+                        <div className="space-y-2">
+                          {slotBarbers.map((b) => (
+                            <button key={b.id}
+                              onClick={() => { setSelectedTime(expandedSlot); setSelectedBarber(b.id); setExpandedSlot(null); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-surface-raised hover:border-gold/40 text-left transition-all"
+                            >
+                              {b.photo
+                                ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
+                                : <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold">{b.name[0]}</div>
+                              }
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-white">{b.name}</p>
+                                <p className="text-xs text-gold flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
+                              </div>
+                              <ChevronRight size={16} className="text-gray-500" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          );
+        })()}
 
         {/* Client Info Step */}
         {step === clientStepIndex && (

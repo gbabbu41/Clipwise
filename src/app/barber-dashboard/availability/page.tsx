@@ -1,18 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Save, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const TIME_OPTIONS = [
-  "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00",
-];
+// 15-min increments across the full 24-hour day (00:00 → 23:45)
+const TIME_OPTIONS = Array.from({ length: (24 * 60) / 15 }, (_, i) => {
+  const total = i * 15;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+});
 
 function fmt(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -31,30 +33,78 @@ const DEFAULT_SLOTS: DaySlot[] = DAYS.map((_, i) => ({
 
 export default function BarberAvailabilityPage() {
   const { accessToken } = useAuth();
-  const { shop } = useBarber();
+  const { barber, shop } = useBarber();
   const [slots, setSlots] = useState<DaySlot[]>(DEFAULT_SLOTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [syncedFromOwner, setSyncedFromOwner] = useState(false);
+  // Track whether the barber has unsaved local edits so a realtime push from
+  // the owner doesn't quietly stomp on work-in-progress the barber hasn't saved.
+  const dirty = useRef(false);
 
-  useEffect(() => {
+  const loadSlots = useCallback(async () => {
     if (!accessToken) return;
     const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
-    fetch(`/api/barber/availability${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
-      .then(({ slots: s }) => {
-        if (!s || s.length === 0) return;
-        setSlots(prev => prev.map(d => {
-          const found = s.find((x: DaySlot) => x.day_of_week === d.day_of_week);
-          return found ? { ...d, ...found } : d;
-        }));
-      })
-      .finally(() => setLoading(false));
+    const res = await fetch(`/api/barber/availability${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const { slots: s } = await res.json();
+    if (!s) return;
+    // The DB stores time as "HH:MM:SS" — strip the seconds so the value matches
+    // an entry in TIME_OPTIONS ("HH:MM"). Without this, the select falls back
+    // to displaying the first option (00:00 / 12 AM).
+    const normalizeTime = (t: string) => (t ?? "").slice(0, 5);
+    setSlots(prev => prev.map(d => {
+      const found = s.find((x: DaySlot) => x.day_of_week === d.day_of_week);
+      if (!found) return { ...d, is_available: false };
+      return {
+        ...d,
+        ...found,
+        start_time: normalizeTime(found.start_time),
+        end_time: normalizeTime(found.end_time),
+      };
+    }));
   }, [accessToken, shop?.id]);
+
+  // Initial load
+  useEffect(() => {
+    loadSlots().finally(() => setLoading(false));
+  }, [loadSlots]);
+
+  // Realtime subscription: when the shop owner edits this barber's schedule
+  // from /dashboard/staff, push the change here without requiring a refresh.
+  useEffect(() => {
+    if (!barber?.id) return;
+    const channel = supabase
+      .channel(`time_slots:${barber.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "time_slots", filter: `barber_id=eq.${barber.id}` },
+        () => {
+          if (dirty.current) return;
+          loadSlots();
+          setSyncedFromOwner(true);
+          setTimeout(() => setSyncedFromOwner(false), 3000);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [barber?.id, loadSlots]);
+
+
+  // Refetch when the tab regains focus — covers the case where the owner
+  // edited while the barber's tab was in the background.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !dirty.current) loadSlots();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadSlots]);
 
   function update(day: number, field: keyof DaySlot, value: string | boolean) {
     setSlots(prev => prev.map(s => s.day_of_week === day ? { ...s, [field]: value } : s));
     setSaved(false);
+    dirty.current = true;
   }
 
   async function save() {
@@ -76,6 +126,7 @@ export default function BarberAvailabilityPage() {
     });
     setSaving(false);
     setSaved(true);
+    dirty.current = false;
     setTimeout(() => setSaved(false), 3000);
   }
 
@@ -87,6 +138,12 @@ export default function BarberAvailabilityPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      {syncedFromOwner && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2 text-xs text-blue-200">
+          <Clock size={14} className="text-blue-400" />
+          Your shop owner just updated your schedule — these are the latest hours.
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Availability</h1>

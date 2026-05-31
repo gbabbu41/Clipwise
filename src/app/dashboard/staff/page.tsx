@@ -74,7 +74,7 @@ function defaultSchedule(): DaySchedule[] {
 }
 
 export default function StaffPage() {
-  const { shop, accessToken } = useAuth();
+  const { shop, accessToken, user, profile } = useAuth();
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [barbers, setBarbers] = useState<BarberWithSchedule[]>([]);
@@ -89,6 +89,9 @@ export default function StaffPage() {
   const [addTab, setAddTab] = useState<"manual" | "invite">("invite");
   const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "50" });
   const [inviteSent, setInviteSent] = useState(false);
+
+  // Is the owner already on the team as a barber?
+  const alreadyOwnerBarber = !!(user?.email && barbers.some(b => b.email?.toLowerCase() === user.email!.toLowerCase()));
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [savingAdd, setSavingAdd] = useState(false);
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
@@ -150,6 +153,22 @@ export default function StaffPage() {
   }, [shop]);
 
   useEffect(() => { loadBarbers(); }, [loadBarbers]);
+
+  // Real-time sync: when a barber edits their own availability from their
+  // portal, push the change here without requiring a staff-page reload.
+  useEffect(() => {
+    if (!shop?.id) return;
+    const channel = supabase
+      .channel(`staff_time_slots:${shop.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "time_slots" },
+        () => { loadBarbers(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [shop?.id, loadBarbers]);
+
 
   // ── Save schedule ───────────────────────────────────────────────────────────
   const saveSchedule = async () => {
@@ -292,9 +311,24 @@ export default function StaffPage() {
   };
 
   // ── Open schedule modal ─────────────────────────────────────────────────────
-  const openSchedule = (b: BarberWithSchedule) => {
-    setEditSchedule(b.schedule.map((d) => ({ ...d })));
+  // Always refetch the barber's current time_slots from the DB before populating
+  // the editor — the cached `b.schedule` may be stale if the barber updated
+  // their own availability since the last full staff-page load.
+  const openSchedule = async (b: BarberWithSchedule) => {
+    setEditSchedule(b.schedule.map((d) => ({ ...d }))); // optimistic from cache
     setScheduleBarber(b);
+    const { data: fresh } = await supabase
+      .from("time_slots")
+      .select("day_of_week, start_time, end_time, is_available")
+      .eq("barber_id", b.id)
+      .order("day_of_week");
+    if (!fresh) return;
+    const next: DaySchedule[] = DAYS_FULL.map((_, dow) => {
+      const ts = fresh.find((t) => t.day_of_week === dow);
+      if (ts) return { isOpen: ts.is_available, startTime: dbTimeToDisplay(ts.start_time), endTime: dbTimeToDisplay(ts.end_time) };
+      return { isOpen: false, startTime: "9:00 AM", endTime: "7:00 PM" };
+    });
+    setEditSchedule(next);
   };
 
   const updateScheduleDay = (dow: number, field: keyof DaySchedule, value: string | boolean) => {
@@ -675,9 +709,24 @@ export default function StaffPage() {
                     </p>
                   )}
                   {addTab === "manual" && (
-                    <p className="text-xs text-gray-500 bg-surface-raised border border-border rounded-xl px-3 py-2">
-                      Enter your own email to add yourself as a barber instantly. Enter someone else&apos;s email and an invite link will be sent so they can join the portal.
-                    </p>
+                    <div className="text-xs text-gray-400 bg-surface-raised border border-border rounded-xl px-3 py-2.5 space-y-2">
+                      <p>
+                        Use <span className="text-white font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
+                      </p>
+                      {user?.email && !alreadyOwnerBarber && (
+                        <button
+                          type="button"
+                          onClick={() => setAddForm({
+                            name: profile?.name || (user.email?.split("@")[0] ?? ""),
+                            email: user.email!,
+                            commission_percent: addForm.commission_percent,
+                          })}
+                          className="text-gold hover:text-gold/80 font-medium underline-offset-2 hover:underline"
+                        >
+                          + Add me as a barber
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {[

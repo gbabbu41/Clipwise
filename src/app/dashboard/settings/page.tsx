@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
-import { generate24hSlots, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { effectivePlan } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -18,10 +19,6 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const ALL_TIMES = generate24hSlots();
-
-type HoursMap = Record<string, { open: string; close: string; closed: boolean }>;
 type BookingSettings = {
   advance_days: number;
   cancellation_hours: number;
@@ -31,18 +28,27 @@ type BookingSettings = {
   auto_confirm: boolean;
 };
 
-const DEFAULT_HOURS: HoursMap = Object.fromEntries(
-  DAYS.map(d => [d, { open: "9:00 AM", close: "7:00 PM", closed: false }])
-);
 const DEFAULT_BOOKING: BookingSettings = {
   advance_days: 30, cancellation_hours: 24, deposit: false,
   deposit_amount: 10, no_show_protection: true, auto_confirm: false,
 };
 
-const PLANS = [
-  { name: "Starter", price: "$19/mo", features: ["1 Barber","50 Appointments/mo","Basic Analytics"], current: false },
-  { name: "Pro", price: "$49/mo", features: ["3 Barbers","Unlimited Appointments","Full Analytics","Loyalty System","POS"], current: true },
-  { name: "Enterprise", price: "$99/mo", features: ["Unlimited Barbers","Multi-location","Priority Support","White-label"], current: false },
+// Plan info — mirrors the pricing shown on the public homepage (src/app/page.tsx).
+// "current" is computed at render time from the shop's real subscription_plan.
+type PlanInfo = { key: string; name: string; priceLabel: string; priceSuffix: string; features: string[] };
+const PLAN_INFO: PlanInfo[] = [
+  {
+    key: "starter", name: "Starter", priceLabel: "Free", priceSuffix: "forever",
+    features: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"],
+  },
+  {
+    key: "pro", name: "Pro", priceLabel: "$23", priceSuffix: "/month",
+    features: ["Up to 4 barbers", "Online booking + payments", "Advanced analytics", "SMS reminders", "Stripe Connect payouts"],
+  },
+  {
+    key: "premium", name: "Premium", priceLabel: "$49", priceSuffix: "/month",
+    features: ["Up to 9 barbers", "Everything in Pro", "Full POS via Stripe Terminal", "Inventory management", "Staff management", "Full analytics & reports", "Dedicated support"],
+  },
 ];
 
 const PERMISSIONS: { feature: string; barber: boolean; admin: boolean }[] = [
@@ -61,8 +67,13 @@ type NewLocation = { name: string; address: string; city: string; province: stri
 const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "", email: "" };
 
 export default function SettingsPage() {
-  const { shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
+  const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
   const [tab, setTab] = useState("profile");
+
+  // Account/password state
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
@@ -81,7 +92,6 @@ export default function SettingsPage() {
     google_place_id: "",
   });
 
-  const [hours, setHours] = useState<HoursMap>(DEFAULT_HOURS);
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
   const [permissions, setPermissions] = useState(PERMISSIONS.map(p => ({ ...p })));
 
@@ -145,10 +155,9 @@ export default function SettingsPage() {
       google_place_id: shop.google_place_id ?? "",
     });
 
-    // Load hours + booking settings — try Supabase first, fall back to localStorage
+    // Load booking settings + notification templates — try Supabase first, fall back to localStorage
     (async () => {
       try {
-        // Use select("*") so missing optional columns don't trigger a 400 from PostgREST
         const { data, error } = await supabase
           .from("shops")
           .select("*")
@@ -157,12 +166,6 @@ export default function SettingsPage() {
         const row = data as Record<string, unknown> | null;
 
         if (!error && row) {
-          if (row.business_hours && typeof row.business_hours === "object") {
-            setHours(row.business_hours as HoursMap);
-          } else {
-            const cached = localStorage.getItem(`hours_${shop.id}`);
-            if (cached) setHours(JSON.parse(cached) as HoursMap);
-          }
           if (row.booking_settings && typeof row.booking_settings === "object") {
             setBooking(row.booking_settings as BookingSettings);
           } else {
@@ -173,16 +176,11 @@ export default function SettingsPage() {
             setTemplates(prev => ({ ...prev, ...(row.notification_templates as typeof DEFAULT_TEMPLATES) }));
           }
         } else {
-          // Columns may not exist yet — use localStorage
-          const cachedH = localStorage.getItem(`hours_${shop.id}`);
           const cachedB = localStorage.getItem(`booking_${shop.id}`);
-          if (cachedH) setHours(JSON.parse(cachedH) as HoursMap);
           if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
         }
       } catch {
-        const cachedH = localStorage.getItem(`hours_${shop.id}`);
         const cachedB = localStorage.getItem(`booking_${shop.id}`);
-        if (cachedH) setHours(JSON.parse(cachedH) as HoursMap);
         if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
       }
     })();
@@ -212,33 +210,6 @@ export default function SettingsPage() {
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
-  };
-
-  const saveHours = async () => {
-    if (!shop) return;
-    // Validate: at least one day open
-    const openDays = Object.values(hours).filter(h => !h.closed);
-    if (openDays.length === 0) { showToast("Please set hours for at least one day"); return; }
-    // Validate: close time after open time for each open day
-    const ALL_TIMES_LIST = generate24hSlots();
-    for (const [day, h] of Object.entries(hours)) {
-      if (!h.closed) {
-        const openIdx = ALL_TIMES_LIST.indexOf(h.open);
-        const closeIdx = ALL_TIMES_LIST.indexOf(h.close);
-        if (closeIdx <= openIdx) { showToast(`${day}: closing time must be after opening time`); return; }
-      }
-    }
-    setSaving(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from("shops").update({ business_hours: hours } as any).eq("id", shop.id));
-    if (error) {
-      // Column not yet added to DB — persist locally until migration runs
-      localStorage.setItem(`hours_${shop.id}`, JSON.stringify(hours));
-      showToast("Hours saved locally!");
-    } else {
-      showToast("Hours saved!");
-    }
-    setSaving(false);
   };
 
   const saveBooking = async () => {
@@ -281,7 +252,18 @@ export default function SettingsPage() {
     await refreshShop();
   };
 
-  const TABS = ["profile","hours","booking","notifications","subscription","locations","permissions","danger"];
+  const TABS = ["profile","account","booking","notifications","subscription","locations","permissions","danger"];
+
+  const changePassword = async () => {
+    if (newPassword.length < 8) { setToast("Password must be at least 8 characters."); return; }
+    if (newPassword !== confirmPassword) { setToast("Passwords do not match."); return; }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingPassword(false);
+    if (error) { setToast(`Failed: ${error.message}`); return; }
+    setNewPassword(""); setConfirmPassword("");
+    setToast("Password updated.");
+  };
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange}
@@ -306,7 +288,7 @@ export default function SettingsPage() {
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
               tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
-            {t === "hours" ? "Business Hours" : t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
+            {t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
           </button>
         ))}
       </div>
@@ -370,39 +352,48 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {tab === "hours" && (
+      {tab === "account" && (
         <Card className="max-w-2xl">
-          <CardHeader><CardTitle>Business Hours</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {DAYS.map(day => {
-                const h = hours[day];
-                return (
-                  <div key={day} className="flex items-center gap-4 p-3 bg-surface-raised rounded-xl border border-border">
-                    <Toggle value={!h.closed} onChange={() => setHours(prev => ({ ...prev, [day]: { ...h, closed: !h.closed } }))} />
-                    <span className="text-sm text-white w-24">{day}</span>
-                    {!h.closed ? (
-                      <>
-                        <select value={h.open} onChange={e => setHours(prev => ({ ...prev, [day]: { ...h, open: e.target.value } }))}
-                          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-white focus:outline-none">
-                          {ALL_TIMES.map(t => <option key={t}>{t}</option>)}
-                        </select>
-                        <span className="text-gray-500 text-xs">to</span>
-                        <select value={h.close} onChange={e => setHours(prev => ({ ...prev, [day]: { ...h, close: e.target.value } }))}
-                          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-white focus:outline-none">
-                          {ALL_TIMES.map(t => <option key={t}>{t}</option>)}
-                        </select>
-                      </>
-                    ) : (
-                      <span className="text-sm text-gray-500">Closed</span>
-                    )}
-                  </div>
-                );
-              })}
+          <CardHeader><CardTitle>My Account</CardTitle></CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Account email</p>
+              <p className="text-xs text-gray-500 mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>
+              <div className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white font-mono">
+                {user?.email ?? "—"}
+              </div>
             </div>
-            <Button className="mt-4" disabled={saving} onClick={saveHours}>
-              {saving ? "Saving…" : "Save Hours"}
-            </Button>
+
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Display name</p>
+              <div className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white">
+                {authProfile?.name ?? "—"}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-border space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-300">Change password</p>
+                <p className="text-xs text-gray-500 mt-0.5">Choose a new password (at least 8 characters).</p>
+              </div>
+              <Input
+                label="New password"
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <Input
+                label="Confirm new password"
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <Button onClick={changePassword} disabled={savingPassword || !newPassword || !confirmPassword}>
+                {savingPassword ? "Updating…" : "Update password"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -452,33 +443,45 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {tab === "subscription" && (
-        <div className="space-y-4 max-w-3xl">
-          <Card className="border-gold/20">
-            <CardHeader>
-              <div>
-                <CardTitle>Current Plan</CardTitle>
-                <p className="text-sm text-gray-400 mt-1">You are on the Pro plan</p>
-              </div>
-              <Badge variant="gold">Pro</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-4xl font-bold text-gold">$49</span>
-                <span className="text-gray-400">/month</span>
-              </div>
-              <div className="space-y-2 mb-4">
-                {["3 Barbers","Unlimited Appointments","Full Analytics Dashboard","Loyalty & Points System","Point of Sale (POS)","Promo Codes","Client Management"].map(f => (
-                  <div key={f} className="flex items-center gap-2 text-sm text-gray-300">
-                    <span className="text-emerald-400">✓</span>{f}
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>Upgrade Plan</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {tab === "subscription" && (() => {
+        const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+        const activePlan = PLAN_INFO.find(p => p.key === activePlanKey) ?? PLAN_INFO[0];
+        const downgraded = shop?.subscription_plan && shop.subscription_plan !== "starter" && activePlanKey === "starter";
+        return (
+          <div className="space-y-4 max-w-3xl">
+            <Card className="border-gold/20">
+              <CardHeader>
+                <div>
+                  <CardTitle>Current Plan</CardTitle>
+                  <p className="text-sm text-gray-400 mt-1">You are on the {activePlan.name} plan</p>
+                  {downgraded && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      Your {shop?.subscription_plan} subscription is {shop?.subscription_status ?? "inactive"} — features are temporarily limited to Starter.
+                    </p>
+                  )}
+                </div>
+                <Badge variant="gold">{activePlan.name}</Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-4xl font-bold text-gold">{activePlan.priceLabel}</span>
+                  <span className="text-gray-400">{activePlan.priceSuffix}</span>
+                </div>
+                <div className="space-y-2 mb-4">
+                  {activePlan.features.map(f => (
+                    <div key={f} className="flex items-center gap-2 text-sm text-gray-300">
+                      <span className="text-emerald-400">✓</span>{f}
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>
+                  {activePlanKey === "premium" ? "View Plans" : "Upgrade Plan"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {tab === "permissions" && (
         <Card className="max-w-2xl">
@@ -685,25 +688,34 @@ export default function SettingsPage() {
                 <button onClick={() => setShowUpgradeModal(false)} className="text-gray-400 hover:text-white">✕</button>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
-                {PLANS.map(plan => (
-                  <div key={plan.name} className={cn("p-4 rounded-xl border", plan.current ? "border-gold bg-gold/5" : "border-border")}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-white">{plan.name}</h3>
-                      {plan.current && <Badge variant="gold">Current</Badge>}
-                    </div>
-                    <p className="text-xl font-bold text-gold mb-3">{plan.price}</p>
-                    <div className="space-y-1 mb-4">
-                      {plan.features.map(f => (
-                        <p key={f} className="text-xs text-gray-400 flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
-                      ))}
-                    </div>
-                    <Button variant={plan.current ? "secondary" : "gold"} size="sm" className="w-full"
-                      disabled={plan.current}
-                      onClick={() => { setShowUpgradeModal(false); showToast(`Switching to ${plan.name}... (Demo mode)`); }}>
-                      {plan.current ? "Current Plan" : `Switch to ${plan.name}`}
-                    </Button>
-                  </div>
-                ))}
+                {(() => {
+                  const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+                  return PLAN_INFO.map(plan => {
+                    const isCurrent = plan.key === activePlanKey;
+                    return (
+                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-gold bg-gold/5" : "border-border")}>
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-bold text-white">{plan.name}</h3>
+                          {isCurrent && <Badge variant="gold">Current</Badge>}
+                        </div>
+                        <p className="mb-3">
+                          <span className="text-xl font-bold text-gold">{plan.priceLabel}</span>
+                          <span className="text-xs text-gray-400 ml-1">{plan.priceSuffix}</span>
+                        </p>
+                        <div className="space-y-1 mb-4">
+                          {plan.features.map(f => (
+                            <p key={f} className="text-xs text-gray-400 flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
+                          ))}
+                        </div>
+                        <Button variant={isCurrent ? "secondary" : "gold"} size="sm" className="w-full"
+                          disabled={isCurrent}
+                          onClick={() => { setShowUpgradeModal(false); showToast(`Switching to ${plan.name}... (Demo mode)`); }}>
+                          {isCurrent ? "Current Plan" : `Switch to ${plan.name}`}
+                        </Button>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           </div>

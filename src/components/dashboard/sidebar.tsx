@@ -47,7 +47,6 @@ const navItems: NavItem[] = [
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
-  { href: "/barber-dashboard", label: "My Barber View", icon: Scissors, ownerOnly: true },
 ];
 
 
@@ -55,6 +54,14 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, profile, shop, shops, setActiveShop, signOut } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isAlsoBarber, setIsAlsoBarber] = useState(false);
+
+  // Detect whether this owner is also linked as a barber → show role-switch link
+  useEffect(() => {
+    if (!user || !shop || profile?.role !== "shop_owner") { setIsAlsoBarber(false); return; }
+    supabase.from("barbers").select("id").eq("user_id", user.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => setIsAlsoBarber(!!data));
+  }, [user, shop, profile]);
 
   useEffect(() => {
     if (!user) return;
@@ -88,7 +95,7 @@ export function Sidebar() {
   const shopName = shop?.name ?? "Your Shop";
 
   return (
-    <aside className="hidden md:flex flex-col w-64 min-h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
+    <aside className="hidden md:flex flex-col w-64 h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-border">
         <Logo size="md" />
@@ -132,6 +139,16 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Owner-also-barber: prominent switch to barber view */}
+        {isAlsoBarber && (
+          <Link href="/barber-dashboard"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-gray-400 hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            <Scissors size={18} className="text-gray-500 group-hover:text-white" />
+            <span className="flex-1">My Barber View</span>
+            <ChevronRight size={14} className="opacity-50" />
+          </Link>
+        )}
       </nav>
 
       {/* User */}

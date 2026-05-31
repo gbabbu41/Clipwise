@@ -117,6 +117,7 @@ export function getSlotsInRange(
   forDate: Date,
   bookedSlots: string[] = []
 ): { slot: string; available: boolean }[] {
+  const SLOT_MINUTES = 30;
   const startMins = timeToMinutes(dbTimeToDisplay(startTimeDb));
   const endMins = timeToMinutes(dbTimeToDisplay(endTimeDb));
   const isToday = formatDateForDb(forDate) === formatDateForDb(new Date());
@@ -125,7 +126,12 @@ export function getSlotsInRange(
   return generate24hSlots()
     .filter((slot) => {
       const m = timeToMinutes(slot);
-      return m >= startMins && m < endMins;
+      // A slot must START at or after the barber's start time AND
+      // its 30-min window must END at or before the barber's end time.
+      // Without the second check, a barber ending at 4:45 PM would still
+      // offer a 4:30 PM slot — whose 30-min appointment ends at 5:00 PM,
+      // 15 minutes past the barber's stated hours.
+      return m >= startMins && m + SLOT_MINUTES <= endMins;
     })
     .map((slot) => ({
       slot,

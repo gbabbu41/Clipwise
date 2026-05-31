@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronRight, ChevronLeft, Plus, Trash2, Copy, ExternalLink, AlertCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -55,6 +55,24 @@ export default function OnboardingPage() {
     }))
   );
 
+  // If the user reopens onboarding mid-flow (browser refresh / session blip), restore
+  // any state we can from the DB so the rest of the flow doesn't silently drop data.
+  useEffect(() => {
+    if (!user) return;
+    if (createdShopId) return; // already loaded
+    (async () => {
+      const { data: existingShop } = await supabase
+        .from("shops").select("id, slug").eq("owner_id", user.id).maybeSingle();
+      if (!existingShop) return;
+      setCreatedShopId(existingShop.id);
+      setCreatedShopSlug(existingShop.slug);
+      const { data: existingBarber } = await supabase
+        .from("barbers").select("id").eq("shop_id", existingShop.id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (existingBarber) setCreatedBarberId(existingBarber.id);
+    })();
+  }, [user, createdShopId]);
+
   const canProceed = () => {
     if (step === 0) return shop.name && shop.address && shop.city && shop.phone;
     if (step === 2) return !!barber.name;
@@ -99,11 +117,13 @@ export default function OnboardingPage() {
       }
 
       if (step === 2 && barber.name) {
+        if (!createdShopId) throw new Error("Shop wasn't saved — please go back to step 1 and click Continue.");
         const { data, error: err } = await supabase
           .from("barbers")
           .insert({ shop_id: createdShopId, name: barber.name, email: barber.email, commission_percent: parseInt(barber.commission), is_active: true })
           .select().single();
         if (err) throw err;
+        if (!data?.id) throw new Error("Barber wasn't saved — please try again.");
         setCreatedBarberId(data.id);
       }
 
@@ -114,11 +134,36 @@ export default function OnboardingPage() {
         if (err) throw err;
       }
 
-      if (step === 4 && createdBarberId) {
+      if (step === 4) {
+        // Self-heal: if we lost createdBarberId mid-flow (refresh / session blip),
+        // look up the most-recently-created barber for this shop before saving hours.
+        let barberId = createdBarberId;
+        if (!barberId && createdShopId) {
+          const { data: existing } = await supabase
+            .from("barbers")
+            .select("id")
+            .eq("shop_id", createdShopId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (existing?.id) {
+            barberId = existing.id;
+            setCreatedBarberId(existing.id);
+          }
+        }
+
+        if (!barberId) {
+          // No barber row exists for this shop — the customer's hours have nowhere to go.
+          // Bail loudly so the user knows to add the barber from the Staff page later.
+          throw new Error("We couldn't find a barber for your shop. Please finish onboarding and add a barber from the Staff page — you can set their hours there.");
+        }
+
         const slots = hours
-          .map((day, idx) => day.open ? { barber_id: createdBarberId, day_of_week: idx, start_time: toDbTime(day.start), end_time: toDbTime(day.end), is_available: true } : null)
+          .map((day, idx) => day.open ? { barber_id: barberId, day_of_week: idx, start_time: toDbTime(day.start), end_time: toDbTime(day.end), is_available: true } : null)
           .filter((x): x is NonNullable<typeof x> => x !== null);
         if (slots.length > 0) {
+          // Clear any pre-existing slots first so re-running this step replaces, not duplicates.
+          await supabase.from("time_slots").delete().eq("barber_id", barberId);
           const { error: err } = await supabase.from("time_slots").insert(slots);
           if (err) throw err;
         }
