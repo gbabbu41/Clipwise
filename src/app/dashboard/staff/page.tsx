@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KeyRound, Trash2, Copy, Check } from "lucide-react";
-import { getPlanLimit } from "@/lib/validation";
+import { getPlanLimit, validateEmail } from "@/lib/validation";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 
@@ -184,63 +184,22 @@ export default function StaffPage() {
     showToast("Commission updated!");
   };
 
-  // ── Add barber manually ─────────────────────────────────────────────────────
-  const addBarber = async () => {
-    if (!shop || !addForm.name.trim()) return;
+  // ── Add or invite a barber (single API path) ────────────────────────────────
+  // Email is mandatory in both tabs — it's the only unique identifier we have
+  // to differentiate owner-self adds (instant) from external invites.
+  const submitNewBarber = async () => {
+    if (!shop) return;
+    if (!addForm.name.trim()) { showToast("Full name is required"); return; }
+    const emailErr = validateEmail(addForm.email.trim());
+    if (emailErr) { showToast(emailErr); return; }
+
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
       showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
       return;
     }
-    // Normalize email (matches Supabase auth lowercasing) so dupe checks
-    // and future DB unique constraint stay consistent.
-    const email = addForm.email.trim().toLowerCase() || null;
-    // Friendly pre-check before hitting the DB
-    if (email) {
-      const { data: existing } = await supabase
-        .from("barbers")
-        .select("id")
-        .eq("shop_id", shop.id)
-        .ilike("email", email)
-        .maybeSingle();
-      if (existing) { showToast("A barber with this email is already on your team."); return; }
-    }
-    setSavingAdd(true);
-    const { error } = await supabase.from("barbers").insert({
-      shop_id: shop.id,
-      name: addForm.name.trim(),
-      email,
-      commission_percent: parseInt(addForm.commission_percent) || 50,
-      is_active: true,
-      rating: 0,
-      total_reviews: 0,
-    });
-    setSavingAdd(false);
-    if (error) {
-      // Postgres unique-violation (code 23505) — friendlier message if the
-      // DB constraint catches a race / direct-insert that slipped past the check.
-      if (error.code === "23505") {
-        showToast("A barber with this email is already on your team.");
-      } else {
-        showToast(`Error adding barber: ${error.message}`);
-      }
-      return;
-    }
-    setShowAddModal(false);
-    setAddForm({ name: "", email: "", commission_percent: "50" });
-    showToast("Barber added successfully!");
-    loadBarbers();
-  };
-
-  // ── Invite barber by email ──────────────────────────────────────────────────
-  const inviteBarber = async () => {
-    if (!addForm.name.trim() || !addForm.email.trim()) return;
-    const limit = getPlanLimit(shop?.subscription_plan ?? "starter");
-    if (barbers.length >= limit) {
-      showToast(`${shop?.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
-      return;
-    }
     if (!accessToken) return;
+
     setSavingAdd(true);
     const res = await fetch("/api/admin/barber/invite", {
       method: "POST",
@@ -254,6 +213,18 @@ export default function StaffPage() {
     const data = await res.json();
     setSavingAdd(false);
     if (!res.ok) { showToast(`Error: ${data.error}`); return; }
+
+    // Owner self-add → no invite link, just confirm and refresh
+    if (data.ownerSelf) {
+      setShowAddModal(false);
+      setAddForm({ name: "", email: "", commission_percent: "50" });
+      showToast("You have been added as a barber! Open 'My Barber View' from the sidebar.");
+      loadBarbers();
+      return;
+    }
+
+    // Normal external invite — show the link modal so the owner can also
+    // copy/paste it to the barber if email doesn't arrive
     setInviteSent(true);
     if (data.inviteLink) {
       setInviteLinkModal({
@@ -265,6 +236,11 @@ export default function StaffPage() {
     }
     loadBarbers();
   };
+
+  // Both tabs (Invite / Add Manually) now run the same flow — the API decides
+  // whether to send an invite email or link the owner's user_id directly.
+  const inviteBarber = submitNewBarber;
+  const addBarber = submitNewBarber;
 
   // ── Password reset ──────────────────────────────────────────────────────────
   const resetPassword = async (barber: BarberWithSchedule) => {
@@ -700,13 +676,13 @@ export default function StaffPage() {
                   )}
                   {addTab === "manual" && (
                     <p className="text-xs text-gray-500 bg-surface-raised border border-border rounded-xl px-3 py-2">
-                      Adds the barber to your roster without sending an invite. Useful for barbers who won't use the portal.
+                      Enter your own email to add yourself as a barber instantly. Enter someone else&apos;s email and an invite link will be sent so they can join the portal.
                     </p>
                   )}
 
                   {[
-                    { key: "name" as const, label: "Full Name", placeholder: "John Doe", type: "text", required: true },
-                    { key: "email" as const, label: addTab === "invite" ? "Email" : "Email (optional)", placeholder: "john@barbershop.com", type: "email", required: addTab === "invite" },
+                    { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true },
+                    { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true },
                     { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false },
                   ].map(({ key, label, placeholder, type, required }) => (
                     <div key={key} className="space-y-1.5">

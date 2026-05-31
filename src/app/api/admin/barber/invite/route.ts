@@ -30,9 +30,11 @@ export async function POST(request: NextRequest) {
 
   // Normalize email to match how Supabase auth stores it (lowercase + trimmed)
   const email = rawEmail.trim().toLowerCase();
-  // (Owner self-invite is allowed — many shop owners cut hair too and want
-  //  their own barber profile alongside ownership. accept-invite preserves
-  //  the shop_owner role and just links the new barber row to them.)
+
+  // Owner self-add: if the email matches the caller's auth email, they're
+  // adding themselves. Skip the whole invite-link + email flow and just
+  // link the new barber row to their existing user_id immediately.
+  const isOwnerSelf = (user.email ?? "").toLowerCase() === email;
 
   // Check if a barber with this email is already on the team (case-insensitive)
   const { data: existing } = await supabaseAdmin
@@ -44,7 +46,8 @@ export async function POST(request: NextRequest) {
 
   if (existing) return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
 
-  // Create the barber record (no user_id yet — set after they accept)
+  // Create the barber record. For owner self-add, link user_id immediately so
+  // they can hop into the barber view right away — no invite acceptance needed.
   const { data: barber, error: barberError } = await supabaseAdmin
     .from("barbers")
     .insert({
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
       is_active: true,
       rating: 0,
       total_reviews: 0,
+      ...(isOwnerSelf ? { user_id: user.id } : {}),
     })
     .select()
     .single();
@@ -66,6 +70,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
     }
     return NextResponse.json({ error: barberError.message }, { status: 500 });
+  }
+
+  // Owner self-add — short-circuit. No invite link, no email, just a confirmation.
+  if (isOwnerSelf) {
+    return NextResponse.json({
+      ok: true, barber, ownerSelf: true,
+      message: "You have been added as a barber. Switch to 'My Barber View' from the sidebar.",
+    });
   }
 
   const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite`;

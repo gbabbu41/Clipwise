@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -55,7 +55,18 @@ export default function BookingPage() {
   // ── Shared step state ──────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
   const [selectedBarber, setSelectedBarber] = useState<string | null>(null); // null = "Any"
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  // Multi-service: customer can pick more than one (e.g. cut + beard, or
+  // two haircuts for parent + child). They get booked back-to-back with the
+  // same barber. selectedServices[0] is the legacy "primary" for code paths
+  // that still need a single id (slot grid filter, etc.)
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const selectedService = selectedServices[0] ?? null;
+  const setSelectedService = (id: string | null) => {
+    setSelectedServices(id ? [id] : []);
+  };
+  const toggleService = (id: string) => {
+    setSelectedServices(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -74,6 +85,7 @@ export default function BookingPage() {
   const [slotGrid, setSlotGrid] = useState<SlotAvailability[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
   const [barberWorkDays, setBarberWorkDays] = useState<Set<number>>(new Set());
+  const [shopWorkDays, setShopWorkDays] = useState<Set<number>>(new Set());
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -142,6 +154,21 @@ export default function BookingPage() {
       setBarberWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
     })();
   }, [selectedBarber, flow]);
+
+  // ── Load shop-wide work days (union of all barbers' schedules) ────────────
+  // Used by Option A (time-first) calendar greying: a day where no barber
+  // is scheduled at all is shown as disabled.
+  useEffect(() => {
+    if (barbers.length === 0) { setShopWorkDays(new Set()); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("time_slots")
+        .select("day_of_week")
+        .in("barber_id", barbers.map(b => b.id))
+        .eq("is_available", true);
+      setShopWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
+    })();
+  }, [barbers]);
 
   // ── Load slot grid (Option A — time first) ─────────────────────────────────
   const loadTimeFirstSlots = useCallback(async (date: Date) => {
@@ -231,25 +258,30 @@ export default function BookingPage() {
 
   // ── Confirm booking ────────────────────────────────────────────────────────
   const confirmBooking = async () => {
-    if (!shop || !selectedService || !selectedDate || !selectedTime) return;
+    if (!shop || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
     if (!isWithin6Months(selectedDate)) { showToast("Cannot book more than 6 months in advance.", false); return; }
     const clientErrs = validateClientInfo();
     if (Object.keys(clientErrs).length > 0) { setClientErrors(clientErrs); return; }
     setSaving(true);
-    const service = services.find((s) => s.id === selectedService);
+    const service = services.find((s) => s.id === selectedService); // primary
     const discount = promoApplied
       ? promoApplied.discount_type === "percent"
-        ? (service?.price ?? 0) * promoApplied.discount_value / 100
+        ? totalPrice * promoApplied.discount_value / 100
         : promoApplied.discount_value
       : 0;
-    const total = Math.max(0, (service?.price ?? 0) - discount);
+    const total = Math.max(0, totalPrice - discount);
 
     // If flow is time-first and no specific barber picked, pick first available
     let finalBarberId = selectedBarber;
     if (!finalBarberId || finalBarberId === "any") {
-      const slot = slotGrid.find((s) => s.slot === selectedTime);
-      finalBarberId = slot?.barberIds[0] ?? barbers[0]?.id ?? null;
+      // For multi-service, find a barber that's free across the WHOLE block
+      const startBlock = slotGridForBlock.find((s) => s.slot === selectedTime);
+      finalBarberId = startBlock?.barberIds[0] ?? null;
+      if (!finalBarberId) {
+        const slot = slotGrid.find((s) => s.slot === selectedTime);
+        finalBarberId = slot?.barberIds[0] ?? barbers[0]?.id ?? null;
+      }
     }
 
     // If this service requires a deposit AND the shop accepts online payments,
@@ -286,23 +318,43 @@ export default function BookingPage() {
       }
     }
 
-    const { data, error } = await supabase.from("appointments").insert({
-      shop_id: shop.id,
-      barber_id: finalBarberId,
-      service_id: selectedService,
-      client_name: clientInfo.name,
-      client_email: clientInfo.email,
-      client_phone: clientInfo.phone,
-      date: formatDateForDb(selectedDate),
-      time_slot: selectedTime,
-      status: "pending",
-      total_amount: total,
-      deposit_paid: false,
-    }).select("id").single();
+    // Multi-service: one appointment per service at back-to-back 30-min slots.
+    // Discount applied only to the first row so the row totals sum to `total`.
+    // Pre-assign UUIDs so the INSERT can use Prefer: return=minimal — anon
+    // customers don't match any SELECT policy on appointments, so RETURNING
+    // would be rejected ("new row violates RLS").
+    const allSlots = generate24hSlots();
+    const startIdx = allSlots.indexOf(selectedTime);
+    const rows = servicesPicked.map((svc, i) => {
+      const slotsConsumedBefore = servicesPicked.slice(0, i)
+        .reduce((sum, prev) => sum + Math.max(1, Math.ceil((prev.duration_minutes ?? 30) / 30)), 0);
+      const slotIdx = startIdx + slotsConsumedBefore;
+      const time_slot = allSlots[slotIdx] ?? selectedTime;
+      const rowAmount = i === 0 ? Math.max(0, (svc.price ?? 0) - discount) : (svc.price ?? 0);
+      return {
+        id: crypto.randomUUID(),
+        shop_id: shop.id,
+        barber_id: finalBarberId,
+        service_id: svc.id,
+        client_name: clientInfo.name,
+        client_email: clientInfo.email,
+        client_phone: clientInfo.phone,
+        date: formatDateForDb(selectedDate),
+        time_slot,
+        status: "pending",
+        total_amount: rowAmount,
+        deposit_paid: false,
+        notes: servicesPicked.length > 1
+          ? `Part of multi-service booking · ${servicesPicked.map(s => s.name).join(" + ")}`
+          : null,
+      };
+    });
+
+    const { error } = await supabase.from("appointments").insert(rows);
 
     setSaving(false);
     if (error) { showToast("Failed to book. Please try again.", false); return; }
-    setBookingId(data.id);
+    setBookingId(rows[0].id);
     setConfirmed(true);
 
     // Create in-app notification for shop owner (fire-and-forget)
@@ -326,8 +378,8 @@ export default function BookingPage() {
       date: selectedDate ? formatDateForDb(selectedDate) : "",
       time: selectedTime ?? "",
       total: `$${total.toFixed(2)}`,
-      bookingId: data.id.slice(0, 8).toUpperCase(),
-      appointmentId: data.id,
+      bookingId: rows[0].id.slice(0, 8).toUpperCase(),
+      appointmentId: rows[0].id,
     };
 
     // Confirmation email to customer
@@ -360,14 +412,17 @@ export default function BookingPage() {
   };
 
   // ── Computed values ────────────────────────────────────────────────────────
-  const service = services.find((s) => s.id === selectedService);
+  const service = services.find((s) => s.id === selectedService); // primary (back-compat)
+  const servicesPicked = selectedServices.map(id => services.find(s => s.id === id)).filter(Boolean) as Service[];
+  const totalPrice = servicesPicked.reduce((sum, s) => sum + (s.price ?? 0), 0);
+  const totalDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
   const barber = barbers.find((b) => b.id === selectedBarber);
   const discount = promoApplied
     ? promoApplied.discount_type === "percent"
-      ? (service?.price ?? 0) * promoApplied.discount_value / 100
+      ? totalPrice * promoApplied.discount_value / 100
       : promoApplied.discount_value
     : 0;
-  const total = Math.max(0, (service?.price ?? 0) - discount);
+  const total = Math.max(0, totalPrice - discount);
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category)))];
   const filteredServices = services.filter((s) => s.is_active && (categoryFilter === "All" || s.category === categoryFilter));
 
@@ -375,6 +430,25 @@ export default function BookingPage() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const calendarDays = Array.from({ length: 180 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
     .filter(d => isWithin6Months(d));
+
+  // Multi-service: each slot in slotGrid is 30 min. For multiple services
+  // we need slotsNeeded consecutive 30-min slots, all available with at
+  // least one common barber (time-first) or the picked barber (barber-first).
+  const slotsNeeded = Math.max(1, Math.ceil((totalDuration || 30) / 30));
+  const slotGridForBlock = slotGrid.filter((s, i) => {
+    if (!s.available) return false;
+    if (slotsNeeded === 1) return true;
+    // For each of the next (slotsNeeded - 1) slots, require availability
+    // AND for time-first, require at least one barber in common across the block
+    let intersection = new Set(s.barberIds);
+    for (let j = 1; j < slotsNeeded; j++) {
+      const next = slotGrid[i + j];
+      if (!next || !next.available) return false;
+      intersection = new Set(Array.from(intersection).filter(id => next.barberIds.includes(id)));
+      if (intersection.size === 0) return false;
+    }
+    return true;
+  }).map(s => ({ ...s }));
 
   // Steps
   const STEPS_TIME_FIRST = ["Service", "Date", "Time & Barber", "Your Info", "Promo", "Confirm"];
@@ -498,7 +572,7 @@ export default function BookingPage() {
               if (period === "AM" && hours === 12) hours = 0;
               const start = new Date(selectedDate);
               start.setHours(hours, minutes, 0, 0);
-              const end = new Date(start.getTime() + (service.duration_minutes ?? 60) * 60000);
+              const end = new Date(start.getTime() + (totalDuration || 60) * 60000);
               const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
               const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Haircut at ${shop.name}`)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Service: ${service.name}\nBarber: ${barber?.name ?? "Any Available"}\nBooking ID: ${bookingId?.slice(0, 8).toUpperCase() ?? ""}`)}&location=${encodeURIComponent(`${shop.address ?? ""}, ${shop.city ?? ""}`)}`;
               window.open(url, "_blank");
@@ -632,7 +706,30 @@ export default function BookingPage() {
         {/* Service Step */}
         {step === serviceStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Choose a service</h2>
+            <h2 className="text-lg font-semibold text-white">Choose services</h2>
+            <p className="text-xs text-gray-500 -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
+
+            {/* Selected services summary — chips with remove + running total */}
+            {servicesPicked.length > 0 && (
+              <div className="bg-gold/5 border border-gold/20 rounded-2xl p-3 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {servicesPicked.map((s, idx) => (
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-gold rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                      {s.name} · {formatCurrency(s.price)}
+                      <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
+                        className="ml-0.5 w-5 h-5 rounded-full bg-gold/20 hover:bg-gold/30 flex items-center justify-center" aria-label="Remove">
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-gold/10">
+                  <span className="text-gray-400">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
+                  <span className="text-gold font-bold">{formatCurrency(totalPrice)}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
@@ -647,24 +744,31 @@ export default function BookingPage() {
               </div>
             )}
             <div className="space-y-3">
-              {filteredServices.map((svc) => (
-                <button key={svc.id} onClick={() => setSelectedService(svc.id)}
-                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", selectedService === svc.id ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40")}
+              {filteredServices.map((svc) => {
+                const count = selectedServices.filter(id => id === svc.id).length;
+                const isPicked = count > 0;
+                return (
+                <div key={svc.id}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40")}
                 >
-                  <div className="flex-1 pr-4">
+                  <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{svc.name}</p>
                       <Badge>{svc.category}</Badge>
+                      {count > 1 && <span className="text-xs text-gold">× {count}</span>}
                     </div>
                     {svc.description && <p className="text-xs text-gray-500 mt-0.5">{svc.description}</p>}
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-lg font-bold text-gold">{formatCurrency(svc.price)}</span>
-                    {selectedService === svc.id && <Check size={18} className="text-gold" />}
+                    <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
+                      className="w-8 h-8 rounded-full bg-gold text-black flex items-center justify-center font-bold hover:bg-gold/90 transition-colors" aria-label="Add service">
+                      +
+                    </button>
                   </div>
-                </button>
-              ))}
+                </div>);
+              })}
             </div>
           </div>
         )}
@@ -678,7 +782,8 @@ export default function BookingPage() {
                 const isPast = isDateInPast(day);
                 const dow = day.getDay();
                 const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && barberWorkDays.size > 0 && !barberWorkDays.has(dow);
-                const disabled = isPast || !!isBarberOff;
+                const isShopClosed = flow !== "barber-first" && shopWorkDays.size > 0 && !shopWorkDays.has(dow);
+                const disabled = isPast || !!isBarberOff || isShopClosed;
                 const isSelected = selectedDate?.toDateString() === day.toDateString();
                 const isToday = day.toDateString() === today.toDateString();
                 return (
@@ -717,9 +822,16 @@ export default function BookingPage() {
                 <p>No available slots for this date</p>
               </div>
             )}
-            {!slotsLoading && slotGrid.length > 0 && (
+            {!slotsLoading && slotGrid.length > 0 && slotGridForBlock.length === 0 && servicesPicked.length > 1 && (
+              <div className="py-10 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-2xl px-4">
+                <Clock size={28} className="text-yellow-400 mx-auto mb-2" />
+                <p className="text-yellow-300 font-medium">No barber available for all services at once</p>
+                <p className="text-xs text-gray-500 mt-1">You need a {totalDuration}-min block. Try a different date, or book the services separately.</p>
+              </div>
+            )}
+            {!slotsLoading && slotGridForBlock.length > 0 && (
               <div className="space-y-2">
-                {slotGrid.filter(({ slot }) => {
+                {slotGridForBlock.filter(({ slot }) => {
                   const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
                   return !(isToday && isSlotInPast(slot));
                 }).map(({ slot, available, barberIds }) => {
@@ -805,9 +917,16 @@ export default function BookingPage() {
                 <p>No available slots for this date</p>
               </div>
             )}
+            {!slotsLoading && slotGrid.length > 0 && slotGridForBlock.length === 0 && servicesPicked.length > 1 && (
+              <div className="py-10 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-2xl px-4">
+                <Clock size={28} className="text-yellow-400 mx-auto mb-2" />
+                <p className="text-yellow-300 font-medium">This barber doesn&apos;t have {totalDuration} min available</p>
+                <p className="text-xs text-gray-500 mt-1">Try a different date, or book the services separately.</p>
+              </div>
+            )}
             {!slotsLoading && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {slotGrid.filter(({ slot }) => {
+                {slotGridForBlock.filter(({ slot }) => {
                   const isToday = selectedDate && formatDateForDb(selectedDate) === formatDateForDb(new Date());
                   return !(isToday && isSlotInPast(slot));
                 }).map(({ slot, available }) => (
@@ -876,17 +995,22 @@ export default function BookingPage() {
         )}
 
         {/* Confirm Step */}
-        {step === confirmStepIndex && (
+        {step === confirmStepIndex && (() => {
+          const depositTotal = servicesPicked.reduce(
+            (sum, s) => sum + (s.deposit_required ? (s.deposit_amount ?? 0) : 0),
+            0
+          );
+          return (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Review your booking</h2>
             <div className="bg-surface border border-border rounded-2xl p-5 space-y-3">
               {[
                 { label: "Shop", value: shop.name },
                 { label: "Barber", value: barber?.name ?? "Any Available" },
-                { label: "Service", value: service?.name ?? "" },
-                { label: "Duration", value: `${service?.duration_minutes ?? 0} min` },
+                { label: servicesPicked.length > 1 ? "Services" : "Service", value: servicesPicked.map(s => s.name).join(" + ") || "" },
+                { label: "Total Duration", value: `${totalDuration} min` },
                 { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) ?? "" },
-                { label: "Time", value: selectedTime ?? "" },
+                { label: "Start Time", value: selectedTime ?? "" },
                 { label: "Name", value: clientInfo.name },
                 { label: "Email", value: clientInfo.email },
                 { label: "Phone", value: clientInfo.phone },
@@ -897,34 +1021,37 @@ export default function BookingPage() {
                 </div>
               ))}
               <div className="border-t border-border pt-3 space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Service Price</span>
-                  <span className="text-white">{formatCurrency(service?.price ?? 0)}</span>
-                </div>
+                {servicesPicked.map((s) => (
+                  <div key={s.id} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{s.name} <span className="text-gray-600">· {s.duration_minutes}min</span></span>
+                    <span className="text-white">{formatCurrency(s.price ?? 0)}</span>
+                  </div>
+                ))}
                 {promoApplied && (
                   <div className="flex justify-between text-sm">
                     <span className="text-emerald-400">Discount ({promoApplied.code})</span>
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold">
+                <div className="flex justify-between font-bold pt-1 border-t border-border/50">
                   <span className="text-white">Total</span>
                   <span className="text-gold text-lg">{formatCurrency(total)}</span>
                 </div>
-                {service?.deposit_required && service.deposit_amount && service.deposit_amount > 0 && (
+                {depositTotal > 0 && (
                   <div className="flex justify-between text-sm pt-1">
                     <span className="text-gold">Deposit due now</span>
-                    <span className="text-gold font-semibold">{formatCurrency(service.deposit_amount)}</span>
+                    <span className="text-gold font-semibold">{formatCurrency(depositTotal)}</span>
                   </div>
                 )}
               </div>
             </div>
-            {service?.deposit_required && service.deposit_amount && service.deposit_amount > 0
-              ? <p className="text-xs text-gold/70 text-center">💳 A ${service.deposit_amount} deposit is required to secure this booking · Balance paid at the shop</p>
+            {depositTotal > 0
+              ? <p className="text-xs text-gold/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
               : <p className="text-xs text-gray-600 text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Footer Nav */}
