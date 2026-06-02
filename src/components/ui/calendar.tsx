@@ -67,7 +67,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
   };
 
   return (
-    <div className={cn("bg-black border border-[#1e1e1e] rounded-2xl p-3 w-full max-w-xs shadow-sm", className)}>
+    <div className={cn("bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 w-full max-w-xs", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button
@@ -92,7 +92,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
       {/* Weekday header */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS.map((w, i) => (
-          <span key={i} className="text-[10px] uppercase tracking-wider text-[#555] text-center py-1">{w}</span>
+          <span key={i} className="text-[10px] uppercase tracking-wider text-[#999] text-center py-1.5 font-semibold">{w}</span>
         ))}
       </div>
 
@@ -113,11 +113,13 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
                 // 44px min height on mobile = tap-friendly
                 "rounded-lg text-sm transition-all flex flex-col items-center justify-center gap-0.5",
                 renderDayBadge ? "min-h-[44px] py-1" : "h-11 sm:h-9",
-                disabled && "text-gray-300 cursor-not-allowed",
-                !disabled && !inMonth && "text-[#555]",
+                disabled && "text-[#333] cursor-not-allowed",
+                !disabled && !inMonth && "text-[#444]",
                 !disabled && inMonth && !isSelected && "text-white hover:bg-[#141414]",
                 isSelected && "bg-white text-black font-bold border border-white",
-                isToday && !isSelected && !disabled && "ring-1 ring-black/20 text-white font-semibold",
+                // Today indicator pops against the dark grid: thin white
+                // ring that becomes the white pill when also selected.
+                isToday && !isSelected && !disabled && "ring-1 ring-white/40 text-white font-bold",
               )}
             >
               <span className="leading-none">{d.getDate()}</span>
