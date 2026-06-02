@@ -3,16 +3,24 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
-import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { cn, formatCurrency } from "@/lib/utils";
+
+type AppStatus = "confirmed" | "pending" | "completed" | "cancelled" | "no-show";
 
 interface Appointment {
   id: string;
+  shop_id: string;
   client_name: string;
+  client_email?: string | null;
+  client_phone?: string | null;
   time_slot: string;
-  status: string;
+  status: AppStatus;
   total_amount: number;
   date: string;
-  services?: { name: string; duration_minutes: number };
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | null;
+  payment_method?: "card" | "cash" | "online" | null;
+  services?: { name: string; price?: number; duration_minutes?: number };
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -36,19 +44,36 @@ function getWeekDates(offset = 0) {
   });
 }
 
+/** Same context-aware action as the owner-side appointments page. */
+function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-success" };
+  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-primary" };
+  return null;
+}
+const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
+const isUnpaidWithBalance = (a: Appointment) =>
+  a.payment_status !== "paid" && a.payment_status !== "refunded" && (a.total_amount ?? 0) > 0;
+
 export default function BarberSchedulePage() {
   const { accessToken } = useAuth();
-  const { shop } = useBarber();
+  const { barber, shop } = useBarber();
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
+  const [savingId, setSavingId] = useState("");
+  const [paymentModal, setPaymentModal] = useState<Appointment | null>(null);
+  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+
+  const canManageAppts = barber?.permissions?.manage_appointments === true;
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const weekDates = getWeekDates(weekOffset);
   const from = weekDates[0].toISOString().split("T")[0];
   const to = weekDates[6].toISOString().split("T")[0];
 
-  useEffect(() => {
+  const loadAppts = () => {
     if (!accessToken) return;
     setLoading(true);
     const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
@@ -58,38 +83,132 @@ export default function BarberSchedulePage() {
       .then(r => r.json())
       .then(({ appointments: a }) => setAppointments(a ?? []))
       .finally(() => setLoading(false));
-  }, [accessToken, from, to, shop?.id]);
+  };
+
+  useEffect(loadAppts, [accessToken, from, to, shop?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Patch a single appointment on the server. Direct supabase write —
+   *  RLS should allow barbers to update their own appointments. */
+  const patchAppt = async (id: string, patch: Partial<Appointment>) => {
+    const { error } = await supabase.from("appointments").update(patch).eq("id", id);
+    if (error) {
+      showToast(`Update failed: ${error.message}`);
+      return false;
+    }
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...patch } as Appointment : a));
+    return true;
+  };
+
+  /** Mark the rejected appointment + alert the shop owner if money's on the
+   *  line (so they can refund from the owner-side appointments page). */
+  const notifyOwnerIfPaid = async (appt: Appointment) => {
+    if (appt.payment_status !== "paid") return;
+    const { data: shopRow } = await supabase
+      .from("shops").select("owner_id, name").eq("id", appt.shop_id).maybeSingle();
+    if (!shopRow?.owner_id) return;
+    await supabase.from("notifications").insert({
+      user_id: shopRow.owner_id,
+      title: "Refund needed",
+      message: `${barber?.name ?? "A barber"} rejected ${appt.client_name}'s appointment (${formatCurrency(appt.total_amount)} paid). Issue a refund from the Appointments page.`,
+      type: "system",
+      is_read: false,
+    });
+  };
+
+  const handlePrimary = async (apt: Appointment, next: AppStatus) => {
+    // Same intercept as owner side: completing an unpaid appointment opens
+    // the PaymentModal so the barber can record cash or send a Stripe link.
+    if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
+      setPaymentModal(apt);
+      return;
+    }
+    setSavingId(apt.id);
+    await patchAppt(apt.id, { status: next });
+    setSavingId("");
+    showToast(`Marked as ${next}`);
+  };
+
+  const handleReject = async (apt: Appointment) => {
+    setSavingId(apt.id);
+    const ok = await patchAppt(apt.id, { status: "cancelled" });
+    setSavingId("");
+    if (!ok) return;
+    notifyOwnerIfPaid(apt);
+    showToast(
+      apt.payment_status === "paid"
+        ? "Appointment rejected · Owner notified to refund"
+        : "Appointment rejected",
+    );
+  };
+
+  // ── Payment modal handlers ──────────────────────────────────────────────
+  const markCashPaid = async (alsoComplete: boolean) => {
+    if (!paymentModal) return;
+    setSavingPayment("cash");
+    const patch: Partial<Appointment> = { payment_status: "paid", payment_method: "cash" };
+    if (alsoComplete) patch.status = "completed";
+    const ok = await patchAppt(paymentModal.id, patch);
+    setSavingPayment("");
+    if (!ok) return;
+    setPaymentModal(null);
+    showToast(alsoComplete ? "Cash payment recorded · Completed" : "Cash payment recorded");
+  };
+
+  const sendPaymentLink = async (alsoComplete: boolean) => {
+    if (!paymentModal || !accessToken) return;
+    setSavingPayment("link");
+    const res = await fetch("/api/stripe/payment-link", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSavingPayment("");
+      showToast(`Failed: ${data.error}`);
+      return;
+    }
+    if (alsoComplete) await patchAppt(paymentModal.id, { status: "completed" });
+    setSavingPayment("");
+    setPaymentModal(null);
+    showToast(data.emailed ? "Payment link emailed" : "Payment link generated");
+  };
+
+  const skipPaymentAndComplete = async () => {
+    if (!paymentModal) return;
+    setSavingPayment("skip");
+    await patchAppt(paymentModal.id, { status: "completed" });
+    setSavingPayment("");
+    setPaymentModal(null);
+    showToast("Marked completed (unpaid)");
+  };
 
   const selectedDate = weekDates[selectedDay];
   const selectedDateStr = selectedDate.toISOString().split("T")[0];
   const dayAppts = appointments.filter(a => a.date === selectedDateStr);
-
   const monthLabel = weekDates[0].toLocaleDateString("en-CA", { month: "long", year: "numeric" });
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-surface border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+          {toast}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">My Schedule</h1>
           <p className="text-gray-500 text-sm mt-0.5">{monthLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekOffset(w => w - 1)}
-            className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all"
-          >
+          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all">
             <ChevronLeft size={18} />
           </button>
-          <button
-            onClick={() => { setWeekOffset(0); setSelectedDay(new Date().getDay()); }}
-            className="px-3 py-1.5 text-sm text-gold border border-gold/30 rounded-xl hover:bg-gold/10 transition-all"
-          >
+          <button onClick={() => { setWeekOffset(0); setSelectedDay(new Date().getDay()); }} className="px-3 py-1.5 text-sm text-gold border border-gold/30 rounded-xl hover:bg-gold/10 transition-all">
             Today
           </button>
-          <button
-            onClick={() => setWeekOffset(w => w + 1)}
-            className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all"
-          >
+          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -103,21 +222,10 @@ export default function BarberSchedulePage() {
           const isToday = dateStr === new Date().toISOString().split("T")[0];
           const isSelected = i === selectedDay;
           return (
-            <button
-              key={i}
-              onClick={() => setSelectedDay(i)}
-              className={cn(
-                "flex flex-col items-center py-2.5 rounded-xl transition-all",
-                isSelected ? "bg-gold/15 border border-gold/20" : "hover:bg-surface-raised"
-              )}
-            >
+            <button key={i} onClick={() => setSelectedDay(i)} className={cn("flex flex-col items-center py-2.5 rounded-xl transition-all", isSelected ? "bg-gold/15 border border-gold/20" : "hover:bg-surface-raised")}>
               <span className={cn("text-xs font-medium", isSelected ? "text-gold" : "text-gray-500")}>{DAYS[i]}</span>
-              <span className={cn("text-lg font-bold mt-0.5", isSelected ? "text-gold" : isToday ? "text-white" : "text-gray-300")}>
-                {date.getDate()}
-              </span>
-              {count > 0 && (
-                <span className={cn("w-1.5 h-1.5 rounded-full mt-1", isSelected ? "bg-gold" : "bg-gray-600")} />
-              )}
+              <span className={cn("text-lg font-bold mt-0.5", isSelected ? "text-gold" : isToday ? "text-white" : "text-gray-300")}>{date.getDate()}</span>
+              {count > 0 && <span className={cn("w-1.5 h-1.5 rounded-full mt-1", isSelected ? "bg-gold" : "bg-gray-600")} />}
             </button>
           );
         })}
@@ -141,34 +249,105 @@ export default function BarberSchedulePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {dayAppts.map(appt => (
-              <div key={appt.id} className="bg-surface border border-border rounded-xl p-4 flex items-center gap-4">
-                <div className="text-center min-w-[56px]">
-                  <p className="text-sm font-bold text-white">{appt.time_slot.split(" ")[0]}</p>
-                  <p className="text-xs text-gray-500">{appt.time_slot.split(" ")[1]}</p>
+            {dayAppts.map(appt => {
+              const action = primaryAction(appt.status);
+              const rejectable = canReject(appt.status);
+              const showActionsRow = canManageAppts && (action || rejectable || isUnpaidWithBalance(appt));
+              return (
+                <div key={appt.id} className="bg-surface border border-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center min-w-[56px]">
+                      <p className="text-sm font-bold text-white">{appt.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-gray-500">{appt.time_slot.split(" ")[1]}</p>
+                    </div>
+                    <div className="w-px h-10 bg-border" />
+                    <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/20 flex items-center justify-center text-gold font-semibold text-sm flex-shrink-0">
+                      {appt.client_name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white">{appt.client_name}</p>
+                      <p className="text-sm text-gray-500">
+                        {appt.services?.name ?? "Service"}
+                        {appt.services?.duration_minutes ? ` · ${appt.services.duration_minutes}min` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs px-2 py-1 rounded-full border capitalize block mb-1 ${STATUS_STYLES[appt.status] ?? STATUS_STYLES.pending}`}>
+                        {appt.status}
+                      </span>
+                      <p className="text-sm font-medium text-gold">{formatCurrency(appt.total_amount)}</p>
+                    </div>
+                  </div>
+
+                  {/* Action row — only when the owner has granted manage_appointments
+                       AND there's an action available for this status. */}
+                  {showActionsRow && (
+                    <div className="flex gap-2 pt-1">
+                      {action && (
+                        <button type="button" disabled={savingId === appt.id}
+                          onClick={() => handlePrimary(appt, action.next)}
+                          className={cn("btn flex-1", action.variant, "btn-sm")}>
+                          {action.label}
+                        </button>
+                      )}
+                      {rejectable && (
+                        <button type="button" disabled={savingId === appt.id}
+                          onClick={() => handleReject(appt)}
+                          className="btn btn-danger btn-sm flex-1">
+                          Reject
+                        </button>
+                      )}
+                      {/* Take Payment as a standalone — visible whenever there's
+                          an outstanding balance, even after status finalized. */}
+                      {isUnpaidWithBalance(appt) && !action && (
+                        <button type="button" disabled={savingId === appt.id}
+                          onClick={() => setPaymentModal(appt)}
+                          className="btn btn-success btn-sm flex-1">
+                          💳 Take Payment
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="w-px h-10 bg-border" />
-                <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/20 flex items-center justify-center text-gold font-semibold text-sm flex-shrink-0">
-                  {appt.client_name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white">{appt.client_name}</p>
-                  <p className="text-sm text-gray-500">
-                    {appt.services?.name ?? "Service"}
-                    {appt.services?.duration_minutes ? ` · ${appt.services.duration_minutes}min` : ""}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className={`text-xs px-2 py-1 rounded-full border capitalize block mb-1 ${STATUS_STYLES[appt.status] ?? STATUS_STYLES.pending}`}>
-                    {appt.status}
-                  </span>
-                  <p className="text-sm font-medium text-gold">${appt.total_amount}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Payment Modal — mirror of the owner-side flow. */}
+      {paymentModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Take Payment</h2>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-surface-raised rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Amount due</span><span className="text-gold font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+              </div>
+              <div className="space-y-2">
+                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={() => markCashPaid(true)}>
+                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                </button>
+                <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== "" || !paymentModal.client_email} onClick={() => sendPaymentLink(true)}>
+                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
+                </button>
+                {!paymentModal.client_email && (
+                  <p className="text-xs text-gray-500 text-center -mt-1">Customer has no email — can&apos;t send link</p>
+                )}
+                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipPaymentAndComplete}>
+                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

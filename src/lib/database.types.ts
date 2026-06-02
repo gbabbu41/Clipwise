@@ -59,6 +59,11 @@ export interface BarberPermissions {
   view_earnings: boolean;
   view_clients: boolean;
   block_hours: boolean;
+  /** When true, the barber can Approve / Complete / Reject / Take Payment
+   *  on appointments assigned to them from the barber-portal Schedule tab.
+   *  When false (default for new barbers), Schedule stays read-only and
+   *  only the shop owner can move appointments through their lifecycle. */
+  manage_appointments: boolean;
 }
 
 export const DEFAULT_BARBER_PERMISSIONS: BarberPermissions = {
@@ -67,6 +72,9 @@ export const DEFAULT_BARBER_PERMISSIONS: BarberPermissions = {
   view_earnings: true,
   view_clients: true,
   block_hours: true,
+  // Off by default — granting payment-collection authority is a deliberate
+  // act the shop owner has to do per barber.
+  manage_appointments: false,
 };
 
 export interface Barber {

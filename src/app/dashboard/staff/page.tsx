@@ -695,11 +695,12 @@ export default function StaffPage() {
               </div>
               <div className="space-y-2 pt-1">
                 {([
-                  { key: "edit_schedule",    label: "Edit own schedule",    description: "Change working hours from their Availability page." },
-                  { key: "request_time_off", label: "Request time off",     description: "Submit time-off requests for your approval." },
-                  { key: "block_hours",      label: "Block hours mid-day",  description: "Mark a window unavailable on the fly." },
-                  { key: "view_earnings",    label: "View earnings",        description: "See their commission totals and payouts." },
-                  { key: "view_clients",     label: "View clients",         description: "Access their client list with appointment history." },
+                  { key: "edit_schedule",       label: "Edit own schedule",     description: "Change working hours from their Availability page." },
+                  { key: "request_time_off",    label: "Request time off",      description: "Submit time-off requests for your approval." },
+                  { key: "block_hours",         label: "Block hours mid-day",   description: "Mark a window unavailable on the fly." },
+                  { key: "view_earnings",       label: "View earnings",         description: "See their commission totals and payouts." },
+                  { key: "view_clients",        label: "View clients",          description: "Access their client list with appointment history." },
+                  { key: "manage_appointments", label: "Manage appointments",   description: "Approve, complete, reject, and take payment on appointments assigned to them. Refunds stay owner-only." },
                 ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (
                   <div key={key} className="flex items-start gap-4 p-3 bg-gray-100 rounded-xl border border-gray-200">
                     <div className="flex-1">
