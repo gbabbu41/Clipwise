@@ -403,15 +403,22 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      {/* Header — v2 layout: greeting on the left, plan pill on the right.
+          POS / Add-Walk-in buttons stay on tablet+ (md:flex) but on small
+          phones (md:hidden) they collapse to the white plan pill so the
+          header matches the mobile reference layout exactly. */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">
-            Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, {profile?.name?.split(" ")[0] ?? "there"}
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"},{" "}
+            <span className="md:inline">{profile?.name?.split(" ")[0] ?? "there"}</span>
           </h1>
           <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>
         </div>
-        <div className="flex gap-2">
+        {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
+          <span className="cw-plan-pill mt-1">{shop.subscription_plan}</span>
+        )}
+        <div className="hidden md:flex gap-2">
           <Link href="/dashboard/pos"><Button variant="outline" size="sm"><CreditCard size={16} /> Open POS</Button></Link>
           <Button onClick={() => setShowAddWalkin(true)} size="sm"><Plus size={16} /> Add Walk-in</Button>
         </div>
@@ -483,9 +490,26 @@ export default function DashboardPage() {
           const hasCompleted = completed.length > 0;
           return (
             <div className="mb-6 space-y-3">
+              {/* Hero revenue card — white surface with DM Mono dollar amount.
+                  Matches the v2 design's `.cw-hero` pattern, only rendered
+                  on mobile where it's the visual anchor of the page. On
+                  tablet+ the regular two-card prominent row takes over. */}
+              <div className="cw-hero md:hidden">
+                <div className="flex-1">
+                  <div className="cw-hero-label">Today&apos;s Revenue</div>
+                  <div className="cw-hero-value">{formatCurrency(revenue)}</div>
+                  {hasCompleted && (
+                    <div className="cw-hero-trend">
+                      ↑ {completed.length} booking{completed.length !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Primary KPIs — Total Appointments + Revenue.
-                  Prominent variant: taller cards, larger value, subtle gold border. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  Prominent variant: taller cards, larger value. Hidden on
+                  mobile (the hero card above already covers revenue). */}
+              <div className="hidden md:grid sm:grid-cols-2 gap-4">
                 <StatCard
                   label="Total Appointments"
                   value={String(appointments.length)}
@@ -502,8 +526,16 @@ export default function DashboardPage() {
                   prominent
                 />
               </div>
-              {/* Secondary metrics — compact 4-up row. */}
+
+              {/* Secondary metrics — 2x2 on mobile (matches design),
+                  4-up on desktop. */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  label="Appointments"
+                  value={String(appointments.length)}
+                  sub={`${completed.length} completed`}
+                  icon={Calendar} color="gold"
+                />
                 <StatCard
                   label="New Clients"
                   value={String(newClients)}
