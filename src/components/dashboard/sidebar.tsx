@@ -171,12 +171,14 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar — sticks to the top of the viewport (md:hidden),
-          hides on scroll-down, slides back on scroll-up. Replaces the
-          floating hamburger so it stops overlapping page headers. */}
+      {/* Mobile top bar — v2 design header pattern: hamburger on the left,
+          ClipWise wordmark center-left, bell + circular avatar on the right.
+          Bell shows a notif dot when unreadCount > 0; avatar links to the
+          settings/account page. Slides off on scroll-down, slides back on
+          scroll-up. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-12 flex items-center gap-2 px-3 bg-[#0c0c0c]/95 backdrop-blur-md border-b border-[#1e1e1e] transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl border-b border-[#1e1e1e] transition-transform duration-200",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
@@ -184,11 +186,29 @@ export function Sidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
         >
           <Menu size={20} />
         </button>
-        <p className="text-sm font-medium text-white truncate flex-1">{shopName}</p>
+        <Logo size="sm" className="text-white flex-shrink-0" />
+        <p className="text-xs text-[#777] truncate flex-1 ml-1">{shopName}</p>
+        <Link
+          href="/dashboard/notifications"
+          aria-label="Notifications"
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-white hover:border-white transition-colors flex-shrink-0 relative"
+        >
+          <Bell size={15} />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
+          )}
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          aria-label="Account"
+          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
+        >
+          {initial}
+        </Link>
       </div>
 
       {/* Backdrop — only renders on mobile when drawer is open */}

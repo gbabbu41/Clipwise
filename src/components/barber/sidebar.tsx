@@ -71,12 +71,11 @@ export function BarberSidebar() {
 
   return (
     <>
-      {/* Mobile top bar — fixed at top, hides on scroll-down, reveals on
-          scroll-up. Replaces the floating hamburger so it doesn't sit
-          on top of the page header. */}
+      {/* Mobile top bar — v2 header pattern: hamburger + ClipWise wordmark
+          on the left, avatar pill on the right. Slides off on scroll-down. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-12 flex items-center gap-2 px-3 bg-surface/95 backdrop-blur-md border-b border-border transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl border-b border-[#1e1e1e] transition-transform duration-200",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
@@ -84,14 +83,19 @@ export function BarberSidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-surface-raised transition-colors"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
         >
           <Menu size={20} />
         </button>
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <Scissors size={11} className="text-gold flex-shrink-0" />
-          <p className="text-sm font-medium text-white truncate">{shop?.name ?? "Barber Portal"}</p>
-        </div>
+        <Logo size="sm" className="text-white flex-shrink-0" />
+        <p className="text-xs text-[#777] truncate flex-1 ml-1">{shop?.name ?? "Barber Portal"}</p>
+        <Link
+          href="/barber-dashboard/profile"
+          aria-label="Account"
+          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
+        >
+          {initial}
+        </Link>
       </div>
 
       {mobileOpen && (
