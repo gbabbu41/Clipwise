@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useBarber } from "@/lib/barber-context";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatDateForDb, formatFriendlyDate, formatFriendlyTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,20 +44,21 @@ const TYPE_LABELS: Record<BlockType, string> = {
 };
 
 const TYPE_COLORS: Record<BlockType, string> = {
-  day_off: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  day_off: "text-orange-400 bg-orange-400/10 border-orange-400/20",
   vacation: "text-blue-400 bg-blue-400/10 border-blue-400/20",
   blocked_hours: "text-purple-400 bg-purple-400/10 border-purple-400/20",
   sick: "text-red-400 bg-red-400/10 border-red-400/20",
 };
 
 const STATUS_COLORS: Record<TimeOffStatus, string> = {
-  pending: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  pending: "text-orange-400 bg-orange-400/10 border-orange-400/20",
   approved: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
   denied: "text-red-400 bg-red-400/10 border-red-400/20",
 };
 
 export default function BarberTimeOffPage() {
   const { barber, shop } = useBarber();
+  const { accessToken } = useAuth();
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -91,7 +93,7 @@ export default function BarberTimeOffPage() {
   useEffect(() => { loadRequests(); }, [loadRequests]);
 
   const submitRequest = async () => {
-    if (!barber?.id || !shop?.id) return;
+    if (!barber?.id || !shop?.id || !accessToken) return;
     if (!form.start_date || !form.end_date) { showToast("Please pick the dates."); return; }
     if (form.end_date < form.start_date) { showToast("End date can't be before start date."); return; }
     if (form.type === "blocked_hours" && (!form.start_time || !form.end_time)) {
@@ -103,50 +105,29 @@ export default function BarberTimeOffPage() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("time_off_requests").insert({
-      barber_id: barber.id,
-      shop_id: shop.id,
-      type: form.type,
-      start_date: form.start_date,
-      end_date: form.end_date,
-      start_time: form.type === "blocked_hours" ? form.start_time || null : null,
-      end_time: form.type === "blocked_hours" ? form.end_time || null : null,
-      reason: form.reason || null,
-      status: "pending", // owner approves
+    // Go through the server route so the owner's in-app notification + email
+    // can be fired with the admin client (notifications RLS only lets each
+    // user insert into their own row, and most shops lack shop.email).
+    const res = await fetch("/api/time-off/submit", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        barber_id: barber.id,
+        shop_id: shop.id,
+        type: form.type,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        start_time: form.type === "blocked_hours" ? form.start_time : null,
+        end_time: form.type === "blocked_hours" ? form.end_time : null,
+        reason: form.reason || null,
+      }),
     });
     setSaving(false);
-    if (error) { showToast(`Could not submit: ${error.message}`); return; }
-
-    // Notify the shop owner (in-app + email — both fire-and-forget)
-    const dateRange = form.start_date + (form.end_date !== form.start_date ? ` → ${form.end_date}` : "");
-    const timeRange = form.type === "blocked_hours" && form.start_time && form.end_time
-      ? ` (${form.start_time}–${form.end_time})` : "";
-    const summary = `${TYPE_LABELS[form.type]} · ${dateRange}${timeRange}`;
-    supabase.from("notifications").insert({
-      user_id: shop.owner_id,
-      title: "New Time-Off Request",
-      message: `${barber.name}: ${summary}${form.reason ? ` — "${form.reason}"` : ""}`,
-      type: "system",
-      is_read: false,
-    }).then(null, () => null);
-
-    fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "time_off_request",
-        data: {
-          shopName: shop.name,
-          shopEmail: shop.email ?? "",
-          ownerEmail: shop.email ?? "",
-          barberName: barber.name,
-          requestType: TYPE_LABELS[form.type],
-          dateRange,
-          timeRange: form.type === "blocked_hours" && form.start_time && form.end_time ? `${form.start_time}–${form.end_time}` : "",
-          reason: form.reason ?? "",
-        },
-      }),
-    }).catch(() => null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      showToast(`Could not submit: ${j.error ?? res.statusText}`);
+      return;
+    }
 
     setShowModal(false);
     setForm({ type: "day_off", start_date: today, end_date: today, start_time: "", end_time: "", reason: "" });
@@ -182,7 +163,7 @@ export default function BarberTimeOffPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: "Pending", value: pending, color: "text-amber-400" },
+          { label: "Pending", value: pending, color: "text-orange-400" },
           { label: "Approved", value: approved, color: "text-emerald-400" },
           { label: "Upcoming", value: upcoming, color: "text-blue-400" },
         ].map(s => (

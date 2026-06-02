@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2, CalendarOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2, CalendarOff, Menu } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -32,12 +33,88 @@ export function BarberSidebar() {
   const pathname = usePathname();
   const { user, profile, signOut } = useAuth();
   const { barber, shop, shops, setActiveShop } = useBarber();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+  useEffect(() => {
+    if (mobileOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = original; };
+    }
+  }, [mobileOpen]);
+
+  // Hide the mobile top bar on scroll down, reveal on scroll up.
+  const [topBarHidden, setTopBarHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY;
+      if (Math.abs(delta) < 6) return;
+      if (delta > 0 && y > 40) setTopBarHidden(true);
+      else if (delta < 0) setTopBarHidden(false);
+      lastY = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const displayName = barber?.name ?? profile?.name ?? user?.email ?? "Barber";
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <aside className="hidden md:flex flex-col w-64 h-screen bg-surface border-r border-border fixed left-0 top-0 z-40">
+    <>
+      {/* Mobile top bar — fixed at top, hides on scroll-down, reveals on
+          scroll-up. Replaces the floating hamburger so it doesn't sit
+          on top of the page header. */}
+      <div
+        className={cn(
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-12 flex items-center gap-2 px-3 bg-surface/95 backdrop-blur-md border-b border-border transition-transform duration-200",
+          topBarHidden ? "-translate-y-full" : "translate-y-0",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-surface-raised transition-colors"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <Scissors size={11} className="text-gold flex-shrink-0" />
+          <p className="text-sm font-medium text-white truncate">{shop?.name ?? "Barber Portal"}</p>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40 animate-fade-in"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-50 w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200 md:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+      <button
+        type="button"
+        onClick={() => setMobileOpen(false)}
+        aria-label="Close menu"
+        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-gold hover:text-white hover:bg-surface-raised transition-colors"
+      >
+        <Menu size={18} />
+      </button>
       <div className="px-6 py-5 border-b border-border">
         <Logo size="md" />
         <div className="flex items-center gap-1.5 mt-1">
@@ -101,6 +178,7 @@ export function BarberSidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
 

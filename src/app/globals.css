@@ -3,13 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --background: #0A0A0A;
+  --background: #000000;
   --foreground: #FFFFFF;
-  --surface: #1C1C1E;
-  --surface-raised: #2C2C2E;
-  --gold: #C9A84C;
-  --gold-light: #E4C97A;
-  --border: #2C2C2E;
+  --surface: #111111;
+  --surface-raised: #1a1a1a;
+  /* Brand-color slot is now pure white. The token name stays "gold" so the
+     hundreds of `bg-gold` / `text-gold` / `border-gold/N` classes across
+     the app keep working without rewrites — the *value* is the change. */
+  --gold: #FFFFFF;
+  --gold-light: #FFFFFF;
+  --gold-rgb: 255, 255, 255;
+  --border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -19,9 +23,17 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body), Inter, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Apple-style hierarchy: one font, weight + size do the work. No display
+   face on every heading, no global all-caps, no forced -0.5px letter-spacing. */
+h1, h2, h3, h4 {
+  font-family: inherit;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
 }
 
 /* Custom scrollbar */
@@ -37,27 +49,27 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C9A84C;
+  background: var(--gold);
 }
 
-/* Gold gradient text */
+/* Subtle two-tone wordmark gradient */
 .gold-text {
-  background: linear-gradient(135deg, #C9A84C, #E4C97A);
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Gold border glow */
+/* Accent glow */
 .gold-glow {
-  box-shadow: 0 0 20px rgba(201, 168, 76, 0.15);
+  box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.15);
 }
 
 /* Glass card */
 .glass-card {
-  background: rgba(28, 28, 30, 0.8);
+  background: rgba(17, 17, 17, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(201, 168, 76, 0.1);
+  border: 1px solid rgba(var(--gold-rgb), 0.1);
 }
 
 /* Shimmer loading */
@@ -79,10 +91,434 @@ body {
 
 /* Status badge colors */
 .status-confirmed { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
-.status-pending { @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30; }
+.status-pending { @apply bg-orange-500/20 text-orange-400 border border-orange-500/30; }
 .status-completed { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
 .status-cancelled { @apply bg-red-500/20 text-red-400 border border-red-500/30; }
 .status-no-show { @apply bg-orange-500/20 text-orange-400 border border-orange-500/30; }
+
+/* ── Bootstrap-style component system ─────────────────────────────────────────
+   Drop-in classes that mirror Bootstrap 5's class names and palette so any
+   existing Bootstrap snippet (buttons, forms, cards, alerts, badges,
+   dropdowns, tables, list-groups) works as-is. Everything below lives in
+   `@layer components` so individual Tailwind utility overrides at callsites
+   (e.g. `<Card className="!bg-gray-100 p-0">`) still win the cascade. */
+@layer components {
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn:focus-visible { outline: 2px solid rgba(0, 0, 0, 0.25); outline-offset: 2px; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
+.btn-sm  { padding: 0.25rem 0.625rem; font-size: 0.75rem;  border-radius: 0.375rem; }
+.btn-lg  { padding: 0.625rem 1.25rem; font-size: 1rem;     border-radius: 0.625rem; }
+.btn-block { width: 100%; }
+
+.btn-primary   { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.btn-primary:hover   { background: #0b5ed7; border-color: #0a58ca; }
+.btn-primary:active  { background: #0a53be; border-color: #0a4ea7; }
+
+.btn-secondary { background: #6c757d; color: #fff; border-color: #6c757d; }
+.btn-secondary:hover { background: #5c636a; border-color: #565e64; }
+.btn-secondary:active{ background: #565e64; border-color: #51585e; }
+
+.btn-success   { background: #198754; color: #fff; border-color: #198754; }
+.btn-success:hover   { background: #157347; border-color: #146c43; }
+.btn-success:active  { background: #146c43; border-color: #13653f; }
+
+.btn-danger    { background: #dc3545; color: #fff; border-color: #dc3545; }
+.btn-danger:hover    { background: #bb2d3b; border-color: #b02a37; }
+.btn-danger:active   { background: #b02a37; border-color: #a52834; }
+
+.btn-warning   { background: #ffc107; color: #000; border-color: #ffc107; }
+.btn-warning:hover   { background: #ffca2c; border-color: #ffc720; }
+.btn-warning:active  { background: #ffcd39; border-color: #ffc720; }
+
+.btn-info      { background: #0dcaf0; color: #000; border-color: #0dcaf0; }
+.btn-info:hover      { background: #31d2f2; border-color: #25cff2; }
+.btn-info:active     { background: #3dd5f3; border-color: #25cff2; }
+
+.btn-light     { background: #f8f9fa; color: #000; border-color: #d6d7d8; }
+.btn-light:hover     { background: #e9ecef; border-color: #c5c6c7; }
+.btn-light:active    { background: #dde0e3; border-color: #b5b6b8; }
+
+.btn-dark      { background: #212529; color: #fff; border-color: #212529; }
+.btn-dark:hover      { background: #1c1f23; border-color: #1a1e21; }
+.btn-dark:active     { background: #16191c; border-color: #14171a; }
+
+/* Outline variants — same palette but with transparent fill until hover. */
+.btn-outline-primary   { background: transparent; color: #0d6efd; border-color: #0d6efd; }
+.btn-outline-primary:hover   { background: #0d6efd; color: #fff; }
+.btn-outline-secondary { background: transparent; color: #6c757d; border-color: #6c757d; }
+.btn-outline-secondary:hover { background: #6c757d; color: #fff; }
+.btn-outline-success   { background: transparent; color: #198754; border-color: #198754; }
+.btn-outline-success:hover   { background: #198754; color: #fff; }
+.btn-outline-danger    { background: transparent; color: #dc3545; border-color: #dc3545; }
+.btn-outline-danger:hover    { background: #dc3545; color: #fff; }
+.btn-outline-warning   { background: transparent; color: #ffc107; border-color: #ffc107; }
+.btn-outline-warning:hover   { background: #ffc107; color: #000; }
+.btn-outline-info      { background: transparent; color: #0dcaf0; border-color: #0dcaf0; }
+.btn-outline-info:hover      { background: #0dcaf0; color: #000; }
+.btn-outline-light     { background: transparent; color: #6c757d; border-color: #d6d7d8; }
+.btn-outline-light:hover     { background: #f8f9fa; color: #000; }
+.btn-outline-dark      { background: transparent; color: #212529; border-color: #212529; }
+.btn-outline-dark:hover      { background: #212529; color: #fff; }
+
+/* Bootstrap doesn't have a "ghost" — this is the project's convention for a
+   text-only button with no background or border, used for tertiary actions
+   like close-X or inline cancel links. */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #495057;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.btn-ghost:hover { background: #f1f3f5; color: #000; }
+.btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Icon-only button — square aspect, no horizontal padding. Pair with `.btn`
+   for a colored variant (e.g. `btn btn-light btn-icon`). */
+.btn-icon {
+  padding: 0.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+.btn-icon.btn-sm { padding: 0.25rem; width: 1.75rem; height: 1.75rem; }
+.btn-icon.btn-lg { padding: 0.625rem; width: 2.75rem; height: 2.75rem; }
+
+/* ── Bootstrap form controls ──────────────────────────────────────────────── */
+.form-label {
+  display: inline-block;
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #212529;
+}
+.form-control,
+.form-select {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid #ced4da;
+  border-radius: 0.5rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  appearance: none;
+}
+.form-control::placeholder { color: #adb5bd; opacity: 1; }
+.form-control:focus,
+.form-select:focus {
+  color: #212529;
+  background-color: #fff;
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+.form-control:disabled,
+.form-select:disabled {
+  background-color: #e9ecef;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.form-control-sm,
+.form-select-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; border-radius: 0.375rem; }
+.form-control-lg,
+.form-select-lg { padding: 0.625rem 1rem;  font-size: 1.0625rem; border-radius: 0.625rem; }
+
+.form-select {
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  cursor: pointer;
+}
+
+textarea.form-control { min-height: 5rem; resize: vertical; }
+
+.form-text { margin-top: 0.25rem; font-size: 0.8125rem; color: #6c757d; }
+
+/* Validation states */
+.is-invalid {
+  border-color: #dc3545 !important;
+}
+.is-invalid:focus {
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+  border-color: #dc3545 !important;
+}
+.is-valid {
+  border-color: #198754 !important;
+}
+.is-valid:focus {
+  box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25) !important;
+  border-color: #198754 !important;
+}
+.invalid-feedback { margin-top: 0.25rem; font-size: 0.8125rem; color: #dc3545; }
+.valid-feedback   { margin-top: 0.25rem; font-size: 0.8125rem; color: #198754; }
+
+/* Input groups (prefix/suffix attachments) */
+.input-group { display: flex; align-items: stretch; width: 100%; }
+.input-group > .form-control,
+.input-group > .form-select { position: relative; flex: 1 1 auto; min-width: 0; }
+.input-group > :not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.input-group > :not(:last-child)  { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.input-group-text {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  color: #495057;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 0.5rem;
+  white-space: nowrap;
+}
+
+/* Checkbox / radio */
+.form-check { display: block; min-height: 1.5rem; padding-left: 1.75rem; margin-bottom: 0.25rem; }
+.form-check-input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.1875rem;
+  margin-left: -1.75rem;
+  background-color: #fff;
+  border: 1px solid #adb5bd;
+  border-radius: 0.25rem;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.form-check-input[type="radio"] { border-radius: 50%; }
+.form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
+.form-check-input:checked[type="checkbox"] {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+.form-check-input:focus { box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); outline: 0; }
+.form-check-input:disabled { pointer-events: none; opacity: 0.5; filter: none; }
+.form-check-label { font-size: 0.9375rem; color: #212529; cursor: pointer; }
+
+/* Bootstrap `form-switch` — slide-style toggle. The handle (a white SVG
+   circle) is rendered as a background-image and travels from left → right
+   when :checked. The pill itself swaps from gray to blue. Sizes are in rem
+   (not em) so they aren't affected by whatever font-size the input inherits
+   from its parent — that was the source of the "handle doesn't go all the
+   way" bug. */
+.form-switch {
+  padding-left: 2.5rem;
+  min-height: 1.5rem;
+}
+.form-switch .form-check-input {
+  width: 2rem;
+  height: 1rem;
+  margin-left: -2.5rem;
+  margin-top: 0.25rem;
+  background-color: #adb5bd; /* gray pill when off */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: 0;
+  border-radius: 2rem;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.15s ease-in-out, background-position 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.form-switch .form-check-input:hover { background-color: #9aa0a6; }
+.form-switch .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  outline: 0;
+}
+.form-switch .form-check-input:checked {
+  background-color: #0d6efd;
+  background-position: right center;
+  /* keep the same white-circle SVG — only the position + pill color change */
+}
+.form-switch .form-check-input:checked:hover { background-color: #0b5ed7; }
+.form-switch .form-check-input:disabled {
+  background-color: #dee2e6;
+  cursor: not-allowed;
+}
+
+/* ── Bootstrap cards ──────────────────────────────────────────────────────── */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: #fff;
+  background-clip: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.card-body   { flex: 1 1 auto; padding: 1.25rem; }
+.card-header {
+  padding: 0.75rem 1.25rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+.card-header:first-child { border-radius: calc(0.5rem - 1px) calc(0.5rem - 1px) 0 0; }
+.card-footer {
+  padding: 0.75rem 1.25rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-top: 1px solid rgba(0, 0, 0, 0.125);
+}
+.card-title    { margin-bottom: 0.5rem; font-size: 1rem; font-weight: 600; color: #212529; }
+.card-subtitle { margin-top: -0.25rem; margin-bottom: 0.5rem; font-size: 0.875rem; color: #6c757d; }
+.card-text     { margin-bottom: 0.75rem; color: #495057; }
+
+/* ── Bootstrap badges ─────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 0.35em 0.65em;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0.375rem;
+}
+.badge.rounded-pill { border-radius: 50rem; padding-right: 0.75em; padding-left: 0.75em; }
+/* `text-bg-*` is Bootstrap 5.2+ shorthand: sets bg + readable text color */
+.text-bg-primary   { color: #fff; background-color: #0d6efd; }
+.text-bg-secondary { color: #fff; background-color: #6c757d; }
+.text-bg-success   { color: #fff; background-color: #198754; }
+.text-bg-danger    { color: #fff; background-color: #dc3545; }
+.text-bg-warning   { color: #000; background-color: #ffc107; }
+.text-bg-info      { color: #000; background-color: #0dcaf0; }
+.text-bg-light     { color: #000; background-color: #f8f9fa; }
+.text-bg-dark      { color: #fff; background-color: #212529; }
+
+/* ── Bootstrap alerts ─────────────────────────────────────────────────────── */
+.alert {
+  position: relative;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+}
+.alert-heading { color: inherit; margin-bottom: 0.25rem; font-weight: 600; }
+.alert-link    { font-weight: 600; }
+.alert-primary   { color: #084298; background-color: #cfe2ff; border-color: #b6d4fe; }
+.alert-secondary { color: #41464b; background-color: #e2e3e5; border-color: #d3d6d8; }
+.alert-success   { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+.alert-danger    { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+.alert-warning   { color: #664d03; background-color: #fff3cd; border-color: #ffecb5; }
+.alert-info      { color: #055160; background-color: #cff4fc; border-color: #b6effb; }
+.alert-light     { color: #636464; background-color: #fefefe; border-color: #fdfdfe; }
+.alert-dark      { color: #141619; background-color: #d3d3d4; border-color: #bcbebf; }
+
+/* ── Bootstrap tables ─────────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  margin-bottom: 1rem;
+  color: #212529;
+  vertical-align: top;
+  border-color: #dee2e6;
+  border-collapse: collapse;
+}
+.table > :not(caption) > * > * {
+  padding: 0.5rem 0.75rem;
+  background-color: transparent;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: #dee2e6;
+}
+.table > thead { vertical-align: bottom; }
+.table > thead > tr > th { font-weight: 600; color: #495057; }
+.table-hover > tbody > tr:hover > * { background-color: rgba(0, 0, 0, 0.04); }
+.table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(0, 0, 0, 0.025); }
+
+/* ── Bootstrap dropdown menu (CSS only — toggle visibility yourself) ──────── */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-menu {
+  position: absolute;
+  z-index: 1000;
+  display: none;
+  min-width: 10rem;
+  padding: 0.5rem 0;
+  margin: 0.125rem 0 0;
+  font-size: 0.9375rem;
+  color: #212529;
+  text-align: left;
+  list-style: none;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.dropdown-menu.show { display: block; }
+.dropdown-menu-end { right: 0; left: auto; }
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 1rem;
+  clear: both;
+  font-weight: 400;
+  color: #212529;
+  text-align: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  background-color: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.dropdown-item:hover,
+.dropdown-item:focus { background-color: #f1f3f5; color: #0a58ca; }
+.dropdown-item.active,
+.dropdown-item:active { background-color: #0d6efd; color: #fff; }
+.dropdown-item:disabled { color: #adb5bd; pointer-events: none; background: transparent; }
+.dropdown-divider { height: 0; margin: 0.5rem 0; overflow: hidden; border-top: 1px solid #e9ecef; }
+.dropdown-header  { display: block; padding: 0.5rem 1rem; margin-bottom: 0; font-size: 0.8125rem; font-weight: 600; color: #6c757d; }
+
+/* ── Bootstrap list groups ────────────────────────────────────────────────── */
+.list-group { display: flex; flex-direction: column; padding-left: 0; margin-bottom: 0; border-radius: 0.5rem; }
+.list-group-item {
+  position: relative;
+  display: block;
+  padding: 0.625rem 1rem;
+  color: #212529;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+.list-group-item + .list-group-item { border-top-width: 0; }
+.list-group-item:first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.list-group-item:last-child  { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
+.list-group-item-action { width: 100%; color: #495057; text-align: inherit; cursor: pointer; }
+.list-group-item-action:hover { background-color: #f8f9fa; color: #000; }
+.list-group-item.active { z-index: 2; color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+} /* end @layer components */
 
 @layer utilities {
   .text-balance {
@@ -92,7 +528,7 @@ body {
 
 /* ── Focus rings — visible on dark backgrounds ────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #E4C97A;
+  outline: 2px solid var(--gold-light);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -101,7 +537,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #E4C97A;
+  outline: 2px solid var(--gold-light);
   outline-offset: 2px;
 }
 

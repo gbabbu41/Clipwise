@@ -72,7 +72,8 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
       <BarberGuard>
         <div className="min-h-screen bg-background">
           <BarberSidebar />
-          <main className="md:ml-64 pb-24 md:pb-0">
+          {/* pt-12 reserves space for the BarberSidebar's mobile top bar. */}
+          <main className="md:ml-64 pt-12 md:pt-0 pb-24 md:pb-0">
             {children}
           </main>
           <BarberMobileNav />

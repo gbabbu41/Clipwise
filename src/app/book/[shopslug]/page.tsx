@@ -34,7 +34,7 @@ function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-surface-raised rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
 }
 
 export default function BookingPage() {
@@ -79,6 +79,12 @@ export default function BookingPage() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
+  /** Customer's payment-method pick. `null` means not yet decided. The
+   *  choice screen only appears when both online (shop has Stripe Connect)
+   *  and in-person (`shop.allow_pay_in_person`) are options *and* there is
+   *  money to take. Otherwise we route silently down the only viable path. */
+  const [payMethodChoice, setPayMethodChoice] = useState<"online" | "in_person" | null>(null);
+  const [showPayChoiceModal, setShowPayChoiceModal] = useState(false);
 
   // ── Availability state ─────────────────────────────────────────────────────
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -87,6 +93,11 @@ export default function BookingPage() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const [barberWorkDays, setBarberWorkDays] = useState<Set<number>>(new Set());
   const [shopWorkDays, setShopWorkDays] = useState<Set<number>>(new Set());
+  // Per-barber day-of-week + approved full-day time-off, so the date strip
+  // can grey out specific dates (not just whole weekdays) when every barber
+  // available that day is also on vacation / day-off / sick.
+  const [barberDows, setBarberDows] = useState<Record<string, Set<number>>>({});
+  const [barberTimeOff, setBarberTimeOff] = useState<{ barber_id: string; start_date: string; end_date: string }[]>([]);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -159,15 +170,67 @@ export default function BookingPage() {
   // Used by Option A (time-first) calendar greying: a day where no barber
   // is scheduled at all is shown as disabled.
   const loadShopWorkDays = useCallback(async () => {
-    if (barbers.length === 0) { setShopWorkDays(new Set()); return; }
+    if (barbers.length === 0) { setShopWorkDays(new Set()); setBarberDows({}); return; }
     const { data } = await supabase
       .from("time_slots")
-      .select("day_of_week")
+      .select("barber_id, day_of_week")
       .in("barber_id", barbers.map(b => b.id))
       .eq("is_available", true);
     setShopWorkDays(new Set((data ?? []).map((r: { day_of_week: number }) => r.day_of_week)));
+    // Also build the per-barber day-of-week index used by the date-strip
+    // availability check below.
+    const perBarber: Record<string, Set<number>> = {};
+    for (const r of (data ?? []) as { barber_id: string; day_of_week: number }[]) {
+      if (!perBarber[r.barber_id]) perBarber[r.barber_id] = new Set();
+      perBarber[r.barber_id].add(r.day_of_week);
+    }
+    setBarberDows(perBarber);
   }, [barbers]);
   useEffect(() => { loadShopWorkDays(); }, [loadShopWorkDays]);
+
+  // ── Load approved full-day time-off for every barber in this shop ──────────
+  // (Blocked-hours is partial and doesn't make the date itself unbookable.)
+  const loadBarberTimeOff = useCallback(async () => {
+    if (barbers.length === 0) { setBarberTimeOff([]); return; }
+    const todayStr = formatDateForDb(new Date());
+    const { data } = await supabase
+      .from("time_off_requests")
+      .select("barber_id, start_date, end_date")
+      .in("barber_id", barbers.map(b => b.id))
+      .eq("status", "approved")
+      .in("type", ["day_off", "vacation", "sick"])
+      .gte("end_date", todayStr);
+    setBarberTimeOff((data ?? []) as { barber_id: string; start_date: string; end_date: string }[]);
+  }, [barbers]);
+  useEffect(() => { loadBarberTimeOff(); }, [loadBarberTimeOff]);
+
+  // Helper: does at least one barber actually work this specific date?
+  // True only when some barber has the dow in their schedule AND isn't on
+  // an approved full-day time-off covering the date.
+  const isShopAvailableOnDate = useCallback((date: Date): boolean => {
+    if (barbers.length === 0) return true; // no barbers loaded yet — don't grey
+    const dow = date.getDay();
+    const dateStr = formatDateForDb(date);
+    return barbers.some(b => {
+      const works = barberDows[b.id]?.has(dow);
+      if (!works) return false;
+      const onTimeOff = barberTimeOff.some(t =>
+        t.barber_id === b.id && t.start_date <= dateStr && t.end_date >= dateStr
+      );
+      return !onTimeOff;
+    });
+  }, [barbers, barberDows, barberTimeOff]);
+
+  // Helper for barber-first flow: is THIS specific barber available on date?
+  const isBarberAvailableOnDate = useCallback((barberId: string, date: Date): boolean => {
+    const dow = date.getDay();
+    const dateStr = formatDateForDb(date);
+    if (!barberDows[barberId]?.has(dow)) return false;
+    const onTimeOff = barberTimeOff.some(t =>
+      t.barber_id === barberId && t.start_date <= dateStr && t.end_date >= dateStr
+    );
+    return !onTimeOff;
+  }, [barberDows, barberTimeOff]);
 
   // ── Load slot grid (Option A — time first) ─────────────────────────────────
   const loadTimeFirstSlots = useCallback(async (date: Date) => {
@@ -299,14 +362,20 @@ export default function BookingPage() {
       loadBarberWorkDays();
       loadShopWorkDays();
     };
+    const onTimeOff = () => {
+      // Owner approving/cancelling time-off affects both the slot grid AND
+      // the date-strip greying (specific dates a barber is out).
+      refreshSlots();
+      loadBarberTimeOff();
+    };
     const channel = supabase
       .channel(`book_slots:${shop.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_slots" }, onTimeSlots)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, refreshSlots)
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, refreshSlots)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, onTimeOff)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays]);
+  }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays, loadBarberTimeOff]);
 
 
   // ── Auto-scroll the When-step timeline to 9 AM on open ─────────────────────
@@ -353,7 +422,6 @@ export default function BookingPage() {
     }
     const clientErrs = validateClientInfo();
     if (Object.keys(clientErrs).length > 0) { setClientErrors(clientErrs); return; }
-    setSaving(true);
     const service = services.find((s) => s.id === selectedService); // primary
     const discount = promoApplied
       ? promoApplied.discount_type === "percent"
@@ -361,6 +429,19 @@ export default function BookingPage() {
         : promoApplied.discount_value
       : 0;
     const total = Math.max(0, totalPrice - discount);
+
+    // ── Pay-method choice gate ──────────────────────────────────────────────
+    // Online is always available — the server-side route falls back to a
+    // platform charge when the shop hasn't completed Stripe Connect, so the
+    // customer can pay either way regardless of the shop's onboarding state.
+    // In-person availability is the owner's call (allow_pay_in_person).
+    const canPayOnline = total > 0;
+    const canPayInPerson = (shop.allow_pay_in_person ?? true) && total > 0;
+    if (canPayOnline && canPayInPerson && !payMethodChoice) {
+      setShowPayChoiceModal(true);
+      return;
+    }
+    setSaving(true);
 
     // If flow is time-first and no specific barber picked, pick first available
     let finalBarberId = selectedBarber;
@@ -374,10 +455,21 @@ export default function BookingPage() {
       }
     }
 
-    // If this service requires a deposit AND the shop accepts online payments,
-    // route through Stripe Checkout. The appointment is created after payment.
+    // Online-payment branch — triggered either by an explicit customer
+    // choice ("pay online now" → charge the full total) or by the legacy
+    // deposit-required path ("just the deposit upfront"). The API falls
+    // back to the platform's Stripe account when the shop hasn't done
+    // Connect, so no `stripe_connected` precondition is needed here.
+    //
+    // `in_person` always wins over `deposit_required` — when the customer
+    // explicitly picks pay-in-person, we skip Stripe entirely even if the
+    // service was tagged with a deposit requirement.
     const depositAmount = service?.deposit_required ? (service.deposit_amount ?? 0) : 0;
-    if (depositAmount > 0 && shop.stripe_connected) {
+    const chargeAmount =
+      payMethodChoice === "in_person" ? 0 :
+      payMethodChoice === "online"    ? total :
+                                         depositAmount;
+    if (chargeAmount > 0) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
           method: "POST",
@@ -393,7 +485,7 @@ export default function BookingPage() {
             client_phone: clientInfo.phone,
             date: formatDateForDb(selectedDate),
             time_slot: selectedTime,
-            amount: depositAmount,
+            amount: chargeAmount,
             total_amount: total,
           }),
         });
@@ -434,6 +526,11 @@ export default function BookingPage() {
         status: "pending",
         total_amount: rowAmount,
         deposit_paid: false,
+        // When the customer explicitly picked "pay in person", tag the row
+        // so the owner sees a Cash badge and can later either take cash or
+        // send a Stripe link via the appointments dashboard.
+        payment_method: payMethodChoice === "in_person" ? "cash" : null,
+        payment_status: payMethodChoice === "in_person" ? "unpaid" : null,
         notes: servicesPicked.length > 1
           ? `Part of multi-service booking · ${servicesPicked.map(s => s.name).join(" + ")}`
           : null,
@@ -583,7 +680,7 @@ export default function BookingPage() {
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (pageLoading) {
     return (
-      <div className="min-h-screen bg-background p-6 space-y-4 max-w-2xl mx-auto">
+      <div className="min-h-screen bg-gray-50 p-6 space-y-4 max-w-2xl mx-auto">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-48 w-full" />
@@ -593,10 +690,10 @@ export default function BookingPage() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
           <Logo size="md" />
-          <h1 className="text-2xl font-bold text-white mt-6">Shop Not Found</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-6">Shop Not Found</h1>
           <p className="text-gray-500 mt-2">This booking link may be invalid.</p>
         </div>
       </div>
@@ -605,13 +702,13 @@ export default function BookingPage() {
 
   if (shop.status !== "approved") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="w-20 h-20 bg-gold/10 border border-gold/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-black/5 border border-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Logo size="sm" showText={false} />
           </div>
-          <h1 className="text-2xl font-bold text-white">{shop.name}</h1>
-          <p className="text-gray-400 mt-3">This shop is coming soon. Check back later.</p>
+          <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
+          <p className="text-gray-500 mt-3">This shop is coming soon. Check back later.</p>
           <Badge variant="warning" className="mt-4">Coming Soon</Badge>
         </div>
       </div>
@@ -621,17 +718,17 @@ export default function BookingPage() {
   // ── Success screen ─────────────────────────────────────────────────────────
   if (confirmed) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
         {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
         <div className="max-w-md w-full text-center">
           <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check size={36} className="text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
-          {bookingId && <p className="text-xs text-gray-500 mb-1">Booking ID: <span className="text-gold font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
-          <p className="text-gray-400 mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
-          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-gold hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
-          <div className="bg-surface border border-border rounded-2xl p-6 text-left space-y-3 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h1>
+          {bookingId && <p className="text-xs text-gray-500 mb-1">Booking ID: <span className="text-black font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
+          <p className="text-gray-500 mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-black hover:text-gray-900 transition-colors mb-6 block">View & Manage Booking →</a>}
+          <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: shop.name },
               { label: "Barber", value: barber?.name ?? "Any Available" },
@@ -641,12 +738,12 @@ export default function BookingPage() {
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm">
                 <span className="text-gray-500">{label}</span>
-                <span className="text-white font-medium">{value}</span>
+                <span className="text-gray-900 font-medium">{value}</span>
               </div>
             ))}
-            <div className="border-t border-border pt-3 flex justify-between font-bold">
-              <span className="text-white">Total</span>
-              <span className="text-gold text-lg">{formatCurrency(total)}</span>
+            <div className="border-t border-gray-200 pt-3 flex justify-between font-bold">
+              <span className="text-gray-900">Total</span>
+              <span className="text-black text-lg">{formatCurrency(total)}</span>
             </div>
           </div>
           <div className="flex gap-3">
@@ -671,7 +768,7 @@ export default function BookingPage() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3" onClick={() => { setConfirmed(false); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -691,20 +788,20 @@ export default function BookingPage() {
   const confirmStepIndex = flow === "time-first" ? 4 : 5;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header */}
-      <div className="bg-surface border-b border-border">
+      <div className="bg-gray-50 shadow-sm border-b border-gray-200">
         <div className="max-w-2xl mx-auto px-4 py-5">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gold/20 border border-gold/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-14 h-14 rounded-2xl bg-black/10 border border-black flex items-center justify-center flex-shrink-0 overflow-hidden">
               {shop.logo
                 ? <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover" />
                 : <Logo size="sm" showText={false} />}
             </div>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-white">{shop.name}</h1>
+              <h1 className="text-xl font-bold text-gray-900">{shop.name}</h1>
               <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
                 <span className="flex items-center gap-1"><MapPin size={11} /> {shop.city}, {shop.province}</span>
                 <span className="flex items-center gap-1"><Phone size={11} /> {shop.phone}</span>
@@ -715,7 +812,7 @@ export default function BookingPage() {
       </div>
 
       {/* Flow Toggle */}
-      <div className="bg-surface border-b border-border">
+      <div className="bg-gray-50 shadow-sm border-b border-gray-200">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-1">
           {(["time-first", "barber-first"] as const).map((f) => (
             <button
@@ -723,7 +820,7 @@ export default function BookingPage() {
               onClick={() => switchFlow(f)}
               className={cn(
                 "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all",
-                flow === f ? "bg-gold text-black" : "text-gray-400 hover:text-white border border-border"
+                flow === f ? "bg-gold text-black" : "text-gray-500 hover:text-gray-900 border border-gray-200"
               )}
             >
               {f === "time-first" ? "Choose Time First" : "Choose Barber First"}
@@ -733,14 +830,14 @@ export default function BookingPage() {
       </div>
 
       {/* Progress */}
-      <div className="bg-surface border-b border-border sticky top-0 z-10">
+      <div className="bg-gray-50 shadow-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center gap-1">
             {STEPS.map((s, i) => (
               <div key={s + i} className="flex items-center gap-1 flex-1">
                 <div className={cn(
                   "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
-                  i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-gray-600"
+                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-black border border-black" : "bg-gray-100 text-gray-600"
                 )}>
                   {i < step ? <Check size={11} /> : i + 1}
                 </div>
@@ -748,7 +845,7 @@ export default function BookingPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-gold font-medium">{STEPS[step]}</span></p>
+          <p className="text-xs text-gray-500 mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-black font-medium">{STEPS[step]}</span></p>
         </div>
       </div>
 
@@ -757,34 +854,34 @@ export default function BookingPage() {
         {/* BARBER FIRST — Step 0: Select Barber */}
         {step === isBarberFirstStep(0) && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Choose your barber</h2>
             <button
               onClick={() => setSelectedBarber("any")}
-              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40")}
+              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
             >
-              <div className="w-12 h-12 rounded-full bg-surface-raised border border-border flex items-center justify-center text-2xl">✨</div>
+              <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">✨</div>
               <div>
-                <p className="font-semibold text-white">No Preference</p>
+                <p className="font-semibold text-gray-900">No Preference</p>
                 <p className="text-sm text-gray-500">Next available barber</p>
               </div>
-              {selectedBarber === "any" && <Check size={18} className="ml-auto text-gold" />}
+              {selectedBarber === "any" && <Check size={18} className="ml-auto text-black" />}
             </button>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
               >
                 {b.photo
-                  ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-border" />
-                  : <div className="w-14 h-14 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold text-xl">{b.name[0]}</div>
+                  ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-gray-200" />
+                  : <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-xl">{b.name[0]}</div>
                 }
                 <div className="flex-1">
-                  <p className="font-semibold text-white">{b.name}</p>
+                  <p className="font-semibold text-gray-900">{b.name}</p>
                   {b.bio && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{b.bio}</p>}
-                  <span className="flex items-center gap-1 text-xs text-gold mt-1">
+                  <span className="flex items-center gap-1 text-xs text-black mt-1">
                     <Star size={11} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)
                   </span>
                 </div>
-                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-gold" />}
+                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-black" />}
               </button>
             ))}
           </div>
@@ -793,26 +890,26 @@ export default function BookingPage() {
         {/* Service Step */}
         {step === serviceStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Choose services</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Choose services</h2>
             <p className="text-xs text-gray-500 -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
-              <div className="bg-gold/5 border border-gold/20 rounded-2xl p-3 space-y-2">
+              <div className="bg-black/5 border border-gray-300 rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-gold rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-black/10 border border-black text-black rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
-                        className="ml-0.5 w-5 h-5 rounded-full bg-gold/20 hover:bg-gold/30 flex items-center justify-center" aria-label="Remove">
+                        className="ml-0.5 w-5 h-5 rounded-full bg-black/10 hover:bg-gold/30 flex items-center justify-center" aria-label="Remove">
                         <X size={11} />
                       </button>
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center justify-between text-sm pt-1 border-t border-gold/10">
-                  <span className="text-gray-400">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
-                  <span className="text-gold font-bold">{formatCurrency(totalPrice)}</span>
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-black/10">
+                  <span className="text-gray-500">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
+                  <span className="text-black font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
               </div>
             )}
@@ -820,7 +917,7 @@ export default function BookingPage() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-4 py-1.5 rounded-full text-sm font-medium transition-all border", categoryFilter === cat ? "bg-gold text-black border-gold" : "border-border text-gray-400 hover:border-gold/40")}
+                  className={cn("px-4 py-1.5 rounded-full text-sm font-medium transition-all border", categoryFilter === cat ? "bg-gold text-black border-black" : "border-gray-200 text-gray-500 hover:border-gray-400")}
                 >{cat}</button>
               ))}
             </div>
@@ -836,19 +933,19 @@ export default function BookingPage() {
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-gold bg-gold/10" : "border-border bg-surface hover:border-gold/40")}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
                 >
                   <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-white">{svc.name}</p>
+                      <p className="font-semibold text-gray-900">{svc.name}</p>
                       <Badge>{svc.category}</Badge>
-                      {count > 1 && <span className="text-xs text-gold">× {count}</span>}
+                      {count > 1 && <span className="text-xs text-black">× {count}</span>}
                     </div>
                     {svc.description && <p className="text-xs text-gray-500 mt-0.5">{svc.description}</p>}
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-lg font-bold text-gold">{formatCurrency(svc.price)}</span>
+                    <span className="text-lg font-bold text-black">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
                       className="w-8 h-8 rounded-full bg-gold text-black flex items-center justify-center font-bold hover:bg-gold/90 transition-colors" aria-label="Add service">
                       +
@@ -905,14 +1002,14 @@ export default function BookingPage() {
                 <button
                   aria-label="Previous week"
                   onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-surface-raised hover:bg-surface-raised/80 flex items-center justify-center text-white transition-colors"
+                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-100/80 flex items-center justify-center text-gray-900 transition-colors"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <button
                   aria-label="Next week"
                   onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-surface-raised hover:bg-surface-raised/80 flex items-center justify-center text-white transition-colors"
+                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-100/80 flex items-center justify-center text-gray-900 transition-colors"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -924,9 +1021,11 @@ export default function BookingPage() {
                   const dayStr = formatDateForDb(day);
                   const isSelectedDay = dayStr === dateStr;
                   const isPast = isDateInPast(day);
-                  const dow = day.getDay();
-                  const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && barberWorkDays.size > 0 && !barberWorkDays.has(dow);
-                  const isShopClosed = flow !== "barber-first" && shopWorkDays.size > 0 && !shopWorkDays.has(dow);
+                  // Date-aware availability: also disables days where every
+                  // barber who'd normally work that weekday has an approved
+                  // full-day time-off covering this specific date.
+                  const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && !isBarberAvailableOnDate(selectedBarber, day);
+                  const isShopClosed = flow !== "barber-first" && !isShopAvailableOnDate(day);
                   const disabled = isPast || !!isBarberOff || isShopClosed;
                   const isTodayDay = dayStr === todayStr;
                   return (
@@ -934,14 +1033,14 @@ export default function BookingPage() {
                       onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
                       className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
                     >
-                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-gray-700" : "text-gray-400")}>
+                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-gray-400" : "text-gray-500")}>
                         {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                       </span>
                       <span className={cn(
                         "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center",
-                        isSelectedDay ? "bg-white text-black font-semibold" :
-                        isTodayDay && !disabled ? "text-gold" :
-                        disabled ? "text-gray-700" : "text-white",
+                        isSelectedDay ? "bg-gray-50 text-black font-semibold" :
+                        isTodayDay && !disabled ? "text-black" :
+                        disabled ? "text-gray-400" : "text-gray-900",
                       )}>
                         {day.getDate()}
                       </span>
@@ -951,8 +1050,8 @@ export default function BookingPage() {
               </div>
 
               {/* Date title row (center) */}
-              <div className="px-4 py-2 border-t border-border/40 text-center">
-                <p className="text-sm font-medium text-white">
+              <div className="px-4 py-2 border-t border-gray-200/40 text-center">
+                <p className="text-sm font-medium text-gray-900">
                   {selectedDate
                     ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
                     : "Pick a day"}
@@ -960,13 +1059,13 @@ export default function BookingPage() {
               </div>
 
               {/* Timeline */}
-              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-border/40">
+              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-gray-200/40">
                 {!selectedDate && (
                   <div className="py-16 text-center text-gray-500 text-sm">Tap a day above to see openings.</div>
                 )}
                 {selectedDate && slotsLoading && (
                   <div className="py-16 text-center text-gray-500 text-sm">
-                    <div className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-3" />
+                    <div className="w-6 h-6 border-2 border-black border-t-gold rounded-full animate-spin mx-auto mb-3" />
                     Loading…
                   </div>
                 )}
@@ -974,8 +1073,8 @@ export default function BookingPage() {
                   <div className="py-16 text-center text-gray-500 text-sm">No openings on this day.</div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && servicesPicked.length > 1 && (
-                  <div className="m-4 py-5 text-center bg-yellow-500/5 border border-yellow-500/20 rounded-xl px-4">
-                    <p className="text-yellow-300 text-sm font-medium">
+                  <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
+                    <p className="text-orange-300 text-sm font-medium">
                       {flow === "barber-first" ? "This barber doesn't have" : "No barber has"} {totalDuration} min open on this day
                     </p>
                     <p className="text-xs text-gray-500 mt-1">Try another day.</p>
@@ -1014,17 +1113,17 @@ export default function BookingPage() {
                           className={cn(
                             "rounded-md text-left pl-2.5 pr-2 flex items-center justify-between overflow-hidden transition-all border-l-2",
                             isSelectedSlot
-                              ? "bg-gold/25 border-gold ring-1 ring-gold/50"
+                              ? "bg-black/15 border-black ring-1 ring-black/20"
                               : "bg-sky-500/15 hover:bg-sky-500/25 border-sky-400",
                           )}
                         >
-                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-gold" : "text-sky-200")}>
+                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-black" : "text-sky-200")}>
                             {slot}
                           </span>
-                          <span className={cn("text-[10px] leading-none ml-2", isSelectedSlot ? "text-gold/80" : "text-sky-300/70")}>
+                          <span className={cn("text-[10px] leading-none ml-2 truncate", isSelectedSlot ? "text-black/80" : "text-sky-300/70")}>
                             {barberIds.length === 1
-                              ? (isSelectedSlot ? barbers.find(b => b.id === barberIds[0])?.name : "")
-                              : `${barberIds.length} free`}
+                              ? `with ${barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"}`
+                              : `${barberIds.length} barbers free`}
                           </span>
                         </button>
                       );
@@ -1042,27 +1141,27 @@ export default function BookingPage() {
                   <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setExpandedSlot(null)} />
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                      <div className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
+                      <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-base font-bold text-white">Choose a barber</h3>
-                            <p className="text-xs text-gray-400 mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
+                            <h3 className="text-base font-bold text-gray-900">Choose a barber</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
                           </div>
-                          <button onClick={() => setExpandedSlot(null)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+                          <button onClick={() => setExpandedSlot(null)} className="text-gray-500 hover:text-gray-900"><X size={18} /></button>
                         </div>
                         <div className="space-y-2">
                           {slotBarbers.map((b) => (
                             <button key={b.id}
                               onClick={() => { setSelectedTime(expandedSlot); setSelectedBarber(b.id); setExpandedSlot(null); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-surface-raised hover:border-gold/40 text-left transition-all"
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-100 hover:border-gray-400 text-left transition-all"
                             >
                               {b.photo
                                 ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
-                                : <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold">{b.name[0]}</div>
+                                : <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold">{b.name[0]}</div>
                               }
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-white">{b.name}</p>
-                                <p className="text-xs text-gold flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
+                                <p className="text-sm font-semibold text-gray-900">{b.name}</p>
+                                <p className="text-xs text-black flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
                               </div>
                               <ChevronRight size={16} className="text-gray-500" />
                             </button>
@@ -1080,14 +1179,14 @@ export default function BookingPage() {
         {/* Client Info Step */}
         {step === clientStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Your information</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Your information</h2>
             {([
               { key: "name" as const, label: "Full Name", placeholder: "Devon Williams", type: "text" },
               { key: "email" as const, label: "Email Address", placeholder: "devon@email.com", type: "email" },
               { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
             ]).map(({ key, label, placeholder, type }) => (
               <div key={key} className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">{label}</label>
+                <label className="text-sm font-medium text-gray-600">{label}</label>
                 <input type={type} value={clientInfo[key]}
                   onChange={(e) => {
                     const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
@@ -1095,8 +1194,8 @@ export default function BookingPage() {
                     if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-surface-raised border rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
-                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50")}
+                  className={cn("w-full bg-gray-100 border rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-black transition-all",
+                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-gray-200 focus:ring-black/20")}
                 />
                 {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
               </div>
@@ -1108,11 +1207,11 @@ export default function BookingPage() {
         {/* Promo Code Step */}
         {step === promoStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Have a promo code?</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Have a promo code?</h2>
             <p className="text-gray-500 text-sm">Optional — skip if you don&apos;t have one.</p>
             <div className="flex gap-2">
               <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10"
-                className="flex-1 bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 uppercase tracking-widest"
+                className="flex-1 bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
               />
               <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
             </div>
@@ -1136,8 +1235,8 @@ export default function BookingPage() {
           );
           return (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Review your booking</h2>
-            <div className="bg-surface border border-border rounded-2xl p-5 space-y-3">
+            <h2 className="text-lg font-semibold text-gray-900">Review your booking</h2>
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-5 space-y-3">
               {[
                 { label: "Shop", value: shop.name },
                 { label: "Barber", value: barber?.name ?? "Any Available" },
@@ -1151,14 +1250,14 @@ export default function BookingPage() {
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm">
                   <span className="text-gray-500">{label}</span>
-                  <span className="text-white font-medium text-right max-w-[60%]">{value}</span>
+                  <span className="text-gray-900 font-medium text-right max-w-[60%]">{value}</span>
                 </div>
               ))}
-              <div className="border-t border-border pt-3 space-y-1.5">
+              <div className="border-t border-gray-200 pt-3 space-y-1.5">
                 {servicesPicked.map((s) => (
                   <div key={s.id} className="flex justify-between text-sm">
                     <span className="text-gray-500">{s.name} <span className="text-gray-600">· {s.duration_minutes}min</span></span>
-                    <span className="text-white">{formatCurrency(s.price ?? 0)}</span>
+                    <span className="text-gray-900">{formatCurrency(s.price ?? 0)}</span>
                   </div>
                 ))}
                 {promoApplied && (
@@ -1167,20 +1266,20 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold pt-1 border-t border-border/50">
-                  <span className="text-white">Total</span>
-                  <span className="text-gold text-lg">{formatCurrency(total)}</span>
+                <div className="flex justify-between font-bold pt-1 border-t border-gray-200/50">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-black text-lg">{formatCurrency(total)}</span>
                 </div>
                 {depositTotal > 0 && (
                   <div className="flex justify-between text-sm pt-1">
-                    <span className="text-gold">Deposit due now</span>
-                    <span className="text-gold font-semibold">{formatCurrency(depositTotal)}</span>
+                    <span className="text-black">Deposit due now</span>
+                    <span className="text-black font-semibold">{formatCurrency(depositTotal)}</span>
                   </div>
                 )}
               </div>
             </div>
             {depositTotal > 0
-              ? <p className="text-xs text-gold/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
+              ? <p className="text-xs text-black/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
               : <p className="text-xs text-gray-600 text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
           </div>
@@ -1188,25 +1287,100 @@ export default function BookingPage() {
         })()}
       </div>
 
-      {/* Footer Nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 py-3 z-20">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          {step > 0 && (
-            <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-shrink-0">
-              <ChevronLeft size={16} /> Back
-            </Button>
-          )}
-          {step < STEPS.length - 1 ? (
-            <Button className="flex-1" disabled={!canNext()} onClick={() => setStep(step + 1)}>
-              Continue <ChevronRight size={16} />
-            </Button>
+      {/* Floating pill action bar — running total + primary CTA.
+          Squire-style "always-visible price tally" pattern, but rendered
+          as a rounded pill that floats with margin instead of a square
+          edge-to-edge bar, so it reads distinct from theirs. */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pb-3 pt-2 pointer-events-none">
+        <div className="pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+          {/* Running total — only shown when at least one service is picked.
+              Falls back to a tiny step caption otherwise so the bar isn't empty. */}
+          {servicesPicked.length > 0 ? (
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-gray-900/50 leading-none">
+                {servicesPicked.length} {servicesPicked.length === 1 ? "service" : "services"} · {totalDuration} min
+              </p>
+              <p className="text-base font-bold text-gray-900 leading-tight mt-0.5">
+                {formatCurrency(total)}
+              </p>
+            </div>
           ) : (
-            <Button className="flex-1" loading={saving} onClick={confirmBooking}>
-              <Check size={16} /> Confirm Booking
-            </Button>
+            <p className="flex-1 text-xs text-gray-900/60 leading-tight">
+              Step {step + 1} of {STEPS.length} · {STEPS[step]}
+            </p>
+          )}
+
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={() => setStep(step - 1)}
+              aria-label="Back"
+              className="w-9 h-9 rounded-full border border-white/15 text-gray-900/80 hover:text-gray-900 hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              disabled={!canNext()}
+              onClick={() => setStep(step + 1)}
+              className="rounded-full bg-gray-50 text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50/90 transition-colors flex-shrink-0"
+            >
+              Continue <ChevronRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={confirmBooking}
+              className="rounded-full bg-gray-50 text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50/90 transition-colors flex-shrink-0"
+            >
+              {saving ? (
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <Check size={16} />
+              )}
+              Confirm
+            </button>
           )}
         </div>
       </div>
+
+      {/* Pay-method choice modal — only ever opens when both online and
+          in-person are valid options for this shop. Once a button is
+          clicked we re-enter confirmBooking with the choice in state. */}
+      {showPayChoiceModal && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowPayChoiceModal(false)} />
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">How would you like to pay?</h2>
+                <p className="text-sm text-gray-500 mt-1">You can pay now or settle up at the shop.</p>
+              </div>
+
+              <button type="button" className="btn btn-primary w-full" style={{ padding: "1rem" }}
+                onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("online"); setTimeout(confirmBooking, 0); }}>
+                💳 Pay online now (secure · Stripe)
+              </button>
+
+              <button type="button" className="btn btn-outline-dark w-full" style={{ padding: "1rem" }}
+                onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("in_person"); setTimeout(confirmBooking, 0); }}>
+                🏪 Pay in person at the shop
+              </button>
+
+              <p className="text-xs text-gray-500 text-center">
+                Paying in person? Your booking is reserved as pending until the shop confirms.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

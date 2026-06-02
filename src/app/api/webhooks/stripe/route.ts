@@ -22,9 +22,24 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (event.type) {
-      // ── Subscription activated at checkout ──────────────────────────────────
+      // ── Checkout finished ──────────────────────────────────────────────────
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // Post-booking payment link flow — owner sent a payment link for an
+        // existing appointment and the customer just paid. Flip the row.
+        if (session.metadata?.flow === "post_booking_payment" && session.metadata?.appointment_id) {
+          await supabaseAdmin
+            .from("appointments")
+            .update({
+              payment_status: "paid",
+              payment_method: "online",
+              payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+            })
+            .eq("id", session.metadata.appointment_id);
+          break;
+        }
+
         if (session.mode === "subscription") {
           const userId = session.metadata?.user_id;
           const plan = session.metadata?.plan;

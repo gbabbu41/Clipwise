@@ -14,19 +14,19 @@ function wrap(content: string) {
   body{margin:0;padding:0;background:#0A0A0A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#E5E7EB}
   .container{max-width:560px;margin:0 auto;padding:32px 16px}
   .card{background:#1C1C1E;border:1px solid #2D2D2D;border-radius:16px;padding:32px}
-  .logo{font-size:22px;font-weight:800;color:#C9A84C;letter-spacing:-0.5px;margin-bottom:28px}
+  .logo{font-size:22px;font-weight:800;color:#F5F0E6;letter-spacing:-0.5px;margin-bottom:28px}
   .logo span{color:#fff}
   h1{font-size:22px;font-weight:700;color:#fff;margin:0 0 8px}
   p{font-size:14px;line-height:1.6;color:#9CA3AF;margin:0 0 12px}
   .highlight{color:#fff}
-  .badge{display:inline-block;background:#C9A84C20;border:1px solid #C9A84C40;color:#C9A84C;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
-  .btn{display:inline-block;background:#C9A84C;color:#000;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;margin:16px 0}
+  .badge{display:inline-block;background:#F5F0E620;border:1px solid #F5F0E640;color:#F5F0E6;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
+  .btn{display:inline-block;background:#F5F0E6;color:#000;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;margin:16px 0}
   .link-box{background:#111;border:1px solid #2D2D2D;border-radius:10px;padding:12px 16px;margin:16px 0}
-  .link-box a{color:#C9A84C;font-size:13px;text-decoration:none;word-break:break-all}
+  .link-box a{color:#F5F0E6;font-size:13px;text-decoration:none;word-break:break-all}
   .divider{border:0;border-top:1px solid #2D2D2D;margin:24px 0}
   .steps{list-style:none;padding:0;margin:16px 0}
   .steps li{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:14px;color:#9CA3AF}
-  .step-num{background:#C9A84C20;border:1px solid #C9A84C40;color:#C9A84C;width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+  .step-num{background:#F5F0E620;border:1px solid #F5F0E640;color:#F5F0E6;width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
   .footer{text-align:center;margin-top:24px;font-size:12px;color:#4B5563}
   .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2D2D2D;font-size:13px}
   .row:last-child{border-bottom:0}
@@ -36,7 +36,7 @@ function wrap(content: string) {
   .red-badge{display:inline-block;background:#EF444420;border:1px solid #EF444440;color:#EF4444;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
 </style></head>
 <body><div class="container"><div class="card">${content}</div>
-<div class="footer">© ClipWise · <a href="${BASE_URL}" style="color:#C9A84C;text-decoration:none">clipwise.ca</a></div>
+<div class="footer">© ClipWise · <a href="${BASE_URL}" style="color:#F5F0E6;text-decoration:none">clipwise.ca</a></div>
 </div></body></html>`;
 }
 
@@ -102,7 +102,7 @@ function ownerApproved(data: Record<string, string>) {
       <li><span class="step-num">4</span>Watch the bookings come in!</li>
     </ul>
     <hr class="divider">
-    <a href="${BASE_URL}/login" class="btn" style="background:#1C1C1E;color:#C9A84C;border:1px solid #C9A84C40">Login to Dashboard →</a>
+    <a href="${BASE_URL}/login" class="btn" style="background:#1C1C1E;color:#F5F0E6;border:1px solid #F5F0E640">Login to Dashboard →</a>
     <p style="font-size:12px;color:#4B5563;margin-top:8px">Email: ${data.ownerEmail}</p>
     <hr class="divider">
     <p style="color:#4B5563">Welcome to ClipWise! — The ClipWise Team</p>
@@ -120,7 +120,7 @@ function ownerRejected(data: Record<string, string>) {
     <p style="font-weight:600;color:#fff;margin-bottom:4px">Reason:</p>
     <p style="background:#1a1a1a;border:1px solid #2D2D2D;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason || "No reason provided."}</p>
     <hr class="divider">
-    <p>You are welcome to <a href="${BASE_URL}/onboarding" style="color:#C9A84C">reapply</a> after addressing the above. If you have any questions, please reply to this email.</p>
+    <p>You are welcome to <a href="${BASE_URL}/onboarding" style="color:#F5F0E6">reapply</a> after addressing the above. If you have any questions, please reply to this email.</p>
     <p style="color:#4B5563">— The ClipWise Team</p>
   `);
 }
@@ -198,7 +198,7 @@ function rebookingReminder(data: Record<string, string>) {
     <p>Book your next appointment in seconds — no calls, no waiting.</p>
     <hr class="divider">
     <a href="${data.bookingUrl}" class="btn">Book Now →</a>
-    ${data.promoNote ? `<p style="font-size:13px;color:#C9A84C;margin-top:12px">${data.promoNote}</p>` : ""}
+    ${data.promoNote ? `<p style="font-size:13px;color:#F5F0E6;margin-top:12px">${data.promoNote}</p>` : ""}
     <hr class="divider">
     <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
@@ -344,6 +344,55 @@ function refundIssued(data: Record<string, string>) {
   `);
 }
 
+function directMessageEmail(data: Record<string, string>) {
+  // Free-form message from the shop owner (or, later, a barber) to a
+  // customer. Kept visually quiet — looks like a personal note, not a
+  // marketing email — and the only "action" is the Reply-To hint at the
+  // bottom (which routes back to the shop owner's inbox via the standard
+  // customer-facing Reply-To rule).
+  const escaped = (data.content ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  const senderLine = data.senderName
+    ? `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">${data.senderName} · ${data.shopName}</p>`
+    : `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">${data.shopName}</p>`;
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    ${senderLine}
+    <h1 style="font-size:18px">Hi ${data.clientName},</h1>
+    <div style="background:#111;border:1px solid #2D2D2D;border-radius:12px;padding:16px;margin:16px 0;font-size:15px;line-height:1.55;color:#E5E7EB">
+      ${escaped}
+    </div>
+    <p style="font-size:13px;color:#6B7280">Reply to this email and your response will go straight to ${data.shopName}.</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
+function paymentLinkEmail(data: Record<string, string>) {
+  // `data.amount` arrives as a number; format it dollar-style.
+  const amt = typeof data.amount === "number"
+    ? `$${(data.amount as unknown as number).toFixed(2)}`
+    : (data.amount?.toString().startsWith("$") ? data.amount : `$${data.amount}`);
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">💳 Payment Requested</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p><span class="highlight">${data.shopName}</span> has sent you a secure payment link for your appointment.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <div class="row"><span class="label">Amount</span><span class="val">${amt}</span></div>
+    <hr class="divider">
+    <a href="${data.paymentUrl}" class="btn">Pay Now →</a>
+    <div class="link-box"><a href="${data.paymentUrl}">${data.paymentUrl}</a></div>
+    <p style="font-size:13px;color:#6B7280">Payments are processed securely through Stripe. This link will stay valid for 24 hours.</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function timeOffRequest(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -365,8 +414,22 @@ function timeOffRequest(data: Record<string, string>) {
 
 function timeOffDecision(data: Record<string, string>) {
   const approved = data.decision === "approved";
-  const headline = approved ? "Your time off was approved" : "Your time off was denied";
-  const badge = approved ? "✅ Time Off Approved" : "❌ Time Off Denied";
+  const cancelled = data.decision === "cancelled";
+  const modified = data.decision === "modified";
+  const headline = approved
+    ? "Your time off was approved"
+    : cancelled
+    ? "Your approved time off was cancelled"
+    : modified
+    ? "A day was removed from your approved time off"
+    : "Your time off was denied";
+  const badge = approved
+    ? "✅ Time Off Approved"
+    : cancelled
+    ? "⚠️ Time Off Cancelled"
+    : modified
+    ? "✏️ Time Off Modified"
+    : "❌ Time Off Denied";
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
     <div class="badge">${badge}</div>
@@ -376,9 +439,13 @@ function timeOffDecision(data: Record<string, string>) {
     <div class="row"><span class="label">Type</span><span class="val">${data.requestType}</span></div>
     <div class="row"><span class="label">Dates</span><span class="val">${data.dateRange}</span></div>
     ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
-    <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#10B981" : "#EF4444"};text-transform:uppercase;font-weight:600">${data.decision}</span></div>
+    <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#10B981" : cancelled || modified ? "#F59E0B" : "#EF4444"};text-transform:uppercase;font-weight:600">${data.decision}</span></div>
     ${approved
       ? `<p style="color:#9CA3AF">Your schedule has been updated — these slots will no longer be offered to customers during this window.</p>`
+      : cancelled
+      ? `<p style="color:#9CA3AF">Customers will once again be able to book during this window. If you still need the time off, please submit a new request.</p>`
+      : modified
+      ? `<p style="color:#9CA3AF">That single day was removed from your approved time off; the rest of your request still stands. You're expected to work that day — message your shop if you need to discuss.</p>`
       : `<p style="color:#9CA3AF">If you need to talk this through, message your shop directly.</p>`}
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/time-off" class="btn">View My Requests →</a>
@@ -393,8 +460,8 @@ function barberInvite(data: Record<string, string>) {
     ? `<p>Good news — you already have a ClipWise account. Click the button below to sign in instantly and start managing your schedule at <span class="highlight">${data.shopName}</span>.</p>
        <p style="font-size:13px;color:#9CA3AF;background:#1a1a1a;border:1px solid #2D2D2D;border-radius:8px;padding:12px 16px">
          The link below logs you in automatically.
-         You can keep using your <strong style="color:#fff">existing ClipWise password</strong> to sign in normally any time at <a href="${BASE_URL}/login" style="color:#C9A84C">${BASE_URL}/login</a> — or
-         <a href="${BASE_URL}/forgot-password" style="color:#C9A84C">reset your password</a> if you've forgotten it.
+         You can keep using your <strong style="color:#fff">existing ClipWise password</strong> to sign in normally any time at <a href="${BASE_URL}/login" style="color:#F5F0E6">${BASE_URL}/login</a> — or
+         <a href="${BASE_URL}/forgot-password" style="color:#F5F0E6">reset your password</a> if you've forgotten it.
        </p>`
     : `<p>Click the button below to set up your account and access your personal barber dashboard. You'll be asked to choose a password.</p>`;
   return wrap(`
@@ -546,6 +613,16 @@ export async function POST(req: NextRequest) {
         subject = `Refund issued — ${data.shopName}`;
         html = refundIssued(data);
         break;
+      case "payment_link":
+        to = data.clientEmail;
+        subject = `Complete your payment for ${data.shopName}`;
+        html = paymentLinkEmail(data);
+        break;
+      case "direct_message":
+        to = data.clientEmail;
+        subject = `Message from ${data.shopName}`;
+        html = directMessageEmail(data);
+        break;
       case "barber_invite":
         to = data.barberEmail;
         subject = `You're invited to join ${data.shopName} on ClipWise`;
@@ -570,7 +647,7 @@ export async function POST(req: NextRequest) {
     const customerOrBarberFacing = [
       "booking_confirmation", "appointment_reminder", "review_request",
       "appointment_rejected", "refund_issued", "rebooking_reminder",
-      "no_show_followup", "birthday_wish",
+      "no_show_followup", "birthday_wish", "payment_link", "direct_message",
       "barber_invite", "new_booking_barber",
     ];
     const replyTo = customerOrBarberFacing.includes(type)

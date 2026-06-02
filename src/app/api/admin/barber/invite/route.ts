@@ -36,6 +36,26 @@ export async function POST(request: NextRequest) {
   // link the new barber row to their existing user_id immediately.
   const isOwnerSelf = (user.email ?? "").toLowerCase() === email;
 
+  // Shop owners can only act as a barber under their own shop. If the
+  // submitted email already belongs to a different shop_owner / super_admin
+  // account, refuse — owning a shop is a separate identity from being a
+  // barber elsewhere. (Self-add is fine: that's the owner-as-barber path.)
+  if (!isOwnerSelf) {
+    const { data: existingUser } = await supabaseAdmin
+      .from("users")
+      .select("id, role")
+      .ilike("email", email)
+      .maybeSingle();
+    if (existingUser && (existingUser.role === "shop_owner" || existingUser.role === "super_admin") && existingUser.id !== user.id) {
+      return NextResponse.json(
+        {
+          error: "This email is already registered as a shop owner. Shop owners can only work as a barber under their own shop. They must delete their existing shop from Settings → Danger Zone before they can be added as a barber here.",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   // Check if a barber with this email is already on the team (case-insensitive)
   const { data: existing } = await supabaseAdmin
     .from("barbers")

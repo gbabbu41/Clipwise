@@ -40,7 +40,8 @@
     "resend": "^6.12.4",
     "sonner": "^2.0.7",
     "stripe": "^22.2.0",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "twilio": "^6.0.2"
   },
   "devDependencies": {
     "@types/node": "^20",

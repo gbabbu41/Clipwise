@@ -27,15 +27,18 @@ export async function POST(request: NextRequest) {
     .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status")
     .eq("id", booking.shop_id).single();
 
-  if (!shop?.stripe_account_id || !shop.stripe_connected) {
-    return NextResponse.json({ error: "This shop is not set up to accept online payments yet." }, { status: 400 });
-  }
+  if (!shop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
 
   // Online payments are a Pro/Premium feature
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "payments")) {
     return NextResponse.json({ error: "Online payments require a Pro or Premium plan." }, { status: 403 });
   }
+
+  // Connect direct-charge when the shop has finished onboarding. Otherwise
+  // fall back to a platform charge so demo / test-mode flows work without
+  // the shop owner needing to complete Connect KYC.
+  const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
   try {
     const session = await stripe.checkout.sessions.create(
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
         success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,
       },
-      { stripeAccount: shop.stripe_account_id } // direct charge on connected account → 0% platform fee
+      useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined
     );
 
     return NextResponse.json({ url: session.url });

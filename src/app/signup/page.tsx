@@ -197,11 +197,11 @@ export default function SignupPage() {
                         <div key={i} className={cn("flex-1 h-1 rounded-full transition-colors",
                           pwStrength.score > i
                             ? pwStrength.strength === "strong" ? "bg-emerald-400"
-                            : pwStrength.strength === "medium" ? "bg-yellow-400" : "bg-red-400"
+                            : pwStrength.strength === "medium" ? "bg-orange-400" : "bg-red-400"
                             : "bg-surface-raised")} />
                       ))}
                     </div>
-                    <p className={cn("text-xs", pwStrength.strength === "strong" ? "text-emerald-400" : pwStrength.strength === "medium" ? "text-yellow-400" : "text-red-400")}>
+                    <p className={cn("text-xs", pwStrength.strength === "strong" ? "text-emerald-400" : pwStrength.strength === "medium" ? "text-orange-400" : "text-red-400")}>
                       {pwStrength.strength === "strong" ? "Strong password" : pwStrength.strength === "medium" ? "Medium — " + pwStrength.issues.join(", ") : "Weak — " + pwStrength.issues.join(", ")}
                     </p>
                   </div>

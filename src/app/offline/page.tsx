@@ -9,7 +9,7 @@ export default function OfflinePage() {
         <p className="text-gray-400 mb-8">Check your connection and try again.</p>
         <button
           onClick={() => window.location.reload()}
-          className="bg-[#C9A84C] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#b8963e] transition-colors"
+          className="bg-[#F5F0E6] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#FFFFFF] transition-colors"
         >
           Try again
         </button>

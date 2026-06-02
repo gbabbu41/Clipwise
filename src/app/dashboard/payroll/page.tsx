@@ -129,8 +129,8 @@ export default function PayrollPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Payroll & Earnings</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Staff commission and hours breakdown</p>
+          <h1 className="text-2xl font-bold text-gray-900">Payroll & Earnings</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Staff commission and hours breakdown</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={exportCSV}>
@@ -144,7 +144,7 @@ export default function PayrollPage() {
         {PERIOD_OPTIONS.map(opt => (
           <button key={opt.value} onClick={() => setPeriod(opt.value)}
             className={cn("px-4 py-2 text-sm font-medium rounded-xl border transition-colors",
-              period === opt.value ? "bg-gold/15 border-gold/30 text-gold" : "border-border text-gray-400 hover:text-white")}>
+              period === opt.value ? "bg-black/10 border-black text-black" : "border-gray-200 text-gray-500 hover:text-gray-900")}>
             {opt.label}
           </button>
         ))}
@@ -157,20 +157,20 @@ export default function PayrollPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Total Service Revenue</p>
-          <p className="text-2xl font-bold text-gold mt-1">{formatCurrency(totalServiceRevenue)}</p>
+          <p className="text-xs text-gray-500">Total Service Revenue</p>
+          <p className="text-2xl font-bold text-black mt-1">{formatCurrency(totalServiceRevenue)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Total Commission Out</p>
+          <p className="text-xs text-gray-500">Total Commission Out</p>
           <p className="text-2xl font-bold text-red-400 mt-1">{formatCurrency(totalCommission)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Shop Keeps</p>
+          <p className="text-xs text-gray-500">Shop Keeps</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(shopRevenue)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Total Hours Worked</p>
-          <p className="text-2xl font-bold text-white mt-1">{totalHours.toFixed(1)}h</p>
+          <p className="text-xs text-gray-500">Total Hours Worked</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{totalHours.toFixed(1)}h</p>
         </Card>
       </div>
 
@@ -188,59 +188,59 @@ export default function PayrollPage() {
           ) : (
             <div className="space-y-4">
               {payroll.map(p => (
-                <div key={p.barber.id} className="bg-surface-raised rounded-2xl p-5 border border-border">
+                <div key={p.barber.id} className="bg-gray-100 rounded-2xl p-5 border border-gray-200">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     {/* Barber info */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold">
+                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold">
                         {p.barber.name[0]}
                       </div>
                       <div>
-                        <h3 className="text-white font-semibold">{p.barber.name}</h3>
-                        <p className="text-xs text-gray-400">{p.barber.commission_percent}% commission</p>
+                        <h3 className="text-gray-900 font-semibold">{p.barber.name}</h3>
+                        <p className="text-xs text-gray-500">{p.barber.commission_percent}% commission</p>
                       </div>
                     </div>
 
                     {/* Commission payout highlight */}
-                    <div className="bg-gold/10 border border-gold/20 rounded-xl px-4 py-2 text-center">
-                      <p className="text-xs text-gray-400">Pay Out</p>
-                      <p className="text-xl font-bold text-gold">{formatCurrency(p.commissionEarned)}</p>
+                    <div className="bg-black/5 border border-gray-300 rounded-xl px-4 py-2 text-center">
+                      <p className="text-xs text-gray-500">Pay Out</p>
+                      <p className="text-xl font-bold text-black">{formatCurrency(p.commissionEarned)}</p>
                     </div>
                   </div>
 
                   {/* Stats row */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                    <div className="text-center bg-surface rounded-xl p-3">
-                      <p className="text-lg font-bold text-white">{p.appointments.length}</p>
-                      <p className="text-xs text-gray-400">Appointments</p>
+                    <div className="text-center bg-gray-50 shadow-sm rounded-xl p-3">
+                      <p className="text-lg font-bold text-gray-900">{p.appointments.length}</p>
+                      <p className="text-xs text-gray-500">Appointments</p>
                     </div>
-                    <div className="text-center bg-surface rounded-xl p-3">
-                      <p className="text-lg font-bold text-white">{formatCurrency(p.serviceRevenue)}</p>
-                      <p className="text-xs text-gray-400">Service Revenue</p>
+                    <div className="text-center bg-gray-50 shadow-sm rounded-xl p-3">
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(p.serviceRevenue)}</p>
+                      <p className="text-xs text-gray-500">Service Revenue</p>
                     </div>
-                    <div className="text-center bg-surface rounded-xl p-3">
+                    <div className="text-center bg-gray-50 shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(p.commissionEarned)}</p>
-                      <p className="text-xs text-gray-400">Commission ({p.barber.commission_percent}%)</p>
+                      <p className="text-xs text-gray-500">Commission ({p.barber.commission_percent}%)</p>
                     </div>
-                    <div className="text-center bg-surface rounded-xl p-3">
-                      <p className="text-lg font-bold text-white">{p.hoursWorked.toFixed(1)}h</p>
-                      <p className="text-xs text-gray-400">Hours Worked</p>
+                    <div className="text-center bg-gray-50 shadow-sm rounded-xl p-3">
+                      <p className="text-lg font-bold text-gray-900">{p.hoursWorked.toFixed(1)}h</p>
+                      <p className="text-xs text-gray-500">Hours Worked</p>
                     </div>
                   </div>
 
                   {/* Revenue bar */}
                   {p.serviceRevenue > 0 && (
                     <div className="mt-4">
-                      <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
                         <span>Commission breakdown</span>
                         <span>{p.barber.commission_percent}% to barber / {100 - p.barber.commission_percent}% to shop</span>
                       </div>
-                      <div className="h-2 bg-surface rounded-full overflow-hidden flex">
+                      <div className="h-2 bg-gray-50 shadow-sm rounded-full overflow-hidden flex">
                         <div className="bg-gold h-full rounded-l-full" style={{ width: `${p.barber.commission_percent}%` }} />
                         <div className="bg-emerald-500 h-full rounded-r-full flex-1" />
                       </div>
                       <div className="flex justify-between text-xs mt-1">
-                        <span className="text-gold">{formatCurrency(p.commissionEarned)} barber</span>
+                        <span className="text-black">{formatCurrency(p.commissionEarned)} barber</span>
                         <span className="text-emerald-400">{formatCurrency(p.serviceRevenue - p.commissionEarned)} shop</span>
                       </div>
                     </div>
@@ -248,17 +248,17 @@ export default function PayrollPage() {
 
                   {/* Per-appointment list for non-zero */}
                   {p.appointments.length > 0 && p.appointments.length <= 5 && (
-                    <div className="mt-4 border-t border-border pt-3 space-y-1">
+                    <div className="mt-4 border-t border-gray-200 pt-3 space-y-1">
                       {p.appointments.map(a => (
-                        <div key={a.id} className="flex items-center justify-between text-xs text-gray-400">
+                        <div key={a.id} className="flex items-center justify-between text-xs text-gray-500">
                           <span>{a.date} — {a.client_name}</span>
-                          <span className="text-gold">{formatCurrency(a.total_amount)}</span>
+                          <span className="text-black">{formatCurrency(a.total_amount)}</span>
                         </div>
                       ))}
                     </div>
                   )}
                   {p.appointments.length > 5 && (
-                    <p className="text-xs text-gray-500 mt-3 border-t border-border pt-2">
+                    <p className="text-xs text-gray-500 mt-3 border-t border-gray-200 pt-2">
                       + {p.appointments.length - 5} more appointments
                     </p>
                   )}
@@ -274,20 +274,20 @@ export default function PayrollPage() {
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center gap-3 mb-4">
-              <TrendingUp size={18} className="text-gold" />
-              <h3 className="text-white font-semibold">Shop Revenue Summary</h3>
+              <TrendingUp size={18} className="text-black" />
+              <h3 className="text-gray-900 font-semibold">Shop Revenue Summary</h3>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xs text-gray-400">Gross Revenue</p>
-                <p className="text-xl font-bold text-white mt-1">{formatCurrency(totalServiceRevenue)}</p>
+                <p className="text-xs text-gray-500">Gross Revenue</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalServiceRevenue)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Staff Payouts</p>
+                <p className="text-xs text-gray-500">Staff Payouts</p>
                 <p className="text-xl font-bold text-red-400 mt-1">- {formatCurrency(totalCommission)}</p>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                <p className="text-xs text-gray-400">Net to Shop</p>
+                <p className="text-xs text-gray-500">Net to Shop</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">{formatCurrency(shopRevenue)}</p>
               </div>
             </div>

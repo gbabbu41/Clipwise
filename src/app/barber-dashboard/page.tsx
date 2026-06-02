@@ -21,7 +21,7 @@ interface Appointment {
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-500/15 text-green-400 border-green-500/30",
-  pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  pending: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   completed: "bg-gray-500/15 text-gray-400 border-gray-500/30",
   cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
   "no-show": "bg-red-500/15 text-red-400 border-red-500/30",

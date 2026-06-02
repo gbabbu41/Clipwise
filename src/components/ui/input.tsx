@@ -5,38 +5,39 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  hint?: string;
 }
 
-export function Input({ className, label, error, icon, id, ...props }: InputProps) {
+export function Input({ className, label, error, icon, hint, id, ...props }: InputProps) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {label && (
-        <label htmlFor={inputId} className="text-sm font-medium text-gray-300">
+        <label htmlFor={inputId} className="form-label">
           {label}
         </label>
       )}
-      <div className="relative">
+      <div className={icon ? "relative" : undefined}>
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
             {icon}
           </div>
         )}
         <input
           id={inputId}
           className={cn(
-            "w-full rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm text-white placeholder:text-gray-500",
-            "focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50",
-            "transition-all duration-200",
-            icon && "pl-10",
-            error && "border-red-500/50 focus:ring-red-500/30",
+            "form-control",
+            icon && "ps-10",
+            error && "is-invalid",
             className
           )}
+          style={icon ? { paddingLeft: "2.5rem" } : undefined}
           {...props}
         />
       </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <div className="invalid-feedback" style={{ display: "block" }}>{error}</div>}
+      {!error && hint && <div className="form-text">{hint}</div>}
     </div>
   );
 }
@@ -50,22 +51,13 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
   const selectId = id || label?.toLowerCase().replace(/\s+/g, "-");
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {label && (
-        <label htmlFor={selectId} className="text-sm font-medium text-gray-300">
+        <label htmlFor={selectId} className="form-label">
           {label}
         </label>
       )}
-      <select
-        id={selectId}
-        className={cn(
-          "w-full rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm text-white",
-          "focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50",
-          "transition-all duration-200 appearance-none cursor-pointer",
-          className
-        )}
-        {...props}
-      >
+      <select id={selectId} className={cn("form-select", className)} {...props}>
         {children}
       </select>
     </div>
@@ -80,22 +72,13 @@ export function Textarea({
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string }) {
   const textareaId = id || label?.toLowerCase().replace(/\s+/g, "-");
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {label && (
-        <label htmlFor={textareaId} className="text-sm font-medium text-gray-300">
+        <label htmlFor={textareaId} className="form-label">
           {label}
         </label>
       )}
-      <textarea
-        id={textareaId}
-        className={cn(
-          "w-full rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm text-white placeholder:text-gray-500",
-          "focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50",
-          "transition-all duration-200 resize-none",
-          className
-        )}
-        {...props}
-      />
+      <textarea id={textareaId} className={cn("form-control", className)} {...props} />
     </div>
   );
 }

@@ -11,9 +11,9 @@ import type { Client, Appointment } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -208,8 +208,8 @@ export default function ClientsPage() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">👥</p>
-        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-gray-400">Client profiles will appear here once your shop is active.</p>
+        <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
+        <p className="text-sm text-gray-500">Client profiles will appear here once your shop is active.</p>
       </div>
     );
   }
@@ -220,8 +220,8 @@ export default function ClientsPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Clients</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage your client base</p>
+          <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your client base</p>
         </div>
         <div className="flex gap-3">
           {stats.atRisk > 0 && (
@@ -259,13 +259,13 @@ export default function ClientsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Clients", value: stats.total, color: "text-white" },
-          { label: "VIP Clients", value: stats.vip, color: "text-yellow-400" },
+          { label: "Total Clients", value: stats.total, color: "text-gray-900" },
+          { label: "VIP Clients", value: stats.vip, color: "text-orange-400" },
           { label: "At Risk", value: stats.atRisk, color: "text-red-400" },
           { label: "New", value: stats.newThisMonth, color: "text-emerald-400" },
         ].map(s => (
           <Card key={s.label} className="py-4 px-5">
-            <p className="text-xs text-gray-400">{s.label}</p>
+            <p className="text-xs text-gray-500">{s.label}</p>
             <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
           </Card>
         ))}
@@ -273,35 +273,35 @@ export default function ClientsPage() {
 
       {/* Filter & Search */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex rounded-xl border border-border overflow-hidden">
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden">
           {["All","VIP","New","Returning","At Risk"].map(t => (
             <button key={t} onClick={() => setTagFilter(t)}
-              className={cn("px-4 py-2 text-sm font-medium transition-colors", tagFilter === t ? "bg-gold text-black" : "text-gray-400 hover:text-white bg-surface-raised")}>
+              className={cn("px-4 py-2 text-sm font-medium transition-colors", tagFilter === t ? "bg-gold text-black" : "text-gray-500 hover:text-gray-900 bg-gray-100")}>
               {t}
             </button>
           ))}
         </div>
         <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="w-56" />
         <div className="flex gap-1 ml-auto">
-          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-gold text-gold" : "border-border text-gray-400")}>⊞</button>
-          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-gold text-gold" : "border-border text-gray-400")}>☰</button>
+          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-black" : "border-gray-200 text-gray-500")}>⊞</button>
+          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-black" : "border-gray-200 text-gray-500")}>☰</button>
         </div>
       </div>
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-surface border border-border rounded-2xl p-5 space-y-3 animate-pulse">
+            <div key={i} className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-5 space-y-3 animate-pulse">
               <div className="flex items-start justify-between">
-                <div className="w-10 h-10 rounded-full bg-surface-raised" />
-                <div className="h-5 w-16 rounded-full bg-surface-raised" />
+                <div className="w-10 h-10 rounded-full bg-gray-100" />
+                <div className="h-5 w-16 rounded-full bg-gray-100" />
               </div>
               <div className="space-y-1.5">
-                <div className="h-4 w-32 bg-surface-raised rounded" />
-                <div className="h-3 w-24 bg-surface-raised rounded" />
+                <div className="h-4 w-32 bg-gray-100 rounded" />
+                <div className="h-3 w-24 bg-gray-100 rounded" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {[1,2,3,4].map(j => <div key={j} className="h-10 bg-surface-raised rounded-xl" />)}
+                {[1,2,3,4].map(j => <div key={j} className="h-10 bg-gray-100 rounded-xl" />)}
               </div>
             </div>
           ))}
@@ -309,15 +309,15 @@ export default function ClientsPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">👥</p>
-          <p className="text-white font-medium mb-1">{clients.length === 0 ? "Your client list is empty" : "No clients match your filters"}</p>
+          <p className="text-gray-900 font-medium mb-1">{clients.length === 0 ? "Your client list is empty" : "No clients match your filters"}</p>
           <p className="text-sm text-gray-500">{clients.length === 0 ? "Clients are added automatically when they book, or you can add them manually above." : "Try a different search or filter."}</p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
-            <Card key={client.id} className="hover:border-gold/30 transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
+            <Card key={client.id} className="hover:border-black transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm">
                   {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -331,13 +331,13 @@ export default function ClientsPage() {
                   </span>
                 </div>
               </div>
-              <h3 className="text-white font-semibold">{client.name}</h3>
-              <p className="text-sm text-gray-400">{client.phone}</p>
+              <h3 className="text-gray-900 font-semibold">{client.name}</h3>
+              <p className="text-sm text-gray-500">{client.phone}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <div><p className="text-xs text-gray-500">Visits</p><p className="text-sm font-semibold text-white">{client.total_visits}</p></div>
-                <div><p className="text-xs text-gray-500">Spent</p><p className="text-sm font-semibold text-gold">{formatCurrency(client.total_spent)}</p></div>
-                <div><p className="text-xs text-gray-500">Points</p><p className="text-sm font-semibold text-white">{client.loyalty_points}</p></div>
-                <div><p className="text-xs text-gray-500">Last Visit</p><p className="text-sm font-semibold text-white">{client.last_visit ?? "—"}</p></div>
+                <div><p className="text-xs text-gray-500">Visits</p><p className="text-sm font-semibold text-gray-900">{client.total_visits}</p></div>
+                <div><p className="text-xs text-gray-500">Spent</p><p className="text-sm font-semibold text-black">{formatCurrency(client.total_spent)}</p></div>
+                <div><p className="text-xs text-gray-500">Points</p><p className="text-sm font-semibold text-gray-900">{client.loyalty_points}</p></div>
+                <div><p className="text-xs text-gray-500">Last Visit</p><p className="text-sm font-semibold text-gray-900">{client.last_visit ?? "—"}</p></div>
               </div>
               <Button variant="outline" size="sm" className="w-full mt-3">View Profile</Button>
             </Card>
@@ -346,19 +346,19 @@ export default function ClientsPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           <table className="w-full">
-            <thead className="border-b border-border">
+            <thead className="border-b border-gray-200">
               <tr>
                 {["Client","Phone","Tag","Visits","Spent","Points","Last Visit"].map(h => (
-                  <th key={h} className="text-left text-xs font-medium text-gray-400 px-4 py-3">{h}</th>
+                  <th key={h} className="text-left text-xs font-medium text-gray-500 px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(client => (
                 <tr key={client.id} onClick={() => openClient(client)}
-                  className="border-b border-border/50 hover:bg-surface-raised/50 cursor-pointer">
-                  <td className="px-4 py-3 text-sm font-medium text-white">{client.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{client.phone}</td>
+                  className="border-b border-gray-200/50 hover:bg-gray-100/50 cursor-pointer">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{client.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{client.phone}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
@@ -369,10 +369,10 @@ export default function ClientsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-white">{client.total_visits}</td>
-                  <td className="px-4 py-3 text-sm text-gold">{formatCurrency(client.total_spent)}</td>
-                  <td className="px-4 py-3 text-sm text-white">{client.loyalty_points}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{client.last_visit ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{client.total_visits}</td>
+                  <td className="px-4 py-3 text-sm text-black">{formatCurrency(client.total_spent)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{client.loyalty_points}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{client.last_visit ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -384,17 +384,17 @@ export default function ClientsPage() {
       {selectedClient && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedClient(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border z-50 overflow-y-auto p-6 space-y-5">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-gray-50 shadow-sm border-l border-gray-200 z-50 overflow-y-auto p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">Client Profile</h2>
-              <button onClick={() => setSelectedClient(null)} className="text-gray-400 hover:text-white text-xl">✕</button>
+              <h2 className="text-lg font-bold text-gray-900">Client Profile</h2>
+              <button onClick={() => setSelectedClient(null)} className="text-gray-500 hover:text-gray-900 text-xl">✕</button>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-lg">
+              <div className="w-14 h-14 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-lg">
                 {selectedClient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg">{selectedClient.name}</h3>
+                <h3 className="text-gray-900 font-bold text-lg">{selectedClient.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
                     {selectedClient.tag}
@@ -408,11 +408,11 @@ export default function ClientsPage() {
               </div>
             </div>
             {/* Tabs */}
-            <div className="flex gap-1 bg-surface-raised border border-border rounded-xl p-1">
+            <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-xl p-1">
               {(["overview", "hair", "history"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
-                    activeTab === tab ? "bg-gold/15 text-gold border border-gold/20" : "text-gray-400 hover:text-white")}>
+                    activeTab === tab ? "bg-black/10 text-black border border-gray-300" : "text-gray-500 hover:text-gray-900")}>
                   {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
                 </button>
               ))}
@@ -430,22 +430,22 @@ export default function ClientsPage() {
                     { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
                     { label: "Last Visit", value: selectedClient.last_visit ?? "—" },
                   ].map(item => (
-                    <div key={item.label} className="p-3 bg-surface-raised rounded-xl border border-border">
-                      <p className="text-xs text-gray-400">{item.label}</p>
-                      <p className="text-sm text-white mt-0.5 break-all">{item.value}</p>
+                    <div key={item.label} className="p-3 bg-gray-100 rounded-xl border border-gray-200">
+                      <p className="text-xs text-gray-500">{item.label}</p>
+                      <p className="text-sm text-gray-900 mt-0.5 break-all">{item.value}</p>
                     </div>
                   ))}
                 </div>
                 {/* Birthday */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-400">Birthday</label>
+                  <label className="text-xs font-medium text-gray-500">Birthday</label>
                   <div className="flex gap-2">
                     <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
-                      className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                      className="flex-1 bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-black/20" />
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
                   {selectedClient.email && birthday && (
-                    <Button size="sm" variant="outline" className="w-full text-gold border-gold/30 hover:bg-gold/10" loading={sendingBirthday} onClick={sendBirthdayEmail}>
+                    <Button size="sm" variant="outline" className="w-full text-black border-black hover:bg-black/5" loading={sendingBirthday} onClick={sendBirthdayEmail}>
                       🎂 Send Birthday Email
                     </Button>
                   )}
@@ -475,12 +475,12 @@ export default function ClientsPage() {
                     {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
                   </Button>
                 </div>
-                <div className="p-4 bg-surface-raised rounded-xl border border-border">
+                <div className="p-4 bg-gray-100 rounded-xl border border-gray-200">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-white">Loyalty Points</p>
-                    <p className="text-xl font-bold text-gold">{selectedClient.loyalty_points} pts</p>
+                    <p className="text-sm font-medium text-gray-900">Loyalty Points</p>
+                    <p className="text-xl font-bold text-black">{selectedClient.loyalty_points} pts</p>
                   </div>
-                  <div className="w-full h-2 bg-surface rounded-full overflow-hidden mb-3">
+                  <div className="w-full h-2 bg-gray-50 shadow-sm rounded-full overflow-hidden mb-3">
                     <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
                   </div>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setAddPointsClient(selectedClient)}>+ Add Points</Button>
@@ -499,12 +499,12 @@ export default function ClientsPage() {
                     { key: "sidesGuard" as keyof HairProfile, label: "Sides — Guard #", placeholder: "e.g. 1.5" },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-xs font-medium text-gray-400">{label}</label>
+                      <label className="text-xs font-medium text-gray-500">{label}</label>
                       <input
                         value={hairProfile[key]}
                         onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-gold/50"
+                        className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-black/20"
                       />
                     </div>
                   ))}
@@ -512,22 +512,22 @@ export default function ClientsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-400">Fade Type</label>
+                    <label className="text-xs font-medium text-gray-500">Fade Type</label>
                     <select
                       value={hairProfile.fadeType}
                       onChange={e => setHairProfile(p => ({ ...p, fadeType: e.target.value }))}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-black/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Low Fade", "Mid Fade", "High Fade", "Skin Fade", "Taper"].map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-400">Beard</label>
+                    <label className="text-xs font-medium text-gray-500">Beard</label>
                     <select
                       value={hairProfile.beardStyle}
                       onChange={e => setHairProfile(p => ({ ...p, beardStyle: e.target.value }))}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-gold/50"
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-black/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Shape Up", "Light Trim", "Full Trim", "Full Beard", "Shave"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -541,13 +541,13 @@ export default function ClientsPage() {
                   { key: "barberNotes" as keyof HairProfile, label: "Barber Notes (internal)", placeholder: "e.g. Comes in every 3 weeks, sensitive around ears…" },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key} className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-400">{label}</label>
+                    <label className="text-xs font-medium text-gray-500">{label}</label>
                     <textarea
                       value={hairProfile[key]}
                       onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={2}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
                     />
                   </div>
                 ))}
@@ -564,14 +564,14 @@ export default function ClientsPage() {
                 ) : (
                   <div className="space-y-2">
                     {clientAppointments.map(apt => (
-                      <div key={apt.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
+                      <div key={apt.id} className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
                         <div>
-                          <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
-                          <p className="text-xs text-gray-400">{apt.date} {apt.time_slot}</p>
+                          <p className="text-sm text-gray-900">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
+                          <p className="text-xs text-gray-500">{apt.date} {apt.time_slot}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-gold">{formatCurrency(apt.total_amount)}</p>
-                          <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-gray-400")}>
+                          <p className="text-sm font-semibold text-black">{formatCurrency(apt.total_amount)}</p>
+                          <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-gray-500")}>
                             {apt.status}
                           </span>
                         </div>
@@ -590,8 +590,8 @@ export default function ClientsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setAddPointsClient(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-xs space-y-4">
-              <h3 className="text-white font-bold">Add Points for {addPointsClient.name}</h3>
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-xs space-y-4">
+              <h3 className="text-gray-900 font-bold">Add Points for {addPointsClient.name}</h3>
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsClient(null)}>Cancel</Button>
@@ -607,19 +607,19 @@ export default function ClientsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add New Client</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Add New Client</h2>
+                <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
               <Input label="Full Name" placeholder="John Doe" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} />
               <Input label="Phone" placeholder="506-555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
               <Input label="Email" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
               <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-400">Birthday (optional)</label>
+                <label className="text-sm text-gray-500">Birthday (optional)</label>
                 <input type="date" value={newClient.birthday} onChange={e => setNewClient(p => ({ ...p, birthday: e.target.value }))}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50" />
+                  className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black" />
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>

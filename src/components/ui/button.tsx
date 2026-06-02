@@ -3,10 +3,40 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "gold" | "outline" | "ghost" | "danger" | "secondary";
+  // Legacy variant names — preserved so every existing `<Button variant="…">`
+  // callsite keeps working. Each one now maps to a Bootstrap `.btn-*` class
+  // defined globally in `globals.css`. New code can also pass any of the
+  // Bootstrap-style names directly: primary, secondary, success, danger,
+  // warning, info, light, dark, plus their `outline-*` cousins.
+  variant?:
+    | "gold" | "outline" | "ghost"
+    | "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "light" | "dark"
+    | "outline-primary" | "outline-secondary" | "outline-success" | "outline-danger"
+    | "outline-warning" | "outline-info" | "outline-light" | "outline-dark";
   size?: "sm" | "md" | "lg" | "icon";
   loading?: boolean;
 }
+
+// Legacy → Bootstrap variant mapping. "gold" was the default primary CTA
+// (and is referenced in dozens of files), so it now maps to `btn-primary`.
+// "ghost" stays as a text-only button — Bootstrap has no direct equivalent.
+const variantClass = (v: NonNullable<ButtonProps["variant"]>): string => {
+  switch (v) {
+    case "gold":     return "btn btn-primary";
+    case "outline":  return "btn btn-outline-secondary";
+    case "ghost":    return "btn-ghost";          // text-only, see CSS below
+    default:         return `btn btn-${v}`;        // primary, danger, outline-*, etc.
+  }
+};
+
+const sizeClass = (s: NonNullable<ButtonProps["size"]>): string => {
+  switch (s) {
+    case "sm":   return "btn-sm";
+    case "lg":   return "btn-lg";
+    case "icon": return "btn-icon";
+    default:     return "";
+  }
+};
 
 export function Button({
   className,
@@ -15,31 +45,13 @@ export function Button({
   loading,
   children,
   disabled,
+  type = "button",
   ...props
 }: ButtonProps) {
-  const variants = {
-    gold: "bg-gold hover:bg-gold-light text-black font-semibold shadow-lg shadow-gold/20 active:scale-95",
-    outline: "border border-border hover:border-gold hover:text-gold text-white bg-transparent active:scale-95",
-    ghost: "text-white hover:bg-surface-raised bg-transparent active:scale-95",
-    danger: "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 active:scale-95",
-    secondary: "bg-surface-raised hover:bg-surface-overlay text-white border border-border active:scale-95",
-  };
-
-  const sizes = {
-    sm: "px-3 py-1.5 text-xs rounded-lg",
-    md: "px-4 py-2 text-sm rounded-xl",
-    lg: "px-6 py-3 text-base rounded-xl",
-    icon: "p-2 rounded-xl",
-  };
-
   return (
     <button
-      className={cn(
-        "inline-flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      type={type}
+      className={cn(variantClass(variant), sizeClass(size), className)}
       disabled={disabled || loading}
       {...props}
     >

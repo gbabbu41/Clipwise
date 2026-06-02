@@ -13,25 +13,25 @@ import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 const DARK_TOOLTIP = {
   contentStyle: { background: "#2C2C2E", border: "1px solid #2C2C2E", borderRadius: 12, color: "#fff", fontSize: 12 },
-  cursor: { fill: "rgba(201,168,76,0.08)" },
+  cursor: { fill: "rgba(245, 240, 230,0.08)" },
 };
-const GOLD_PALETTE = ["#C9A84C","#E4C97A","#A07830","#8B6914","#6B4F10","#4A3508"];
+const GOLD_PALETTE = ["#F5F0E6","#FFFFFF","#D4CCB8","#B8AC8C","#928773","#6B6354"];
 const STATUS_COLORS: Record<string, string> = {
-  completed: "#10B981", confirmed: "#C9A84C", pending: "#F59E0B",
+  completed: "#10B981", confirmed: "#F5F0E6", pending: "#F59E0B",
   cancelled: "#EF4444", "no-show": "#F97316",
 };
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">↓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">↓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
 
 function SkeletonCard() {
-  return <div className="h-28 rounded-2xl bg-surface-raised animate-pulse" />;
+  return <div className="h-28 rounded-2xl bg-gray-100 animate-pulse" />;
 }
 
 type DayRevenue = { date: string; label: string; day: string; revenue: number; appointments: number };
@@ -195,22 +195,22 @@ export default function AnalyticsPage() {
   const topService = serviceRevenue[0];
 
   const kpis = [
-    { label: "Total Revenue", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-gold" },
-    { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-white" },
-    { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-white" },
+    { label: "Total Revenue", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-black" },
+    { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-gray-900" },
+    { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-gray-900" },
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Industry avg 12%", color: "text-orange-400" },
-    { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-gold" },
-    { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-white" },
+    { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-black" },
+    { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-gray-900" },
     { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
-    { label: "Tips Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + t.tip, 0)), sub: "Via POS", color: "text-white" },
+    { label: "Tips Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + t.tip, 0)), sub: "Via POS", color: "text-gray-900" },
   ];
 
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">📊</p>
-        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-gray-400">Analytics will appear here once your shop is active.</p>
+        <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
+        <p className="text-sm text-gray-500">Analytics will appear here once your shop is active.</p>
       </div>
     );
   }
@@ -221,8 +221,8 @@ export default function AnalyticsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Analytics</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Business performance overview</p>
+          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Business performance overview</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => {
           const rows = [
@@ -247,16 +247,16 @@ export default function AnalyticsPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3">
-        <div className="flex rounded-xl border border-border overflow-hidden">
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden">
           {[["today","Today"],["week","This Week"],["month","This Month"],["last","Last Month"]].map(([v,l]) => (
             <button key={v} onClick={() => setPeriod(v)}
-              className={cn("px-3 py-2 text-xs font-medium transition-colors", period === v ? "bg-gold text-black" : "text-gray-400 hover:text-white bg-surface-raised")}>
+              className={cn("px-3 py-2 text-xs font-medium transition-colors", period === v ? "bg-gold text-black" : "text-gray-500 hover:text-gray-900 bg-gray-100")}>
               {l}
             </button>
           ))}
         </div>
         <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-          className="rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50">
+          className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
           <option value="all">All Barbers</option>
           {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
@@ -271,7 +271,7 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map(k => (
             <Card key={k.label} className="py-4 px-5">
-              <p className="text-xs text-gray-400">{k.label}</p>
+              <p className="text-xs text-gray-500">{k.label}</p>
               <p className={cn("text-2xl font-bold mt-1", k.color)}>{k.value}</p>
               <p className="text-xs text-gray-500 mt-1">{k.sub}</p>
             </Card>
@@ -290,7 +290,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                <Line type="monotone" dataKey="revenue" stroke="#C9A84C" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="revenue" stroke="#F5F0E6" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -301,7 +301,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-3xl mb-3">📊</p>
-            <p className="text-gray-400 text-sm">No data yet for this period. Complete appointments or process POS transactions to see analytics.</p>
+            <p className="text-gray-500 text-sm">No data yet for this period. Complete appointments or process POS transactions to see analytics.</p>
           </CardContent>
         </Card>
       )}
@@ -318,7 +318,7 @@ export default function AnalyticsPage() {
                     <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 12 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                    <Bar dataKey="revenue" fill="#C9A84C" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#F5F0E6" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -360,7 +360,7 @@ export default function AnalyticsPage() {
                     {apptStatuses.map(s => (
                       <div key={s.name} className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                        <span className="text-xs text-gray-300">{s.name}</span>
+                        <span className="text-xs text-gray-600">{s.name}</span>
                         <span className="text-xs text-gray-500 ml-auto">{s.value}%</span>
                       </div>
                     ))}
@@ -380,7 +380,7 @@ export default function AnalyticsPage() {
                     <XAxis dataKey="hour" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                    <Bar dataKey="revenue" fill="#A07830" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#D4CCB8" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -397,9 +397,9 @@ export default function AnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border">
+                  <tr className="border-b border-gray-200">
                     {["Barber", "Appointments", "Completed", "No-Shows", "Revenue", "Avg Ticket", "Completion Rate"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-gray-400 px-3 py-2">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-gray-500 px-3 py-2">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -412,26 +412,26 @@ export default function AnalyticsPage() {
                     const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (
-                      <tr key={b.id} className="border-b border-border/50 hover:bg-surface-raised/20">
+                      <tr key={b.id} className="border-b border-gray-200/50 hover:bg-gray-100/20">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold text-xs font-bold">
+                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-black text-xs font-bold">
                               {b.name[0]}
                             </div>
-                            <span className="text-sm text-white font-medium">{b.name}</span>
+                            <span className="text-sm text-gray-900 font-medium">{b.name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-sm text-white">{bAppts.length}</td>
+                        <td className="px-3 py-3 text-sm text-gray-900">{bAppts.length}</td>
                         <td className="px-3 py-3 text-sm text-emerald-400">{bCompleted.length}</td>
                         <td className="px-3 py-3 text-sm text-orange-400">{bNoShows}</td>
-                        <td className="px-3 py-3 text-sm text-gold font-semibold">{formatCurrency(bRevenue)}</td>
-                        <td className="px-3 py-3 text-sm text-gray-300">{formatCurrency(bAvg)}</td>
+                        <td className="px-3 py-3 text-sm text-black font-semibold">{formatCurrency(bRevenue)}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600">{formatCurrency(bAvg)}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-surface-raised rounded-full overflow-hidden">
+                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                               <div className="h-full bg-gold rounded-full" style={{ width: `${completionRate}%` }} />
                             </div>
-                            <span className="text-xs text-gray-400">{completionRate}%</span>
+                            <span className="text-xs text-gray-500">{completionRate}%</span>
                           </div>
                         </td>
                       </tr>

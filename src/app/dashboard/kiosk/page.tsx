@@ -28,7 +28,7 @@ function KioskButton({ children, onClick, className, disabled }: {
       disabled={disabled}
       className={cn(
         "w-full p-5 rounded-2xl border-2 text-left transition-all active:scale-[0.98] touch-manipulation select-none",
-        "bg-surface border-border hover:border-gold/40 hover:bg-surface-raised",
+        "bg-gray-50 shadow-sm border-gray-200 hover:border-gray-400 hover:bg-gray-100",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
@@ -115,13 +115,13 @@ export default function KioskPage() {
 
   return (
     <div className={cn(
-      "min-h-screen bg-background flex flex-col",
+      "min-h-screen bg-gray-50 flex flex-col",
       isFullscreen && "fixed inset-0 z-[200]"
     )}>
       {/* Fullscreen toggle bar */}
       {!isFullscreen && (
-        <div className="flex items-center justify-between px-6 py-3 bg-surface border-b border-border">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center justify-between px-6 py-3 bg-gray-50 shadow-sm border-b border-gray-200">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
             <Monitor size={16} />
             <span>Kiosk Mode — Walk-in Self Check-in</span>
           </div>
@@ -138,13 +138,13 @@ export default function KioskPage() {
           {step === "welcome" && (
             <div className="text-center space-y-8">
               <div className="flex justify-center">
-                <div className="w-24 h-24 rounded-3xl bg-gold/15 border-2 border-gold/30 flex items-center justify-center">
-                  <Scissors size={40} className="text-gold" />
+                <div className="w-24 h-24 rounded-3xl bg-black/10 border-2 border-black flex items-center justify-center">
+                  <Scissors size={40} className="text-black" />
                 </div>
               </div>
               <div>
-                <h1 className="text-4xl font-black text-white">{shop.name}</h1>
-                <p className="text-xl text-gray-400 mt-2">Walk-in Check-In</p>
+                <h1 className="text-4xl font-black text-gray-900">{shop.name}</h1>
+                <p className="text-xl text-gray-500 mt-2">Walk-in Check-In</p>
               </div>
               <div className="space-y-3">
                 <Button
@@ -162,12 +162,12 @@ export default function KioskPage() {
           {step === "service" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("welcome")} className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setStep("welcome")} className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">What service?</h2>
-                  <p className="text-sm text-gray-400">Pick the service you want</p>
+                  <h2 className="text-2xl font-bold text-gray-900">What service?</h2>
+                  <p className="text-sm text-gray-500">Pick the service you want</p>
                 </div>
               </div>
 
@@ -176,27 +176,27 @@ export default function KioskPage() {
                   <KioskButton
                     key={svc.id}
                     onClick={() => { setData(d => ({ ...d, service: svc })); setStep("barber"); }}
-                    className={data.service?.id === svc.id ? "border-gold bg-gold/10" : ""}
+                    className={data.service?.id === svc.id ? "border-black bg-black/5" : ""}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold text-lg">{svc.name}</p>
-                        <p className="text-gray-400 text-sm mt-0.5">{svc.duration_minutes} min</p>
+                        <p className="text-gray-900 font-semibold text-lg">{svc.name}</p>
+                        <p className="text-gray-500 text-sm mt-0.5">{svc.duration_minutes} min</p>
                       </div>
-                      <p className="text-gold font-bold text-xl">${svc.price}</p>
+                      <p className="text-black font-bold text-xl">${svc.price}</p>
                     </div>
                   </KioskButton>
                 ))}
                 {services.length === 0 && (
                   <KioskButton onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}>
-                    <p className="text-white font-semibold text-lg">Haircut / General Service</p>
+                    <p className="text-gray-900 font-semibold text-lg">Haircut / General Service</p>
                   </KioskButton>
                 )}
               </div>
 
               <button
                 onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}
-                className="w-full text-sm text-gray-500 hover:text-gray-300 py-2 transition-colors"
+                className="w-full text-sm text-gray-500 hover:text-gray-600 py-2 transition-colors"
               >
                 Skip — I'll decide with my barber
               </button>
@@ -207,27 +207,27 @@ export default function KioskPage() {
           {step === "barber" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("service")} className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setStep("service")} className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Any preference?</h2>
-                  <p className="text-sm text-gray-400">Choose a barber or go with the next available</p>
+                  <h2 className="text-2xl font-bold text-gray-900">Any preference?</h2>
+                  <p className="text-sm text-gray-500">Choose a barber or go with the next available</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <KioskButton
                   onClick={() => { setData(d => ({ ...d, barber: null })); setStep("info"); }}
-                  className={!data.barber ? "border-gold bg-gold/10" : ""}
+                  className={!data.barber ? "border-black bg-black/5" : ""}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gold/15 border border-gold/20 flex items-center justify-center">
-                      <Scissors size={20} className="text-gold" />
+                    <div className="w-12 h-12 rounded-2xl bg-black/10 border border-gray-300 flex items-center justify-center">
+                      <Scissors size={20} className="text-black" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold text-lg">Next Available</p>
-                      <p className="text-gray-400 text-sm">Fastest wait time</p>
+                      <p className="text-gray-900 font-semibold text-lg">Next Available</p>
+                      <p className="text-gray-500 text-sm">Fastest wait time</p>
                     </div>
                   </div>
                 </KioskButton>
@@ -236,16 +236,16 @@ export default function KioskPage() {
                   <KioskButton
                     key={barber.id}
                     onClick={() => { setData(d => ({ ...d, barber })); setStep("info"); }}
-                    className={data.barber?.id === barber.id ? "border-gold bg-gold/10" : ""}
+                    className={data.barber?.id === barber.id ? "border-black bg-black/5" : ""}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-xl font-bold text-gold">
+                      <div className="w-12 h-12 rounded-2xl bg-gray-50 shadow-sm border border-gray-200 flex items-center justify-center text-xl font-bold text-black">
                         {barber.name.charAt(0)}
                       </div>
                       <div>
-                        <p className="text-white font-semibold text-lg">{barber.name}</p>
+                        <p className="text-gray-900 font-semibold text-lg">{barber.name}</p>
                         {barber.rating > 0 && (
-                          <p className="text-gray-400 text-sm">★ {barber.rating.toFixed(1)} rating</p>
+                          <p className="text-gray-500 text-sm">★ {barber.rating.toFixed(1)} rating</p>
                         )}
                       </div>
                     </div>
@@ -259,36 +259,36 @@ export default function KioskPage() {
           {step === "info" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("barber")} className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setStep("barber")} className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Your info</h2>
-                  <p className="text-sm text-gray-400">So we can call you when it's your turn</p>
+                  <h2 className="text-2xl font-bold text-gray-900">Your info</h2>
+                  <p className="text-sm text-gray-500">So we can call you when it's your turn</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-2">Your Name *</label>
+                  <label className="text-sm font-medium text-gray-600 block mb-2">Your Name *</label>
                   <input
                     type="text"
                     value={data.name}
                     onChange={e => setData(d => ({ ...d, name: e.target.value }))}
                     placeholder="First name is fine"
-                    className="w-full rounded-2xl border-2 border-border bg-surface-raised px-5 py-4 text-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-gold/50"
+                    className="w-full rounded-2xl border-2 border-gray-200 bg-gray-100 px-5 py-4 text-lg text-gray-900 placeholder:text-gray-600 focus:outline-none focus:border-black"
                     autoComplete="off"
                     autoCorrect="off"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-2">Phone (optional — for text when ready)</label>
+                  <label className="text-sm font-medium text-gray-600 block mb-2">Phone (optional — for text when ready)</label>
                   <input
                     type="tel"
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
-                    className="w-full rounded-2xl border-2 border-border bg-surface-raised px-5 py-4 text-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-gold/50"
+                    className="w-full rounded-2xl border-2 border-gray-200 bg-gray-100 px-5 py-4 text-lg text-gray-900 placeholder:text-gray-600 focus:outline-none focus:border-black"
                     autoComplete="off"
                   />
                 </div>
@@ -308,33 +308,33 @@ export default function KioskPage() {
           {step === "confirm" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("info")} className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setStep("info")} className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Confirm Check-In</h2>
-                  <p className="text-sm text-gray-400">Review and join the waitlist</p>
+                  <h2 className="text-2xl font-bold text-gray-900">Confirm Check-In</h2>
+                  <p className="text-sm text-gray-500">Review and join the waitlist</p>
                 </div>
               </div>
 
-              <div className="bg-surface-raised border border-border rounded-2xl p-6 space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-gray-400">Name</span>
-                  <span className="text-white font-semibold">{data.name}</span>
+              <div className="bg-gray-100 border border-gray-200 rounded-2xl p-6 space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-gray-500">Name</span>
+                  <span className="text-gray-900 font-semibold">{data.name}</span>
                 </div>
                 {data.phone && (
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-gray-400">Phone</span>
-                    <span className="text-white">{data.phone}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-gray-500">Phone</span>
+                    <span className="text-gray-900">{data.phone}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-gray-400">Service</span>
-                  <span className="text-white">{data.service?.name ?? "To be decided"}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-gray-500">Service</span>
+                  <span className="text-gray-900">{data.service?.name ?? "To be decided"}</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-400">Barber</span>
-                  <span className="text-white">{data.barber?.name ?? "Next Available"}</span>
+                  <span className="text-gray-500">Barber</span>
+                  <span className="text-gray-900">{data.barber?.name ?? "Next Available"}</span>
                 </div>
               </div>
 
@@ -357,27 +357,27 @@ export default function KioskPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-3xl font-black text-white">You're checked in!</h2>
-                <p className="text-xl text-gray-400 mt-2">Welcome, {data.name}</p>
+                <h2 className="text-3xl font-black text-gray-900">You're checked in!</h2>
+                <p className="text-xl text-gray-500 mt-2">Welcome, {data.name}</p>
               </div>
-              <div className="bg-surface-raised border border-border rounded-2xl p-6 space-y-4">
+              <div className="bg-gray-100 border border-gray-200 rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Your position</span>
-                  <span className="text-3xl font-black text-gold">#{queuePosition}</span>
+                  <span className="text-gray-500">Your position</span>
+                  <span className="text-3xl font-black text-black">#{queuePosition}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Est. wait time</span>
-                  <span className="text-white font-semibold">~{estimatedWait} min</span>
+                  <span className="text-gray-500">Est. wait time</span>
+                  <span className="text-gray-900 font-semibold">~{estimatedWait} min</span>
                 </div>
                 {data.barber && (
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Barber</span>
-                    <span className="text-white">{data.barber.name}</span>
+                    <span className="text-gray-500">Barber</span>
+                    <span className="text-gray-900">{data.barber.name}</span>
                   </div>
                 )}
               </div>
               <div className="space-y-2">
-                <p className="text-gray-400">Have a seat — we'll call your name when it's your turn.</p>
+                <p className="text-gray-500">Have a seat — we'll call your name when it's your turn.</p>
                 {data.phone && <p className="text-sm text-gray-500">We'll also text you at {data.phone}.</p>}
               </div>
               <p className="text-xs text-gray-600">This screen resets in 8 seconds…</p>
@@ -389,7 +389,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-gray-700">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
+        <p className="text-xs text-gray-400">Powered by <span className="text-black font-semibold">ClipWise</span></p>
       </div>
     </div>
   );

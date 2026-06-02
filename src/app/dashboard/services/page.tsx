@@ -8,20 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import type { Service, InventoryItem } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
   Hair: "text-blue-400 bg-blue-500/20 border-blue-500/30",
-  Beard: "text-gold bg-gold/20 border-gold/30",
+  Beard: "text-black bg-black/10 border-black",
   Packages: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
 };
 
@@ -174,8 +175,8 @@ export default function ServicesPage() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">✂️</p>
-        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-gray-400">Services will appear here once your shop is set up.</p>
+        <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
+        <p className="text-sm text-gray-500">Services will appear here once your shop is set up.</p>
       </div>
     );
   }
@@ -186,8 +187,8 @@ export default function ServicesPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Services & Inventory</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage your menu and stock</p>
+          <h1 className="text-2xl font-bold text-gray-900">Services & Inventory</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your menu and stock</p>
         </div>
         <Button onClick={() => {
           setEditService(null); setNewSvc(BLANK_SVC);
@@ -200,11 +201,11 @@ export default function ServicesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-gray-200">
         {(["services","inventory"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white")}>
+              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900")}>
             {t} {t === "inventory" && lowStock.length > 0 && (
               <span className="ml-1 text-xs bg-red-500/20 text-red-400 px-1.5 rounded-full">{lowStock.length} low</span>
             )}
@@ -215,7 +216,7 @@ export default function ServicesPage() {
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-36 rounded-2xl bg-surface-raised animate-pulse" />
+            <div key={i} className="h-36 rounded-2xl bg-gray-100 animate-pulse" />
           ))}
         </div>
       ) : tab === "services" ? (
@@ -223,7 +224,7 @@ export default function ServicesPage() {
           {services.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">✂️</p>
-              <p className="text-gray-400 text-sm">No services yet. Add your first service above.</p>
+              <p className="text-gray-500 text-sm">No services yet. Add your first service above.</p>
             </div>
           ) : categories.map(cat => {
             const catServices = grouped[cat] || [];
@@ -231,8 +232,8 @@ export default function ServicesPage() {
             return (
               <div key={cat}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-gray-300">{cat}</h2>
-                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-gray-400 bg-gray-500/20 border-gray-500/30")}>
+                  <h2 className="text-sm font-semibold text-gray-600">{cat}</h2>
+                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-gray-500 bg-gray-500/20 border-gray-500/30")}>
                     {catServices.length}
                   </span>
                 </div>
@@ -241,27 +242,24 @@ export default function ServicesPage() {
                     <Card key={svc.id} className={cn("relative", !svc.is_active && "opacity-60")}>
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="text-white font-semibold">{svc.name}</h3>
+                          <h3 className="text-gray-900 font-semibold">{svc.name}</h3>
                           <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border mt-1", CATEGORY_COLORS[svc.category] ?? "")}>
                             {svc.category}
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold text-gold">{formatCurrency(svc.price)}</p>
-                          <p className="text-xs text-gray-400">{svc.duration_minutes} min</p>
+                          <p className="text-xl font-bold text-black">{formatCurrency(svc.price)}</p>
+                          <p className="text-xs text-gray-500">{svc.duration_minutes} min</p>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-400 mb-2">{svc.description}</p>
+                      <p className="text-xs text-gray-500 mb-2">{svc.description}</p>
                       {svc.deposit_required && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5 mb-3">
+                        <span className="inline-flex items-center gap-1 text-xs bg-black/10 border border-black text-black rounded-full px-2 py-0.5 mb-3">
                           💳 ${svc.deposit_amount} deposit required
                         </span>
                       )}
                       <div className="flex items-center justify-between">
-                        <button onClick={() => toggleServiceActive(svc)}
-                          className={cn("relative w-10 h-5 rounded-full transition-colors", svc.is_active ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
-                          <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", svc.is_active ? "left-[22px]" : "left-0.5")} />
-                        </button>
+                        <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditService(svc)}>Edit</Button>
                           <Button variant="danger" size="sm" onClick={() => setDeleteConfirm(svc.id)}>Delete</Button>
@@ -278,39 +276,39 @@ export default function ServicesPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <Card className="py-4 px-5">
-              <p className="text-xs text-gray-400">Total Products</p>
-              <p className="text-2xl font-bold text-white mt-1">{inventory.length}</p>
+              <p className="text-xs text-gray-500">Total Products</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{inventory.length}</p>
             </Card>
             <Card className="py-4 px-5">
-              <p className="text-xs text-gray-400">Low Stock</p>
+              <p className="text-xs text-gray-500">Low Stock</p>
               <p className="text-2xl font-bold text-red-400 mt-1">{lowStock.length}</p>
             </Card>
             <Card className="py-4 px-5">
-              <p className="text-xs text-gray-400">Total Value</p>
-              <p className="text-2xl font-bold text-gold mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
+              <p className="text-xs text-gray-500">Total Value</p>
+              <p className="text-2xl font-bold text-black mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
             </Card>
           </div>
 
           {lowStock.length > 0 && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
               <p className="text-sm font-semibold text-red-400 mb-1">Low Stock Alert</p>
-              <p className="text-xs text-gray-400">{lowStock.map(i => i.name).join(", ")} need restocking</p>
+              <p className="text-xs text-gray-500">{lowStock.map(i => i.name).join(", ")} need restocking</p>
             </div>
           )}
 
           {inventory.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">📦</p>
-              <p className="text-gray-400 text-sm">No products yet. Add your first product above.</p>
+              <p className="text-gray-500 text-sm">No products yet. Add your first product above.</p>
             </div>
           ) : (
             <Card className="p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-border">
+                  <thead className="border-b border-gray-200">
                     <tr>
                       {["Product","Category","Retail","Cost","Margin","Stock","Status","Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-gray-400 px-4 py-3">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-gray-500 px-4 py-3">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -318,13 +316,13 @@ export default function ServicesPage() {
                     {inventory.map(item => {
                       const isLow = item.quantity <= item.low_stock_threshold;
                       return (
-                        <tr key={item.id} className="border-b border-border/50 hover:bg-surface-raised/30">
-                          <td className="px-4 py-3 text-sm font-medium text-white">{item.name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-400">{item.category}</td>
-                          <td className="px-4 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-400">{formatCurrency(item.cost_price ?? 0)}</td>
+                        <tr key={item.id} className="border-b border-gray-200/50 hover:bg-gray-100/30">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{item.category}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.price)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{formatCurrency(item.cost_price ?? 0)}</td>
                           <td className="px-4 py-3 text-sm text-emerald-400">{margin(item)}%</td>
-                          <td className="px-4 py-3 text-sm text-white">{item.quantity}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
                           <td className="px-4 py-3">
                             <Badge variant={isLow ? "danger" : "success"}>{isLow ? "Low Stock" : "OK"}</Badge>
                           </td>
@@ -350,10 +348,10 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowServiceModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">{editService ? "Edit Service" : "Add Service"}</h2>
-                <button onClick={() => setShowServiceModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">{editService ? "Edit Service" : "Add Service"}</h2>
+                <button onClick={() => setShowServiceModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
               <Input label="Service Name" value={newSvc.name} onChange={e => setNewSvc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Skin Fade" />
               <div className="grid grid-cols-2 gap-3">
@@ -367,18 +365,12 @@ export default function ServicesPage() {
               <Textarea label="Description" value={newSvc.description} onChange={e => setNewSvc(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Brief description..." />
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setNewSvc(p => ({ ...p, is_active: !p.is_active }))}
-                    className={cn("relative w-10 h-5 rounded-full transition-colors", newSvc.is_active ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
-                    <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", newSvc.is_active ? "left-[22px]" : "left-0.5")} />
-                  </button>
-                  <span className="text-sm text-gray-300">Active</span>
+                  <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
+                  <span className="text-sm text-gray-600">Active</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setNewSvc(p => ({ ...p, deposit_required: !p.deposit_required }))}
-                    className={cn("relative w-10 h-5 rounded-full transition-colors", newSvc.deposit_required ? "bg-gold" : "bg-surface-raised border border-border")}>
-                    <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", newSvc.deposit_required ? "left-[22px]" : "left-0.5")} />
-                  </button>
-                  <span className="text-sm text-gray-300">Require deposit</span>
+                  <Switch checked={!!newSvc.deposit_required} onChange={v => setNewSvc(p => ({ ...p, deposit_required: v }))} />
+                  <span className="text-sm text-gray-600">Require deposit</span>
                 </div>
                 {newSvc.deposit_required && (
                   <Input label="Deposit Amount ($)" type="number" value={newSvc.deposit_amount} onChange={e => setNewSvc(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="e.g. 20" />
@@ -398,10 +390,10 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowInvModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">{editInv ? "Edit Product" : "Add Product"}</h2>
-                <button onClick={() => setShowInvModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">{editInv ? "Edit Product" : "Add Product"}</h2>
+                <button onClick={() => setShowInvModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
               <Input label="Product Name" value={newInv.name} onChange={e => setNewInv(p => ({ ...p, name: e.target.value }))} placeholder="Gold Label Pomade" />
               <Input label="Category" value={newInv.category} onChange={e => setNewInv(p => ({ ...p, category: e.target.value }))} placeholder="Styling" />
@@ -425,9 +417,9 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setDeleteConfirm(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
-              <p className="text-lg font-bold text-white">Delete Service?</p>
-              <p className="text-sm text-gray-400">This action cannot be undone.</p>
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
+              <p className="text-lg font-bold text-gray-900">Delete Service?</p>
+              <p className="text-sm text-gray-500">This action cannot be undone.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
                 <Button variant="danger" className="flex-1" onClick={() => deleteService(deleteConfirm)}>Delete</Button>

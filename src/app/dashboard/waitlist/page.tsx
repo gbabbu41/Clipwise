@@ -11,9 +11,9 @@ import type { WaitlistEntry, Barber, Service } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -124,11 +124,11 @@ export default function WaitlistPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Walk-In Waitlist</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage today's walk-in queue</p>
+          <h1 className="text-2xl font-bold text-gray-900">Walk-In Waitlist</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage today's walk-in queue</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={load} className="text-gray-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-surface-raised">
+          <button onClick={load} className="text-gray-500 hover:text-gray-900 transition-colors p-2 rounded-xl hover:bg-gray-100">
             <RefreshCw size={18} />
           </button>
           <Button onClick={() => setShowAdd(true)}>
@@ -140,19 +140,19 @@ export default function WaitlistPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Currently Waiting</p>
-          <p className="text-2xl font-bold text-white mt-1">{active.filter(e => e.status === "waiting").length}</p>
+          <p className="text-xs text-gray-500">Currently Waiting</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{active.filter(e => e.status === "waiting").length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Being Served</p>
-          <p className="text-2xl font-bold text-gold mt-1">{active.filter(e => e.status === "called").length}</p>
+          <p className="text-xs text-gray-500">Being Served</p>
+          <p className="text-2xl font-bold text-black mt-1">{active.filter(e => e.status === "called").length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Avg Wait Time</p>
-          <p className="text-2xl font-bold text-white mt-1">{avgWait > 0 ? `${avgWait}m` : "—"}</p>
+          <p className="text-xs text-gray-500">Avg Wait Time</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{avgWait > 0 ? `${avgWait}m` : "—"}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-400">Served Today</p>
+          <p className="text-xs text-gray-500">Served Today</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{history.filter(e => e.status === "served").length}</p>
         </Card>
       </div>
@@ -169,7 +169,7 @@ export default function WaitlistPage() {
           ) : active.length === 0 ? (
             <div className="py-16 text-center">
               <Users size={40} className="mx-auto mb-4 text-gray-600" />
-              <p className="text-white font-medium">Queue is empty</p>
+              <p className="text-gray-900 font-medium">Queue is empty</p>
               <p className="text-sm text-gray-500 mt-1">Add a walk-in client to get started</p>
               <Button className="mt-4" onClick={() => setShowAdd(true)}>
                 <Plus size={16} /> Add Walk-In
@@ -185,20 +185,20 @@ export default function WaitlistPage() {
                 return (
                   <div key={entry.id} className={cn(
                     "flex items-start justify-between gap-4 p-4 rounded-2xl border transition-colors",
-                    entry.status === "called" ? "bg-gold/5 border-gold/30" : "bg-surface-raised border-border",
+                    entry.status === "called" ? "bg-black/5 border-black" : "bg-gray-100 border-gray-200",
                     isLong && entry.status === "waiting" && "border-orange-500/30"
                   )}>
                     {/* Position */}
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0",
-                        entry.status === "called" ? "bg-gold/20 text-gold" : "bg-surface text-gray-300"
+                        entry.status === "called" ? "bg-black/10 text-black" : "bg-gray-50 shadow-sm text-gray-600"
                       )}>
                         {idx + 1}
                       </div>
                       <div>
-                        <p className="text-white font-semibold">{entry.client_name}</p>
-                        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-400">
+                        <p className="text-gray-900 font-semibold">{entry.client_name}</p>
+                        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
                           {entry.client_phone && (
                             <span className="flex items-center gap-1"><Phone size={11} />{entry.client_phone}</span>
                           )}
@@ -255,16 +255,16 @@ export default function WaitlistPage() {
               className="flex items-center justify-between w-full"
             >
               <CardTitle>Today's History ({history.length})</CardTitle>
-              <span className="text-xs text-gray-400">{showHistory ? "Hide" : "Show"}</span>
+              <span className="text-xs text-gray-500">{showHistory ? "Hide" : "Show"}</span>
             </button>
           </CardHeader>
           {showHistory && (
             <CardContent>
               <div className="space-y-2">
                 {history.map(entry => (
-                  <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-border/50 opacity-60">
+                  <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-gray-200/50 opacity-60">
                     <div>
-                      <p className="text-sm text-white">{entry.client_name}</p>
+                      <p className="text-sm text-gray-900">{entry.client_name}</p>
                       {entry.client_phone && <p className="text-xs text-gray-500">{entry.client_phone}</p>}
                     </div>
                     <Badge variant={STATUS_CONFIG[entry.status].variant} className="text-xs">
@@ -283,46 +283,46 @@ export default function WaitlistPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAdd(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add Walk-In</h2>
-                <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Add Walk-In</h2>
+                <button onClick={() => setShowAdd(false)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400">Client Name *</label>
+                  <label className="text-xs text-gray-500">Client Name *</label>
                   <input
                     value={form.client_name}
                     onChange={e => setForm(p => ({ ...p, client_name: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addEntry()}
                     placeholder="John Smith"
                     autoFocus
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
+                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400">Phone (optional)</label>
+                  <label className="text-xs text-gray-500">Phone (optional)</label>
                   <input
                     value={form.client_phone}
                     onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
                     placeholder="(416) 555-0123"
                     type="tel"
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
+                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-gray-400">Preferred Barber</label>
+                    <label className="text-xs text-gray-500">Preferred Barber</label>
                     <select value={form.barber_id} onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50">
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black">
                       <option value="">Any</option>
                       {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-gray-400">Service</label>
+                    <label className="text-xs text-gray-500">Service</label>
                     <select value={form.service_id} onChange={e => setForm(p => ({ ...p, service_id: e.target.value }))}
-                      className="w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50">
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black">
                       <option value="">Not selected</option>
                       {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>

@@ -205,17 +205,17 @@ export const mockHourlyRevenue = [
 ];
 
 export const mockRevenueByService = [
-  { name: "Skin Fade", value: 1260, color: "#C9A84C" },
-  { name: "Full Service", value: 1100, color: "#E4C97A" },
-  { name: "Haircut", value: 780, color: "#A07830" },
-  { name: "Beard Trim", value: 420, color: "#8B6914" },
-  { name: "Kids Cut", value: 240, color: "#6B4F10" },
-  { name: "Line Up", value: 180, color: "#4A3508" },
+  { name: "Skin Fade", value: 1260, color: "#F5F0E6" },
+  { name: "Full Service", value: 1100, color: "#FFFFFF" },
+  { name: "Haircut", value: 780, color: "#D4CCB8" },
+  { name: "Beard Trim", value: 420, color: "#B8AC8C" },
+  { name: "Kids Cut", value: 240, color: "#928773" },
+  { name: "Line Up", value: 180, color: "#6B6354" },
 ];
 
 export const mockAppointmentStatuses = [
   { name: "Completed", value: 68, color: "#10B981" },
-  { name: "Confirmed", value: 18, color: "#C9A84C" },
+  { name: "Confirmed", value: 18, color: "#F5F0E6" },
   { name: "Pending", value: 8, color: "#F59E0B" },
   { name: "Cancelled", value: 4, color: "#EF4444" },
   { name: "No-Show", value: 2, color: "#F97316" },

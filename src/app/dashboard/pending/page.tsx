@@ -18,8 +18,8 @@ export default function PendingPage() {
   const statusConfig = {
     pending: {
       icon: Clock,
-      color: "text-yellow-400",
-      bg: "bg-yellow-500/10 border-yellow-500/20",
+      color: "text-orange-400",
+      bg: "bg-orange-500/10 border-orange-500/20",
       title: "Awaiting Approval",
       desc: "Your shop is being reviewed by the ClipWise team. This usually takes less than 24 hours.",
     },
@@ -43,7 +43,7 @@ export default function PendingPage() {
   const Icon = config?.icon ?? Clock;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <Logo size="md" className="justify-center mb-8" />
 
@@ -51,13 +51,13 @@ export default function PendingPage() {
           <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", config?.bg)}>
             <Icon size={32} className={config?.color} />
           </div>
-          <h1 className="text-xl font-bold text-white mb-2">{config?.title}</h1>
-          <p className="text-gray-400 text-sm leading-relaxed">{config?.desc}</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{config?.title}</h1>
+          <p className="text-gray-500 text-sm leading-relaxed">{config?.desc}</p>
         </div>
 
         {shop?.status === "pending" && (
-          <div className="bg-surface border border-border rounded-2xl p-6 text-left mb-6 space-y-3">
-            <p className="text-sm font-semibold text-white">What happens next?</p>
+          <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 text-left mb-6 space-y-3">
+            <p className="text-sm font-semibold text-gray-900">What happens next?</p>
             {[
               { step: "1", text: "Our team reviews your shop details", done: true },
               { step: "2", text: "You receive an email confirmation", done: false },
@@ -66,10 +66,10 @@ export default function PendingPage() {
             ].map(({ step, text, done }) => (
               <div key={step} className="flex items-center gap-3">
                 <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
-                  done ? "bg-gold text-black" : "bg-surface-raised text-gray-500")}>
+                  done ? "bg-gold text-black" : "bg-gray-100 text-gray-500")}>
                   {done ? <CheckCircle size={14} /> : step}
                 </div>
-                <span className={cn("text-sm", done ? "text-white" : "text-gray-500")}>{text}</span>
+                <span className={cn("text-sm", done ? "text-gray-900" : "text-gray-500")}>{text}</span>
               </div>
             ))}
           </div>

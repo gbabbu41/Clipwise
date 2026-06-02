@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronRight, ChevronLeft, Plus, Trash2, Copy, ExternalLink, AlertCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { generate24hSlots, cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ export default function OnboardingPage() {
   const confetti = Array.from({ length: 40 }, (_, i) => ({
     left: `${(i * 2.5) % 100}%`,
     delay: `${(i * 0.05) % 2}s`,
-    color: ["#C9A84C", "#E4C97A", "#10B981", "#3B82F6", "#A855F7", "#EF4444"][i % 6],
+    color: ["#F5F0E6", "#F9FAFB", "#10B981", "#3B82F6", "#A855F7", "#EF4444"][i % 6],
     size: `${6 + (i % 6)}px`,
     duration: `${1.5 + (i % 10) * 0.1}s`,
   }));
@@ -375,10 +376,10 @@ export default function OnboardingPage() {
               {DAYS.map((day, i) => (
                 <div key={day} className={cn("p-3 rounded-xl border transition-all", hours[i].open ? "border-gold/20 bg-gold/5" : "border-border bg-surface-raised")}>
                   <div className="flex items-center gap-3 mb-2">
-                    <button onClick={() => setHours(hours.map((h, j) => j === i ? { ...h, open: !h.open } : h))}
-                      className={cn("relative w-10 h-5 rounded-full transition-colors flex-shrink-0", hours[i].open ? "bg-gold" : "bg-surface border border-border")}>
-                      <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", hours[i].open ? "left-5" : "left-0.5")} />
-                    </button>
+                    <Switch
+                      checked={!!hours[i].open}
+                      onChange={v => setHours(hours.map((h, j) => j === i ? { ...h, open: v } : h))}
+                    />
                     <span className="text-sm font-medium text-white w-24">{day}</span>
                     {!hours[i].open && <span className="text-xs text-gray-500">Closed</span>}
                   </div>

@@ -6,16 +6,23 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // `src/lib/utils.ts` returns Tailwind class strings (getStatusColor,
+    // getTagColor). Without scanning lib/, the JIT skips those classes and
+    // the rendered markup falls through to body color (#FFFFFF = white).
+    "./src/lib/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        // Brand accent slot — value moved from cream → pure white. The token
+        // name stays `gold` so every `bg-gold`, `text-gold`, `border-gold/N`,
+        // `bg-gold/15`, etc. across the codebase keeps working unmodified.
         gold: {
-          DEFAULT: "#C9A84C",
-          light: "#E4C97A",
-          dark: "#A07830",
+          DEFAULT: "#FFFFFF",
+          light: "#FFFFFF",
+          dark: "#D4D4D4",
         },
         surface: {
           DEFAULT: "#1C1C1E",
@@ -23,12 +30,16 @@ const config: Config = {
           overlay: "#3A3A3C",
         },
         border: {
-          DEFAULT: "#2C2C2E",
-          gold: "#C9A84C40",
+          DEFAULT: "rgba(255,255,255,0.08)",
+          gold: "rgba(255,255,255,0.25)",
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        // `font-sans` (Tailwind's default) now resolves to Geist via
+        // the CSS variable wired up in layout.tsx. Inputs, buttons,
+        // dropdowns, and body all pick it up automatically.
+        sans: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
+        heading: ["var(--font-heading)", "Inter", "system-ui", "sans-serif"],
       },
       animation: {
         "fade-in": "fadeIn 0.3s ease-in-out",
@@ -50,8 +61,8 @@ const config: Config = {
           "100%": { backgroundPosition: "1000px 0" },
         },
         pulseGold: {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(201, 168, 76, 0.4)" },
-          "50%": { boxShadow: "0 0 0 8px rgba(201, 168, 76, 0)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(255, 255, 255, 0.4)" },
+          "50%": { boxShadow: "0 0 0 8px rgba(255, 255, 255, 0)" },
         },
       },
     },

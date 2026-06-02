@@ -45,6 +45,9 @@ export interface Shop {
   rejection_reason?: string;
   notification_templates?: Record<string, { subject: string; body: string }>;
   google_place_id?: string;
+  /** When true, customers see a "Pay in person at the shop" option at
+   *  booking time. When false, only online Stripe checkout is offered. */
+  allow_pay_in_person?: boolean;
   created_at: string;
 }
 

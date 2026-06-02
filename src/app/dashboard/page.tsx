@@ -3,10 +3,11 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, CreditCard,
-  ChevronRight, AlertCircle, ChevronLeft, TrendingUp, UserX,
+  ChevronRight, AlertCircle, TrendingUp, UserX,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -16,35 +17,88 @@ import type { AppointmentWithDetails, Barber, Notification } from "@/lib/databas
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-surface-raised rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon: Icon, color = "gold" }: {
-  label: string; value: string; sub: string; icon: React.ElementType; color?: string;
+function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominent = false }: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ElementType;
+  color?: string;
+  // When the card represents zero/empty data, pass a `cta` and the sub line
+  // is replaced by a small gold link nudging the owner toward a useful next
+  // step (e.g. "Book your first appointment →").
+  cta?: { text: string; href: string };
+  // The two headline KPIs (Total Appointments + Revenue) render with extra
+  // padding, a larger value, and a subtle gold border so they read as primary.
+  prominent?: boolean;
 }) {
-  const colorMap: Record<string, string> = { gold: "bg-gold text-gold bg-gold/15", green: "bg-emerald-500 text-emerald-400 bg-emerald-500/15", blue: "bg-blue-500 text-blue-400 bg-blue-500/15", purple: "bg-purple-500 text-purple-400 bg-purple-500/15", orange: "bg-orange-500 text-orange-400 bg-orange-500/15" };
-  const [bg, text, iconBg] = colorMap[color]?.split(" ") ?? colorMap.gold.split(" ");
+  // On the light dashboard surface the icon chip is the only colored thing
+  // on the card. Two-tone tinted background overlay was a dark-mode device —
+  // on white it just looks like a misprint. Dropped entirely.
+  const iconChipByColor: Record<string, string> = {
+    gold: "bg-gray-100 text-gray-700",
+    green: "bg-emerald-50 text-emerald-600",
+    blue: "bg-blue-50 text-blue-600",
+    purple: "bg-purple-50 text-purple-600",
+    orange: "bg-orange-50 text-orange-600",
+  };
+  const iconChip = iconChipByColor[color] ?? iconChipByColor.gold;
   return (
-    <Card className="relative overflow-hidden">
-      <div className={cn("absolute inset-0 opacity-5", bg)} />
-      <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{label}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
-          <p className="text-xs text-gray-500 mt-1">{sub}</p>
+    <Card
+      className={cn(
+        prominent ? "p-5 sm:p-6" : "p-4",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={cn("text-gray-500 font-medium uppercase tracking-wider", prominent ? "text-[11px]" : "text-xs")}>
+            {label}
+          </p>
+          <p
+            className={cn(
+              "font-bold text-gray-900 mt-1.5",
+              prominent ? "text-3xl sm:text-4xl tracking-tight" : "text-xl",
+            )}
+          >
+            {value}
+          </p>
+          {cta ? (
+            <Link
+              href={cta.href}
+              className={cn(
+                "text-black hover:text-black/80 hover:underline mt-2 inline-flex items-center gap-0.5",
+                prominent ? "text-sm" : "text-xs",
+              )}
+            >
+              {cta.text}
+              <ChevronRight size={prominent ? 13 : 11} />
+            </Link>
+          ) : (
+            <p className={cn("text-gray-500 mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
+          )}
         </div>
-        <div className={cn("p-2.5 rounded-xl", iconBg, text)}><Icon size={20} /></div>
+        <div
+          className={cn(
+            "rounded-xl flex-shrink-0",
+            iconChip,
+            prominent ? "p-3" : "p-2",
+          )}
+        >
+          <Icon size={prominent ? 22 : 18} />
+        </div>
       </div>
     </Card>
   );
@@ -54,9 +108,9 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold" }: {
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (active && payload?.length) {
     return (
-      <div className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-xs">
-        <p className="text-gray-400">{label}</p>
-        <p className="text-gold font-semibold">{formatCurrency(payload[0].value)}</p>
+      <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs">
+        <p className="text-gray-500">{label}</p>
+        <p className="text-black font-semibold">{formatCurrency(payload[0].value)}</p>
       </div>
     );
   }
@@ -70,6 +124,9 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilterKey>("today");
   const [customStart, setCustomStart] = useState(formatDateForDb(new Date()));
   const [customEnd, setCustomEnd] = useState(formatDateForDb(new Date()));
+  // Date-range pill next to the dropdown is clickable — opens a calendar
+  // popover for picking a single specific date.
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // ── Calendar state ──────────────────────────────────────────────────────────
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -79,6 +136,11 @@ export default function DashboardPage() {
   // ── Data state ──────────────────────────────────────────────────────────────
   const [loadingAppts, setLoadingAppts] = useState(true);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
+  // Appointments fetched specifically for the calendar-selected date, so
+  // clicking a day outside the active dateFilter range still surfaces the
+  // bookings underneath (the main `appointments` array is bound to dateFilter).
+  const [selectedDayAppts, setSelectedDayAppts] = useState<AppointmentWithDetails[]>([]);
+  const [loadingSelectedDay, setLoadingSelectedDay] = useState(false);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
@@ -220,10 +282,32 @@ export default function DashboardPage() {
   useEffect(() => { loadSideData(); }, [loadSideData]);
   useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
 
+  // ── Load appointments for the calendar-selected date ───────────────────────
+  // Independent of the main dateFilter — clicking June 15 should always
+  // surface June 15's bookings underneath, even if the filter is "today".
+  useEffect(() => {
+    if (!shop || !selectedCalDate) { setSelectedDayAppts([]); return; }
+    setLoadingSelectedDay(true);
+    let q = supabase
+      .from("appointments")
+      .select("*, barbers(id, name), services(id, name, price, category)")
+      .eq("shop_id", shop.id)
+      .eq("date", selectedCalDate)
+      .order("time_slot", { ascending: true });
+    if (profile?.role === "barber" && myBarberId) {
+      q = q.eq("barber_id", myBarberId);
+    }
+    q.then(({ data }) => {
+      setSelectedDayAppts((data ?? []) as AppointmentWithDetails[]);
+      setLoadingSelectedDay(false);
+    });
+  }, [shop, selectedCalDate, profile, myBarberId]);
+
   // ── Computed stats ──────────────────────────────────────────────────────────
-  const displayAppts = selectedCalDate
-    ? appointments.filter((a) => a.date === selectedCalDate)
-    : appointments;
+  // When the user clicks a day in the calendar we serve the date-specific
+  // fetch (selectedDayAppts) so the picked date's bookings always render,
+  // independent of the page-level dateFilter.
+  const displayAppts = selectedCalDate ? selectedDayAppts : appointments;
   const todayStr = formatDateForDb(new Date());
   const todayAppts = appointments.filter((a) => a.date === todayStr);
 
@@ -244,11 +328,8 @@ export default function DashboardPage() {
       revenue: rev,
     }));
 
-  // ── Calendar logic ──────────────────────────────────────────────────────────
-  const firstDow = new Date(calYear, calMonth, 1).getDay();
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const calDays: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-  const calDateStr = (d: number) => `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  // (Calendar rendering is now handled by the shared <CalendarPicker>; we
+  // only keep apptCounts keyed by YYYY-MM-DD for the day-badge slot.)
 
   const filterDateRange = getDateRange(dateFilter, customStart, customEnd);
 
@@ -256,10 +337,10 @@ export default function DashboardPage() {
   if (!loadingAppts && !shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-16 h-16 bg-gold/10 border border-gold/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Calendar size={28} className="text-gold" />
+        <div className="w-16 h-16 bg-black/5 border border-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Calendar size={28} className="text-black" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
           {profile?.role === "barber" ? "You're not linked to a shop yet" : "No shop found"}
         </h2>
         <p className="text-gray-500 text-sm max-w-sm mb-6">
@@ -285,12 +366,12 @@ export default function DashboardPage() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setNewBookingNotif(null)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-            <div className="bg-surface border border-gold/30 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
-              <div className="w-14 h-14 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center mx-auto mb-4">
-                <Calendar size={24} className="text-gold" />
+            <div className="bg-gray-50 shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
+              <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center mx-auto mb-4">
+                <Calendar size={24} className="text-black" />
               </div>
-              <h2 className="text-lg font-bold text-white mb-1">{newBookingNotif.title}</h2>
-              <p className="text-sm text-gray-400 mb-5">{newBookingNotif.message}</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">{newBookingNotif.title}</h2>
+              <p className="text-sm text-gray-500 mb-5">{newBookingNotif.message}</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setNewBookingNotif(null)}>Dismiss</Button>
                 <Link href="/dashboard/appointments" className="flex-1">
@@ -325,7 +406,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-gray-900">
             Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, {profile?.name?.split(" ")[0] ?? "there"}
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>
@@ -337,108 +418,175 @@ export default function DashboardPage() {
       </div>
 
       {/* Date Filter */}
-      <div className="flex flex-wrap gap-2 mb-6 items-center">
+      <div className="flex flex-wrap gap-2 mb-6 items-center relative">
         <select
           value={dateFilter}
           onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
-          className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50"
+          className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-black"
         >
-          {Object.entries(DATE_FILTER_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
+            // "Custom Range" was dual date inputs — replaced by the
+            // clickable calendar pill below for a single picked date.
+            .filter(([k]) => k !== "custom")
+            .map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        {dateFilter === "custom" && (
+        {/* Clickable date pill — opens a calendar popover. Collapses to a
+            single date when start === end (Today, Yesterday, a picked day);
+            shows the range with an em-dash otherwise. */}
+        <button
+          type="button"
+          onClick={() => setShowDatePicker(s => !s)}
+          className="text-xs text-gray-600 ml-1 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-200 hover:border-gray-400 hover:text-gray-900 transition-colors"
+        >
+          {filterDateRange[0] === filterDateRange[1]
+            ? filterDateRange[0]
+            : `${filterDateRange[0]} — ${filterDateRange[1]}`}
+        </button>
+        {showDatePicker && (
           <>
-            <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)}
-              className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
-            <span className="text-gray-500 text-sm">to</span>
-            <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)}
-              className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+            <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
+            <div className="absolute left-0 top-full mt-2 z-40">
+              <CalendarPicker
+                value={new Date(filterDateRange[0] + "T00:00:00")}
+                minDate={null}
+                onChange={(d) => {
+                  const ds = formatDateForDb(d);
+                  setCustomStart(ds);
+                  setCustomEnd(ds);
+                  setDateFilter("custom" as DateFilterKey);
+                  setSelectedCalDate(null);
+                  setShowDatePicker(false);
+                }}
+              />
+            </div>
           </>
         )}
-        <span className="text-xs text-gray-500 ml-1">{filterDateRange[0]} — {filterDateRange[1]}</span>
       </div>
 
       {/* Stats */}
       {loadingAppts ? (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+        <div className="mb-6 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <StatCard label="Total Appointments" value={String(appointments.length)} sub={`${completed.length} completed`} icon={Calendar} color="gold" />
-          <StatCard label="Revenue" value={formatCurrency(revenue)} sub="Completed bookings" icon={DollarSign} color="green" />
-          <StatCard label="New Clients" value={String(appointments.filter((a) => {
+        (() => {
+          const newClients = appointments.filter((a) => {
             const s = filterDateRange[0]; const e = filterDateRange[1];
             return a.created_at.slice(0, 10) >= s && a.created_at.slice(0, 10) <= e;
-          }).length)} sub="This period" icon={Users} color="blue" />
-          <StatCard label="Avg Ticket" value={formatCurrency(avgTicket)} sub="Per completed visit" icon={TrendingUp} color="purple" />
-          <StatCard label="No-Show Rate" value={`${noShowRate.toFixed(1)}%`} sub={`${noShows} no-shows`} icon={UserX} color="orange" />
-          <StatCard label="Avg Rating" value={avgRating != null ? `${avgRating}★` : "—"} sub={totalReviews > 0 ? `${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"} icon={Star} color="purple" />
-        </div>
+          }).length;
+          const hasAppts = appointments.length > 0;
+          const hasCompleted = completed.length > 0;
+          return (
+            <div className="mb-6 space-y-3">
+              {/* Primary KPIs — Total Appointments + Revenue.
+                  Prominent variant: taller cards, larger value, subtle gold border. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <StatCard
+                  label="Total Appointments"
+                  value={String(appointments.length)}
+                  sub={`${completed.length} completed`}
+                  icon={Calendar} color="gold"
+                  prominent
+                  cta={!hasAppts ? { text: "Book your first appointment", href: "/dashboard/appointments" } : undefined}
+                />
+                <StatCard
+                  label="Revenue"
+                  value={formatCurrency(revenue)}
+                  sub={hasCompleted ? "Completed bookings" : "No bookings yet"}
+                  icon={DollarSign} color="green"
+                  prominent
+                />
+              </div>
+              {/* Secondary metrics — compact 4-up row. */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  label="New Clients"
+                  value={String(newClients)}
+                  sub="This period"
+                  icon={Users} color="blue"
+                  cta={newClients === 0 ? { text: "Share booking link", href: "/dashboard/share" } : undefined}
+                />
+                <StatCard
+                  label="Avg Ticket"
+                  value={formatCurrency(avgTicket)}
+                  sub={hasCompleted ? "Per completed visit" : "Complete a booking first"}
+                  icon={TrendingUp} color="purple"
+                />
+                <StatCard
+                  label="No-Show Rate"
+                  value={hasAppts ? `${noShowRate.toFixed(1)}%` : "—"}
+                  sub={hasAppts ? `${noShows} no-show${noShows !== 1 ? "s" : ""}` : "No data yet"}
+                  icon={UserX} color="orange"
+                />
+                <StatCard
+                  label="Avg Rating"
+                  value={avgRating != null ? `${avgRating}★` : "—"}
+                  sub={totalReviews > 0 ? `${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"}
+                  icon={Star} color="purple"
+                  cta={totalReviews === 0 ? { text: "Invite reviews", href: "/dashboard/reviews" } : undefined}
+                />
+              </div>
+            </div>
+          );
+        })()
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left / main column */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Calendar Widget */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {new Date(calYear, calMonth).toLocaleDateString("en-CA", { month: "long", year: "numeric" })}
-              </CardTitle>
-              <div className="flex gap-1">
-                <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); }}
-                  className="p-1.5 rounded-lg hover:bg-surface-raised text-gray-400 hover:text-white transition-colors"><ChevronLeft size={16} /></button>
-                <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); }}
-                  className="p-1.5 rounded-lg hover:bg-surface-raised text-gray-400 hover:text-white transition-colors"><ChevronRight size={16} /></button>
-              </div>
-            </CardHeader>
+          {/* Calendar Widget — uses the shared <Calendar> component for proper
+              month navigation, focus handling, and tap targets. Past dates are
+              greyed via minDate, today and future remain clickable.
+              Soft bone tint (matches the ceramic accent palette) so it
+              visually separates from the surrounding cards. */}
+          <Card className="!bg-gray-100">
             <CardContent>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
-                  <div key={d} className="text-center text-xs text-gray-500 font-medium py-1">{d}</div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {calDays.map((d, i) => {
-                  if (d === null) return <div key={`empty-${i}`} />;
-                  const ds = calDateStr(d);
+              <CalendarPicker
+                value={selectedCalDate ? new Date(selectedCalDate + "T00:00:00") : null}
+                onChange={(d) => {
+                  const ds = formatDateForDb(d);
+                  setSelectedCalDate(ds === selectedCalDate ? null : ds);
+                }}
+                onMonthChange={(first) => { setCalYear(first.getFullYear()); setCalMonth(first.getMonth()); }}
+                renderDayBadge={(d) => {
+                  const ds = formatDateForDb(d);
                   const count = apptCounts[ds] ?? 0;
-                  const isToday = ds === todayStr;
+                  if (count === 0) return null;
                   const isSelected = ds === selectedCalDate;
                   return (
-                    <button key={ds} onClick={() => setSelectedCalDate(isSelected ? null : ds)}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center rounded-xl py-1.5 text-sm transition-all min-h-[44px]",
-                        isSelected ? "bg-gold text-black font-bold" :
-                        isToday ? "border border-gold text-gold" :
-                        "hover:bg-surface-raised text-gray-300"
-                      )}
-                    >
-                      {d}
-                      {count > 0 && (
-                        <span className={cn("mt-0.5 min-w-[18px] text-center px-1 rounded-full text-xs font-bold", isSelected ? "bg-black/30 text-black" : "bg-gold/20 text-gold")}>{count}</span>
-                      )}
-                    </button>
+                    <span className={cn(
+                      "min-w-[18px] text-center px-1 rounded-full text-[10px] font-bold leading-tight",
+                      isSelected ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-700",
+                    )}>
+                      {count}
+                    </span>
                   );
-                })}
-              </div>
+                }}
+                className="max-w-none w-full"
+              />
               {selectedCalDate && (
-                <p className="text-xs text-gold mt-3 text-center">
-                  Showing {apptCounts[selectedCalDate] ?? 0} appointments for {new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
-                  <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-gray-500 hover:text-white underline">Clear</button>
+                <p className="text-xs text-black mt-3 text-center">
+                  Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
+                  <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-gray-500 hover:text-gray-900 underline">Clear</button>
                 </p>
               )}
             </CardContent>
           </Card>
 
-          {/* Today's / Selected Schedule */}
-          <Card>
+          {/* Today's / Selected Schedule — same bone tint as the calendar
+              above, so the two cards read as a connected unit. */}
+          <Card className="!bg-gray-100">
             <CardHeader>
               <CardTitle>{selectedCalDate ? `Appointments — ${new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` : "Today's Schedule"}</CardTitle>
-              <Link href="/dashboard/appointments" className="text-xs text-gold hover:underline">View all</Link>
+              <Link href="/dashboard/appointments" className="text-xs text-black hover:underline">View all</Link>
             </CardHeader>
             <CardContent>
-              {loadingAppts ? (
+              {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
@@ -447,21 +595,21 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 displayAppts.map((apt) => (
-                  <div key={apt.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+                  <div key={apt.id} className="flex items-center gap-3 py-3 border-b border-gray-200 last:border-0">
                     <div className="text-center min-w-[52px]">
-                      <p className="text-xs text-gray-500">{apt.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-gray-700">{apt.time_slot.split(" ")[0]}</p>
                       <p className="text-xs text-gray-500">{apt.time_slot.split(" ")[1]}</p>
                     </div>
-                    <div className="w-px h-10 bg-border" />
+                    <div className="w-px h-10 bg-gray-200" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{apt.client_name}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{apt.client_name}</p>
                       <p className="text-xs text-gray-500 truncate">
                         {apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium capitalize", getStatusColor(apt.status))}>{apt.status}</span>
-                      <span className="text-sm font-semibold text-gold">{formatCurrency(apt.total_amount)}</span>
+                      <span className="text-sm font-semibold text-black">{formatCurrency(apt.total_amount)}</span>
                     </div>
                   </div>
                 ))
@@ -473,7 +621,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Revenue Over Period</CardTitle>
-              <span className="text-xs text-gray-500">Total: <span className="text-gold font-semibold">{formatCurrency(revenue)}</span></span>
+              <span className="text-xs text-gray-500">Total: <span className="text-black font-semibold">{formatCurrency(revenue)}</span></span>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
@@ -484,7 +632,7 @@ export default function DashboardPage() {
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="revenue" fill="#C9A84C" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#F5F0E6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -527,12 +675,12 @@ export default function DashboardPage() {
               ].map((action) => (
                 action.href ? (
                   <Link key={action.label} href={action.href}>
-                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-gold/15 text-gold border border-gold/20 hover:bg-gold/20" : "text-gray-400 hover:text-white hover:bg-surface-raised")}>
+                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-black border border-gray-300 hover:bg-black/10" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100")}>
                       <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                     </div>
                   </Link>
                 ) : (
-                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-gold/15 text-gold border border-gold/20 hover:bg-gold/20" : "text-gray-400 hover:text-white hover:bg-surface-raised")}>
+                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-black border border-gray-300 hover:bg-black/10" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100")}>
                     <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                   </button>
                 )
@@ -550,13 +698,13 @@ export default function DashboardPage() {
                 <div key={b.id} className="flex items-center gap-3">
                   <div className="relative">
                     {b.photo
-                      ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-border" />
-                      : <div className="w-9 h-9 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold text-sm">{b.name[0]}</div>
+                      ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                      : <div className="w-9 h-9 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-sm">{b.name[0]}</div>
                     }
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-surface rounded-full" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{b.name}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{b.name}</p>
                     <p className="text-xs text-gray-500">
                       {todayAppts.filter((a) => a.barber_id === b.id).length} appts today
                     </p>
@@ -571,7 +719,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Alerts</CardTitle>
-              <Link href="/dashboard/notifications" className="text-xs text-gold hover:underline">
+              <Link href="/dashboard/notifications" className="text-xs text-black hover:underline">
                 See all ({notifications.filter((n) => !n.is_read).length})
               </Link>
             </CardHeader>
@@ -579,13 +727,13 @@ export default function DashboardPage() {
               {notifications.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">No notifications</p>
               ) : notifications.map((n) => (
-                <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-gold/5 border border-gold/10")}>
+                <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-black/5 border border-black/10")}>
                   <div className={cn("mt-0.5 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs",
-                    n.type === "booking" ? "bg-gold/20 text-gold" : n.type === "no-show" ? "bg-orange-500/20 text-orange-400" : n.type === "review" ? "bg-purple-500/20 text-purple-400" : "bg-red-500/20 text-red-400")}>
+                    n.type === "booking" ? "bg-black/10 text-black" : n.type === "no-show" ? "bg-orange-500/20 text-orange-400" : n.type === "review" ? "bg-purple-500/20 text-purple-400" : "bg-red-500/20 text-red-400")}>
                     {n.type === "booking" ? <Calendar size={12} /> : n.type === "review" ? <Star size={12} /> : <AlertCircle size={12} />}
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-white">{n.title}</p>
+                    <p className="text-xs font-medium text-gray-900">{n.title}</p>
                     <p className="text-xs text-gray-500 leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
                   </div>
                 </div>
@@ -598,26 +746,26 @@ export default function DashboardPage() {
       {/* Add Walk-in Modal */}
       {showAddWalkin && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 animate-slide-up">
+          <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl w-full max-w-md p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Add Walk-in Client</h2>
-              <button onClick={() => setShowAddWalkin(false)} className="text-gray-500 hover:text-white"><X size={20} /></button>
+              <h2 className="text-lg font-semibold text-gray-900">Add Walk-in Client</h2>
+              <button onClick={() => setShowAddWalkin(false)} className="text-gray-500 hover:text-gray-900"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-400">Client Name</label>
-                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50" placeholder="Walk-in Client" />
+                <label className="text-sm text-gray-500">Client Name</label>
+                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black" placeholder="Walk-in Client" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-400">Barber</label>
-                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50">
+                <label className="text-sm text-gray-500">Barber</label>
+                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black">
                   <option value="">Any Available</option>
                   {barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-400">Note</label>
-                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50" placeholder="e.g. Haircut" />
+                <label className="text-sm text-gray-500">Note</label>
+                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black" placeholder="e.g. Haircut" />
               </div>
             </div>
             <div className="flex gap-3 mt-6">

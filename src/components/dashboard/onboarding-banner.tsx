@@ -17,14 +17,22 @@ interface Props {
   shop: Shop;
 }
 
+// Separate localStorage keys per banner state so dismissing the in-progress
+// gold banner doesn't also prevent the "You're all set up" green banner
+// from appearing later when setup completes (and vice versa).
+const progressKey = (shopId: string) => `clipwise_onboarding_progress_dismissed_${shopId}`;
+const completeKey = (shopId: string) => `clipwise_onboarding_complete_dismissed_${shopId}`;
+
 export function OnboardingBanner({ shop }: Props) {
-  const [dismissed, setDismissed] = useState(true); // start hidden, check localStorage
+  // Both start `true` (hidden) so the banner doesn't flash before localStorage
+  // is read in the effect below.
+  const [progressDismissed, setProgressDismissed] = useState(true);
+  const [completeDismissed, setCompleteDismissed] = useState(true);
   const [steps, setSteps] = useState<Step[]>([]);
 
   useEffect(() => {
-    const key = `clipwise_onboarding_done_${shop.id}`;
-    if (localStorage.getItem(key)) return;
-    setDismissed(false);
+    setProgressDismissed(!!localStorage.getItem(progressKey(shop.id)));
+    setCompleteDismissed(!!localStorage.getItem(completeKey(shop.id)));
 
     // Check what's been set up
     Promise.all([
@@ -58,14 +66,23 @@ export function OnboardingBanner({ shop }: Props) {
     });
   }, [shop]);
 
-  if (dismissed) return null;
-
   const doneCount = steps.filter(s => s.done).length;
-  const allDone = doneCount === steps.length;
+  const allDone = steps.length > 0 && doneCount === steps.length;
 
-  const dismiss = () => {
-    localStorage.setItem(`clipwise_onboarding_done_${shop.id}`, "1");
-    setDismissed(true);
+  // Pick which banner to show (if any) based on completion + dismiss state.
+  if (allDone) {
+    if (completeDismissed) return null;
+  } else {
+    if (progressDismissed) return null;
+  }
+
+  const dismissProgress = () => {
+    localStorage.setItem(progressKey(shop.id), "1");
+    setProgressDismissed(true);
+  };
+  const dismissComplete = () => {
+    localStorage.setItem(completeKey(shop.id), "1");
+    setCompleteDismissed(true);
   };
 
   if (allDone) {
@@ -80,7 +97,12 @@ export function OnboardingBanner({ shop }: Props) {
             <p className="text-xs text-gray-400">Your booking page is live. Start sharing it with clients.</p>
           </div>
         </div>
-        <button onClick={dismiss} className="text-gray-500 hover:text-white transition-colors p-1 touch-target">
+        <button
+          onClick={dismissComplete}
+          aria-label="Dismiss setup complete banner"
+          title="Dismiss"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-emerald-300/70 hover:text-white hover:bg-emerald-500/20 transition-colors flex-shrink-0"
+        >
           <X size={16} />
         </button>
       </div>
@@ -94,7 +116,7 @@ export function OnboardingBanner({ shop }: Props) {
           <p className="text-sm font-bold text-white">Get your shop ready</p>
           <p className="text-xs text-gray-500 mt-0.5">{doneCount} of {steps.length} steps complete</p>
         </div>
-        <button onClick={dismiss} className="text-gray-600 hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
+        <button onClick={dismissProgress} className="text-gray-600 hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
           <X size={14} />
         </button>
       </div>

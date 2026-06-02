@@ -180,7 +180,7 @@ export default function LandingPage() {
           <div className="rounded-2xl border border-border/50 bg-surface overflow-hidden shadow-2xl shadow-black/50 gold-glow">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-raised">
               <div className="w-3 h-3 rounded-full bg-red-500/50" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+              <div className="w-3 h-3 rounded-full bg-orange-500/50" />
               <div className="w-3 h-3 rounded-full bg-emerald-500/50" />
               <div className="flex-1 mx-4 bg-surface rounded-lg px-3 py-1 text-xs text-gray-600">app.clipwise.ca/dashboard</div>
             </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,14 @@ interface CalendarProps {
   maxDate?: Date | null;
   /** Custom predicate, returns true if the date should be disabled. */
   isDateDisabled?: (date: Date) => boolean;
+  /** Optional decoration (e.g. an appointment-count pill) rendered under
+   *  the day number inside each cell. Receives the cell's Date; return
+   *  null/undefined to skip the badge. */
+  renderDayBadge?: (date: Date) => React.ReactNode;
+  /** Notified with the first-of-month Date whenever the visible month
+   *  changes — lets parents fetch month-scoped data (e.g. appointment
+   *  counts) without lifting all the month state. */
+  onMonthChange?: (firstOfMonth: Date) => void;
   className?: string;
 }
 
@@ -23,7 +31,7 @@ function isSameDay(a: Date, b: Date) {
 }
 function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
 
-export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, className }: CalendarProps) {
+export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, renderDayBadge, onMonthChange, className }: CalendarProps) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const lowerBound = (() => {
     if (minDate === null) return null;
@@ -33,6 +41,11 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, cl
   const upperBound = maxDate ? (() => { const c = new Date(maxDate); c.setHours(0, 0, 0, 0); return c; })() : null;
 
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(value ?? today));
+  // Hold onto the latest onMonthChange so this effect fires only when the
+  // visible month actually changes — not every time the parent re-renders.
+  const onMonthChangeRef = useRef(onMonthChange);
+  useEffect(() => { onMonthChangeRef.current = onMonthChange; });
+  useEffect(() => { onMonthChangeRef.current?.(viewMonth); }, [viewMonth]);
 
   // Build 6-week grid starting on Sunday of the week containing the 1st
   const firstOfMonth = startOfMonth(viewMonth);
@@ -54,23 +67,23 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, cl
   };
 
   return (
-    <div className={cn("bg-surface border border-border rounded-2xl p-3 w-full max-w-xs", className)}>
+    <div className={cn("bg-gray-50 border border-gray-200 rounded-2xl p-3 w-full max-w-xs shadow-sm", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button
           type="button"
           aria-label="Previous month"
           onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="w-9 h-9 rounded-full hover:bg-surface-raised text-gray-300 hover:text-white flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-gray-100 text-gray-600 hover:text-black flex items-center justify-center transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="text-sm font-semibold text-white">{monthLabel}</span>
+        <span className="text-sm font-semibold text-gray-900">{monthLabel}</span>
         <button
           type="button"
           aria-label="Next month"
           onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="w-9 h-9 rounded-full hover:bg-surface-raised text-gray-300 hover:text-white flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-gray-100 text-gray-600 hover:text-black flex items-center justify-center transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -79,7 +92,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, cl
       {/* Weekday header */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS.map((w, i) => (
-          <span key={i} className="text-[10px] uppercase tracking-wider text-gray-500 text-center py-1">{w}</span>
+          <span key={i} className="text-[10px] uppercase tracking-wider text-gray-400 text-center py-1">{w}</span>
         ))}
       </div>
 
@@ -98,15 +111,17 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, cl
               onClick={() => !disabled && onChange(d)}
               className={cn(
                 // 44px min height on mobile = tap-friendly
-                "h-11 sm:h-9 rounded-lg text-sm transition-all flex items-center justify-center",
-                disabled && "text-gray-700 cursor-not-allowed",
-                !disabled && !inMonth && "text-gray-600",
-                !disabled && inMonth && !isSelected && "text-white hover:bg-surface-raised",
-                isSelected && "bg-gold text-black font-bold",
-                isToday && !isSelected && !disabled && "ring-1 ring-gold/40 text-gold font-semibold",
+                "rounded-lg text-sm transition-all flex flex-col items-center justify-center gap-0.5",
+                renderDayBadge ? "min-h-[44px] py-1" : "h-11 sm:h-9",
+                disabled && "text-gray-300 cursor-not-allowed",
+                !disabled && !inMonth && "text-gray-400",
+                !disabled && inMonth && !isSelected && "text-gray-900 hover:bg-gray-100",
+                isSelected && "bg-[#E8E2D5] text-black font-bold border border-[#D6CDB8]",
+                isToday && !isSelected && !disabled && "ring-1 ring-black/20 text-black font-semibold",
               )}
             >
-              {d.getDate()}
+              <span className="leading-none">{d.getDate()}</span>
+              {renderDayBadge && !disabled && inMonth && renderDayBadge(d)}
             </button>
           );
         })}

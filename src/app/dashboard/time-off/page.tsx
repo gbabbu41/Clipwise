@@ -13,9 +13,9 @@ import type { Barber } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -46,14 +46,14 @@ const TYPE_LABELS: Record<BlockType, string> = {
 };
 
 const TYPE_COLORS: Record<BlockType, string> = {
-  day_off: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  day_off: "text-orange-400 bg-orange-400/10 border-orange-400/20",
   vacation: "text-blue-400 bg-blue-400/10 border-blue-400/20",
   blocked_hours: "text-purple-400 bg-purple-400/10 border-purple-400/20",
   sick: "text-red-400 bg-red-400/10 border-red-400/20",
 };
 
 const STATUS_COLORS: Record<TimeOffStatus, string> = {
-  pending: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  pending: "text-orange-400 bg-orange-400/10 border-orange-400/20",
   approved: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
   denied: "text-red-400 bg-red-400/10 border-red-400/20",
 };
@@ -65,7 +65,7 @@ const MOCK_REQUESTS: TimeOffRequest[] = [
 ];
 
 export default function TimeOffPage() {
-  const { shop, profile } = useAuth();
+  const { shop, profile, accessToken } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [requests, setRequests] = useState<TimeOffRequest[]>(MOCK_REQUESTS);
   const [toast, setToast] = useState("");
@@ -105,6 +105,21 @@ export default function TimeOffPage() {
   }, [shop]);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
+
+  // Realtime: when a barber submits a new request from their portal, refresh
+  // the owner's list without requiring a manual reload.
+  useEffect(() => {
+    if (!shop?.id) return;
+    const channel = supabase
+      .channel(`owner_time_off:${shop.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` },
+        () => { loadRequests(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [shop?.id, loadRequests]);
 
   const submitRequest = async () => {
     if (!shop) return;
@@ -156,47 +171,25 @@ export default function TimeOffPage() {
   };
 
   const updateStatus = async (id: string, status: TimeOffStatus) => {
-    const req = requests.find(r => r.id === id);
+    if (!accessToken) return;
+    // Optimistic UI
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
-    await supabase.from("time_off_requests").update({ status }).eq("id", id).then(null, () => null);
 
-    if (req) {
-      const dateRange = req.start_date + (req.end_date !== req.start_date ? ` → ${req.end_date}` : "");
-      const timeRange = req.type === "blocked_hours" && req.start_time && req.end_time ? `${req.start_time}–${req.end_time}` : "";
-
-      // In-app notification (only works if barber has a user_id)
-      if (req.barbers?.user_id) {
-        supabase.from("notifications").insert({
-          user_id: req.barbers.user_id,
-          title: status === "approved" ? "Time-Off Approved" : "Time-Off Denied",
-          message: `Your ${TYPE_LABELS[req.type]} request for ${dateRange} was ${status} by the shop owner.`,
-          type: "system",
-          is_read: false,
-        }).then(null, () => null);
-      }
-
-      // Email the barber (works even for invited-but-not-yet-active barbers)
-      if (req.barbers?.email && shop) {
-        fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "time_off_decision",
-            data: {
-              barberEmail: req.barbers.email,
-              barberName: req.barbers.name,
-              shopName: shop.name,
-              shopEmail: shop.email ?? "",
-              decision: status,
-              requestType: TYPE_LABELS[req.type],
-              dateRange,
-              timeRange,
-            },
-          }),
-        }).catch(() => null);
-      }
+    // Server route handles the status update + barber notification + email
+    // (uses admin client so the cross-user notification insert isn't blocked
+    // by the notifications_own RLS).
+    const res = await fetch("/api/time-off/decide", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ request_id: id, decision: status }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      showToast(`Could not ${status === "approved" ? "approve" : "deny"}: ${j.error ?? res.statusText}`);
+      // Roll back optimistic update
+      loadRequests();
+      return;
     }
-
     showToast(status === "approved" ? "Request approved! Barber emailed." : "Request denied. Barber emailed.");
   };
 
@@ -217,8 +210,8 @@ export default function TimeOffPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Time Off & Availability</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage staff days off, vacations, and blocked hours</p>
+          <h1 className="text-2xl font-bold text-gray-900">Time Off & Availability</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage staff days off, vacations, and blocked hours</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
           <Plus size={16} /> Request Time Off
@@ -228,14 +221,14 @@ export default function TimeOffPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Pending Requests", value: pendingCount, color: pendingCount > 0 ? "text-amber-400" : "text-white" },
-          { label: "Approved Upcoming", value: approvedUpcoming, color: "text-white" },
-          { label: "Total Staff", value: barbers.length, color: "text-white" },
-          { label: "This Month", value: requests.filter(r => r.start_date.startsWith(today.slice(0, 7))).length, color: "text-white" },
+          { label: "Pending Requests", value: pendingCount, color: pendingCount > 0 ? "text-orange-400" : "text-gray-900" },
+          { label: "Approved Upcoming", value: approvedUpcoming, color: "text-gray-900" },
+          { label: "Total Staff", value: barbers.length, color: "text-gray-900" },
+          { label: "This Month", value: requests.filter(r => r.start_date.startsWith(today.slice(0, 7))).length, color: "text-gray-900" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent>
-              <p className="text-xs text-gray-400">{s.label}</p>
+              <p className="text-xs text-gray-500">{s.label}</p>
               <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
             </CardContent>
           </Card>
@@ -243,14 +236,14 @@ export default function TimeOffPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-gray-200">
         {(["all", "pending", "approved", "denied"] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
               "px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              filter === f ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white"
+              filter === f ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900"
             )}
           >
             {f === "all" ? `All (${requests.length})` : `${f.charAt(0).toUpperCase() + f.slice(1)} (${requests.filter(r => r.status === f).length})`}
@@ -267,14 +260,14 @@ export default function TimeOffPage() {
           </div>
         )}
         {filtered.map(req => (
-          <div key={req.id} className="bg-surface border border-border rounded-2xl p-4 hover:border-gold/20 transition-colors">
+          <div key={req.id} className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-4 hover:border-gray-300 transition-colors">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-gold/15 border border-gold/20 flex items-center justify-center flex-shrink-0">
-                <User size={18} className="text-gold" />
+              <div className="w-10 h-10 rounded-xl bg-black/10 border border-gray-300 flex items-center justify-center flex-shrink-0">
+                <User size={18} className="text-black" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-white">{req.barbers?.name ?? "Unknown"}</p>
+                  <p className="text-sm font-semibold text-gray-900">{req.barbers?.name ?? "Unknown"}</p>
                   <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", TYPE_COLORS[req.type])}>
                     {TYPE_LABELS[req.type]}
                   </span>
@@ -283,14 +276,14 @@ export default function TimeOffPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <CalendarOff size={12} />
                     {req.start_date === req.end_date
                       ? formatFriendlyDate(req.start_date)
                       : `${formatFriendlyDate(req.start_date)} → ${formatFriendlyDate(req.end_date)}`}
                   </div>
                   {req.start_time && req.end_time && (
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       <Clock size={12} />
                       {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
                     </div>
@@ -305,27 +298,15 @@ export default function TimeOffPage() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 {isOwner && req.status === "pending" && (
                   <>
-                    <button
-                      onClick={() => updateStatus(req.id, "approved")}
-                      className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                      title="Approve"
-                    >
+                    <button type="button" onClick={() => updateStatus(req.id, "approved")} title="Approve" className="btn btn-success btn-icon btn-sm">
                       <Check size={14} />
                     </button>
-                    <button
-                      onClick={() => updateStatus(req.id, "denied")}
-                      className="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 hover:bg-red-500/30 transition-colors"
-                      title="Deny"
-                    >
+                    <button type="button" onClick={() => updateStatus(req.id, "denied")} title="Deny" className="btn btn-danger btn-icon btn-sm">
                       <X size={14} />
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => deleteRequest(req.id)}
-                  className="w-8 h-8 rounded-lg bg-surface-raised border border-border flex items-center justify-center text-gray-500 hover:text-red-400 transition-colors"
-                  title="Delete"
-                >
+                <button type="button" onClick={() => deleteRequest(req.id)} title="Delete" className="btn btn-light btn-icon btn-sm">
                   <X size={14} />
                 </button>
               </div>
@@ -338,7 +319,7 @@ export default function TimeOffPage() {
       {requests.filter(r => r.status === "approved" && r.start_date >= today).length > 0 && (
         <Card>
           <CardHeader>
-            <CalendarOff size={18} className="text-gold" />
+            <CalendarOff size={18} className="text-black" />
             <CardTitle>Upcoming Approved Time Off</CardTitle>
           </CardHeader>
           <CardContent>
@@ -347,10 +328,10 @@ export default function TimeOffPage() {
                 .filter(r => r.status === "approved" && r.start_date >= today)
                 .sort((a, b) => a.start_date.localeCompare(b.start_date))
                 .map(req => (
-                  <div key={req.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                  <div key={req.id} className="flex items-center gap-3 py-2 border-b border-gray-200/50 last:border-0">
                     <div className="w-2 h-2 rounded-full bg-gold flex-shrink-0" />
-                    <p className="text-sm text-white flex-1">{req.barbers?.name ?? "Unknown"}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-sm text-gray-900 flex-1">{req.barbers?.name ?? "Unknown"}</p>
+                    <p className="text-xs text-gray-500">
                       {req.start_date === req.end_date
                         ? formatFriendlyDate(req.start_date)
                         : `${formatFriendlyDate(req.start_date)} – ${formatFriendlyDate(req.end_date)}`}
@@ -370,18 +351,18 @@ export default function TimeOffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Request Time Off</h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Request Time Off</h2>
+                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-1.5 block">Barber</label>
+                <label className="text-sm font-medium text-gray-600 mb-1.5 block">Barber</label>
                 <select
                   value={form.barber_id}
                   onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/15"
                 >
                   <option value="">Select barber…</option>
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -389,7 +370,7 @@ export default function TimeOffPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-1.5 block">Type</label>
+                <label className="text-sm font-medium text-gray-600 mb-1.5 block">Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.entries(TYPE_LABELS) as [BlockType, string][]).map(([k, v]) => (
                     <button
@@ -397,7 +378,7 @@ export default function TimeOffPage() {
                       onClick={() => setForm(p => ({ ...p, type: k }))}
                       className={cn(
                         "p-2.5 rounded-xl border text-sm text-left transition-all",
-                        form.type === k ? "border-gold bg-gold/10 text-gold" : "border-border text-gray-400 hover:text-white"
+                        form.type === k ? "border-black bg-black/5 text-black" : "border-gray-200 text-gray-500 hover:text-gray-900"
                       )}
                     >
                       {v}

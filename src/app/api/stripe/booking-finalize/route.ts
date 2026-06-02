@@ -9,11 +9,17 @@ export async function POST(request: NextRequest) {
   if (!session_id || !shop_id) return NextResponse.json({ error: "Missing params" }, { status: 400 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("stripe_account_id").eq("id", shop_id).single();
-  if (!shop?.stripe_account_id) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+    .from("shops").select("stripe_account_id, stripe_connected").eq("id", shop_id).single();
+  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+
+  const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(session_id, undefined, { stripeAccount: shop.stripe_account_id });
+    const session = await stripe.checkout.sessions.retrieve(
+      session_id,
+      undefined,
+      useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
+    );
     if (session.payment_status !== "paid") {
       return NextResponse.json({ paid: false }, { status: 200 });
     }

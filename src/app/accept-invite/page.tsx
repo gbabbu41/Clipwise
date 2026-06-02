@@ -217,11 +217,11 @@ export default function AcceptInvitePage() {
                       <div key={i} className={cn("flex-1 h-1 rounded-full",
                         pwStrength.score > i
                           ? pwStrength.strength === "strong" ? "bg-emerald-400"
-                          : pwStrength.strength === "medium" ? "bg-yellow-400" : "bg-red-400"
+                          : pwStrength.strength === "medium" ? "bg-orange-400" : "bg-red-400"
                           : "bg-surface")} />
                     ))}
                   </div>
-                  <p className={cn("text-xs", pwStrength.strength === "strong" ? "text-emerald-400" : pwStrength.strength === "medium" ? "text-yellow-400" : "text-red-400")}>
+                  <p className={cn("text-xs", pwStrength.strength === "strong" ? "text-emerald-400" : pwStrength.strength === "medium" ? "text-orange-400" : "text-red-400")}>
                     {pwStrength.strength === "strong" ? "Strong" : `${pwStrength.strength === "medium" ? "Medium" : "Weak"} — ${pwStrength.issues.join(", ")}`}
                   </p>
                 </div>

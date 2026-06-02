@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import { DEFAULT_BARBER_PERMISSIONS } from "@/lib/database.types";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -149,8 +150,8 @@ export default function BarberAvailabilityPage() {
         </div>
       )}
       {!canEditSchedule && (
-        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-xs text-amber-200">
-          <Lock size={14} className="text-amber-400" />
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center gap-2 text-xs text-orange-200">
+          <Lock size={14} className="text-orange-400" />
           Your shop owner manages your schedule. Contact them for any changes.
         </div>
       )}
@@ -187,19 +188,11 @@ export default function BarberAvailabilityPage() {
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => canEditSchedule && update(slot.day_of_week, "is_available", !slot.is_available)}
+                <Switch
+                  checked={!!slot.is_available}
                   disabled={!canEditSchedule}
-                  className={cn(
-                    "relative w-10 h-5 rounded-full transition-colors disabled:cursor-not-allowed",
-                    slot.is_available ? "bg-gold" : "bg-gray-700"
-                  )}
-                >
-                  <span className={cn(
-                    "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow-sm",
-                    slot.is_available ? "translate-x-5" : "translate-x-0"
-                  )} />
-                </button>
+                  onChange={v => canEditSchedule && update(slot.day_of_week, "is_available", v)}
+                />
                 <span className="font-semibold text-white">{DAYS[slot.day_of_week]}</span>
               </div>
               {!slot.is_available && (

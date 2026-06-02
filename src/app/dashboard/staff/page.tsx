@@ -4,10 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
   cn, generate24hSlots, dbTimeToDisplay, displayTimeToDb, formatDateForDb,
+  formatFriendlyDate, formatFriendlyTime,
 } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { KeyRound, Trash2, Copy, Check, Shield, X } from "lucide-react";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 import { getPlanLimit, validateEmail } from "@/lib/validation";
@@ -31,9 +33,20 @@ interface StaffHourRow {
   barbers?: { name: string };
 }
 
+interface TimeOffRow {
+  id: string;
+  barber_id: string;
+  type: "day_off" | "vacation" | "blocked_hours" | "sick";
+  start_date: string;
+  end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+}
+
 interface BarberWithSchedule extends Barber {
   apptCount?: number;
   schedule: DaySchedule[];
+  upcomingTimeOff?: TimeOffRow[];
 }
 
 // ─── Reset link copy ──────────────────────────────────────────────────────────
@@ -45,9 +58,9 @@ function ResetLinkCopy({ link }: { link: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div className="flex items-center gap-2 bg-surface-raised border border-border rounded-xl p-3">
-      <p className="flex-1 text-xs text-gray-400 truncate">{link}</p>
-      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-gray-400 hover:text-white")}>
+    <div className="flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-xl p-3">
+      <p className="flex-1 text-xs text-gray-500 truncate">{link}</p>
+      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-gray-500 hover:text-gray-900")}>
         {copied ? <Check size={15} /> : <Copy size={15} />}
       </button>
     </div>
@@ -56,15 +69,15 @@ function ResetLinkCopy({ link }: { link: string }) {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-surface-raised rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -99,6 +112,9 @@ export default function StaffPage() {
   // Is the owner already on the team as a barber?
   const alreadyOwnerBarber = !!(user?.email && barbers.some(b => b.email?.toLowerCase() === user.email!.toLowerCase()));
   const [savingSchedule, setSavingSchedule] = useState(false);
+  // Approved upcoming time-off for the barber whose Schedule modal is open
+  const [scheduleTimeOff, setScheduleTimeOff] = useState<TimeOffRow[]>([]);
+  const [cancellingTimeOffId, setCancellingTimeOffId] = useState<string | null>(null);
   const [savingAdd, setSavingAdd] = useState(false);
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
   const [commissions, setCommissions] = useState<Record<string, number>>({});
@@ -112,24 +128,27 @@ export default function StaffPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  // ── Load barbers + their schedules + appt counts ────────────────────────────
+  // ── Load barbers + their schedules + appt counts + upcoming time-off ─────────
   const loadBarbers = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
     const now = new Date();
+    const todayStr = formatDateForDb(now);
     const monthStart = formatDateForDb(new Date(now.getFullYear(), now.getMonth(), 1));
     const monthEnd = formatDateForDb(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
     const { data: bData } = await supabase.from("barbers").select("*").eq("shop_id", shop.id).order("created_at", { ascending: true });
     const barberList = (bData ?? []) as Barber[];
 
-    const [{ data: tsData }, { data: apptData }] = await Promise.all([
+    const [{ data: tsData }, { data: apptData }, { data: timeOffData }] = await Promise.all([
       supabase.from("time_slots").select("*").in("barber_id", barberList.map((b) => b.id)),
       supabase.from("appointments").select("barber_id, date").eq("shop_id", shop.id).gte("date", monthStart).lte("date", monthEnd),
+      supabase.from("time_off_requests").select("*").eq("shop_id", shop.id).eq("status", "approved").gte("end_date", todayStr).order("start_date", { ascending: true }),
     ]);
 
     const tsRows = (tsData ?? []) as TimeSlot[];
     const apptRows = (apptData ?? []) as { barber_id: string; date: string }[];
+    const timeOffRows = (timeOffData ?? []) as TimeOffRow[];
     const apptCounts: Record<string, number> = {};
     apptRows.forEach((a) => { apptCounts[a.barber_id] = (apptCounts[a.barber_id] ?? 0) + 1; });
 
@@ -140,7 +159,8 @@ export default function StaffPage() {
         if (ts) return { isOpen: ts.is_available, startTime: dbTimeToDisplay(ts.start_time), endTime: dbTimeToDisplay(ts.end_time) };
         return { isOpen: false, startTime: "9:00 AM", endTime: "7:00 PM" };
       });
-      return { ...b, apptCount: apptCounts[b.id] ?? 0, schedule };
+      const upcomingTimeOff = timeOffRows.filter(t => t.barber_id === b.id).slice(0, 3);
+      return { ...b, apptCount: apptCounts[b.id] ?? 0, schedule, upcomingTimeOff };
     });
 
     setBarbers(enriched);
@@ -169,6 +189,11 @@ export default function StaffPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "time_slots" },
+        () => { loadBarbers(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` },
         () => { loadBarbers(); }
       )
       .subscribe();
@@ -340,18 +365,86 @@ export default function StaffPage() {
   const openSchedule = async (b: BarberWithSchedule) => {
     setEditSchedule(b.schedule.map((d) => ({ ...d }))); // optimistic from cache
     setScheduleBarber(b);
-    const { data: fresh } = await supabase
-      .from("time_slots")
-      .select("day_of_week, start_time, end_time, is_available")
-      .eq("barber_id", b.id)
-      .order("day_of_week");
-    if (!fresh) return;
-    const next: DaySchedule[] = DAYS_FULL.map((_, dow) => {
-      const ts = fresh.find((t) => t.day_of_week === dow);
-      if (ts) return { isOpen: ts.is_available, startTime: dbTimeToDisplay(ts.start_time), endTime: dbTimeToDisplay(ts.end_time) };
-      return { isOpen: false, startTime: "9:00 AM", endTime: "7:00 PM" };
+    setScheduleTimeOff(b.upcomingTimeOff ?? []);
+    const todayStr = formatDateForDb(new Date());
+    const [{ data: fresh }, { data: timeOff }] = await Promise.all([
+      supabase
+        .from("time_slots")
+        .select("day_of_week, start_time, end_time, is_available")
+        .eq("barber_id", b.id)
+        .order("day_of_week"),
+      supabase
+        .from("time_off_requests")
+        .select("id, barber_id, type, start_date, end_date, start_time, end_time")
+        .eq("barber_id", b.id)
+        .eq("status", "approved")
+        .gte("end_date", todayStr)
+        .order("start_date", { ascending: true }),
+    ]);
+    if (fresh) {
+      const next: DaySchedule[] = DAYS_FULL.map((_, dow) => {
+        const ts = fresh.find((t) => t.day_of_week === dow);
+        if (ts) return { isOpen: ts.is_available, startTime: dbTimeToDisplay(ts.start_time), endTime: dbTimeToDisplay(ts.end_time) };
+        return { isOpen: false, startTime: "9:00 AM", endTime: "7:00 PM" };
+      });
+      setEditSchedule(next);
+    }
+    setScheduleTimeOff((timeOff ?? []) as TimeOffRow[]);
+  };
+
+  // ── Cancel an approved time-off from inside the Schedule modal ─────────────
+  // Goes through the admin-only server route so the barber notification +
+  // email fire reliably (cross-user notification insert otherwise blocked).
+  const cancelTimeOff = async (id: string) => {
+    if (!accessToken) return;
+    setCancellingTimeOffId(id);
+    const res = await fetch("/api/time-off/cancel", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ request_id: id }),
     });
-    setEditSchedule(next);
+    setCancellingTimeOffId(null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      showToast(`Couldn't cancel: ${j.error ?? res.statusText}`);
+      return;
+    }
+    setScheduleTimeOff(prev => prev.filter(t => t.id !== id));
+    showToast("Time-off cancelled. Barber notified.");
+    loadBarbers();
+  };
+
+  // ── Surgically remove ONE date from a multi-day approved time-off ─────────
+  // Used by the per-day toggle: turning Tuesday "back on" inside a vacation
+  // Mon-Fri should exclude only Tuesday, not nuke the whole vacation.
+  const excludeTimeOffDate = async (requestId: string, excludeDate: string) => {
+    if (!accessToken) return;
+    setCancellingTimeOffId(requestId);
+    const res = await fetch("/api/time-off/exclude-date", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ request_id: requestId, exclude_date: excludeDate }),
+    });
+    setCancellingTimeOffId(null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      showToast(`Couldn't reopen day: ${j.error ?? res.statusText}`);
+      return;
+    }
+    showToast(`${formatFriendlyDate(excludeDate)} reopened. Barber notified.`);
+    // Refresh the modal's time-off list + the cards
+    if (scheduleBarber) {
+      const todayStr = formatDateForDb(new Date());
+      const { data: refreshed } = await supabase
+        .from("time_off_requests")
+        .select("id, barber_id, type, start_date, end_date, start_time, end_time")
+        .eq("barber_id", scheduleBarber.id)
+        .eq("status", "approved")
+        .gte("end_date", todayStr)
+        .order("start_date", { ascending: true });
+      setScheduleTimeOff((refreshed ?? []) as TimeOffRow[]);
+    }
+    loadBarbers();
   };
 
   const updateScheduleDay = (dow: number, field: keyof DaySchedule, value: string | boolean) => {
@@ -376,8 +469,8 @@ export default function StaffPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Staff</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage barbers, schedules and commissions</p>
+          <h1 className="text-2xl font-bold text-gray-900">Staff</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
         {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
           <Tooltip content={`${shop.subscription_plan} plan: max ${getPlanLimit(shop.subscription_plan)} barber${getPlanLimit(shop.subscription_plan) > 1 ? "s" : ""}. Upgrade to add more.`}>
@@ -393,7 +486,7 @@ export default function StaffPage() {
         <Card>
           <div className="py-16 text-center">
             <p className="text-4xl mb-3">💈</p>
-            <p className="font-medium text-white mb-1">No barbers yet</p>
+            <p className="font-medium text-gray-900 mb-1">No barbers yet</p>
             <p className="text-sm text-gray-500 mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
             <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
           </div>
@@ -406,56 +499,51 @@ export default function StaffPage() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {barber.photo
-                    ? <img src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-border" />
-                    : <div className="w-12 h-12 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold text-xl">{barber.name[0]}</div>
+                    ? <img src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-gray-200" />
+                    : <div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-xl">{barber.name[0]}</div>
                   }
                   <div>
-                    <h3 className="text-white font-semibold">{barber.name}</h3>
+                    <h3 className="text-gray-900 font-semibold">{barber.name}</h3>
                     {barber.email && <p className="text-xs text-gray-500">{barber.email}</p>}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {barber.user_id ? (
                         <span className="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5">✓ Portal active</span>
                       ) : barber.email ? (
-                        <span className="text-xs bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 rounded-full px-2 py-0.5">⏳ Invite pending</span>
+                        <span className="text-xs bg-orange-500/15 border border-orange-500/30 text-orange-400 rounded-full px-2 py-0.5">⏳ Invite pending</span>
                       ) : (
-                        <span className="text-xs bg-surface-raised border border-border text-gray-500 rounded-full px-2 py-0.5">Manual</span>
+                        <span className="text-xs bg-gray-100 border border-gray-200 text-gray-500 rounded-full px-2 py-0.5">Manual</span>
                       )}
-                      <span className="text-gold text-xs">★ {barber.rating}</span>
+                      <span className="text-black text-xs">★ {barber.rating}</span>
                     </div>
                   </div>
                 </div>
                 {/* Active toggle */}
-                <button
-                  onClick={() => toggleActive(barber.id)}
-                  className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", activeMap[barber.id] ? "bg-emerald-500" : "bg-surface-raised border border-border")}
-                >
-                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all shadow", activeMap[barber.id] ? "left-[22px]" : "left-0.5")} />
-                </button>
+                <Switch checked={!!activeMap[barber.id]} onChange={() => toggleActive(barber.id)} />
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="text-center p-2.5 bg-surface-raised rounded-xl">
-                  <p className="text-lg font-bold text-white">{barber.apptCount ?? 0}</p>
-                  <p className="text-xs text-gray-400">Appts (mo.)</p>
+                <div className="text-center p-2.5 bg-gray-100 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900">{barber.apptCount ?? 0}</p>
+                  <p className="text-xs text-gray-500">Appts (mo.)</p>
                 </div>
-                <div className="text-center p-2.5 bg-surface-raised rounded-xl">
-                  <p className="text-lg font-bold text-gold">{commissions[barber.id] ?? barber.commission_percent}%</p>
-                  <p className="text-xs text-gray-400">Commission</p>
+                <div className="text-center p-2.5 bg-gray-100 rounded-xl">
+                  <p className="text-lg font-bold text-black">{commissions[barber.id] ?? barber.commission_percent}%</p>
+                  <p className="text-xs text-gray-500">Commission</p>
                 </div>
               </div>
 
               {/* Commission Slider */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-gray-400">Commission Rate</p>
-                  <p className="text-sm font-bold text-gold">{commissions[barber.id]}%</p>
+                  <p className="text-xs text-gray-500">Commission Rate</p>
+                  <p className="text-sm font-bold text-black">{commissions[barber.id]}%</p>
                 </div>
                 <input
                   type="range" min={20} max={70} step={5}
                   value={commissions[barber.id]}
                   onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Number(e.target.value) }))}
-                  className="w-full accent-[#C9A84C] h-1.5 rounded-full cursor-pointer"
+                  className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-gray-600 mt-0.5"><span>20%</span><span>70%</span></div>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
@@ -482,7 +570,7 @@ export default function StaffPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10"
+                    className="flex-1 text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
                     loading={resendingInviteId === barber.id}
                     onClick={() => resendInvite(barber)}
                   >
@@ -513,11 +601,39 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-gold/15 text-gold" : "bg-surface-raised text-gray-600")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-black" : "bg-gray-100 text-gray-600")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
               </div>
+
+              {/* Approved upcoming time-off */}
+              {barber.upcomingTimeOff && barber.upcomingTimeOff.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200/50 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Upcoming time off</p>
+                  {barber.upcomingTimeOff.map(t => {
+                    const dateLabel = t.start_date === t.end_date
+                      ? formatFriendlyDate(t.start_date)
+                      : `${formatFriendlyDate(t.start_date)} → ${formatFriendlyDate(t.end_date)}`;
+                    const typeLabel = t.type === "blocked_hours" ? "Blocked" :
+                      t.type === "day_off" ? "Day Off" :
+                      t.type === "vacation" ? "Vacation" : "Sick";
+                    return (
+                      <div key={t.id} className="text-xs flex items-center gap-2 text-gray-600">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/20">
+                          {typeLabel}
+                        </span>
+                        <span className="truncate">
+                          {dateLabel}
+                          {t.type === "blocked_hours" && t.start_time && t.end_time && (
+                            <span className="text-gray-500"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -538,20 +654,20 @@ export default function StaffPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border">
+                  <tr className="border-b border-gray-200">
                     {["Barber", "Date", "Clock In", "Clock Out", "Hours", "Status"].map((h) => (
-                      <th key={h} className="text-left text-xs font-medium text-gray-400 px-3 py-2">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-gray-500 px-3 py-2">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {staffHours.map((sh) => (
-                    <tr key={sh.id} className="border-b border-border/50 hover:bg-surface-raised/30">
-                      <td className="px-3 py-3 text-sm text-white">{sh.barbers?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{sh.date}</td>
+                    <tr key={sh.id} className="border-b border-gray-200/50 hover:bg-gray-100/30">
+                      <td className="px-3 py-3 text-sm text-gray-900">{sh.barbers?.name ?? "—"}</td>
+                      <td className="px-3 py-3 text-sm text-gray-600">{sh.date}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
                       <td className="px-3 py-3 text-sm text-red-400">{sh.clock_out ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-white">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
+                      <td className="px-3 py-3 text-sm text-gray-900">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
                       <td className="px-3 py-3">
                         <Badge variant={sh.clock_out ? "success" : "warning"}>{sh.clock_out ? "Done" : "Clocked In"}</Badge>
                       </td>
@@ -569,13 +685,13 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Permissions — {permBarber.name}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Permissions — {permBarber.name}</h2>
                   <p className="text-xs text-gray-500 mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
                 </div>
-                <button onClick={() => setPermBarber(null)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+                <button onClick={() => setPermBarber(null)} className="text-gray-500 hover:text-gray-900"><X size={18} /></button>
               </div>
               <div className="space-y-2 pt-1">
                 {([
@@ -585,17 +701,12 @@ export default function StaffPage() {
                   { key: "view_earnings",    label: "View earnings",        description: "See their commission totals and payouts." },
                   { key: "view_clients",     label: "View clients",         description: "Access their client list with appointment history." },
                 ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (
-                  <div key={key} className="flex items-start gap-4 p-3 bg-surface-raised rounded-xl border border-border">
+                  <div key={key} className="flex items-start gap-4 p-3 bg-gray-100 rounded-xl border border-gray-200">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-white">{label}</p>
+                      <p className="text-sm font-medium text-gray-900">{label}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{description}</p>
                     </div>
-                    <button
-                      onClick={() => setPermDraft(prev => ({ ...prev, [key]: !prev[key] }))}
-                      className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", permDraft[key] ? "bg-gold" : "bg-surface border border-border")}
-                    >
-                      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", permDraft[key] ? "left-[22px]" : "left-0.5")} />
-                    </button>
+                    <Switch checked={!!permDraft[key]} onChange={v => setPermDraft(prev => ({ ...prev, [key]: v }))} />
                   </div>
                 ))}
               </div>
@@ -613,45 +724,122 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setScheduleBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Schedule — {scheduleBarber.name}</h2>
-                <button onClick={() => setScheduleBarber(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Schedule — {scheduleBarber.name}</h2>
+                <button onClick={() => setScheduleBarber(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
               <div className="space-y-2">
-                {DAYS_FULL.map((day, dow) => (
-                  <div key={day} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl border border-border">
-                    {/* Open/Close toggle */}
-                    <button
-                      onClick={() => updateScheduleDay(dow, "isOpen", !editSchedule[dow].isOpen)}
-                      className={cn("relative w-10 h-5 rounded-full transition-colors flex-shrink-0", editSchedule[dow].isOpen ? "bg-gold" : "bg-surface border border-border")}
-                    >
-                      <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow", editSchedule[dow].isOpen ? "left-[22px]" : "left-0.5")} />
-                    </button>
-                    <span className="text-sm text-white w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
-                    {editSchedule[dow].isOpen ? (
-                      <>
-                        <select
-                          value={editSchedule[dow].startTime}
-                          onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
-                          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50"
-                        >
-                          {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <span className="text-gray-500 text-xs flex-shrink-0">to</span>
-                        <select
-                          value={editSchedule[dow].endTime}
-                          onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
-                          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50"
-                        >
-                          {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </>
-                    ) : (
-                      <span className="text-xs text-gray-500">Closed</span>
-                    )}
-                  </div>
-                ))}
+                {DAYS_FULL.map((day, dow) => {
+                  // Find any approved time-off that touches this day-of-week
+                  // (we walk each date in the request's range to check dow).
+                  const timeOffOnThisDay = scheduleTimeOff.filter(t => {
+                    const start = new Date(t.start_date + "T00:00:00");
+                    const end = new Date(t.end_date + "T00:00:00");
+                    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                      if (d.getDay() === dow) return true;
+                    }
+                    return false;
+                  });
+                  // Full-day time-off (day_off / vacation / sick) overrides the
+                  // weekly toggle. Blocked-hours don't — they're a partial window.
+                  const fullDayTimeOff = timeOffOnThisDay.filter(t => t.type !== "blocked_hours");
+                  const hasFullDayOff = fullDayTimeOff.length > 0;
+                  const effectiveIsOpen = editSchedule[dow].isOpen && !hasFullDayOff;
+                  const isCancellingForThisDay = fullDayTimeOff.some(t => cancellingTimeOffId === t.id);
+
+                  const onToggleClick = async () => {
+                    if (hasFullDayOff) {
+                      // Toggle ON inside an approved full-day time-off means
+                      // "reopen just this one day" — surgically exclude the
+                      // nearest matching weekday from each request's range,
+                      // never the whole request.
+                      for (const t of fullDayTimeOff) {
+                        const start = new Date(t.start_date + "T00:00:00");
+                        const end = new Date(t.end_date + "T00:00:00");
+                        let targetDate: Date | null = null;
+                        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                          if (d.getDay() === dow) { targetDate = new Date(d); break; }
+                        }
+                        if (targetDate) {
+                          // eslint-disable-next-line no-await-in-loop
+                          await excludeTimeOffDate(t.id, formatDateForDb(targetDate));
+                        }
+                      }
+                    } else {
+                      updateScheduleDay(dow, "isOpen", !editSchedule[dow].isOpen);
+                    }
+                  };
+
+                  return (
+                    <div key={day} className="p-3 bg-gray-100 rounded-xl border border-gray-200 space-y-2">
+                      <div className="flex items-center gap-3">
+                        {/* Open/Close toggle — reflects the effective state.
+                            If a full-day time-off is active, this toggle is
+                            forced OFF and clicking it cancels the time-off. */}
+                        <Switch
+                          checked={effectiveIsOpen}
+                          disabled={isCancellingForThisDay}
+                          onChange={() => onToggleClick()}
+                        />
+                        <span className="text-sm text-gray-900 w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
+                        {effectiveIsOpen ? (
+                          <>
+                            <select
+                              value={editSchedule[dow].startTime}
+                              onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
+                              className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-black"
+                            >
+                              {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <span className="text-gray-500 text-xs flex-shrink-0">to</span>
+                            <select
+                              value={editSchedule[dow].endTime}
+                              onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
+                              className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-black"
+                            >
+                              {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500">Closed</span>
+                        )}
+                      </div>
+                      {/* Approved time-off chips for this day */}
+                      {timeOffOnThisDay.map(t => {
+                        const isFullDay = t.type !== "blocked_hours";
+                        const typeLabel = isFullDay
+                          ? (t.type === "day_off" ? "Day Off" : t.type === "vacation" ? "Vacation" : "Sick")
+                          : "Blocked";
+                        const dateLabel = t.start_date === t.end_date
+                          ? formatFriendlyDate(t.start_date)
+                          : `${formatFriendlyDate(t.start_date)} → ${formatFriendlyDate(t.end_date)}`;
+                        return (
+                          <div key={t.id} className="flex items-center gap-2 text-xs pl-12">
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                              isFullDay ? "bg-orange-500/10 text-orange-300 border-orange-500/20" : "bg-purple-500/10 text-purple-300 border-purple-500/20",
+                            )}>{typeLabel}</span>
+                            <span className="text-gray-600 flex-1 truncate">
+                              {dateLabel}
+                              {t.type === "blocked_hours" && t.start_time && t.end_time && (
+                                <span className="text-gray-500"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={cancellingTimeOffId === t.id}
+                              onClick={() => cancelTimeOff(t.id)}
+                              className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            >
+                              <X size={12} /> {cancellingTimeOffId === t.id ? "Cancelling…" : "Cancel"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setScheduleBarber(null)}>Cancel</Button>
@@ -668,18 +856,18 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
-                <button onClick={() => setInviteLinkModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">✉️ Invite Link Ready</h2>
+                <button onClick={() => setInviteLinkModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-gray-400">
-                An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, sandbox limits, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
+              <p className="text-sm text-gray-500">
+                An email was sent to <span className="text-gray-900 font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, sandbox limits, etc.), copy this link and send it to <span className="text-gray-900 font-medium">{inviteLinkModal.name}</span> directly.
               </p>
               <ResetLinkCopy link={inviteLinkModal.link} />
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300">
+              <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-xs text-orange-300">
                 <p className="font-semibold mb-1">⚠ Link expires in ~1 hour</p>
-                <p className="text-yellow-200/80">
+                <p className="text-orange-200/80">
                   {inviteLinkModal.existingAccount
                     ? "This email already has a ClipWise account. The link signs them in instantly — no password needed."
                     : "When they open the link they'll be asked to set their password."}
@@ -696,13 +884,13 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Password Reset Link</h2>
-                <button onClick={() => setResetModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Password Reset Link</h2>
+                <button onClick={() => setResetModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-gray-400">
-                Share this link with <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.
+              <p className="text-sm text-gray-500">
+                Share this link with <span className="text-gray-900 font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.
               </p>
               <ResetLinkCopy link={resetModal.link} />
               <p className="text-xs text-gray-600">The barber will be prompted to set a new password when they open this link.</p>
@@ -717,20 +905,20 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-sm space-y-4">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
                   <Trash2 size={20} className="text-red-400" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Remove Barber?</h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  This will remove <span className="text-white font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
+                <h2 className="text-lg font-bold text-gray-900">Remove Barber?</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  This will remove <span className="text-gray-900 font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
                 </p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>
                 <Button
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-gray-900"
                   loading={removingId === confirmRemove.id}
                   onClick={() => removeBarber(confirmRemove)}
                 >
@@ -747,19 +935,19 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add Barber</h2>
-                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Add Barber</h2>
+                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 bg-surface-raised border border-border rounded-xl p-1">
+              <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-xl p-1">
                 {(["invite", "manual"] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => { setAddTab(tab); setInviteSent(false); }}
-                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-gold/15 text-gold border border-gold/20" : "text-gray-400 hover:text-white")}
+                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-black border border-gray-300" : "text-gray-500 hover:text-gray-900")}
                   >
                     {tab === "invite" ? "✉️ Invite by Email" : "➕ Add Manually"}
                   </button>
@@ -769,21 +957,21 @@ export default function StaffPage() {
               {inviteSent ? (
                 <div className="py-6 text-center">
                   <div className="text-4xl mb-3">✉️</div>
-                  <p className="font-semibold text-white">Invite sent!</p>
-                  <p className="text-sm text-gray-400 mt-1">{addForm.name} will get an email with a link to set up their account.</p>
+                  <p className="font-semibold text-gray-900">Invite sent!</p>
+                  <p className="text-sm text-gray-500 mt-1">{addForm.name} will get an email with a link to set up their account.</p>
                   <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Done</Button>
                 </div>
               ) : (
                 <>
                   {addTab === "invite" && (
-                    <p className="text-xs text-gray-500 bg-surface-raised border border-border rounded-xl px-3 py-2">
+                    <p className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded-xl px-3 py-2">
                       An invite email will be sent. The barber clicks the link to create their account and gets access to their barber portal automatically.
                     </p>
                   )}
                   {addTab === "manual" && (
-                    <div className="text-xs text-gray-400 bg-surface-raised border border-border rounded-xl px-3 py-2.5 space-y-2">
+                    <div className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 space-y-2">
                       <p>
-                        Use <span className="text-white font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
+                        Use <span className="text-gray-900 font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
                       </p>
                       {user?.email && !alreadyOwnerBarber && (
                         <button
@@ -793,7 +981,7 @@ export default function StaffPage() {
                             email: user.email!,
                             commission_percent: addForm.commission_percent,
                           })}
-                          className="text-gold hover:text-gold/80 font-medium underline-offset-2 hover:underline"
+                          className="text-black hover:text-black/80 font-medium underline-offset-2 hover:underline"
                         >
                           + Add me as a barber
                         </button>
@@ -807,14 +995,14 @@ export default function StaffPage() {
                     { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false },
                   ].map(({ key, label, placeholder, type, required }) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-sm text-gray-400">{label}</label>
+                      <label className="text-sm text-gray-500">{label}</label>
                       <input
                         type={type}
                         value={addForm[key]}
                         onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
                         required={required}
-                        className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
+                        className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
                       />
                     </div>
                   ))}

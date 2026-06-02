@@ -25,19 +25,24 @@ export function formatDate(dateStr: string): string {
 }
 
 export function getStatusColor(status: string): string {
+  // Light-mode status pills — `-100` fills + `-800` foreground + `-300`
+  // border. Saturation bumped from `-50` to `-100` so the chips actually
+  // read against the gray-100 tinted cards instead of dissolving into
+  // them. "Pending" is violet (distinctive, calm, and unmistakably NOT
+  // gray — slate was too close to the card surface to be visible).
   const map: Record<string, string> = {
-    confirmed: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
-    pending: "text-yellow-400 bg-yellow-500/20 border-yellow-500/30",
-    completed: "text-blue-400 bg-blue-500/20 border-blue-500/30",
-    cancelled: "text-red-400 bg-red-500/20 border-red-500/30",
-    "no-show": "text-orange-400 bg-orange-500/20 border-orange-500/30",
+    confirmed: "text-emerald-800 bg-emerald-100 border-emerald-300",
+    pending:   "text-violet-800  bg-violet-100  border-violet-300",
+    completed: "text-blue-800    bg-blue-100    border-blue-300",
+    cancelled: "text-red-800     bg-red-100     border-red-300",
+    "no-show": "text-orange-800  bg-orange-100  border-orange-300",
   };
-  return map[status] ?? "text-gray-400 bg-gray-500/20 border-gray-500/30";
+  return map[status] ?? "text-gray-700 bg-gray-200 border-gray-300";
 }
 
 export function getTagColor(tag: string): string {
   const map: Record<string, string> = {
-    VIP: "text-yellow-400 bg-yellow-500/20 border-yellow-500/30",
+    VIP: "text-orange-400 bg-orange-500/20 border-orange-500/30",
     New: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
     Returning: "text-blue-400 bg-blue-500/20 border-blue-500/30",
     "At Risk": "text-red-400 bg-red-500/20 border-red-500/30",
@@ -88,9 +93,16 @@ export function dbTimeToDisplay(dbTime: string): string {
   return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
-/** Format a Date as "YYYY-MM-DD" for Supabase queries */
+/** Format a Date as "YYYY-MM-DD" for Supabase queries.
+ *  Uses the Date's *local* year/month/day so May 31 stays May 31 even
+ *  when UTC has already rolled to June 1 (i.e. evening in any timezone
+ *  west of UTC). Using `.toISOString()` here would silently drift the
+ *  whole app's "today" to tomorrow after roughly 8pm local time. */
 export function formatDateForDb(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /**

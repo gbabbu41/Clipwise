@@ -8,9 +8,9 @@ import { Input, Select } from "@/components/ui/input";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -48,8 +48,8 @@ export default function StripeSetupPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Stripe Setup</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Connect Stripe to accept payments and receive payouts</p>
+        <h1 className="text-2xl font-bold text-gray-900">Stripe Setup</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Connect Stripe to accept payments and receive payouts</p>
       </div>
 
       {/* Progress Steps */}
@@ -60,10 +60,10 @@ export default function StripeSetupPage() {
           return (
             <div key={step.id} className="flex items-center gap-2 flex-1">
               <div className={cn("flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all",
-                isCompleted ? "bg-emerald-500 text-white" : isActive ? "bg-gold text-black" : "bg-surface-raised text-gray-500 border border-border")}>
+                isCompleted ? "bg-emerald-500 text-gray-900" : isActive ? "bg-gold text-black" : "bg-gray-100 text-gray-500 border border-gray-200")}>
                 {isCompleted ? "✓" : step.id}
               </div>
-              <span className={cn("text-xs font-medium hidden sm:block", isCompleted ? "text-emerald-400" : isActive ? "text-gold" : "text-gray-500")}>
+              <span className={cn("text-xs font-medium hidden sm:block", isCompleted ? "text-emerald-400" : isActive ? "text-black" : "text-gray-500")}>
                 {step.label}
               </span>
               {idx < STEPS.length - 1 && (
@@ -79,7 +79,7 @@ export default function StripeSetupPage() {
         <CardHeader>
           <div>
             <CardTitle>Step 1: Connect Stripe Account</CardTitle>
-            <p className="text-sm text-gray-400 mt-1">Link your Stripe account to start accepting payments instantly</p>
+            <p className="text-sm text-gray-500 mt-1">Link your Stripe account to start accepting payments instantly</p>
           </div>
           {stripeConnected && <Badge variant="success">Connected ✓</Badge>}
         </CardHeader>
@@ -89,13 +89,13 @@ export default function StripeSetupPage() {
               <span className="text-2xl">✅</span>
               <div>
                 <p className="text-sm font-semibold text-emerald-400">Stripe account connected</p>
-                <p className="text-xs text-gray-400">Account ID: acct_demo_1234567890</p>
+                <p className="text-xs text-gray-500">Account ID: acct_demo_1234567890</p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="p-4 bg-surface-raised rounded-xl border border-border">
-                <p className="text-sm text-gray-300">Stripe processes your payments securely. You&apos;ll receive payouts directly to your bank account.</p>
+              <div className="p-4 bg-gray-100 rounded-xl border border-gray-200">
+                <p className="text-sm text-gray-600">Stripe processes your payments securely. You&apos;ll receive payouts directly to your bank account.</p>
               </div>
               <Button loading={connectLoading} onClick={connectStripe} className="gap-2">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -113,7 +113,7 @@ export default function StripeSetupPage() {
         <CardHeader>
           <div>
             <CardTitle>Step 2: Business Details</CardTitle>
-            <p className="text-sm text-gray-400 mt-1">Provide your business information for verification</p>
+            <p className="text-sm text-gray-500 mt-1">Provide your business information for verification</p>
           </div>
           {detailsSaved && <Badge variant="success">Saved ✓</Badge>}
         </CardHeader>
@@ -137,7 +137,7 @@ export default function StripeSetupPage() {
         <CardHeader>
           <div>
             <CardTitle>Step 3: Identity Verification</CardTitle>
-            <p className="text-sm text-gray-400 mt-1">Required by Stripe for compliance and fraud prevention</p>
+            <p className="text-sm text-gray-500 mt-1">Required by Stripe for compliance and fraud prevention</p>
           </div>
           <Badge variant="success">Verification Complete ✓</Badge>
         </CardHeader>
@@ -146,28 +146,28 @@ export default function StripeSetupPage() {
             <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-2xl">✅</div>
             <div>
               <p className="text-sm font-semibold text-emerald-400">Identity Verified</p>
-              <p className="text-xs text-gray-400">Government ID submitted and confirmed · May 20, 2026</p>
+              <p className="text-xs text-gray-500">Government ID submitted and confirmed · May 20, 2026</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="p-3 bg-surface-raised rounded-xl border border-border">
-              <p className="text-xs text-gray-400">ID Type</p>
-              <p className="text-sm text-white mt-0.5">Driver&apos;s License</p>
+            <div className="p-3 bg-gray-100 rounded-xl border border-gray-200">
+              <p className="text-xs text-gray-500">ID Type</p>
+              <p className="text-sm text-gray-900 mt-0.5">Driver&apos;s License</p>
             </div>
-            <div className="p-3 bg-surface-raised rounded-xl border border-border">
-              <p className="text-xs text-gray-400">Verified On</p>
-              <p className="text-sm text-white mt-0.5">May 20, 2026</p>
+            <div className="p-3 bg-gray-100 rounded-xl border border-gray-200">
+              <p className="text-xs text-gray-500">Verified On</p>
+              <p className="text-sm text-gray-900 mt-0.5">May 20, 2026</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Step 4: Payout Stats */}
-      <Card className={cn("border-gold/20")} gold>
+      <Card className={cn("border-gray-300")} gold>
         <CardHeader>
           <div>
             <CardTitle>Step 4: Payouts Active</CardTitle>
-            <p className="text-sm text-gray-400 mt-1">Your earnings are automatically transferred to your bank</p>
+            <p className="text-sm text-gray-500 mt-1">Your earnings are automatically transferred to your bank</p>
           </div>
           <Badge variant="gold">Active</Badge>
         </CardHeader>
@@ -175,29 +175,29 @@ export default function StripeSetupPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
               { label: "Available Balance", value: "$1,240.50", color: "text-emerald-400" },
-              { label: "Pending", value: "$485.00", color: "text-yellow-400" },
-              { label: "Last Payout", value: "$2,890.00", color: "text-white", sub: "May 20, 2026" },
-              { label: "Next Payout", value: "May 28", color: "text-gold" },
+              { label: "Pending", value: "$485.00", color: "text-orange-400" },
+              { label: "Last Payout", value: "$2,890.00", color: "text-gray-900", sub: "May 20, 2026" },
+              { label: "Next Payout", value: "May 28", color: "text-black" },
             ].map(item => (
-              <div key={item.label} className="p-4 bg-surface-raised rounded-xl border border-border">
-                <p className="text-xs text-gray-400">{item.label}</p>
+              <div key={item.label} className="p-4 bg-gray-100 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500">{item.label}</p>
                 <p className={cn("text-xl font-bold mt-1", item.color)}>{item.value}</p>
                 {item.sub && <p className="text-xs text-gray-500 mt-0.5">{item.sub}</p>}
               </div>
             ))}
           </div>
           <div className="space-y-3 mb-4">
-            <div className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
+            <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
               <div>
-                <p className="text-sm text-white">May 20 Payout</p>
-                <p className="text-xs text-gray-400">Transferred to •••• 4242</p>
+                <p className="text-sm text-gray-900">May 20 Payout</p>
+                <p className="text-xs text-gray-500">Transferred to •••• 4242</p>
               </div>
               <span className="text-emerald-400 font-semibold">$2,890.00</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
+            <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
               <div>
-                <p className="text-sm text-white">May 13 Payout</p>
-                <p className="text-xs text-gray-400">Transferred to •••• 4242</p>
+                <p className="text-sm text-gray-900">May 13 Payout</p>
+                <p className="text-xs text-gray-500">Transferred to •••• 4242</p>
               </div>
               <span className="text-emerald-400 font-semibold">$2,340.00</span>
             </div>

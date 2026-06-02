@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { cn, formatCurrency, getStatusColor, formatDateForDb } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -11,20 +11,83 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 import type { Service } from "@/lib/database.types";
 
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-surface-raised rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
 }
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
 
 const STATUS_OPTIONS = ["confirmed", "pending", "completed", "cancelled", "no-show"] as const;
 type AppStatus = typeof STATUS_OPTIONS[number];
+
+/** Context-aware "forward" action for an appointment.
+ *   pending   → Approve (advances to confirmed)
+ *   confirmed → Complete (advances to completed)
+ *   anything else (completed / cancelled / no-show) → no forward action.
+ * Reject is offered separately whenever the appointment is still pending
+ * or confirmed (i.e. not yet finalized). Centralizing this here means the
+ * mobile card list, desktop table, and side panel all stay in sync. */
+function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-success" };
+  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-primary" };
+  return null;
+}
+const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
+
+/** Payment badge for an appointment row. Reflects the *current* state of
+ *  `payment_status` + `payment_method`. Once Stripe webhooks are live the
+ *  same fields update automatically, so this stays accurate without code
+ *  changes — the badges here are already "real" data, not placeholders. */
+function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: string } {
+  const status = apt.payment_status;
+  const method = apt.payment_method;
+  if (status === "paid") {
+    const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
+    return { label: `Paid${suffix}`, bsClass: "text-bg-success" };
+  }
+  if (status === "refunded") return { label: "Refunded",        bsClass: "text-bg-secondary" };
+  if (status === "failed")   return { label: "Payment failed",  bsClass: "text-bg-danger" };
+  if (method === "cash")     return { label: "Cash on arrival", bsClass: "text-bg-light" };
+  if (method === "online" || method === "card")
+                             return { label: "Awaiting payment", bsClass: "text-bg-warning" };
+  return { label: "Unpaid", bsClass: "text-bg-light" };
+}
+
+const PAID_REFUND_WINDOW_DAYS = 30;
+const isRefundable = (apt: AppointmentWithDetails) =>
+  apt.payment_status === "paid" &&
+  (Date.now() - new Date(apt.date).getTime()) / 86400000 <= PAID_REFUND_WINDOW_DAYS;
+
+// Date-filter chips, in the order they appear in the bar.
+const DATE_FILTERS: { key: string; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "tomorrow", label: "Tomorrow" },
+  { key: "week", label: "This Week" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "all", label: "All Time" },
+];
+
+// Compact friendly date for table cells / list rows:
+//   today    → "Today · Jun 4"
+//   tomorrow → "Tomorrow · Jun 5"
+//   other    → "Fri · Jun 6"  (weekday abbreviation + short month-day)
+function shortFriendlyDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const monthDay = d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  if (d.getTime() === today.getTime()) return `Today · ${monthDay}`;
+  if (d.getTime() === tomorrow.getTime()) return `Tomorrow · ${monthDay}`;
+  const weekday = d.toLocaleDateString("en-CA", { weekday: "short" });
+  return `${weekday} · ${monthDay}`;
+}
 
 export default function AppointmentsPage() {
   const { shop, profile, accessToken } = useAuth();
@@ -47,6 +110,11 @@ export default function AppointmentsPage() {
   const [savingReject, setSavingReject] = useState(false);
   const [refundModal, setRefundModal] = useState<AppointmentWithDetails | null>(null);
   const [savingRefund, setSavingRefund] = useState(false);
+  /** Opened when the owner clicks "Complete" on an unpaid appointment.
+   *  Lets them either record a cash payment or email the customer a
+   *  Stripe Checkout link, optionally finalizing the appointment too. */
+  const [paymentModal, setPaymentModal] = useState<AppointmentWithDetails | null>(null);
+  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
 
   // Add appointment form state
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM" });
@@ -67,18 +135,25 @@ export default function AppointmentsPage() {
     setLoading(true);
 
     const today = formatDateForDb(new Date());
-    const weekAgo = formatDateForDb(new Date(Date.now() - 7 * 86400000));
-    const weekAhead = formatDateForDb(new Date(Date.now() + 7 * 86400000));
+    const tomorrow = formatDateForDb(new Date(Date.now() + 86400000));
+    const weekStart = formatDateForDb(new Date());
+    const weekEnd = formatDateForDb(new Date(Date.now() + 7 * 86400000));
+    const upcomingEnd = formatDateForDb(new Date(Date.now() + 30 * 86400000));
 
+    // "Upcoming" is from today onward, sorted ascending so the next booking
+    // is at the top — that's the view a barber actually wants to see.
+    const isUpcomingView = dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow";
     let apptQuery = supabase
       .from("appointments")
       .select("*, barbers(id, name), services(id, name, price, category)")
       .eq("shop_id", shop.id)
-      .order("date", { ascending: false })
+      .order("date", { ascending: isUpcomingView })
       .order("time_slot", { ascending: true });
 
     if (dateFilter === "today") apptQuery = apptQuery.eq("date", today);
-    else if (dateFilter === "week") apptQuery = apptQuery.gte("date", weekAgo).lte("date", weekAhead);
+    else if (dateFilter === "tomorrow") apptQuery = apptQuery.eq("date", tomorrow);
+    else if (dateFilter === "week") apptQuery = apptQuery.gte("date", weekStart).lte("date", weekEnd);
+    else if (dateFilter === "upcoming") apptQuery = apptQuery.gte("date", today).lte("date", upcomingEnd);
 
     // Barbers only see their own appointments
     if (profile?.role === "barber" && myBarberId) {
@@ -108,6 +183,7 @@ export default function AppointmentsPage() {
         setSelectedApt(null);
         setRejectModal(null);
         setRefundModal(null);
+        setPaymentModal(null);
       }
     };
     window.addEventListener("keydown", handler);
@@ -116,8 +192,18 @@ export default function AppointmentsPage() {
 
   const updateStatus = async (id: string, status: AppStatus) => {
     setSavingStatus(id);
-    await supabase.from("appointments").update({ status }).eq("id", id);
+    const { error: updateErr } = await supabase
+      .from("appointments")
+      .update({ status })
+      .eq("id", id);
     setSavingStatus("");
+    if (updateErr) {
+      // Without this, an RLS / network failure would leave the row visually
+      // unchanged with no feedback — the cause of "the Done button does
+      // nothing" reports. Surface the message so it can be diagnosed.
+      showToast(`Update failed: ${updateErr.message}`);
+      return;
+    }
 
     const appt = appointments.find(a => a.id === id);
 
@@ -248,6 +334,66 @@ export default function AppointmentsPage() {
     showToast("Refund processed" + (appt.client_email ? " · Email sent to client" : ""));
   };
 
+  /** Intercept the "Complete" transition: if the appointment is unpaid
+   *  and has a positive amount, open the PaymentModal so the owner can
+   *  decide how to take payment first. Everything else routes straight
+   *  through to `updateStatus`. */
+  const handleStatusChange = (apt: AppointmentWithDetails, next: AppStatus) => {
+    if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
+      setPaymentModal(apt);
+      return;
+    }
+    updateStatus(apt.id, next);
+  };
+
+  const markCashPaid = async (alsoComplete: boolean) => {
+    if (!paymentModal) return;
+    setSavingPayment("cash");
+    const patch: Record<string, unknown> = { payment_status: "paid", payment_method: "cash" };
+    if (alsoComplete) patch.status = "completed";
+    const { error } = await supabase.from("appointments").update(patch).eq("id", paymentModal.id);
+    setSavingPayment("");
+    if (error) { showToast(`Failed: ${error.message}`); return; }
+    setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, ...patch } as AppointmentWithDetails : a));
+    if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
+    setPaymentModal(null);
+    showToast(alsoComplete ? "Cash payment recorded · Appointment completed" : "Cash payment recorded");
+  };
+
+  const sendPaymentLink = async (alsoComplete: boolean) => {
+    if (!paymentModal || !accessToken) return;
+    setSavingPayment("link");
+    const res = await fetch("/api/stripe/payment-link", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSavingPayment("");
+      showToast(`Failed: ${data.error}`);
+      return;
+    }
+    if (alsoComplete) {
+      // Mark completed; the actual payment will land via the webhook when
+      // the customer pays. Keep payment_status as-is until that happens.
+      await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentModal.id);
+      setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, status: "completed" as AppStatus } : a));
+      if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, status: "completed" as AppStatus } : null);
+    }
+    setSavingPayment("");
+    setPaymentModal(null);
+    showToast(data.emailed ? "Payment link emailed to customer" : "Payment link generated (no email on file)");
+  };
+
+  const skipPaymentAndComplete = async () => {
+    if (!paymentModal) return;
+    setSavingPayment("skip");
+    await updateStatus(paymentModal.id, "completed");
+    setSavingPayment("");
+    setPaymentModal(null);
+  };
+
   const addAppointment = async () => {
     if (!shop || !addForm.client_name || !addForm.service_id) { showToast("Fill in required fields"); return; }
     const today = formatDateForDb(new Date());
@@ -306,8 +452,8 @@ export default function AppointmentsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Appointments</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage bookings and waitlist</p>
+          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage bookings and waitlist</p>
         </div>
         <Button onClick={() => setShowAddModal(true)}>+ Add Appointment</Button>
       </div>
@@ -315,26 +461,26 @@ export default function AppointmentsPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Today", value: todayApts.length, color: "text-white" },
-          { label: "Confirmed", value: confirmed, color: "text-emerald-400" },
-          { label: "No-Shows", value: noShows, color: "text-orange-400" },
-          { label: "Revenue Today", value: formatCurrency(revenue), color: "text-gold" },
+          { label: "Total Today", value: todayApts.length, color: "text-gray-900" },
+          { label: "Confirmed", value: confirmed, color: "text-emerald-700" },
+          { label: "No-Shows", value: noShows, color: "text-orange-700" },
+          { label: "Revenue Today", value: formatCurrency(revenue), color: "text-black" },
         ].map(s => (
           <Card key={s.label} className="py-4 px-5">
-            <p className="text-xs text-gray-400">{s.label}</p>
+            <p className="text-xs text-gray-500">{s.label}</p>
             <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
           </Card>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-gray-200">
         {(["appointments", "waitlist"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white")}>
+              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900")}>
             {t} {t === "waitlist" && waitlist.length > 0 && (
-              <span className="ml-1 text-xs bg-gold/20 text-gold px-1.5 rounded-full">{waitlist.length}</span>
+              <span className="ml-1 text-xs bg-black/10 text-black px-1.5 rounded-full">{waitlist.length}</span>
             )}
           </button>
         ))}
@@ -342,22 +488,35 @@ export default function AppointmentsPage() {
 
       {tab === "appointments" ? (
         <>
-          {/* Filters */}
+          {/* Date chips — primary navigation. Barbers usually want
+              "today / tomorrow / this week", not a raw date picker. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {DATE_FILTERS.map(f => (
+              <button
+                key={f.key}
+                onClick={() => setDateFilter(f.key)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
+                  dateFilter === f.key
+                    ? "bg-gold text-black border-black"
+                    : "bg-gray-100 text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Secondary filters */}
           <div className="flex flex-wrap gap-3">
             <Input placeholder="Search client…" value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
-            <select value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-              className="rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50">
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="all">All Time</option>
-            </select>
             <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-              className="rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50">
+              className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Barbers</option>
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50">
+              className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Statuses</option>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
@@ -367,7 +526,7 @@ export default function AppointmentsPage() {
           <div className="md:hidden space-y-3">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-surface border border-border rounded-2xl p-4 space-y-3 animate-pulse">
+                <div key={i} className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-4 space-y-3 animate-pulse">
                   <div className="flex justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-16 rounded-full" /></div>
                   <Skeleton className="h-3 w-40" />
                   <Skeleton className="h-3 w-28" />
@@ -375,45 +534,57 @@ export default function AppointmentsPage() {
                 </div>
               ))
             ) : filtered.length === 0 ? (
-              <div className="bg-surface border border-border rounded-2xl py-12 text-center">
+              <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl py-12 text-center">
                 <p className="text-3xl mb-3">📅</p>
-                <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                <p className="text-gray-900 font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                 <p className="text-sm text-gray-500 px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
               </div>
             ) : filtered.map(apt => (
               <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                className="bg-surface border border-border rounded-2xl p-4 active:bg-surface-raised/50 cursor-pointer transition-colors space-y-3">
+                className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-4 active:bg-gray-100/50 cursor-pointer transition-colors space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
-                    <p className="text-xs text-gray-400">{apt.client_phone || "—"}</p>
+                    <p className="text-base font-semibold text-gray-900 truncate">{apt.client_name}</p>
+                    <p className="text-xs text-gray-500">{apt.client_phone || "—"}</p>
                   </div>
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border flex-shrink-0", getStatusColor(apt.status))}>
                     {apt.status}
                   </span>
                 </div>
                 <div className="space-y-1.5 text-sm">
-                  <p className="text-white font-medium">{apt.date} · <span className="text-gold">{apt.time_slot}</span></p>
-                  <p className="text-gray-400">{apt.services?.name ?? "—"} · <span className="text-gold">{formatCurrency(apt.total_amount)}</span></p>
-                  <p className="text-xs text-gray-500">Barber: {apt.barbers?.name ?? "—"}</p>
+                  <p className="text-gray-900 font-medium">{shortFriendlyDate(apt.date)} · <span className="text-black">{apt.time_slot}</span></p>
+                  <p className="text-gray-500">{apt.services?.name ?? "—"} · <span className="text-black">{formatCurrency(apt.total_amount)}</span></p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">Barber: {apt.barbers?.name ?? "—"}</p>
+                    {(() => { const p = paymentBadge(apt); return <span className={cn("badge", p.bsClass)}>{p.label}</span>; })()}
+                  </div>
                 </div>
-                <div className="flex gap-2 pt-1" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => updateStatus(apt.id, "confirmed")} disabled={savingStatus === apt.id}
-                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">✓ Confirm</button>
-                  <button onClick={() => updateStatus(apt.id, "completed")} disabled={savingStatus === apt.id}
-                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50">Done</button>
-                  <button onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50">Reject</button>
-                </div>
+                {(() => {
+                  const action = primaryAction(apt.status as AppStatus);
+                  const rejectable = canReject(apt.status as AppStatus);
+                  if (!action && !rejectable) return null;
+                  return (
+                    <div className="flex gap-2 pt-1" onClick={e => e.stopPropagation()}>
+                      {action && (
+                        <button type="button" onClick={() => handleStatusChange(apt, action.next)} disabled={savingStatus === apt.id}
+                          className={cn("btn flex-1", action.variant)}>{action.label}</button>
+                      )}
+                      {rejectable && (
+                        <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
+                          className="btn btn-danger flex-1">Reject</button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
 
           {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
           {loading ? (
-            <div className="hidden md:block bg-surface border border-border rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-gray-50 shadow-sm border border-gray-200 rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-border/50 last:border-0">
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-gray-200/50 last:border-0">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-16" />
                 <div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-20" /></div>
@@ -429,10 +600,10 @@ export default function AppointmentsPage() {
             <Card className="hidden md:block p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-border">
+                  <thead className="border-b border-gray-200">
                     <tr>
                       {["Date", "Time", "Client", "Barber", "Service", "Status", "Amount", "Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-gray-400 px-4 py-3">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-gray-500 px-4 py-3">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -440,35 +611,49 @@ export default function AppointmentsPage() {
                     {filtered.length === 0 ? (
                       <tr><td colSpan={8} className="text-center py-16">
                         <p className="text-3xl mb-3">📅</p>
-                        <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                        <p className="text-gray-900 font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                         <p className="text-sm text-gray-500">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
                       </td></tr>
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                        className="border-b border-border/50 hover:bg-surface-raised/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3 text-sm text-gray-300">{apt.date}</td>
-                        <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
+                        className="border-b border-gray-200/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-white">{apt.client_name}</p>
-                          <p className="text-xs text-gray-400">{apt.client_phone}</p>
+                          <p className="text-sm text-gray-900">{apt.client_name}</p>
+                          <p className="text-xs text-gray-500">{apt.client_phone}</p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-300">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-gray-300">{apt.services?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{apt.barbers?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getStatusColor(apt.status))}>
                             {apt.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-white">{formatCurrency(apt.total_amount)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="text-sm text-gray-900">{formatCurrency(apt.total_amount)}</p>
+                          {(() => { const p = paymentBadge(apt); return <span className={cn("badge mt-1", p.bsClass)}>{p.label}</span>; })()}
+                        </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex gap-1">
-                            <button onClick={() => updateStatus(apt.id, "confirmed")} disabled={savingStatus === apt.id}
-                              className="text-xs px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">✓</button>
-                            <button onClick={() => updateStatus(apt.id, "completed")} disabled={savingStatus === apt.id}
-                              className="text-xs px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50">Done</button>
-                            <button onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                              className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50">Reject</button>
-                          </div>
+                          {(() => {
+                            const action = primaryAction(apt.status as AppStatus);
+                            const rejectable = canReject(apt.status as AppStatus);
+                            if (!action && !rejectable) {
+                              return <span className="text-xs text-gray-400">—</span>;
+                            }
+                            return (
+                              <div className="flex gap-1">
+                                {action && (
+                                  <button type="button" onClick={() => handleStatusChange(apt, action.next)} disabled={savingStatus === apt.id}
+                                    className={cn("btn btn-sm", action.variant)}>{action.label}</button>
+                                )}
+                                {rejectable && (
+                                  <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
+                                    className="btn btn-danger btn-sm">Reject</button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -483,17 +668,17 @@ export default function AppointmentsPage() {
           <CardHeader><CardTitle>Waitlist ({waitlist.length})</CardTitle></CardHeader>
           <CardContent>
             {waitlist.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No one on the waitlist right now</p>
+              <p className="text-center text-gray-500 py-8">No one on the waitlist right now</p>
             ) : (
               <div className="space-y-3">
                 {waitlist.map(wl => {
                   const svc = services.find(s => s.id === wl.service_id);
                   const barber = barbers.find(b => b.id === wl.barber_id);
                   return (
-                    <div key={wl.id} className="flex items-center justify-between p-4 bg-surface-raised rounded-xl border border-border">
+                    <div key={wl.id} className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
                       <div>
-                        <p className="text-sm font-medium text-white">{wl.client_name} · {svc?.name ?? "Any Service"}</p>
-                        <p className="text-xs text-gray-400">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
+                        <p className="text-sm font-medium text-gray-900">{wl.client_name} · {svc?.name ?? "Any Service"}</p>
+                        <p className="text-xs text-gray-500">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
                         <p className="text-xs text-gray-500 mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                       </div>
                       <div className="flex gap-2">
@@ -516,47 +701,94 @@ export default function AppointmentsPage() {
       {selectedApt && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedApt(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border z-50 overflow-y-auto p-6 space-y-5">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-gray-50 shadow-sm border-l border-gray-200 z-50 overflow-y-auto p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">Appointment Details</h2>
-              <button onClick={() => setSelectedApt(null)} className="text-gray-400 hover:text-white text-xl">✕</button>
+              <h2 className="text-lg font-bold text-gray-900">Appointment Details</h2>
+              <button onClick={() => setSelectedApt(null)} className="text-gray-500 hover:text-gray-900 text-xl">✕</button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-surface-raised rounded-xl border border-border space-y-1">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Client</p>
-                <p className="text-white font-semibold">{selectedApt.client_name}</p>
-                <p className="text-sm text-gray-300">{selectedApt.client_phone}</p>
+              <div className="p-4 bg-gray-100 rounded-xl border border-gray-200 space-y-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Client</p>
+                <p className="text-gray-900 font-semibold">{selectedApt.client_name}</p>
+                <p className="text-sm text-gray-600">{selectedApt.client_phone}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: "Service", value: selectedApt.services?.name ?? "—" },
                   { label: "Barber", value: selectedApt.barbers?.name ?? "—" },
-                  { label: "Date", value: selectedApt.date },
+                  { label: "Date", value: formatFriendlyDate(selectedApt.date) },
                   { label: "Time", value: selectedApt.time_slot },
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
                   { label: "Status", value: selectedApt.status },
                 ].map(item => (
-                  <div key={item.label} className="p-3 bg-surface-raised rounded-xl border border-border">
-                    <p className="text-xs text-gray-400">{item.label}</p>
-                    <p className="text-sm text-white mt-0.5 capitalize">{item.value}</p>
+                  <div key={item.label} className="p-3 bg-gray-100 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500">{item.label}</p>
+                    <p className="text-sm text-gray-900 mt-0.5 capitalize">{item.value}</p>
                   </div>
                 ))}
               </div>
+              {/* Payment summary row — always shown so the owner sees at a
+                  glance whether money has moved before deciding actions. */}
+              {(() => {
+                const p = paymentBadge(selectedApt);
+                return (
+                  <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
+                    <span className="text-xs text-gray-500 uppercase tracking-wide">Payment</span>
+                    <span className={cn("badge", p.bsClass)}>{p.label}</span>
+                  </div>
+                );
+              })()}
               <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add notes…" />
               <Button variant="outline" className="w-full" onClick={saveNotes}>Save Notes</Button>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => updateStatus(selectedApt.id, "confirmed")}>Confirm</Button>
-                <Button variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={() => updateStatus(selectedApt.id, "completed")}>Complete</Button>
-                <Button variant="danger" onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</Button>
-                <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10" onClick={() => updateStatus(selectedApt.id, "no-show")}>No-Show</Button>
-              </div>
-              {selectedApt.payment_status === "paid" && (Date.now() - new Date(selectedApt.date).getTime()) / 86400000 <= 30 && (
-                <Button variant="outline" className="w-full border-gold/30 text-gold hover:bg-gold/10 mt-2" onClick={() => setRefundModal(selectedApt)}>
-                  💳 Issue Refund (${(selectedApt.total_amount ?? 0).toFixed(2)})
-                </Button>
+
+              {/* Action buttons — only the ones that make sense for the current
+                  status. Once an appointment is finalized (completed / cancelled
+                  / no-show) the only thing left to do is issue a refund (if it
+                  was paid). This mirrors the mobile-card / desktop-table logic. */}
+              {(() => {
+                const action = primaryAction(selectedApt.status as AppStatus);
+                const rejectable = canReject(selectedApt.status as AppStatus);
+                if (!action && !rejectable) return null;
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    {action && (
+                      <button type="button" className={cn("btn", action.variant)} disabled={savingStatus === selectedApt.id}
+                        onClick={() => handleStatusChange(selectedApt, action.next)}>{action.label}</button>
+                    )}
+                    {rejectable && (
+                      <button type="button" className="btn btn-danger" disabled={savingStatus === selectedApt.id}
+                        onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</button>
+                    )}
+                    {rejectable && (
+                      <button type="button" className="btn btn-warning col-span-2" disabled={savingStatus === selectedApt.id}
+                        onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Take Payment — visible whenever there's an outstanding charge,
+                  regardless of appointment status. Lets the owner collect
+                  cash or send a Stripe link after the fact. */}
+              {selectedApt.payment_status !== "paid" &&
+               selectedApt.payment_status !== "refunded" &&
+               (selectedApt.total_amount ?? 0) > 0 && (
+                <button type="button" className="btn btn-success w-full" onClick={() => setPaymentModal(selectedApt)}>
+                  💳 Take Payment ({formatCurrency(selectedApt.total_amount)})
+                </button>
+              )}
+
+              {/* Refund — only when there's money to refund and we're inside
+                  the refund window. Stays visible even after the appointment
+                  is cancelled / completed / no-show, since that's exactly when
+                  the owner needs it. */}
+              {isRefundable(selectedApt) && (
+                <button type="button" className="btn btn-outline-dark w-full" onClick={() => setRefundModal(selectedApt)}>
+                  💳 Issue Refund ({formatCurrency(selectedApt.total_amount)})
+                </button>
               )}
               {selectedApt.payment_status === "refunded" && (
-                <p className="text-center text-xs text-gray-500 mt-2">✓ Refunded</p>
+                <p className="text-center text-xs text-gray-500">✓ Refunded</p>
               )}
             </div>
           </div>
@@ -568,32 +800,32 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRejectModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
-                <button onClick={() => setRejectModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Reject Appointment</h2>
+                <button onClick={() => setRejectModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
-              <div className="bg-surface-raised rounded-xl p-3 text-sm text-gray-400">
-                <span className="text-white font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {rejectModal.appt.date} {rejectModal.appt.time_slot}
+              <div className="bg-gray-100 rounded-xl p-3 text-sm text-gray-500">
+                <span className="text-gray-900 font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {shortFriendlyDate(rejectModal.appt.date)} · {rejectModal.appt.time_slot}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Reason (optional)</label>
+                <label className="text-sm font-medium text-gray-600">Reason (optional)</label>
                 <textarea
                   value={rejectModal.reason}
                   onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
                   rows={3}
                   placeholder="e.g. Barber unavailable, fully booked, shop closed…"
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                  className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
                 />
               </div>
               {rejectModal.appt.client_email && (
-                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
-                  A cancellation email will be sent to <span className="text-gray-300">{rejectModal.appt.client_email}</span> with this reason.
+                <p className="text-xs text-gray-500 bg-gray-100 rounded-xl px-3 py-2">
+                  A cancellation email will be sent to <span className="text-gray-600">{rejectModal.appt.client_email}</span> with this reason.
                 </p>
               )}
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRejectModal(null)}>Back</Button>
-                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingReject} onClick={rejectAppointment}>
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-gray-900" loading={savingReject} onClick={rejectAppointment}>
                   Reject & Notify
                 </Button>
               </div>
@@ -607,25 +839,70 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRefundModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Issue Refund</h2>
-                <button onClick={() => setRefundModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Issue Refund</h2>
+                <button onClick={() => setRefundModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
               </div>
-              <div className="bg-surface-raised rounded-xl p-3 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-gray-400">Client</span><span className="text-white">{refundModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Amount</span><span className="text-gold font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+              <div className="bg-gray-100 rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-gray-900">{refundModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-gray-900">{refundModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Amount</span><span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
-              <p className="text-sm text-gray-400">
-                This refunds <span className="text-gold font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
+              <p className="text-sm text-gray-500">
+                This refunds <span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
-                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingRefund} onClick={issueRefund}>
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-gray-900" loading={savingRefund} onClick={issueRefund}>
                   Refund ${(refundModal.total_amount ?? 0).toFixed(2)}
                 </Button>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Payment Modal — opened on Complete when payment_status !== 'paid',
+          or via the standalone "Take Payment" button in the side panel. */}
+      {paymentModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Take Payment</h2>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-gray-100 rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-gray-900">{paymentModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-gray-900">{paymentModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Amount due</span><span className="text-black font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""}
+                  onClick={() => markCashPaid(true)}>
+                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                </button>
+
+                <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== "" || !paymentModal.client_email}
+                  onClick={() => sendPaymentLink(true)}>
+                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
+                </button>
+                {!paymentModal.client_email && (
+                  <p className="text-xs text-gray-500 text-center -mt-1">Customer has no email — can't send link</p>
+                )}
+
+                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""}
+                  onClick={skipPaymentAndComplete}>
+                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500 text-center">
+                Cash and online links can be reconciled later from the appointment's payment badge.
+              </p>
             </div>
           </div>
         </>
@@ -636,10 +913,10 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add Appointment</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Add Appointment</h2>
+                <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
               <Input label="Client Name *" value={addForm.client_name} onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone} onChange={e => setAddForm(p => ({ ...p, client_phone: formatPhone(e.target.value) }))} placeholder="506-555-0000" />

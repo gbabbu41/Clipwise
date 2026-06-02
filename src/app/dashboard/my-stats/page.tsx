@@ -129,17 +129,17 @@ export default function MyStatsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">My Stats</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{profile.name} · {shop.name}</p>
+          <h1 className="text-2xl font-bold text-gray-900">My Stats</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{profile.name} · {shop.name}</p>
         </div>
-        <div className="flex gap-1 p-1 bg-surface-raised border border-border rounded-xl">
+        <div className="flex gap-1 p-1 bg-gray-100 border border-gray-200 rounded-xl">
           {(["week", "month", "all"] as Period[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                period === p ? "bg-gold text-black" : "text-gray-400 hover:text-white"
+                period === p ? "bg-gold text-black" : "text-gray-500 hover:text-gray-900"
               )}
             >
               {p === "week" ? "Week" : p === "month" ? "Month" : "All"}
@@ -159,14 +159,14 @@ export default function MyStatsPage() {
           { label: "Avg Rating", value: avgRating, sub: `${reviews.length} review${reviews.length !== 1 ? "s" : ""}`, icon: Star, color: "gold" },
         ].map(stat => {
           const Icon = stat.icon;
-          const colorMap: Record<string, string> = { gold: "bg-gold/15 text-gold", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
+          const colorMap: Record<string, string> = { gold: "bg-black/10 text-black", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
           return (
             <Card key={stat.label} className="relative overflow-hidden">
               <CardContent>
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white mt-1">{loading ? "—" : stat.value}</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{loading ? "—" : stat.value}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{stat.sub}</p>
                   </div>
                   <div className={cn("p-2.5 rounded-xl", colorMap[stat.color])}>
@@ -183,9 +183,9 @@ export default function MyStatsPage() {
         {/* Today's schedule */}
         <Card>
           <CardHeader>
-            <Calendar size={18} className="text-gold" />
+            <Calendar size={18} className="text-black" />
             <CardTitle>Today's Schedule</CardTitle>
-            <Link href="/dashboard/appointments" className="text-xs text-gold hover:underline ml-auto">View all</Link>
+            <Link href="/dashboard/appointments" className="text-xs text-black hover:underline ml-auto">View all</Link>
           </CardHeader>
           <CardContent>
             {todayAppts.length === 0 ? (
@@ -196,16 +196,16 @@ export default function MyStatsPage() {
             ) : (
               <div className="space-y-2">
                 {todayAppts.map(a => (
-                  <div key={a.id} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl border border-border">
+                  <div key={a.id} className="flex items-center gap-3 p-3 bg-gray-100 rounded-xl border border-gray-200">
                     <div className="text-center w-12 flex-shrink-0">
-                      <p className="text-xs text-gold font-semibold">{a.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-black font-semibold">{a.time_slot.split(" ")[0]}</p>
                       <p className="text-xs text-gray-500">{a.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{a.client_name}</p>
-                      <p className="text-xs text-gray-400">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{a.client_name}</p>
+                      <p className="text-xs text-gray-500">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
                     </div>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full", a.status === "confirmed" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400")}>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full", a.status === "confirmed" ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400")}>
                       {a.status}
                     </span>
                   </div>
@@ -218,7 +218,7 @@ export default function MyStatsPage() {
         {/* Top services */}
         <Card>
           <CardHeader>
-            <TrendingUp size={18} className="text-gold" />
+            <TrendingUp size={18} className="text-black" />
             <CardTitle>Top Services</CardTitle>
           </CardHeader>
           <CardContent>
@@ -232,17 +232,17 @@ export default function MyStatsPage() {
                   <div key={svc.name} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between mb-1">
-                        <p className="text-sm text-white truncate">{svc.name}</p>
-                        <p className="text-xs text-gold ml-2 flex-shrink-0">{svc.count}×</p>
+                        <p className="text-sm text-gray-900 truncate">{svc.name}</p>
+                        <p className="text-xs text-black ml-2 flex-shrink-0">{svc.count}×</p>
                       </div>
-                      <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gold/60 rounded-full"
                           style={{ width: `${(svc.count / (topServices[0]?.count ?? 1)) * 100}%` }}
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 flex-shrink-0">{formatCurrency(svc.revenue)}</p>
+                    <p className="text-xs text-gray-500 flex-shrink-0">{formatCurrency(svc.revenue)}</p>
                   </div>
                 ))}
               </div>
@@ -254,19 +254,19 @@ export default function MyStatsPage() {
         {reviews.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <Star size={18} className="text-gold" />
+              <Star size={18} className="text-black" />
               <CardTitle>My Reviews</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 gap-3">
                 {reviews.slice(0, 4).map((rev, i) => (
-                  <div key={i} className="p-4 bg-surface-raised rounded-xl border border-border">
+                  <div key={i} className="p-4 bg-gray-100 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-gold">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
+                      <span className="text-black">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
                       <span className="text-xs text-gray-500">{rev.client_name}</span>
                     </div>
                     {rev.comment && (
-                      <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{rev.comment}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{rev.comment}</p>
                     )}
                     <p className="text-xs text-gray-600 mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
                   </div>
@@ -280,25 +280,25 @@ export default function MyStatsPage() {
         {upcoming.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <ChevronRight size={18} className="text-gold" />
+              <ChevronRight size={18} className="text-black" />
               <CardTitle>Upcoming Appointments</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {upcoming.slice(0, 8).map(a => (
-                  <div key={a.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border">
+                  <div key={a.id} className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-3">
                       <div className="text-center w-16">
-                        <p className="text-xs font-semibold text-white">{a.date.slice(5)}</p>
-                        <p className="text-xs text-gray-400">{a.time_slot}</p>
+                        <p className="text-xs font-semibold text-gray-900">{a.date.slice(5)}</p>
+                        <p className="text-xs text-gray-500">{a.time_slot}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">{a.client_name}</p>
-                        <p className="text-xs text-gray-400">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
+                        <p className="text-sm font-medium text-gray-900">{a.client_name}</p>
+                        <p className="text-xs text-gray-500">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-gold">{formatCurrency(a.total_amount ?? 0)}</p>
+                      <p className="text-sm font-bold text-black">{formatCurrency(a.total_amount ?? 0)}</p>
                       <p className="text-xs text-gray-500 capitalize">{a.status}</p>
                     </div>
                   </div>

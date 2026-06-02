@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+      <span className="text-black">✓</span>{message}
+      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
     </div>
   );
 }
@@ -66,6 +67,9 @@ export default function SettingsPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deletingShop, setDeletingShop] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -78,6 +82,7 @@ export default function SettingsPage() {
     phone: "", email: "", description: "",
     instagram: "", tiktok: "", facebook: "", youtube: "", website: "",
     google_place_id: "",
+    allow_pay_in_person: true,
   });
 
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
@@ -140,6 +145,7 @@ export default function SettingsPage() {
       youtube: shop.youtube ?? "",
       website: shop.website ?? "",
       google_place_id: shop.google_place_id ?? "",
+      allow_pay_in_person: shop.allow_pay_in_person ?? true,
     });
 
     // Load booking settings + notification templates — try Supabase first, fall back to localStorage
@@ -194,6 +200,7 @@ export default function SettingsPage() {
       youtube: profile.youtube || null,
       website: profile.website || null,
       google_place_id: profile.google_place_id || null,
+      allow_pay_in_person: profile.allow_pay_in_person,
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
@@ -202,8 +209,14 @@ export default function SettingsPage() {
   const saveBooking = async () => {
     if (!shop) return;
     setSaving(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from("shops").update({ booking_settings: booking } as any).eq("id", shop.id));
+    // Save both the JSON `booking_settings` blob and the top-level
+    // `allow_pay_in_person` column in one update — they're both shown in
+    // this tab, so it would be confusing to have separate save buttons.
+    const { error } = await supabase.from("shops").update({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      booking_settings: booking as any,
+      allow_pay_in_person: profile.allow_pay_in_person,
+    }).eq("id", shop.id);
     if (error) {
       localStorage.setItem(`booking_${shop.id}`, JSON.stringify(booking));
       showToast("Booking settings saved locally!");
@@ -252,11 +265,10 @@ export default function SettingsPage() {
     setToast("Password updated.");
   };
 
+  // The shared Bootstrap form-switch wraps all of these; this local alias
+  // keeps the existing call signature (`<Toggle value={..} onChange={..} />`).
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
-    <button onClick={onChange}
-      className={cn("relative w-11 h-6 rounded-full transition-colors", value ? "bg-gold" : "bg-surface-raised border border-border")}>
-      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", value ? "left-[22px]" : "left-0.5")} />
-    </button>
+    <Switch checked={value} onChange={onChange} />
   );
 
   return (
@@ -264,16 +276,16 @@ export default function SettingsPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Manage your shop preferences</p>
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Manage your shop preferences</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border flex-wrap">
+      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-gold text-gold" : "border-transparent text-gray-400 hover:text-white",
+              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
             {t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
           </button>
@@ -285,16 +297,16 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>Shop Profile</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Shop Logo</p>
+              <p className="text-sm font-medium text-gray-600 mb-2">Shop Logo</p>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {logoPreview
                     ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
                     : <span className="text-3xl">💈</span>}
                 </div>
                 <div>
                   <label className={cn("cursor-pointer", logoUploading && "pointer-events-none opacity-60")}>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 text-sm text-gray-900 hover:bg-gray-100 transition-colors">
                       {logoUploading ? "Uploading…" : logoPreview ? "Change Logo" : "Upload Logo"}
                     </div>
                     <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
@@ -317,7 +329,7 @@ export default function SettingsPage() {
 
             {/* Social Media */}
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-3">Social Media & Website</p>
+              <p className="text-sm font-medium text-gray-600 mb-3">Social Media & Website</p>
               <div className="space-y-3">
                 <Input label="Instagram URL" placeholder="https://instagram.com/yourshop" value={profile.instagram} onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))} />
                 <Input label="TikTok URL" placeholder="https://tiktok.com/@yourshop" value={profile.tiktok} onChange={e => setProfile(p => ({ ...p, tiktok: e.target.value }))} />
@@ -329,8 +341,8 @@ export default function SettingsPage() {
 
             {/* Google Reviews */}
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-1">Google Reviews</p>
-              <p className="text-xs text-gray-500 mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">Find your Place ID →</a></p>
+              <p className="text-sm font-medium text-gray-600 mb-1">Google Reviews</p>
+              <p className="text-xs text-gray-500 mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-black hover:underline">Find your Place ID →</a></p>
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
@@ -344,23 +356,23 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>My Account</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Account email</p>
+              <p className="text-sm font-medium text-gray-600 mb-2">Account email</p>
               <p className="text-xs text-gray-500 mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>
-              <div className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white font-mono">
+              <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-mono">
                 {user?.email ?? "—"}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Display name</p>
-              <div className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white">
+              <p className="text-sm font-medium text-gray-600 mb-2">Display name</p>
+              <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900">
                 {authProfile?.name ?? "—"}
               </div>
             </div>
 
-            <div className="pt-2 border-t border-border space-y-3">
+            <div className="pt-2 border-t border-gray-200 space-y-3">
               <div>
-                <p className="text-sm font-medium text-gray-300">Change password</p>
+                <p className="text-sm font-medium text-gray-600">Change password</p>
                 <p className="text-xs text-gray-500 mt-0.5">Choose a new password (at least 8 characters).</p>
               </div>
               <Input
@@ -398,10 +410,10 @@ export default function SettingsPage() {
               <Input label="Cancellation Notice Required (hours)" type="number" value={String(booking.cancellation_hours)}
                 onChange={e => setBooking(p => ({ ...p, cancellation_hours: Number(e.target.value) }))} />
             </div>
-            <div className="flex items-center justify-between p-4 bg-surface-raised rounded-xl border border-border">
+            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
               <div>
-                <p className="text-sm font-medium text-white">Deposit Requirement</p>
-                <p className="text-xs text-gray-400">Require deposit at booking</p>
+                <p className="text-sm font-medium text-gray-900">Deposit Requirement</p>
+                <p className="text-xs text-gray-500">Require deposit at booking</p>
               </div>
               <Toggle value={booking.deposit} onChange={() => setBooking(p => ({ ...p, deposit: !p.deposit }))} />
             </div>
@@ -409,20 +421,38 @@ export default function SettingsPage() {
               <Input label="Deposit Amount ($)" type="number" value={String(booking.deposit_amount)}
                 onChange={e => setBooking(p => ({ ...p, deposit_amount: Number(e.target.value) }))} />
             )}
-            <div className="flex items-center justify-between p-4 bg-surface-raised rounded-xl border border-border">
+            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
               <div>
-                <p className="text-sm font-medium text-white">No-Show Protection</p>
-                <p className="text-xs text-gray-400">Charge card on file for no-shows</p>
+                <p className="text-sm font-medium text-gray-900">No-Show Protection</p>
+                <p className="text-xs text-gray-500">Charge card on file for no-shows</p>
               </div>
               <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
             </div>
-            <div className="flex items-center justify-between p-4 bg-surface-raised rounded-xl border border-border">
+            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
               <div>
-                <p className="text-sm font-medium text-white">Auto-Confirm Bookings</p>
-                <p className="text-xs text-gray-400">Automatically confirm new bookings</p>
+                <p className="text-sm font-medium text-gray-900">Auto-Confirm Bookings</p>
+                <p className="text-xs text-gray-500">Automatically confirm new bookings</p>
               </div>
               <Toggle value={booking.auto_confirm} onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
+
+            {/* Pay-in-person — controls whether the customer booking page
+                offers "Pay in person at the shop" alongside online payment.
+                Lives in the Profile-level `allow_pay_in_person` column on
+                shops (separate from booking_settings JSON), but rendered
+                here so the owner finds it among the other payment-flow
+                toggles. Saving still goes through `saveProfile`. */}
+            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+              <div className="pr-4">
+                <p className="text-sm font-medium text-gray-900">Allow pay-in-person</p>
+                <p className="text-xs text-gray-500">Customers can choose to pay at the shop instead of online. Bookings made this way are marked Cash · Unpaid until you collect.</p>
+              </div>
+              <Toggle
+                value={profile.allow_pay_in_person}
+                onChange={() => setProfile(p => ({ ...p, allow_pay_in_person: !p.allow_pay_in_person }))}
+              />
+            </div>
+
             <Button disabled={saving} onClick={saveBooking}>
               {saving ? "Saving…" : "Save Settings"}
             </Button>
@@ -436,13 +466,13 @@ export default function SettingsPage() {
         const downgraded = shop?.subscription_plan && shop.subscription_plan !== "starter" && activePlanKey === "starter";
         return (
           <div className="space-y-4 max-w-3xl">
-            <Card className="border-gold/20">
+            <Card className="border-gray-300">
               <CardHeader>
                 <div>
                   <CardTitle>Current Plan</CardTitle>
-                  <p className="text-sm text-gray-400 mt-1">You are on the {activePlan.name} plan</p>
+                  <p className="text-sm text-gray-500 mt-1">You are on the {activePlan.name} plan</p>
                   {downgraded && (
-                    <p className="text-xs text-yellow-400 mt-1">
+                    <p className="text-xs text-orange-400 mt-1">
                       Your {shop?.subscription_plan} subscription is {shop?.subscription_status ?? "inactive"} — features are temporarily limited to Starter.
                     </p>
                   )}
@@ -451,12 +481,12 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-bold text-gold">{activePlan.priceLabel}</span>
-                  <span className="text-gray-400">{activePlan.priceSuffix}</span>
+                  <span className="text-4xl font-bold text-black">{activePlan.priceLabel}</span>
+                  <span className="text-gray-500">{activePlan.priceSuffix}</span>
                 </div>
                 <div className="space-y-2 mb-4">
                   {activePlan.features.map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-gray-300">
+                    <div key={f} className="flex items-center gap-2 text-sm text-gray-600">
                       <span className="text-emerald-400">✓</span>{f}
                     </div>
                   ))}
@@ -473,10 +503,10 @@ export default function SettingsPage() {
       {tab === "notifications" && (
         <div className="space-y-6 max-w-2xl">
           <div>
-            <p className="text-sm text-gray-400">Customize the emails sent to your clients. Use <span className="text-gold font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
+            <p className="text-sm text-gray-500">Customize the emails sent to your clients. Use <span className="text-black font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {["{clientName}","{shopName}","{barberName}","{serviceName}","{date}","{time}"].map(v => (
-                <span key={v} className="text-xs bg-gold/10 border border-gold/20 text-gold rounded-full px-2.5 py-1 font-mono">{v}</span>
+                <span key={v} className="text-xs bg-black/5 border border-gray-300 text-black rounded-full px-2.5 py-1 font-mono">{v}</span>
               ))}
             </div>
           </div>
@@ -489,20 +519,20 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-400">Subject Line</label>
+                  <label className="text-xs font-medium text-gray-500">Subject Line</label>
                   <input
                     value={templates[key].subject}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50"
+                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-400">Message Body</label>
+                  <label className="text-xs font-medium text-gray-500">Message Body</label>
                   <textarea
                     rows={5}
                     value={templates[key].body}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
-                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none font-mono"
+                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
                   />
                 </div>
               </CardContent>
@@ -516,7 +546,7 @@ export default function SettingsPage() {
         <div className="space-y-4 max-w-2xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
+              <p className="text-sm text-gray-500">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
             </div>
             <Button size="sm" onClick={() => setShowAddLocation(true)}>
               <Plus size={14} /> Add Location
@@ -524,33 +554,33 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-3">
             {shops.map(s => (
-              <Card key={s.id} className={cn("border", s.id === shop?.id && "border-gold/40")}>
+              <Card key={s.id} className={cn("border", s.id === shop?.id && "border-gray-400")}>
                 <CardContent>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 size={18} className="text-gold" />
+                      <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
+                        <Building2 size={18} className="text-black" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-white">{s.name}</p>
-                          {s.id === shop?.id && <span className="text-xs text-gold border border-gold/30 rounded-full px-2 py-0.5">Active</span>}
+                          <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+                          {s.id === shop?.id && <span className="text-xs text-black border border-black rounded-full px-2 py-0.5">Active</span>}
                         </div>
-                        <p className="text-xs text-gray-400">{s.city}{s.province ? `, ${s.province}` : ""}</p>
+                        <p className="text-xs text-gray-500">{s.city}{s.province ? `, ${s.province}` : ""}</p>
                         <p className="text-xs text-gray-500 mt-0.5">/book/{s.slug}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn("text-xs px-2 py-0.5 rounded-full border capitalize",
                         s.status === "approved" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
-                        s.status === "pending" ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/10" :
+                        s.status === "pending" ? "text-orange-400 border-orange-500/30 bg-orange-500/10" :
                         "text-red-400 border-red-500/30 bg-red-500/10"
                       )}>{s.status}</span>
                       {s.id !== shop?.id && s.status === "approved" && (
                         <Button size="sm" variant="outline" onClick={() => setActiveShop(s)}>Switch</Button>
                       )}
                       <a href={`/book/${s.slug}`} target="_blank" rel="noreferrer"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-surface-raised transition-colors">
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
                         <ExternalLink size={13} />
                       </a>
                     </div>
@@ -564,12 +594,12 @@ export default function SettingsPage() {
             <>
               <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddLocation(false)} />
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+                <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-white">Add New Location</h2>
-                    <button onClick={() => setShowAddLocation(false)} className="text-gray-400 hover:text-white">✕</button>
+                    <h2 className="text-lg font-bold text-gray-900">Add New Location</h2>
+                    <button onClick={() => setShowAddLocation(false)} className="text-gray-500 hover:text-gray-900">✕</button>
                   </div>
-                  <p className="text-sm text-gray-400">New locations go through our approval process (usually under 24 hours).</p>
+                  <p className="text-sm text-gray-500">New locations go through our approval process (usually under 24 hours).</p>
                   <Input label="Shop Name" placeholder="Fresh Cutz — Downtown" value={newLocation.name} onChange={e => setNewLocation(p => ({ ...p, name: e.target.value }))} />
                   <Input label="Address" placeholder="123 Main St" value={newLocation.address} onChange={e => setNewLocation(p => ({ ...p, address: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">
@@ -592,20 +622,21 @@ export default function SettingsPage() {
       {tab === "danger" && (
         <Card className="max-w-2xl border-red-500/30">
           <CardHeader><CardTitle className="text-red-400">Danger Zone</CardTitle></CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Deactivate (reversible) */}
             <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/30 space-y-4">
               <div>
                 <p className="text-sm font-semibold text-red-400">Deactivate Shop</p>
-                <p className="text-xs text-gray-400 mt-1">This will disable your booking page and pause all services. You can reactivate anytime.</p>
+                <p className="text-xs text-gray-500 mt-1">This will disable your booking page and pause all services. You can reactivate anytime.</p>
               </div>
               {!showDeactivateConfirm ? (
                 <Button variant="danger" onClick={() => setShowDeactivateConfirm(true)}>Deactivate Shop</Button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-300">Type <span className="text-white font-mono bg-surface-raised px-1 rounded">{profile.name}</span> to confirm:</p>
+                  <p className="text-sm text-gray-600">Type <span className="text-gray-900 font-mono bg-gray-100 px-1 rounded">{profile.name}</span> to confirm:</p>
                   <input value={deactivateInput} onChange={e => setDeactivateInput(e.target.value)}
                     placeholder="Shop name..."
-                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30" />
+                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/30" />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeactivateConfirm(false); setDeactivateInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deactivateInput !== profile.name}
@@ -622,6 +653,50 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+
+            {/* Permanent delete (irreversible) */}
+            <div className="p-4 bg-red-500/15 rounded-xl border border-red-500/40 space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-red-400">Delete Shop Permanently</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Erases your shop and all its data — barbers, services, appointments, time-off, everything. This <span className="text-red-300 font-semibold">cannot be undone</span>. After deletion your email is freed up to be added as a barber on a different shop.
+                </p>
+              </div>
+              {!showDeleteConfirm ? (
+                <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Shop Forever</Button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">Type <span className="text-gray-900 font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm:</p>
+                  <input value={deleteInput} onChange={e => setDeleteInput(e.target.value)}
+                    placeholder="DELETE"
+                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/40" />
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setShowDeleteConfirm(false); setDeleteInput(""); }}>Cancel</Button>
+                    <Button variant="danger" size="sm" disabled={deleteInput !== "DELETE" || deletingShop} loading={deletingShop}
+                      onClick={async () => {
+                        if (!shop || !accessToken) return;
+                        setDeletingShop(true);
+                        const res = await fetch("/api/owner/delete-shop", {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                          body: JSON.stringify({ shop_id: shop.id, confirm: "DELETE" }),
+                        });
+                        setDeletingShop(false);
+                        if (!res.ok) {
+                          const j = await res.json().catch(() => ({}));
+                          showToast(`Delete failed: ${j.error ?? res.statusText}`);
+                          return;
+                        }
+                        // Sign out and bounce to home — the user no longer has a shop.
+                        await supabase.auth.signOut();
+                        window.location.href = "/";
+                      }}>
+                      Permanently Delete
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -630,10 +705,10 @@ export default function SettingsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowUpgradeModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-2xl space-y-4">
+            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-2xl space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Choose a Plan</h2>
-                <button onClick={() => setShowUpgradeModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-gray-900">Choose a Plan</h2>
+                <button onClick={() => setShowUpgradeModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 {(() => {
@@ -641,18 +716,18 @@ export default function SettingsPage() {
                   return PLAN_INFO.map(plan => {
                     const isCurrent = plan.key === activePlanKey;
                     return (
-                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-gold bg-gold/5" : "border-border")}>
+                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-black bg-black/5" : "border-gray-200")}>
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-bold text-white">{plan.name}</h3>
+                          <h3 className="font-bold text-gray-900">{plan.name}</h3>
                           {isCurrent && <Badge variant="gold">Current</Badge>}
                         </div>
                         <p className="mb-3">
-                          <span className="text-xl font-bold text-gold">{plan.priceLabel}</span>
-                          <span className="text-xs text-gray-400 ml-1">{plan.priceSuffix}</span>
+                          <span className="text-xl font-bold text-black">{plan.priceLabel}</span>
+                          <span className="text-xs text-gray-500 ml-1">{plan.priceSuffix}</span>
                         </p>
                         <div className="space-y-1 mb-4">
                           {plan.features.map(f => (
-                            <p key={f} className="text-xs text-gray-400 flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
+                            <p key={f} className="text-xs text-gray-500 flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
                           ))}
                         </div>
                         <Button variant={isCurrent ? "secondary" : "gold"} size="sm" className="w-full"
