@@ -110,7 +110,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background text-white">
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-          <Logo size="sm" />
+          <Logo size="sm" className="text-white" />
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
@@ -406,7 +406,7 @@ export default function LandingPage() {
       <footer className="border-t border-border py-12 px-4 lg:px-8">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1">
-            <Logo size="sm" />
+            <Logo size="sm" className="text-white" />
             <p className="text-xs text-gray-600 mt-3 leading-relaxed">The premium barbershop management platform. Made in Canada.</p>
           </div>
           {[

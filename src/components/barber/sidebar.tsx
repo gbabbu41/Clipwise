@@ -116,7 +116,7 @@ export function BarberSidebar() {
         <Menu size={18} />
       </button>
       <div className="px-6 py-5 border-b border-border">
-        <Logo size="md" />
+        <Logo size="md" className="text-white" />
         <div className="flex items-center gap-1.5 mt-1">
           <Scissors size={11} className="text-gold" />
           <p className="text-xs text-gray-500">{shop?.name ?? "Barber Portal"}</p>
