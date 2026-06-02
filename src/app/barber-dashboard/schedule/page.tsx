@@ -65,6 +65,8 @@ export default function BarberSchedulePage() {
   const [savingId, setSavingId] = useState("");
   const [paymentModal, setPaymentModal] = useState<Appointment | null>(null);
   const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  const [rejectModal, setRejectModal] = useState<{ appt: Appointment; reason: string } | null>(null);
+  const [savingReject, setSavingReject] = useState(false);
 
   const canManageAppts = barber?.permissions?.manage_appointments === true;
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
@@ -99,20 +101,53 @@ export default function BarberSchedulePage() {
     return true;
   };
 
-  /** Mark the rejected appointment + alert the shop owner if money's on the
-   *  line (so they can refund from the owner-side appointments page). */
-  const notifyOwnerIfPaid = async (appt: Appointment) => {
-    if (appt.payment_status !== "paid") return;
+  /** Notify shop owner whenever a barber rejects an appointment. If the
+   *  appointment was paid, frame it as a refund request (so the owner can
+   *  issue it from the appointments side-panel). Otherwise it's just an
+   *  awareness ping. Reason is the barber's free-text from the modal. */
+  const notifyOwner = async (appt: Appointment, reason: string) => {
     const { data: shopRow } = await supabase
       .from("shops").select("owner_id, name").eq("id", appt.shop_id).maybeSingle();
     if (!shopRow?.owner_id) return;
+    const isPaid = appt.payment_status === "paid";
+    const title = isPaid ? "Refund needed" : "Appointment rejected by barber";
+    const msgBase = `${barber?.name ?? "A barber"} rejected ${appt.client_name}'s appointment`;
+    const msgMoney = isPaid
+      ? ` (${formatCurrency(appt.total_amount)} paid — issue a refund from the Appointments page).`
+      : ".";
+    const msgReason = reason ? ` Reason: "${reason}"` : "";
     await supabase.from("notifications").insert({
       user_id: shopRow.owner_id,
-      title: "Refund needed",
-      message: `${barber?.name ?? "A barber"} rejected ${appt.client_name}'s appointment (${formatCurrency(appt.total_amount)} paid). Issue a refund from the Appointments page.`,
+      title,
+      message: `${msgBase}${msgMoney}${msgReason}`,
       type: "system",
       is_read: false,
     });
+  };
+
+  /** Tell the customer their booking was cancelled. Same email type and
+   *  template the owner-side reject flow uses, so the customer experience
+   *  is identical regardless of who hit the button. */
+  const emailCustomerRejection = (appt: Appointment, reason: string) => {
+    if (!appt.client_email || !shop) return;
+    fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "appointment_rejected",
+        data: {
+          clientName: appt.client_name,
+          clientEmail: appt.client_email,
+          shopName: shop.name,
+          shopEmail: shop.email ?? "",
+          shopSlug: shop.slug,
+          serviceName: appt.services?.name ?? "Your service",
+          date: appt.date,
+          time: appt.time_slot,
+          reason: reason || "",
+        },
+      }),
+    }).catch(() => null);
   };
 
   const handlePrimary = async (apt: Appointment, next: AppStatus) => {
@@ -128,17 +163,25 @@ export default function BarberSchedulePage() {
     showToast(`Marked as ${next}`);
   };
 
-  const handleReject = async (apt: Appointment) => {
-    setSavingId(apt.id);
-    const ok = await patchAppt(apt.id, { status: "cancelled" });
-    setSavingId("");
+  const submitReject = async () => {
+    if (!rejectModal) return;
+    const { appt, reason } = rejectModal;
+    setSavingReject(true);
+    const updatedNotes = reason
+      ? `[Rejected by barber: ${reason}]`
+      : undefined;
+    const ok = await patchAppt(appt.id, {
+      status: "cancelled",
+      ...(updatedNotes ? { notes: updatedNotes } as Partial<Appointment> : {}),
+    });
+    setSavingReject(false);
     if (!ok) return;
-    notifyOwnerIfPaid(apt);
-    showToast(
-      apt.payment_status === "paid"
-        ? "Appointment rejected · Owner notified to refund"
-        : "Appointment rejected",
-    );
+    notifyOwner(appt, reason);
+    emailCustomerRejection(appt, reason);
+    setRejectModal(null);
+    const channels: string[] = ["Owner notified"];
+    if (appt.client_email) channels.push("customer emailed");
+    showToast(`Appointment rejected · ${channels.join(" · ")}`);
   };
 
   // ── Payment modal handlers ──────────────────────────────────────────────
@@ -252,7 +295,8 @@ export default function BarberSchedulePage() {
             {dayAppts.map(appt => {
               const action = primaryAction(appt.status);
               const rejectable = canReject(appt.status);
-              const showActionsRow = canManageAppts && (action || rejectable || isUnpaidWithBalance(appt));
+              const canTakePayment = isUnpaidWithBalance(appt) && appt.status === "completed";
+              const showActionsRow = canManageAppts && (action || rejectable || canTakePayment);
               return (
                 <div key={appt.id} className="bg-surface border border-border rounded-xl p-4 space-y-3">
                   <div className="flex items-center gap-4">
@@ -292,14 +336,16 @@ export default function BarberSchedulePage() {
                       )}
                       {rejectable && (
                         <button type="button" disabled={savingId === appt.id}
-                          onClick={() => handleReject(appt)}
+                          onClick={() => setRejectModal({ appt, reason: "" })}
                           className="btn btn-danger btn-sm flex-1">
                           Reject
                         </button>
                       )}
-                      {/* Take Payment as a standalone — visible whenever there's
-                          an outstanding balance, even after status finalized. */}
-                      {isUnpaidWithBalance(appt) && !action && (
+                      {/* Take Payment standalone — only on active appointments
+                          (completed unpaid case for after-the-fact collection).
+                          Hidden once cancelled / no-show — those need refund,
+                          not payment. */}
+                      {isUnpaidWithBalance(appt) && !action && appt.status === "completed" && (
                         <button type="button" disabled={savingId === appt.id}
                           onClick={() => setPaymentModal(appt)}
                           className="btn btn-success btn-sm flex-1">
@@ -314,6 +360,53 @@ export default function BarberSchedulePage() {
           </div>
         )}
       </div>
+
+      {/* Reject Modal — same shape as the owner-side reject flow so the
+          reason text propagates into both the owner notification and the
+          customer's cancellation email. */}
+      {rejectModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => !savingReject && setRejectModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
+                <button onClick={() => !savingReject && setRejectModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-surface-raised rounded-xl p-3 text-sm text-gray-400">
+                <span className="text-white font-medium">{rejectModal.appt.client_name}</span>
+                {" · "}{rejectModal.appt.services?.name ?? "Service"}
+                {" · "}{rejectModal.appt.time_slot}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-300">Reason (optional)</label>
+                <textarea
+                  value={rejectModal.reason}
+                  onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                  rows={3}
+                  placeholder="e.g. Running late, unavailable, customer no-call…"
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50 resize-none"
+                />
+              </div>
+              {rejectModal.appt.client_email ? (
+                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
+                  A cancellation email will be sent to {rejectModal.appt.client_email} with this reason. The shop owner is also notified.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
+                  No email on file for this customer. Shop owner will be notified.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button type="button" className="btn btn-outline-secondary flex-1" disabled={savingReject} onClick={() => setRejectModal(null)}>Back</button>
+                <button type="button" className="btn btn-danger flex-1" disabled={savingReject} onClick={submitReject}>
+                  {savingReject ? "Rejecting…" : "Reject & Notify"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Payment Modal — mirror of the owner-side flow. */}
       {paymentModal && (
