@@ -13,7 +13,7 @@ import type { Client, PromoCode } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -132,7 +132,7 @@ export default function LoyaltyPage() {
         {(["loyalty","promos"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
             {t === "loyalty" ? "Loyalty Program" : "Promo Codes"}
           </button>
         ))}
@@ -190,13 +190,13 @@ export default function LoyaltyPage() {
                       {clients.map((client, idx) => (
                         <tr key={client.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
                           <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-black" : idx === 1 ? "text-[#999]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-white" : idx === 1 ? "text-[#999]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
                               #{idx + 1}
                             </span>
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-xs text-black font-bold">
+                              <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-xs text-white font-bold">
                                 {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                               </div>
                               <span className="text-sm text-white">{client.name}</span>
@@ -204,7 +204,7 @@ export default function LoyaltyPage() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-black">{client.loyalty_points}</span>
+                              <span className="text-sm font-bold text-white">{client.loyalty_points}</span>
                               <div className="w-16 h-1.5 rounded-full bg-[#141414] overflow-hidden">
                                 <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
                               </div>
@@ -275,7 +275,7 @@ export default function LoyaltyPage() {
                 return (
                   <Card key={promo.id} className={cn(!promo.is_active && "opacity-60")}>
                     <div className="flex items-start justify-between mb-3">
-                      <code className="text-lg font-bold text-black tracking-widest">{promo.code}</code>
+                      <code className="text-lg font-bold text-white tracking-widest">{promo.code}</code>
                       <Badge variant={promo.is_active ? "success" : "danger"}>{promo.is_active ? "Active" : "Inactive"}</Badge>
                     </div>
                     <div className="space-y-2 mb-4">

@@ -12,7 +12,7 @@ import type { Client, Appointment } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -283,8 +283,8 @@ export default function ClientsPage() {
         </div>
         <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="w-56" />
         <div className="flex gap-1 ml-auto">
-          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-black" : "border-[#1e1e1e] text-[#777]")}>⊞</button>
-          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-black" : "border-[#1e1e1e] text-[#777]")}>☰</button>
+          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-white" : "border-[#1e1e1e] text-[#777]")}>⊞</button>
+          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-white" : "border-[#1e1e1e] text-[#777]")}>☰</button>
         </div>
       </div>
 
@@ -317,7 +317,7 @@ export default function ClientsPage() {
           {filtered.map(client => (
             <Card key={client.id} className="hover:border-black transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm">
                   {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -335,7 +335,7 @@ export default function ClientsPage() {
               <p className="text-sm text-[#777]">{client.phone}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div><p className="text-xs text-[#777]">Visits</p><p className="text-sm font-semibold text-white">{client.total_visits}</p></div>
-                <div><p className="text-xs text-[#777]">Spent</p><p className="text-sm font-semibold text-black">{formatCurrency(client.total_spent)}</p></div>
+                <div><p className="text-xs text-[#777]">Spent</p><p className="text-sm font-semibold text-white">{formatCurrency(client.total_spent)}</p></div>
                 <div><p className="text-xs text-[#777]">Points</p><p className="text-sm font-semibold text-white">{client.loyalty_points}</p></div>
                 <div><p className="text-xs text-[#777]">Last Visit</p><p className="text-sm font-semibold text-white">{client.last_visit ?? "—"}</p></div>
               </div>
@@ -370,7 +370,7 @@ export default function ClientsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-white">{client.total_visits}</td>
-                  <td className="px-4 py-3 text-sm text-black">{formatCurrency(client.total_spent)}</td>
+                  <td className="px-4 py-3 text-sm text-white">{formatCurrency(client.total_spent)}</td>
                   <td className="px-4 py-3 text-sm text-white">{client.loyalty_points}</td>
                   <td className="px-4 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
                 </tr>
@@ -390,7 +390,7 @@ export default function ClientsPage() {
               <button onClick={() => setSelectedClient(null)} className="text-[#777] hover:text-white text-xl">✕</button>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-lg">
+              <div className="w-14 h-14 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-lg">
                 {selectedClient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <div>
@@ -412,7 +412,7 @@ export default function ClientsPage() {
               {(["overview", "hair", "history"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
-                    activeTab === tab ? "bg-black/10 text-black border border-[#1e1e1e]" : "text-[#777] hover:text-white")}>
+                    activeTab === tab ? "bg-black/10 text-white border border-[#1e1e1e]" : "text-[#777] hover:text-white")}>
                   {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
                 </button>
               ))}
@@ -445,7 +445,7 @@ export default function ClientsPage() {
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
                   {selectedClient.email && birthday && (
-                    <Button size="sm" variant="outline" className="w-full text-black border-black hover:bg-black/5" loading={sendingBirthday} onClick={sendBirthdayEmail}>
+                    <Button size="sm" variant="outline" className="w-full text-white border-black hover:bg-black/5" loading={sendingBirthday} onClick={sendBirthdayEmail}>
                       🎂 Send Birthday Email
                     </Button>
                   )}
@@ -478,7 +478,7 @@ export default function ClientsPage() {
                 <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-white">Loyalty Points</p>
-                    <p className="text-xl font-bold text-black">{selectedClient.loyalty_points} pts</p>
+                    <p className="text-xl font-bold text-white">{selectedClient.loyalty_points} pts</p>
                   </div>
                   <div className="w-full h-2 bg-black shadow-sm rounded-full overflow-hidden mb-3">
                     <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
@@ -570,7 +570,7 @@ export default function ClientsPage() {
                           <p className="text-xs text-[#777]">{apt.date} {apt.time_slot}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-black">{formatCurrency(apt.total_amount)}</p>
+                          <p className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</p>
                           <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-[#777]")}>
                             {apt.status}
                           </span>

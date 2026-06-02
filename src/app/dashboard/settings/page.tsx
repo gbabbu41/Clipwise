@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -285,7 +285,7 @@ export default function SettingsPage() {
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white",
+              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
             {t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
           </button>
@@ -342,7 +342,7 @@ export default function SettingsPage() {
             {/* Google Reviews */}
             <div>
               <p className="text-sm font-medium text-[#999] mb-1">Google Reviews</p>
-              <p className="text-xs text-[#777] mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-black hover:underline">Find your Place ID →</a></p>
+              <p className="text-xs text-[#777] mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Find your Place ID →</a></p>
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
@@ -481,7 +481,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-bold text-black">{activePlan.priceLabel}</span>
+                  <span className="text-4xl font-bold text-white">{activePlan.priceLabel}</span>
                   <span className="text-[#777]">{activePlan.priceSuffix}</span>
                 </div>
                 <div className="space-y-2 mb-4">
@@ -503,10 +503,10 @@ export default function SettingsPage() {
       {tab === "notifications" && (
         <div className="space-y-6 max-w-2xl">
           <div>
-            <p className="text-sm text-[#777]">Customize the emails sent to your clients. Use <span className="text-black font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
+            <p className="text-sm text-[#777]">Customize the emails sent to your clients. Use <span className="text-white font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {["{clientName}","{shopName}","{barberName}","{serviceName}","{date}","{time}"].map(v => (
-                <span key={v} className="text-xs bg-black/5 border border-[#1e1e1e] text-black rounded-full px-2.5 py-1 font-mono">{v}</span>
+                <span key={v} className="text-xs bg-black/5 border border-[#1e1e1e] text-white rounded-full px-2.5 py-1 font-mono">{v}</span>
               ))}
             </div>
           </div>
@@ -559,12 +559,12 @@ export default function SettingsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
-                        <Building2 size={18} className="text-black" />
+                        <Building2 size={18} className="text-white" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-white">{s.name}</p>
-                          {s.id === shop?.id && <span className="text-xs text-black border border-black rounded-full px-2 py-0.5">Active</span>}
+                          {s.id === shop?.id && <span className="text-xs text-white border border-black rounded-full px-2 py-0.5">Active</span>}
                         </div>
                         <p className="text-xs text-[#777]">{s.city}{s.province ? `, ${s.province}` : ""}</p>
                         <p className="text-xs text-[#777] mt-0.5">/book/{s.slug}</p>
@@ -722,7 +722,7 @@ export default function SettingsPage() {
                           {isCurrent && <Badge variant="gold">Current</Badge>}
                         </div>
                         <p className="mb-3">
-                          <span className="text-xl font-bold text-black">{plan.priceLabel}</span>
+                          <span className="text-xl font-bold text-white">{plan.priceLabel}</span>
                           <span className="text-xs text-[#777] ml-1">{plan.priceSuffix}</span>
                         </p>
                         <div className="space-y-1 mb-4">

@@ -14,7 +14,7 @@ import type { Service, InventoryItem } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -22,7 +22,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 const CATEGORY_COLORS: Record<string, string> = {
   Hair: "text-blue-400 bg-blue-500/20 border-blue-500/30",
-  Beard: "text-black bg-black/10 border-black",
+  Beard: "text-white bg-black/10 border-black",
   Packages: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
 };
 
@@ -205,7 +205,7 @@ export default function ServicesPage() {
         {(["services","inventory"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
             {t} {t === "inventory" && lowStock.length > 0 && (
               <span className="ml-1 text-xs bg-red-500/20 text-red-400 px-1.5 rounded-full">{lowStock.length} low</span>
             )}
@@ -248,13 +248,13 @@ export default function ServicesPage() {
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold text-black">{formatCurrency(svc.price)}</p>
+                          <p className="text-xl font-bold text-white">{formatCurrency(svc.price)}</p>
                           <p className="text-xs text-[#777]">{svc.duration_minutes} min</p>
                         </div>
                       </div>
                       <p className="text-xs text-[#777] mb-2">{svc.description}</p>
                       {svc.deposit_required && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-black/10 border border-black text-black rounded-full px-2 py-0.5 mb-3">
+                        <span className="inline-flex items-center gap-1 text-xs bg-black/10 border border-black text-white rounded-full px-2 py-0.5 mb-3">
                           💳 ${svc.deposit_amount} deposit required
                         </span>
                       )}
@@ -285,7 +285,7 @@ export default function ServicesPage() {
             </Card>
             <Card className="py-4 px-5">
               <p className="text-xs text-[#777]">Total Value</p>
-              <p className="text-2xl font-bold text-black mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
+              <p className="text-2xl font-bold text-white mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
             </Card>
           </div>
 

@@ -159,7 +159,7 @@ export default function MyStatsPage() {
           { label: "Avg Rating", value: avgRating, sub: `${reviews.length} review${reviews.length !== 1 ? "s" : ""}`, icon: Star, color: "gold" },
         ].map(stat => {
           const Icon = stat.icon;
-          const colorMap: Record<string, string> = { gold: "bg-black/10 text-black", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
+          const colorMap: Record<string, string> = { gold: "bg-black/10 text-white", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
           return (
             <Card key={stat.label} className="relative overflow-hidden">
               <CardContent>
@@ -183,9 +183,9 @@ export default function MyStatsPage() {
         {/* Today's schedule */}
         <Card>
           <CardHeader>
-            <Calendar size={18} className="text-black" />
+            <Calendar size={18} className="text-white" />
             <CardTitle>Today's Schedule</CardTitle>
-            <Link href="/dashboard/appointments" className="text-xs text-black hover:underline ml-auto">View all</Link>
+            <Link href="/dashboard/appointments" className="text-xs text-white hover:underline ml-auto">View all</Link>
           </CardHeader>
           <CardContent>
             {todayAppts.length === 0 ? (
@@ -198,7 +198,7 @@ export default function MyStatsPage() {
                 {todayAppts.map(a => (
                   <div key={a.id} className="flex items-center gap-3 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <div className="text-center w-12 flex-shrink-0">
-                      <p className="text-xs text-black font-semibold">{a.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-white font-semibold">{a.time_slot.split(" ")[0]}</p>
                       <p className="text-xs text-[#777]">{a.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -218,7 +218,7 @@ export default function MyStatsPage() {
         {/* Top services */}
         <Card>
           <CardHeader>
-            <TrendingUp size={18} className="text-black" />
+            <TrendingUp size={18} className="text-white" />
             <CardTitle>Top Services</CardTitle>
           </CardHeader>
           <CardContent>
@@ -233,7 +233,7 @@ export default function MyStatsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between mb-1">
                         <p className="text-sm text-white truncate">{svc.name}</p>
-                        <p className="text-xs text-black ml-2 flex-shrink-0">{svc.count}×</p>
+                        <p className="text-xs text-white ml-2 flex-shrink-0">{svc.count}×</p>
                       </div>
                       <div className="h-1.5 bg-[#141414] rounded-full overflow-hidden">
                         <div
@@ -254,7 +254,7 @@ export default function MyStatsPage() {
         {reviews.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <Star size={18} className="text-black" />
+              <Star size={18} className="text-white" />
               <CardTitle>My Reviews</CardTitle>
             </CardHeader>
             <CardContent>
@@ -262,7 +262,7 @@ export default function MyStatsPage() {
                 {reviews.slice(0, 4).map((rev, i) => (
                   <div key={i} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-black">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
+                      <span className="text-white">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
                       <span className="text-xs text-[#777]">{rev.client_name}</span>
                     </div>
                     {rev.comment && (
@@ -280,7 +280,7 @@ export default function MyStatsPage() {
         {upcoming.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <ChevronRight size={18} className="text-black" />
+              <ChevronRight size={18} className="text-white" />
               <CardTitle>Upcoming Appointments</CardTitle>
             </CardHeader>
             <CardContent>
@@ -298,7 +298,7 @@ export default function MyStatsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-black">{formatCurrency(a.total_amount ?? 0)}</p>
+                      <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
                       <p className="text-xs text-[#777] capitalize">{a.status}</p>
                     </div>
                   </div>

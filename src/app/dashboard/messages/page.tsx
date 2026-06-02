@@ -20,7 +20,7 @@ interface Thread {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -406,7 +406,7 @@ export default function MessagesPage() {
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                       {thread.clientName[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -443,7 +443,7 @@ export default function MessagesPage() {
             <button onClick={() => setActiveThread(null)} className="lg:hidden text-[#777] hover:text-white">
               ←
             </button>
-            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {activeThread.clientName[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -467,7 +467,7 @@ export default function MessagesPage() {
                     : "bg-[#141414] border border-[#1e1e1e] text-white rounded-bl-sm"
                 )}>
                   <p className="leading-relaxed">{msg.content}</p>
-                  <p className={cn("text-xs mt-1", msg.sender === "shop" ? "text-black/60" : "text-[#777]")}>
+                  <p className={cn("text-xs mt-1", msg.sender === "shop" ? "text-white/60" : "text-[#777]")}>
                     {new Date(msg.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -522,7 +522,7 @@ export default function MessagesPage() {
                 <p className="text-sm font-medium text-[#999] mb-2">To</p>
                 {composeClient ? (
                   <div className="flex items-center gap-2 p-3 bg-[#141414] border border-black rounded-xl">
-                    <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm">
+                    <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm">
                       {composeClient.name[0]}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -566,7 +566,7 @@ export default function MessagesPage() {
                             onClick={() => setComposeClient(c)}
                             className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#141414] text-left transition-colors"
                           >
-                            <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                               {c.name[0]}
                             </div>
                             <div className="min-w-0 flex-1">

@@ -16,7 +16,7 @@ const TYPE_ICONS: Record<string, string> = {
 };
 const TYPE_COLORS: Record<string, string> = {
   booking: "text-emerald-400", cancellation: "text-red-400", "no-show": "text-orange-400",
-  review: "text-black", inventory: "text-blue-400",
+  review: "text-white", inventory: "text-blue-400",
 };
 
 function timeAgo(dateStr: string) {
@@ -32,7 +32,7 @@ function timeAgo(dateStr: string) {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );

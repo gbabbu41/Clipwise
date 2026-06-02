@@ -296,7 +296,7 @@ export function Sidebar() {
       {/* User */}
       <div className="px-3 py-4 border-t border-[#1e1e1e]">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-white font-semibold text-sm">
             {initial}
           </div>
           <div className="flex-1 min-w-0">
@@ -315,35 +315,30 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  // Emoji icons matching the v2 design spec (cw-bnav). Lucide icons read
+  // thin on small screens; the design uses fuller emoji glyphs with a white
+  // active label + underline indicator.
   const mobileItems = [
-    { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/dashboard/appointments", label: "Bookings", icon: Calendar },
-    { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
-    { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
-    { href: "/dashboard/pos", label: "POS", icon: Receipt },
+    { href: "/dashboard",              label: "Home",     emoji: "🏠" },
+    { href: "/dashboard/appointments", label: "Schedule", emoji: "📅" },
+    { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
+    { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
+    { href: "/dashboard/settings",     label: "More",     emoji: "⋯" },
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0c0c0c] border-t border-[#1e1e1e] px-2 py-2 safe-area-bottom">
-      <div className="flex items-center justify-around">
-        {mobileItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                isActive ? "text-white" : "text-[#777] hover:text-white"
-              )}
-            >
-              <Icon size={20} />
-              <span className="text-xs">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+    <nav className="cw-bnav md:hidden">
+      {mobileItems.map((item) => {
+        const isActive = pathname === item.href
+          || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+        return (
+          <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
+            <div className="cw-ni-icon">{item.emoji}</div>
+            <div className="cw-ni-label">{item.label}</div>
+            {isActive && <div className="cw-ni-line" />}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

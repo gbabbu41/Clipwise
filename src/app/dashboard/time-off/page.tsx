@@ -14,7 +14,7 @@ import type { Barber } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -243,7 +243,7 @@ export default function TimeOffPage() {
             onClick={() => setFilter(f)}
             className={cn(
               "px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              filter === f ? "border-black text-black" : "border-transparent text-[#777] hover:text-white"
+              filter === f ? "border-black text-white" : "border-transparent text-[#777] hover:text-white"
             )}
           >
             {f === "all" ? `All (${requests.length})` : `${f.charAt(0).toUpperCase() + f.slice(1)} (${requests.filter(r => r.status === f).length})`}
@@ -263,7 +263,7 @@ export default function TimeOffPage() {
           <div key={req.id} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 hover:border-[#1e1e1e] transition-colors">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center flex-shrink-0">
-                <User size={18} className="text-black" />
+                <User size={18} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -319,7 +319,7 @@ export default function TimeOffPage() {
       {requests.filter(r => r.status === "approved" && r.start_date >= today).length > 0 && (
         <Card>
           <CardHeader>
-            <CalendarOff size={18} className="text-black" />
+            <CalendarOff size={18} className="text-white" />
             <CardTitle>Upcoming Approved Time Off</CardTitle>
           </CardHeader>
           <CardContent>
@@ -378,7 +378,7 @@ export default function TimeOffPage() {
                       onClick={() => setForm(p => ({ ...p, type: k }))}
                       className={cn(
                         "p-2.5 rounded-xl border text-sm text-left transition-all",
-                        form.type === k ? "border-black bg-black/5 text-black" : "border-[#1e1e1e] text-[#777] hover:text-white"
+                        form.type === k ? "border-black bg-black/5 text-white" : "border-[#1e1e1e] text-[#777] hover:text-white"
                       )}
                     >
                       {v}

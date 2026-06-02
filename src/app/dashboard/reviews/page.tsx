@@ -11,7 +11,7 @@ import type { Review, Barber } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -19,7 +19,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 function Stars({ rating, size = "md" }: { rating: number; size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "text-sm", md: "text-base", lg: "text-xl" };
-  return <span className={cn("text-black", sizes[size])}>{"★".repeat(rating)}{"☆".repeat(5 - rating)}</span>;
+  return <span className={cn("text-white", sizes[size])}>{"★".repeat(rating)}{"☆".repeat(5 - rating)}</span>;
 }
 
 export default function ReviewsPage() {
@@ -110,7 +110,7 @@ export default function ReviewsPage() {
               <CardContent>
                 <div className="flex items-center gap-6">
                   <div className="text-center">
-                    <p className="text-6xl font-bold text-black">{avgRating}</p>
+                    <p className="text-6xl font-bold text-white">{avgRating}</p>
                     <Stars rating={Math.round(Number(avgRating))} size="lg" />
                     <p className="text-xs text-[#777] mt-1">{reviews.length} review{reviews.length !== 1 ? "s" : ""}</p>
                   </div>
@@ -137,7 +137,7 @@ export default function ReviewsPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-[#777]">Replied to reviews</p>
-                      <p className="text-xl font-bold text-black">{replied.length} / {reviews.length}</p>
+                      <p className="text-xl font-bold text-white">{replied.length} / {reviews.length}</p>
                     </div>
                     <div className="w-full h-3 rounded-full bg-[#141414] overflow-hidden">
                       <div className="h-full bg-gold rounded-full" style={{ width: reviews.length > 0 ? `${(replied.length / reviews.length) * 100}%` : "0%" }} />
@@ -195,7 +195,7 @@ export default function ReviewsPage() {
               <Card key={review.id}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm">
                       {(review.client_name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div>
@@ -215,7 +215,7 @@ export default function ReviewsPage() {
 
                 {review.reply && (
                   <div className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e] mb-3">
-                    <p className="text-xs text-black mb-1">Your reply:</p>
+                    <p className="text-xs text-white mb-1">Your reply:</p>
                     <p className="text-sm text-[#999]">{review.reply}</p>
                   </div>
                 )}

@@ -186,35 +186,29 @@ export function BarberMobileNav() {
   const pathname = usePathname();
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
+  // Emoji icons matching the v2 design system (cw-bnav). Stays at 5 items
+  // max so the row stays balanced — Earnings is hidden when the perm is off.
   const mobileItems = [
-    { href: "/barber-dashboard", label: "Home", icon: LayoutDashboard, show: true },
-    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Calendar, show: true },
-    { href: "/barber-dashboard/availability", label: "Hours", icon: Clock, show: true },
-    { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, show: perms.view_earnings !== false },
-    { href: "/barber-dashboard/profile", label: "Profile", icon: User, show: true },
+    { href: "/barber-dashboard",              label: "Home",     emoji: "🏠", show: true },
+    { href: "/barber-dashboard/schedule",     label: "Schedule", emoji: "📅", show: true },
+    { href: "/barber-dashboard/availability", label: "Hours",    emoji: "⏰", show: true },
+    { href: "/barber-dashboard/earnings",     label: "Earnings", emoji: "💰", show: perms.view_earnings !== false },
+    { href: "/barber-dashboard/profile",      label: "Profile",  emoji: "👤", show: true },
   ].filter(i => i.show);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-2 py-2">
-      <div className="flex items-center justify-around">
-        {mobileItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                isActive ? "text-gold" : "text-[#777]"
-              )}
-            >
-              <Icon size={20} />
-              <span className="text-xs">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+    <nav className="cw-bnav md:hidden">
+      {mobileItems.map((item) => {
+        const isActive = pathname === item.href
+          || (item.href !== "/barber-dashboard" && pathname.startsWith(item.href));
+        return (
+          <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
+            <div className="cw-ni-icon">{item.emoji}</div>
+            <div className="cw-ni-label">{item.label}</div>
+            {isActive && <div className="cw-ni-line" />}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

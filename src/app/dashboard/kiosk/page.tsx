@@ -139,7 +139,7 @@ export default function KioskPage() {
             <div className="text-center space-y-8">
               <div className="flex justify-center">
                 <div className="w-24 h-24 rounded-3xl bg-black/10 border-2 border-black flex items-center justify-center">
-                  <Scissors size={40} className="text-black" />
+                  <Scissors size={40} className="text-white" />
                 </div>
               </div>
               <div>
@@ -183,7 +183,7 @@ export default function KioskPage() {
                         <p className="text-white font-semibold text-lg">{svc.name}</p>
                         <p className="text-[#777] text-sm mt-0.5">{svc.duration_minutes} min</p>
                       </div>
-                      <p className="text-black font-bold text-xl">${svc.price}</p>
+                      <p className="text-white font-bold text-xl">${svc.price}</p>
                     </div>
                   </KioskButton>
                 ))}
@@ -223,7 +223,7 @@ export default function KioskPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center">
-                      <Scissors size={20} className="text-black" />
+                      <Scissors size={20} className="text-white" />
                     </div>
                     <div>
                       <p className="text-white font-semibold text-lg">Next Available</p>
@@ -239,7 +239,7 @@ export default function KioskPage() {
                     className={data.barber?.id === barber.id ? "border-black bg-black/5" : ""}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-black shadow-sm border border-[#1e1e1e] flex items-center justify-center text-xl font-bold text-black">
+                      <div className="w-12 h-12 rounded-2xl bg-black shadow-sm border border-[#1e1e1e] flex items-center justify-center text-xl font-bold text-white">
                         {barber.name.charAt(0)}
                       </div>
                       <div>
@@ -363,7 +363,7 @@ export default function KioskPage() {
               <div className="bg-[#141414] border border-[#1e1e1e] rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-[#777]">Your position</span>
-                  <span className="text-3xl font-black text-black">#{queuePosition}</span>
+                  <span className="text-3xl font-black text-white">#{queuePosition}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[#777]">Est. wait time</span>
@@ -389,7 +389,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-[#555]">Powered by <span className="text-black font-semibold">ClipWise</span></p>
+        <p className="text-xs text-[#555]">Powered by <span className="text-white font-semibold">ClipWise</span></p>
       </div>
     </div>
   );

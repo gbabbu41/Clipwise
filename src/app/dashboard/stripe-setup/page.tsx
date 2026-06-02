@@ -9,7 +9,7 @@ import { Input, Select } from "@/components/ui/input";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -63,7 +63,7 @@ export default function StripeSetupPage() {
                 isCompleted ? "bg-emerald-500 text-white" : isActive ? "bg-gold text-black" : "bg-[#141414] text-[#777] border border-[#1e1e1e]")}>
                 {isCompleted ? "✓" : step.id}
               </div>
-              <span className={cn("text-xs font-medium hidden sm:block", isCompleted ? "text-emerald-400" : isActive ? "text-black" : "text-[#777]")}>
+              <span className={cn("text-xs font-medium hidden sm:block", isCompleted ? "text-emerald-400" : isActive ? "text-white" : "text-[#777]")}>
                 {step.label}
               </span>
               {idx < STEPS.length - 1 && (
@@ -177,7 +177,7 @@ export default function StripeSetupPage() {
               { label: "Available Balance", value: "$1,240.50", color: "text-emerald-400" },
               { label: "Pending", value: "$485.00", color: "text-orange-400" },
               { label: "Last Payout", value: "$2,890.00", color: "text-white", sub: "May 20, 2026" },
-              { label: "Next Payout", value: "May 28", color: "text-black" },
+              { label: "Next Payout", value: "May 28", color: "text-white" },
             ].map(item => (
               <div key={item.label} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                 <p className="text-xs text-[#777]">{item.label}</p>

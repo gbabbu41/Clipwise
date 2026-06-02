@@ -76,7 +76,7 @@ function Skeleton({ className }: { className?: string }) {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -500,7 +500,7 @@ export default function StaffPage() {
                 <div className="flex items-center gap-3">
                   {barber.photo
                     ? <img src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#1e1e1e]" />
-                    : <div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-xl">{barber.name[0]}</div>
+                    : <div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{barber.name[0]}</div>
                   }
                   <div>
                     <h3 className="text-white font-semibold">{barber.name}</h3>
@@ -513,7 +513,7 @@ export default function StaffPage() {
                       ) : (
                         <span className="text-xs bg-[#141414] border border-[#1e1e1e] text-[#777] rounded-full px-2 py-0.5">Manual</span>
                       )}
-                      <span className="text-black text-xs">★ {barber.rating}</span>
+                      <span className="text-white text-xs">★ {barber.rating}</span>
                     </div>
                   </div>
                 </div>
@@ -528,7 +528,7 @@ export default function StaffPage() {
                   <p className="text-xs text-[#777]">Appts (mo.)</p>
                 </div>
                 <div className="text-center p-2.5 bg-[#141414] rounded-xl">
-                  <p className="text-lg font-bold text-black">{commissions[barber.id] ?? barber.commission_percent}%</p>
+                  <p className="text-lg font-bold text-white">{commissions[barber.id] ?? barber.commission_percent}%</p>
                   <p className="text-xs text-[#777]">Commission</p>
                 </div>
               </div>
@@ -537,7 +537,7 @@ export default function StaffPage() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-[#777]">Commission Rate</p>
-                  <p className="text-sm font-bold text-black">{commissions[barber.id]}%</p>
+                  <p className="text-sm font-bold text-white">{commissions[barber.id]}%</p>
                 </div>
                 <input
                   type="range" min={20} max={70} step={5}
@@ -601,7 +601,7 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-black" : "bg-[#141414] text-[#999]")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#999]")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
@@ -948,7 +948,7 @@ export default function StaffPage() {
                   <button
                     key={tab}
                     onClick={() => { setAddTab(tab); setInviteSent(false); }}
-                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-black border border-[#1e1e1e]" : "text-[#777] hover:text-white")}
+                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-white border border-[#1e1e1e]" : "text-[#777] hover:text-white")}
                   >
                     {tab === "invite" ? "✉️ Invite by Email" : "➕ Add Manually"}
                   </button>
@@ -982,7 +982,7 @@ export default function StaffPage() {
                             email: user.email!,
                             commission_percent: addForm.commission_percent,
                           })}
-                          className="text-black hover:text-black/80 font-medium underline-offset-2 hover:underline"
+                          className="text-white hover:text-white/80 font-medium underline-offset-2 hover:underline"
                         >
                           + Add me as a barber
                         </button>

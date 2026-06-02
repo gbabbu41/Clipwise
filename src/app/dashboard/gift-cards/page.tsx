@@ -27,7 +27,7 @@ interface GiftCard {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -195,7 +195,7 @@ export default function GiftCardsPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Total Value Sold</p>
-          <p className="text-2xl font-bold text-black mt-1">{formatCurrency(totalIssued)}</p>
+          <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalIssued)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Outstanding Balance</p>
@@ -218,7 +218,7 @@ export default function GiftCardsPage() {
           {(["all", "active", "used"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={cn("px-3 py-1.5 text-xs rounded-lg border font-medium capitalize transition-colors",
-                filter === f ? "bg-black/10 border-black text-black" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+                filter === f ? "bg-black/10 border-black text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
               {f}
             </button>
           ))}
@@ -257,7 +257,7 @@ export default function GiftCardsPage() {
                       <tr key={card.id} className={cn("border-b border-[#1e1e1e]/50 hover:bg-[#141414]/20 transition-colors", isUsed && "opacity-50")}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <code className="text-sm font-mono text-black bg-black/5 px-2 py-0.5 rounded">{card.code}</code>
+                            <code className="text-sm font-mono text-white bg-black/5 px-2 py-0.5 rounded">{card.code}</code>
                             <button onClick={() => copyCode(card.code)} className="text-[#777] hover:text-white transition-colors">
                               <Copy size={13} />
                             </button>
@@ -321,7 +321,7 @@ export default function GiftCardsPage() {
                   {["25", "50", "75", "100", "150", "200"].map(v => (
                     <button key={v} onClick={() => setForm(p => ({ ...p, initial_value: v }))}
                       className={cn("px-3 py-1.5 text-sm rounded-lg border font-medium transition-colors",
-                        form.initial_value === v ? "bg-black/10 border-gray-400 text-black" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+                        form.initial_value === v ? "bg-black/10 border-gray-400 text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
                       ${v}
                     </button>
                   ))}
@@ -406,7 +406,7 @@ export default function GiftCardsPage() {
                     {redeemResult.recipient_name && <p className="text-xs text-[#777]">For: {redeemResult.recipient_name}</p>}
                     <div className="flex justify-between mt-2 text-sm">
                       <span className="text-[#777]">Balance:</span>
-                      <span className="text-black font-bold">{formatCurrency(redeemResult.remaining_value)}</span>
+                      <span className="text-white font-bold">{formatCurrency(redeemResult.remaining_value)}</span>
                     </div>
                   </div>
 

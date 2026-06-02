@@ -12,7 +12,7 @@ import type { WaitlistEntry, Barber, Service } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -145,7 +145,7 @@ export default function WaitlistPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Being Served</p>
-          <p className="text-2xl font-bold text-black mt-1">{active.filter(e => e.status === "called").length}</p>
+          <p className="text-2xl font-bold text-white mt-1">{active.filter(e => e.status === "called").length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Avg Wait Time</p>
@@ -192,7 +192,7 @@ export default function WaitlistPage() {
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0",
-                        entry.status === "called" ? "bg-black/10 text-black" : "bg-black shadow-sm text-[#999]"
+                        entry.status === "called" ? "bg-black/10 text-white" : "bg-black shadow-sm text-[#999]"
                       )}>
                         {idx + 1}
                       </div>

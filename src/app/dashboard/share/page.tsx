@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -94,8 +94,8 @@ export default function SharePage() {
         <CardContent>
           <p className="text-xs text-[#777] mb-3 font-medium uppercase tracking-wider">Your Booking Link</p>
           <div className="flex items-center gap-3 bg-[#141414] rounded-xl px-4 py-3 border border-[#1e1e1e]">
-            <Link2 size={16} className="text-black flex-shrink-0" />
-            <span className="text-black text-sm font-medium flex-1 truncate">{bookingUrl}</span>
+            <Link2 size={16} className="text-white flex-shrink-0" />
+            <span className="text-white text-sm font-medium flex-1 truncate">{bookingUrl}</span>
             <button
               onClick={() => copy(bookingUrl)}
               className="flex items-center gap-1.5 text-xs text-white bg-black/10 hover:bg-gold/30 border border-black rounded-lg px-3 py-1.5 transition-colors"
@@ -124,7 +124,7 @@ export default function SharePage() {
         {/* QR Code */}
         <Card>
           <CardHeader>
-            <QrCode size={18} className="text-black" />
+            <QrCode size={18} className="text-white" />
             <CardTitle>QR Code</CardTitle>
           </CardHeader>
           <CardContent>
@@ -173,7 +173,7 @@ export default function SharePage() {
               <div key={i} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 hover:border-black transition-colors">
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center flex-shrink-0">
-                    <Icon size={16} className="text-black" />
+                    <Icon size={16} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{s.title}</p>
@@ -182,7 +182,7 @@ export default function SharePage() {
                 </div>
                 <button
                   onClick={() => s.copy ? copy(s.copy, `${s.title} copied!`) : showToast("Right-click the QR code to save")}
-                  className="mt-3 w-full text-xs font-medium text-black hover:text-white bg-black/5 hover:bg-black/10 border border-[#1e1e1e] rounded-lg py-1.5 transition-colors"
+                  className="mt-3 w-full text-xs font-medium text-white hover:text-white bg-black/5 hover:bg-black/10 border border-[#1e1e1e] rounded-lg py-1.5 transition-colors"
                 >
                   {s.action}
                 </button>
@@ -195,7 +195,7 @@ export default function SharePage() {
       {/* Embed code */}
       <Card>
         <CardHeader>
-          <Code size={18} className="text-black" />
+          <Code size={18} className="text-white" />
           <CardTitle>Website Embed Code</CardTitle>
         </CardHeader>
         <CardContent>
@@ -206,7 +206,7 @@ export default function SharePage() {
             </pre>
             <button
               onClick={() => copy(embedCode, "Embed code copied!")}
-              className="absolute top-3 right-3 text-xs text-black bg-black/10 hover:bg-gold/30 border border-black rounded-lg px-2.5 py-1 transition-colors"
+              className="absolute top-3 right-3 text-xs text-white bg-black/10 hover:bg-gold/30 border border-black rounded-lg px-2.5 py-1 transition-colors"
             >
               <Copy size={11} className="inline mr-1" />Copy
             </button>
@@ -230,7 +230,7 @@ export default function SharePage() {
       {/* Tips */}
       <Card>
         <CardHeader>
-          <Share2 size={18} className="text-black" />
+          <Share2 size={18} className="text-white" />
           <CardTitle>Pro Tips for Getting More Bookings</CardTitle>
         </CardHeader>
         <CardContent>
@@ -244,7 +244,7 @@ export default function SharePage() {
               { tip: "Enable loyalty points so clients have a reason to return and rebook." },
             ].map((item, i) => (
               <div key={i} className="flex gap-2.5 text-sm text-[#777]">
-                <span className="text-black mt-0.5 flex-shrink-0">✓</span>
+                <span className="text-white mt-0.5 flex-shrink-0">✓</span>
                 <p>{item.tip}</p>
               </div>
             ))}

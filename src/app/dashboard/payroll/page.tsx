@@ -144,7 +144,7 @@ export default function PayrollPage() {
         {PERIOD_OPTIONS.map(opt => (
           <button key={opt.value} onClick={() => setPeriod(opt.value)}
             className={cn("px-4 py-2 text-sm font-medium rounded-xl border transition-colors",
-              period === opt.value ? "bg-black/10 border-black text-black" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+              period === opt.value ? "bg-black/10 border-black text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
             {opt.label}
           </button>
         ))}
@@ -158,7 +158,7 @@ export default function PayrollPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-xs text-[#777]">Total Service Revenue</p>
-          <p className="text-2xl font-bold text-black mt-1">{formatCurrency(totalServiceRevenue)}</p>
+          <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalServiceRevenue)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Total Commission Out</p>
@@ -192,7 +192,7 @@ export default function PayrollPage() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     {/* Barber info */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold">
+                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold">
                         {p.barber.name[0]}
                       </div>
                       <div>
@@ -204,7 +204,7 @@ export default function PayrollPage() {
                     {/* Commission payout highlight */}
                     <div className="bg-black/5 border border-[#1e1e1e] rounded-xl px-4 py-2 text-center">
                       <p className="text-xs text-[#777]">Pay Out</p>
-                      <p className="text-xl font-bold text-black">{formatCurrency(p.commissionEarned)}</p>
+                      <p className="text-xl font-bold text-white">{formatCurrency(p.commissionEarned)}</p>
                     </div>
                   </div>
 
@@ -240,7 +240,7 @@ export default function PayrollPage() {
                         <div className="bg-emerald-500 h-full rounded-r-full flex-1" />
                       </div>
                       <div className="flex justify-between text-xs mt-1">
-                        <span className="text-black">{formatCurrency(p.commissionEarned)} barber</span>
+                        <span className="text-white">{formatCurrency(p.commissionEarned)} barber</span>
                         <span className="text-emerald-400">{formatCurrency(p.serviceRevenue - p.commissionEarned)} shop</span>
                       </div>
                     </div>
@@ -252,7 +252,7 @@ export default function PayrollPage() {
                       {p.appointments.map(a => (
                         <div key={a.id} className="flex items-center justify-between text-xs text-[#777]">
                           <span>{a.date} — {a.client_name}</span>
-                          <span className="text-black">{formatCurrency(a.total_amount)}</span>
+                          <span className="text-white">{formatCurrency(a.total_amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -274,7 +274,7 @@ export default function PayrollPage() {
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center gap-3 mb-4">
-              <TrendingUp size={18} className="text-black" />
+              <TrendingUp size={18} className="text-white" />
               <h3 className="text-white font-semibold">Shop Revenue Summary</h3>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">

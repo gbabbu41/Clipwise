@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">↓</span>{message}
+      <span className="text-white">↓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -195,11 +195,11 @@ export default function AnalyticsPage() {
   const topService = serviceRevenue[0];
 
   const kpis = [
-    { label: "Total Revenue", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-black" },
+    { label: "Total Revenue", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-white" },
     { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-white" },
     { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-white" },
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Industry avg 12%", color: "text-orange-400" },
-    { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-black" },
+    { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-white" },
     { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-white" },
     { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
     { label: "Tips Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + t.tip, 0)), sub: "Via POS", color: "text-white" },
@@ -415,7 +415,7 @@ export default function AnalyticsPage() {
                       <tr key={b.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/20">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-black text-xs font-bold">
+                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-white text-xs font-bold">
                               {b.name[0]}
                             </div>
                             <span className="text-sm text-white font-medium">{b.name}</span>
@@ -424,7 +424,7 @@ export default function AnalyticsPage() {
                         <td className="px-3 py-3 text-sm text-white">{bAppts.length}</td>
                         <td className="px-3 py-3 text-sm text-emerald-400">{bCompleted.length}</td>
                         <td className="px-3 py-3 text-sm text-orange-400">{bNoShows}</td>
-                        <td className="px-3 py-3 text-sm text-black font-semibold">{formatCurrency(bRevenue)}</td>
+                        <td className="px-3 py-3 text-sm text-white font-semibold">{formatCurrency(bRevenue)}</td>
                         <td className="px-3 py-3 text-sm text-[#999]">{formatCurrency(bAvg)}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">

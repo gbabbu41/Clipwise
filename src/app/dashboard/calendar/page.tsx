@@ -57,10 +57,10 @@ const BARBER_PALETTE = [
   "bg-emerald-500/80 text-white",
   "bg-violet-500/80 text-white",
   "bg-rose-500/80 text-white",
-  "bg-orange-500/90 text-black",
+  "bg-orange-500/90 text-white",
   "bg-cyan-500/80 text-white",
   "bg-fuchsia-500/80 text-white",
-  "bg-lime-500/90 text-black",
+  "bg-lime-500/90 text-white",
 ];
 const BARBER_DOT_PALETTE = [
   "bg-sky-400", "bg-emerald-400", "bg-violet-400", "bg-rose-400",
@@ -103,7 +103,7 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-[#777]">Total</span>
-              <span className="text-black font-semibold">${Number(appt.total_amount).toFixed(2)}</span>
+              <span className="text-white font-semibold">${Number(appt.total_amount).toFixed(2)}</span>
             </div>
           </div>
           {appt.notes && (
@@ -175,7 +175,7 @@ function AgendaSheet({
         </div>
         <div className="p-4 border-t border-[#1e1e1e]">
           <button onClick={onDrillToDay}
-            className="w-full py-2.5 rounded-xl bg-black/10 hover:bg-black/15 text-black text-sm font-medium transition-colors">
+            className="w-full py-2.5 rounded-xl bg-black/10 hover:bg-black/15 text-white text-sm font-medium transition-colors">
             Open day view
           </button>
         </div>
@@ -567,12 +567,12 @@ export default function CalendarPage() {
               return (
                 <button key={dateStr} onClick={() => setCurrentDate(day)}
                   className="py-2 text-center hover:bg-[#141414]/50 transition-colors">
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-[#777]")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#777]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-gold text-black" : today ? "text-black" : "text-white",
+                    isSelected ? "bg-gold text-black" : today ? "text-white" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
@@ -662,7 +662,7 @@ export default function CalendarPage() {
               return (
                 <button key={dateStr} onClick={() => setAgendaDate(day)}
                   className={cn("py-2 text-center border-l border-[#1e1e1e]/40 hover:bg-[#141414]/30 transition-colors", today && "bg-black/5")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-[#777]")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#777]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
@@ -758,7 +758,7 @@ export default function CalendarPage() {
             <ChevronLeft size={18} />
           </button>
           <button onClick={() => setCurrentDate(new Date())}
-            className="px-3 py-1.5 text-xs font-medium text-black border border-black rounded-lg hover:bg-black/5 transition-colors">
+            className="px-3 py-1.5 text-xs font-medium text-white border border-black rounded-lg hover:bg-black/5 transition-colors">
             Today
           </button>
           <button onClick={() => navigate(1)} aria-label="Next"
@@ -774,7 +774,7 @@ export default function CalendarPage() {
           {(["month", "week", "day"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
-                view === v ? "bg-black/10 text-black" : "text-[#777] hover:text-white")}>
+                view === v ? "bg-black/10 text-white" : "text-[#777] hover:text-white")}>
               {v}
             </button>
           ))}

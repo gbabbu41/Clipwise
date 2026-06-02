@@ -14,7 +14,7 @@ type PM = "card" | "cash" | "online";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -175,7 +175,7 @@ export default function POSPage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">Payment Received!</h2>
-            <p className="text-3xl font-bold text-black mt-2">{formatCurrency(lastCharge.total)}</p>
+            <p className="text-3xl font-bold text-white mt-2">{formatCurrency(lastCharge.total)}</p>
           </div>
           <Card className="text-left space-y-3">
             <div className="space-y-2">
@@ -190,7 +190,7 @@ export default function POSPage() {
               <div className="flex justify-between text-sm"><span className="text-[#777]">Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
               <div className="flex justify-between text-sm"><span className="text-[#777]">Tip</span><span className="text-white">{formatCurrency(lastCharge.tip)}</span></div>
               {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
-              <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-black text-lg">{formatCurrency(lastCharge.total)}</span></div>
+              <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(lastCharge.total)}</span></div>
             </div>
             <div className="flex justify-between text-sm pt-2 border-t border-[#1e1e1e]">
               <span className="text-[#777]">Payment</span>
@@ -249,7 +249,7 @@ export default function POSPage() {
                     className="p-4 rounded-2xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left">
                     <p className="text-sm font-semibold text-white">{svc.name}</p>
                     <p className="text-xs text-[#777] mt-0.5">{svc.duration_minutes} min</p>
-                    <p className="text-lg font-bold text-black mt-1">{formatCurrency(svc.price)}</p>
+                    <p className="text-lg font-bold text-white mt-1">{formatCurrency(svc.price)}</p>
                   </button>
                 ))}
               </div>
@@ -267,7 +267,7 @@ export default function POSPage() {
                   className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
                   <p className="text-xs font-medium text-[#999] truncate">{inv.name}</p>
-                  <p className="text-sm font-bold text-black mt-0.5">{formatCurrency(inv.price)}</p>
+                  <p className="text-sm font-bold text-white mt-0.5">{formatCurrency(inv.price)}</p>
                   {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
                     <p className="text-xs text-red-400 mt-0.5">{inv.quantity} left</p>
                   )}
@@ -289,7 +289,7 @@ export default function POSPage() {
                     <p className="text-xs text-[#777]">{new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-black">{formatCurrency(tx.amount + tx.tip)}</p>
+                    <p className="text-sm font-bold text-white">{formatCurrency(tx.amount + tx.tip)}</p>
                     <p className="text-xs text-[#777] capitalize">{tx.payment_method}</p>
                   </div>
                 </div>
@@ -316,7 +316,7 @@ export default function POSPage() {
             <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white truncate">{item.name}</p>
-                <p className="text-xs text-black">{formatCurrency(item.price)}</p>
+                <p className="text-xs text-white">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => changeQty(item.id, -1)} className="w-6 h-6 rounded-lg bg-black shadow-sm text-white text-xs flex items-center justify-center hover:bg-border">−</button>
@@ -335,7 +335,7 @@ export default function POSPage() {
             <div className="flex gap-1 flex-wrap">
               {[10,15,20].map(t => (
                 <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#555] hover:text-black border border-[#1e1e1e]")}>
+                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#555] hover:text-white border border-[#1e1e1e]")}>
                   {t}%
                 </button>
               ))}
@@ -357,7 +357,7 @@ export default function POSPage() {
             <div className="flex justify-between text-[#777]"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
             <div className="flex justify-between text-[#777]"><span>Tip</span><span className="text-white">{formatCurrency(tipAmt)}</span></div>
             {discount > 0 && <div className="flex justify-between text-[#777]"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
-            <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-black text-lg">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(total)}</span></div>
           </div>
 
           {/* Payment Method */}

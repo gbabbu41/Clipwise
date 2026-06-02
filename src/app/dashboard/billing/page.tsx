@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -141,7 +141,7 @@ export default function BillingPage() {
         <CardContent>
           <div className="flex items-center gap-3 mb-5">
             <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isStarter ? "bg-[#141414]" : "bg-black/10")}>
-              <Crown size={22} className={isStarter ? "text-[#777]" : "text-black"} />
+              <Crown size={22} className={isStarter ? "text-[#777]" : "text-white"} />
             </div>
             <div>
               <p className="text-lg font-bold text-white">{PLAN_LABEL[billing?.plan ?? "starter"]}</p>
@@ -197,7 +197,7 @@ export default function BillingPage() {
         <CardContent>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center">
-              <Building2 size={18} className="text-black" />
+              <Building2 size={18} className="text-white" />
             </div>
             <p className="text-sm text-[#999]">
               {billing?.connect.connected
@@ -228,7 +228,7 @@ export default function BillingPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-white">${inv.amount.toFixed(2)}</span>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full", inv.status === "paid" ? "text-emerald-400 bg-emerald-500/10" : "text-[#777] bg-gray-500/10")}>{inv.status}</span>
-                    {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-[#777] hover:text-black"><ExternalLink size={14} /></a>}
+                    {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-[#777] hover:text-white"><ExternalLink size={14} /></a>}
                   </div>
                 </div>
               ))}

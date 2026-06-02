@@ -74,7 +74,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
           type="button"
           aria-label="Previous month"
           onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-black flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-white flex items-center justify-center transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
@@ -83,7 +83,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
           type="button"
           aria-label="Next month"
           onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-black flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-white flex items-center justify-center transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -117,7 +117,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
                 !disabled && !inMonth && "text-[#555]",
                 !disabled && inMonth && !isSelected && "text-white hover:bg-[#141414]",
                 isSelected && "bg-white text-black font-bold border border-white",
-                isToday && !isSelected && !disabled && "ring-1 ring-black/20 text-black font-semibold",
+                isToday && !isSelected && !disabled && "ring-1 ring-black/20 text-white font-semibold",
               )}
             >
               <span className="leading-none">{d.getDate()}</span>

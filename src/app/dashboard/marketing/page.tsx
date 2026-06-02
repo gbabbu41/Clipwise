@@ -12,7 +12,7 @@ import type { Client } from "@/lib/database.types";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -190,7 +190,7 @@ export default function MarketingPage() {
               <CardContent>
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center">
-                    <Icon size={16} className="text-black" />
+                    <Icon size={16} className="text-white" />
                   </div>
                   <div>
                     <p className="text-xs text-[#777]">{stat.label}</p>
@@ -229,10 +229,10 @@ export default function MarketingPage() {
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{qa.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white group-hover:text-black transition-colors">{qa.label}</p>
+                      <p className="text-sm font-semibold text-white group-hover:text-white transition-colors">{qa.label}</p>
                       <p className="text-xs text-[#777] mt-0.5 leading-relaxed">{qa.desc}</p>
                     </div>
-                    <ChevronRight size={14} className="text-[#999] group-hover:text-black transition-colors flex-shrink-0 mt-0.5" />
+                    <ChevronRight size={14} className="text-[#999] group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
                   </div>
                 </button>
               ))}
@@ -242,7 +242,7 @@ export default function MarketingPage() {
           {/* Campaign history */}
           <Card>
             <CardHeader>
-              <Megaphone size={18} className="text-black" />
+              <Megaphone size={18} className="text-white" />
               <CardTitle>Campaign History</CardTitle>
             </CardHeader>
             <CardContent>
@@ -290,7 +290,7 @@ export default function MarketingPage() {
             {/* Left: Config */}
             <div className="lg:col-span-2 space-y-5">
               <Card>
-                <CardHeader><Zap size={18} className="text-black" /><CardTitle>Campaign Setup</CardTitle></CardHeader>
+                <CardHeader><Zap size={18} className="text-white" /><CardTitle>Campaign Setup</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <Input
                     label="Campaign Name"
@@ -327,7 +327,7 @@ export default function MarketingPage() {
               </Card>
 
               <Card>
-                <CardHeader><Mail size={18} className="text-black" /><CardTitle>Message</CardTitle></CardHeader>
+                <CardHeader><Mail size={18} className="text-white" /><CardTitle>Message</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   {/* Template picker */}
                   <div>
@@ -340,7 +340,7 @@ export default function MarketingPage() {
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                             selectedTemplate.id === t.id
-                              ? "border-black bg-black/10 text-black"
+                              ? "border-black bg-black/10 text-white"
                               : "border-[#1e1e1e] text-[#777] hover:text-white hover:border-[#1e1e1e]/80"
                           )}
                         >
@@ -373,7 +373,7 @@ export default function MarketingPage() {
             {/* Right: Summary */}
             <div className="space-y-4">
               <Card>
-                <CardHeader><Users size={18} className="text-black" /><CardTitle>Audience Summary</CardTitle></CardHeader>
+                <CardHeader><Users size={18} className="text-white" /><CardTitle>Audience Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] text-center">
                     <p className="text-4xl font-bold text-white">{recipientsWithEmail.length}</p>
@@ -398,10 +398,10 @@ export default function MarketingPage() {
               </Card>
 
               <Card>
-                <CardHeader><Clock size={18} className="text-black" /><CardTitle>Delivery</CardTitle></CardHeader>
+                <CardHeader><Clock size={18} className="text-white" /><CardTitle>Delivery</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <button className="w-full p-3 rounded-xl border border-black bg-black/5 text-sm font-medium text-black text-left">
+                    <button className="w-full p-3 rounded-xl border border-black bg-black/5 text-sm font-medium text-white text-left">
                       ● Send Now
                     </button>
                     <button

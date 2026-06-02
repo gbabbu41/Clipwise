@@ -17,7 +17,7 @@ function Skeleton({ className }: { className?: string }) {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -464,7 +464,7 @@ export default function AppointmentsPage() {
           { label: "Total Today", value: todayApts.length, color: "text-white" },
           { label: "Confirmed", value: confirmed, color: "text-emerald-700" },
           { label: "No-Shows", value: noShows, color: "text-orange-700" },
-          { label: "Revenue Today", value: formatCurrency(revenue), color: "text-black" },
+          { label: "Revenue Today", value: formatCurrency(revenue), color: "text-white" },
         ].map(s => (
           <Card key={s.label} className="py-4 px-5">
             <p className="text-xs text-[#777]">{s.label}</p>
@@ -478,9 +478,9 @@ export default function AppointmentsPage() {
         {(["appointments", "waitlist"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
             {t} {t === "waitlist" && waitlist.length > 0 && (
-              <span className="ml-1 text-xs bg-black/10 text-black px-1.5 rounded-full">{waitlist.length}</span>
+              <span className="ml-1 text-xs bg-black/10 text-white px-1.5 rounded-full">{waitlist.length}</span>
             )}
           </button>
         ))}
@@ -552,8 +552,8 @@ export default function AppointmentsPage() {
                   </span>
                 </div>
                 <div className="space-y-1.5 text-sm">
-                  <p className="text-white font-medium">{shortFriendlyDate(apt.date)} · <span className="text-black">{apt.time_slot}</span></p>
-                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="text-black">{formatCurrency(apt.total_amount)}</span></p>
+                  <p className="text-white font-medium">{shortFriendlyDate(apt.date)} · <span className="text-white">{apt.time_slot}</span></p>
+                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="text-white">{formatCurrency(apt.total_amount)}</span></p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-[#777]">Barber: {apt.barbers?.name ?? "—"}</p>
                     {(() => { const p = paymentBadge(apt); return <span className={cn("badge", p.bsClass)}>{p.label}</span>; })()}
@@ -847,10 +847,10 @@ export default function AppointmentsPage() {
               <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{refundModal.client_name}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
               <p className="text-sm text-[#777]">
-                This refunds <span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
+                This refunds <span className="text-white font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
@@ -877,7 +877,7 @@ export default function AppointmentsPage() {
               <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-black font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-white font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
               <div className="space-y-2">

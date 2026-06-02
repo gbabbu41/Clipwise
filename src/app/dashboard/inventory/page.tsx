@@ -14,7 +14,7 @@ const CATEGORIES = ["All", "Hair Care", "Beard Care", "Styling", "Skincare", "To
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -155,7 +155,7 @@ export default function InventoryPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Retail Value</p>
-          <p className="text-2xl font-bold text-black mt-1">{formatCurrency(totalValue)}</p>
+          <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalValue)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#777]">Cost Value</p>
@@ -204,7 +204,7 @@ export default function InventoryPage() {
               key={cat}
               onClick={() => setCatFilter(cat)}
               className={cn("px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors",
-                catFilter === cat ? "bg-black/10 border-black text-black" : "border-[#1e1e1e] text-[#777] hover:text-white")}
+                catFilter === cat ? "bg-black/10 border-black text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}
             >
               {cat}
             </button>
@@ -298,7 +298,7 @@ export default function InventoryPage() {
                             <td className="px-3 py-3">
                               <Badge variant="outline" className="text-xs">{item.category ?? "—"}</Badge>
                             </td>
-                            <td className="px-3 py-3 text-sm text-black">{formatCurrency(item.price)}</td>
+                            <td className="px-3 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
                             <td className="px-3 py-3 text-sm text-[#777]">{item.cost_price ? formatCurrency(item.cost_price) : "—"}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-2">

@@ -725,9 +725,9 @@ export default function BookingPage() {
             <Check size={36} className="text-emerald-400" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
-          {bookingId && <p className="text-xs text-[#777] mb-1">Booking ID: <span className="text-black font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
+          {bookingId && <p className="text-xs text-[#777] mb-1">Booking ID: <span className="text-white font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
           <p className="text-[#777] mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
-          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-black hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: shop.name },
@@ -743,7 +743,7 @@ export default function BookingPage() {
             ))}
             <div className="border-t border-[#1e1e1e] pt-3 flex justify-between font-bold">
               <span className="text-white">Total</span>
-              <span className="text-black text-lg">{formatCurrency(total)}</span>
+              <span className="text-white text-lg">{formatCurrency(total)}</span>
             </div>
           </div>
           <div className="flex gap-3">
@@ -837,7 +837,7 @@ export default function BookingPage() {
               <div key={s + i} className="flex items-center gap-1 flex-1">
                 <div className={cn(
                   "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
-                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-black border border-black" : "bg-[#141414] text-[#999]"
+                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-white border border-black" : "bg-[#141414] text-[#999]"
                 )}>
                   {i < step ? <Check size={11} /> : i + 1}
                 </div>
@@ -845,7 +845,7 @@ export default function BookingPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#777] mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-black font-medium">{STEPS[step]}</span></p>
+          <p className="text-xs text-[#777] mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-white font-medium">{STEPS[step]}</span></p>
         </div>
       </div>
 
@@ -864,7 +864,7 @@ export default function BookingPage() {
                 <p className="font-semibold text-white">No Preference</p>
                 <p className="text-sm text-[#777]">Next available barber</p>
               </div>
-              {selectedBarber === "any" && <Check size={18} className="ml-auto text-black" />}
+              {selectedBarber === "any" && <Check size={18} className="ml-auto text-white" />}
             </button>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
@@ -872,16 +872,16 @@ export default function BookingPage() {
               >
                 {b.photo
                   ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-[#1e1e1e]" />
-                  : <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-xl">{b.name[0]}</div>
+                  : <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{b.name[0]}</div>
                 }
                 <div className="flex-1">
                   <p className="font-semibold text-white">{b.name}</p>
                   {b.bio && <p className="text-xs text-[#777] mt-0.5 line-clamp-1">{b.bio}</p>}
-                  <span className="flex items-center gap-1 text-xs text-black mt-1">
+                  <span className="flex items-center gap-1 text-xs text-white mt-1">
                     <Star size={11} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)
                   </span>
                 </div>
-                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-black" />}
+                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-white" />}
               </button>
             ))}
           </div>
@@ -898,7 +898,7 @@ export default function BookingPage() {
               <div className="bg-black/5 border border-[#1e1e1e] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-black/10 border border-black text-black rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-black/10 border border-black text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
                         className="ml-0.5 w-5 h-5 rounded-full bg-black/10 hover:bg-gold/30 flex items-center justify-center" aria-label="Remove">
@@ -909,7 +909,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm pt-1 border-t border-black/10">
                   <span className="text-[#777]">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
-                  <span className="text-black font-bold">{formatCurrency(totalPrice)}</span>
+                  <span className="text-white font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
               </div>
             )}
@@ -939,13 +939,13 @@ export default function BookingPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{svc.name}</p>
                       <Badge>{svc.category}</Badge>
-                      {count > 1 && <span className="text-xs text-black">× {count}</span>}
+                      {count > 1 && <span className="text-xs text-white">× {count}</span>}
                     </div>
                     {svc.description && <p className="text-xs text-[#777] mt-0.5">{svc.description}</p>}
                     <p className="text-xs text-[#777] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-lg font-bold text-black">{formatCurrency(svc.price)}</span>
+                    <span className="text-lg font-bold text-white">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
                       className="w-8 h-8 rounded-full bg-gold text-black flex items-center justify-center font-bold hover:bg-gold/90 transition-colors" aria-label="Add service">
                       +
@@ -1038,8 +1038,8 @@ export default function BookingPage() {
                       </span>
                       <span className={cn(
                         "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center",
-                        isSelectedDay ? "bg-black text-black font-semibold" :
-                        isTodayDay && !disabled ? "text-black" :
+                        isSelectedDay ? "bg-black text-white font-semibold" :
+                        isTodayDay && !disabled ? "text-white" :
                         disabled ? "text-[#555]" : "text-white",
                       )}>
                         {day.getDate()}
@@ -1117,10 +1117,10 @@ export default function BookingPage() {
                               : "bg-sky-500/15 hover:bg-sky-500/25 border-sky-400",
                           )}
                         >
-                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-black" : "text-sky-200")}>
+                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-white" : "text-sky-200")}>
                             {slot}
                           </span>
-                          <span className={cn("text-[10px] leading-none ml-2 truncate", isSelectedSlot ? "text-black/80" : "text-sky-300/70")}>
+                          <span className={cn("text-[10px] leading-none ml-2 truncate", isSelectedSlot ? "text-white/80" : "text-sky-300/70")}>
                             {barberIds.length === 1
                               ? `with ${barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"}`
                               : `${barberIds.length} barbers free`}
@@ -1157,11 +1157,11 @@ export default function BookingPage() {
                             >
                               {b.photo
                                 ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
-                                : <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold">{b.name[0]}</div>
+                                : <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-white font-bold">{b.name[0]}</div>
                               }
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-white">{b.name}</p>
-                                <p className="text-xs text-black flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
+                                <p className="text-xs text-white flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
                               </div>
                               <ChevronRight size={16} className="text-[#777]" />
                             </button>
@@ -1268,18 +1268,18 @@ export default function BookingPage() {
                 )}
                 <div className="flex justify-between font-bold pt-1 border-t border-[#1e1e1e]/50">
                   <span className="text-white">Total</span>
-                  <span className="text-black text-lg">{formatCurrency(total)}</span>
+                  <span className="text-white text-lg">{formatCurrency(total)}</span>
                 </div>
                 {depositTotal > 0 && (
                   <div className="flex justify-between text-sm pt-1">
-                    <span className="text-black">Deposit due now</span>
-                    <span className="text-black font-semibold">{formatCurrency(depositTotal)}</span>
+                    <span className="text-white">Deposit due now</span>
+                    <span className="text-white font-semibold">{formatCurrency(depositTotal)}</span>
                   </div>
                 )}
               </div>
             </div>
             {depositTotal > 0
-              ? <p className="text-xs text-black/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
+              ? <p className="text-xs text-white/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
               : <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
           </div>
@@ -1326,7 +1326,7 @@ export default function BookingPage() {
               type="button"
               disabled={!canNext()}
               onClick={() => setStep(step + 1)}
-              className="rounded-full bg-black text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-black text-white px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
             >
               Continue <ChevronRight size={16} />
             </button>
@@ -1335,7 +1335,7 @@ export default function BookingPage() {
               type="button"
               disabled={saving}
               onClick={confirmBooking}
-              className="rounded-full bg-black text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-black text-white px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
             >
               {saving ? (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

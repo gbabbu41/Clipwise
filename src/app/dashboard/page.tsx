@@ -24,7 +24,7 @@ function Skeleton({ className }: { className?: string }) {
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-black">✓</span>{message}
+      <span className="text-white">✓</span>{message}
       <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
@@ -79,7 +79,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
             <Link
               href={cta.href}
               className={cn(
-                "text-black hover:text-black/80 hover:underline mt-2 inline-flex items-center gap-0.5",
+                "text-white hover:text-white/80 hover:underline mt-2 inline-flex items-center gap-0.5",
                 prominent ? "text-sm" : "text-xs",
               )}
             >
@@ -110,7 +110,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     return (
       <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-xs">
         <p className="text-[#777]">{label}</p>
-        <p className="text-black font-semibold">{formatCurrency(payload[0].value)}</p>
+        <p className="text-white font-semibold">{formatCurrency(payload[0].value)}</p>
       </div>
     );
   }
@@ -338,7 +338,7 @@ export default function DashboardPage() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div className="w-16 h-16 bg-black/5 border border-[#1e1e1e] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Calendar size={28} className="text-black" />
+          <Calendar size={28} className="text-white" />
         </div>
         <h2 className="text-xl font-bold text-white mb-2">
           {profile?.role === "barber" ? "You're not linked to a shop yet" : "No shop found"}
@@ -368,7 +368,7 @@ export default function DashboardPage() {
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
             <div className="bg-black shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
               <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center mx-auto mb-4">
-                <Calendar size={24} className="text-black" />
+                <Calendar size={24} className="text-white" />
               </div>
               <h2 className="text-lg font-bold text-white mb-1">{newBookingNotif.title}</h2>
               <p className="text-sm text-[#777] mb-5">{newBookingNotif.message}</p>
@@ -570,7 +570,7 @@ export default function DashboardPage() {
                 className="max-w-none w-full"
               />
               {selectedCalDate && (
-                <p className="text-xs text-black mt-3 text-center">
+                <p className="text-xs text-white mt-3 text-center">
                   Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
                   <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-[#777] hover:text-white underline">Clear</button>
                 </p>
@@ -583,7 +583,7 @@ export default function DashboardPage() {
           <Card className="!bg-[#141414]">
             <CardHeader>
               <CardTitle>{selectedCalDate ? `Appointments — ${new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` : "Today's Schedule"}</CardTitle>
-              <Link href="/dashboard/appointments" className="text-xs text-black hover:underline">View all</Link>
+              <Link href="/dashboard/appointments" className="text-xs text-white hover:underline">View all</Link>
             </CardHeader>
             <CardContent>
               {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
@@ -609,7 +609,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium capitalize", getStatusColor(apt.status))}>{apt.status}</span>
-                      <span className="text-sm font-semibold text-black">{formatCurrency(apt.total_amount)}</span>
+                      <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
                     </div>
                   </div>
                 ))
@@ -621,7 +621,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Revenue Over Period</CardTitle>
-              <span className="text-xs text-[#777]">Total: <span className="text-black font-semibold">{formatCurrency(revenue)}</span></span>
+              <span className="text-xs text-[#777]">Total: <span className="text-white font-semibold">{formatCurrency(revenue)}</span></span>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
@@ -675,12 +675,12 @@ export default function DashboardPage() {
               ].map((action) => (
                 action.href ? (
                   <Link key={action.label} href={action.href}>
-                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-black border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
+                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-white border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
                       <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                     </div>
                   </Link>
                 ) : (
-                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-black border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
+                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-white border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
                     <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                   </button>
                 )
@@ -699,7 +699,7 @@ export default function DashboardPage() {
                   <div className="relative">
                     {b.photo
                       ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-[#1e1e1e]" />
-                      : <div className="w-9 h-9 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-sm">{b.name[0]}</div>
+                      : <div className="w-9 h-9 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-sm">{b.name[0]}</div>
                     }
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-surface rounded-full" />
                   </div>
@@ -719,7 +719,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Alerts</CardTitle>
-              <Link href="/dashboard/notifications" className="text-xs text-black hover:underline">
+              <Link href="/dashboard/notifications" className="text-xs text-white hover:underline">
                 See all ({notifications.filter((n) => !n.is_read).length})
               </Link>
             </CardHeader>
@@ -729,7 +729,7 @@ export default function DashboardPage() {
               ) : notifications.map((n) => (
                 <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-black/5 border border-black/10")}>
                   <div className={cn("mt-0.5 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs",
-                    n.type === "booking" ? "bg-black/10 text-black" : n.type === "no-show" ? "bg-orange-500/20 text-orange-400" : n.type === "review" ? "bg-purple-500/20 text-purple-400" : "bg-red-500/20 text-red-400")}>
+                    n.type === "booking" ? "bg-black/10 text-white" : n.type === "no-show" ? "bg-orange-500/20 text-orange-400" : n.type === "review" ? "bg-purple-500/20 text-purple-400" : "bg-red-500/20 text-red-400")}>
                     {n.type === "booking" ? <Calendar size={12} /> : n.type === "review" ? <Star size={12} /> : <AlertCircle size={12} />}
                   </div>
                   <div>
