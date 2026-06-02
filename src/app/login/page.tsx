@@ -74,7 +74,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="text-gray-500 text-sm mt-1">Sign in to your ClipWise account</p>
+          <p className="text-[#777] text-sm mt-1">Sign in to your ClipWise account</p>
         </div>
 
         <div className="bg-surface border border-border rounded-2xl p-8">
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-gray-600">or</span>
+            <span className="text-xs text-[#999]">or</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -108,14 +108,14 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Email</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="you@freshcutz.ca"
                   required
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                 />
               </div>
             </div>
@@ -126,16 +126,16 @@ export default function LoginPage() {
                 <Link href="/forgot-password" className="text-xs text-gold hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input
                   type={showPass ? "text" : "password"}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                 />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -146,7 +146,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-[#777] mt-6">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-gold hover:underline font-medium">Sign up free</Link>
           </p>

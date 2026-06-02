@@ -112,9 +112,9 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
         <Logo size="md" className="justify-center mb-8" />
         <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
-          <Scissors size={40} className="text-gray-600 mx-auto mb-4" />
+          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Review Link Invalid</h1>
-          <p className="text-gray-400 text-sm">This review link is invalid or has expired.</p>
+          <p className="text-[#555] text-sm">This review link is invalid or has expired.</p>
         </div>
       </div>
     );
@@ -131,7 +131,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
           <h1 className="text-xl font-bold text-white mb-2">
             {submitted ? "Thanks for your review!" : "Already reviewed"}
           </h1>
-          <p className="text-gray-400 text-sm">
+          <p className="text-[#555] text-sm">
             {submitted
               ? `Your feedback for ${appt.shops?.name} has been submitted.`
               : "You've already left a review for this appointment."
@@ -162,25 +162,25 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
               <Scissors size={28} className="text-gold" />
             </div>
             <h1 className="text-xl font-bold text-white">{appt.shops?.name}</h1>
-            <p className="text-gray-400 text-sm mt-1">How was your visit, {appt.client_name}?</p>
+            <p className="text-[#555] text-sm mt-1">How was your visit, {appt.client_name}?</p>
           </div>
 
           {/* Appointment summary */}
           <div className="bg-surface-raised rounded-xl p-4 space-y-1.5 text-sm">
             {appt.barbers?.name && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Barber</span>
+                <span className="text-[#777]">Barber</span>
                 <span className="text-white">{appt.barbers.name}</span>
               </div>
             )}
             {appt.services?.name && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Service</span>
+                <span className="text-[#777]">Service</span>
                 <span className="text-white">{appt.services.name}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-500">Date</span>
+              <span className="text-[#777]">Date</span>
               <span className="text-white">{appt.date}</span>
             </div>
           </div>
@@ -201,14 +201,14 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
                     size={36}
                     className={cn(
                       "transition-colors",
-                      i < displayRating ? "text-gold fill-gold" : "text-gray-600"
+                      i < displayRating ? "text-gold fill-gold" : "text-[#999]"
                     )}
                   />
                 </button>
               ))}
             </div>
             {displayRating > 0 && (
-              <p className="text-center text-sm text-gray-400 mt-2">
+              <p className="text-center text-sm text-[#555] mt-2">
                 {["", "Poor", "Fair", "Good", "Great", "Excellent!"][displayRating]}
               </p>
             )}
@@ -217,7 +217,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
           {/* Comment */}
           <div>
             <label className="text-sm font-medium text-gray-300 block mb-1.5">
-              Leave a comment <span className="text-gray-500 font-normal">(optional)</span>
+              Leave a comment <span className="text-[#777] font-normal">(optional)</span>
             </label>
             <textarea
               value={comment}
@@ -225,9 +225,9 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
               rows={3}
               maxLength={500}
               placeholder="Tell others about your experience..."
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50 resize-none"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none"
             />
-            <p className="text-xs text-gray-600 mt-1 text-right">{comment.length}/500</p>
+            <p className="text-xs text-[#999] mt-1 text-right">{comment.length}/500</p>
           </div>
 
           <Button

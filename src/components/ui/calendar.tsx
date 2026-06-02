@@ -67,23 +67,23 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
   };
 
   return (
-    <div className={cn("bg-gray-50 border border-gray-200 rounded-2xl p-3 w-full max-w-xs shadow-sm", className)}>
+    <div className={cn("bg-black border border-[#1e1e1e] rounded-2xl p-3 w-full max-w-xs shadow-sm", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button
           type="button"
           aria-label="Previous month"
           onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="w-9 h-9 rounded-full hover:bg-gray-100 text-gray-600 hover:text-black flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-black flex items-center justify-center transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="text-sm font-semibold text-gray-900">{monthLabel}</span>
+        <span className="text-sm font-semibold text-white">{monthLabel}</span>
         <button
           type="button"
           aria-label="Next month"
           onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="w-9 h-9 rounded-full hover:bg-gray-100 text-gray-600 hover:text-black flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-black flex items-center justify-center transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -92,7 +92,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
       {/* Weekday header */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS.map((w, i) => (
-          <span key={i} className="text-[10px] uppercase tracking-wider text-gray-400 text-center py-1">{w}</span>
+          <span key={i} className="text-[10px] uppercase tracking-wider text-[#555] text-center py-1">{w}</span>
         ))}
       </div>
 
@@ -114,9 +114,9 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
                 "rounded-lg text-sm transition-all flex flex-col items-center justify-center gap-0.5",
                 renderDayBadge ? "min-h-[44px] py-1" : "h-11 sm:h-9",
                 disabled && "text-gray-300 cursor-not-allowed",
-                !disabled && !inMonth && "text-gray-400",
-                !disabled && inMonth && !isSelected && "text-gray-900 hover:bg-gray-100",
-                isSelected && "bg-[#E8E2D5] text-black font-bold border border-[#D6CDB8]",
+                !disabled && !inMonth && "text-[#555]",
+                !disabled && inMonth && !isSelected && "text-white hover:bg-[#141414]",
+                isSelected && "bg-white text-black font-bold border border-white",
                 isToday && !isSelected && !disabled && "ring-1 ring-black/20 text-black font-semibold",
               )}
             >

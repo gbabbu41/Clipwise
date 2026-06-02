@@ -53,13 +53,13 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 // ── Barber palette ───────────────────────────────────────────────────────────
 // Flat fills, no borders. Colored by barber so "who is doing what" reads at a glance.
 const BARBER_PALETTE = [
-  "bg-sky-500/80 text-gray-900",
-  "bg-emerald-500/80 text-gray-900",
-  "bg-violet-500/80 text-gray-900",
-  "bg-rose-500/80 text-gray-900",
+  "bg-sky-500/80 text-white",
+  "bg-emerald-500/80 text-white",
+  "bg-violet-500/80 text-white",
+  "bg-rose-500/80 text-white",
   "bg-orange-500/90 text-black",
-  "bg-cyan-500/80 text-gray-900",
-  "bg-fuchsia-500/80 text-gray-900",
+  "bg-cyan-500/80 text-white",
+  "bg-fuchsia-500/80 text-white",
   "bg-lime-500/90 text-black",
 ];
 const BARBER_DOT_PALETTE = [
@@ -74,10 +74,10 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-sm space-y-3">
+        <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900">{appt.client_name}</h3>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-900"><X size={18} /></button>
+            <h3 className="text-lg font-bold text-white">{appt.client_name}</h3>
+            <button onClick={onClose} className="text-[#777] hover:text-white"><X size={18} /></button>
           </div>
           <Badge variant={
             appt.status === "confirmed" ? "success" :
@@ -85,29 +85,29 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
             appt.status === "cancelled" ? "danger" : "warning"
           } className="capitalize">{appt.status}</Badge>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between py-1.5 border-b border-gray-200/50">
-              <span className="text-gray-500">Service</span>
-              <span className="text-gray-900">{(appt.services as { name: string } | null)?.name ?? "—"}</span>
+            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
+              <span className="text-[#777]">Service</span>
+              <span className="text-white">{(appt.services as { name: string } | null)?.name ?? "—"}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-200/50">
-              <span className="text-gray-500">Barber</span>
-              <span className="text-gray-900">{barber?.name ?? "Any"}</span>
+            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
+              <span className="text-[#777]">Barber</span>
+              <span className="text-white">{barber?.name ?? "Any"}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-200/50">
-              <span className="text-gray-500">Time</span>
-              <span className="text-gray-900">{appt.time_slot}</span>
+            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
+              <span className="text-[#777]">Time</span>
+              <span className="text-white">{appt.time_slot}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-200/50">
-              <span className="text-gray-500">Phone</span>
-              <span className="text-gray-900">{appt.client_phone || "—"}</span>
+            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
+              <span className="text-[#777]">Phone</span>
+              <span className="text-white">{appt.client_phone || "—"}</span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-gray-500">Total</span>
+              <span className="text-[#777]">Total</span>
               <span className="text-black font-semibold">${Number(appt.total_amount).toFixed(2)}</span>
             </div>
           </div>
           {appt.notes && (
-            <div className="bg-gray-100 rounded-xl p-3 text-xs text-gray-600">{appt.notes}</div>
+            <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#999]">{appt.notes}</div>
           )}
         </div>
       </div>
@@ -137,18 +137,18 @@ function AgendaSheet({
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-gray-50 shadow-sm border-l border-gray-200 z-50 flex flex-col animate-fade-in">
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-black shadow-sm border-l border-[#1e1e1e] z-50 flex flex-col animate-fade-in">
+        <div className="p-5 border-b border-[#1e1e1e] flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
-            <h3 className="text-lg font-bold text-gray-900">{dayLabel}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
+            <p className="text-xs text-[#777]">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
+            <h3 className="text-lg font-bold text-white">{dayLabel}</h3>
+            <p className="text-xs text-[#777] mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-900"><X size={20} /></button>
+          <button onClick={onClose} className="text-[#777] hover:text-white"><X size={20} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {appts.length === 0 && (
-            <div className="text-center py-12 text-gray-500 text-sm">No bookings on this day.</div>
+            <div className="text-center py-12 text-[#777] text-sm">No bookings on this day.</div>
           )}
           {appts.map(appt => {
             const colorIdx = barberColorByIdx(appt.barber_id);
@@ -156,16 +156,16 @@ function AgendaSheet({
             const barber = barbers.find(b => b.id === appt.barber_id);
             return (
               <button key={appt.id} onClick={() => onOpenAppt(appt)}
-                className="w-full text-left p-3 rounded-xl bg-gray-100 hover:bg-gray-100/80 transition-colors flex items-start gap-3">
+                className="w-full text-left p-3 rounded-xl bg-[#141414] hover:bg-[#141414]/80 transition-colors flex items-start gap-3">
                 <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", dot)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className={cn("text-sm font-semibold text-gray-900 truncate", (appt.status === "cancelled" || appt.status === "no-show") && "line-through opacity-50")}>
+                    <p className={cn("text-sm font-semibold text-white truncate", (appt.status === "cancelled" || appt.status === "no-show") && "line-through opacity-50")}>
                       {appt.client_name}
                     </p>
-                    <span className="text-xs text-gray-500 flex-shrink-0">{appt.time_slot}</span>
+                    <span className="text-xs text-[#777] flex-shrink-0">{appt.time_slot}</span>
                   </div>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-[#777] truncate">
                     {(appt.services as { name: string } | null)?.name ?? "—"} · {barber?.name ?? "Any"}
                   </p>
                 </div>
@@ -173,7 +173,7 @@ function AgendaSheet({
             );
           })}
         </div>
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-[#1e1e1e]">
           <button onClick={onDrillToDay}
             className="w-full py-2.5 rounded-xl bg-black/10 hover:bg-black/15 text-black text-sm font-medium transition-colors">
             Open day view
@@ -313,9 +313,9 @@ export default function CalendarPage() {
 
     return (
       <div className="flex flex-col h-full">
-        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-100/30">
+        <div className="grid grid-cols-7 border-b border-[#1e1e1e] bg-[#141414]/30">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-gray-500 text-center">{d}</div>
+            <div key={d} className="px-2 py-2 text-xs font-medium text-[#777] text-center">{d}</div>
           ))}
         </div>
         <div className="flex-1 grid grid-cols-7 auto-rows-fr">
@@ -330,16 +330,16 @@ export default function CalendarPage() {
                 key={dayStr}
                 onClick={() => setAgendaDate(day)}
                 className={cn(
-                  "border-r border-b border-gray-200/40 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[72px] sm:min-h-[88px] transition-colors",
-                  "hover:bg-gray-100/40",
-                  !inMonth && "bg-gray-50 shadow-sm/30",
+                  "border-r border-b border-[#1e1e1e]/40 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[72px] sm:min-h-[88px] transition-colors",
+                  "hover:bg-[#141414]/40",
+                  !inMonth && "bg-black shadow-sm/30",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
                     isToday(day) ? "bg-gold text-black font-bold" :
-                    inMonth ? "text-gray-900" : "text-gray-600",
+                    inMonth ? "text-white" : "text-[#999]",
                   )}>
                     {day.getDate()}
                   </span>
@@ -351,7 +351,7 @@ export default function CalendarPage() {
                       <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", BARBER_DOT_PALETTE[barberColorByIdx(a.barber_id)])} />
                     ))}
                     {dayAppts.length > 6 && (
-                      <span className="text-[9px] text-gray-500 leading-none">+{dayAppts.length - 6}</span>
+                      <span className="text-[9px] text-[#777] leading-none">+{dayAppts.length - 6}</span>
                     )}
                   </div>
                 ) : (
@@ -370,7 +370,7 @@ export default function CalendarPage() {
                       );
                     })}
                     {overflow > 0 && (
-                      <span className="text-[10px] text-gray-500 pl-1.5">+{overflow} more</span>
+                      <span className="text-[10px] text-[#777] pl-1.5">+{overflow} more</span>
                     )}
                   </div>
                 )}
@@ -393,11 +393,11 @@ export default function CalendarPage() {
         <div ref={scrollRef} className="overflow-auto h-full">
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-gray-200/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-500 text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
-                <div className="border-l border-gray-200/20" />
+                <div className="border-l border-[#1e1e1e]/20" />
               </div>
             ))}
             <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -459,15 +459,15 @@ export default function CalendarPage() {
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
         <div className="min-w-[600px]">
-          <div className="grid sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+          <div className="grid sticky top-0 z-10 bg-black shadow-sm border-b border-[#1e1e1e]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
             <div />
             {cols.map((b, i) => (
-              <div key={b.id} className="px-3 py-3 text-center border-l border-gray-200/40">
+              <div key={b.id} className="px-3 py-3 text-center border-l border-[#1e1e1e]/40">
                 <div className="flex items-center justify-center gap-2">
                   <span className={cn("w-2 h-2 rounded-full", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])} />
-                  <p className="text-xs text-gray-900 font-medium">{b.name}</p>
+                  <p className="text-xs text-white font-medium">{b.name}</p>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-0.5">
+                <p className="text-[10px] text-[#777] mt-0.5">
                   {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
                 </p>
               </div>
@@ -476,12 +476,12 @@ export default function CalendarPage() {
 
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-gray-200/20" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-500 text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {cols.map(b => (
-                  <div key={b.id} className="border-l border-gray-200/20" />
+                  <div key={b.id} className="border-l border-[#1e1e1e]/20" />
                 ))}
               </div>
             ))}
@@ -558,7 +558,7 @@ export default function CalendarPage() {
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
-          <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-100/30 flex-shrink-0">
+          <div className="grid grid-cols-7 border-b border-[#1e1e1e] bg-[#141414]/30 flex-shrink-0">
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
               const isSelected = dateStr === selectedStr;
@@ -566,13 +566,13 @@ export default function CalendarPage() {
               const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
               return (
                 <button key={dateStr} onClick={() => setCurrentDate(day)}
-                  className="py-2 text-center hover:bg-gray-100/50 transition-colors">
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-gray-500")}>
+                  className="py-2 text-center hover:bg-[#141414]/50 transition-colors">
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-[#777]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-gold text-black" : today ? "text-black" : "text-gray-900",
+                    isSelected ? "bg-gold text-black" : today ? "text-black" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
@@ -589,11 +589,11 @@ export default function CalendarPage() {
           <div ref={scrollRef} className="overflow-auto flex-1">
             <div className="relative">
               {HOURS_24.map(hour => (
-                <div key={hour} className="grid border-b border-gray-200/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                  <div className="text-[10px] text-gray-500 text-right pr-2 pt-1">
+                <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                  <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </div>
-                  <div className="border-l border-gray-200/20" />
+                  <div className="border-l border-[#1e1e1e]/20" />
                 </div>
               ))}
               <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -653,7 +653,7 @@ export default function CalendarPage() {
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
         <div className="min-w-[700px]">
-          <div className="grid sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
+          <div className="grid sticky top-0 z-10 bg-black shadow-sm border-b border-[#1e1e1e]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -661,18 +661,18 @@ export default function CalendarPage() {
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => setAgendaDate(day)}
-                  className={cn("py-2 text-center border-l border-gray-200/40 hover:bg-gray-100/30 transition-colors", today && "bg-black/5")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-gray-500")}>
+                  className={cn("py-2 text-center border-l border-[#1e1e1e]/40 hover:bg-[#141414]/30 transition-colors", today && "bg-black/5")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-black" : "text-[#777]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-gold text-black" : "text-gray-900",
+                    today ? "bg-gold text-black" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
                   {dayAppts.length > 0 && (
-                    <p className="text-[10px] text-gray-500 mt-0.5">{dayAppts.length}</p>
+                    <p className="text-[10px] text-[#777] mt-0.5">{dayAppts.length}</p>
                   )}
                 </button>
               );
@@ -681,12 +681,12 @@ export default function CalendarPage() {
 
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-gray-200/20" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-500 text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-gray-200/20", isToday(day) && "bg-black/5")} />
+                  <div key={formatDateForDb(day)} className={cn("border-l border-[#1e1e1e]/20", isToday(day) && "bg-black/5")} />
                 ))}
               </div>
             ))}
@@ -751,10 +751,10 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Apple-style header bar */}
-      <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div className="p-4 sm:p-6 pb-3 border-b border-[#1e1e1e] space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} aria-label="Previous"
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+            className="p-2 rounded-lg text-[#777] hover:text-white hover:bg-[#141414] transition-colors">
             <ChevronLeft size={18} />
           </button>
           <button onClick={() => setCurrentDate(new Date())}
@@ -762,19 +762,19 @@ export default function CalendarPage() {
             Today
           </button>
           <button onClick={() => navigate(1)} aria-label="Next"
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+            className="p-2 rounded-lg text-[#777] hover:text-white hover:bg-[#141414] transition-colors">
             <ChevronRight size={18} />
           </button>
-          <h2 className="ml-2 text-lg sm:text-xl font-bold text-gray-900">
+          <h2 className="ml-2 text-lg sm:text-xl font-bold text-white">
             {titleText}
-            {loading && <span className="text-xs text-gray-500 ml-2 animate-pulse">Loading…</span>}
+            {loading && <span className="text-xs text-[#777] ml-2 animate-pulse">Loading…</span>}
           </h2>
         </div>
-        <div className="flex bg-gray-100 border border-gray-200 rounded-xl p-1 gap-1 self-start sm:self-auto">
+        <div className="flex bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 gap-1 self-start sm:self-auto">
           {(["month", "week", "day"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
-                view === v ? "bg-black/10 text-black" : "text-gray-500 hover:text-gray-900")}>
+                view === v ? "bg-black/10 text-black" : "text-[#777] hover:text-white")}>
               {v}
             </button>
           ))}
@@ -783,17 +783,17 @@ export default function CalendarPage() {
 
       {/* Barber legend (only when there are multiple) */}
       {barbers.length > 1 && (
-        <div className="px-4 sm:px-6 py-2 border-b border-gray-200/50 flex flex-wrap gap-x-4 gap-y-1.5">
+        <div className="px-4 sm:px-6 py-2 border-b border-[#1e1e1e]/50 flex flex-wrap gap-x-4 gap-y-1.5">
           {barbers.map((b, i) => (
             <span key={b.id} className="inline-flex items-center gap-1.5 text-xs">
               <span className={cn("w-2.5 h-2.5 rounded-full", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])} />
-              <span className="text-gray-500">{b.name}</span>
+              <span className="text-[#777]">{b.name}</span>
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden bg-gray-50 shadow-sm">
+      <div className="flex-1 overflow-hidden bg-black shadow-sm">
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
 

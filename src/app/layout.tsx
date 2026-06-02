@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Plus_Jakarta_Sans } from "next/font/google";
+import { Sora, DM_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { PWARegister } from "@/components/pwa-register";
 
-// Bebas Neue — display face used for h1–h4 and the wordmark.
-const bebasNeue = Bebas_Neue({
-  weight: "400",
+// Sora — primary UI face for the v2 design system. Geometric, extra-bold at
+// display sizes, clean at body sizes. Used everywhere except numerics.
+const sora = Sora({
+  weight: ["300", "400", "500", "600", "700", "800"],
   subsets: ["latin"],
-  variable: "--font-heading",
+  variable: "--font-body",
   display: "swap",
 });
 
-// Plus Jakarta Sans — modern UI face, replaces Inter for body / buttons /
-// dropdowns. Wider apertures and rounder forms read more "premium product"
-// than Inter's tighter geometric letterforms.
-const plusJakarta = Plus_Jakarta_Sans({
+// DM Mono — applied via `font-mono` / `.font-numeric` for prices, stats,
+// times. Slightly heavier than the default `font-mono` stack so dollar
+// amounts read as deliberate UI elements, not afterthoughts.
+const dmMono = DM_Mono({
+  weight: ["400", "500"],
   subsets: ["latin"],
-  variable: "--font-body",
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -30,7 +32,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "ClipWise",
   },
-  themeColor: "#0A0A0A",
+  themeColor: "#000000",
   icons: {
     apple: "/apple-touch-icon.png",
     icon: [
@@ -46,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${bebasNeue.variable} ${plusJakarta.variable}`}>
+    <html lang="en" className={`dark ${sora.variable} ${dmMono.variable}`}>
       <body className="antialiased bg-background text-white">
         <AuthProvider>
           {children}

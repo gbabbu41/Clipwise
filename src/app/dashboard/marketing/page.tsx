@@ -11,9 +11,9 @@ import type { Client } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -168,8 +168,8 @@ export default function MarketingPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Marketing</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Email campaigns to grow your client base</p>
+          <h1 className="text-2xl font-bold text-white">Marketing</h1>
+          <p className="text-sm text-[#777] mt-0.5">Email campaigns to grow your client base</p>
         </div>
         {tab === "campaigns" && (
           <Button onClick={() => setTab("create")}><Plus size={16} /> New Campaign</Button>
@@ -189,12 +189,12 @@ export default function MarketingPage() {
             <Card key={stat.label}>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-gray-300 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center">
                     <Icon size={16} className="text-black" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">{stat.label}</p>
-                    <p className="text-xl font-bold text-gray-900">{stat.value}</p>
+                    <p className="text-xs text-[#777]">{stat.label}</p>
+                    <p className="text-xl font-bold text-white">{stat.value}</p>
                   </div>
                 </div>
               </CardContent>
@@ -207,7 +207,7 @@ export default function MarketingPage() {
         <div className="space-y-6">
           {/* Quick actions */}
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Campaigns</h2>
+            <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">Quick Campaigns</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { label: "Win-Back At-Risk", desc: `Re-engage ${clients.filter(c=>c.tag==="At Risk"&&!!c.email).length} at-risk clients who haven't been back`, icon: "🔄", template: "winback", segment: "atrisk" },
@@ -224,15 +224,15 @@ export default function MarketingPage() {
                     setCampaignName(qa.label);
                     setTab("create");
                   }}
-                  className="text-left p-4 bg-gray-50 shadow-sm border border-gray-200 rounded-2xl hover:border-black transition-all group"
+                  className="text-left p-4 bg-black shadow-sm border border-[#1e1e1e] rounded-2xl hover:border-black transition-all group"
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{qa.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 group-hover:text-black transition-colors">{qa.label}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{qa.desc}</p>
+                      <p className="text-sm font-semibold text-white group-hover:text-black transition-colors">{qa.label}</p>
+                      <p className="text-xs text-[#777] mt-0.5 leading-relaxed">{qa.desc}</p>
                     </div>
-                    <ChevronRight size={14} className="text-gray-600 group-hover:text-black transition-colors flex-shrink-0 mt-0.5" />
+                    <ChevronRight size={14} className="text-[#999] group-hover:text-black transition-colors flex-shrink-0 mt-0.5" />
                   </div>
                 </button>
               ))}
@@ -249,21 +249,21 @@ export default function MarketingPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr className="border-b border-[#1e1e1e]">
                       {["Campaign", "Segment", "Sent", "Recipients", "Opens", "Clicks", "Rate", "Status"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-gray-500 px-3 py-2 whitespace-nowrap">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {MOCK_HISTORY.map(c => (
-                      <tr key={c.id} className="border-b border-gray-200/50 hover:bg-gray-100/50 transition-colors">
-                        <td className="px-3 py-3 text-sm font-medium text-gray-900">{c.name}</td>
-                        <td className="px-3 py-3 text-xs text-gray-500">{c.segment}</td>
-                        <td className="px-3 py-3 text-xs text-gray-500">{c.sentAt}</td>
-                        <td className="px-3 py-3 text-sm text-gray-900">{c.recipients}</td>
-                        <td className="px-3 py-3 text-sm text-gray-900">{c.opens}</td>
-                        <td className="px-3 py-3 text-sm text-gray-900">{c.clicks}</td>
+                      <tr key={c.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-white">{c.name}</td>
+                        <td className="px-3 py-3 text-xs text-[#777]">{c.segment}</td>
+                        <td className="px-3 py-3 text-xs text-[#777]">{c.sentAt}</td>
+                        <td className="px-3 py-3 text-sm text-white">{c.recipients}</td>
+                        <td className="px-3 py-3 text-sm text-white">{c.opens}</td>
+                        <td className="px-3 py-3 text-sm text-white">{c.clicks}</td>
                         <td className="px-3 py-3 text-sm text-emerald-400">{Math.round((c.opens / c.recipients) * 100)}%</td>
                         <td className="px-3 py-3">
                           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -282,7 +282,7 @@ export default function MarketingPage() {
 
       {tab === "create" && (
         <div className="space-y-6">
-          <button onClick={() => setTab("campaigns")} className="text-sm text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
+          <button onClick={() => setTab("campaigns")} className="text-sm text-[#777] hover:text-white transition-colors flex items-center gap-1">
             ← Back to campaigns
           </button>
 
@@ -301,7 +301,7 @@ export default function MarketingPage() {
 
                   {/* Segment picker */}
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Audience Segment</p>
+                    <p className="text-sm font-medium text-[#999] mb-2">Audience Segment</p>
                     <div className="grid sm:grid-cols-2 gap-2">
                       {SEGMENTS.map(seg => {
                         const count = seg.filter(clients).filter(c => !!c.email).length;
@@ -312,8 +312,8 @@ export default function MarketingPage() {
                             className={cn(
                               "text-left p-3 rounded-xl border transition-all",
                               selectedSegment.id === seg.id
-                                ? "border-black bg-black/5 text-gray-900"
-                                : "border-gray-200 text-gray-500 hover:border-gray-200/80"
+                                ? "border-black bg-black/5 text-white"
+                                : "border-[#1e1e1e] text-[#777] hover:border-[#1e1e1e]/80"
                             )}
                           >
                             <p className="text-sm font-medium">{seg.label}</p>
@@ -331,7 +331,7 @@ export default function MarketingPage() {
                 <CardContent className="space-y-4">
                   {/* Template picker */}
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Template</p>
+                    <p className="text-sm font-medium text-[#999] mb-2">Template</p>
                     <div className="flex flex-wrap gap-2">
                       {TEMPLATES.map(t => (
                         <button
@@ -341,15 +341,15 @@ export default function MarketingPage() {
                             "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                             selectedTemplate.id === t.id
                               ? "border-black bg-black/10 text-black"
-                              : "border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-200/80"
+                              : "border-[#1e1e1e] text-[#777] hover:text-white hover:border-[#1e1e1e]/80"
                           )}
                         >
                           {t.label}
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Use <span className="font-mono bg-gray-100 px-1 rounded">{"{name}"}</span>, <span className="font-mono bg-gray-100 px-1 rounded">{"{shop}"}</span>, <span className="font-mono bg-gray-100 px-1 rounded">{"{link}"}</span> as placeholders
+                    <p className="text-xs text-[#777] mt-2">
+                      Use <span className="font-mono bg-[#141414] px-1 rounded">{"{name}"}</span>, <span className="font-mono bg-[#141414] px-1 rounded">{"{shop}"}</span>, <span className="font-mono bg-[#141414] px-1 rounded">{"{link}"}</span> as placeholders
                     </p>
                   </div>
 
@@ -375,23 +375,23 @@ export default function MarketingPage() {
               <Card>
                 <CardHeader><Users size={18} className="text-black" /><CardTitle>Audience Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="p-4 bg-gray-100 rounded-xl border border-gray-200 text-center">
-                    <p className="text-4xl font-bold text-gray-900">{recipientsWithEmail.length}</p>
-                    <p className="text-xs text-gray-500 mt-1">recipients with email</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{recipients.length - recipientsWithEmail.length} without email (skipped)</p>
+                  <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] text-center">
+                    <p className="text-4xl font-bold text-white">{recipientsWithEmail.length}</p>
+                    <p className="text-xs text-[#777] mt-1">recipients with email</p>
+                    <p className="text-xs text-[#777] mt-0.5">{recipients.length - recipientsWithEmail.length} without email (skipped)</p>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-[#777]">
                       <span>Segment</span>
-                      <span className="text-gray-900">{selectedSegment.label}</span>
+                      <span className="text-white">{selectedSegment.label}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-[#777]">
                       <span>Template</span>
-                      <span className="text-gray-900">{selectedTemplate.label}</span>
+                      <span className="text-white">{selectedTemplate.label}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-[#777]">
                       <span>Type</span>
-                      <span className="text-gray-900">Email</span>
+                      <span className="text-white">Email</span>
                     </div>
                   </div>
                 </CardContent>
@@ -405,7 +405,7 @@ export default function MarketingPage() {
                       ● Send Now
                     </button>
                     <button
-                      className="w-full p-3 rounded-xl border border-gray-200 text-sm text-gray-500 text-left hover:border-gray-200/80"
+                      className="w-full p-3 rounded-xl border border-[#1e1e1e] text-sm text-[#777] text-left hover:border-[#1e1e1e]/80"
                       onClick={() => showToast("Scheduling coming soon!")}
                     >
                       ○ Schedule for Later

@@ -17,15 +17,15 @@ import type { AppointmentWithDetails, Barber, Notification } from "@/lib/databas
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -49,7 +49,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   // on the card. Two-tone tinted background overlay was a dark-mode device —
   // on white it just looks like a misprint. Dropped entirely.
   const iconChipByColor: Record<string, string> = {
-    gold: "bg-gray-100 text-gray-700",
+    gold: "bg-[#141414] text-[#aaa]",
     green: "bg-emerald-50 text-emerald-600",
     blue: "bg-blue-50 text-blue-600",
     purple: "bg-purple-50 text-purple-600",
@@ -64,12 +64,12 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={cn("text-gray-500 font-medium uppercase tracking-wider", prominent ? "text-[11px]" : "text-xs")}>
+          <p className={cn("text-[#777] font-medium uppercase tracking-wider", prominent ? "text-[11px]" : "text-xs")}>
             {label}
           </p>
           <p
             className={cn(
-              "font-bold text-gray-900 mt-1.5",
+              "font-bold text-white mt-1.5",
               prominent ? "text-3xl sm:text-4xl tracking-tight" : "text-xl",
             )}
           >
@@ -87,7 +87,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
               <ChevronRight size={prominent ? 13 : 11} />
             </Link>
           ) : (
-            <p className={cn("text-gray-500 mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
+            <p className={cn("text-[#777] mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
           )}
         </div>
         <div
@@ -108,8 +108,8 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (active && payload?.length) {
     return (
-      <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs">
-        <p className="text-gray-500">{label}</p>
+      <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-xs">
+        <p className="text-[#777]">{label}</p>
         <p className="text-black font-semibold">{formatCurrency(payload[0].value)}</p>
       </div>
     );
@@ -337,13 +337,13 @@ export default function DashboardPage() {
   if (!loadingAppts && !shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-16 h-16 bg-black/5 border border-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 bg-black/5 border border-[#1e1e1e] rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Calendar size={28} className="text-black" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
+        <h2 className="text-xl font-bold text-white mb-2">
           {profile?.role === "barber" ? "You're not linked to a shop yet" : "No shop found"}
         </h2>
-        <p className="text-gray-500 text-sm max-w-sm mb-6">
+        <p className="text-[#777] text-sm max-w-sm mb-6">
           {profile?.role === "barber"
             ? "You're not linked to a shop yet. Browse approved shops and request to join."
             : "Set up your barbershop to start managing appointments, clients, and more."}
@@ -366,12 +366,12 @@ export default function DashboardPage() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setNewBookingNotif(null)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
+            <div className="bg-black shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
               <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center mx-auto mb-4">
                 <Calendar size={24} className="text-black" />
               </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-1">{newBookingNotif.title}</h2>
-              <p className="text-sm text-gray-500 mb-5">{newBookingNotif.message}</p>
+              <h2 className="text-lg font-bold text-white mb-1">{newBookingNotif.title}</h2>
+              <p className="text-sm text-[#777] mb-5">{newBookingNotif.message}</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setNewBookingNotif(null)}>Dismiss</Button>
                 <Link href="/dashboard/appointments" className="flex-1">
@@ -406,10 +406,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-white">
             Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, {profile?.name?.split(" ")[0] ?? "there"}
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>
+          <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>
         </div>
         <div className="flex gap-2">
           <Link href="/dashboard/pos"><Button variant="outline" size="sm"><CreditCard size={16} /> Open POS</Button></Link>
@@ -422,7 +422,7 @@ export default function DashboardPage() {
         <select
           value={dateFilter}
           onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
-          className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-black"
+          className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-black"
         >
           {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
             // "Custom Range" was dual date inputs — replaced by the
@@ -436,7 +436,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setShowDatePicker(s => !s)}
-          className="text-xs text-gray-600 ml-1 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-200 hover:border-gray-400 hover:text-gray-900 transition-colors"
+          className="text-xs text-[#999] ml-1 px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-gray-400 hover:text-white transition-colors"
         >
           {filterDateRange[0] === filterDateRange[1]
             ? filterDateRange[0]
@@ -544,7 +544,7 @@ export default function DashboardPage() {
               greyed via minDate, today and future remain clickable.
               Soft bone tint (matches the ceramic accent palette) so it
               visually separates from the surrounding cards. */}
-          <Card className="!bg-gray-100">
+          <Card className="!bg-[#141414]">
             <CardContent>
               <CalendarPicker
                 value={selectedCalDate ? new Date(selectedCalDate + "T00:00:00") : null}
@@ -572,7 +572,7 @@ export default function DashboardPage() {
               {selectedCalDate && (
                 <p className="text-xs text-black mt-3 text-center">
                   Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
-                  <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-gray-500 hover:text-gray-900 underline">Clear</button>
+                  <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-[#777] hover:text-white underline">Clear</button>
                 </p>
               )}
             </CardContent>
@@ -580,7 +580,7 @@ export default function DashboardPage() {
 
           {/* Today's / Selected Schedule — same bone tint as the calendar
               above, so the two cards read as a connected unit. */}
-          <Card className="!bg-gray-100">
+          <Card className="!bg-[#141414]">
             <CardHeader>
               <CardTitle>{selectedCalDate ? `Appointments — ${new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` : "Today's Schedule"}</CardTitle>
               <Link href="/dashboard/appointments" className="text-xs text-black hover:underline">View all</Link>
@@ -589,21 +589,21 @@ export default function DashboardPage() {
               {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
-                <div className="py-8 text-center text-gray-500">
+                <div className="py-8 text-center text-[#777]">
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
                   <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
                 </div>
               ) : (
                 displayAppts.map((apt) => (
-                  <div key={apt.id} className="flex items-center gap-3 py-3 border-b border-gray-200 last:border-0">
+                  <div key={apt.id} className="flex items-center gap-3 py-3 border-b border-[#1e1e1e] last:border-0">
                     <div className="text-center min-w-[52px]">
-                      <p className="text-xs text-gray-700">{apt.time_slot.split(" ")[0]}</p>
-                      <p className="text-xs text-gray-500">{apt.time_slot.split(" ")[1]}</p>
+                      <p className="text-xs text-[#aaa]">{apt.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-[#777]">{apt.time_slot.split(" ")[1]}</p>
                     </div>
-                    <div className="w-px h-10 bg-gray-200" />
+                    <div className="w-px h-10 bg-[#1e1e1e]" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{apt.client_name}</p>
-                      <p className="text-xs text-gray-500 truncate">
+                      <p className="text-sm font-medium text-white truncate">{apt.client_name}</p>
+                      <p className="text-xs text-[#777] truncate">
                         {apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}
                       </p>
                     </div>
@@ -621,11 +621,11 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Revenue Over Period</CardTitle>
-              <span className="text-xs text-gray-500">Total: <span className="text-black font-semibold">{formatCurrency(revenue)}</span></span>
+              <span className="text-xs text-[#777]">Total: <span className="text-black font-semibold">{formatCurrency(revenue)}</span></span>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
-                <div className="h-[180px] flex items-center justify-center text-gray-500 text-sm">No revenue data for this period</div>
+                <div className="h-[180px] flex items-center justify-center text-[#777] text-sm">No revenue data for this period</div>
               ) : (
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -675,12 +675,12 @@ export default function DashboardPage() {
               ].map((action) => (
                 action.href ? (
                   <Link key={action.label} href={action.href}>
-                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-black border border-gray-300 hover:bg-black/10" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100")}>
+                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-black border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
                       <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                     </div>
                   </Link>
                 ) : (
-                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-black border border-gray-300 hover:bg-black/10" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100")}>
+                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-black border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
                     <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
                   </button>
                 )
@@ -693,19 +693,19 @@ export default function DashboardPage() {
             <CardHeader><CardTitle>Staff Status</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {barbers.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No active staff</p>
+                <p className="text-sm text-[#777] text-center py-4">No active staff</p>
               ) : barbers.map((b) => (
                 <div key={b.id} className="flex items-center gap-3">
                   <div className="relative">
                     {b.photo
-                      ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                      ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-[#1e1e1e]" />
                       : <div className="w-9 h-9 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-sm">{b.name[0]}</div>
                     }
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-surface rounded-full" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{b.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-white truncate">{b.name}</p>
+                    <p className="text-xs text-[#777]">
                       {todayAppts.filter((a) => a.barber_id === b.id).length} appts today
                     </p>
                   </div>
@@ -725,7 +725,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {notifications.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No notifications</p>
+                <p className="text-sm text-[#777] text-center py-4">No notifications</p>
               ) : notifications.map((n) => (
                 <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-black/5 border border-black/10")}>
                   <div className={cn("mt-0.5 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs",
@@ -733,8 +733,8 @@ export default function DashboardPage() {
                     {n.type === "booking" ? <Calendar size={12} /> : n.type === "review" ? <Star size={12} /> : <AlertCircle size={12} />}
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900">{n.title}</p>
-                    <p className="text-xs text-gray-500 leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
+                    <p className="text-xs font-medium text-white">{n.title}</p>
+                    <p className="text-xs text-[#777] leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
                   </div>
                 </div>
               ))}
@@ -746,26 +746,26 @@ export default function DashboardPage() {
       {/* Add Walk-in Modal */}
       {showAddWalkin && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl w-full max-w-md p-6 animate-slide-up">
+          <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl w-full max-w-md p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Add Walk-in Client</h2>
-              <button onClick={() => setShowAddWalkin(false)} className="text-gray-500 hover:text-gray-900"><X size={20} /></button>
+              <h2 className="text-lg font-semibold text-white">Add Walk-in Client</h2>
+              <button onClick={() => setShowAddWalkin(false)} className="text-[#777] hover:text-white"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-500">Client Name</label>
-                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black" placeholder="Walk-in Client" />
+                <label className="text-sm text-[#777]">Client Name</label>
+                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" placeholder="Walk-in Client" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-500">Barber</label>
-                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black">
+                <label className="text-sm text-[#777]">Barber</label>
+                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black">
                   <option value="">Any Available</option>
                   {barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-gray-500">Note</label>
-                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black" placeholder="e.g. Haircut" />
+                <label className="text-sm text-[#777]">Note</label>
+                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" placeholder="e.g. Haircut" />
               </div>
             </div>
             <div className="flex gap-3 mt-6">

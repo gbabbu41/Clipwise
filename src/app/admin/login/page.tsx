@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
             <span className="text-xs font-bold text-gold tracking-widest uppercase">Admin Portal</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Secure Access</h1>
-          <p className="text-gray-500 text-sm mt-1">Authorized personnel only</p>
+          <p className="text-[#777] text-sm mt-1">Authorized personnel only</p>
         </div>
 
         <div className="bg-surface border border-border rounded-2xl p-8">
@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Admin Email</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input
                   type="email"
                   value={email}
@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
                   placeholder="admin@email.com"
                   required
                   autoComplete="off"
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                 />
               </div>
             </div>
@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Password</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input
                   type={showPass ? "text" : "password"}
                   value={password}
@@ -98,9 +98,9 @@ export default function AdminLoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="off"
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                 />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -112,7 +112,7 @@ export default function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">
+        <p className="text-center text-xs text-[#999] mt-6">
           ClipWise Admin Portal — Authorized Access Only
         </p>
       </div>

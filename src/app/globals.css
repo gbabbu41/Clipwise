@@ -3,17 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --background: #000000;
-  --foreground: #FFFFFF;
-  --surface: #111111;
-  --surface-raised: #1a1a1a;
-  /* Brand-color slot is now pure white. The token name stays "gold" so the
-     hundreds of `bg-gold` / `text-gold` / `border-gold/N` classes across
-     the app keep working without rewrites — the *value* is the change. */
-  --gold: #FFFFFF;
-  --gold-light: #FFFFFF;
-  --gold-rgb: 255, 255, 255;
-  --border: rgba(255, 255, 255, 0.08);
+  /* ── ClipWise v2 design system ─────────────────────────────────────────
+     Pure-black base, white accents, hairline borders. Sora for body,
+     DM Mono for numerics. No gold token color anywhere — the `gold` slot
+     is preserved as `#fff` so the hundreds of legacy `bg-gold` /
+     `text-gold` callsites silently become white without a sweep. */
+  --background:     #000000;  /* page bg */
+  --foreground:     #FFFFFF;  /* primary text */
+  --card:           #0c0c0c;  /* surface tier 1 (cards, sidebars) */
+  --card-raised:    #141414;  /* surface tier 2 (chips, inner pills) */
+  --surface:        #0c0c0c;  /* legacy alias = --card */
+  --surface-raised: #141414;  /* legacy alias = --card-raised */
+  --border:         #1e1e1e;  /* hairline */
+  --grey:           #777777;  /* secondary text */
+  --grey-2:         #333333;  /* tertiary text / disabled */
+  --green:          #22c55e;  /* status: success / paid / confirmed */
+  --red:            #ef4444;  /* status: danger / cancelled */
+  --amber:          #f59e0b;  /* status: pending / no-show */
+  /* `--gold` and `--gold-rgb` retained for back-compat — value is white. */
+  --gold:           #FFFFFF;
+  --gold-light:     #FFFFFF;
+  --gold-rgb:       255, 255, 255;
 }
 
 * {
@@ -23,16 +33,23 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-body), Inter, system-ui, -apple-system, sans-serif;
+  font-family: 'Sora', var(--font-body), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Apple-style hierarchy: one font, weight + size do the work. No display
-   face on every heading, no global all-caps, no forced -0.5px letter-spacing. */
+/* DM Mono utility — apply via `font-mono` (Tailwind) or `.font-numeric` for
+   any numeric display (prices, stats, times). */
+.font-numeric, .font-mono {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
+}
+
+/* Tight, extra-bold headings — the design system uses weight 800 with
+   negative tracking for top-level text. */
 h1, h2, h3, h4 {
   font-family: inherit;
-  letter-spacing: -0.015em;
+  font-weight: 800;
+  letter-spacing: -0.04em;
   line-height: 1.15;
 }
 
@@ -89,12 +106,13 @@ h1, h2, h3, h4 {
   100% { background-position: 1000px 0; }
 }
 
-/* Status badge colors */
-.status-confirmed { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
-.status-pending { @apply bg-orange-500/20 text-orange-400 border border-orange-500/30; }
-.status-completed { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
-.status-cancelled { @apply bg-red-500/20 text-red-400 border border-red-500/30; }
-.status-no-show { @apply bg-orange-500/20 text-orange-400 border border-orange-500/30; }
+/* Status pill palette — design-system badges (b-done, b-ok, b-pend variants
+   from the spec). Used by `getStatusColor()` and any legacy .status-* refs. */
+.status-confirmed { background: rgba(34,197,94,0.10);  color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.status-completed { background: var(--card-raised);    color: var(--grey);  border: 1px solid var(--border); }
+.status-pending   { background: rgba(245,158,11,0.10); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+.status-cancelled { background: rgba(239,68,68,0.10);  color: var(--red);   border: 1px solid rgba(239,68,68,0.25); }
+.status-no-show   { background: rgba(239,68,68,0.10);  color: var(--red);   border: 1px solid rgba(239,68,68,0.25); }
 
 /* ── Bootstrap-style component system ─────────────────────────────────────────
    Drop-in classes that mirror Bootstrap 5's class names and palette so any
@@ -125,55 +143,57 @@ h1, h2, h3, h4 {
 .btn-lg  { padding: 0.625rem 1.25rem; font-size: 1rem;     border-radius: 0.625rem; }
 .btn-block { width: 100%; }
 
-.btn-primary   { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-.btn-primary:hover   { background: #0b5ed7; border-color: #0a58ca; }
-.btn-primary:active  { background: #0a53be; border-color: #0a4ea7; }
+/* Primary = white-on-black (the design's accent). Used for hero CTAs and
+   the FAB. Hover dims slightly, active scales down via JS variant. */
+.btn-primary   { background: #ffffff; color: #000000; border-color: #ffffff; }
+.btn-primary:hover   { background: #f1f1f1; border-color: #f1f1f1; }
+.btn-primary:active  { background: #e3e3e3; border-color: #e3e3e3; }
 
-.btn-secondary { background: #6c757d; color: #fff; border-color: #6c757d; }
-.btn-secondary:hover { background: #5c636a; border-color: #565e64; }
-.btn-secondary:active{ background: #565e64; border-color: #51585e; }
+.btn-secondary { background: var(--card-raised); color: #ffffff; border-color: var(--border); }
+.btn-secondary:hover { background: #1c1c1c; border-color: #2a2a2a; }
+.btn-secondary:active{ background: #1c1c1c; border-color: #2a2a2a; }
 
-.btn-success   { background: #198754; color: #fff; border-color: #198754; }
-.btn-success:hover   { background: #157347; border-color: #146c43; }
-.btn-success:active  { background: #146c43; border-color: #13653f; }
+.btn-success   { background: var(--green); color: #000000; border-color: var(--green); }
+.btn-success:hover   { background: #16a34a; border-color: #16a34a; }
+.btn-success:active  { background: #15803d; border-color: #15803d; }
 
-.btn-danger    { background: #dc3545; color: #fff; border-color: #dc3545; }
-.btn-danger:hover    { background: #bb2d3b; border-color: #b02a37; }
-.btn-danger:active   { background: #b02a37; border-color: #a52834; }
+.btn-danger    { background: var(--red); color: #ffffff; border-color: var(--red); }
+.btn-danger:hover    { background: #dc2626; border-color: #dc2626; }
+.btn-danger:active   { background: #b91c1c; border-color: #b91c1c; }
 
-.btn-warning   { background: #ffc107; color: #000; border-color: #ffc107; }
-.btn-warning:hover   { background: #ffca2c; border-color: #ffc720; }
-.btn-warning:active  { background: #ffcd39; border-color: #ffc720; }
+.btn-warning   { background: var(--amber); color: #000000; border-color: var(--amber); }
+.btn-warning:hover   { background: #d97706; border-color: #d97706; }
+.btn-warning:active  { background: #b45309; border-color: #b45309; }
 
-.btn-info      { background: #0dcaf0; color: #000; border-color: #0dcaf0; }
-.btn-info:hover      { background: #31d2f2; border-color: #25cff2; }
-.btn-info:active     { background: #3dd5f3; border-color: #25cff2; }
+.btn-info      { background: #0dcaf0; color: #000000; border-color: #0dcaf0; }
+.btn-info:hover      { background: #31d2f2; border-color: #31d2f2; }
+.btn-info:active     { background: #3dd5f3; border-color: #3dd5f3; }
 
-.btn-light     { background: #f8f9fa; color: #000; border-color: #d6d7d8; }
-.btn-light:hover     { background: #e9ecef; border-color: #c5c6c7; }
-.btn-light:active    { background: #dde0e3; border-color: #b5b6b8; }
+.btn-light     { background: var(--card); color: #ffffff; border-color: var(--border); }
+.btn-light:hover     { background: #161616; border-color: #2a2a2a; }
+.btn-light:active    { background: #1c1c1c; border-color: #2a2a2a; }
 
-.btn-dark      { background: #212529; color: #fff; border-color: #212529; }
-.btn-dark:hover      { background: #1c1f23; border-color: #1a1e21; }
-.btn-dark:active     { background: #16191c; border-color: #14171a; }
+.btn-dark      { background: #000000; color: #ffffff; border-color: var(--border); }
+.btn-dark:hover      { background: #0a0a0a; border-color: #2a2a2a; }
+.btn-dark:active     { background: #1a1a1a; border-color: #2a2a2a; }
 
-/* Outline variants — same palette but with transparent fill until hover. */
-.btn-outline-primary   { background: transparent; color: #0d6efd; border-color: #0d6efd; }
-.btn-outline-primary:hover   { background: #0d6efd; color: #fff; }
-.btn-outline-secondary { background: transparent; color: #6c757d; border-color: #6c757d; }
-.btn-outline-secondary:hover { background: #6c757d; color: #fff; }
-.btn-outline-success   { background: transparent; color: #198754; border-color: #198754; }
-.btn-outline-success:hover   { background: #198754; color: #fff; }
-.btn-outline-danger    { background: transparent; color: #dc3545; border-color: #dc3545; }
-.btn-outline-danger:hover    { background: #dc3545; color: #fff; }
-.btn-outline-warning   { background: transparent; color: #ffc107; border-color: #ffc107; }
-.btn-outline-warning:hover   { background: #ffc107; color: #000; }
+/* Outline variants — transparent fill, hairline border, hover swaps. */
+.btn-outline-primary   { background: transparent; color: #ffffff; border-color: #ffffff; }
+.btn-outline-primary:hover   { background: #ffffff; color: #000; }
+.btn-outline-secondary { background: transparent; color: var(--grey); border-color: var(--border); }
+.btn-outline-secondary:hover { background: var(--card-raised); color: #fff; border-color: var(--border); }
+.btn-outline-success   { background: transparent; color: var(--green); border-color: var(--green); }
+.btn-outline-success:hover   { background: var(--green); color: #000; }
+.btn-outline-danger    { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-outline-danger:hover    { background: var(--red); color: #fff; }
+.btn-outline-warning   { background: transparent; color: var(--amber); border-color: var(--amber); }
+.btn-outline-warning:hover   { background: var(--amber); color: #000; }
 .btn-outline-info      { background: transparent; color: #0dcaf0; border-color: #0dcaf0; }
 .btn-outline-info:hover      { background: #0dcaf0; color: #000; }
-.btn-outline-light     { background: transparent; color: #6c757d; border-color: #d6d7d8; }
-.btn-outline-light:hover     { background: #f8f9fa; color: #000; }
-.btn-outline-dark      { background: transparent; color: #212529; border-color: #212529; }
-.btn-outline-dark:hover      { background: #212529; color: #fff; }
+.btn-outline-light     { background: transparent; color: #fff; border-color: var(--border); }
+.btn-outline-light:hover     { background: var(--card); color: #fff; }
+.btn-outline-dark      { background: transparent; color: var(--grey); border-color: var(--border); }
+.btn-outline-dark:hover      { background: var(--card); color: #fff; }
 
 /* Bootstrap doesn't have a "ghost" — this is the project's convention for a
    text-only button with no background or border, used for tertiary actions
@@ -211,38 +231,41 @@ h1, h2, h3, h4 {
 .form-label {
   display: inline-block;
   margin-bottom: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #212529;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--grey);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
 }
 .form-control,
 .form-select {
   display: block;
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   font-size: 0.9375rem;
   font-weight: 400;
   line-height: 1.5;
-  color: #212529;
-  background-color: #fff;
+  color: #ffffff;
+  background-color: var(--card);
   background-clip: padding-box;
-  border: 1px solid #ced4da;
-  border-radius: 0.5rem;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
   appearance: none;
 }
-.form-control::placeholder { color: #adb5bd; opacity: 1; }
+.form-control::placeholder { color: var(--grey-2); opacity: 1; }
 .form-control:focus,
 .form-select:focus {
-  color: #212529;
-  background-color: #fff;
-  border-color: #86b7fe;
+  color: #ffffff;
+  background-color: var(--card-raised);
+  border-color: #ffffff;
   outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: none;
 }
 .form-control:disabled,
 .form-select:disabled {
-  background-color: #e9ecef;
+  background-color: #0a0a0a;
+  color: var(--grey-2);
   opacity: 1;
   cursor: not-allowed;
 }
@@ -253,12 +276,14 @@ h1, h2, h3, h4 {
 
 .form-select {
   padding-right: 2.25rem;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  /* White chevron for dark surfaces */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 16px 12px;
   cursor: pointer;
 }
+.form-select option { background: #0c0c0c; color: #fff; }
 
 textarea.form-control { min-height: 5rem; resize: vertical; }
 
@@ -341,59 +366,61 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   height: 1rem;
   margin-left: -2.5rem;
   margin-top: 0.25rem;
-  background-color: #adb5bd; /* gray pill when off */
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  background-color: var(--card-raised); /* dark pill when off */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23777'/%3e%3c/svg%3e");
   background-position: left center;
   background-repeat: no-repeat;
   background-size: contain;
-  border: 0;
+  border: 1px solid var(--border);
   border-radius: 2rem;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-  transition: background-color 0.15s ease-in-out, background-position 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  box-shadow: none;
+  transition: background-color 0.15s ease-in-out, background-position 0.15s ease-in-out;
 }
-.form-switch .form-check-input:hover { background-color: #9aa0a6; }
+.form-switch .form-check-input:hover { background-color: #1c1c1c; }
 .form-switch .form-check-input:focus {
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 0.15rem rgba(255, 255, 255, 0.15);
   outline: 0;
 }
 .form-switch .form-check-input:checked {
-  background-color: #0d6efd;
+  background-color: #ffffff;
+  border-color: #ffffff;
   background-position: right center;
-  /* keep the same white-circle SVG — only the position + pill color change */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23000'/%3e%3c/svg%3e");
 }
-.form-switch .form-check-input:checked:hover { background-color: #0b5ed7; }
+.form-switch .form-check-input:checked:hover { background-color: #f1f1f1; }
 .form-switch .form-check-input:disabled {
-  background-color: #dee2e6;
+  background-color: #0a0a0a;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
-/* ── Bootstrap cards ──────────────────────────────────────────────────────── */
+/* ── Cards (ClipWise v2: card tier 1 = #0c0c0c on black bg, hairline) ────── */
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background-color: #fff;
+  background-color: var(--card);
   background-clip: border-box;
-  border: 1px solid rgba(0, 0, 0, 0.125);
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: none;
 }
-.card-body   { flex: 1 1 auto; padding: 1.25rem; }
+.card-body   { flex: 1 1 auto; padding: 1rem; }
 .card-header {
-  padding: 0.75rem 1.25rem;
-  background-color: rgba(0, 0, 0, 0.03);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+  padding: 0.875rem 1rem;
+  background-color: transparent;
+  border-bottom: 1px solid var(--border);
 }
-.card-header:first-child { border-radius: calc(0.5rem - 1px) calc(0.5rem - 1px) 0 0; }
+.card-header:first-child { border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0; }
 .card-footer {
-  padding: 0.75rem 1.25rem;
-  background-color: rgba(0, 0, 0, 0.03);
-  border-top: 1px solid rgba(0, 0, 0, 0.125);
+  padding: 0.875rem 1rem;
+  background-color: transparent;
+  border-top: 1px solid var(--border);
 }
-.card-title    { margin-bottom: 0.5rem; font-size: 1rem; font-weight: 600; color: #212529; }
-.card-subtitle { margin-top: -0.25rem; margin-bottom: 0.5rem; font-size: 0.875rem; color: #6c757d; }
-.card-text     { margin-bottom: 0.75rem; color: #495057; }
+.card-title    { margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 700; color: #ffffff; letter-spacing: -0.015em; }
+.card-subtitle { margin-top: -0.25rem; margin-bottom: 0.5rem; font-size: 0.8125rem; color: var(--grey); }
+.card-text     { margin-bottom: 0.75rem; color: var(--grey); }
 
 /* ── Bootstrap badges ─────────────────────────────────────────────────────── */
 .badge {
@@ -518,6 +545,166 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 .list-group-item-action { width: 100%; color: #495057; text-align: inherit; cursor: pointer; }
 .list-group-item-action:hover { background-color: #f8f9fa; color: #000; }
 .list-group-item.active { z-index: 2; color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+
+/* ── ClipWise v2 design-system primitives ────────────────────────────────
+   Drop-in classes matching the reference HTML so any page can compose the
+   look directly: `<header class="cw-header">…</header>`. These don't
+   replace the existing Tailwind utilities — they augment them with the
+   exact tokens / proportions from the spec. */
+
+/* Sticky blurred header */
+.cw-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(0,0,0,0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 22px; height: 58px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* 34px circular icon button — header + chip controls */
+.cw-icon-btn {
+  width: 34px; height: 34px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  color: #fff; font-size: 14px;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.cw-icon-btn:hover { border-color: #fff; }
+
+/* 34px white avatar (initials in black) */
+.cw-avatar {
+  width: 34px; height: 34px;
+  background: #ffffff; color: #000000;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  cursor: pointer;
+}
+
+/* Tiny notification dot */
+.cw-notif-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 7px; height: 7px;
+  background: #ffffff; border-radius: 50%;
+  border: 2px solid #000;
+}
+
+/* White plan pill (Pro / Premium / Trial) */
+.cw-plan-pill {
+  display: inline-block;
+  background: #ffffff; color: #000000;
+  font-size: 9px; font-weight: 800;
+  padding: 5px 11px; border-radius: 20px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* White hero card — black text inside */
+.cw-hero {
+  background: #ffffff; color: #000000;
+  border-radius: 20px; padding: 22px;
+}
+.cw-hero-label { font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.cw-hero-value { font-size: 38px; font-weight: 800; color: #000; letter-spacing: -0.05em; font-family: 'DM Mono', monospace; line-height: 1; }
+.cw-hero-trend { font-size: 11px; color: #3d9e5f; margin-top: 6px; font-weight: 600; }
+
+/* Stat card (4-col grid on mobile, more on desktop) */
+.cw-stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 16px;
+}
+.cw-stat-label { font-size: 10px; color: var(--grey); font-weight: 600; text-transform: uppercase; letter-spacing: 0.045em; margin-bottom: 10px; }
+.cw-stat-val   { font-size: 28px; font-weight: 800; letter-spacing: -0.04em; font-family: 'DM Mono', monospace; line-height: 1; color: #fff; }
+.cw-stat-note  { font-size: 11px; margin-top: 6px; font-weight: 500; }
+.cw-up    { color: var(--green); }
+.cw-down  { color: var(--red); }
+.cw-muted { color: var(--grey); }
+
+/* Quick-action grid cell */
+.cw-qa {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cw-qa:active { transform: scale(0.92); border-color: #fff; }
+.cw-qa-icon { width: 36px; height: 36px; background: var(--card-raised); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+.cw-qa-label { font-size: 10px; color: var(--grey); font-weight: 600; text-align: center; }
+
+/* Row header pattern (Title + link) */
+.cw-row-hdr   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cw-row-title { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
+.cw-row-link  { font-size: 11px; color: var(--grey); font-weight: 600; cursor: pointer; }
+
+/* Appointment card */
+.cw-ac {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cw-ac:active { border-color: #fff; }
+.cw-atime { min-width: 46px; text-align: center; }
+.cw-atime .t { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; color: #fff; }
+.cw-atime .a { font-size: 10px; color: var(--grey); margin-top: 1px; }
+.cw-adiv  { width: 1px; height: 34px; background: var(--border); flex-shrink: 0; }
+.cw-aname { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-asvc  { font-size: 11px; color: var(--grey); margin-top: 2px; }
+.cw-aprice{ font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; color: #fff; }
+
+/* Design-system status badges (alternate names used by the spec) */
+.cw-badge   { font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.cw-b-done  { background: var(--card-raised); color: var(--grey); }
+.cw-b-ok    { background: rgba(34,197,94,0.10);  color: var(--green); }
+.cw-b-pend  { background: rgba(245,158,11,0.10); color: var(--amber); }
+.cw-b-bad   { background: rgba(239,68,68,0.10);  color: var(--red); }
+
+/* Floating Action Button */
+.cw-fab {
+  position: fixed; bottom: 82px; right: 20px;
+  width: 48px; height: 48px;
+  background: #ffffff; color: #000000;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700;
+  cursor: pointer; z-index: 40;
+  box-shadow: 0 4px 24px rgba(255,255,255,0.10);
+  transition: transform 0.15s;
+}
+.cw-fab:active { transform: scale(0.9); }
+
+/* Bottom nav bar (mobile) */
+.cw-bnav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--border);
+  height: 68px;
+  display: flex; align-items: center; padding: 0 6px; z-index: 50;
+}
+.cw-ni {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 8px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.cw-ni-icon  { font-size: 20px; color: var(--grey-2); transition: color 0.15s; }
+.cw-ni-label { font-size: 10px; color: var(--grey-2); font-weight: 600; transition: color 0.15s; }
+.cw-ni.active .cw-ni-icon,
+.cw-ni.active .cw-ni-label { color: #ffffff; }
+.cw-ni-line  { width: 18px; height: 2px; background: #ffffff; border-radius: 2px; margin-top: 2px; }
+
+/* Fade-up entrance animation used by stat cards and appt rows */
+@keyframes cw-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.cw-anim-up { animation: cw-up 0.35s ease both; }
 } /* end @layer components */
 
 @layer utilities {

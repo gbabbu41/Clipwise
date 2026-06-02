@@ -141,7 +141,7 @@ function PlanPageInner() {
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
           <p className="font-semibold text-white">{step === "redirecting" ? "Taking you to secure checkout…" : "Confirming your payment…"}</p>
-          <p className="text-gray-500 text-sm mt-1">Powered by Stripe</p>
+          <p className="text-[#777] text-sm mt-1">Powered by Stripe</p>
         </div>
       </div>
     );
@@ -155,7 +155,7 @@ function PlanPageInner() {
             <Check size={28} className="text-green-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-1">Payment successful!</h2>
-          <p className="text-gray-400 text-sm">Setting up your shop…</p>
+          <p className="text-[#555] text-sm">Setting up your shop…</p>
         </div>
       </div>
     );
@@ -167,7 +167,7 @@ function PlanPageInner() {
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
-          <p className="text-gray-500 mt-2">Start free, upgrade anytime. No hidden fees.</p>
+          <p className="text-[#777] mt-2">Start free, upgrade anytime. No hidden fees.</p>
         </div>
 
         {error && (
@@ -193,12 +193,12 @@ function PlanPageInner() {
                 <div className="mb-5">
                   <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4",
                     plan.id === "starter" ? "bg-surface-raised" : plan.id === "pro" ? "bg-gold/15" : "bg-purple-500/15")}>
-                    <Icon size={20} className={plan.id === "starter" ? "text-gray-400" : plan.id === "pro" ? "text-gold" : "text-purple-400"} />
+                    <Icon size={20} className={plan.id === "starter" ? "text-[#555]" : plan.id === "pro" ? "text-gold" : "text-purple-400"} />
                   </div>
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-3xl font-bold text-white">{plan.price}</span>
-                    <span className="text-gray-500 text-sm">{plan.sub}</span>
+                    <span className="text-[#777] text-sm">{plan.sub}</span>
                   </div>
                 </div>
 
@@ -210,7 +210,7 @@ function PlanPageInner() {
                     </li>
                   ))}
                   {plan.limits.map(l => (
-                    <li key={l} className="flex items-start gap-2.5 text-sm text-gray-600">
+                    <li key={l} className="flex items-start gap-2.5 text-sm text-[#999]">
                       <span className="flex-shrink-0 mt-0.5 w-[15px] text-center">—</span>
                       {l}
                     </li>
@@ -228,7 +228,7 @@ function PlanPageInner() {
           })}
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-8">
+        <p className="text-center text-xs text-[#999] mt-8">
           Starter is free forever. Pro and Premium are billed monthly, no contracts. Secure checkout by Stripe.
         </p>
       </div>

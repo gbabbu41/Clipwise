@@ -158,7 +158,7 @@ export default function BarberAvailabilityPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Availability</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <p className="text-[#777] text-sm mt-0.5">
             {canEditSchedule ? "Set the hours you're available each day" : "View your current hours (read-only)"}
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function BarberAvailabilityPage() {
                 <span className="font-semibold text-white">{DAYS[slot.day_of_week]}</span>
               </div>
               {!slot.is_available && (
-                <span className="text-xs text-gray-500 bg-surface-raised px-3 py-1 rounded-full">Closed</span>
+                <span className="text-xs text-[#777] bg-surface-raised px-3 py-1 rounded-full">Closed</span>
               )}
             </div>
 
@@ -211,7 +211,7 @@ export default function BarberAvailabilityPage() {
                 >
                   {TIME_OPTIONS.map(t => <option key={t} value={t}>{fmt(t)}</option>)}
                 </select>
-                <span className="text-gray-500 text-sm">to</span>
+                <span className="text-[#777] text-sm">to</span>
                 <select
                   value={slot.end_time}
                   disabled={!canEditSchedule}

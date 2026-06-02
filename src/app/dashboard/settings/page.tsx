@@ -13,9 +13,9 @@ import { Switch } from "@/components/ui/switch";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -276,16 +276,16 @@ export default function SettingsPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage your shop preferences</p>
+        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <p className="text-sm text-[#777] mt-0.5">Manage your shop preferences</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
+      <div className="flex gap-1 border-b border-[#1e1e1e] flex-wrap">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900",
+              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white",
               t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
             {t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
           </button>
@@ -297,22 +297,22 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>Shop Profile</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Shop Logo</p>
+              <p className="text-sm font-medium text-[#999] mb-2">Shop Logo</p>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-20 h-20 rounded-2xl bg-[#141414] border-2 border-dashed border-[#1e1e1e] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {logoPreview
                     ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
                     : <span className="text-3xl">💈</span>}
                 </div>
                 <div>
                   <label className={cn("cursor-pointer", logoUploading && "pointer-events-none opacity-60")}>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 text-sm text-gray-900 hover:bg-gray-100 transition-colors">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#1e1e1e] text-sm text-white hover:bg-[#141414] transition-colors">
                       {logoUploading ? "Uploading…" : logoPreview ? "Change Logo" : "Upload Logo"}
                     </div>
                     <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP up to 5MB</p>
+                  <p className="text-xs text-[#777] mt-1">PNG, JPG, WebP up to 5MB</p>
                 </div>
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function SettingsPage() {
 
             {/* Social Media */}
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-3">Social Media & Website</p>
+              <p className="text-sm font-medium text-[#999] mb-3">Social Media & Website</p>
               <div className="space-y-3">
                 <Input label="Instagram URL" placeholder="https://instagram.com/yourshop" value={profile.instagram} onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))} />
                 <Input label="TikTok URL" placeholder="https://tiktok.com/@yourshop" value={profile.tiktok} onChange={e => setProfile(p => ({ ...p, tiktok: e.target.value }))} />
@@ -341,8 +341,8 @@ export default function SettingsPage() {
 
             {/* Google Reviews */}
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Google Reviews</p>
-              <p className="text-xs text-gray-500 mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-black hover:underline">Find your Place ID →</a></p>
+              <p className="text-sm font-medium text-[#999] mb-1">Google Reviews</p>
+              <p className="text-xs text-[#777] mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-black hover:underline">Find your Place ID →</a></p>
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
@@ -356,24 +356,24 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>My Account</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Account email</p>
-              <p className="text-xs text-gray-500 mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>
-              <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-mono">
+              <p className="text-sm font-medium text-[#999] mb-2">Account email</p>
+              <p className="text-xs text-[#777] mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>
+              <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white font-mono">
                 {user?.email ?? "—"}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Display name</p>
-              <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900">
+              <p className="text-sm font-medium text-[#999] mb-2">Display name</p>
+              <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white">
                 {authProfile?.name ?? "—"}
               </div>
             </div>
 
-            <div className="pt-2 border-t border-gray-200 space-y-3">
+            <div className="pt-2 border-t border-[#1e1e1e] space-y-3">
               <div>
-                <p className="text-sm font-medium text-gray-600">Change password</p>
-                <p className="text-xs text-gray-500 mt-0.5">Choose a new password (at least 8 characters).</p>
+                <p className="text-sm font-medium text-[#999]">Change password</p>
+                <p className="text-xs text-[#777] mt-0.5">Choose a new password (at least 8 characters).</p>
               </div>
               <Input
                 label="New password"
@@ -404,16 +404,16 @@ export default function SettingsPage() {
             <div>
               <Input label="Advance Booking Limit (days)" type="number" value={String(booking.advance_days)}
                 onChange={e => setBooking(p => ({ ...p, advance_days: Number(e.target.value) }))} />
-              <p className="text-xs text-gray-500 mt-1">How far in advance clients can book</p>
+              <p className="text-xs text-[#777] mt-1">How far in advance clients can book</p>
             </div>
             <div>
               <Input label="Cancellation Notice Required (hours)" type="number" value={String(booking.cancellation_hours)}
                 onChange={e => setBooking(p => ({ ...p, cancellation_hours: Number(e.target.value) }))} />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
-                <p className="text-sm font-medium text-gray-900">Deposit Requirement</p>
-                <p className="text-xs text-gray-500">Require deposit at booking</p>
+                <p className="text-sm font-medium text-white">Deposit Requirement</p>
+                <p className="text-xs text-[#777]">Require deposit at booking</p>
               </div>
               <Toggle value={booking.deposit} onChange={() => setBooking(p => ({ ...p, deposit: !p.deposit }))} />
             </div>
@@ -421,17 +421,17 @@ export default function SettingsPage() {
               <Input label="Deposit Amount ($)" type="number" value={String(booking.deposit_amount)}
                 onChange={e => setBooking(p => ({ ...p, deposit_amount: Number(e.target.value) }))} />
             )}
-            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
-                <p className="text-sm font-medium text-gray-900">No-Show Protection</p>
-                <p className="text-xs text-gray-500">Charge card on file for no-shows</p>
+                <p className="text-sm font-medium text-white">No-Show Protection</p>
+                <p className="text-xs text-[#777]">Charge card on file for no-shows</p>
               </div>
               <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
-                <p className="text-sm font-medium text-gray-900">Auto-Confirm Bookings</p>
-                <p className="text-xs text-gray-500">Automatically confirm new bookings</p>
+                <p className="text-sm font-medium text-white">Auto-Confirm Bookings</p>
+                <p className="text-xs text-[#777]">Automatically confirm new bookings</p>
               </div>
               <Toggle value={booking.auto_confirm} onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
@@ -442,10 +442,10 @@ export default function SettingsPage() {
                 shops (separate from booking_settings JSON), but rendered
                 here so the owner finds it among the other payment-flow
                 toggles. Saving still goes through `saveProfile`. */}
-            <div className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div className="pr-4">
-                <p className="text-sm font-medium text-gray-900">Allow pay-in-person</p>
-                <p className="text-xs text-gray-500">Customers can choose to pay at the shop instead of online. Bookings made this way are marked Cash · Unpaid until you collect.</p>
+                <p className="text-sm font-medium text-white">Allow pay-in-person</p>
+                <p className="text-xs text-[#777]">Customers can choose to pay at the shop instead of online. Bookings made this way are marked Cash · Unpaid until you collect.</p>
               </div>
               <Toggle
                 value={profile.allow_pay_in_person}
@@ -466,11 +466,11 @@ export default function SettingsPage() {
         const downgraded = shop?.subscription_plan && shop.subscription_plan !== "starter" && activePlanKey === "starter";
         return (
           <div className="space-y-4 max-w-3xl">
-            <Card className="border-gray-300">
+            <Card className="border-[#1e1e1e]">
               <CardHeader>
                 <div>
                   <CardTitle>Current Plan</CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">You are on the {activePlan.name} plan</p>
+                  <p className="text-sm text-[#777] mt-1">You are on the {activePlan.name} plan</p>
                   {downgraded && (
                     <p className="text-xs text-orange-400 mt-1">
                       Your {shop?.subscription_plan} subscription is {shop?.subscription_status ?? "inactive"} — features are temporarily limited to Starter.
@@ -482,11 +482,11 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-4">
                   <span className="text-4xl font-bold text-black">{activePlan.priceLabel}</span>
-                  <span className="text-gray-500">{activePlan.priceSuffix}</span>
+                  <span className="text-[#777]">{activePlan.priceSuffix}</span>
                 </div>
                 <div className="space-y-2 mb-4">
                   {activePlan.features.map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                    <div key={f} className="flex items-center gap-2 text-sm text-[#999]">
                       <span className="text-emerald-400">✓</span>{f}
                     </div>
                   ))}
@@ -503,10 +503,10 @@ export default function SettingsPage() {
       {tab === "notifications" && (
         <div className="space-y-6 max-w-2xl">
           <div>
-            <p className="text-sm text-gray-500">Customize the emails sent to your clients. Use <span className="text-black font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
+            <p className="text-sm text-[#777]">Customize the emails sent to your clients. Use <span className="text-black font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {["{clientName}","{shopName}","{barberName}","{serviceName}","{date}","{time}"].map(v => (
-                <span key={v} className="text-xs bg-black/5 border border-gray-300 text-black rounded-full px-2.5 py-1 font-mono">{v}</span>
+                <span key={v} className="text-xs bg-black/5 border border-[#1e1e1e] text-black rounded-full px-2.5 py-1 font-mono">{v}</span>
               ))}
             </div>
           </div>
@@ -519,20 +519,20 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Subject Line</label>
+                  <label className="text-xs font-medium text-[#777]">Subject Line</label>
                   <input
                     value={templates[key].subject}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Message Body</label>
+                  <label className="text-xs font-medium text-[#777]">Message Body</label>
                   <textarea
                     rows={5}
                     value={templates[key].body}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
                   />
                 </div>
               </CardContent>
@@ -546,7 +546,7 @@ export default function SettingsPage() {
         <div className="space-y-4 max-w-2xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
+              <p className="text-sm text-[#777]">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
             </div>
             <Button size="sm" onClick={() => setShowAddLocation(true)}>
               <Plus size={14} /> Add Location
@@ -563,11 +563,11 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+                          <p className="text-sm font-semibold text-white">{s.name}</p>
                           {s.id === shop?.id && <span className="text-xs text-black border border-black rounded-full px-2 py-0.5">Active</span>}
                         </div>
-                        <p className="text-xs text-gray-500">{s.city}{s.province ? `, ${s.province}` : ""}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">/book/{s.slug}</p>
+                        <p className="text-xs text-[#777]">{s.city}{s.province ? `, ${s.province}` : ""}</p>
+                        <p className="text-xs text-[#777] mt-0.5">/book/{s.slug}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -580,7 +580,7 @@ export default function SettingsPage() {
                         <Button size="sm" variant="outline" onClick={() => setActiveShop(s)}>Switch</Button>
                       )}
                       <a href={`/book/${s.slug}`} target="_blank" rel="noreferrer"
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                        className="p-1.5 rounded-lg text-[#777] hover:text-white hover:bg-[#141414] transition-colors">
                         <ExternalLink size={13} />
                       </a>
                     </div>
@@ -594,12 +594,12 @@ export default function SettingsPage() {
             <>
               <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddLocation(false)} />
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+                <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-gray-900">Add New Location</h2>
-                    <button onClick={() => setShowAddLocation(false)} className="text-gray-500 hover:text-gray-900">✕</button>
+                    <h2 className="text-lg font-bold text-white">Add New Location</h2>
+                    <button onClick={() => setShowAddLocation(false)} className="text-[#777] hover:text-white">✕</button>
                   </div>
-                  <p className="text-sm text-gray-500">New locations go through our approval process (usually under 24 hours).</p>
+                  <p className="text-sm text-[#777]">New locations go through our approval process (usually under 24 hours).</p>
                   <Input label="Shop Name" placeholder="Fresh Cutz — Downtown" value={newLocation.name} onChange={e => setNewLocation(p => ({ ...p, name: e.target.value }))} />
                   <Input label="Address" placeholder="123 Main St" value={newLocation.address} onChange={e => setNewLocation(p => ({ ...p, address: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">
@@ -627,16 +627,16 @@ export default function SettingsPage() {
             <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/30 space-y-4">
               <div>
                 <p className="text-sm font-semibold text-red-400">Deactivate Shop</p>
-                <p className="text-xs text-gray-500 mt-1">This will disable your booking page and pause all services. You can reactivate anytime.</p>
+                <p className="text-xs text-[#777] mt-1">This will disable your booking page and pause all services. You can reactivate anytime.</p>
               </div>
               {!showDeactivateConfirm ? (
                 <Button variant="danger" onClick={() => setShowDeactivateConfirm(true)}>Deactivate Shop</Button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-600">Type <span className="text-gray-900 font-mono bg-gray-100 px-1 rounded">{profile.name}</span> to confirm:</p>
+                  <p className="text-sm text-[#999]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">{profile.name}</span> to confirm:</p>
                   <input value={deactivateInput} onChange={e => setDeactivateInput(e.target.value)}
                     placeholder="Shop name..."
-                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/30" />
+                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/30" />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeactivateConfirm(false); setDeactivateInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deactivateInput !== profile.name}
@@ -658,7 +658,7 @@ export default function SettingsPage() {
             <div className="p-4 bg-red-500/15 rounded-xl border border-red-500/40 space-y-4">
               <div>
                 <p className="text-sm font-semibold text-red-400">Delete Shop Permanently</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[#777] mt-1">
                   Erases your shop and all its data — barbers, services, appointments, time-off, everything. This <span className="text-red-300 font-semibold">cannot be undone</span>. After deletion your email is freed up to be added as a barber on a different shop.
                 </p>
               </div>
@@ -666,10 +666,10 @@ export default function SettingsPage() {
                 <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Shop Forever</Button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-600">Type <span className="text-gray-900 font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm:</p>
+                  <p className="text-sm text-[#999]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">DELETE</span> to confirm:</p>
                   <input value={deleteInput} onChange={e => setDeleteInput(e.target.value)}
                     placeholder="DELETE"
-                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/40" />
+                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/40" />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeleteConfirm(false); setDeleteInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deleteInput !== "DELETE" || deletingShop} loading={deletingShop}
@@ -705,10 +705,10 @@ export default function SettingsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowUpgradeModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-2xl space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-2xl space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Choose a Plan</h2>
-                <button onClick={() => setShowUpgradeModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
+                <h2 className="text-lg font-bold text-white">Choose a Plan</h2>
+                <button onClick={() => setShowUpgradeModal(false)} className="text-[#777] hover:text-white">✕</button>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 {(() => {
@@ -716,18 +716,18 @@ export default function SettingsPage() {
                   return PLAN_INFO.map(plan => {
                     const isCurrent = plan.key === activePlanKey;
                     return (
-                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-black bg-black/5" : "border-gray-200")}>
+                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-black bg-black/5" : "border-[#1e1e1e]")}>
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-bold text-gray-900">{plan.name}</h3>
+                          <h3 className="font-bold text-white">{plan.name}</h3>
                           {isCurrent && <Badge variant="gold">Current</Badge>}
                         </div>
                         <p className="mb-3">
                           <span className="text-xl font-bold text-black">{plan.priceLabel}</span>
-                          <span className="text-xs text-gray-500 ml-1">{plan.priceSuffix}</span>
+                          <span className="text-xs text-[#777] ml-1">{plan.priceSuffix}</span>
                         </p>
                         <div className="space-y-1 mb-4">
                           {plan.features.map(f => (
-                            <p key={f} className="text-xs text-gray-500 flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
+                            <p key={f} className="text-xs text-[#777] flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
                           ))}
                         </div>
                         <Button variant={isCurrent ? "secondary" : "gold"} size="sm" className="w-full"

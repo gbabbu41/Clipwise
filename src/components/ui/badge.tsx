@@ -13,7 +13,7 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
     warning: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
     danger: "bg-red-500/20 text-red-400 border border-red-500/30",
     info: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
-    outline: "border border-border text-gray-400",
+    outline: "border border-border text-[#555]",
   };
 
   return (

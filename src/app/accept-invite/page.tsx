@@ -139,7 +139,7 @@ export default function AcceptInvitePage() {
               <Lock size={20} className="text-blue-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Welcome back!</h1>
-            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+            <p className="text-sm text-[#555] mt-2 leading-relaxed">
               You already have a ClipWise account with <span className="text-white font-medium">{userEmail}</span>. Sign in with your existing password to continue.
             </p>
           </div>
@@ -158,11 +158,11 @@ export default function AcceptInvitePage() {
                 <a href="/forgot-password" className="text-xs text-gold hover:underline">Forgot password?</a>
               </div>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="Your existing ClipWise password" autoFocus
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -188,7 +188,7 @@ export default function AcceptInvitePage() {
               <Lock size={20} className="text-gold" />
             </div>
             <h1 className="text-xl font-bold text-white">Set your password</h1>
-            <p className="text-sm text-gray-400 mt-1">One last step before your barber dashboard.</p>
+            <p className="text-sm text-[#555] mt-1">One last step before your barber dashboard.</p>
           </div>
 
           {pwError && (
@@ -202,11 +202,11 @@ export default function AcceptInvitePage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">New password</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="Min. 8 characters, 1 capital, 1 number" autoFocus
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -231,10 +231,10 @@ export default function AcceptInvitePage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Confirm password</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                 <input type={showPw ? "text" : "password"} value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
                   placeholder="Re-enter your password"
-                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
+                  className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50" />
               </div>
             </div>
 
@@ -256,14 +256,14 @@ export default function AcceptInvitePage() {
           <>
             <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
             <p className="font-semibold text-white">Verifying your invite…</p>
-            <p className="text-sm text-gray-500 mt-1">Just a moment</p>
+            <p className="text-sm text-[#777] mt-1">Just a moment</p>
           </>
         )}
         {status === "linking" && (
           <>
             <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
             <p className="font-semibold text-white">Setting up your account…</p>
-            <p className="text-sm text-gray-500 mt-1">Linking you to your shop</p>
+            <p className="text-sm text-[#777] mt-1">Linking you to your shop</p>
           </>
         )}
         {status === "done" && (
@@ -272,7 +272,7 @@ export default function AcceptInvitePage() {
               <span className="text-2xl">✂️</span>
             </div>
             <p className="font-bold text-white text-lg">You&apos;re all set!</p>
-            <p className="text-sm text-gray-400 mt-1">Taking you to your barber dashboard…</p>
+            <p className="text-sm text-[#555] mt-1">Taking you to your barber dashboard…</p>
           </>
         )}
         {status === "error" && (
@@ -281,7 +281,7 @@ export default function AcceptInvitePage() {
               <span className="text-2xl">🔗</span>
             </div>
             <p className="font-bold text-white text-lg mb-2">Invite error</p>
-            <p className="text-sm text-gray-400">{error}</p>
+            <p className="text-sm text-[#555]">{error}</p>
           </>
         )}
       </div>

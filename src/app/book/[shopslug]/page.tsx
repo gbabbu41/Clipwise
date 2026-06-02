@@ -34,7 +34,7 @@ function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
 }
 
 export default function BookingPage() {
@@ -680,7 +680,7 @@ export default function BookingPage() {
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (pageLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6 space-y-4 max-w-2xl mx-auto">
+      <div className="min-h-screen bg-black p-6 space-y-4 max-w-2xl mx-auto">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-48 w-full" />
@@ -690,11 +690,11 @@ export default function BookingPage() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center">
           <Logo size="md" />
-          <h1 className="text-2xl font-bold text-gray-900 mt-6">Shop Not Found</h1>
-          <p className="text-gray-500 mt-2">This booking link may be invalid.</p>
+          <h1 className="text-2xl font-bold text-white mt-6">Shop Not Found</h1>
+          <p className="text-[#777] mt-2">This booking link may be invalid.</p>
         </div>
       </div>
     );
@@ -702,13 +702,13 @@ export default function BookingPage() {
 
   if (shop.status !== "approved") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="w-20 h-20 bg-black/5 border border-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-black/5 border border-[#1e1e1e] rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Logo size="sm" showText={false} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
-          <p className="text-gray-500 mt-3">This shop is coming soon. Check back later.</p>
+          <h1 className="text-2xl font-bold text-white">{shop.name}</h1>
+          <p className="text-[#777] mt-3">This shop is coming soon. Check back later.</p>
           <Badge variant="warning" className="mt-4">Coming Soon</Badge>
         </div>
       </div>
@@ -718,17 +718,17 @@ export default function BookingPage() {
   // ── Success screen ─────────────────────────────────────────────────────────
   if (confirmed) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
         {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
         <div className="max-w-md w-full text-center">
           <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check size={36} className="text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h1>
-          {bookingId && <p className="text-xs text-gray-500 mb-1">Booking ID: <span className="text-black font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
-          <p className="text-gray-500 mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
-          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-black hover:text-gray-900 transition-colors mb-6 block">View & Manage Booking →</a>}
-          <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 text-left space-y-3 mb-6">
+          <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
+          {bookingId && <p className="text-xs text-[#777] mb-1">Booking ID: <span className="text-black font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
+          <p className="text-[#777] mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-black hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
+          <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: shop.name },
               { label: "Barber", value: barber?.name ?? "Any Available" },
@@ -737,12 +737,12 @@ export default function BookingPage() {
               { label: "Time", value: selectedTime ?? "" },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm">
-                <span className="text-gray-500">{label}</span>
-                <span className="text-gray-900 font-medium">{value}</span>
+                <span className="text-[#777]">{label}</span>
+                <span className="text-white font-medium">{value}</span>
               </div>
             ))}
-            <div className="border-t border-gray-200 pt-3 flex justify-between font-bold">
-              <span className="text-gray-900">Total</span>
+            <div className="border-t border-[#1e1e1e] pt-3 flex justify-between font-bold">
+              <span className="text-white">Total</span>
               <span className="text-black text-lg">{formatCurrency(total)}</span>
             </div>
           </div>
@@ -788,11 +788,11 @@ export default function BookingPage() {
   const confirmStepIndex = flow === "time-first" ? 4 : 5;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header */}
-      <div className="bg-gray-50 shadow-sm border-b border-gray-200">
+      <div className="bg-black shadow-sm border-b border-[#1e1e1e]">
         <div className="max-w-2xl mx-auto px-4 py-5">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-black/10 border border-black flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -801,8 +801,8 @@ export default function BookingPage() {
                 : <Logo size="sm" showText={false} />}
             </div>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-900">{shop.name}</h1>
-              <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
+              <h1 className="text-xl font-bold text-white">{shop.name}</h1>
+              <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#777]">
                 <span className="flex items-center gap-1"><MapPin size={11} /> {shop.city}, {shop.province}</span>
                 <span className="flex items-center gap-1"><Phone size={11} /> {shop.phone}</span>
               </div>
@@ -812,7 +812,7 @@ export default function BookingPage() {
       </div>
 
       {/* Flow Toggle */}
-      <div className="bg-gray-50 shadow-sm border-b border-gray-200">
+      <div className="bg-black shadow-sm border-b border-[#1e1e1e]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-1">
           {(["time-first", "barber-first"] as const).map((f) => (
             <button
@@ -820,7 +820,7 @@ export default function BookingPage() {
               onClick={() => switchFlow(f)}
               className={cn(
                 "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all",
-                flow === f ? "bg-gold text-black" : "text-gray-500 hover:text-gray-900 border border-gray-200"
+                flow === f ? "bg-gold text-black" : "text-[#777] hover:text-white border border-[#1e1e1e]"
               )}
             >
               {f === "time-first" ? "Choose Time First" : "Choose Barber First"}
@@ -830,14 +830,14 @@ export default function BookingPage() {
       </div>
 
       {/* Progress */}
-      <div className="bg-gray-50 shadow-sm border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-black shadow-sm border-b border-[#1e1e1e] sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center gap-1">
             {STEPS.map((s, i) => (
               <div key={s + i} className="flex items-center gap-1 flex-1">
                 <div className={cn(
                   "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
-                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-black border border-black" : "bg-gray-100 text-gray-600"
+                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-black border border-black" : "bg-[#141414] text-[#999]"
                 )}>
                   {i < step ? <Check size={11} /> : i + 1}
                 </div>
@@ -845,7 +845,7 @@ export default function BookingPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-black font-medium">{STEPS[step]}</span></p>
+          <p className="text-xs text-[#777] mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-black font-medium">{STEPS[step]}</span></p>
         </div>
       </div>
 
@@ -854,29 +854,29 @@ export default function BookingPage() {
         {/* BARBER FIRST — Step 0: Select Barber */}
         {step === isBarberFirstStep(0) && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-gray-900">Choose your barber</h2>
+            <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             <button
               onClick={() => setSelectedBarber("any")}
-              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
+              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
             >
-              <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">✨</div>
+              <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-2xl">✨</div>
               <div>
-                <p className="font-semibold text-gray-900">No Preference</p>
-                <p className="text-sm text-gray-500">Next available barber</p>
+                <p className="font-semibold text-white">No Preference</p>
+                <p className="text-sm text-[#777]">Next available barber</p>
               </div>
               {selectedBarber === "any" && <Check size={18} className="ml-auto text-black" />}
             </button>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
               >
                 {b.photo
-                  ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-gray-200" />
+                  ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-[#1e1e1e]" />
                   : <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center text-black font-bold text-xl">{b.name[0]}</div>
                 }
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{b.name}</p>
-                  {b.bio && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{b.bio}</p>}
+                  <p className="font-semibold text-white">{b.name}</p>
+                  {b.bio && <p className="text-xs text-[#777] mt-0.5 line-clamp-1">{b.bio}</p>}
                   <span className="flex items-center gap-1 text-xs text-black mt-1">
                     <Star size={11} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)
                   </span>
@@ -890,12 +890,12 @@ export default function BookingPage() {
         {/* Service Step */}
         {step === serviceStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-gray-900">Choose services</h2>
-            <p className="text-xs text-gray-500 -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
+            <h2 className="text-lg font-semibold text-white">Choose services</h2>
+            <p className="text-xs text-[#777] -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
-              <div className="bg-black/5 border border-gray-300 rounded-2xl p-3 space-y-2">
+              <div className="bg-black/5 border border-[#1e1e1e] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
                     <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-black/10 border border-black text-black rounded-full pl-3 pr-1 py-1 text-xs font-medium">
@@ -908,7 +908,7 @@ export default function BookingPage() {
                   ))}
                 </div>
                 <div className="flex items-center justify-between text-sm pt-1 border-t border-black/10">
-                  <span className="text-gray-500">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
+                  <span className="text-[#777]">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
                   <span className="text-black font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
               </div>
@@ -917,12 +917,12 @@ export default function BookingPage() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-4 py-1.5 rounded-full text-sm font-medium transition-all border", categoryFilter === cat ? "bg-gold text-black border-black" : "border-gray-200 text-gray-500 hover:border-gray-400")}
+                  className={cn("px-4 py-1.5 rounded-full text-sm font-medium transition-all border", categoryFilter === cat ? "bg-gold text-black border-black" : "border-[#1e1e1e] text-[#777] hover:border-gray-400")}
                 >{cat}</button>
               ))}
             </div>
             {filteredServices.length === 0 && (
-              <div className="py-12 text-center text-gray-500">
+              <div className="py-12 text-center text-[#777]">
                 <Tag size={32} className="mx-auto mb-2 opacity-30" />
                 <p>No services found</p>
               </div>
@@ -933,16 +933,16 @@ export default function BookingPage() {
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-black bg-black/5" : "border-gray-200 bg-gray-50 shadow-sm hover:border-gray-400")}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
                 >
                   <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-gray-900">{svc.name}</p>
+                      <p className="font-semibold text-white">{svc.name}</p>
                       <Badge>{svc.category}</Badge>
                       {count > 1 && <span className="text-xs text-black">× {count}</span>}
                     </div>
-                    {svc.description && <p className="text-xs text-gray-500 mt-0.5">{svc.description}</p>}
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
+                    {svc.description && <p className="text-xs text-[#777] mt-0.5">{svc.description}</p>}
+                    <p className="text-xs text-[#777] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-lg font-bold text-black">{formatCurrency(svc.price)}</span>
@@ -1002,14 +1002,14 @@ export default function BookingPage() {
                 <button
                   aria-label="Previous week"
                   onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-100/80 flex items-center justify-center text-gray-900 transition-colors"
+                  className="w-9 h-9 rounded-full bg-[#141414] hover:bg-[#141414]/80 flex items-center justify-center text-white transition-colors"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <button
                   aria-label="Next week"
                   onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-100/80 flex items-center justify-center text-gray-900 transition-colors"
+                  className="w-9 h-9 rounded-full bg-[#141414] hover:bg-[#141414]/80 flex items-center justify-center text-white transition-colors"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -1033,14 +1033,14 @@ export default function BookingPage() {
                       onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
                       className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
                     >
-                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-gray-400" : "text-gray-500")}>
+                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-[#555]" : "text-[#777]")}>
                         {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                       </span>
                       <span className={cn(
                         "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center",
-                        isSelectedDay ? "bg-gray-50 text-black font-semibold" :
+                        isSelectedDay ? "bg-black text-black font-semibold" :
                         isTodayDay && !disabled ? "text-black" :
-                        disabled ? "text-gray-400" : "text-gray-900",
+                        disabled ? "text-[#555]" : "text-white",
                       )}>
                         {day.getDate()}
                       </span>
@@ -1050,8 +1050,8 @@ export default function BookingPage() {
               </div>
 
               {/* Date title row (center) */}
-              <div className="px-4 py-2 border-t border-gray-200/40 text-center">
-                <p className="text-sm font-medium text-gray-900">
+              <div className="px-4 py-2 border-t border-[#1e1e1e]/40 text-center">
+                <p className="text-sm font-medium text-white">
                   {selectedDate
                     ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
                     : "Pick a day"}
@@ -1059,25 +1059,25 @@ export default function BookingPage() {
               </div>
 
               {/* Timeline */}
-              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-gray-200/40">
+              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-[#1e1e1e]/40">
                 {!selectedDate && (
-                  <div className="py-16 text-center text-gray-500 text-sm">Tap a day above to see openings.</div>
+                  <div className="py-16 text-center text-[#777] text-sm">Tap a day above to see openings.</div>
                 )}
                 {selectedDate && slotsLoading && (
-                  <div className="py-16 text-center text-gray-500 text-sm">
+                  <div className="py-16 text-center text-[#777] text-sm">
                     <div className="w-6 h-6 border-2 border-black border-t-gold rounded-full animate-spin mx-auto mb-3" />
                     Loading…
                   </div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length === 0 && (
-                  <div className="py-16 text-center text-gray-500 text-sm">No openings on this day.</div>
+                  <div className="py-16 text-center text-[#777] text-sm">No openings on this day.</div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && servicesPicked.length > 1 && (
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
                       {flow === "barber-first" ? "This barber doesn't have" : "No barber has"} {totalDuration} min open on this day
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">Try another day.</p>
+                    <p className="text-xs text-[#777] mt-1">Try another day.</p>
                   </div>
                 )}
                 {selectedDate && !slotsLoading && bookableSlots.length > 0 && (
@@ -1085,7 +1085,7 @@ export default function BookingPage() {
                     {/* Hour lines */}
                     {hoursToShow.map((h, i) => (
                       <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: `${i * ROW_PX}px` }}>
-                        <div className="w-14 pl-3 pr-2 text-[10px] text-gray-500 pt-0">
+                        <div className="w-14 pl-3 pr-2 text-[10px] text-[#777] pt-0">
                           {formatHourLabel(h)}
                         </div>
                         <div className="flex-1 h-px bg-border/30 mt-1.5" />
@@ -1141,29 +1141,29 @@ export default function BookingPage() {
                   <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setExpandedSlot(null)} />
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                      <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
+                      <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-base font-bold text-gray-900">Choose a barber</h3>
-                            <p className="text-xs text-gray-500 mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
+                            <h3 className="text-base font-bold text-white">Choose a barber</h3>
+                            <p className="text-xs text-[#777] mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
                           </div>
-                          <button onClick={() => setExpandedSlot(null)} className="text-gray-500 hover:text-gray-900"><X size={18} /></button>
+                          <button onClick={() => setExpandedSlot(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
                         </div>
                         <div className="space-y-2">
                           {slotBarbers.map((b) => (
                             <button key={b.id}
                               onClick={() => { setSelectedTime(expandedSlot); setSelectedBarber(b.id); setExpandedSlot(null); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-100 hover:border-gray-400 text-left transition-all"
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-[#1e1e1e] bg-[#141414] hover:border-gray-400 text-left transition-all"
                             >
                               {b.photo
                                 ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
                                 : <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-black font-bold">{b.name[0]}</div>
                               }
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-gray-900">{b.name}</p>
+                                <p className="text-sm font-semibold text-white">{b.name}</p>
                                 <p className="text-xs text-black flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
                               </div>
-                              <ChevronRight size={16} className="text-gray-500" />
+                              <ChevronRight size={16} className="text-[#777]" />
                             </button>
                           ))}
                         </div>
@@ -1179,14 +1179,14 @@ export default function BookingPage() {
         {/* Client Info Step */}
         {step === clientStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-gray-900">Your information</h2>
+            <h2 className="text-lg font-semibold text-white">Your information</h2>
             {([
               { key: "name" as const, label: "Full Name", placeholder: "Devon Williams", type: "text" },
               { key: "email" as const, label: "Email Address", placeholder: "devon@email.com", type: "email" },
               { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
             ]).map(({ key, label, placeholder, type }) => (
               <div key={key} className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-600">{label}</label>
+                <label className="text-sm font-medium text-[#999]">{label}</label>
                 <input type={type} value={clientInfo[key]}
                   onChange={(e) => {
                     const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
@@ -1194,24 +1194,24 @@ export default function BookingPage() {
                     if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-gray-100 border rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-black transition-all",
-                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-gray-200 focus:ring-black/20")}
+                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:border-black transition-all",
+                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#1e1e1e] focus:ring-black/20")}
                 />
                 {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
               </div>
             ))}
-            <p className="text-xs text-gray-600">You&apos;ll receive a confirmation to the details provided.</p>
+            <p className="text-xs text-[#999]">You&apos;ll receive a confirmation to the details provided.</p>
           </div>
         )}
 
         {/* Promo Code Step */}
         {step === promoStepIndex && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-gray-900">Have a promo code?</h2>
-            <p className="text-gray-500 text-sm">Optional — skip if you don&apos;t have one.</p>
+            <h2 className="text-lg font-semibold text-white">Have a promo code?</h2>
+            <p className="text-[#777] text-sm">Optional — skip if you don&apos;t have one.</p>
             <div className="flex gap-2">
               <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10"
-                className="flex-1 bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
+                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
               />
               <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
             </div>
@@ -1235,8 +1235,8 @@ export default function BookingPage() {
           );
           return (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-gray-900">Review your booking</h2>
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-5 space-y-3">
+            <h2 className="text-lg font-semibold text-white">Review your booking</h2>
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 space-y-3">
               {[
                 { label: "Shop", value: shop.name },
                 { label: "Barber", value: barber?.name ?? "Any Available" },
@@ -1249,15 +1249,15 @@ export default function BookingPage() {
                 { label: "Phone", value: clientInfo.phone },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm">
-                  <span className="text-gray-500">{label}</span>
-                  <span className="text-gray-900 font-medium text-right max-w-[60%]">{value}</span>
+                  <span className="text-[#777]">{label}</span>
+                  <span className="text-white font-medium text-right max-w-[60%]">{value}</span>
                 </div>
               ))}
-              <div className="border-t border-gray-200 pt-3 space-y-1.5">
+              <div className="border-t border-[#1e1e1e] pt-3 space-y-1.5">
                 {servicesPicked.map((s) => (
                   <div key={s.id} className="flex justify-between text-sm">
-                    <span className="text-gray-500">{s.name} <span className="text-gray-600">· {s.duration_minutes}min</span></span>
-                    <span className="text-gray-900">{formatCurrency(s.price ?? 0)}</span>
+                    <span className="text-[#777]">{s.name} <span className="text-[#999]">· {s.duration_minutes}min</span></span>
+                    <span className="text-white">{formatCurrency(s.price ?? 0)}</span>
                   </div>
                 ))}
                 {promoApplied && (
@@ -1266,8 +1266,8 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold pt-1 border-t border-gray-200/50">
-                  <span className="text-gray-900">Total</span>
+                <div className="flex justify-between font-bold pt-1 border-t border-[#1e1e1e]/50">
+                  <span className="text-white">Total</span>
                   <span className="text-black text-lg">{formatCurrency(total)}</span>
                 </div>
                 {depositTotal > 0 && (
@@ -1280,7 +1280,7 @@ export default function BookingPage() {
             </div>
             {depositTotal > 0
               ? <p className="text-xs text-black/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
-              : <p className="text-xs text-gray-600 text-center">Payment collected at the shop · Free cancellation 24h before</p>
+              : <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
           </div>
           );
@@ -1297,15 +1297,15 @@ export default function BookingPage() {
               Falls back to a tiny step caption otherwise so the bar isn't empty. */}
           {servicesPicked.length > 0 ? (
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-gray-900/50 leading-none">
+              <p className="text-[10px] uppercase tracking-wider text-white/50 leading-none">
                 {servicesPicked.length} {servicesPicked.length === 1 ? "service" : "services"} · {totalDuration} min
               </p>
-              <p className="text-base font-bold text-gray-900 leading-tight mt-0.5">
+              <p className="text-base font-bold text-white leading-tight mt-0.5">
                 {formatCurrency(total)}
               </p>
             </div>
           ) : (
-            <p className="flex-1 text-xs text-gray-900/60 leading-tight">
+            <p className="flex-1 text-xs text-white/60 leading-tight">
               Step {step + 1} of {STEPS.length} · {STEPS[step]}
             </p>
           )}
@@ -1315,7 +1315,7 @@ export default function BookingPage() {
               type="button"
               onClick={() => setStep(step - 1)}
               aria-label="Back"
-              className="w-9 h-9 rounded-full border border-white/15 text-gray-900/80 hover:text-gray-900 hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
+              className="w-9 h-9 rounded-full border border-white/15 text-white/80 hover:text-white hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -1326,7 +1326,7 @@ export default function BookingPage() {
               type="button"
               disabled={!canNext()}
               onClick={() => setStep(step + 1)}
-              className="rounded-full bg-gray-50 text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-black text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
             >
               Continue <ChevronRight size={16} />
             </button>
@@ -1335,7 +1335,7 @@ export default function BookingPage() {
               type="button"
               disabled={saving}
               onClick={confirmBooking}
-              className="rounded-full bg-gray-50 text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-black text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
             >
               {saving ? (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -1358,10 +1358,10 @@ export default function BookingPage() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowPayChoiceModal(false)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
+            <div className="bg-white border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">How would you like to pay?</h2>
-                <p className="text-sm text-gray-500 mt-1">You can pay now or settle up at the shop.</p>
+                <h2 className="text-lg font-bold text-white">How would you like to pay?</h2>
+                <p className="text-sm text-[#777] mt-1">You can pay now or settle up at the shop.</p>
               </div>
 
               <button type="button" className="btn btn-primary w-full" style={{ padding: "1rem" }}
@@ -1374,7 +1374,7 @@ export default function BookingPage() {
                 🏪 Pay in person at the shop
               </button>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-[#777] text-center">
                 Paying in person? Your booking is reserved as pending until the shop confirms.
               </p>
             </div>

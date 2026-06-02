@@ -31,9 +31,9 @@ function timeAgo(dateStr: string) {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -100,8 +100,8 @@ export default function NotificationsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}</p>
+          <h1 className="text-2xl font-bold text-white">Notifications</h1>
+          <p className="text-sm text-[#777] mt-0.5">{unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}</p>
         </div>
         <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>Mark All Read</Button>
       </div>
@@ -113,10 +113,10 @@ export default function NotificationsPage() {
             {[["all","All"],["bookings","Bookings"],["no-shows","No-Shows"],["reviews","Reviews"],["inventory","Inventory"]].map(([v,l]) => (
               <button key={v} onClick={() => setTypeFilter(v)}
                 className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors border",
-                  typeFilter === v ? "bg-gold text-black border-black" : "border-gray-200 text-gray-500 hover:text-gray-900 bg-gray-100")}>
+                  typeFilter === v ? "bg-gold text-black border-black" : "border-[#1e1e1e] text-[#777] hover:text-white bg-[#141414]")}>
                 {l}
                 {v === "all" && unreadCount > 0 && (
-                  <span className="ml-1.5 text-xs bg-red-500 text-gray-900 rounded-full px-1.5">{unreadCount}</span>
+                  <span className="ml-1.5 text-xs bg-red-500 text-white rounded-full px-1.5">{unreadCount}</span>
                 )}
               </button>
             ))}
@@ -124,13 +124,13 @@ export default function NotificationsPage() {
 
           {loading ? (
             <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
+              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-[#141414] animate-pulse" />)}
             </div>
           ) : filtered.length === 0 ? (
             <Card>
               <div className="text-center py-12">
                 <p className="text-4xl mb-3">🔔</p>
-                <p className="text-gray-500">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
+                <p className="text-[#777]">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
               </div>
             </Card>
           ) : (
@@ -141,21 +141,21 @@ export default function NotificationsPage() {
                   className={cn(
                     "relative flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all",
                     notif.is_read
-                      ? "bg-gray-50 shadow-sm border-gray-200 hover:border-gray-200/80"
-                      : "bg-gray-50 shadow-sm border-l-2 border-l-gold border-t-border border-r-border border-b-border hover:bg-gray-100"
+                      ? "bg-black shadow-sm border-[#1e1e1e] hover:border-[#1e1e1e]/80"
+                      : "bg-black shadow-sm border-l-2 border-l-gold border-t-border border-r-border border-b-border hover:bg-[#141414]"
                   )}>
                   <div className="text-2xl flex-shrink-0">{TYPE_ICONS[notif.type] ?? "🔔"}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={cn("text-sm font-semibold", notif.is_read ? "text-gray-600" : "text-gray-900")}>{notif.title}</p>
+                      <p className={cn("text-sm font-semibold", notif.is_read ? "text-[#999]" : "text-white")}>{notif.title}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!notif.is_read && <span className="w-2 h-2 rounded-full bg-gold" />}
-                        <span className="text-xs text-gray-500">{timeAgo(notif.created_at)}</span>
+                        <span className="text-xs text-[#777]">{timeAgo(notif.created_at)}</span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
+                    <p className="text-sm text-[#777] mt-0.5 leading-relaxed">{notif.message}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className={cn("text-xs font-medium capitalize", TYPE_COLORS[notif.type] ?? "text-gray-500")}>
+                      <span className={cn("text-xs font-medium capitalize", TYPE_COLORS[notif.type] ?? "text-[#777]")}>
                         {notif.type}
                       </span>
                     </div>
@@ -183,8 +183,8 @@ export default function NotificationsPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{s.icon}</span>
                       <div>
-                        <p className="text-sm text-gray-900">{s.label}</p>
-                        <p className="text-xs text-gray-500">{s.desc}</p>
+                        <p className="text-sm text-white">{s.label}</p>
+                        <p className="text-xs text-[#777]">{s.desc}</p>
                       </div>
                     </div>
                     <Switch checked={!!notifSettings[s.key]} onChange={() => toggleSetting(s.key)} />
@@ -205,10 +205,10 @@ export default function NotificationsPage() {
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{TYPE_ICONS[type]}</span>
-                        <span className="text-sm text-gray-600 capitalize">{type}</span>
+                        <span className="text-sm text-[#999] capitalize">{type}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">{count}</span>
+                        <span className="text-xs text-[#777]">{count}</span>
                         {unread > 0 && <Badge variant="warning">{unread}</Badge>}
                       </div>
                     </div>

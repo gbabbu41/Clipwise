@@ -25,19 +25,17 @@ export function formatDate(dateStr: string): string {
 }
 
 export function getStatusColor(status: string): string {
-  // Light-mode status pills — `-100` fills + `-800` foreground + `-300`
-  // border. Saturation bumped from `-50` to `-100` so the chips actually
-  // read against the gray-100 tinted cards instead of dissolving into
-  // them. "Pending" is violet (distinctive, calm, and unmistakably NOT
-  // gray — slate was too close to the card surface to be visible).
+  // ClipWise v2 dark theme — translucent fills against the black/#0c0c0c
+  // surfaces, hairline borders matching each hue. Completed reads as
+  // muted ("done, no further action") via card-raised neutral.
   const map: Record<string, string> = {
-    confirmed: "text-emerald-800 bg-emerald-100 border-emerald-300",
-    pending:   "text-violet-800  bg-violet-100  border-violet-300",
-    completed: "text-blue-800    bg-blue-100    border-blue-300",
-    cancelled: "text-red-800     bg-red-100     border-red-300",
-    "no-show": "text-orange-800  bg-orange-100  border-orange-300",
+    confirmed: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+    pending:   "text-amber-400   bg-amber-500/10   border-amber-500/25",
+    completed: "text-[#777]      bg-[#141414]      border-[#1e1e1e]",
+    cancelled: "text-red-400     bg-red-500/10     border-red-500/25",
+    "no-show": "text-red-400     bg-red-500/10     border-red-500/25",
   };
-  return map[status] ?? "text-gray-700 bg-gray-200 border-gray-300";
+  return map[status] ?? "text-[#777] bg-[#141414] border-[#1e1e1e]";
 }
 
 export function getTagColor(tag: string): string {
@@ -47,7 +45,7 @@ export function getTagColor(tag: string): string {
     Returning: "text-blue-400 bg-blue-500/20 border-blue-500/30",
     "At Risk": "text-red-400 bg-red-500/20 border-red-500/30",
   };
-  return map[tag] ?? "text-gray-400 bg-gray-500/20 border-gray-500/30";
+  return map[tag] ?? "text-[#555] bg-gray-500/20 border-gray-500/30";
 }
 
 // ─── Time Utilities ────────────────────────────────────────────────────────────

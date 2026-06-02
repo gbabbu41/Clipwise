@@ -19,9 +19,9 @@ interface Thread {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -331,9 +331,9 @@ export default function MessagesPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <MessageSquare size={40} className="text-gray-600 mb-4" />
-        <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
-        <p className="text-sm text-gray-500">Messages will appear here once your shop is active.</p>
+        <MessageSquare size={40} className="text-[#999] mb-4" />
+        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
+        <p className="text-sm text-[#777]">Messages will appear here once your shop is active.</p>
       </div>
     );
   }
@@ -343,17 +343,17 @@ export default function MessagesPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* Thread List */}
-      <div className={cn("flex flex-col border-r border-gray-200 bg-gray-50 shadow-sm", activeThread ? "hidden lg:flex w-80 flex-shrink-0" : "flex-1 lg:w-80 lg:flex-none")}>
+      <div className={cn("flex flex-col border-r border-[#1e1e1e] bg-black shadow-sm", activeThread ? "hidden lg:flex w-80 flex-shrink-0" : "flex-1 lg:w-80 lg:flex-none")}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div className="p-4 border-b border-[#1e1e1e] flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-lg font-bold text-white flex items-center gap-2">
               Messages
               {totalUnread > 0 && (
                 <span className="bg-gold text-black text-xs font-bold rounded-full px-2 py-0.5">{totalUnread}</span>
               )}
             </h1>
-            <p className="text-xs text-gray-500">{threads.length} conversation{threads.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-[#777]">{threads.length} conversation{threads.length !== 1 ? "s" : ""}</p>
           </div>
           <Button size="sm" onClick={startCompose}>
             <Plus size={14} /> New
@@ -361,14 +361,14 @@ export default function MessagesPage() {
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2 border-b border-gray-200">
+        <div className="px-3 py-2 border-b border-[#1e1e1e]">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search conversations..."
-              className="w-full bg-gray-100 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
+              className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
             />
           </div>
         </div>
@@ -378,14 +378,14 @@ export default function MessagesPage() {
           {loading ? (
             <div className="p-4 space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse bg-gray-100 rounded-xl" />
+                <div key={i} className="h-16 animate-pulse bg-[#141414] rounded-xl" />
               ))}
             </div>
           ) : filteredThreads.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <MessageSquare size={36} className="text-gray-600 mb-3" />
-              <p className="text-sm font-medium text-gray-900 mb-1">{search ? "No conversations match" : "No messages yet"}</p>
-              <p className="text-xs text-gray-500 mb-4">{search ? "Try a different search term" : "Send your first message to a client to get started"}</p>
+              <MessageSquare size={36} className="text-[#999] mb-3" />
+              <p className="text-sm font-medium text-white mb-1">{search ? "No conversations match" : "No messages yet"}</p>
+              <p className="text-xs text-[#777] mb-4">{search ? "Try a different search term" : "Send your first message to a client to get started"}</p>
               {!search && (
                 <Button size="sm" variant="outline" onClick={startCompose}>
                   <Plus size={14} /> Send First Message
@@ -401,8 +401,8 @@ export default function MessagesPage() {
                   key={key}
                   onClick={() => openThread(thread)}
                   className={cn(
-                    "w-full text-left px-4 py-3.5 border-b border-gray-200/50 hover:bg-gray-100/50 transition-colors",
-                    isActive && "bg-gray-100 border-l-2 border-l-gold"
+                    "w-full text-left px-4 py-3.5 border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 transition-colors",
+                    isActive && "bg-[#141414] border-l-2 border-l-gold"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -411,15 +411,15 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm font-semibold truncate", thread.unread > 0 ? "text-gray-900" : "text-gray-600")}>
+                        <p className={cn("text-sm font-semibold truncate", thread.unread > 0 ? "text-white" : "text-[#999]")}>
                           {thread.clientName}
                         </p>
-                        <span className="text-xs text-gray-500 flex-shrink-0">
+                        <span className="text-xs text-[#777] flex-shrink-0">
                           {new Date(thread.lastAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <p className="text-xs text-gray-500 truncate">{thread.lastMessage}</p>
+                        <p className="text-xs text-[#777] truncate">{thread.lastMessage}</p>
                         {thread.unread > 0 && (
                           <span className="bg-gold text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
                             {thread.unread}
@@ -439,17 +439,17 @@ export default function MessagesPage() {
       {activeThread ? (
         <div className="flex-1 flex flex-col min-w-0">
           {/* Chat header */}
-          <div className="px-4 py-3.5 border-b border-gray-200 flex items-center gap-3 bg-gray-50 shadow-sm">
-            <button onClick={() => setActiveThread(null)} className="lg:hidden text-gray-500 hover:text-gray-900">
+          <div className="px-4 py-3.5 border-b border-[#1e1e1e] flex items-center gap-3 bg-black shadow-sm">
+            <button onClick={() => setActiveThread(null)} className="lg:hidden text-[#777] hover:text-white">
               ←
             </button>
             <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
               {activeThread.clientName[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900">{activeThread.clientName}</p>
+              <p className="text-sm font-bold text-white">{activeThread.clientName}</p>
               {activeThread.clientPhone && (
-                <p className="text-xs text-gray-500 flex items-center gap-1">
+                <p className="text-xs text-[#777] flex items-center gap-1">
                   <Phone size={10} />{activeThread.clientPhone}
                 </p>
               )}
@@ -464,10 +464,10 @@ export default function MessagesPage() {
                   "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm",
                   msg.sender === "shop"
                     ? "bg-gold text-black rounded-br-sm"
-                    : "bg-gray-100 border border-gray-200 text-gray-900 rounded-bl-sm"
+                    : "bg-[#141414] border border-[#1e1e1e] text-white rounded-bl-sm"
                 )}>
                   <p className="leading-relaxed">{msg.content}</p>
-                  <p className={cn("text-xs mt-1", msg.sender === "shop" ? "text-black/60" : "text-gray-500")}>
+                  <p className={cn("text-xs mt-1", msg.sender === "shop" ? "text-black/60" : "text-[#777]")}>
                     {new Date(msg.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -477,14 +477,14 @@ export default function MessagesPage() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50 shadow-sm">
+          <div className="p-4 border-t border-[#1e1e1e] bg-black shadow-sm">
             <div className="flex gap-2">
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 placeholder={`Message ${activeThread.clientName}…`}
-                className="flex-1 bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
+                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
               />
               <Button size="sm" loading={sending} onClick={sendMessage} disabled={!input.trim()}>
                 <Send size={16} />
@@ -495,9 +495,9 @@ export default function MessagesPage() {
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center text-center p-8">
           <div>
-            <MessageSquare size={48} className="text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</p>
-            <p className="text-sm text-gray-500 mb-6">Choose a thread from the left or start a new message</p>
+            <MessageSquare size={48} className="text-[#555] mx-auto mb-4" />
+            <p className="text-lg font-semibold text-white mb-2">Select a conversation</p>
+            <p className="text-sm text-[#777] mb-6">Choose a thread from the left or start a new message</p>
             <Button variant="outline" onClick={startCompose}>
               <Plus size={15} /> New Message
             </Button>
@@ -510,27 +510,27 @@ export default function MessagesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowCompose(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">New Message</h2>
-                <button onClick={() => setShowCompose(false)} className="text-gray-500 hover:text-gray-900">
+                <h2 className="text-lg font-bold text-white">New Message</h2>
+                <button onClick={() => setShowCompose(false)} className="text-[#777] hover:text-white">
                   <X size={18} />
                 </button>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">To</p>
+                <p className="text-sm font-medium text-[#999] mb-2">To</p>
                 {composeClient ? (
-                  <div className="flex items-center gap-2 p-3 bg-gray-100 border border-black rounded-xl">
+                  <div className="flex items-center gap-2 p-3 bg-[#141414] border border-black rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-sm">
                       {composeClient.name[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 font-medium truncate">{composeClient.name}</p>
-                      {composeClient.email && <p className="text-xs text-gray-500 truncate">{composeClient.email}</p>}
-                      {composeClient.phone && <p className="text-xs text-gray-500 truncate">{composeClient.phone}</p>}
+                      <p className="text-sm text-white font-medium truncate">{composeClient.name}</p>
+                      {composeClient.email && <p className="text-xs text-[#777] truncate">{composeClient.email}</p>}
+                      {composeClient.phone && <p className="text-xs text-[#777] truncate">{composeClient.phone}</p>}
                     </div>
-                    <button onClick={() => setComposeClient(null)} className="text-gray-500 hover:text-gray-900">
+                    <button onClick={() => setComposeClient(null)} className="text-[#777] hover:text-white">
                       <X size={14} />
                     </button>
                   </div>
@@ -544,36 +544,36 @@ export default function MessagesPage() {
                   return (
                     <div className="space-y-2">
                       <div className="relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
                         <input
                           autoFocus
                           value={composeSearch}
                           onChange={e => setComposeSearch(e.target.value)}
                           placeholder="Search by name, phone, or email…"
-                          className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
+                          className="w-full bg-white border border-[#1e1e1e] rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
                         />
                       </div>
-                      <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-border/50">
+                      <div className="max-h-56 overflow-y-auto border border-[#1e1e1e] rounded-xl divide-y divide-border/50">
                         {loadingClients ? (
-                          <p className="p-4 text-sm text-gray-500 text-center">Loading clients…</p>
+                          <p className="p-4 text-sm text-[#777] text-center">Loading clients…</p>
                         ) : clients.length === 0 ? (
-                          <p className="p-4 text-sm text-gray-500 text-center">No clients yet — they&apos;ll appear here after their first booking.</p>
+                          <p className="p-4 text-sm text-[#777] text-center">No clients yet — they&apos;ll appear here after their first booking.</p>
                         ) : filtered.length === 0 ? (
-                          <p className="p-4 text-sm text-gray-500 text-center">No matches for &ldquo;{composeSearch}&rdquo;</p>
+                          <p className="p-4 text-sm text-[#777] text-center">No matches for &ldquo;{composeSearch}&rdquo;</p>
                         ) : filtered.map(c => (
                           <button
                             key={c.id}
                             onClick={() => setComposeClient(c)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 text-left transition-colors"
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#141414] text-left transition-colors"
                           >
                             <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
                               {c.name[0]}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm text-gray-900 truncate">{c.name}</p>
-                              {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
-                              {c.phone && <p className="text-xs text-gray-500 truncate">{c.phone}</p>}
-                              {!c.email && !c.phone && <p className="text-xs text-gray-400 truncate italic">No contact info</p>}
+                              <p className="text-sm text-white truncate">{c.name}</p>
+                              {c.email && <p className="text-xs text-[#777] truncate">{c.email}</p>}
+                              {c.phone && <p className="text-xs text-[#777] truncate">{c.phone}</p>}
+                              {!c.email && !c.phone && <p className="text-xs text-[#555] truncate italic">No contact info</p>}
                             </div>
                           </button>
                         ))}
@@ -585,13 +585,13 @@ export default function MessagesPage() {
 
               {composeClient && (
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-2">Message</p>
+                  <p className="text-sm font-medium text-[#999] mb-2">Message</p>
                   <textarea
                     value={composeMsg}
                     onChange={e => setComposeMsg(e.target.value)}
                     rows={3}
                     placeholder="Type your message..."
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black resize-none"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black resize-none"
                   />
                 </div>
               )}

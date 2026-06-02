@@ -12,9 +12,9 @@ import type { Client, PromoCode } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -110,8 +110,8 @@ export default function LoyaltyPage() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">🎁</p>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
-        <p className="text-sm text-gray-500">Loyalty program will be available once your shop is set up.</p>
+        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
+        <p className="text-sm text-[#777]">Loyalty program will be available once your shop is set up.</p>
       </div>
     );
   }
@@ -122,17 +122,17 @@ export default function LoyaltyPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Loyalty & Marketing</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Retain clients and drive repeat visits</p>
+          <h1 className="text-2xl font-bold text-white">Loyalty & Marketing</h1>
+          <p className="text-sm text-[#777] mt-0.5">Retain clients and drive repeat visits</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-[#1e1e1e]">
         {(["loyalty","promos"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900")}>
+              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white")}>
             {t === "loyalty" ? "Loyalty Program" : "Promo Codes"}
           </button>
         ))}
@@ -150,11 +150,11 @@ export default function LoyaltyPage() {
                   { label: "Points per Dollar", key: "points_per_dollar" as const },
                   { label: "100 pts = $X", key: "redemption" as const },
                 ].map(s => (
-                  <div key={s.key} className="p-4 bg-gray-100 rounded-xl border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-2">{s.label}</p>
+                  <div key={s.key} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                    <p className="text-xs text-[#777] mb-2">{s.label}</p>
                     <input type="number" value={settings[s.key]}
                       onChange={e => setSettings(p => ({ ...p, [s.key]: Number(e.target.value) }))}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20 text-center text-lg font-bold" />
+                      className="w-full rounded-xl border border-[#1e1e1e] bg-black px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20 text-center text-lg font-bold" />
                   </div>
                 ))}
               </div>
@@ -170,27 +170,27 @@ export default function LoyaltyPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />)}</div>
+                <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-[#141414] animate-pulse" />)}</div>
               ) : clients.length === 0 ? (
-                <div className="text-center py-8"><p className="text-gray-500 text-sm">No clients yet</p></div>
+                <div className="text-center py-8"><p className="text-[#777] text-sm">No clients yet</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Rank</th>
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Client</th>
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Points</th>
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Visits</th>
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Last Visit</th>
-                        <th className="text-left text-xs text-gray-500 px-3 py-2">Actions</th>
+                      <tr className="border-b border-[#1e1e1e]">
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Rank</th>
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Client</th>
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Points</th>
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Visits</th>
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Last Visit</th>
+                        <th className="text-left text-xs text-[#777] px-3 py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {clients.map((client, idx) => (
-                        <tr key={client.id} className="border-b border-gray-200/50 hover:bg-gray-100/30">
+                        <tr key={client.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
                           <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-black" : idx === 1 ? "text-gray-600" : idx === 2 ? "text-orange-600" : "text-gray-500")}>
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-black" : idx === 1 ? "text-[#999]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
                               #{idx + 1}
                             </span>
                           </td>
@@ -199,19 +199,19 @@ export default function LoyaltyPage() {
                               <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-xs text-black font-bold">
                                 {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                               </div>
-                              <span className="text-sm text-gray-900">{client.name}</span>
+                              <span className="text-sm text-white">{client.name}</span>
                             </div>
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold text-black">{client.loyalty_points}</span>
-                              <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                              <div className="w-16 h-1.5 rounded-full bg-[#141414] overflow-hidden">
                                 <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-sm text-gray-600">{client.total_visits}</td>
-                          <td className="px-3 py-3 text-sm text-gray-500">{client.last_visit ?? "—"}</td>
+                          <td className="px-3 py-3 text-sm text-[#999]">{client.total_visits}</td>
+                          <td className="px-3 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
                             <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
                           </td>
@@ -235,12 +235,12 @@ export default function LoyaltyPage() {
                   { key: "birthday" as const, label: "Birthday Message", desc: "Send a birthday discount message", icon: "🎂" },
                   { key: "winback_60d" as const, label: "Win-Back Campaign", desc: "Reach out to clients after 60 days of no activity", icon: "💌" },
                 ].map(r => (
-                  <div key={r.key} className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+                  <div key={r.key} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{r.icon}</span>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{r.label}</p>
-                        <p className="text-xs text-gray-500">{r.desc}</p>
+                        <p className="text-sm font-medium text-white">{r.label}</p>
+                        <p className="text-xs text-[#777]">{r.desc}</p>
                       </div>
                     </div>
                     <Switch checked={!!reminders[r.key]} onChange={() => toggleReminder(r.key)} />
@@ -260,12 +260,12 @@ export default function LoyaltyPage() {
 
           {loading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-48 rounded-2xl bg-gray-100 animate-pulse" />)}
+              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-48 rounded-2xl bg-[#141414] animate-pulse" />)}
             </div>
           ) : promos.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">🎟️</p>
-              <p className="text-gray-500 text-sm">No promo codes yet. Create your first promo above.</p>
+              <p className="text-[#777] text-sm">No promo codes yet. Create your first promo above.</p>
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -280,26 +280,26 @@ export default function LoyaltyPage() {
                     </div>
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Discount</span>
-                        <span className="text-gray-900 font-semibold">
+                        <span className="text-[#777]">Discount</span>
+                        <span className="text-white font-semibold">
                           {promo.discount_type === "percent" ? `${promo.discount_value}% off` : `$${promo.discount_value} off`}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Uses Left</span>
-                        <span className="text-gray-900">{promo.uses_left ?? "∞"} / {totalAlloc > 0 ? totalAlloc : "∞"}</span>
+                        <span className="text-[#777]">Uses Left</span>
+                        <span className="text-white">{promo.uses_left ?? "∞"} / {totalAlloc > 0 ? totalAlloc : "∞"}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Expires</span>
-                        <span className="text-gray-900">{promo.expires_at ?? "Never"}</span>
+                        <span className="text-[#777]">Expires</span>
+                        <span className="text-white">{promo.expires_at ?? "Never"}</span>
                       </div>
                     </div>
                     {totalAlloc > 0 && (
                       <div className="mb-4">
-                        <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="w-full h-2 rounded-full bg-[#141414] overflow-hidden">
                           <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
+                        <p className="text-xs text-[#777] mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -323,9 +323,9 @@ export default function LoyaltyPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setAddPointsFor(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-xs space-y-4">
-              <h3 className="text-gray-900 font-bold">Add Loyalty Points</h3>
-              <p className="text-sm text-gray-500">For: {addPointsFor.name}</p>
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
+              <h3 className="text-white font-bold">Add Loyalty Points</h3>
+              <p className="text-sm text-[#777]">For: {addPointsFor.name}</p>
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsFor(null)}>Cancel</Button>
@@ -341,10 +341,10 @@ export default function LoyaltyPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowPromoModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">{editPromo ? "Edit Promo Code" : "Create Promo Code"}</h2>
-                <button onClick={() => setShowPromoModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
+                <h2 className="text-lg font-bold text-white">{editPromo ? "Edit Promo Code" : "Create Promo Code"}</h2>
+                <button onClick={() => setShowPromoModal(false)} className="text-[#777] hover:text-white">✕</button>
               </div>
               <Input label="Code" value={newPromo.code} onChange={e => setNewPromo(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="SUMMER20" />
               <Select label="Discount Type" value={newPromo.discount_type} onChange={e => setNewPromo(p => ({ ...p, discount_type: e.target.value }))}>

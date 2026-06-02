@@ -16,30 +16,38 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        // Brand accent slot — value moved from cream → pure white. The token
-        // name stays `gold` so every `bg-gold`, `text-gold`, `border-gold/N`,
-        // `bg-gold/15`, etc. across the codebase keeps working unmodified.
+        // `gold` slot kept as white — every `bg-gold` etc. across the
+        // codebase silently becomes the design system's white accent.
         gold: {
           DEFAULT: "#FFFFFF",
           light: "#FFFFFF",
           dark: "#D4D4D4",
         },
+        // v2 surfaces — `surface` / `surface-raised` are now tier-1 / tier-2
+        // dark cards. Existing `bg-surface` / `bg-surface-raised` callsites
+        // pick up the right values without any sweep.
         surface: {
-          DEFAULT: "#1C1C1E",
-          raised: "#2C2C2E",
-          overlay: "#3A3A3C",
+          DEFAULT: "#0c0c0c",
+          raised:  "#141414",
+          overlay: "#1c1c1c",
+        },
+        // Design-system aliases callable as `bg-card`, `bg-card-raised`, etc.
+        card: {
+          DEFAULT: "#0c0c0c",
+          raised:  "#141414",
         },
         border: {
-          DEFAULT: "rgba(255,255,255,0.08)",
-          gold: "rgba(255,255,255,0.25)",
+          DEFAULT: "#1e1e1e",
+          gold:    "rgba(255,255,255,0.25)",
         },
       },
       fontFamily: {
-        // `font-sans` (Tailwind's default) now resolves to Geist via
-        // the CSS variable wired up in layout.tsx. Inputs, buttons,
-        // dropdowns, and body all pick it up automatically.
-        sans: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
-        heading: ["var(--font-heading)", "Inter", "system-ui", "sans-serif"],
+        // `font-sans` (Tailwind default) → Sora. `font-mono` → DM Mono for
+        // any numeric display. Both wired via CSS variables from layout.tsx.
+        sans:    ["Sora", "var(--font-body)", "system-ui", "sans-serif"],
+        mono:    ["DM Mono", "var(--font-mono)", "ui-monospace", "monospace"],
+        heading: ["Sora", "var(--font-body)", "system-ui", "sans-serif"],
+        numeric: ["DM Mono", "var(--font-mono)", "ui-monospace", "monospace"],
       },
       animation: {
         "fade-in": "fadeIn 0.3s ease-in-out",

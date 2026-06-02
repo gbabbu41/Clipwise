@@ -94,7 +94,7 @@ export function OnboardingBanner({ shop }: Props) {
           </div>
           <div>
             <p className="text-sm font-semibold text-white">You&apos;re all set up!</p>
-            <p className="text-xs text-gray-400">Your booking page is live. Start sharing it with clients.</p>
+            <p className="text-xs text-[#555]">Your booking page is live. Start sharing it with clients.</p>
           </div>
         </div>
         <button
@@ -114,9 +114,9 @@ export function OnboardingBanner({ shop }: Props) {
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-sm font-bold text-white">Get your shop ready</p>
-          <p className="text-xs text-gray-500 mt-0.5">{doneCount} of {steps.length} steps complete</p>
+          <p className="text-xs text-[#777] mt-0.5">{doneCount} of {steps.length} steps complete</p>
         </div>
-        <button onClick={dismissProgress} className="text-gray-600 hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
+        <button onClick={dismissProgress} className="text-[#999] hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
           <X size={14} />
         </button>
       </div>
@@ -145,10 +145,10 @@ export function OnboardingBanner({ shop }: Props) {
               {step.done ? <Check size={12} /> : i + 1}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium", step.done ? "text-gray-400 line-through" : "text-white")}>{step.label}</p>
-              <p className="text-xs text-gray-500 truncate">{step.description}</p>
+              <p className={cn("text-sm font-medium", step.done ? "text-[#555] line-through" : "text-white")}>{step.label}</p>
+              <p className="text-xs text-[#777] truncate">{step.description}</p>
             </div>
-            {!step.done && <ArrowRight size={14} className="text-gray-600 group-hover:text-gold transition-colors flex-shrink-0" />}
+            {!step.done && <ArrowRight size={14} className="text-[#999] group-hover:text-gold transition-colors flex-shrink-0" />}
           </Link>
         ))}
       </div>

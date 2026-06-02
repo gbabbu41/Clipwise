@@ -13,9 +13,9 @@ type PM = "card" | "cash" | "online";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -156,11 +156,11 @@ export default function POSPage() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-3xl mb-3">💳</p>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">No shop linked</h2>
-          <p className="text-sm text-gray-500">POS will be available once your shop is set up.</p>
+          <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
+          <p className="text-sm text-[#777]">POS will be available once your shop is set up.</p>
         </div>
       </div>
     );
@@ -168,33 +168,33 @@ export default function POSPage() {
 
   if (success && lastCharge) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="w-full max-w-md space-y-6 text-center">
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto">
             <span className="text-4xl">✓</span>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Payment Received!</h2>
+            <h2 className="text-2xl font-bold text-white">Payment Received!</h2>
             <p className="text-3xl font-bold text-black mt-2">{formatCurrency(lastCharge.total)}</p>
           </div>
           <Card className="text-left space-y-3">
             <div className="space-y-2">
               {lastCharge.items.map(item => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-gray-600">{item.name} × {item.qty}</span>
-                  <span className="text-gray-900">{formatCurrency(item.price * item.qty)}</span>
+                  <span className="text-[#999]">{item.name} × {item.qty}</span>
+                  <span className="text-white">{formatCurrency(item.price * item.qty)}</span>
                 </div>
               ))}
             </div>
-            <div className="border-t border-gray-200 pt-3 space-y-1">
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="text-gray-900">{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Tip</span><span className="text-gray-900">{formatCurrency(lastCharge.tip)}</span></div>
-              {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-500">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
-              <div className="flex justify-between font-bold border-t border-gray-200 pt-2 mt-2"><span className="text-gray-900">Total</span><span className="text-black text-lg">{formatCurrency(lastCharge.total)}</span></div>
+            <div className="border-t border-[#1e1e1e] pt-3 space-y-1">
+              <div className="flex justify-between text-sm"><span className="text-[#777]">Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-[#777]">Tip</span><span className="text-white">{formatCurrency(lastCharge.tip)}</span></div>
+              {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
+              <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-black text-lg">{formatCurrency(lastCharge.total)}</span></div>
             </div>
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-              <span className="text-gray-500">Payment</span>
-              <span className="text-gray-900 capitalize">{lastCharge.method}</span>
+            <div className="flex justify-between text-sm pt-2 border-t border-[#1e1e1e]">
+              <span className="text-[#777]">Payment</span>
+              <span className="text-white capitalize">{lastCharge.method}</span>
             </div>
           </Card>
           <div className="flex gap-3">
@@ -217,17 +217,17 @@ export default function POSPage() {
   }, {} as Record<string, Service[]>);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-black overflow-hidden">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* Left Panel */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 border-r border-gray-200">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 border-r border-[#1e1e1e]">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Point of Sale</h1>
+          <h1 className="text-xl font-bold text-white mb-1">Point of Sale</h1>
           <div className="flex gap-2 flex-wrap">
             <Input placeholder="Client name..." value={client} onChange={e => setClient(e.target.value)} className="flex-1 min-w-32" />
             <select value={barberId} onChange={e => setBarberId(e.target.value)}
-              className="flex-1 min-w-40 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
+              className="flex-1 min-w-40 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               {barbers.length === 0 && <option value="">No barbers</option>}
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -237,18 +237,18 @@ export default function POSPage() {
         {/* Services by category */}
         {!dataLoaded ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />)}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-[#141414] animate-pulse" />)}
           </div>
         ) : (
           Object.entries(servicesByCategory).map(([cat, svcs]) => (
             <div key={cat}>
-              <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">{cat}</p>
+              <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">{cat}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {svcs.map(svc => (
                   <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                    className="p-4 rounded-2xl border border-gray-200 bg-gray-50 shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left">
-                    <p className="text-sm font-semibold text-gray-900">{svc.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{svc.duration_minutes} min</p>
+                    className="p-4 rounded-2xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left">
+                    <p className="text-sm font-semibold text-white">{svc.name}</p>
+                    <p className="text-xs text-[#777] mt-0.5">{svc.duration_minutes} min</p>
                     <p className="text-lg font-bold text-black mt-1">{formatCurrency(svc.price)}</p>
                   </button>
                 ))}
@@ -260,13 +260,13 @@ export default function POSPage() {
         {/* Products */}
         {inventory.length > 0 && (
           <div>
-            <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Products</p>
+            <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">Products</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {inventory.map(inv => (
                 <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                  className={cn("p-3 rounded-xl border border-gray-200 bg-gray-50 shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left",
+                  className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                  <p className="text-xs font-medium text-gray-600 truncate">{inv.name}</p>
+                  <p className="text-xs font-medium text-[#999] truncate">{inv.name}</p>
                   <p className="text-sm font-bold text-black mt-0.5">{formatCurrency(inv.price)}</p>
                   {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
                     <p className="text-xs text-red-400 mt-0.5">{inv.quantity} left</p>
@@ -280,17 +280,17 @@ export default function POSPage() {
         {/* Recent Transactions */}
         {recentTx.length > 0 && (
           <div>
-            <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Recent Transactions</p>
+            <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">Recent Transactions</p>
             <div className="space-y-2">
               {recentTx.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
+                <div key={tx.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                   <div>
-                    <p className="text-sm text-gray-900">{tx.client_name} · {tx.service_name}</p>
-                    <p className="text-xs text-gray-500">{new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
+                    <p className="text-sm text-white">{tx.client_name} · {tx.service_name}</p>
+                    <p className="text-xs text-[#777]">{new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-black">{formatCurrency(tx.amount + tx.tip)}</p>
-                    <p className="text-xs text-gray-500 capitalize">{tx.payment_method}</p>
+                    <p className="text-xs text-[#777] capitalize">{tx.payment_method}</p>
                   </div>
                 </div>
               ))}
@@ -300,47 +300,47 @@ export default function POSPage() {
       </div>
 
       {/* Right Panel - Order Summary */}
-      <div className="w-80 flex flex-col bg-gray-50 shadow-sm border-l border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-base font-bold text-gray-900">Order Summary</h2>
-          <p className="text-xs text-gray-500">{client} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
+      <div className="w-80 flex flex-col bg-black shadow-sm border-l border-[#1e1e1e]">
+        <div className="p-4 border-b border-[#1e1e1e]">
+          <h2 className="text-base font-bold text-white">Order Summary</h2>
+          <p className="text-xs text-[#777]">{client} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {cart.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-4xl mb-2">🛒</p>
-              <p className="text-sm text-gray-500">No items added</p>
+              <p className="text-sm text-[#777]">No items added</p>
             </div>
           ) : cart.map(item => (
-            <div key={item.id} className="flex items-center gap-2 p-3 bg-gray-100 rounded-xl border border-gray-200">
+            <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900 truncate">{item.name}</p>
+                <p className="text-sm text-white truncate">{item.name}</p>
                 <p className="text-xs text-black">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => changeQty(item.id, -1)} className="w-6 h-6 rounded-lg bg-gray-50 shadow-sm text-gray-900 text-xs flex items-center justify-center hover:bg-border">−</button>
-                <span className="text-sm text-gray-900 w-4 text-center">{item.qty}</span>
-                <button onClick={() => changeQty(item.id, 1)} className="w-6 h-6 rounded-lg bg-gray-50 shadow-sm text-gray-900 text-xs flex items-center justify-center hover:bg-border">+</button>
+                <button onClick={() => changeQty(item.id, -1)} className="w-6 h-6 rounded-lg bg-black shadow-sm text-white text-xs flex items-center justify-center hover:bg-border">−</button>
+                <span className="text-sm text-white w-4 text-center">{item.qty}</span>
+                <button onClick={() => changeQty(item.id, 1)} className="w-6 h-6 rounded-lg bg-black shadow-sm text-white text-xs flex items-center justify-center hover:bg-border">+</button>
               </div>
               <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
             </div>
           ))}
         </div>
 
-        <div className="p-4 border-t border-gray-200 space-y-4">
+        <div className="p-4 border-t border-[#1e1e1e] space-y-4">
           {/* Tip */}
           <div>
-            <p className="text-xs text-gray-500 mb-2">Tip</p>
+            <p className="text-xs text-[#777] mb-2">Tip</p>
             <div className="flex gap-1 flex-wrap">
               {[10,15,20].map(t => (
                 <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-gray-100 text-gray-400 hover:text-black border border-gray-200")}>
+                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#555] hover:text-black border border-[#1e1e1e]")}>
                   {t}%
                 </button>
               ))}
               <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
-                className="flex-1 min-w-12 rounded-lg border border-gray-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-black/20 text-center" />
+                className="flex-1 min-w-12 rounded-lg border border-[#1e1e1e] bg-[#141414] px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-black/20 text-center" />
             </div>
           </div>
 
@@ -354,17 +354,17 @@ export default function POSPage() {
 
           {/* Totals */}
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-gray-500"><span>Subtotal</span><span className="text-gray-900">{formatCurrency(subtotal)}</span></div>
-            <div className="flex justify-between text-gray-500"><span>Tip</span><span className="text-gray-900">{formatCurrency(tipAmt)}</span></div>
-            {discount > 0 && <div className="flex justify-between text-gray-500"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
-            <div className="flex justify-between font-bold border-t border-gray-200 pt-2 mt-2"><span className="text-gray-900">Total</span><span className="text-black text-lg">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between text-[#777]"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
+            <div className="flex justify-between text-[#777]"><span>Tip</span><span className="text-white">{formatCurrency(tipAmt)}</span></div>
+            {discount > 0 && <div className="flex justify-between text-[#777]"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
+            <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-black text-lg">{formatCurrency(total)}</span></div>
           </div>
 
           {/* Payment Method */}
           <div className="grid grid-cols-3 gap-2">
             {(["card","cash","online"] as PM[]).map(m => (
               <button key={m} onClick={() => setPaymentMethod(m)}
-                className={cn("py-2 rounded-xl text-xs font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-gray-100 text-gray-600 border-gray-200 hover:border-black")}>
+                className={cn("py-2 rounded-xl text-xs font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#999] border-[#1e1e1e] hover:border-black")}>
                 {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
               </button>
             ))}

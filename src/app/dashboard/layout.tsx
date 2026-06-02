@@ -21,10 +21,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Loading...</p>
+          <div className="w-8 h-8 border-2 border-[#1e1e1e] border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#777] text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       <Sidebar />
       {/* pt-12 reserves space for the mobile top bar in the Sidebar component;
           md:pt-0 removes that gap on desktop where the bar isn't rendered. */}

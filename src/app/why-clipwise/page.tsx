@@ -54,7 +54,7 @@ export default function WhyClipWisePage() {
           Why barbers are switching<br />
           <span className="gold-text">to ClipWise</span>
         </h1>
-        <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+        <p className="text-[#555] text-lg mb-8 leading-relaxed">
           Real complaints from real barbers about Squire and Booksy — and exactly how ClipWise fixes every one of them.
         </p>
         <Link href="/signup"><Button size="lg">Get Started Free — No Card Needed <ArrowRight size={18} /></Button></Link>
@@ -74,7 +74,7 @@ export default function WhyClipWisePage() {
                 <X size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
                 <p className="font-semibold text-white">{item.problem}</p>
               </div>
-              <p className="text-xs text-gray-600 italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
+              <p className="text-xs text-[#999] italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
               <div className="flex items-start gap-3 ml-7 p-3 bg-gold/5 border border-gold/15 rounded-xl">
                 <Check size={14} className="text-gold flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-gray-300">{item.fix}</p>
@@ -98,7 +98,7 @@ export default function WhyClipWisePage() {
                 <X size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
                 <p className="font-semibold text-white">{item.problem}</p>
               </div>
-              <p className="text-xs text-gray-600 italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
+              <p className="text-xs text-[#999] italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
               <div className="flex items-start gap-3 ml-7 p-3 bg-gold/5 border border-gold/15 rounded-xl">
                 <Check size={14} className="text-gold flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-gray-300">{item.fix}</p>
@@ -115,10 +115,10 @@ export default function WhyClipWisePage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-raised">
-                <th className="text-left px-6 py-4 text-sm font-medium text-gray-400">Feature</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#555]">Feature</th>
                 <th className="px-6 py-4 text-center"><span className="text-gold font-bold">ClipWise</span></th>
-                <th className="px-6 py-4 text-center text-sm text-gray-500">Squire</th>
-                <th className="px-6 py-4 text-center text-sm text-gray-500">Booksy</th>
+                <th className="px-6 py-4 text-center text-sm text-[#777]">Squire</th>
+                <th className="px-6 py-4 text-center text-sm text-[#777]">Booksy</th>
               </tr>
             </thead>
             <tbody>
@@ -131,7 +131,7 @@ export default function WhyClipWisePage() {
                         ? val
                           ? <Check size={17} className={cn("mx-auto", j === 0 ? "text-gold" : "text-emerald-400")} />
                           : <X size={17} className="mx-auto text-red-500/50" />
-                        : <span className={cn("text-sm font-semibold", j === 0 ? "text-gold" : "text-gray-500")}>{val}</span>}
+                        : <span className={cn("text-sm font-semibold", j === 0 ? "text-gold" : "text-[#777]")}>{val}</span>}
                     </td>
                   ))}
                 </tr>
@@ -146,17 +146,17 @@ export default function WhyClipWisePage() {
         <div className="max-w-xl mx-auto bg-surface border border-gold/20 rounded-3xl p-10 gold-glow">
           <Scissors size={36} className="text-gold mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-3">Your page. Your clients. Your data.</h2>
-          <p className="text-gray-400 mb-6 text-sm">Join barbers who are done paying commissions, booking fees, and upsell traps. ClipWise is built for barbers — not for a marketplace.</p>
+          <p className="text-[#555] mb-6 text-sm">Join barbers who are done paying commissions, booking fees, and upsell traps. ClipWise is built for barbers — not for a marketplace.</p>
           <Link href="/signup">
             <Button size="lg" className="text-base px-8">Get Started Free <ArrowRight size={18} /></Button>
           </Link>
-          <p className="text-xs text-gray-600 mt-4">No credit card · No sales call · Cancel anytime</p>
+          <p className="text-xs text-[#999] mt-4">No credit card · No sales call · Cancel anytime</p>
         </div>
       </section>
 
       <footer className="border-t border-border py-8 px-4 text-center">
         <Logo size="sm" className="justify-center mb-2" />
-        <p className="text-xs text-gray-600">© 2026 ClipWise Technologies Inc. · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
+        <p className="text-xs text-[#999]">© 2026 ClipWise Technologies Inc. · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
       </footer>
     </div>
   );

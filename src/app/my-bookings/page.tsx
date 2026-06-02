@@ -120,18 +120,18 @@ export default function MyBookingsPage() {
             <Calendar size={14} /> My Bookings
           </div>
           <h1 className="text-3xl font-bold text-white mb-3">Look Up Your Appointments</h1>
-          <p className="text-gray-400 text-sm mb-6">Enter the email address you used when booking to see your appointments.</p>
+          <p className="text-[#555] text-sm mb-6">Enter the email address you used when booking to see your appointments.</p>
 
           <div className="max-w-md mx-auto flex gap-3">
             <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
               <input
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && search()}
                 type="email"
                 placeholder="your@email.com"
-                className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50"
+                className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50"
               />
             </div>
             <Button loading={loading} onClick={search}>Search</Button>
@@ -141,17 +141,17 @@ export default function MyBookingsPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {!searched && !loading && (
-          <div className="text-center py-12 text-gray-500">
-            <Scissors size={40} className="mx-auto mb-4 text-gray-600" />
+          <div className="text-center py-12 text-[#777]">
+            <Scissors size={40} className="mx-auto mb-4 text-[#999]" />
             <p className="text-sm">Enter your email above to find your bookings</p>
           </div>
         )}
 
         {searched && bookings.length === 0 && (
           <div className="text-center py-12">
-            <Scissors size={40} className="mx-auto mb-4 text-gray-600" />
+            <Scissors size={40} className="mx-auto mb-4 text-[#999]" />
             <h2 className="text-lg font-bold text-white mb-2">No bookings found</h2>
-            <p className="text-gray-500 text-sm">No appointments found for {email}.</p>
+            <p className="text-[#777] text-sm">No appointments found for {email}.</p>
             <Link href="/shops" className="mt-4 inline-block">
               <Button className="mt-4">Find a Barbershop</Button>
             </Link>
@@ -173,19 +173,19 @@ export default function MyBookingsPage() {
                             <h3 className="text-white font-semibold">{b.shops?.name}</h3>
                             <StatusBadge status={b.status} />
                           </div>
-                          <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                          <div className="flex flex-wrap gap-4 text-sm text-[#555]">
                             <span className="flex items-center gap-1"><Calendar size={13} />{b.date}</span>
                             <span className="flex items-center gap-1"><Clock size={13} />{b.time_slot}</span>
                             {b.shops && (
                               <span className="flex items-center gap-1"><MapPin size={13} />{b.shops.city}, {b.shops.province}</span>
                             )}
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#777]">
                             {b.services?.name && <span>Service: <span className="text-gray-300">{b.services.name}</span></span>}
                             {b.barbers?.name && <span>Barber: <span className="text-gray-300">{b.barbers.name}</span></span>}
                             <span>Total: <span className="text-gold font-medium">${Number(b.total_amount).toFixed(2)}</span></span>
                           </div>
-                          <p className="text-xs text-gray-600 mt-1">Booking #{b.id.slice(0, 8).toUpperCase()}</p>
+                          <p className="text-xs text-[#999] mt-1">Booking #{b.id.slice(0, 8).toUpperCase()}</p>
                         </div>
                         <div className="flex flex-col gap-2">
                           {b.shops?.slug && (
@@ -217,11 +217,11 @@ export default function MyBookingsPage() {
                             <h3 className="text-white font-semibold">{b.shops?.name}</h3>
                             <StatusBadge status={b.status} />
                           </div>
-                          <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                          <div className="flex flex-wrap gap-4 text-sm text-[#555]">
                             <span className="flex items-center gap-1"><Calendar size={13} />{b.date}</span>
                             <span className="flex items-center gap-1"><Clock size={13} />{b.time_slot}</span>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#777]">
                             {b.services?.name && <span>Service: <span className="text-gray-300">{b.services.name}</span></span>}
                             {b.barbers?.name && <span>Barber: <span className="text-gray-300">{b.barbers.name}</span></span>}
                           </div>
@@ -260,7 +260,7 @@ export default function MyBookingsPage() {
                 </div>
                 <h2 className="text-lg font-bold text-white">Cancel Appointment?</h2>
               </div>
-              <p className="text-sm text-gray-400">This will cancel your appointment. Please contact the shop if you need to reschedule.</p>
+              <p className="text-sm text-[#555]">This will cancel your appointment. Please contact the shop if you need to reschedule.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setCancelId(null)}>Keep It</Button>
                 <Button variant="danger" className="flex-1" loading={cancelling} onClick={() => cancelBooking(cancelId)}>

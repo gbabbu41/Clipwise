@@ -20,7 +20,7 @@ export function Input({ className, label, error, icon, hint, id, ...props }: Inp
       )}
       <div className={icon ? "relative" : undefined}>
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777] pointer-events-none">
             {icon}
           </div>
         )}

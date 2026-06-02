@@ -228,7 +228,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <div className="border-b border-border px-4 py-4 flex items-center justify-between">
         <Logo size="sm" />
-        <p className="text-xs text-gray-500">Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</p>
+        <p className="text-xs text-[#777]">Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</p>
       </div>
       <div className="h-1 bg-border">
         <div className="h-full bg-gold transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
@@ -237,7 +237,7 @@ export default function OnboardingPage() {
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-1">
             <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
-              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-gray-600")}>
+              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-[#999]")}>
               {i < step ? <Check size={12} /> : i + 1}
             </div>
             {i < STEPS.length - 1 && <div className={cn("w-5 h-px", i < step ? "bg-gold" : "bg-border")} />}
@@ -266,7 +266,7 @@ export default function OnboardingPage() {
               <div key={key} className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">{label}</label>
                 <input value={shop[key as keyof typeof shop]} onChange={(e) => setShop({ ...shop, [key]: e.target.value })} placeholder={placeholder}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
               </div>
             ))}
             <div className="space-y-1.5">
@@ -280,7 +280,7 @@ export default function OnboardingPage() {
               <label className="text-sm font-medium text-gray-300">Description (optional)</label>
               <textarea value={shop.description} onChange={(e) => setShop({ ...shop, description: e.target.value })}
                 placeholder="Tell clients what makes your shop special..." rows={3}
-                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
+                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
             </div>
           </div>
         )}
@@ -291,14 +291,14 @@ export default function OnboardingPage() {
             <div className="flex flex-col items-center gap-4">
               <div className="w-32 h-32 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
                 {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> :
-                  <div className="text-center"><div className="text-4xl mb-1">✂️</div><p className="text-xs text-gray-500">No logo yet</p></div>}
+                  <div className="text-center"><div className="text-4xl mb-1">✂️</div><p className="text-xs text-[#777]">No logo yet</p></div>}
               </div>
               <label className="cursor-pointer">
                 <div className="px-4 py-2 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">Choose Image</div>
                 <input type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
               </label>
-              <p className="text-xs text-gray-600 text-center">You can add your logo later from Settings.</p>
+              <p className="text-xs text-[#999] text-center">You can add your logo later from Settings.</p>
             </div>
           </div>
         )}
@@ -310,14 +310,14 @@ export default function OnboardingPage() {
               <div key={key} className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">{label}</label>
                 <input value={barber[key as keyof typeof barber]} onChange={(e) => setBarber({ ...barber, [key]: e.target.value })} placeholder={placeholder}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
               </div>
             ))}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Barber Commission: <span className="text-gold">{barber.commission}%</span></label>
               <input type="range" min="30" max="70" step="5" value={barber.commission}
                 onChange={(e) => setBarber({ ...barber, commission: e.target.value })} className="w-full accent-gold" />
-              <p className="text-xs text-gray-500">Barber earns {barber.commission}%, shop keeps {100 - parseInt(barber.commission)}%</p>
+              <p className="text-xs text-[#777]">Barber earns {barber.commission}%, shop keeps {100 - parseInt(barber.commission)}%</p>
             </div>
           </div>
         )}
@@ -336,22 +336,22 @@ export default function OnboardingPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-gray-400">Name</label>
+                      <label className="text-xs text-[#555]">Name</label>
                       <input value={svc.name} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} placeholder="Haircut"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400">Price ($)</label>
+                      <label className="text-xs text-[#555]">Price ($)</label>
                       <input type="number" value={svc.price} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, price: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400">Duration (min)</label>
+                      <label className="text-xs text-[#555]">Duration (min)</label>
                       <input type="number" value={svc.duration} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, duration: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-gray-400">Category</label>
+                      <label className="text-xs text-[#555]">Category</label>
                       <select value={svc.category} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, category: e.target.value } : s))}
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
                         {SERVICE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
@@ -362,7 +362,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <button onClick={() => setServices([...services, { name: "", price: "", duration: "30", category: "Hair" }])}
-              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-gray-400 hover:text-gold hover:border-gold/30 transition-colors">
+              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-[#555] hover:text-gold hover:border-gold/30 transition-colors">
               <Plus size={16} /> Add Another Service
             </button>
           </div>
@@ -371,7 +371,7 @@ export default function OnboardingPage() {
         {step === 4 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Set your business hours</h2>
-            <p className="text-gray-500 text-sm">Full 24-hour scheduling — customers can only book within these hours.</p>
+            <p className="text-[#777] text-sm">Full 24-hour scheduling — customers can only book within these hours.</p>
             <div className="space-y-2">
               {DAYS.map((day, i) => (
                 <div key={day} className={cn("p-3 rounded-xl border transition-all", hours[i].open ? "border-gold/20 bg-gold/5" : "border-border bg-surface-raised")}>
@@ -381,7 +381,7 @@ export default function OnboardingPage() {
                       onChange={v => setHours(hours.map((h, j) => j === i ? { ...h, open: v } : h))}
                     />
                     <span className="text-sm font-medium text-white w-24">{day}</span>
-                    {!hours[i].open && <span className="text-xs text-gray-500">Closed</span>}
+                    {!hours[i].open && <span className="text-xs text-[#777]">Closed</span>}
                   </div>
                   {hours[i].open && (
                     <div className="flex items-center gap-2 ml-13">
@@ -389,7 +389,7 @@ export default function OnboardingPage() {
                         className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
                       </select>
-                      <span className="text-gray-500 text-xs">to</span>
+                      <span className="text-[#777] text-xs">to</span>
                       <select value={hours[i].end} onChange={(e) => setHours(hours.map((h, j) => j === i ? { ...h, end: e.target.value } : h))}
                         className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
@@ -413,14 +413,14 @@ export default function OnboardingPage() {
               <Check size={36} className="text-gold" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Your shop is ready! 🎉</h2>
-            <p className="text-gray-400 mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
+            <p className="text-[#555] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
             <div className="bg-surface border border-gold/20 rounded-2xl p-5 text-left my-6">
-              <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
+              <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
               <div className="flex items-center gap-2 bg-surface-raised rounded-xl px-3 py-2">
                 <p className="text-sm text-gold font-mono flex-1 truncate">{bookingUrl}</p>
-                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-gray-400 hover:text-gold flex-shrink-0"><Copy size={16} /></button>
+                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#555] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
               </div>
-              <p className="text-xs text-gray-600 mt-2">Goes live once your shop is approved.</p>
+              <p className="text-xs text-[#999] mt-2">Goes live once your shop is approved.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>

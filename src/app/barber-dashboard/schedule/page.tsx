@@ -27,7 +27,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-500/15 text-green-400 border-green-500/30",
   pending: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  completed: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+  completed: "bg-gray-500/15 text-[#555] border-gray-500/30",
   cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
   "no-show": "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -242,16 +242,16 @@ export default function BarberSchedulePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">My Schedule</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{monthLabel}</p>
+          <p className="text-[#777] text-sm mt-0.5">{monthLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all">
+          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#555] hover:text-white transition-all">
             <ChevronLeft size={18} />
           </button>
           <button onClick={() => { setWeekOffset(0); setSelectedDay(new Date().getDay()); }} className="px-3 py-1.5 text-sm text-gold border border-gold/30 rounded-xl hover:bg-gold/10 transition-all">
             Today
           </button>
-          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-gray-400 hover:text-white transition-all">
+          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#555] hover:text-white transition-all">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -266,7 +266,7 @@ export default function BarberSchedulePage() {
           const isSelected = i === selectedDay;
           return (
             <button key={i} onClick={() => setSelectedDay(i)} className={cn("flex flex-col items-center py-2.5 rounded-xl transition-all", isSelected ? "bg-gold/15 border border-gold/20" : "hover:bg-surface-raised")}>
-              <span className={cn("text-xs font-medium", isSelected ? "text-gold" : "text-gray-500")}>{DAYS[i]}</span>
+              <span className={cn("text-xs font-medium", isSelected ? "text-gold" : "text-[#777]")}>{DAYS[i]}</span>
               <span className={cn("text-lg font-bold mt-0.5", isSelected ? "text-gold" : isToday ? "text-white" : "text-gray-300")}>{date.getDate()}</span>
               {count > 0 && <span className={cn("w-1.5 h-1.5 rounded-full mt-1", isSelected ? "bg-gold" : "bg-gray-600")} />}
             </button>
@@ -276,9 +276,9 @@ export default function BarberSchedulePage() {
 
       {/* Day appointments */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">
           {selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
-          <span className="ml-2 text-gray-600 normal-case">({dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""})</span>
+          <span className="ml-2 text-[#999] normal-case">({dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""})</span>
         </h2>
 
         {loading ? (
@@ -287,8 +287,8 @@ export default function BarberSchedulePage() {
           </div>
         ) : dayAppts.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-            <Calendar size={40} className="text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-400">No appointments this day</p>
+            <Calendar size={40} className="text-[#aaa] mx-auto mb-3" />
+            <p className="text-[#555]">No appointments this day</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -302,7 +302,7 @@ export default function BarberSchedulePage() {
                   <div className="flex items-center gap-4">
                     <div className="text-center min-w-[56px]">
                       <p className="text-sm font-bold text-white">{appt.time_slot.split(" ")[0]}</p>
-                      <p className="text-xs text-gray-500">{appt.time_slot.split(" ")[1]}</p>
+                      <p className="text-xs text-[#777]">{appt.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="w-px h-10 bg-border" />
                     <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/20 flex items-center justify-center text-gold font-semibold text-sm flex-shrink-0">
@@ -310,7 +310,7 @@ export default function BarberSchedulePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-white">{appt.client_name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-[#777]">
                         {appt.services?.name ?? "Service"}
                         {appt.services?.duration_minutes ? ` · ${appt.services.duration_minutes}min` : ""}
                       </p>
@@ -371,9 +371,9 @@ export default function BarberSchedulePage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
-                <button onClick={() => !savingReject && setRejectModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => !savingReject && setRejectModal(null)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-surface-raised rounded-xl p-3 text-sm text-gray-400">
+              <div className="bg-surface-raised rounded-xl p-3 text-sm text-[#555]">
                 <span className="text-white font-medium">{rejectModal.appt.client_name}</span>
                 {" · "}{rejectModal.appt.services?.name ?? "Service"}
                 {" · "}{rejectModal.appt.time_slot}
@@ -385,15 +385,15 @@ export default function BarberSchedulePage() {
                   onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
                   rows={3}
                   placeholder="e.g. Running late, unavailable, customer no-call…"
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50 resize-none"
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none"
                 />
               </div>
               {rejectModal.appt.client_email ? (
-                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
+                <p className="text-xs text-[#777] bg-surface-raised rounded-xl px-3 py-2">
                   A cancellation email will be sent to {rejectModal.appt.client_email} with this reason. The shop owner is also notified.
                 </p>
               ) : (
-                <p className="text-xs text-gray-500 bg-surface-raised rounded-xl px-3 py-2">
+                <p className="text-xs text-[#777] bg-surface-raised rounded-xl px-3 py-2">
                   No email on file for this customer. Shop owner will be notified.
                 </p>
               )}
@@ -416,12 +416,12 @@ export default function BarberSchedulePage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Take Payment</h2>
-                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-surface-raised rounded-xl p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Amount due</span><span className="text-gold font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-gold font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
               <div className="space-y-2">
                 <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={() => markCashPaid(true)}>
@@ -431,7 +431,7 @@ export default function BarberSchedulePage() {
                   {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
                 </button>
                 {!paymentModal.client_email && (
-                  <p className="text-xs text-gray-500 text-center -mt-1">Customer has no email — can&apos;t send link</p>
+                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can&apos;t send link</p>
                 )}
                 <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipPaymentAndComplete}>
                   {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}

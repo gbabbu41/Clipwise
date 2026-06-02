@@ -119,7 +119,7 @@ export function BarberSidebar() {
         <Logo size="md" className="text-white" />
         <div className="flex items-center gap-1.5 mt-1">
           <Scissors size={11} className="text-gold" />
-          <p className="text-xs text-gray-500">{shop?.name ?? "Barber Portal"}</p>
+          <p className="text-xs text-[#777]">{shop?.name ?? "Barber Portal"}</p>
         </div>
       </div>
 
@@ -141,13 +141,13 @@ export function BarberSidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                 isActive
-                  ? "bg-gold/15 text-gold border border-gold/20"
-                  : "text-gray-400 hover:text-white hover:bg-surface-raised"
+                  ? "bg-white text-black border border-white"
+                  : "text-[#aaa] hover:text-white hover:bg-[#141414]"
               )}
             >
-              <Icon size={18} className={cn(isActive ? "text-gold" : "text-gray-500 group-hover:text-white")} />
+              <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
               <span className="flex-1">{item.label}</span>
-              {isActive && <ChevronRight size={14} className="text-gold" />}
+              {isActive && <ChevronRight size={14} className="text-black" />}
             </Link>
           );
         })}
@@ -155,8 +155,8 @@ export function BarberSidebar() {
         {/* Owner-also-barber: show a way back to the owner dashboard */}
         {profile?.role === "shop_owner" && (
           <Link href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-gray-400 hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
-            <Building2 size={18} className="text-gray-500 group-hover:text-white" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#555] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            <Building2 size={18} className="text-[#777] group-hover:text-white" />
             <span className="flex-1">Owner Dashboard</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -165,14 +165,14 @@ export function BarberSidebar() {
 
       <div className="px-3 py-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-semibold text-sm">
+          <div className="w-8 h-8 rounded-full bg-white border border-white flex items-center justify-center text-black font-semibold text-sm">
             {initial}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-gray-500">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
+            <p className="text-xs text-[#777]">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
           </div>
-          <button onClick={signOut} className="text-gray-500 hover:text-red-400 transition-colors">
+          <button onClick={signOut} className="text-[#777] hover:text-red-400 transition-colors">
             <LogOut size={16} />
           </button>
         </div>
@@ -206,7 +206,7 @@ export function BarberMobileNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                isActive ? "text-gold" : "text-gray-500"
+                isActive ? "text-gold" : "text-[#777]"
               )}
             >
               <Icon size={20} />

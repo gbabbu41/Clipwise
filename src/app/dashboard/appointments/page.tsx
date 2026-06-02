@@ -11,14 +11,14 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 import type { Service } from "@/lib/database.types";
 
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-gray-100 rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
 }
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -441,7 +441,7 @@ export default function AppointmentsPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-gray-500">No shop found. Set up your shop first.</p>
+        <p className="text-[#777]">No shop found. Set up your shop first.</p>
       </div>
     );
   }
@@ -452,8 +452,8 @@ export default function AppointmentsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage bookings and waitlist</p>
+          <h1 className="text-2xl font-bold text-white">Appointments</h1>
+          <p className="text-sm text-[#777] mt-0.5">Manage bookings and waitlist</p>
         </div>
         <Button onClick={() => setShowAddModal(true)}>+ Add Appointment</Button>
       </div>
@@ -461,24 +461,24 @@ export default function AppointmentsPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Today", value: todayApts.length, color: "text-gray-900" },
+          { label: "Total Today", value: todayApts.length, color: "text-white" },
           { label: "Confirmed", value: confirmed, color: "text-emerald-700" },
           { label: "No-Shows", value: noShows, color: "text-orange-700" },
           { label: "Revenue Today", value: formatCurrency(revenue), color: "text-black" },
         ].map(s => (
           <Card key={s.label} className="py-4 px-5">
-            <p className="text-xs text-gray-500">{s.label}</p>
+            <p className="text-xs text-[#777]">{s.label}</p>
             <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
           </Card>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-[#1e1e1e]">
         {(["appointments", "waitlist"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-900")}>
+              tab === t ? "border-black text-black" : "border-transparent text-[#777] hover:text-white")}>
             {t} {t === "waitlist" && waitlist.length > 0 && (
               <span className="ml-1 text-xs bg-black/10 text-black px-1.5 rounded-full">{waitlist.length}</span>
             )}
@@ -499,7 +499,7 @@ export default function AppointmentsPage() {
                   "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
                   dateFilter === f.key
                     ? "bg-gold text-black border-black"
-                    : "bg-gray-100 text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900",
+                    : "bg-[#141414] text-[#999] border-[#1e1e1e] hover:border-gray-400 hover:text-white",
                 )}
               >
                 {f.label}
@@ -511,12 +511,12 @@ export default function AppointmentsPage() {
           <div className="flex flex-wrap gap-3">
             <Input placeholder="Search client…" value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
             <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
+              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Barbers</option>
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/20">
+              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Statuses</option>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
@@ -526,7 +526,7 @@ export default function AppointmentsPage() {
           <div className="md:hidden space-y-3">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-4 space-y-3 animate-pulse">
+                <div key={i} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 space-y-3 animate-pulse">
                   <div className="flex justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-16 rounded-full" /></div>
                   <Skeleton className="h-3 w-40" />
                   <Skeleton className="h-3 w-28" />
@@ -534,28 +534,28 @@ export default function AppointmentsPage() {
                 </div>
               ))
             ) : filtered.length === 0 ? (
-              <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl py-12 text-center">
+              <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl py-12 text-center">
                 <p className="text-3xl mb-3">📅</p>
-                <p className="text-gray-900 font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
-                <p className="text-sm text-gray-500 px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                <p className="text-sm text-[#777] px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
               </div>
             ) : filtered.map(apt => (
               <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-4 active:bg-gray-100/50 cursor-pointer transition-colors space-y-3">
+                className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-gray-900 truncate">{apt.client_name}</p>
-                    <p className="text-xs text-gray-500">{apt.client_phone || "—"}</p>
+                    <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
+                    <p className="text-xs text-[#777]">{apt.client_phone || "—"}</p>
                   </div>
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border flex-shrink-0", getStatusColor(apt.status))}>
                     {apt.status}
                   </span>
                 </div>
                 <div className="space-y-1.5 text-sm">
-                  <p className="text-gray-900 font-medium">{shortFriendlyDate(apt.date)} · <span className="text-black">{apt.time_slot}</span></p>
-                  <p className="text-gray-500">{apt.services?.name ?? "—"} · <span className="text-black">{formatCurrency(apt.total_amount)}</span></p>
+                  <p className="text-white font-medium">{shortFriendlyDate(apt.date)} · <span className="text-black">{apt.time_slot}</span></p>
+                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="text-black">{formatCurrency(apt.total_amount)}</span></p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-gray-500">Barber: {apt.barbers?.name ?? "—"}</p>
+                    <p className="text-xs text-[#777]">Barber: {apt.barbers?.name ?? "—"}</p>
                     {(() => { const p = paymentBadge(apt); return <span className={cn("badge", p.bsClass)}>{p.label}</span>; })()}
                   </div>
                 </div>
@@ -582,9 +582,9 @@ export default function AppointmentsPage() {
 
           {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
           {loading ? (
-            <div className="hidden md:block bg-gray-50 shadow-sm border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-black shadow-sm border border-[#1e1e1e] rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-gray-200/50 last:border-0">
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-[#1e1e1e]/50 last:border-0">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-16" />
                 <div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-20" /></div>
@@ -600,10 +600,10 @@ export default function AppointmentsPage() {
             <Card className="hidden md:block p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-gray-200">
+                  <thead className="border-b border-[#1e1e1e]">
                     <tr>
                       {["Date", "Time", "Client", "Barber", "Service", "Status", "Amount", "Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-gray-500 px-4 py-3">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#777] px-4 py-3">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -611,27 +611,27 @@ export default function AppointmentsPage() {
                     {filtered.length === 0 ? (
                       <tr><td colSpan={8} className="text-center py-16">
                         <p className="text-3xl mb-3">📅</p>
-                        <p className="text-gray-900 font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
-                        <p className="text-sm text-gray-500">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                        <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
+                        <p className="text-sm text-[#777]">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
                       </td></tr>
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                        className="border-b border-gray-200/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{apt.time_slot}</td>
+                        className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
+                        <td className="px-4 py-3 text-sm text-[#999] whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
+                        <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-gray-900">{apt.client_name}</p>
-                          <p className="text-xs text-gray-500">{apt.client_phone}</p>
+                          <p className="text-sm text-white">{apt.client_name}</p>
+                          <p className="text-xs text-[#777]">{apt.client_phone}</p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{apt.services?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#999]">{apt.barbers?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#999]">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getStatusColor(apt.status))}>
                             {apt.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="text-sm text-gray-900">{formatCurrency(apt.total_amount)}</p>
+                          <p className="text-sm text-white">{formatCurrency(apt.total_amount)}</p>
                           {(() => { const p = paymentBadge(apt); return <span className={cn("badge mt-1", p.bsClass)}>{p.label}</span>; })()}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -639,7 +639,7 @@ export default function AppointmentsPage() {
                             const action = primaryAction(apt.status as AppStatus);
                             const rejectable = canReject(apt.status as AppStatus);
                             if (!action && !rejectable) {
-                              return <span className="text-xs text-gray-400">—</span>;
+                              return <span className="text-xs text-[#555]">—</span>;
                             }
                             return (
                               <div className="flex gap-1">
@@ -668,18 +668,18 @@ export default function AppointmentsPage() {
           <CardHeader><CardTitle>Waitlist ({waitlist.length})</CardTitle></CardHeader>
           <CardContent>
             {waitlist.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No one on the waitlist right now</p>
+              <p className="text-center text-[#777] py-8">No one on the waitlist right now</p>
             ) : (
               <div className="space-y-3">
                 {waitlist.map(wl => {
                   const svc = services.find(s => s.id === wl.service_id);
                   const barber = barbers.find(b => b.id === wl.barber_id);
                   return (
-                    <div key={wl.id} className="flex items-center justify-between p-4 bg-gray-100 rounded-xl border border-gray-200">
+                    <div key={wl.id} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{wl.client_name} · {svc?.name ?? "Any Service"}</p>
-                        <p className="text-xs text-gray-500">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
-                        <p className="text-xs text-gray-500 mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
+                        <p className="text-sm font-medium text-white">{wl.client_name} · {svc?.name ?? "Any Service"}</p>
+                        <p className="text-xs text-[#777]">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
+                        <p className="text-xs text-[#777] mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => showToast("Barber assigned")}>Assign</Button>
@@ -701,16 +701,16 @@ export default function AppointmentsPage() {
       {selectedApt && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedApt(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-gray-50 shadow-sm border-l border-gray-200 z-50 overflow-y-auto p-6 space-y-5">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Appointment Details</h2>
-              <button onClick={() => setSelectedApt(null)} className="text-gray-500 hover:text-gray-900 text-xl">✕</button>
+              <h2 className="text-lg font-bold text-white">Appointment Details</h2>
+              <button onClick={() => setSelectedApt(null)} className="text-[#777] hover:text-white text-xl">✕</button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-gray-100 rounded-xl border border-gray-200 space-y-1">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Client</p>
-                <p className="text-gray-900 font-semibold">{selectedApt.client_name}</p>
-                <p className="text-sm text-gray-600">{selectedApt.client_phone}</p>
+              <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-1">
+                <p className="text-xs text-[#777] uppercase tracking-wide">Client</p>
+                <p className="text-white font-semibold">{selectedApt.client_name}</p>
+                <p className="text-sm text-[#999]">{selectedApt.client_phone}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -721,9 +721,9 @@ export default function AppointmentsPage() {
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
                   { label: "Status", value: selectedApt.status },
                 ].map(item => (
-                  <div key={item.label} className="p-3 bg-gray-100 rounded-xl border border-gray-200">
-                    <p className="text-xs text-gray-500">{item.label}</p>
-                    <p className="text-sm text-gray-900 mt-0.5 capitalize">{item.value}</p>
+                  <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                    <p className="text-xs text-[#777]">{item.label}</p>
+                    <p className="text-sm text-white mt-0.5 capitalize">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -732,8 +732,8 @@ export default function AppointmentsPage() {
               {(() => {
                 const p = paymentBadge(selectedApt);
                 return (
-                  <div className="flex items-center justify-between p-3 bg-gray-100 rounded-xl border border-gray-200">
-                    <span className="text-xs text-gray-500 uppercase tracking-wide">Payment</span>
+                  <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                    <span className="text-xs text-[#777] uppercase tracking-wide">Payment</span>
                     <span className={cn("badge", p.bsClass)}>{p.label}</span>
                   </div>
                 );
@@ -788,7 +788,7 @@ export default function AppointmentsPage() {
                 </button>
               )}
               {selectedApt.payment_status === "refunded" && (
-                <p className="text-center text-xs text-gray-500">✓ Refunded</p>
+                <p className="text-center text-xs text-[#777]">✓ Refunded</p>
               )}
             </div>
           </div>
@@ -800,32 +800,32 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRejectModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Reject Appointment</h2>
-                <button onClick={() => setRejectModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
+                <button onClick={() => setRejectModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-gray-100 rounded-xl p-3 text-sm text-gray-500">
-                <span className="text-gray-900 font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {shortFriendlyDate(rejectModal.appt.date)} · {rejectModal.appt.time_slot}
+              <div className="bg-[#141414] rounded-xl p-3 text-sm text-[#777]">
+                <span className="text-white font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {shortFriendlyDate(rejectModal.appt.date)} · {rejectModal.appt.time_slot}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-600">Reason (optional)</label>
+                <label className="text-sm font-medium text-[#999]">Reason (optional)</label>
                 <textarea
                   value={rejectModal.reason}
                   onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
                   rows={3}
                   placeholder="e.g. Barber unavailable, fully booked, shop closed…"
-                  className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
                 />
               </div>
               {rejectModal.appt.client_email && (
-                <p className="text-xs text-gray-500 bg-gray-100 rounded-xl px-3 py-2">
-                  A cancellation email will be sent to <span className="text-gray-600">{rejectModal.appt.client_email}</span> with this reason.
+                <p className="text-xs text-[#777] bg-[#141414] rounded-xl px-3 py-2">
+                  A cancellation email will be sent to <span className="text-[#999]">{rejectModal.appt.client_email}</span> with this reason.
                 </p>
               )}
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRejectModal(null)}>Back</Button>
-                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-gray-900" loading={savingReject} onClick={rejectAppointment}>
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingReject} onClick={rejectAppointment}>
                   Reject & Notify
                 </Button>
               </div>
@@ -839,22 +839,22 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRefundModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Issue Refund</h2>
-                <button onClick={() => setRefundModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-white">Issue Refund</h2>
+                <button onClick={() => setRefundModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-gray-100 rounded-xl p-3 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-gray-900">{refundModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-gray-900">{refundModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Amount</span><span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+              <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{refundModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[#777]">
                 This refunds <span className="text-black font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
-                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-gray-900" loading={savingRefund} onClick={issueRefund}>
+                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingRefund} onClick={issueRefund}>
                   Refund ${(refundModal.total_amount ?? 0).toFixed(2)}
                 </Button>
               </div>
@@ -869,15 +869,15 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Take Payment</h2>
-                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-white">Take Payment</h2>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-gray-100 rounded-xl p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-gray-500">Client</span><span className="text-gray-900">{paymentModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="text-gray-900">{paymentModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Amount due</span><span className="text-black font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+              <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-black font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
               <div className="space-y-2">
@@ -891,7 +891,7 @@ export default function AppointmentsPage() {
                   {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
                 </button>
                 {!paymentModal.client_email && (
-                  <p className="text-xs text-gray-500 text-center -mt-1">Customer has no email — can't send link</p>
+                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can't send link</p>
                 )}
 
                 <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""}
@@ -900,7 +900,7 @@ export default function AppointmentsPage() {
                 </button>
               </div>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-[#777] text-center">
                 Cash and online links can be reconciled later from the appointment's payment badge.
               </p>
             </div>
@@ -913,10 +913,10 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Add Appointment</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-gray-900">✕</button>
+                <h2 className="text-lg font-bold text-white">Add Appointment</h2>
+                <button onClick={() => setShowAddModal(false)} className="text-[#777] hover:text-white">✕</button>
               </div>
               <Input label="Client Name *" value={addForm.client_name} onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone} onChange={e => setAddForm(p => ({ ...p, client_phone: formatPhone(e.target.value) }))} placeholder="506-555-0000" />

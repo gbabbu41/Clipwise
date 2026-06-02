@@ -40,7 +40,7 @@ export default function StripeConnectPage() {
             <Building2 size={26} className="text-gold" />
           </div>
           <h1 className="text-2xl font-bold text-white">Connect your bank account</h1>
-          <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+          <p className="text-[#555] text-sm mt-2 leading-relaxed">
             Receive customer payments directly to your bank. Powered by Stripe.
           </p>
         </div>
@@ -70,13 +70,13 @@ export default function StripeConnectPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="w-full text-center text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            className="w-full text-center text-xs text-[#777] hover:text-gray-300 transition-colors"
           >
             I&apos;ll do this later →
           </button>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">
+        <p className="text-center text-xs text-[#999] mt-6">
           You can complete this anytime from your billing settings.
         </p>
       </div>

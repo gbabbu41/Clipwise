@@ -176,7 +176,7 @@ export function Sidebar() {
           floating hamburger so it stops overlapping page headers. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-12 flex items-center gap-2 px-3 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-12 flex items-center gap-2 px-3 bg-[#0c0c0c]/95 backdrop-blur-md border-b border-[#1e1e1e] transition-transform duration-200",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
@@ -184,11 +184,11 @@ export function Sidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-700 hover:text-black hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors"
         >
           <Menu size={20} />
         </button>
-        <p className="text-sm font-medium text-gray-900 truncate flex-1">{shopName}</p>
+        <p className="text-sm font-medium text-white truncate flex-1">{shopName}</p>
       </div>
 
       {/* Backdrop — only renders on mobile when drawer is open */}
@@ -204,7 +204,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-50 w-64 h-screen flex flex-col bg-gray-50 border-r border-gray-200 transition-transform duration-200 md:translate-x-0",
+          "fixed left-0 top-0 z-50 w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -213,14 +213,14 @@ export function Sidebar() {
         type="button"
         onClick={() => setMobileOpen(false)}
         aria-label="Close menu"
-        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-gray-700 hover:text-black hover:bg-gray-100 transition-colors"
+        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors"
       >
         <Menu size={18} />
       </button>
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-gray-200">
+      <div className="px-6 py-5 border-b border-[#1e1e1e]">
         <Logo size="md" />
-        <p className="text-xs text-gray-500 mt-1">{shopName}</p>
+        <p className="text-xs text-[#777] mt-1">{shopName}</p>
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
@@ -243,9 +243,9 @@ export function Sidebar() {
           return visibleSections.map((section, sectionIdx) => (
             <div
               key={section.label}
-              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-gray-200")}
+              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-[#1e1e1e]")}
             >
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold px-3 mb-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-[#555] font-semibold px-3 mb-1.5">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -259,14 +259,17 @@ export function Sidebar() {
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isActive
-                          ? "bg-[#E8E2D5] text-black border border-[#D6CDB8]"
-                          : "text-gray-700 hover:text-black hover:bg-gray-100"
+                          ? "bg-white text-black border border-white"
+                          : "text-[#aaa] hover:text-white hover:bg-[#141414]"
                       )}
                     >
-                      <Icon size={18} className={cn(isActive ? "text-black" : "text-gray-500 group-hover:text-black")} />
+                      <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
                       <span className="flex-1">{item.label}</span>
                       {item.badge && unreadCount > 0 && (
-                        <span className="bg-black text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        <span className={cn(
+                          "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
+                          isActive ? "bg-black text-white" : "bg-white text-black"
+                        )}>
                           {unreadCount}
                         </span>
                       )}
@@ -282,8 +285,8 @@ export function Sidebar() {
         {/* Owner-also-barber: prominent switch to barber view */}
         {isAlsoBarber && (
           <Link href="/barber-dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-gray-700 hover:text-black hover:bg-gray-100 mt-4 pt-4 border-t border-gray-200">
-            <Scissors size={18} className="text-gray-500 group-hover:text-black" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#aaa] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#1e1e1e]">
+            <Scissors size={18} className="text-[#777] group-hover:text-white" />
             <span className="flex-1">My Barber View</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -291,16 +294,16 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="px-3 py-4 border-t border-gray-200">
+      <div className="px-3 py-4 border-t border-[#1e1e1e]">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center text-white font-semibold text-sm">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm">
             {initial}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-            <p className="text-xs text-gray-500 truncate capitalize">{profile?.role ?? "owner"}</p>
+            <p className="text-sm font-medium text-white truncate">{displayName}</p>
+            <p className="text-xs text-[#777] truncate capitalize">{profile?.role ?? "owner"}</p>
           </div>
-          <button onClick={signOut} className="text-gray-500 hover:text-red-500 transition-colors">
+          <button onClick={signOut} className="text-[#777] hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
         </div>
@@ -321,7 +324,7 @@ export function MobileNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-50 border-t border-gray-200 px-2 py-2 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0c0c0c] border-t border-[#1e1e1e] px-2 py-2 safe-area-bottom">
       <div className="flex items-center justify-around">
         {mobileItems.map((item) => {
           const Icon = item.icon;
@@ -332,7 +335,7 @@ export function MobileNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                isActive ? "text-black" : "text-gray-500 hover:text-gray-700"
+                isActive ? "text-white" : "text-[#777] hover:text-white"
               )}
             >
               <Icon size={20} />

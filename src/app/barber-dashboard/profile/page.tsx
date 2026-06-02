@@ -43,7 +43,7 @@ export default function BarberProfilePage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">My Profile</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Update your info shown to clients</p>
+        <p className="text-[#777] text-sm mt-0.5">Update your info shown to clients</p>
       </div>
 
       <div className="bg-surface border border-border rounded-2xl p-6">
@@ -54,7 +54,7 @@ export default function BarberProfilePage() {
           </div>
           <div>
             <p className="font-semibold text-white text-lg">{form.name || "Your Name"}</p>
-            <p className="text-sm text-gray-500">{shop?.name ?? "Barber"}</p>
+            <p className="text-sm text-[#777]">{shop?.name ?? "Barber"}</p>
             {barber?.rating ? (
               <p className="text-sm text-gold mt-0.5">★ {barber.rating.toFixed(1)} · {barber.total_reviews} reviews</p>
             ) : null}
@@ -69,7 +69,7 @@ export default function BarberProfilePage() {
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50"
               placeholder="e.g. Marcus Johnson"
             />
           </div>
@@ -80,7 +80,7 @@ export default function BarberProfilePage() {
               type="email"
               value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50"
               placeholder="you@example.com"
             />
           </div>
@@ -91,22 +91,22 @@ export default function BarberProfilePage() {
               value={form.bio}
               onChange={e => setForm({ ...form, bio: e.target.value })}
               rows={4}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none"
               placeholder="Tell clients a bit about yourself — specialties, years of experience, style..."
             />
           </div>
 
           {/* Account info (read-only) */}
           <div className="bg-surface-raised rounded-xl p-4 space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account Info</p>
-            <div className="flex items-center gap-2 text-sm text-gray-400">
+            <p className="text-xs font-semibold text-[#777] uppercase tracking-wider">Account Info</p>
+            <div className="flex items-center gap-2 text-sm text-[#555]">
               <User size={13} />
               <span>{user?.email}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">Commission:</span>
+              <span className="text-[#777]">Commission:</span>
               <span className="text-gold font-semibold">{barber?.commission_percent ?? 50}%</span>
-              <span className="text-gray-600 text-xs">(set by shop owner)</span>
+              <span className="text-[#999] text-xs">(set by shop owner)</span>
             </div>
           </div>
 

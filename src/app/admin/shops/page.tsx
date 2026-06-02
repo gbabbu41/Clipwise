@@ -130,26 +130,26 @@ export default function AdminShopsPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-white">Shops</h1>
-        <p className="text-sm text-gray-500 mt-0.5">All registered shops on the platform</p>
+        <p className="text-sm text-[#777] mt-0.5">All registered shops on the platform</p>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search shops or owners..."
-            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50"
+            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50"
           />
-          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"><X size={14} /></button>}
+          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white"><X size={14} /></button>}
         </div>
         <div className="flex gap-2 flex-wrap">
           {STATUS_FILTERS.map(f => (
             <button key={f} onClick={() => setStatusFilter(f)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border",
-                statusFilter === f ? "bg-gold text-black border-gold" : "border-border text-gray-400 hover:text-white hover:border-gray-500")}>
+                statusFilter === f ? "bg-gold text-black border-gold" : "border-border text-[#555] hover:text-white hover:border-gray-500")}>
               {f === "all" ? `All (${shops.length})` : `${f} (${shops.filter(s => s.status === f).length})`}
             </button>
           ))}
@@ -162,10 +162,10 @@ export default function AdminShopsPage() {
         <Card>
           <div className="py-20 text-center space-y-3">
             <div className="w-16 h-16 bg-surface-raised rounded-2xl flex items-center justify-center mx-auto">
-              <Store size={28} className="text-gray-600" />
+              <Store size={28} className="text-[#999]" />
             </div>
             <p className="font-semibold text-white">No shops {statusFilter !== "all" ? `with status "${statusFilter}"` : "registered yet"}</p>
-            <p className="text-sm text-gray-500 max-w-xs mx-auto">
+            <p className="text-sm text-[#777] max-w-xs mx-auto">
               {statusFilter !== "all" ? "Try a different filter." : "Share the signup link so barbershops can register."}
             </p>
             {statusFilter !== "all" && (
@@ -181,7 +181,7 @@ export default function AdminShopsPage() {
                 <thead>
                   <tr className="border-b border-border">
                     {["Shop Name", "Owner", "City", "Plan", "Status", "Joined", "Actions"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-gray-400 px-3 py-2 whitespace-nowrap">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#555] px-3 py-2 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -190,18 +190,18 @@ export default function AdminShopsPage() {
                     <tr key={s.id} className="border-b border-border/50 hover:bg-surface-raised/30 transition-colors">
                       <td className="px-3 py-3">
                         <p className="text-sm font-medium text-white">{s.name}</p>
-                        <p className="text-xs text-gray-500">/book/{s.slug}</p>
+                        <p className="text-xs text-[#777]">/book/{s.slug}</p>
                       </td>
                       <td className="px-3 py-3">
                         <p className="text-sm text-gray-300">{s.users?.name ?? "—"}</p>
-                        <p className="text-xs text-gray-500">{s.users?.email ?? s.email}</p>
+                        <p className="text-xs text-[#777]">{s.users?.email ?? s.email}</p>
                       </td>
                       <td className="px-3 py-3 text-sm text-gray-300 whitespace-nowrap">{s.city}{s.province ? `, ${s.province}` : ""}</td>
                       <td className="px-3 py-3">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-gray-300 capitalize">{s.subscription_plan}</span>
                       </td>
                       <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{formatDate(s.created_at.slice(0, 10))}</td>
+                      <td className="px-3 py-3 text-xs text-[#777] whitespace-nowrap">{formatDate(s.created_at.slice(0, 10))}</td>
                       <td className="px-3 py-3">
                         <div className="flex gap-1 flex-wrap">
                           {s.status === "pending" && <>
@@ -236,15 +236,15 @@ export default function AdminShopsPage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Shop</h2>
-                <button onClick={() => setRejectModal(null)} className="text-gray-400 hover:text-white text-xl">✕</button>
+                <button onClick={() => setRejectModal(null)} className="text-[#555] hover:text-white text-xl">✕</button>
               </div>
-              <p className="text-sm text-gray-400">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Provide a reason:</p>
+              <p className="text-sm text-[#555]">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Provide a reason:</p>
               <textarea
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
                 rows={4}
                 placeholder="e.g. Incomplete business information..."
-                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/50 resize-none"
+                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none"
               />
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRejectModal(null)}>Cancel</Button>

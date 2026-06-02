@@ -30,7 +30,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
       >
         <Building2 size={14} className="text-gold flex-shrink-0" />
         <span className="flex-1 text-sm text-white truncate">{shop?.name ?? "Select Shop"}</span>
-        <ChevronsUpDown size={14} className="text-gray-500 flex-shrink-0" />
+        <ChevronsUpDown size={14} className="text-[#777] flex-shrink-0" />
       </button>
       {open && (
         <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl overflow-hidden">
@@ -41,7 +41,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-surface-raised transition-colors text-left"
             >
               <Check size={13} className={cn("flex-shrink-0", s.id === shop?.id ? "text-gold" : "text-transparent")} />
-              <span className={cn("truncate", s.id === shop?.id ? "text-white font-medium" : "text-gray-400")}>{s.name}</span>
+              <span className={cn("truncate", s.id === shop?.id ? "text-white font-medium" : "text-[#555]")}>{s.name}</span>
               {s.status === "pending" && <span className="ml-auto text-xs text-orange-400">Pending</span>}
               {s.status === "suspended" && <span className="ml-auto text-xs text-red-400">Suspended</span>}
             </button>

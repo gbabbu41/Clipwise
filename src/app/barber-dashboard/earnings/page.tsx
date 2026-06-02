@@ -50,7 +50,7 @@ export default function BarberEarningsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Earnings</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <p className="text-[#777] text-sm mt-0.5">
             {summary ? `${summary.commissionPercent}% commission rate` : "Your pay breakdown"}
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function BarberEarningsPage() {
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 text-sm rounded-lg transition-all capitalize",
-                period === p ? "bg-gold/15 text-gold border border-gold/20" : "text-gray-400 hover:text-white"
+                period === p ? "bg-gold/15 text-gold border border-gold/20" : "text-[#555] hover:text-white"
               )}
             >
               {p === "week" ? "Week" : p === "month" ? "Month" : "Year"}
@@ -80,18 +80,18 @@ export default function BarberEarningsPage() {
         ].map(stat => (
           <div key={stat.label} className="bg-surface border border-border rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-gray-500">{stat.label}</p>
+              <p className="text-xs text-[#777]">{stat.label}</p>
               <stat.icon size={16} className="text-gold" />
             </div>
             <p className="text-2xl font-bold text-white">{loading ? "—" : stat.value}</p>
-            <p className="text-xs text-gray-600 mt-1">{stat.sub}</p>
+            <p className="text-xs text-[#999] mt-1">{stat.sub}</p>
           </div>
         ))}
       </div>
 
       {/* Transaction list */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">
           Transactions · {periodLabel}
         </h2>
 
@@ -101,23 +101,23 @@ export default function BarberEarningsPage() {
           </div>
         ) : transactions.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-            <DollarSign size={40} className="text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-400">No transactions {periodLabel.toLowerCase()}</p>
+            <DollarSign size={40} className="text-[#aaa] mx-auto mb-3" />
+            <p className="text-[#555]">No transactions {periodLabel.toLowerCase()}</p>
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-2xl overflow-hidden">
             <div className="grid grid-cols-4 px-4 py-2.5 border-b border-border">
               {["Date", "Client", "Service", "Amount / Commission"].map(h => (
-                <p key={h} className="text-xs font-semibold text-gray-500">{h}</p>
+                <p key={h} className="text-xs font-semibold text-[#777]">{h}</p>
               ))}
             </div>
             {transactions.map(tx => {
               const commission = tx.commission_amount ?? ((tx.amount * (summary?.commissionPercent ?? 50)) / 100);
               return (
                 <div key={tx.id} className="grid grid-cols-4 px-4 py-3 border-b border-border/50 last:border-0 hover:bg-surface-raised transition-colors">
-                  <p className="text-sm text-gray-400">{new Date(tx.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</p>
+                  <p className="text-sm text-[#555]">{new Date(tx.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</p>
                   <p className="text-sm text-white">{tx.client_name ?? "—"}</p>
-                  <p className="text-sm text-gray-400">{tx.service_name ?? "—"}</p>
+                  <p className="text-sm text-[#555]">{tx.service_name ?? "—"}</p>
                   <div>
                     <p className="text-sm font-medium text-white">${(tx.amount + (tx.tip ?? 0)).toFixed(0)}</p>
                     <p className="text-xs text-gold">↳ ${commission.toFixed(0)} yours</p>

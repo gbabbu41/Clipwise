@@ -13,9 +13,9 @@ const CATEGORIES = ["All", "Hair Care", "Beard Care", "Styling", "Skincare", "To
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-gray-100 border border-gray-200 rounded-xl px-5 py-3 text-sm text-gray-900 shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-black">✓</span>{message}
-      <button onClick={onClose} className="text-gray-500 hover:text-gray-900 ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -139,8 +139,8 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage products and stock levels</p>
+          <h1 className="text-2xl font-bold text-white">Inventory</h1>
+          <p className="text-sm text-[#777] mt-0.5">Manage products and stock levels</p>
         </div>
         <Button onClick={() => setShowAdd(true)}>
           <Plus size={16} /> Add Product
@@ -150,21 +150,21 @@ export default function InventoryPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <p className="text-xs text-gray-500">Total Products</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{items.length}</p>
+          <p className="text-xs text-[#777]">Total Products</p>
+          <p className="text-2xl font-bold text-white mt-1">{items.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-500">Retail Value</p>
+          <p className="text-xs text-[#777]">Retail Value</p>
           <p className="text-2xl font-bold text-black mt-1">{formatCurrency(totalValue)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-gray-500">Cost Value</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalCost)}</p>
+          <p className="text-xs text-[#777]">Cost Value</p>
+          <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalCost)}</p>
         </Card>
         <Card className={cn("p-4", lowStock.length > 0 && "border-red-500/30")}>
-          <p className="text-xs text-gray-500">Low Stock</p>
+          <p className="text-xs text-[#777]">Low Stock</p>
           <div className="flex items-center gap-2 mt-1">
-            <p className={cn("text-2xl font-bold", lowStock.length > 0 ? "text-red-400" : "text-gray-900")}>{lowStock.length}</p>
+            <p className={cn("text-2xl font-bold", lowStock.length > 0 ? "text-red-400" : "text-white")}>{lowStock.length}</p>
             {lowStock.length > 0 && <AlertTriangle size={16} className="text-red-400" />}
           </div>
         </Card>
@@ -190,12 +190,12 @@ export default function InventoryPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full bg-gray-50 shadow-sm border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
+            className="w-full bg-black shadow-sm border border-[#1e1e1e] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -204,7 +204,7 @@ export default function InventoryPage() {
               key={cat}
               onClick={() => setCatFilter(cat)}
               className={cn("px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors",
-                catFilter === cat ? "bg-black/10 border-black text-black" : "border-gray-200 text-gray-500 hover:text-gray-900")}
+                catFilter === cat ? "bg-black/10 border-black text-black" : "border-[#1e1e1e] text-[#777] hover:text-white")}
             >
               {cat}
             </button>
@@ -216,12 +216,12 @@ export default function InventoryPage() {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="py-12 text-center text-gray-500">Loading...</div>
+            <div className="py-12 text-center text-[#777]">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
-              <Package size={40} className="mx-auto mb-4 text-gray-600" />
-              <p className="text-gray-900 font-medium">No products found</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <Package size={40} className="mx-auto mb-4 text-[#999]" />
+              <p className="text-white font-medium">No products found</p>
+              <p className="text-sm text-[#777] mt-1">
                 {items.length === 0 ? "Add your first product to get started" : "Try adjusting your filters"}
               </p>
               {items.length === 0 && (
@@ -234,9 +234,9 @@ export default function InventoryPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
+                  <tr className="border-b border-[#1e1e1e]">
                     {["Product", "Category", "Retail", "Cost", "Stock", "Value", "Actions"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-gray-500 px-3 py-3">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-3">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -245,43 +245,43 @@ export default function InventoryPage() {
                     const isEditing = editRow?.id === item.id;
                     const isLow = item.quantity <= item.low_stock_threshold;
                     return (
-                      <tr key={item.id} className={cn("border-b border-gray-200/50 hover:bg-gray-100/20 transition-colors", isLow && "bg-red-500/5")}>
+                      <tr key={item.id} className={cn("border-b border-[#1e1e1e]/50 hover:bg-[#141414]/20 transition-colors", isLow && "bg-red-500/5")}>
                         {isEditing ? (
                           <>
                             <td className="px-3 py-2">
                               <input value={editRow.name} onChange={e => setEditRow(p => p && ({ ...p, name: e.target.value }))}
-                                className="w-full bg-gray-50 border border-gray-400 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none" />
+                                className="w-full bg-black border border-gray-400 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
                             <td className="px-3 py-2">
                               <select value={editRow.category} onChange={e => setEditRow(p => p && ({ ...p, category: e.target.value }))}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none">
+                                className="bg-black border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none">
                                 {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
                               </select>
                             </td>
                             <td className="px-3 py-2">
                               <input value={editRow.price} onChange={e => setEditRow(p => p && ({ ...p, price: e.target.value }))} type="number" min="0" step="0.01"
-                                className="w-20 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none" />
+                                className="w-20 bg-black border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
                             <td className="px-3 py-2">
                               <input value={editRow.cost_price} onChange={e => setEditRow(p => p && ({ ...p, cost_price: e.target.value }))} type="number" min="0" step="0.01"
-                                className="w-20 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none" />
+                                className="w-20 bg-black border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1">
                                 <input value={editRow.quantity} onChange={e => setEditRow(p => p && ({ ...p, quantity: e.target.value }))} type="number" min="0"
-                                  className="w-16 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-900 focus:outline-none" />
-                                <span className="text-xs text-gray-500">/ {editRow.low_stock_threshold}</span>
+                                  className="w-16 bg-black border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
+                                <span className="text-xs text-[#777]">/ {editRow.low_stock_threshold}</span>
                               </div>
                             </td>
                             <td className="px-3 py-2">
-                              <span className="text-sm text-gray-500">—</span>
+                              <span className="text-sm text-[#777]">—</span>
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1">
                                 <button onClick={saveEdit} className="text-emerald-400 hover:text-emerald-300 transition-colors p-1" title="Save">
                                   <Check size={16} />
                                 </button>
-                                <button onClick={() => setEditRow(null)} className="text-gray-500 hover:text-gray-900 transition-colors p-1" title="Cancel">
+                                <button onClick={() => setEditRow(null)} className="text-[#777] hover:text-white transition-colors p-1" title="Cancel">
                                   <X size={16} />
                                 </button>
                               </div>
@@ -292,35 +292,35 @@ export default function InventoryPage() {
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-2">
                                 {isLow && <AlertTriangle size={13} className="text-red-400 flex-shrink-0" />}
-                                <span className="text-sm text-gray-900 font-medium">{item.name}</span>
+                                <span className="text-sm text-white font-medium">{item.name}</span>
                               </div>
                             </td>
                             <td className="px-3 py-3">
                               <Badge variant="outline" className="text-xs">{item.category ?? "—"}</Badge>
                             </td>
                             <td className="px-3 py-3 text-sm text-black">{formatCurrency(item.price)}</td>
-                            <td className="px-3 py-3 text-sm text-gray-500">{item.cost_price ? formatCurrency(item.cost_price) : "—"}</td>
+                            <td className="px-3 py-3 text-sm text-[#777]">{item.cost_price ? formatCurrency(item.cost_price) : "—"}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-2">
-                                <button onClick={() => adjustQty(item.id, -1)} className="w-6 h-6 rounded-md bg-gray-100 border border-gray-200 text-gray-900 hover:border-red-400/50 hover:text-red-400 flex items-center justify-center text-xs transition-colors">
+                                <button onClick={() => adjustQty(item.id, -1)} className="w-6 h-6 rounded-md bg-[#141414] border border-[#1e1e1e] text-white hover:border-red-400/50 hover:text-red-400 flex items-center justify-center text-xs transition-colors">
                                   <TrendingDown size={12} />
                                 </button>
-                                <span className={cn("text-sm font-bold w-8 text-center", isLow ? "text-red-400" : "text-gray-900")}>
+                                <span className={cn("text-sm font-bold w-8 text-center", isLow ? "text-red-400" : "text-white")}>
                                   {item.quantity}
                                 </span>
-                                <button onClick={() => adjustQty(item.id, 1)} className="w-6 h-6 rounded-md bg-gray-100 border border-gray-200 text-gray-900 hover:border-emerald-400/50 hover:text-emerald-400 flex items-center justify-center text-xs transition-colors">
+                                <button onClick={() => adjustQty(item.id, 1)} className="w-6 h-6 rounded-md bg-[#141414] border border-[#1e1e1e] text-white hover:border-emerald-400/50 hover:text-emerald-400 flex items-center justify-center text-xs transition-colors">
                                   <TrendingUp size={12} />
                                 </button>
-                                <span className="text-xs text-gray-600">/ {item.low_stock_threshold}</span>
+                                <span className="text-xs text-[#999]">/ {item.low_stock_threshold}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-sm text-gray-600">{formatCurrency(item.price * item.quantity)}</td>
+                            <td className="px-3 py-3 text-sm text-[#999]">{formatCurrency(item.price * item.quantity)}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-1">
-                                <button onClick={() => startEdit(item)} className="text-gray-500 hover:text-gray-900 transition-colors p-1" title="Edit">
+                                <button onClick={() => startEdit(item)} className="text-[#777] hover:text-white transition-colors p-1" title="Edit">
                                   <Pencil size={14} />
                                 </button>
-                                <button onClick={() => setDeleteId(item.id)} className="text-gray-500 hover:text-red-400 transition-colors p-1" title="Delete">
+                                <button onClick={() => setDeleteId(item.id)} className="text-[#777] hover:text-red-400 transition-colors p-1" title="Delete">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
@@ -342,43 +342,43 @@ export default function InventoryPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAdd(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Add Product</h2>
-                <button onClick={() => setShowAdd(false)} className="text-gray-500 hover:text-gray-900 text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-white">Add Product</h2>
+                <button onClick={() => setShowAdd(false)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-xs text-gray-500">Product Name *</label>
+                  <label className="text-xs text-[#777]">Product Name *</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. American Crew Pomade"
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Category</label>
+                  <label className="text-xs text-[#777]">Category</label>
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black">
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-black">
                     {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Retail Price ($)</label>
+                  <label className="text-xs text-[#777]">Retail Price ($)</label>
                   <input value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Cost Price ($)</label>
+                  <label className="text-xs text-[#777]">Cost Price ($)</label>
                   <input value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Starting Qty</label>
+                  <label className="text-xs text-[#777]">Starting Qty</label>
                   <input value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))} type="number" min="0" placeholder="0"
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Low Stock Alert At</label>
+                  <label className="text-xs text-[#777]">Low Stock Alert At</label>
                   <input value={form.low_stock_threshold} onChange={e => setForm(p => ({ ...p, low_stock_threshold: e.target.value }))} type="number" min="0" placeholder="5"
-                    className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
@@ -395,9 +395,9 @@ export default function InventoryPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setDeleteId(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-50 shadow-sm border border-gray-200 rounded-2xl p-6 w-full max-w-sm space-y-4">
-              <h2 className="text-lg font-bold text-gray-900">Delete Product?</h2>
-              <p className="text-sm text-gray-500">This product will be permanently deleted and removed from your inventory.</p>
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4">
+              <h2 className="text-lg font-bold text-white">Delete Product?</h2>
+              <p className="text-sm text-[#777]">This product will be permanently deleted and removed from your inventory.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setDeleteId(null)}>Cancel</Button>
                 <Button variant="danger" className="flex-1" onClick={() => deleteItem(deleteId)}>Delete</Button>
