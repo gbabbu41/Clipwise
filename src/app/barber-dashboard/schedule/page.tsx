@@ -274,6 +274,59 @@ export default function BarberSchedulePage() {
         })}
       </div>
 
+      {/* Stats for the selected day — same v2 reference treatment as the
+          owner appointments page. Tiles reflect the currently-selected
+          weekday, so tapping a different day in the week strip rolls the
+          stats with it. */}
+      {(() => {
+        type Tone = "muted" | "up" | "down";
+        const dayConfirmed = dayAppts.filter(a => a.status === "confirmed").length;
+        const dayNoShows   = dayAppts.filter(a => a.status === "no-show").length;
+        const dayRevenue   = dayAppts.filter(a => a.status === "completed").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+        const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
+          {
+            label: "Bookings",
+            value: String(dayAppts.length),
+            sub: dayAppts.length > 0 ? `${dayAppts.length} on schedule` : "Day is open",
+            tone: "muted",
+          },
+          {
+            label: "Confirmed",
+            value: String(dayConfirmed),
+            sub: dayConfirmed > 0 ? "↑ Locked in" : "None yet",
+            tone: dayConfirmed > 0 ? "up" : "muted",
+          },
+          {
+            label: "No-Shows",
+            value: String(dayNoShows),
+            sub: dayNoShows > 0 ? "Follow up" : "↑ All clear",
+            tone: dayNoShows > 0 ? "down" : "up",
+          },
+          {
+            label: "Revenue",
+            value: formatCurrency(dayRevenue),
+            sub: dayRevenue > 0 ? "↑ From completed" : "Awaiting completes",
+            tone: dayRevenue > 0 ? "up" : "muted",
+          },
+        ];
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {stats.map(s => (
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+                <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+                <p className={cn(
+                  "text-[11px] mt-2 font-medium",
+                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "down"  && "text-red-400",
+                  s.tone === "muted" && "text-[#777]",
+                )}>{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Day appointments */}
       <div>
         <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">

@@ -430,11 +430,19 @@ export default function AppointmentsPage() {
     return apts;
   }, [appointments, barberFilter, statusFilter, search]);
 
-  const today = formatDateForDb(new Date());
-  const todayApts = appointments.filter(a => a.date === today);
-  const confirmed = todayApts.filter(a => a.status === "confirmed").length;
-  const noShows = todayApts.filter(a => a.status === "no-show").length;
-  const revenue = todayApts.filter(a => a.status === "completed").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  // Stats reflect the SAME date-filter scope as the list below — owner
+  // picks "This Week" and the stat tiles roll up the whole week, not just
+  // today. Labels swap accordingly so "Total Today" reads as e.g.
+  // "Total Tomorrow" / "This Week" / "Upcoming" / "All Time".
+  const scopeApts = appointments;
+  const confirmed = scopeApts.filter(a => a.status === "confirmed").length;
+  const noShows = scopeApts.filter(a => a.status === "no-show").length;
+  const revenue = scopeApts.filter(a => a.status === "completed").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const scopeLabel = DATE_FILTERS.find(f => f.key === dateFilter)?.label ?? "Today";
+  const totalLabel = dateFilter === "today" ? "Total Today"
+    : dateFilter === "tomorrow" ? "Total Tomorrow"
+    : `Total · ${scopeLabel}`;
+  const revLabel = dateFilter === "today" ? "Revenue Today" : `Revenue · ${scopeLabel}`;
 
   const TIME_SLOTS = ["8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM","4:00 PM","4:30 PM","5:00 PM","5:30 PM","6:00 PM","6:30 PM","7:00 PM"];
 
@@ -465,9 +473,9 @@ export default function AppointmentsPage() {
           type Tone = "muted" | "up" | "down";
           const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
             {
-              label: "Total Today",
-              value: String(todayApts.length),
-              sub: todayApts.length > 0 ? `${todayApts.length} booking${todayApts.length !== 1 ? "s" : ""}` : "No bookings",
+              label: totalLabel,
+              value: String(scopeApts.length),
+              sub: scopeApts.length > 0 ? `${scopeApts.length} booking${scopeApts.length !== 1 ? "s" : ""}` : "No bookings",
               tone: "muted",
             },
             {
@@ -483,7 +491,7 @@ export default function AppointmentsPage() {
               tone: noShows > 0 ? "down" : "up",
             },
             {
-              label: "Revenue Today",
+              label: revLabel,
               value: formatCurrency(revenue),
               sub: revenue > 0 ? "↑ From completed" : "Awaiting completes",
               tone: revenue > 0 ? "up" : "muted",
