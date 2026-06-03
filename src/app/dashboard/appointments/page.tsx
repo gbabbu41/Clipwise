@@ -490,18 +490,26 @@ export default function AppointmentsPage() {
               tone: revenue > 0 ? "up" : "muted",
             },
           ];
-          return stats.map(s => (
-            <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
-              <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
-              <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
-              <p className={cn(
-                "text-[11px] mt-2 font-medium",
-                s.tone === "up"    && "text-emerald-400",
-                s.tone === "down"  && "text-red-400",
-                s.tone === "muted" && "text-[#777]",
-              )}>{s.sub}</p>
-            </div>
-          ));
+          return stats.map(s => {
+            // Revenue tile gets the green money color on the headline value
+            // — matches the in-row prices everywhere else.
+            const isMoney = s.label.startsWith("Revenue");
+            return (
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+                <p className={cn(
+                  "text-[28px] font-extrabold mt-2 font-mono tracking-tighter leading-none",
+                  isMoney ? "text-emerald-400" : "text-white",
+                )}>{s.value}</p>
+                <p className={cn(
+                  "text-[11px] mt-2 font-medium",
+                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "down"  && "text-red-400",
+                  s.tone === "muted" && "text-[#777]",
+                )}>{s.sub}</p>
+              </div>
+            );
+          });
         })()}
       </div>
 
@@ -585,7 +593,7 @@ export default function AppointmentsPage() {
                 </div>
                 <div className="space-y-1.5 text-sm">
                   <p className="text-white font-medium">{shortFriendlyDate(apt.date)} · <span className="text-white">{apt.time_slot}</span></p>
-                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="text-white">{formatCurrency(apt.total_amount)}</span></p>
+                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</span></p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-[#777]">Barber: {apt.barbers?.name ?? "—"}</p>
                     {(() => { const p = paymentBadge(apt); return <span className={cn("badge", p.bsClass)}>{p.label}</span>; })()}
@@ -663,7 +671,7 @@ export default function AppointmentsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="text-sm text-white">{formatCurrency(apt.total_amount)}</p>
+                          <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</p>
                           {(() => { const p = paymentBadge(apt); return <span className={cn("badge mt-1", p.bsClass)}>{p.label}</span>; })()}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -755,7 +763,12 @@ export default function AppointmentsPage() {
                 ].map(item => (
                   <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <p className="text-xs text-[#777]">{item.label}</p>
-                    <p className="text-sm text-white mt-0.5 capitalize">{item.value}</p>
+                    <p className={cn(
+                      "text-sm mt-0.5 capitalize",
+                      item.label === "Amount"
+                        ? "font-mono font-semibold text-emerald-400"
+                        : "text-white",
+                    )}>{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -879,10 +892,10 @@ export default function AppointmentsPage() {
               <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{refundModal.client_name}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="font-mono font-bold text-emerald-400">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
               <p className="text-sm text-[#777]">
-                This refunds <span className="text-white font-semibold">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
+                This refunds <span className="font-mono font-semibold text-emerald-400">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
@@ -909,7 +922,7 @@ export default function AppointmentsPage() {
               <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-white font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="font-mono font-bold text-emerald-400">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
               <div className="space-y-2">
