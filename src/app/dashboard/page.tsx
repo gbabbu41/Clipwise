@@ -447,10 +447,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Date Filter — hidden on mobile (the reference layout doesn't show
-          it; mobile defaults to Today and digs in via the calendar / list
-          below if a different range is needed). */}
-      <div className="hidden md:flex flex-wrap gap-2 mb-6 items-center relative">
+      {/* Date Filter — shown on every viewport. */}
+      <div className="flex flex-wrap gap-2 mb-6 items-center relative">
         <select
           value={dateFilter}
           onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
