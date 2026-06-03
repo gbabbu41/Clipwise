@@ -11,10 +11,9 @@ export function Logo({ className, size = "md" }: LogoProps) {
   return (
     <span
       className={cn(
-        // ClipWise v2: extra-bold, slight negative tracking, white by default.
-        // Body type is Sora, no special heading face — same family as
-        // surrounding UI for visual consistency.
-        "font-extrabold tracking-tight leading-none text-white",
+        // ClipWise v2: extra-bold, slight negative tracking, all-caps,
+        // white by default. Same Sora face as surrounding UI.
+        "font-extrabold tracking-tight leading-none text-white uppercase",
         size === "sm" && "text-[19px]",
         size === "md" && "text-2xl",
         size === "lg" && "text-4xl",
