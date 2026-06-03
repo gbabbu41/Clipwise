@@ -120,14 +120,15 @@ export default function WaitlistPage() {
     if (entry) showToast(`${entry.client_name} marked as ${status}`);
   };
 
-  // ── Seat flow ───────────────────────────────────────────────────────────
-  // "Seat" turns a waitlist entry into a real appointment, assigns a barber
-  // (preferring whoever's idle right now), and lets the owner take payment
-  // in the same step. Closes the loop from queue -> chair -> paid.
+  // ── Call / Confirm flow ──────────────────────────────────────────────────
+  // "Call" opens a tiny picker — owner / front desk confirms which barber
+  // is taking the walk-in (+ service). Confirm writes a real appointment
+  // as "confirmed" (so it shows up on /dashboard/appointments and the
+  // barber's schedule with the regular Complete / Reject action buttons),
+  // and removes the row from the active queue.
   const [seatEntry, setSeatEntry] = useState<WaitlistEntry | null>(null);
   const [seatBarberId, setSeatBarberId] = useState("");
   const [seatServiceId, setSeatServiceId] = useState("");
-  const [seatPaymentMethod, setSeatPaymentMethod] = useState<"cash" | "skip">("cash");
   const [seatSaving, setSeatSaving] = useState(false);
 
   // Surface barbers who don't currently have an in-progress appt — a soft
@@ -152,12 +153,10 @@ export default function WaitlistPage() {
 
   const openSeatModal = (entry: WaitlistEntry) => {
     setSeatEntry(entry);
-    // Preselect: barber on the waitlist row, else first idle barber, else
-    // first barber. Service: row's service, else first service.
+    // Preselect: barber on the row, else first idle, else first barber.
     const idleBarber = barbers.find(b => !busyBarberIds.has(b.id));
     setSeatBarberId(entry.barber_id ?? idleBarber?.id ?? barbers[0]?.id ?? "");
     setSeatServiceId(entry.service_id ?? services[0]?.id ?? "");
-    setSeatPaymentMethod("cash");
   };
 
   const confirmSeat = async () => {
@@ -167,12 +166,10 @@ export default function WaitlistPage() {
     setSeatSaving(true);
     const today = new Date().toISOString().slice(0, 10);
     const slot = nextHalfHourSlot();
-    // Cash -> appointment goes in completed + paid in one go
-    // Skip -> completed but unpaid (owner can take payment later from
-    //         the appointments page)
-    const apptStatus: "completed" = "completed";
-    const paymentStatus = seatPaymentMethod === "cash" ? "paid" : "unpaid";
-    const paymentMethod = seatPaymentMethod === "cash" ? "cash" : null;
+    // Walk-in lands on /dashboard/appointments as `confirmed` so the
+    // barber's portal shows the regular Complete + Reject buttons.
+    // Payment is left untouched — collected later from the appointment
+    // side panel via the standard Take Payment / PaymentModal flow.
     const { error: apptErr } = await supabase.from("appointments").insert({
       shop_id: shop.id,
       barber_id: seatBarberId,
@@ -181,10 +178,8 @@ export default function WaitlistPage() {
       client_phone: seatEntry.client_phone ?? null,
       date: today,
       time_slot: slot,
-      status: apptStatus,
+      status: "confirmed",
       total_amount: price,
-      payment_status: paymentStatus,
-      payment_method: paymentMethod,
       notes: `Walk-in from waitlist`,
     });
     if (apptErr) {
@@ -192,20 +187,18 @@ export default function WaitlistPage() {
       showToast(`Failed: ${apptErr.message}`);
       return;
     }
+    // Mark the waitlist row served so it drops out of the active queue.
     await supabase.from("waitlist").update({ status: "served" }).eq("id", seatEntry.id);
     setEntries(prev => prev.map(e => e.id === seatEntry.id ? { ...e, status: "served" } : e));
     setSeatSaving(false);
     const barberName = barbers.find(b => b.id === seatBarberId)?.name ?? "barber";
-    showToast(
-      seatPaymentMethod === "cash"
-        ? `${seatEntry.client_name} seated with ${barberName} · ${formatCurrency(price)} paid`
-        : `${seatEntry.client_name} seated with ${barberName} · Payment pending`
-    );
+    showToast(`${seatEntry.client_name} confirmed with ${barberName}`);
     setSeatEntry(null);
   };
   // displayTimeToDb is imported alongside dbTimeToDisplay so the round-up
   // helper has both sides of the conversion available.
   void displayTimeToDb;
+  void formatCurrency;
 
   const active = entries.filter(e => e.status === "waiting" || e.status === "called");
   const history = entries.filter(e => e.status === "served" || e.status === "removed");
@@ -319,17 +312,12 @@ export default function WaitlistPage() {
 
                     {/* Actions */}
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
-                      {entry.status === "waiting" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus(entry.id, "called")}>
-                          <Bell size={13} /> Call
-                        </Button>
-                      )}
-                      {/* Seat replaces "Served" — opens the assign-and-pay
-                          modal instead of just flipping the status. Visible
-                          on both waiting + called so owner can skip the
-                          Call step for walk-ups already at the chair. */}
+                      {/* Call opens the barber-assign modal directly. On
+                          confirm an appointment is created on /dashboard/
+                          appointments and the barber's schedule, and this
+                          row drops out of the active queue. */}
                       <Button size="sm" onClick={() => openSeatModal(entry)}>
-                        <Check size={13} /> Seat &amp; Pay
+                        <Bell size={13} /> Call
                       </Button>
                       <button
                         onClick={() => updateStatus(entry.id, "removed")}
@@ -440,17 +428,16 @@ export default function WaitlistPage() {
         </>
       )}
 
-      {/* Seat & Pay modal — assigns a barber from the active roster (idle
-          ones surfaced first), confirms / changes service, picks a payment
-          method, then writes a completed appointment + flips the waitlist
-          row to served. One click closes the queue -> chair -> paid loop. */}
+      {/* Call modal — pick a barber + service, confirm, done. The walk-in
+          becomes an appointment on /dashboard/appointments and the barber
+          gets the regular Complete / Reject controls there. */}
       {seatEntry && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => !seatSaving && setSeatEntry(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Seat {seatEntry.client_name}</h2>
+                <h2 className="text-lg font-bold text-white">Confirm {seatEntry.client_name}</h2>
                 <button onClick={() => !seatSaving && setSeatEntry(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
 
@@ -506,32 +493,12 @@ export default function WaitlistPage() {
                 </select>
               </div>
 
-              {/* Payment method */}
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Payment</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { key: "cash" as const,  emoji: "💵", label: "Cash now",  hint: "Mark paid" },
-                    { key: "skip" as const,  emoji: "⏳", label: "Pay later", hint: "Unpaid" },
-                  ]).map(opt => {
-                    const selected = seatPaymentMethod === opt.key;
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setSeatPaymentMethod(opt.key)}
-                        className={cn(
-                          "p-3 rounded-xl border text-left transition-colors",
-                          selected ? "bg-white text-black border-white" : "bg-[#141414] border-[#1e1e1e] hover:border-white"
-                        )}
-                      >
-                        <p className="text-sm font-semibold">{opt.emoji} {opt.label}</p>
-                        <p className={cn("text-[10px] mt-0.5", selected ? "text-black/60" : "text-[#777]")}>{opt.hint}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <p className="text-xs text-[#777]">
+                Confirming creates an appointment for the barber on today&apos;s
+                schedule. They&apos;ll see <span className="text-white">Complete</span> and
+                <span className="text-white"> Reject</span> on their row, and you can take payment
+                from the appointment side panel any time.
+              </p>
 
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setSeatEntry(null)}>Cancel</Button>
@@ -541,7 +508,7 @@ export default function WaitlistPage() {
                   disabled={!seatBarberId || !seatServiceId}
                   onClick={confirmSeat}
                 >
-                  {seatPaymentMethod === "cash" ? "Seat & Mark Paid" : "Seat & Continue"}
+                  Confirm Walk-In
                 </Button>
               </div>
             </div>
