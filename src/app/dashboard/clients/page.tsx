@@ -63,14 +63,72 @@ export default function ClientsPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
+  // Builds the client list from BOTH the `clients` table (people the owner
+  // manually added or whose stats have been touched by a completed appt)
+  // AND distinct customers harvested from `appointments` (the booking flow
+  // doesn't write to `clients`, so a shop with only bookings would have an
+  // empty `clients` table). Dedupe by email > phone > name (same pattern
+  // as the messages picker). Synthetic rows get a `synthetic:` id prefix
+  // so write ops (notes, points, etc.) can detect and skip them.
   const loadClients = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [{ data }, { data: nsData }] = await Promise.all([
+    const [{ data: clientRows }, { data: apptRows }, { data: nsData }] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false }),
+      supabase
+        .from("appointments")
+        .select("client_name, client_email, client_phone, date, status, total_amount")
+        .eq("shop_id", shop.id)
+        .order("date", { ascending: false }),
       supabase.from("appointments").select("client_name").eq("shop_id", shop.id).eq("status", "no-show"),
     ]);
-    if (data) setClients(data);
+
+    const keyOf = (c: { id?: string; email?: string | null; phone?: string | null; name?: string | null }) =>
+      (c.email && `e:${c.email.toLowerCase()}`)
+      || (c.phone && `p:${c.phone.replace(/\D/g, "")}`)
+      || (c.name && `n:${c.name.toLowerCase()}`)
+      || (c.id ?? "");
+
+    const merged = new Map<string, Client>();
+    for (const row of (clientRows ?? []) as Client[]) merged.set(keyOf(row), row);
+
+    // Aggregate per-customer stats from appointments for synthetic rows
+    const apptAgg: Record<string, { visits: number; spent: number; last: string; tag: string }> = {};
+    for (const a of (apptRows ?? [])) {
+      if (!a.client_name) continue;
+      const k = keyOf({ name: a.client_name, email: a.client_email, phone: a.client_phone });
+      if (merged.has(k)) continue;
+      const agg = apptAgg[k] ?? { visits: 0, spent: 0, last: "", tag: "New" };
+      if (a.status === "completed") {
+        agg.visits++;
+        agg.spent += a.total_amount ?? 0;
+      }
+      if (a.date > agg.last) agg.last = a.date;
+      apptAgg[k] = agg;
+    }
+    for (const a of (apptRows ?? []) as { client_name: string; client_email?: string | null; client_phone?: string | null }[]) {
+      if (!a.client_name) continue;
+      const k = keyOf({ name: a.client_name, email: a.client_email, phone: a.client_phone });
+      if (merged.has(k)) continue;
+      const agg = apptAgg[k] ?? { visits: 0, spent: 0, last: "", tag: "New" };
+      merged.set(k, {
+        id: `synthetic:${k}`,
+        shop_id: shop.id,
+        name: a.client_name,
+        email: a.client_email ?? undefined,
+        phone: a.client_phone ?? undefined,
+        total_visits: agg.visits,
+        total_spent: agg.spent,
+        last_visit: agg.last || undefined,
+        tag: agg.visits >= 3 ? "Returning" : "New",
+      } as unknown as Client);
+    }
+
+    const list = Array.from(merged.values()).sort(
+      (a, b) => (b.total_visits ?? 0) - (a.total_visits ?? 0)
+    );
+    setClients(list);
+
     if (nsData) {
       const counts: Record<string, number> = {};
       for (const r of nsData) counts[r.client_name] = (counts[r.client_name] ?? 0) + 1;
@@ -256,20 +314,52 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total Clients", value: stats.total, color: "text-white" },
-          { label: "VIP Clients", value: stats.vip, color: "text-orange-400" },
-          { label: "At Risk", value: stats.atRisk, color: "text-red-400" },
-          { label: "New", value: stats.newThisMonth, color: "text-emerald-400" },
-        ].map(s => (
-          <Card key={s.label} className="py-4 px-5">
-            <p className="text-xs text-[#777]">{s.label}</p>
-            <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
-          </Card>
-        ))}
-      </div>
+      {/* Stats — v2 reference treatment */}
+      {(() => {
+        type Tone = "muted" | "up" | "down";
+        const tiles: { label: string; value: string; sub: string; tone: Tone }[] = [
+          {
+            label: "Total Clients",
+            value: String(stats.total),
+            sub: stats.total > 0 ? `${stats.total} on file` : "No clients yet",
+            tone: "muted",
+          },
+          {
+            label: "VIP",
+            value: String(stats.vip),
+            sub: stats.vip > 0 ? "↑ Top spenders" : "None yet",
+            tone: stats.vip > 0 ? "up" : "muted",
+          },
+          {
+            label: "At Risk",
+            value: String(stats.atRisk),
+            sub: stats.atRisk > 0 ? "Follow up" : "↑ All healthy",
+            tone: stats.atRisk > 0 ? "down" : "up",
+          },
+          {
+            label: "New",
+            value: String(stats.newThisMonth),
+            sub: stats.newThisMonth > 0 ? "↑ Fresh faces" : "None yet",
+            tone: stats.newThisMonth > 0 ? "up" : "muted",
+          },
+        ];
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {tiles.map(s => (
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+                <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+                <p className={cn(
+                  "text-[11px] mt-2 font-medium",
+                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "down"  && "text-red-400",
+                  s.tone === "muted" && "text-[#777]",
+                )}>{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Filter & Search */}
       <div className="flex flex-wrap items-center gap-4">
