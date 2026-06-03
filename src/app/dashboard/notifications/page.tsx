@@ -28,6 +28,14 @@ const TYPE_ICONS: Record<string, string> = {
   booking: "🎉", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
 };
 
+// Notification messages stored before we started formatting dates
+// server-side still contain raw 'YYYY-MM-DD'. Detect that pattern at
+// render time and swap it for the friendly form ('July 4' / 'Today' /
+// 'Tomorrow' / 'Monday'). Cheap to run, idempotent, no DB writes.
+function humanizeMessage(msg: string): string {
+  return msg.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (iso) => friendlyDate(iso));
+}
+
 // Hybrid timestamp: relative for the last hour ("Just now", "12m ago",
 // "3h ago"), context-aware date for anything older ("Today, 2:30 PM",
 // "Yesterday, 9:15 AM", "Monday, 4:00 PM", "June 27").
@@ -209,7 +217,7 @@ export default function NotificationsPage() {
                           <span className="w-2 h-2 rounded-full bg-white flex-shrink-0 mt-1.5" />
                         )}
                       </div>
-                      <p className="text-sm text-[#777] mt-1 leading-relaxed">{notif.message}</p>
+                      <p className="text-sm text-[#777] mt-1 leading-relaxed">{humanizeMessage(notif.message)}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <span className={cn(
                           "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border",
