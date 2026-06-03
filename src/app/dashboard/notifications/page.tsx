@@ -12,7 +12,9 @@ import type { Notification } from "@/lib/database.types";
 
 // Type → accent color used for the avatar tile + left border on unread rows.
 const TYPE_ACCENT: Record<string, { bg: string; border: string; text: string }> = {
-  booking:      { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400" },
+  // booking pill stays neutral white so 'new booking' doesn't compete with
+  // the celebratory 🎉 icon and the price in the title for attention.
+  booking:      { bg: "bg-white/10",       border: "border-white/40",      text: "text-white" },
   cancellation: { bg: "bg-red-500/10",     border: "border-red-500/40",     text: "text-red-400" },
   "no-show":    { bg: "bg-amber-500/10",   border: "border-amber-500/40",   text: "text-amber-400" },
   review:       { bg: "bg-white/10",       border: "border-white/40",       text: "text-white" },
