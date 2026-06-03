@@ -521,36 +521,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Quick Actions — single row of 4 dark squares on every
-                  viewport. Walk-in opens the existing modal; POS / Reports /
-                  Settings deep-link. */}
-              <div>
-                <div className="cw-row-hdr">
-                  <div className="cw-row-title">Quick Actions</div>
-                </div>
-                <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                  <button type="button" onClick={() => setShowAddWalkin(true)} className="cw-qa">
-                    <div className="cw-qa-icon">➕</div>
-                    <div className="cw-qa-label">Walk In</div>
-                  </button>
-                  <Link href="/dashboard/pos" className="cw-qa">
-                    <div className="cw-qa-icon">💳</div>
-                    <div className="cw-qa-label">POS</div>
-                  </Link>
-                  <Link href="/dashboard/analytics" className="cw-qa">
-                    <div className="cw-qa-icon">📊</div>
-                    <div className="cw-qa-label">Reports</div>
-                  </Link>
-                  <Link href="/dashboard/settings" className="cw-qa">
-                    <div className="cw-qa-icon">⚙️</div>
-                    <div className="cw-qa-label">Settings</div>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Stats grid — 2x2 on mobile, 4-up on tablet+. The previous
-                  prominent "Total Appointments + Revenue" row was removed
-                  because the white hero card above already shows Revenue. */}
+              {/* Stats grid — sits directly under the revenue hero so all
+                  the KPIs form a single visual block. 2x2 on mobile, 4-up
+                  on tablet+. */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard
                   label="Appointments"
@@ -584,6 +557,33 @@ export default function DashboardPage() {
                   icon={Star} color="purple"
                   cta={totalReviews === 0 ? { text: "Invite reviews", href: "/dashboard/reviews" } : undefined}
                 />
+              </div>
+
+              {/* Quick Actions — sits one step BELOW the stats grid so the
+                  KPIs are read first, actions taken second. Single row of
+                  4 dark squares on every viewport. */}
+              <div className="pt-2">
+                <div className="cw-row-hdr">
+                  <div className="cw-row-title">Quick Actions</div>
+                </div>
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                  <button type="button" onClick={() => setShowAddWalkin(true)} className="cw-qa">
+                    <div className="cw-qa-icon">➕</div>
+                    <div className="cw-qa-label">Walk In</div>
+                  </button>
+                  <Link href="/dashboard/pos" className="cw-qa">
+                    <div className="cw-qa-icon">💳</div>
+                    <div className="cw-qa-label">POS</div>
+                  </Link>
+                  <Link href="/dashboard/analytics" className="cw-qa">
+                    <div className="cw-qa-icon">📊</div>
+                    <div className="cw-qa-label">Reports</div>
+                  </Link>
+                  <Link href="/dashboard/settings" className="cw-qa">
+                    <div className="cw-qa-icon">⚙️</div>
+                    <div className="cw-qa-label">Settings</div>
+                  </Link>
+                </div>
               </div>
             </div>
           );
