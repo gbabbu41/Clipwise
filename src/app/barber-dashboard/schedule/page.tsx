@@ -46,7 +46,7 @@ function getWeekDates(offset = 0) {
 
 /** Same context-aware action as the owner-side appointments page. */
 function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
-  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-success" };
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-primary" };
   if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-primary" };
   return null;
 }

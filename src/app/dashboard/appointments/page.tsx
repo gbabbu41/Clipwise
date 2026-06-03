@@ -34,7 +34,10 @@ type AppStatus = typeof STATUS_OPTIONS[number];
  * or confirmed (i.e. not yet finalized). Centralizing this here means the
  * mobile card list, desktop table, and side panel all stay in sync. */
 function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
-  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-success" };
+  // Approve / Confirm goes blue (btn-primary) — the design system's
+  // "primary positive action" color. Reserves btn-success for "completed"
+  // states elsewhere.
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-primary" };
   if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-primary" };
   return null;
 }

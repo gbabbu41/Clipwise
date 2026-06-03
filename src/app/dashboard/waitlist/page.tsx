@@ -159,6 +159,16 @@ export default function WaitlistPage() {
     setSeatServiceId(entry.service_id ?? services[0]?.id ?? "");
   };
 
+  // Map waitlist row id → linked appointment id. Set on Confirm so the
+  // waitlist row stays visible with Complete / Reject buttons pointing at
+  // the right appointment. Lost on refresh; that's fine — on refresh the
+  // waitlist row goes back to "called" and you can re-link by name.
+  const [linkedAppts, setLinkedAppts] = useState<Record<string, string>>({});
+
+  // Confirmation overlay shown after successful seat-confirm. Slides in,
+  // auto-dismisses after 2.5s.
+  const [confirmedNotice, setConfirmedNotice] = useState<{ name: string; barber: string } | null>(null);
+
   const confirmSeat = async () => {
     if (!seatEntry || !shop || !seatBarberId || !seatServiceId) return;
     const svc = services.find(s => s.id === seatServiceId);
@@ -166,11 +176,9 @@ export default function WaitlistPage() {
     setSeatSaving(true);
     const today = new Date().toISOString().slice(0, 10);
     const slot = nextHalfHourSlot();
-    // Walk-in lands on /dashboard/appointments as `confirmed` so the
-    // barber's portal shows the regular Complete + Reject buttons.
-    // Payment is left untouched — collected later from the appointment
-    // side panel via the standard Take Payment / PaymentModal flow.
+    const apptId = crypto.randomUUID();
     const { error: apptErr } = await supabase.from("appointments").insert({
+      id: apptId,
       shop_id: shop.id,
       barber_id: seatBarberId,
       service_id: seatServiceId,
@@ -187,18 +195,66 @@ export default function WaitlistPage() {
       showToast(`Failed: ${apptErr.message}`);
       return;
     }
-    // Mark the waitlist row served so it drops out of the active queue.
-    await supabase.from("waitlist").update({ status: "served" }).eq("id", seatEntry.id);
-    setEntries(prev => prev.map(e => e.id === seatEntry.id ? { ...e, status: "served" } : e));
+    // Flip waitlist row to `called` (in-service) and remember the linked
+    // appointment id so the row's Complete / Reject buttons can act on it.
+    await supabase.from("waitlist").update({
+      status: "called",
+      barber_id: seatBarberId,
+      service_id: seatServiceId,
+    }).eq("id", seatEntry.id);
+    setEntries(prev => prev.map(e => e.id === seatEntry.id
+      ? { ...e, status: "called", barber_id: seatBarberId, service_id: seatServiceId }
+      : e
+    ));
+    setLinkedAppts(prev => ({ ...prev, [seatEntry.id]: apptId }));
     setSeatSaving(false);
     const barberName = barbers.find(b => b.id === seatBarberId)?.name ?? "barber";
-    showToast(`${seatEntry.client_name} confirmed with ${barberName}`);
+    setConfirmedNotice({ name: seatEntry.client_name, barber: barberName });
+    setTimeout(() => setConfirmedNotice(null), 2800);
     setSeatEntry(null);
   };
-  // displayTimeToDb is imported alongside dbTimeToDisplay so the round-up
-  // helper has both sides of the conversion available.
+
+  // Find the appointment row backing a waitlist entry. Uses the in-memory
+  // linkedAppts map first (fast path right after Confirm); falls back to a
+  // DB lookup by name + barber + today (handles page refresh).
+  const apptIdFor = async (entry: WaitlistEntry): Promise<string | null> => {
+    const cached = linkedAppts[entry.id];
+    if (cached) return cached;
+    if (!shop) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("appointments")
+      .select("id")
+      .eq("shop_id", shop.id)
+      .eq("date", today)
+      .eq("client_name", entry.client_name)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  };
+
+  const completeFromWaitlist = async (entry: WaitlistEntry) => {
+    const apptId = await apptIdFor(entry);
+    if (!apptId) { showToast("Couldn't find the appointment — open Appointments to finish."); return; }
+    await supabase.from("appointments").update({ status: "completed" }).eq("id", apptId);
+    await supabase.from("waitlist").update({ status: "served" }).eq("id", entry.id);
+    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "served" } : e));
+    showToast(`${entry.client_name} completed`);
+  };
+
+  const rejectFromWaitlist = async (entry: WaitlistEntry) => {
+    const apptId = await apptIdFor(entry);
+    if (apptId) {
+      await supabase.from("appointments").update({ status: "cancelled" }).eq("id", apptId);
+    }
+    await supabase.from("waitlist").update({ status: "removed" }).eq("id", entry.id);
+    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "removed" } : e));
+    showToast(`${entry.client_name} rejected`);
+  };
+
+  // Imports kept available for the helpers above:
   void displayTimeToDb;
-  void formatCurrency;
 
   const active = entries.filter(e => e.status === "waiting" || e.status === "called");
   const history = entries.filter(e => e.status === "served" || e.status === "removed");
@@ -228,25 +284,55 @@ export default function WaitlistPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-xs text-[#777]">Currently Waiting</p>
-          <p className="text-2xl font-bold text-white mt-1">{active.filter(e => e.status === "waiting").length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-[#777]">Being Served</p>
-          <p className="text-2xl font-bold text-white mt-1">{active.filter(e => e.status === "called").length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-[#777]">Avg Wait Time</p>
-          <p className="text-2xl font-bold text-white mt-1">{avgWait > 0 ? `${avgWait}m` : "—"}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-[#777]">Served Today</p>
-          <p className="text-2xl font-bold text-emerald-400 mt-1">{history.filter(e => e.status === "served").length}</p>
-        </Card>
-      </div>
+      {/* Stats — v2 reference treatment */}
+      {(() => {
+        type Tone = "muted" | "up" | "down";
+        const waitingCount = active.filter(e => e.status === "waiting").length;
+        const inServiceCount = active.filter(e => e.status === "called").length;
+        const servedCount = history.filter(e => e.status === "served").length;
+        const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
+          {
+            label: "Waiting",
+            value: String(waitingCount),
+            sub: waitingCount > 0 ? `${waitingCount} in queue` : "Empty",
+            tone: "muted",
+          },
+          {
+            label: "In Service",
+            value: String(inServiceCount),
+            sub: inServiceCount > 0 ? "↑ At the chair" : "None yet",
+            tone: inServiceCount > 0 ? "up" : "muted",
+          },
+          {
+            label: "Avg Wait",
+            value: avgWait > 0 ? `${avgWait}m` : "—",
+            sub: avgWait > 30 ? "Long" : avgWait > 0 ? "Healthy" : "No data",
+            tone: avgWait > 30 ? "down" : avgWait > 0 ? "up" : "muted",
+          },
+          {
+            label: "Served Today",
+            value: String(servedCount),
+            sub: servedCount > 0 ? "↑ Done & gone" : "None yet",
+            tone: servedCount > 0 ? "up" : "muted",
+          },
+        ];
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {stats.map(s => (
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+                <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+                <p className={cn(
+                  "text-[11px] mt-2 font-medium",
+                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "down"  && "text-red-400",
+                  s.tone === "muted" && "text-[#777]",
+                )}>{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Active Queue */}
       <Card>
@@ -310,21 +396,39 @@ export default function WaitlistPage() {
                       </div>
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions — flow depends on whether the row is still
+                        waiting or has been confirmed (status = called, an
+                        appointment exists for the barber). */}
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
-                      {/* Call opens the barber-assign modal directly. On
-                          confirm an appointment is created on /dashboard/
-                          appointments and the barber's schedule, and this
-                          row drops out of the active queue. */}
-                      <Button size="sm" onClick={() => openSeatModal(entry)}>
-                        <Bell size={13} /> Call
-                      </Button>
-                      <button
-                        onClick={() => updateStatus(entry.id, "removed")}
-                        className="text-xs text-[#777] hover:text-red-400 transition-colors text-center py-1"
-                      >
-                        <X size={13} className="inline mr-1" />Remove
-                      </button>
+                      {entry.status === "waiting" && (
+                        <button type="button"
+                          onClick={() => openSeatModal(entry)}
+                          className="btn btn-primary btn-sm">
+                          <Bell size={13} /> Call
+                        </button>
+                      )}
+                      {entry.status === "called" && (
+                        <>
+                          <button type="button"
+                            onClick={() => completeFromWaitlist(entry)}
+                            className="btn btn-primary btn-sm">
+                            <Check size={13} /> Complete
+                          </button>
+                          <button type="button"
+                            onClick={() => rejectFromWaitlist(entry)}
+                            className="btn btn-danger btn-sm">
+                            <X size={13} /> Reject
+                          </button>
+                        </>
+                      )}
+                      {entry.status === "waiting" && (
+                        <button
+                          onClick={() => updateStatus(entry.id, "removed")}
+                          className="text-xs text-[#777] hover:text-red-400 transition-colors text-center py-1"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -428,6 +532,22 @@ export default function WaitlistPage() {
         </>
       )}
 
+      {/* Big toast — confirms the walk-in moved to /dashboard/appointments.
+          Sits above the side-toast so it can't be missed. Auto-dismisses. */}
+      {confirmedNotice && (
+        <div className="fixed inset-x-0 top-20 z-[110] flex justify-center pointer-events-none">
+          <div className="bg-emerald-500/15 border border-emerald-500/40 backdrop-blur-md rounded-2xl px-6 py-4 max-w-sm w-[calc(100%-2rem)] shadow-2xl animate-fade-in">
+            <p className="text-emerald-300 font-semibold flex items-center gap-2">
+              <Check size={16} /> Moved to Appointments
+            </p>
+            <p className="text-sm text-white mt-1">
+              <span className="font-bold">{confirmedNotice.name}</span> is now confirmed with <span className="font-bold">{confirmedNotice.barber}</span>.
+            </p>
+            <p className="text-xs text-[#777] mt-1.5">Complete or reject the appointment from this list or from /dashboard/appointments.</p>
+          </div>
+        </div>
+      )}
+
       {/* Call modal — pick a barber + service, confirm, done. The walk-in
           becomes an appointment on /dashboard/appointments and the barber
           gets the regular Complete / Reject controls there. */}
@@ -501,15 +621,17 @@ export default function WaitlistPage() {
               </p>
 
               <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setSeatEntry(null)}>Cancel</Button>
-                <Button
-                  className="flex-1"
-                  loading={seatSaving}
-                  disabled={!seatBarberId || !seatServiceId}
-                  onClick={confirmSeat}
-                >
-                  Confirm Walk-In
-                </Button>
+                <button type="button"
+                  className="btn btn-outline-secondary flex-1"
+                  onClick={() => setSeatEntry(null)}>
+                  Cancel
+                </button>
+                <button type="button"
+                  className="btn btn-primary flex-1"
+                  disabled={!seatBarberId || !seatServiceId || seatSaving}
+                  onClick={confirmSeat}>
+                  {seatSaving ? "Saving…" : "Confirm Walk-In"}
+                </button>
               </div>
             </div>
           </div>
