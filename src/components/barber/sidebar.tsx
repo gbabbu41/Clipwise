@@ -58,12 +58,15 @@ export function BarberSidebar() {
     return () => window.removeEventListener("cw-open-sidebar", open);
   }, []);
 
-  // Hide the mobile top bar on scroll down, reveal on scroll up.
+  // Hide on scroll-down; also track "scrolled at all" so the hairline
+  // border below the bar fades in only once content slides under it.
   const [topBarHidden, setTopBarHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     let lastY = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
+      setScrolled(y > 4);
       const delta = y - lastY;
       if (Math.abs(delta) < 6) return;
       if (delta > 0 && y > 40) setTopBarHidden(true);
@@ -83,7 +86,8 @@ export function BarberSidebar() {
           on the left, avatar pill on the right. Slides off on scroll-down. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >

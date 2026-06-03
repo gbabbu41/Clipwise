@@ -123,13 +123,16 @@ export function Sidebar() {
   }, []);
 
   // Hide the mobile top bar when scrolling down, reveal when scrolling up.
-  // (Plain useEffect + scroll listener; no heavy animation library needed
-  // for one transform on a single element.)
+  // Also track whether the page has scrolled at all — used to fade in the
+  // hairline below the bar (iOS-style "chrome edge appears once content
+  // slides under it"), so at scroll-top the bar dissolves into the page.
   const [topBarHidden, setTopBarHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     let lastY = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
+      setScrolled(y > 4);
       const delta = y - lastY;
       if (Math.abs(delta) < 6) return; // ignore micro-scrolls / rubber-banding
       if (delta > 0 && y > 40) setTopBarHidden(true);
@@ -187,7 +190,10 @@ export function Sidebar() {
           scroll-up. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          // Border invisible at scroll-top, fades to a hairline once
+          // content starts scrolling under the bar.
+          scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
