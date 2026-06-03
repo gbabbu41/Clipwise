@@ -87,11 +87,8 @@ export function BarberSidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Shop name as the mobile top-bar anchor (PC sidebar keeps the
-            CLIPWISE wordmark). Truncates on long names. */}
-        <span className="text-[19px] font-extrabold tracking-tight leading-none text-white truncate min-w-0">
-          {shop?.name ?? "Barber Portal"}
-        </span>
+        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar. */}
+        <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
@@ -125,10 +122,6 @@ export function BarberSidebar() {
       </button>
       <div className="px-6 py-5 border-b border-border">
         <Logo size="md" className="text-white" />
-        <div className="flex items-center gap-1.5 mt-1">
-          <Scissors size={11} className="text-gold" />
-          <p className="text-xs text-[#777]">{shop?.name ?? "Barber Portal"}</p>
-        </div>
       </div>
 
       {/* Reused from the owner sidebar — only renders when shops.length > 1 */}

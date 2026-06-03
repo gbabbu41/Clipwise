@@ -190,12 +190,8 @@ export function Sidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Shop name as the mobile top-bar anchor (PC sidebar still shows
-            the CLIPWISE wordmark). Truncates if long so it never pushes
-            the bell + avatar off-screen. */}
-        <span className="text-[19px] font-extrabold tracking-tight leading-none text-white truncate min-w-0">
-          {shopName}
-        </span>
+        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar. */}
+        <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"
@@ -245,7 +241,6 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-5 border-b border-[#1e1e1e]">
         <Logo size="md" />
-        <p className="text-xs text-[#777] mt-1">{shopName}</p>
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
