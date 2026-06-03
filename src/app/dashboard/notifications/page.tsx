@@ -189,12 +189,9 @@ export default function NotificationsPage() {
                         : "bg-[#141414] border-[#2a2a2a] hover:border-white/30"
                     )}
                   >
-                    {/* Type avatar — colored circle with the emoji. Unread
-                        rows get a playful wiggle so the eye is drawn to them. */}
-                    <div className={cn(
-                      "w-10 h-10 rounded-full border flex items-center justify-center text-lg flex-shrink-0",
-                      accent.bg, accent.border,
-                    )}>
+                    {/* Type icon — bare emoji, no circle backing. Unread
+                        rows get a playful wiggle to draw the eye. */}
+                    <div className="text-[26px] leading-none flex-shrink-0 mt-0.5">
                       <span className={cn(!notif.is_read && "cw-notif-wiggle")}>
                         {TYPE_ICONS[notif.type] ?? "🔔"}
                       </span>
