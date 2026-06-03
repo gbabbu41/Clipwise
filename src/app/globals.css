@@ -709,6 +709,11 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 /* Fade-up entrance animation used by stat cards and appt rows */
 @keyframes cw-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .cw-anim-up { animation: cw-up 0.35s ease both; }
+
+/* Pure fade-in for the wordmark — runs once on page load. No transform
+   so it doesn't fight with the top-bar layout while animating. */
+@keyframes cw-logo-fade { from { opacity: 0; } to { opacity: 1; } }
+.cw-logo-fade { animation: cw-logo-fade 0.6s ease-out both; }
 } /* end @layer components */
 
 @layer utilities {

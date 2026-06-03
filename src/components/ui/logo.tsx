@@ -12,8 +12,10 @@ export function Logo({ className, size = "md" }: LogoProps) {
     <span
       className={cn(
         // ClipWise v2: extra-bold, slight negative tracking, all-caps,
-        // white by default. Same Sora face as surrounding UI.
-        "font-extrabold tracking-tight leading-none text-white uppercase",
+        // white by default. Same Sora face as surrounding UI. cw-logo-fade
+        // plays a single 0.6s fade-in when the component mounts (every
+        // page navigation triggers a fresh entrance).
+        "font-extrabold tracking-tight leading-none text-white uppercase cw-logo-fade",
         size === "sm" && "text-[19px]",
         size === "md" && "text-2xl",
         size === "lg" && "text-4xl",
