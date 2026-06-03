@@ -3,11 +3,22 @@ import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, Clock, Phone, Scissors, Check, X, Bell, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, displayTimeToDb, dbTimeToDisplay } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { WaitlistEntry, Barber, Service } from "@/lib/database.types";
+
+// Round the current clock to the next 30-min slot in display format
+// ("9:00 AM" / "9:30 AM"). Walk-in appointments aren't pre-booked, so
+// we just need a sensible slot to insert the row into.
+function nextHalfHourSlot(): string {
+  const d = new Date();
+  if (d.getMinutes() >= 30) { d.setHours(d.getHours() + 1); d.setMinutes(0); }
+  else d.setMinutes(30);
+  const hh = d.getHours().toString().padStart(2, "0");
+  return dbTimeToDisplay(`${hh}:${d.getMinutes().toString().padStart(2, "0")}:00`);
+}
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -108,6 +119,93 @@ export default function WaitlistPage() {
     const entry = entries.find(e => e.id === id);
     if (entry) showToast(`${entry.client_name} marked as ${status}`);
   };
+
+  // ── Seat flow ───────────────────────────────────────────────────────────
+  // "Seat" turns a waitlist entry into a real appointment, assigns a barber
+  // (preferring whoever's idle right now), and lets the owner take payment
+  // in the same step. Closes the loop from queue -> chair -> paid.
+  const [seatEntry, setSeatEntry] = useState<WaitlistEntry | null>(null);
+  const [seatBarberId, setSeatBarberId] = useState("");
+  const [seatServiceId, setSeatServiceId] = useState("");
+  const [seatPaymentMethod, setSeatPaymentMethod] = useState<"cash" | "skip">("cash");
+  const [seatSaving, setSeatSaving] = useState(false);
+
+  // Surface barbers who don't currently have an in-progress appt — a soft
+  // hint, not a hard constraint. The owner can still pick a busy one if
+  // they're queuing the next chair-time.
+  const [busyBarberIds, setBusyBarberIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!shop) return;
+    const today = new Date().toISOString().slice(0, 10);
+    supabase
+      .from("appointments")
+      .select("barber_id, status")
+      .eq("shop_id", shop.id)
+      .eq("date", today)
+      .in("status", ["confirmed", "pending"])
+      .then(({ data }) => {
+        const ids = new Set<string>();
+        (data ?? []).forEach(a => { if (a.barber_id) ids.add(a.barber_id as string); });
+        setBusyBarberIds(ids);
+      });
+  }, [shop, entries]);
+
+  const openSeatModal = (entry: WaitlistEntry) => {
+    setSeatEntry(entry);
+    // Preselect: barber on the waitlist row, else first idle barber, else
+    // first barber. Service: row's service, else first service.
+    const idleBarber = barbers.find(b => !busyBarberIds.has(b.id));
+    setSeatBarberId(entry.barber_id ?? idleBarber?.id ?? barbers[0]?.id ?? "");
+    setSeatServiceId(entry.service_id ?? services[0]?.id ?? "");
+    setSeatPaymentMethod("cash");
+  };
+
+  const confirmSeat = async () => {
+    if (!seatEntry || !shop || !seatBarberId || !seatServiceId) return;
+    const svc = services.find(s => s.id === seatServiceId);
+    const price = svc?.price ?? 0;
+    setSeatSaving(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const slot = nextHalfHourSlot();
+    // Cash -> appointment goes in completed + paid in one go
+    // Skip -> completed but unpaid (owner can take payment later from
+    //         the appointments page)
+    const apptStatus: "completed" = "completed";
+    const paymentStatus = seatPaymentMethod === "cash" ? "paid" : "unpaid";
+    const paymentMethod = seatPaymentMethod === "cash" ? "cash" : null;
+    const { error: apptErr } = await supabase.from("appointments").insert({
+      shop_id: shop.id,
+      barber_id: seatBarberId,
+      service_id: seatServiceId,
+      client_name: seatEntry.client_name,
+      client_phone: seatEntry.client_phone ?? null,
+      date: today,
+      time_slot: slot,
+      status: apptStatus,
+      total_amount: price,
+      payment_status: paymentStatus,
+      payment_method: paymentMethod,
+      notes: `Walk-in from waitlist`,
+    });
+    if (apptErr) {
+      setSeatSaving(false);
+      showToast(`Failed: ${apptErr.message}`);
+      return;
+    }
+    await supabase.from("waitlist").update({ status: "served" }).eq("id", seatEntry.id);
+    setEntries(prev => prev.map(e => e.id === seatEntry.id ? { ...e, status: "served" } : e));
+    setSeatSaving(false);
+    const barberName = barbers.find(b => b.id === seatBarberId)?.name ?? "barber";
+    showToast(
+      seatPaymentMethod === "cash"
+        ? `${seatEntry.client_name} seated with ${barberName} · ${formatCurrency(price)} paid`
+        : `${seatEntry.client_name} seated with ${barberName} · Payment pending`
+    );
+    setSeatEntry(null);
+  };
+  // displayTimeToDb is imported alongside dbTimeToDisplay so the round-up
+  // helper has both sides of the conversion available.
+  void displayTimeToDb;
 
   const active = entries.filter(e => e.status === "waiting" || e.status === "called");
   const history = entries.filter(e => e.status === "served" || e.status === "removed");
@@ -226,11 +324,13 @@ export default function WaitlistPage() {
                           <Bell size={13} /> Call
                         </Button>
                       )}
-                      {entry.status === "called" && (
-                        <Button size="sm" onClick={() => updateStatus(entry.id, "served")}>
-                          <Check size={13} /> Served
-                        </Button>
-                      )}
+                      {/* Seat replaces "Served" — opens the assign-and-pay
+                          modal instead of just flipping the status. Visible
+                          on both waiting + called so owner can skip the
+                          Call step for walk-ups already at the chair. */}
+                      <Button size="sm" onClick={() => openSeatModal(entry)}>
+                        <Check size={13} /> Seat &amp; Pay
+                      </Button>
                       <button
                         onClick={() => updateStatus(entry.id, "removed")}
                         className="text-xs text-[#777] hover:text-red-400 transition-colors text-center py-1"
@@ -333,6 +433,115 @@ export default function WaitlistPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} disabled={!form.client_name.trim()} onClick={addEntry}>
                   Add to Queue
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Seat & Pay modal — assigns a barber from the active roster (idle
+          ones surfaced first), confirms / changes service, picks a payment
+          method, then writes a completed appointment + flips the waitlist
+          row to served. One click closes the queue -> chair -> paid loop. */}
+      {seatEntry && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => !seatSaving && setSeatEntry(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Seat {seatEntry.client_name}</h2>
+                <button onClick={() => !seatSaving && setSeatEntry(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+
+              {/* Barber picker — idle barbers shown first, busy ones tagged */}
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Barber</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {barbers
+                    .slice()
+                    .sort((a, b) => {
+                      const ba = busyBarberIds.has(a.id) ? 1 : 0;
+                      const bb = busyBarberIds.has(b.id) ? 1 : 0;
+                      return ba - bb;
+                    })
+                    .map(b => {
+                      const isBusy = busyBarberIds.has(b.id);
+                      const selected = seatBarberId === b.id;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setSeatBarberId(b.id)}
+                          className={cn(
+                            "p-3 rounded-xl border text-left transition-colors",
+                            selected ? "bg-white text-black border-white" : "bg-[#141414] border-[#1e1e1e] hover:border-white"
+                          )}
+                        >
+                          <p className="text-sm font-semibold truncate">{b.name}</p>
+                          <p className={cn("text-[10px] mt-0.5", selected ? "text-black/60" : isBusy ? "text-amber-400" : "text-emerald-400")}>
+                            {isBusy ? "Busy now" : "Available"}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  {barbers.length === 0 && (
+                    <p className="col-span-2 text-sm text-[#777]">No active barbers — add one from Staff.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Service picker */}
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Service</label>
+                <select
+                  value={seatServiceId}
+                  onChange={e => setSeatServiceId(e.target.value)}
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white"
+                >
+                  <option value="">Select a service</option>
+                  {services.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payment method */}
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Payment</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { key: "cash" as const,  emoji: "💵", label: "Cash now",  hint: "Mark paid" },
+                    { key: "skip" as const,  emoji: "⏳", label: "Pay later", hint: "Unpaid" },
+                  ]).map(opt => {
+                    const selected = seatPaymentMethod === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setSeatPaymentMethod(opt.key)}
+                        className={cn(
+                          "p-3 rounded-xl border text-left transition-colors",
+                          selected ? "bg-white text-black border-white" : "bg-[#141414] border-[#1e1e1e] hover:border-white"
+                        )}
+                      >
+                        <p className="text-sm font-semibold">{opt.emoji} {opt.label}</p>
+                        <p className={cn("text-[10px] mt-0.5", selected ? "text-black/60" : "text-[#777]")}>{opt.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setSeatEntry(null)}>Cancel</Button>
+                <Button
+                  className="flex-1"
+                  loading={seatSaving}
+                  disabled={!seatBarberId || !seatServiceId}
+                  onClick={confirmSeat}
+                >
+                  {seatPaymentMethod === "cash" ? "Seat & Mark Paid" : "Seat & Continue"}
                 </Button>
               </div>
             </div>
