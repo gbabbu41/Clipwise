@@ -31,7 +31,7 @@ export function getStatusColor(status: string): string {
   const map: Record<string, string> = {
     confirmed: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
     pending:   "text-amber-400   bg-amber-500/10   border-amber-500/25",
-    completed: "text-[#777]      bg-[#141414]      border-[#1e1e1e]",
+    completed: "text-blue-400    bg-blue-500/10    border-blue-500/25",
     cancelled: "text-red-400     bg-red-500/10     border-red-500/25",
     "no-show": "text-red-400     bg-red-500/10     border-red-500/25",
   };
