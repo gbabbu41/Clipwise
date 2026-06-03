@@ -190,10 +190,12 @@ export function Sidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Brand wordmark — full white, the visual anchor of the top bar.
-            Page greeting below is muted so the wordmark is the dominant
-            text on the page. */}
-        <Logo size="sm" className="text-white flex-shrink-0" />
+        {/* Shop name as the mobile top-bar anchor (PC sidebar still shows
+            the CLIPWISE wordmark). Truncates if long so it never pushes
+            the bell + avatar off-screen. */}
+        <span className="text-[19px] font-extrabold tracking-tight leading-none text-white truncate min-w-0">
+          {shopName}
+        </span>
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"

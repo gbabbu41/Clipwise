@@ -87,8 +87,11 @@ export function BarberSidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Brand wordmark — full white, page greeting below is muted. */}
-        <Logo size="sm" className="text-white flex-shrink-0" />
+        {/* Shop name as the mobile top-bar anchor (PC sidebar keeps the
+            CLIPWISE wordmark). Truncates on long names. */}
+        <span className="text-[19px] font-extrabold tracking-tight leading-none text-white truncate min-w-0">
+          {shop?.name ?? "Barber Portal"}
+        </span>
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
