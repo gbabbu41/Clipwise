@@ -4,7 +4,7 @@ import { Calendar, Clock, DollarSign, Star, ChevronRight, User, LogIn, LogOut } 
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { formatDateForDb } from "@/lib/utils";
+import { cn, formatDateForDb } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -110,15 +110,15 @@ export default function BarberOverviewPage() {
         </div>
       )}
 
-      {/* Header + Clock In/Out */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{greeting}, {barber?.name?.split(" ")[0] ?? "there"} ✂️</h1>
+      {/* Header — muted greeting + clock chip + desktop bell + avatar */}
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-white/60 tracking-tight">Hello, {barber?.name?.split(" ")[0] ?? "there"}</h1>
           <p className="text-[#777] text-sm mt-1">{dayLabel}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 pt-1">
           {clockedIn && (
-            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+            <span className="text-xs text-emerald-400 font-medium hidden sm:flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Clocked in {clockedIn.clock_in}
             </span>
@@ -132,26 +132,62 @@ export default function BarberOverviewPage() {
               <LogIn size={14} /> Clock In
             </Button>
           )}
+          {/* Desktop bell + avatar — mobile has them in the barber top bar */}
+          <Link
+            href="/barber-dashboard/profile"
+            aria-label="Account"
+            className="hidden md:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1"
+          >
+            {(barber?.name ?? "U").charAt(0).toUpperCase()}
+          </Link>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Today's Appts", value: appointments.length, icon: Calendar, sub: `${upcoming.length} upcoming` },
-          { label: "Completed", value: completed.length, icon: Clock, sub: "today" },
-          { label: "Today's Earnings", value: `$${todayEarnings.toFixed(0)}`, icon: DollarSign, sub: "from completed" },
-          { label: "Rating", value: barber?.rating ? barber.rating.toFixed(1) : "—", icon: Star, sub: `${barber?.total_reviews ?? 0} reviews` },
-        ].map(stat => (
-          <div key={stat.label} className="bg-surface border border-border rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-[#777]">{stat.label}</p>
-              <stat.icon size={16} className="text-gold" />
+      {/* Stats — same v2 treatment as the owner dashboard:
+            uppercase grey label, 28px DM Mono value, colored sub indicator
+            (green = up / positive, red = down / warning, grey = neutral). */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {(() => {
+          type Tone = "muted" | "up" | "down";
+          const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
+            {
+              label: "Today's Appts",
+              value: String(appointments.length),
+              sub: `${upcoming.length} upcoming`,
+              tone: "muted",
+            },
+            {
+              label: "Completed",
+              value: String(completed.length),
+              sub: completed.length > 0 ? "↑ Today" : "today",
+              tone: completed.length > 0 ? "up" : "muted",
+            },
+            {
+              label: "Today's Earnings",
+              value: `$${todayEarnings.toFixed(0)}`,
+              sub: todayEarnings > 0 ? "↑ From completed" : "From completed",
+              tone: todayEarnings > 0 ? "up" : "muted",
+            },
+            {
+              label: "Rating",
+              value: barber?.rating ? barber.rating.toFixed(1) : "—",
+              sub: `${barber?.total_reviews ?? 0} reviews`,
+              tone: "muted",
+            },
+          ];
+          return stats.map(stat => (
+            <div key={stat.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+              <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{stat.label}</p>
+              <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{stat.value}</p>
+              <p className={cn(
+                "text-[11px] mt-2 font-medium",
+                stat.tone === "up"    && "text-emerald-400",
+                stat.tone === "down"  && "text-red-400",
+                stat.tone === "muted" && "text-[#777]",
+              )}>{stat.sub}</p>
             </div>
-            <p className="text-2xl font-bold text-white">{stat.value}</p>
-            <p className="text-xs text-[#999] mt-1">{stat.sub}</p>
-          </div>
-        ))}
+          ));
+        })()}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">

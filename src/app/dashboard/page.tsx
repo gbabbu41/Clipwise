@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, CreditCard,
-  ChevronRight, AlertCircle, TrendingUp, UserX,
+  ChevronRight, AlertCircle, TrendingUp, UserX, Bell,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominent = false }: {
+function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominent = false, tone = "muted" }: {
   label: string;
   value: string;
   sub: string;
@@ -41,9 +41,12 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   // is replaced by a small gold link nudging the owner toward a useful next
   // step (e.g. "Book your first appointment →").
   cta?: { text: string; href: string };
-  // The two headline KPIs (Total Appointments + Revenue) render with extra
-  // padding, a larger value, and a subtle gold border so they read as primary.
   prominent?: boolean;
+  // Sub-line color tone — matches the v2 reference's stat-note treatment:
+  //   "up"   = green (positive trend, ↑ This week, ↑ $4 vs last wk)
+  //   "down" = red (warning, "Follow up")
+  //   "muted" (default) = gray neutral
+  tone?: "muted" | "up" | "down";
 }) {
   // On the light dashboard surface the icon chip is the only colored thing
   // on the card. Two-tone tinted background overlay was a dark-mode device —
@@ -89,7 +92,13 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
               <ChevronRight size={prominent ? 13 : 11} />
             </Link>
           ) : (
-            <p className={cn("text-[#777] mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
+            <p className={cn(
+              "mt-1.5 font-medium",
+              prominent ? "text-xs" : "text-[11px]",
+              tone === "up"   && "text-emerald-400",
+              tone === "down" && "text-red-400",
+              tone === "muted" && "text-[#777]",
+            )}>{sub}</p>
           )}
         </div>
         {/* Icon chip removed entirely — the reference design's stat cards
@@ -398,27 +407,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Header — v2 layout: greeting on the left, plan pill on the right.
-          POS / Add-Walk-in buttons stay on tablet+ (md:flex) but on small
-          phones (md:hidden) they collapse to the white plan pill so the
-          header matches the mobile reference layout exactly. */}
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div>
-          {/* Muted greeting — sits in visual hierarchy below the white
-              ClipWise wordmark in the top bar. Uses text-white/60 so it
-              reads as "soft introduction" not "page title." */}
+      {/* Header — greeting on the left, control cluster on the right:
+          plan pill + bell + avatar. Bell + avatar are mobile-hidden because
+          the mobile top bar (sidebar component) already shows them; on
+          desktop they belong here so they're never hidden when the screen
+          is maxed. */}
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-white/60 tracking-tight">
             Hello,{" "}
-            <span className="md:inline">{profile?.name?.split(" ")[0] ?? "there"}</span>
+            <span>{profile?.name?.split(" ")[0] ?? "there"}</span>
           </h1>
           <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>
         </div>
-        {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="cw-plan-pill mt-1">{shop.subscription_plan}</span>
-        )}
-        {/* Old "Open POS / Add Walk-in" header buttons removed — Quick
-            Actions below covers both on every screen, so this header
-            cluster was redundant on desktop. */}
+        <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+          {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
+            <span className="cw-plan-pill">{shop.subscription_plan}</span>
+          )}
+          {/* Desktop-only bell + avatar (mobile has them in the top bar) */}
+          <Link
+            href="/dashboard/notifications"
+            aria-label="Notifications"
+            className="hidden md:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors relative"
+          >
+            <Bell size={15} />
+            {notifications.filter(n => !n.is_read).length > 0 && (
+              <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
+            )}
+          </Link>
+          <Link
+            href="/dashboard/settings"
+            aria-label="Account"
+            className="hidden md:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity"
+          >
+            {(profile?.name ?? "U").charAt(0).toUpperCase()}
+          </Link>
+        </div>
       </div>
 
       {/* Date Filter — hidden on mobile (the reference layout doesn't show
@@ -530,31 +554,36 @@ export default function DashboardPage() {
                   value={String(appointments.length)}
                   sub={`${completed.length} completed`}
                   icon={Calendar} color="gold"
+                  tone="muted"
                 />
                 <StatCard
                   label="New Clients"
                   value={String(newClients)}
-                  sub="This period"
+                  sub={newClients > 0 ? "↑ This period" : "This period"}
                   icon={Users} color="blue"
+                  tone={newClients > 0 ? "up" : "muted"}
                   cta={newClients === 0 ? { text: "Share booking link", href: "/dashboard/share" } : undefined}
                 />
                 <StatCard
                   label="Avg Ticket"
                   value={formatCurrency(avgTicket)}
-                  sub={hasCompleted ? "Per completed visit" : "Complete a booking first"}
+                  sub={hasCompleted ? "↑ Per completed visit" : "Complete a booking first"}
                   icon={TrendingUp} color="purple"
+                  tone={hasCompleted ? "up" : "muted"}
                 />
                 <StatCard
                   label="No-Show Rate"
                   value={hasAppts ? `${noShowRate.toFixed(1)}%` : "—"}
-                  sub={hasAppts ? `${noShows} no-show${noShows !== 1 ? "s" : ""}` : "No data yet"}
+                  sub={hasAppts ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "All shows kept") : "No data yet"}
                   icon={UserX} color="orange"
+                  tone={hasAppts && noShows > 0 ? "down" : "muted"}
                 />
                 <StatCard
                   label="Avg Rating"
                   value={avgRating != null ? `${avgRating}★` : "—"}
                   sub={totalReviews > 0 ? `${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"}
                   icon={Star} color="purple"
+                  tone="muted"
                   cta={totalReviews === 0 ? { text: "Invite reviews", href: "/dashboard/reviews" } : undefined}
                 />
               </div>
