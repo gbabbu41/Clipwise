@@ -190,10 +190,10 @@ export function Sidebar() {
         >
           <Menu size={20} />
         </button>
-        <Logo size="sm" className="text-white flex-shrink-0" />
-        {/* Shop name was rendered here — pulled out per request so the
-            closed-drawer top bar stays uncluttered. The shop name still
-            appears inside the open sidebar drawer under the logo. */}
+        {/* Brand chrome — recessed (60% opacity, smaller weight) so the
+            page header (greeting) below it is the unambiguous focal point.
+            UI hierarchy: top bar = chrome, page content = primary. */}
+        <Logo size="sm" className="text-white/60 font-bold flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"

@@ -37,7 +37,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       {/* pt-12 reserves space for the mobile top bar in the Sidebar component;
           md:pt-0 removes that gap on desktop where the bar isn't rendered. */}
-      <main className="md:ml-64 pt-12 md:pt-0 pb-24 md:pb-0">
+      {/* pt-16 reserves space for the 14px mobile top bar + 2px breathing
+          room so the page header doesn't touch the wordmark above. */}
+      <main className="md:ml-64 pt-16 md:pt-0 pb-24 md:pb-0">
         {children}
       </main>
       <MobileNav />

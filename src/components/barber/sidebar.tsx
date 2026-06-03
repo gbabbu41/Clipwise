@@ -87,9 +87,8 @@ export function BarberSidebar() {
         >
           <Menu size={20} />
         </button>
-        <Logo size="sm" className="text-white flex-shrink-0" />
-        {/* Shop name removed from the closed-drawer top bar per request —
-            still appears inside the open drawer alongside the logo. */}
+        {/* Brand chrome — recessed so the page header below dominates. */}
+        <Logo size="sm" className="text-white/60 font-bold flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
