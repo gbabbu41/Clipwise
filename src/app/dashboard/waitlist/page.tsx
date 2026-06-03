@@ -403,7 +403,7 @@ export default function WaitlistPage() {
                       {entry.status === "waiting" && (
                         <button type="button"
                           onClick={() => openSeatModal(entry)}
-                          className="btn btn-primary btn-sm">
+                          className="btn btn-success btn-sm">
                           <Bell size={13} /> Call
                         </button>
                       )}
@@ -411,7 +411,7 @@ export default function WaitlistPage() {
                         <>
                           <button type="button"
                             onClick={() => completeFromWaitlist(entry)}
-                            className="btn btn-primary btn-sm">
+                            className="btn btn-blue btn-sm">
                             <Check size={13} /> Complete
                           </button>
                           <button type="button"
@@ -627,7 +627,7 @@ export default function WaitlistPage() {
                   Cancel
                 </button>
                 <button type="button"
-                  className="btn btn-primary flex-1"
+                  className="btn btn-success flex-1"
                   disabled={!seatBarberId || !seatServiceId || seatSaving}
                   onClick={confirmSeat}>
                   {seatSaving ? "Saving…" : "Confirm Walk-In"}

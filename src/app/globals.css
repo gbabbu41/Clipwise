@@ -177,6 +177,12 @@ h1, h2, h3, h4 {
 .btn-dark:hover      { background: #0a0a0a; border-color: #2a2a2a; }
 .btn-dark:active     { background: #1a1a1a; border-color: #2a2a2a; }
 
+/* True Bootstrap-blue button for actions like Complete (btn-primary in
+   this theme is reserved for the white-on-black FAB style). */
+.btn-blue      { background: #0d6efd; color: #ffffff; border-color: #0d6efd; }
+.btn-blue:hover      { background: #0b5ed7; border-color: #0a58ca; }
+.btn-blue:active     { background: #0a53be; border-color: #0a4ea7; }
+
 /* Outline variants — transparent fill, hairline border, hover swaps. */
 .btn-outline-primary   { background: transparent; color: #ffffff; border-color: #ffffff; }
 .btn-outline-primary:hover   { background: #ffffff; color: #000; }
