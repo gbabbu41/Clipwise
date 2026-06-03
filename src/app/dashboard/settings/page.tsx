@@ -297,7 +297,7 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>Shop Profile</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-[#999] mb-2">Shop Logo</p>
+              <p className="text-sm font-medium text-[#777] mb-2">Shop Logo</p>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-2xl bg-[#141414] border-2 border-dashed border-[#1e1e1e] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {logoPreview
@@ -329,7 +329,7 @@ export default function SettingsPage() {
 
             {/* Social Media */}
             <div>
-              <p className="text-sm font-medium text-[#999] mb-3">Social Media & Website</p>
+              <p className="text-sm font-medium text-[#777] mb-3">Social Media & Website</p>
               <div className="space-y-3">
                 <Input label="Instagram URL" placeholder="https://instagram.com/yourshop" value={profile.instagram} onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))} />
                 <Input label="TikTok URL" placeholder="https://tiktok.com/@yourshop" value={profile.tiktok} onChange={e => setProfile(p => ({ ...p, tiktok: e.target.value }))} />
@@ -341,7 +341,7 @@ export default function SettingsPage() {
 
             {/* Google Reviews */}
             <div>
-              <p className="text-sm font-medium text-[#999] mb-1">Google Reviews</p>
+              <p className="text-sm font-medium text-[#777] mb-1">Google Reviews</p>
               <p className="text-xs text-[#777] mb-3">Paste your Google Place ID to send clients a direct Google review link after their appointment. <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Find your Place ID →</a></p>
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
@@ -356,7 +356,7 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>My Account</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <p className="text-sm font-medium text-[#999] mb-2">Account email</p>
+              <p className="text-sm font-medium text-[#777] mb-2">Account email</p>
               <p className="text-xs text-[#777] mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>
               <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white font-mono">
                 {user?.email ?? "—"}
@@ -364,7 +364,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-[#999] mb-2">Display name</p>
+              <p className="text-sm font-medium text-[#777] mb-2">Display name</p>
               <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white">
                 {authProfile?.name ?? "—"}
               </div>
@@ -372,7 +372,7 @@ export default function SettingsPage() {
 
             <div className="pt-2 border-t border-[#1e1e1e] space-y-3">
               <div>
-                <p className="text-sm font-medium text-[#999]">Change password</p>
+                <p className="text-sm font-medium text-[#777]">Change password</p>
                 <p className="text-xs text-[#777] mt-0.5">Choose a new password (at least 8 characters).</p>
               </div>
               <Input
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2 mb-4">
                   {activePlan.features.map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-[#999]">
+                    <div key={f} className="flex items-center gap-2 text-sm text-[#777]">
                       <span className="text-emerald-400">✓</span>{f}
                     </div>
                   ))}
@@ -523,7 +523,7 @@ export default function SettingsPage() {
                   <input
                     value={templates[key].subject}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-black/20"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -532,7 +532,7 @@ export default function SettingsPage() {
                     rows={5}
                     value={templates[key].body}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
                   />
                 </div>
               </CardContent>
@@ -633,10 +633,10 @@ export default function SettingsPage() {
                 <Button variant="danger" onClick={() => setShowDeactivateConfirm(true)}>Deactivate Shop</Button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-[#999]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">{profile.name}</span> to confirm:</p>
+                  <p className="text-sm text-[#777]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">{profile.name}</span> to confirm:</p>
                   <input value={deactivateInput} onChange={e => setDeactivateInput(e.target.value)}
                     placeholder="Shop name..."
-                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/30" />
+                    className="w-full rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-red-500/30" />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeactivateConfirm(false); setDeactivateInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deactivateInput !== profile.name}
@@ -666,10 +666,10 @@ export default function SettingsPage() {
                 <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Shop Forever</Button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-[#999]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">DELETE</span> to confirm:</p>
+                  <p className="text-sm text-[#777]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">DELETE</span> to confirm:</p>
                   <input value={deleteInput} onChange={e => setDeleteInput(e.target.value)}
                     placeholder="DELETE"
-                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/40" />
+                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-red-500/40" />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setShowDeleteConfirm(false); setDeleteInput(""); }}>Cancel</Button>
                     <Button variant="danger" size="sm" disabled={deleteInput !== "DELETE" || deletingShop} loading={deletingShop}

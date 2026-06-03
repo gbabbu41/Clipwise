@@ -255,7 +255,7 @@ export default function TimeOffPage() {
       <div className="space-y-3">
         {filtered.length === 0 && (
           <div className="text-center py-12 text-[#777]">
-            <CalendarOff size={32} className="mx-auto mb-3 text-[#999]" />
+            <CalendarOff size={32} className="mx-auto mb-3 text-[#777]" />
             <p>No time-off requests</p>
           </div>
         )}
@@ -358,7 +358,7 @@ export default function TimeOffPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#999] mb-1.5 block">Barber</label>
+                <label className="text-sm font-medium text-[#777] mb-1.5 block">Barber</label>
                 <select
                   value={form.barber_id}
                   onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
@@ -370,7 +370,7 @@ export default function TimeOffPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#999] mb-1.5 block">Type</label>
+                <label className="text-sm font-medium text-[#777] mb-1.5 block">Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.entries(TYPE_LABELS) as [BlockType, string][]).map(([k, v]) => (
                     <button

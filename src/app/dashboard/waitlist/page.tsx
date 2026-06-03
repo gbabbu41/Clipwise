@@ -168,7 +168,7 @@ export default function WaitlistPage() {
             <div className="py-8 text-center text-[#777]">Loading...</div>
           ) : active.length === 0 ? (
             <div className="py-16 text-center">
-              <Users size={40} className="mx-auto mb-4 text-[#999]" />
+              <Users size={40} className="mx-auto mb-4 text-[#777]" />
               <p className="text-white font-medium">Queue is empty</p>
               <p className="text-sm text-[#777] mt-1">Add a walk-in client to get started</p>
               <Button className="mt-4" onClick={() => setShowAdd(true)}>
@@ -192,7 +192,7 @@ export default function WaitlistPage() {
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0",
-                        entry.status === "called" ? "bg-black/10 text-white" : "bg-black shadow-sm text-[#999]"
+                        entry.status === "called" ? "bg-black/10 text-white" : "bg-black shadow-sm text-[#777]"
                       )}>
                         {idx + 1}
                       </div>
@@ -297,7 +297,7 @@ export default function WaitlistPage() {
                     onKeyDown={e => e.key === "Enter" && addEntry()}
                     placeholder="John Smith"
                     autoFocus
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -307,7 +307,7 @@ export default function WaitlistPage() {
                     onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
                     placeholder="(416) 555-0123"
                     type="tel"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

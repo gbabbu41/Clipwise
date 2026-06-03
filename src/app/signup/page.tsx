@@ -114,7 +114,7 @@ export default function SignupPage() {
               <CheckCircle size={28} className="text-emerald-400" />
             </div>
             <h2 className="text-xl font-bold text-white">Check your email</h2>
-            <p className="text-sm text-[#555]">We sent a confirmation link to <span className="text-white font-medium">{form.email}</span>. Click it to activate your account, then come back to sign in.</p>
+            <p className="text-sm text-[#777]">We sent a confirmation link to <span className="text-white font-medium">{form.email}</span>. Click it to activate your account, then come back to sign in.</p>
             <Link href="/login" className="block mt-2 text-gold hover:underline text-sm font-medium">Go to Sign In →</Link>
           </div>
         )}
@@ -134,7 +134,7 @@ export default function SignupPage() {
               </button>
             ))}
             <div className="text-center pt-2">
-              <p className="text-xs text-[#999]">Are you a barber looking to join a shop?{" "}
+              <p className="text-xs text-[#777]">Are you a barber looking to join a shop?{" "}
                 <Link href="/signup/barber" className="text-gold hover:underline">Sign up as a barber →</Link>
               </p>
             </div>
@@ -223,7 +223,7 @@ export default function SignupPage() {
                 {fieldErrors.confirmPassword && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} /> {fieldErrors.confirmPassword}</p>}
               </div>
 
-              <p className="text-xs text-[#999] leading-relaxed">
+              <p className="text-xs text-[#777] leading-relaxed">
                 By signing up, you agree to our{" "}
                 <a href="#" className="text-gold hover:underline">Terms of Service</a> and{" "}
                 <a href="#" className="text-gold hover:underline">Privacy Policy</a>.

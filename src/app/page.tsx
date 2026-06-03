@@ -98,7 +98,7 @@ function FAQ({ q, a }: { q: string; a: string }) {
         <span className="font-medium">{q}</span>
         {open ? <ChevronUp size={18} className="text-gold flex-shrink-0" /> : <ChevronDown size={18} className="text-[#777] flex-shrink-0" />}
       </button>
-      {open && <div className="px-6 pb-4 text-sm text-[#555] leading-relaxed">{a}</div>}
+      {open && <div className="px-6 pb-4 text-sm text-[#777] leading-relaxed">{a}</div>}
     </div>
   );
 }
@@ -111,7 +111,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
           <Logo size="sm" className="text-white" />
-          <div className="hidden md:flex items-center gap-8 text-sm text-[#555]">
+          <div className="hidden md:flex items-center gap-8 text-sm text-[#777]">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#compare" className="hover:text-white transition-colors">Compare</a>
@@ -124,17 +124,17 @@ export default function LandingPage() {
             <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
             <Link href="/signup"><Button size="sm">Get Started</Button></Link>
           </div>
-          <button className="md:hidden text-[#555]" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button className="md:hidden text-[#777]" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             <Menu size={24} />
           </button>
         </div>
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border bg-surface px-4 py-4 space-y-3">
             {["Features", "Pricing", "Compare", "FAQ"].map((item) => (
-              <a key={item} href={`#${item.toLowerCase()}`} className="block text-sm text-[#555] hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>{item}</a>
+              <a key={item} href={`#${item.toLowerCase()}`} className="block text-sm text-[#777] hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>{item}</a>
             ))}
             <Link href="/shops" className="block text-sm text-gold py-1" onClick={() => setMobileMenuOpen(false)}>Find a Barber</Link>
-            <Link href="/my-bookings" className="block text-sm text-[#555] hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>My Bookings</Link>
+            <Link href="/my-bookings" className="block text-sm text-[#777] hover:text-white py-1" onClick={() => setMobileMenuOpen(false)}>My Bookings</Link>
             <div className="pt-2 flex gap-2">
               <Link href="/login" className="flex-1"><Button variant="outline" className="w-full" size="sm">Log in</Button></Link>
               <Link href="/signup" className="flex-1"><Button className="w-full" size="sm">Sign Up</Button></Link>
@@ -152,7 +152,7 @@ export default function LandingPage() {
           The Smartest Way to<br />
           <span className="gold-text">Run Your Barbershop</span>
         </h1>
-        <p className="text-lg md:text-xl text-[#555] max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p className="text-lg md:text-xl text-[#777] max-w-2xl mx-auto mb-10 leading-relaxed">
           Online booking, built-in POS, analytics, SMS reminders, loyalty programs — everything your shop needs in one premium platform.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -167,7 +167,7 @@ export default function LandingPage() {
             </Button>
           </Link>
         </div>
-        <p className="text-xs text-[#999] mt-4">No credit card required · Cancel anytime · Canadian-made</p>
+        <p className="text-xs text-[#777] mt-4">No credit card required · Cancel anytime · Canadian-made</p>
         <div className="flex flex-wrap justify-center gap-3 mt-5">
           {["$0 booking fees for your clients", "No competitor marketplace", "Sign up in 60 seconds — no sales call"].map(p => (
             <span key={p} className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5">
@@ -182,7 +182,7 @@ export default function LandingPage() {
               <div className="w-3 h-3 rounded-full bg-red-500/50" />
               <div className="w-3 h-3 rounded-full bg-orange-500/50" />
               <div className="w-3 h-3 rounded-full bg-emerald-500/50" />
-              <div className="flex-1 mx-4 bg-surface rounded-lg px-3 py-1 text-xs text-[#999]">app.clipwise.ca/dashboard</div>
+              <div className="flex-1 mx-4 bg-surface rounded-lg px-3 py-1 text-xs text-[#777]">app.clipwise.ca/dashboard</div>
             </div>
             <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -243,15 +243,15 @@ export default function LandingPage() {
               </div>
               <div>
                 <p className="text-lg font-bold text-white mb-2">{card.icon} {card.title}</p>
-                <p className="text-sm text-[#555] leading-relaxed">{card.body}</p>
+                <p className="text-sm text-[#777] leading-relaxed">{card.body}</p>
               </div>
-              <p className="text-xs text-[#999] italic border-t border-white/5 pt-3">{card.quote}</p>
+              <p className="text-xs text-[#777] italic border-t border-white/5 pt-3">{card.quote}</p>
             </div>
           ))}
         </div>
         <div className="text-center p-6 bg-gold/5 border border-gold/20 rounded-2xl">
           <p className="text-lg font-bold text-white mb-1">ClipWise is different.</p>
-          <p className="text-[#555] text-sm mb-4">Your page. Your clients. Your data. Zero commissions. Zero client-side fees. No competitor exposure. Ever.</p>
+          <p className="text-[#777] text-sm mb-4">Your page. Your clients. Your data. Zero commissions. Zero client-side fees. No competitor exposure. Ever.</p>
           <Link href="/signup"><Button size="sm">See for yourself — free forever</Button></Link>
         </div>
       </section>
@@ -259,7 +259,7 @@ export default function LandingPage() {
       <section id="features" className="py-20 px-4 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything your shop needs</h2>
-          <p className="text-[#555] max-w-xl mx-auto">Built specifically for barbers — not a generic booking tool.</p>
+          <p className="text-[#777] max-w-xl mx-auto">Built specifically for barbers — not a generic booking tool.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f) => (
@@ -268,7 +268,7 @@ export default function LandingPage() {
                 <f.icon size={22} className="text-gold" />
               </div>
               <h3 className="font-semibold text-white mb-2">{f.title}</h3>
-              <p className="text-sm text-[#555] leading-relaxed">{f.desc}</p>
+              <p className="text-sm text-[#777] leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -277,7 +277,7 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 px-4 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, transparent pricing</h2>
-          <p className="text-[#555]">Start free forever. Upgrade when you&apos;re ready. No contracts.</p>
+          <p className="text-[#777]">Start free forever. Upgrade when you&apos;re ready. No contracts.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan) => (
@@ -304,8 +304,8 @@ export default function LandingPage() {
                 ))}
                 {plan.missing.map((f) => (
                   <div key={f} className="flex items-start gap-2 text-sm">
-                    <X size={15} className="text-[#aaa] flex-shrink-0 mt-0.5" />
-                    <span className="text-[#999]">{f}</span>
+                    <X size={15} className="text-[#777] flex-shrink-0 mt-0.5" />
+                    <span className="text-[#777]">{f}</span>
                   </div>
                 ))}
               </div>
@@ -322,16 +322,16 @@ export default function LandingPage() {
       <section id="compare" className="py-20 px-4 lg:px-8 max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">How we stack up</h2>
-          <p className="text-[#555]">ClipWise vs the competition.</p>
+          <p className="text-[#777]">ClipWise vs the competition.</p>
         </div>
         <div className="overflow-x-auto rounded-2xl border border-border">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-raised">
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#555]">Feature</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#777]">Feature</th>
                 <th className="px-6 py-4 text-center"><span className="text-gold font-bold">ClipWise</span></th>
-                <th className="px-6 py-4 text-center text-sm text-[#555]">Squire</th>
-                <th className="px-6 py-4 text-center text-sm text-[#555]">Booksy</th>
+                <th className="px-6 py-4 text-center text-sm text-[#777]">Squire</th>
+                <th className="px-6 py-4 text-center text-sm text-[#777]">Booksy</th>
               </tr>
             </thead>
             <tbody>
@@ -345,7 +345,7 @@ export default function LandingPage() {
                           ? <Check size={18} className={cn("mx-auto", j === 0 ? "text-gold" : "text-emerald-400")} />
                           : <X size={18} className="mx-auto text-red-500/50" />
                       ) : (
-                        <span className={cn("text-sm font-semibold", j === 0 ? "text-gold" : "text-[#555]")}>{val}</span>
+                        <span className={cn("text-sm font-semibold", j === 0 ? "text-gold" : "text-[#777]")}>{val}</span>
                       )}
                     </td>
                   ))}
@@ -394,7 +394,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto bg-surface border border-gold/20 rounded-3xl p-10 gold-glow">
           <Scissors size={40} className="text-gold mx-auto mb-4" />
           <h2 className="text-3xl font-bold mb-3">Ready to level up your shop?</h2>
-          <p className="text-[#555] mb-8">Join hundreds of barbers already using ClipWise to grow their business.</p>
+          <p className="text-[#777] mb-8">Join hundreds of barbers already using ClipWise to grow their business.</p>
           <Link href="/signup">
             <Button size="lg" className="text-base px-10">
               Get Started — No Card Needed <ArrowRight size={18} />
@@ -407,7 +407,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1">
             <Logo size="sm" className="text-white" />
-            <p className="text-xs text-[#999] mt-3 leading-relaxed">The premium barbershop management platform. Made in Canada.</p>
+            <p className="text-xs text-[#777] mt-3 leading-relaxed">The premium barbershop management platform. Made in Canada.</p>
           </div>
           {[
             { title: "Product", links: ["Features", "Pricing", "Changelog", "Roadmap"] },
@@ -425,8 +425,8 @@ export default function LandingPage() {
           ))}
         </div>
         <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-[#999]">© 2026 ClipWise Technologies Inc. All rights reserved.</p>
-          <p className="text-xs text-[#999] flex items-center gap-1">
+          <p className="text-xs text-[#777]">© 2026 ClipWise Technologies Inc. All rights reserved.</p>
+          <p className="text-xs text-[#777] flex items-center gap-1">
             <Shield size={12} className="text-gold" /> SOC 2 Compliant · PIPEDA Ready · 🇨🇦 Canadian-Made
           </p>
         </div>

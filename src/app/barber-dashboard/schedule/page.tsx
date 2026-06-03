@@ -27,7 +27,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-500/15 text-green-400 border-green-500/30",
   pending: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  completed: "bg-gray-500/15 text-[#555] border-gray-500/30",
+  completed: "bg-gray-500/15 text-[#777] border-gray-500/30",
   cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
   "no-show": "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -245,13 +245,13 @@ export default function BarberSchedulePage() {
           <p className="text-[#777] text-sm mt-0.5">{monthLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#555] hover:text-white transition-all">
+          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#777] hover:text-white transition-all">
             <ChevronLeft size={18} />
           </button>
           <button onClick={() => { setWeekOffset(0); setSelectedDay(new Date().getDay()); }} className="px-3 py-1.5 text-sm text-gold border border-gold/30 rounded-xl hover:bg-gold/10 transition-all">
             Today
           </button>
-          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#555] hover:text-white transition-all">
+          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-xl bg-surface border border-border hover:border-gold/30 text-[#777] hover:text-white transition-all">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -276,9 +276,9 @@ export default function BarberSchedulePage() {
 
       {/* Day appointments */}
       <div>
-        <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">
           {selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
-          <span className="ml-2 text-[#999] normal-case">({dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""})</span>
+          <span className="ml-2 text-[#777] normal-case">({dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""})</span>
         </h2>
 
         {loading ? (
@@ -287,8 +287,8 @@ export default function BarberSchedulePage() {
           </div>
         ) : dayAppts.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-            <Calendar size={40} className="text-[#aaa] mx-auto mb-3" />
-            <p className="text-[#555]">No appointments this day</p>
+            <Calendar size={40} className="text-[#777] mx-auto mb-3" />
+            <p className="text-[#777]">No appointments this day</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -371,9 +371,9 @@ export default function BarberSchedulePage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
-                <button onClick={() => !savingReject && setRejectModal(null)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => !savingReject && setRejectModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-surface-raised rounded-xl p-3 text-sm text-[#555]">
+              <div className="bg-surface-raised rounded-xl p-3 text-sm text-[#777]">
                 <span className="text-white font-medium">{rejectModal.appt.client_name}</span>
                 {" · "}{rejectModal.appt.services?.name ?? "Service"}
                 {" · "}{rejectModal.appt.time_slot}
@@ -416,7 +416,7 @@ export default function BarberSchedulePage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Take Payment</h2>
-                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-surface-raised rounded-xl p-3 text-sm space-y-1">
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>

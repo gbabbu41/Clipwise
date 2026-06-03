@@ -95,7 +95,7 @@ export default function StripeSetupPage() {
           ) : (
             <div className="space-y-4">
               <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                <p className="text-sm text-[#999]">Stripe processes your payments securely. You&apos;ll receive payouts directly to your bank account.</p>
+                <p className="text-sm text-[#777]">Stripe processes your payments securely. You&apos;ll receive payouts directly to your bank account.</p>
               </div>
               <Button loading={connectLoading} onClick={connectStripe} className="gap-2">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">

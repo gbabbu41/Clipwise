@@ -14,7 +14,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-[#555] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -153,7 +153,7 @@ export default function BarberTimeOffPage() {
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Time Off</h1>
-          <p className="text-sm text-[#555] mt-0.5">Request days off, block hours, log sick days</p>
+          <p className="text-sm text-[#777] mt-0.5">Request days off, block hours, log sick days</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
           <Plus size={15} /> Request Time Off
@@ -182,7 +182,7 @@ export default function BarberTimeOffPage() {
       ) : requests.length === 0 ? (
         <Card>
           <div className="py-16 text-center">
-            <CalendarOff size={36} className="text-[#999] mx-auto mb-3" />
+            <CalendarOff size={36} className="text-[#777] mx-auto mb-3" />
             <p className="font-medium text-white mb-1">No time-off requests yet</p>
             <p className="text-sm text-[#777] mb-4 max-w-xs mx-auto">Request a day off, block a few hours, or log a sick day. Your shop owner approves each one.</p>
             <Button size="sm" onClick={() => setShowModal(true)}>
@@ -202,10 +202,10 @@ export default function BarberTimeOffPage() {
                   <p className="text-sm font-medium text-white">
                     {formatFriendlyDate(req.start_date)}
                     {req.start_date !== req.end_date && (
-                      <span className="text-[#555]"> → {formatFriendlyDate(req.end_date)}</span>
+                      <span className="text-[#777]"> → {formatFriendlyDate(req.end_date)}</span>
                     )}
                     {req.type === "blocked_hours" && req.start_time && req.end_time && (
-                      <span className="text-[#555] ml-2 inline-flex items-center gap-1">
+                      <span className="text-[#777] ml-2 inline-flex items-center gap-1">
                         <Clock size={11} /> {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
                       </span>
                     )}
@@ -234,7 +234,7 @@ export default function BarberTimeOffPage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Request Time Off</h2>
-                <button onClick={() => setShowModal(false)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setShowModal(false)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
 
               <div className="space-y-1.5">
@@ -296,7 +296,7 @@ export default function BarberTimeOffPage() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Reason <span className="text-[#999]">(optional)</span></label>
+                <label className="text-sm font-medium text-gray-300">Reason <span className="text-[#777]">(optional)</span></label>
                 <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                   rows={2} placeholder="e.g. Doctor appointment, family event…"
                   className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />

@@ -26,7 +26,7 @@ function RoleBadge({ role }: { role: UserRole }) {
     super_admin: "text-gold bg-gold/15 border-gold/30",
     shop_owner: "text-blue-400 bg-blue-500/15 border-blue-500/30",
     barber: "text-purple-400 bg-purple-500/15 border-purple-500/30",
-    customer: "text-[#555] bg-gray-500/15 border-gray-500/30",
+    customer: "text-[#777] bg-gray-500/15 border-gray-500/30",
   };
   const labels: Record<UserRole, string> = {
     super_admin: "Super Admin",
@@ -116,7 +116,7 @@ export default function AdminUsersPage() {
           {ROLES.map(r => (
             <button key={r} onClick={() => setRoleFilter(r)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border",
-                roleFilter === r ? "bg-gold text-black border-gold" : "border-border text-[#555] hover:text-white hover:border-gray-500")}>
+                roleFilter === r ? "bg-gold text-black border-gold" : "border-border text-[#777] hover:text-white hover:border-gray-500")}>
               {roleLabels[r]}
             </button>
           ))}
@@ -129,7 +129,7 @@ export default function AdminUsersPage() {
         <Card>
           <div className="py-20 text-center space-y-3">
             <div className="w-16 h-16 bg-surface-raised rounded-2xl flex items-center justify-center mx-auto">
-              <Users size={28} className="text-[#999]" />
+              <Users size={28} className="text-[#777]" />
             </div>
             <p className="font-semibold text-white">No users found</p>
             <p className="text-sm text-[#777]">
@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
                 <thead>
                   <tr className="border-b border-border">
                     {["Name", "Email", "Role", "Shop", "Phone", "Joined"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-[#555] px-3 py-2 whitespace-nowrap">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -158,17 +158,17 @@ export default function AdminUsersPage() {
                       <td className="px-3 py-3 text-sm font-medium text-white">{u.name || "—"}</td>
                       <td className="px-3 py-3 text-sm text-gray-300">{u.email}</td>
                       <td className="px-3 py-3"><RoleBadge role={u.role} /></td>
-                      <td className="px-3 py-3 text-sm text-[#555]">
+                      <td className="px-3 py-3 text-sm text-[#777]">
                         {Array.isArray(u.shops) && u.shops.length > 0 ? u.shops[0].name : "—"}
                       </td>
-                      <td className="px-3 py-3 text-sm text-[#555]">{u.phone || "—"}</td>
+                      <td className="px-3 py-3 text-sm text-[#777]">{u.phone || "—"}</td>
                       <td className="px-3 py-3 text-xs text-[#777] whitespace-nowrap">{u.created_at?.slice(0, 10) ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-[#999] mt-3 px-3">Showing {filtered.length} of {users.length} users</p>
+            <p className="text-xs text-[#777] mt-3 px-3">Showing {filtered.length} of {users.length} users</p>
           </CardContent>
         </Card>
       )}

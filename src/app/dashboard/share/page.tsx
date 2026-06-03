@@ -201,7 +201,7 @@ export default function SharePage() {
         <CardContent>
           <p className="text-xs text-[#777] mb-3">Paste this code into your website to add a "Book Online" button.</p>
           <div className="relative">
-            <pre className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-4 text-xs text-[#999] overflow-x-auto whitespace-pre-wrap">
+            <pre className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-4 text-xs text-[#777] overflow-x-auto whitespace-pre-wrap">
               {embedCode}
             </pre>
             <button

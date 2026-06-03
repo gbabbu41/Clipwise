@@ -111,7 +111,7 @@ export default function JoinShopPage() {
             <Scissors size={14} /> Join a Barbershop
           </div>
           <h1 className="text-3xl font-bold text-white mb-3">Find Your Next Barbershop</h1>
-          <p className="text-[#555] text-sm">Browse approved shops and send a join request directly to the owner.</p>
+          <p className="text-[#777] text-sm">Browse approved shops and send a join request directly to the owner.</p>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export default function JoinShopPage() {
               { key: "phone" as const, label: "Phone (optional)", placeholder: "+1 (506) 555-0123" },
             ].map(({ key, label, placeholder }) => (
               <div key={key}>
-                <label className="text-xs text-[#555] block mb-1.5">{label}</label>
+                <label className="text-xs text-[#777] block mb-1.5">{label}</label>
                 <input
                   value={barberForm[key]}
                   onChange={e => setBarberForm(f => ({ ...f, [key]: e.target.value }))}
@@ -136,7 +136,7 @@ export default function JoinShopPage() {
               </div>
             ))}
             <div className="sm:col-span-2">
-              <label className="text-xs text-[#555] block mb-1.5">Short Bio (optional)</label>
+              <label className="text-xs text-[#777] block mb-1.5">Short Bio (optional)</label>
               <textarea
                 value={barberForm.bio}
                 onChange={e => setBarberForm(f => ({ ...f, bio: e.target.value }))}
@@ -168,7 +168,7 @@ export default function JoinShopPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-[#777]">
-            <Scissors size={36} className="mx-auto mb-3 text-[#999]" />
+            <Scissors size={36} className="mx-auto mb-3 text-[#777]" />
             <p className="text-sm">{search ? `No shops found for "${search}"` : "No approved shops available yet."}</p>
           </div>
         ) : (

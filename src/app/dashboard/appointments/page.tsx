@@ -499,7 +499,7 @@ export default function AppointmentsPage() {
                   "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
                   dateFilter === f.key
                     ? "bg-gold text-black border-black"
-                    : "bg-[#141414] text-[#999] border-[#1e1e1e] hover:border-gray-400 hover:text-white",
+                    : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-gray-400 hover:text-white",
                 )}
               >
                 {f.label}
@@ -617,14 +617,14 @@ export default function AppointmentsPage() {
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
                         className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3 text-sm text-[#999] whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
+                        <td className="px-4 py-3 text-sm text-[#777] whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-white">{apt.client_name}</p>
                           <p className="text-xs text-[#777]">{apt.client_phone}</p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#999]">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-[#999]">{apt.services?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getStatusColor(apt.status))}>
                             {apt.status}
@@ -639,7 +639,7 @@ export default function AppointmentsPage() {
                             const action = primaryAction(apt.status as AppStatus);
                             const rejectable = canReject(apt.status as AppStatus);
                             if (!action && !rejectable) {
-                              return <span className="text-xs text-[#555]">—</span>;
+                              return <span className="text-xs text-[#777]">—</span>;
                             }
                             return (
                               <div className="flex gap-1">
@@ -710,7 +710,7 @@ export default function AppointmentsPage() {
               <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-1">
                 <p className="text-xs text-[#777] uppercase tracking-wide">Client</p>
                 <p className="text-white font-semibold">{selectedApt.client_name}</p>
-                <p className="text-sm text-[#999]">{selectedApt.client_phone}</p>
+                <p className="text-sm text-[#777]">{selectedApt.client_phone}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -809,18 +809,18 @@ export default function AppointmentsPage() {
                 <span className="text-white font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {shortFriendlyDate(rejectModal.appt.date)} · {rejectModal.appt.time_slot}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#999]">Reason (optional)</label>
+                <label className="text-sm font-medium text-[#777]">Reason (optional)</label>
                 <textarea
                   value={rejectModal.reason}
                   onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
                   rows={3}
                   placeholder="e.g. Barber unavailable, fully booked, shop closed…"
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
                 />
               </div>
               {rejectModal.appt.client_email && (
                 <p className="text-xs text-[#777] bg-[#141414] rounded-xl px-3 py-2">
-                  A cancellation email will be sent to <span className="text-[#999]">{rejectModal.appt.client_email}</span> with this reason.
+                  A cancellation email will be sent to <span className="text-[#777]">{rejectModal.appt.client_email}</span> with this reason.
                 </p>
               )}
               <div className="flex gap-3">

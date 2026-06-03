@@ -84,9 +84,9 @@ export default function BarberClientsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-          <Users size={40} className="text-[#aaa] mx-auto mb-3" />
-          <p className="text-[#555]">{query ? "No clients match your search" : "No clients yet"}</p>
-          <p className="text-xs text-[#999] mt-1">{query ? "" : "Clients will appear here after appointments"}</p>
+          <Users size={40} className="text-[#777] mx-auto mb-3" />
+          <p className="text-[#777]">{query ? "No clients match your search" : "No clients yet"}</p>
+          <p className="text-xs text-[#777] mt-1">{query ? "" : "Clients will appear here after appointments"}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -116,7 +116,7 @@ export default function BarberClientsPage() {
               </div>
               <div className="text-right min-w-[60px]">
                 <p className="text-sm font-medium text-gold">${client.total_spent.toFixed(0)}</p>
-                <p className="text-xs text-[#999]">total</p>
+                <p className="text-xs text-[#777]">total</p>
               </div>
             </div>
           ))}

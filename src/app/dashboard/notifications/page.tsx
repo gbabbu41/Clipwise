@@ -147,7 +147,7 @@ export default function NotificationsPage() {
                   <div className="text-2xl flex-shrink-0">{TYPE_ICONS[notif.type] ?? "🔔"}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={cn("text-sm font-semibold", notif.is_read ? "text-[#999]" : "text-white")}>{notif.title}</p>
+                      <p className={cn("text-sm font-semibold", notif.is_read ? "text-[#777]" : "text-white")}>{notif.title}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!notif.is_read && <span className="w-2 h-2 rounded-full bg-gold" />}
                         <span className="text-xs text-[#777]">{timeAgo(notif.created_at)}</span>
@@ -205,7 +205,7 @@ export default function NotificationsPage() {
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{TYPE_ICONS[type]}</span>
-                        <span className="text-sm text-[#999] capitalize">{type}</span>
+                        <span className="text-sm text-[#777] capitalize">{type}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-[#777]">{count}</span>

@@ -195,7 +195,7 @@ export default function InventoryPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full bg-black shadow-sm border border-[#1e1e1e] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+            className="w-full bg-black shadow-sm border border-[#1e1e1e] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -219,7 +219,7 @@ export default function InventoryPage() {
             <div className="py-12 text-center text-[#777]">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
-              <Package size={40} className="mx-auto mb-4 text-[#999]" />
+              <Package size={40} className="mx-auto mb-4 text-[#777]" />
               <p className="text-white font-medium">No products found</p>
               <p className="text-sm text-[#777] mt-1">
                 {items.length === 0 ? "Add your first product to get started" : "Try adjusting your filters"}
@@ -311,10 +311,10 @@ export default function InventoryPage() {
                                 <button onClick={() => adjustQty(item.id, 1)} className="w-6 h-6 rounded-md bg-[#141414] border border-[#1e1e1e] text-white hover:border-emerald-400/50 hover:text-emerald-400 flex items-center justify-center text-xs transition-colors">
                                   <TrendingUp size={12} />
                                 </button>
-                                <span className="text-xs text-[#999]">/ {item.low_stock_threshold}</span>
+                                <span className="text-xs text-[#777]">/ {item.low_stock_threshold}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-sm text-[#999]">{formatCurrency(item.price * item.quantity)}</td>
+                            <td className="px-3 py-3 text-sm text-[#777]">{formatCurrency(item.price * item.quantity)}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-1">
                                 <button onClick={() => startEdit(item)} className="text-[#777] hover:text-white transition-colors p-1" title="Edit">
@@ -351,7 +351,7 @@ export default function InventoryPage() {
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs text-[#777]">Product Name *</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. American Crew Pomade"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Category</label>
@@ -363,22 +363,22 @@ export default function InventoryPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Retail Price ($)</label>
                   <input value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Cost Price ($)</label>
                   <input value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Starting Qty</label>
                   <input value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))} type="number" min="0" placeholder="0"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Low Stock Alert At</label>
                   <input value={form.low_stock_threshold} onChange={e => setForm(p => ({ ...p, low_stock_threshold: e.target.value }))} type="number" min="0" placeholder="5"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">

@@ -237,7 +237,7 @@ export default function OnboardingPage() {
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-1">
             <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
-              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-[#999]")}>
+              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-[#777]")}>
               {i < step ? <Check size={12} /> : i + 1}
             </div>
             {i < STEPS.length - 1 && <div className={cn("w-5 h-px", i < step ? "bg-gold" : "bg-border")} />}
@@ -298,7 +298,7 @@ export default function OnboardingPage() {
                 <input type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
               </label>
-              <p className="text-xs text-[#999] text-center">You can add your logo later from Settings.</p>
+              <p className="text-xs text-[#777] text-center">You can add your logo later from Settings.</p>
             </div>
           </div>
         )}
@@ -336,22 +336,22 @@ export default function OnboardingPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-[#555]">Name</label>
+                      <label className="text-xs text-[#777]">Name</label>
                       <input value={svc.name} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} placeholder="Haircut"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-[#555]">Price ($)</label>
+                      <label className="text-xs text-[#777]">Price ($)</label>
                       <input type="number" value={svc.price} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, price: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-[#555]">Duration (min)</label>
+                      <label className="text-xs text-[#777]">Duration (min)</label>
                       <input type="number" value={svc.duration} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, duration: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-[#555]">Category</label>
+                      <label className="text-xs text-[#777]">Category</label>
                       <select value={svc.category} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, category: e.target.value } : s))}
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
                         {SERVICE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
@@ -362,7 +362,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <button onClick={() => setServices([...services, { name: "", price: "", duration: "30", category: "Hair" }])}
-              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-[#555] hover:text-gold hover:border-gold/30 transition-colors">
+              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-[#777] hover:text-gold hover:border-gold/30 transition-colors">
               <Plus size={16} /> Add Another Service
             </button>
           </div>
@@ -413,14 +413,14 @@ export default function OnboardingPage() {
               <Check size={36} className="text-gold" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Your shop is ready! 🎉</h2>
-            <p className="text-[#555] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
+            <p className="text-[#777] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
             <div className="bg-surface border border-gold/20 rounded-2xl p-5 text-left my-6">
               <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
               <div className="flex items-center gap-2 bg-surface-raised rounded-xl px-3 py-2">
                 <p className="text-sm text-gold font-mono flex-1 truncate">{bookingUrl}</p>
-                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#555] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
+                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#777] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
               </div>
-              <p className="text-xs text-[#999] mt-2">Goes live once your shop is approved.</p>
+              <p className="text-xs text-[#777] mt-2">Goes live once your shop is approved.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>

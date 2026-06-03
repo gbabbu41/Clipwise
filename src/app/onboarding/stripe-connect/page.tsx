@@ -40,7 +40,7 @@ export default function StripeConnectPage() {
             <Building2 size={26} className="text-gold" />
           </div>
           <h1 className="text-2xl font-bold text-white">Connect your bank account</h1>
-          <p className="text-[#555] text-sm mt-2 leading-relaxed">
+          <p className="text-[#777] text-sm mt-2 leading-relaxed">
             Receive customer payments directly to your bank. Powered by Stripe.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function StripeConnectPage() {
           </button>
         </div>
 
-        <p className="text-center text-xs text-[#999] mt-6">
+        <p className="text-center text-xs text-[#777] mt-6">
           You can complete this anytime from your billing settings.
         </p>
       </div>

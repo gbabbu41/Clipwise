@@ -155,7 +155,7 @@ function PlanPageInner() {
             <Check size={28} className="text-green-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-1">Payment successful!</h2>
-          <p className="text-[#555] text-sm">Setting up your shop…</p>
+          <p className="text-[#777] text-sm">Setting up your shop…</p>
         </div>
       </div>
     );
@@ -193,7 +193,7 @@ function PlanPageInner() {
                 <div className="mb-5">
                   <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4",
                     plan.id === "starter" ? "bg-surface-raised" : plan.id === "pro" ? "bg-gold/15" : "bg-purple-500/15")}>
-                    <Icon size={20} className={plan.id === "starter" ? "text-[#555]" : plan.id === "pro" ? "text-gold" : "text-purple-400"} />
+                    <Icon size={20} className={plan.id === "starter" ? "text-[#777]" : plan.id === "pro" ? "text-gold" : "text-purple-400"} />
                   </div>
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
                   <div className="flex items-baseline gap-1 mt-1">
@@ -210,7 +210,7 @@ function PlanPageInner() {
                     </li>
                   ))}
                   {plan.limits.map(l => (
-                    <li key={l} className="flex items-start gap-2.5 text-sm text-[#999]">
+                    <li key={l} className="flex items-start gap-2.5 text-sm text-[#777]">
                       <span className="flex-shrink-0 mt-0.5 w-[15px] text-center">—</span>
                       {l}
                     </li>
@@ -228,7 +228,7 @@ function PlanPageInner() {
           })}
         </div>
 
-        <p className="text-center text-xs text-[#999] mt-8">
+        <p className="text-center text-xs text-[#777] mt-8">
           Starter is free forever. Pro and Premium are billed monthly, no contracts. Secure checkout by Stripe.
         </p>
       </div>

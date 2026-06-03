@@ -181,7 +181,7 @@ export default function POSPage() {
             <div className="space-y-2">
               {lastCharge.items.map(item => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-[#999]">{item.name} × {item.qty}</span>
+                  <span className="text-[#777]">{item.name} × {item.qty}</span>
                   <span className="text-white">{formatCurrency(item.price * item.qty)}</span>
                 </div>
               ))}
@@ -266,7 +266,7 @@ export default function POSPage() {
                 <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
                   className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                  <p className="text-xs font-medium text-[#999] truncate">{inv.name}</p>
+                  <p className="text-xs font-medium text-[#777] truncate">{inv.name}</p>
                   <p className="text-sm font-bold text-white mt-0.5">{formatCurrency(inv.price)}</p>
                   {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
                     <p className="text-xs text-red-400 mt-0.5">{inv.quantity} left</p>
@@ -335,7 +335,7 @@ export default function POSPage() {
             <div className="flex gap-1 flex-wrap">
               {[10,15,20].map(t => (
                 <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#555] hover:text-white border border-[#1e1e1e]")}>
+                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#777] hover:text-white border border-[#1e1e1e]")}>
                   {t}%
                 </button>
               ))}
@@ -364,7 +364,7 @@ export default function POSPage() {
           <div className="grid grid-cols-3 gap-2">
             {(["card","cash","online"] as PM[]).map(m => (
               <button key={m} onClick={() => setPaymentMethod(m)}
-                className={cn("py-2 rounded-xl text-xs font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#999] border-[#1e1e1e] hover:border-black")}>
+                className={cn("py-2 rounded-xl text-xs font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-black")}>
                 {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
               </button>
             ))}

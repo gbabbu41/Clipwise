@@ -52,7 +52,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   // on the card. Two-tone tinted background overlay was a dark-mode device —
   // on white it just looks like a misprint. Dropped entirely.
   const iconChipByColor: Record<string, string> = {
-    gold: "bg-[#141414] text-[#aaa]",
+    gold: "bg-[#141414] text-[#777]",
     green: "bg-emerald-50 text-emerald-600",
     blue: "bg-blue-50 text-blue-600",
     purple: "bg-purple-50 text-purple-600",
@@ -466,7 +466,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setShowDatePicker(s => !s)}
-          className="text-xs text-[#999] ml-1 px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-gray-400 hover:text-white transition-colors"
+          className="text-xs text-[#777] ml-1 px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-gray-400 hover:text-white transition-colors"
         >
           {filterDateRange[0] === filterDateRange[1]
             ? filterDateRange[0]
@@ -688,7 +688,7 @@ export default function DashboardPage() {
                 displayAppts.map((apt) => (
                   <div key={apt.id} className="flex items-center gap-3 py-3 border-b border-[#1e1e1e] last:border-0">
                     <div className="text-center min-w-[52px]">
-                      <p className="text-xs text-[#aaa]">{apt.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-[#777]">{apt.time_slot.split(" ")[0]}</p>
                       <p className="text-xs text-[#777]">{apt.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="w-px h-10 bg-[#1e1e1e]" />

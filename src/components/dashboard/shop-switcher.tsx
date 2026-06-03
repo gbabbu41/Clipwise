@@ -41,7 +41,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-surface-raised transition-colors text-left"
             >
               <Check size={13} className={cn("flex-shrink-0", s.id === shop?.id ? "text-gold" : "text-transparent")} />
-              <span className={cn("truncate", s.id === shop?.id ? "text-white font-medium" : "text-[#555]")}>{s.name}</span>
+              <span className={cn("truncate", s.id === shop?.id ? "text-white font-medium" : "text-[#777]")}>{s.name}</span>
               {s.status === "pending" && <span className="ml-auto text-xs text-orange-400">Pending</span>}
               {s.status === "suspended" && <span className="ml-auto text-xs text-red-400">Suspended</span>}
             </button>

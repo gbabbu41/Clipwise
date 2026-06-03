@@ -186,7 +186,7 @@ export function Sidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
         >
           <Menu size={20} />
         </button>
@@ -236,7 +236,7 @@ export function Sidebar() {
         type="button"
         onClick={() => setMobileOpen(false)}
         aria-label="Close menu"
-        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors"
+        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors"
       >
         <Menu size={18} />
       </button>
@@ -268,7 +268,7 @@ export function Sidebar() {
               key={section.label}
               className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-[#1e1e1e]")}
             >
-              <p className="text-[10px] uppercase tracking-wider text-[#555] font-semibold px-3 mb-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-[#777] font-semibold px-3 mb-1.5">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -283,7 +283,7 @@ export function Sidebar() {
                         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isActive
                           ? "bg-white text-black border border-white"
-                          : "text-[#aaa] hover:text-white hover:bg-[#141414]"
+                          : "text-[#777] hover:text-white hover:bg-[#141414]"
                       )}
                     >
                       <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
@@ -308,7 +308,7 @@ export function Sidebar() {
         {/* Owner-also-barber: prominent switch to barber view */}
         {isAlsoBarber && (
           <Link href="/barber-dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#aaa] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#1e1e1e]">
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#777] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#1e1e1e]">
             <Scissors size={18} className="text-[#777] group-hover:text-white" />
             <span className="flex-1">My Barber View</span>
             <ChevronRight size={14} className="opacity-50" />

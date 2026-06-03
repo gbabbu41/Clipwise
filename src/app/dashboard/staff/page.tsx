@@ -545,7 +545,7 @@ export default function StaffPage() {
                   onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Number(e.target.value) }))}
                   className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-[#999] mt-0.5"><span>20%</span><span>70%</span></div>
+                <div className="flex justify-between text-xs text-[#777] mt-0.5"><span>20%</span><span>70%</span></div>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
                   Save Commission
                 </Button>
@@ -601,7 +601,7 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#999]")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#777]")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
@@ -619,7 +619,7 @@ export default function StaffPage() {
                       t.type === "day_off" ? "Day Off" :
                       t.type === "vacation" ? "Vacation" : "Sick";
                     return (
-                      <div key={t.id} className="text-xs flex items-center gap-2 text-[#999]">
+                      <div key={t.id} className="text-xs flex items-center gap-2 text-[#777]">
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/20">
                           {typeLabel}
                         </span>
@@ -664,7 +664,7 @@ export default function StaffPage() {
                   {staffHours.map((sh) => (
                     <tr key={sh.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
                       <td className="px-3 py-3 text-sm text-white">{sh.barbers?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-[#999]">{sh.date}</td>
+                      <td className="px-3 py-3 text-sm text-[#777]">{sh.date}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
                       <td className="px-3 py-3 text-sm text-red-400">{sh.clock_out ?? "—"}</td>
                       <td className="px-3 py-3 text-sm text-white">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
@@ -821,7 +821,7 @@ export default function StaffPage() {
                               "px-1.5 py-0.5 rounded text-[10px] font-medium border",
                               isFullDay ? "bg-orange-500/10 text-orange-300 border-orange-500/20" : "bg-purple-500/10 text-purple-300 border-purple-500/20",
                             )}>{typeLabel}</span>
-                            <span className="text-[#999] flex-1 truncate">
+                            <span className="text-[#777] flex-1 truncate">
                               {dateLabel}
                               {t.type === "blocked_hours" && t.start_time && t.end_time && (
                                 <span className="text-[#777]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
@@ -894,7 +894,7 @@ export default function StaffPage() {
                 Share this link with <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.
               </p>
               <ResetLinkCopy link={resetModal.link} />
-              <p className="text-xs text-[#999]">The barber will be prompted to set a new password when they open this link.</p>
+              <p className="text-xs text-[#777]">The barber will be prompted to set a new password when they open this link.</p>
               <Button className="w-full" onClick={() => setResetModal(null)}>Done</Button>
             </div>
           </div>
@@ -1003,7 +1003,7 @@ export default function StaffPage() {
                         onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
                         required={required}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                       />
                     </div>
                   ))}

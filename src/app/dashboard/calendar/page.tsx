@@ -107,7 +107,7 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
             </div>
           </div>
           {appt.notes && (
-            <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#999]">{appt.notes}</div>
+            <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
           )}
         </div>
       </div>
@@ -339,7 +339,7 @@ export default function CalendarPage() {
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
                     isToday(day) ? "bg-gold text-black font-bold" :
-                    inMonth ? "text-white" : "text-[#999]",
+                    inMonth ? "text-white" : "text-[#777]",
                   )}>
                     {day.getDate()}
                   </span>

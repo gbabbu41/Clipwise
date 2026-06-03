@@ -190,7 +190,7 @@ export default function LoyaltyPage() {
                       {clients.map((client, idx) => (
                         <tr key={client.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
                           <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-white" : idx === 1 ? "text-[#999]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-white" : idx === 1 ? "text-[#777]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
                               #{idx + 1}
                             </span>
                           </td>
@@ -210,7 +210,7 @@ export default function LoyaltyPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-sm text-[#999]">{client.total_visits}</td>
+                          <td className="px-3 py-3 text-sm text-[#777]">{client.total_visits}</td>
                           <td className="px-3 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
                             <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>

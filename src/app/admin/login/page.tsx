@@ -112,7 +112,7 @@ export default function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-[#999] mt-6">
+        <p className="text-center text-xs text-[#777] mt-6">
           ClipWise Admin Portal — Authorized Access Only
         </p>
       </div>

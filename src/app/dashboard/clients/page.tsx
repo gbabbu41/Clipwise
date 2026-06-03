@@ -504,7 +504,7 @@ export default function ClientsPage() {
                         value={hairProfile[key]}
                         onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#999] focus:outline-none focus:ring-1 focus:ring-black/20"
+                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-1 focus:ring-black/20"
                       />
                     </div>
                   ))}
@@ -547,7 +547,7 @@ export default function ClientsPage() {
                       onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={2}
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#999] focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
+                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
                     />
                   </div>
                 ))}

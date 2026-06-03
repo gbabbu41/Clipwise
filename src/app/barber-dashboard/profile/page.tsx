@@ -99,14 +99,14 @@ export default function BarberProfilePage() {
           {/* Account info (read-only) */}
           <div className="bg-surface-raised rounded-xl p-4 space-y-2">
             <p className="text-xs font-semibold text-[#777] uppercase tracking-wider">Account Info</p>
-            <div className="flex items-center gap-2 text-sm text-[#555]">
+            <div className="flex items-center gap-2 text-sm text-[#777]">
               <User size={13} />
               <span>{user?.email}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-[#777]">Commission:</span>
               <span className="text-gold font-semibold">{barber?.commission_percent ?? 50}%</span>
-              <span className="text-[#999] text-xs">(set by shop owner)</span>
+              <span className="text-[#777] text-xs">(set by shop owner)</span>
             </div>
           </div>
 

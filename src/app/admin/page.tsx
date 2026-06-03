@@ -75,7 +75,7 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { va
   if (active && payload?.length) {
     return (
       <div className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-xs">
-        <p className="text-[#555]">{label}</p>
+        <p className="text-[#777]">{label}</p>
         <p className="text-gold font-semibold">{payload[0].value} shops</p>
       </div>
     );
@@ -236,7 +236,7 @@ export default function AdminPage() {
       <div className="flex gap-1 flex-wrap mb-6 bg-surface-raised p-1 rounded-xl w-fit">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-all", tab === key ? "bg-gold text-black" : "text-[#555] hover:text-white")}
+            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-all", tab === key ? "bg-gold text-black" : "text-[#777] hover:text-white")}
           >{label}</button>
         ))}
       </div>
@@ -304,7 +304,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Shield size={14} className="text-gold" />
-                  <span className="text-xs text-[#999]">Platform is live and ready to accept registrations</span>
+                  <span className="text-xs text-[#777]">Platform is live and ready to accept registrations</span>
                 </div>
               </div>
             </Card>
@@ -339,7 +339,7 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b border-border">
                       {["Shop", "Owner", "City", "Plan", "Status", "Joined"].map((h) => (
-                        <th key={h} className="text-left text-xs font-medium text-[#555] px-3 py-2">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -384,7 +384,7 @@ export default function AdminPage() {
                     <h3 className="text-white font-semibold text-lg">{s.name}</h3>
                     <StatusBadge status={s.status} />
                   </div>
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#555]">
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#777]">
                     <span>Owner: <span className="text-white">{s.users?.name ?? "Unknown"}</span></span>
                     <span>Email: <span className="text-white">{s.users?.email ?? s.email}</span></span>
                     <span>City: <span className="text-white">{s.city}, {s.province}</span></span>
@@ -433,7 +433,7 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b border-border">
                       {["Shop", "Owner", "City", "Plan", "Status", "Joined", "Actions"].map((h) => (
-                        <th key={h} className="text-left text-xs font-medium text-[#555] px-3 py-2">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -509,7 +509,7 @@ export default function AdminPage() {
                     <div key={plan}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-white capitalize font-medium">{plan}</span>
-                        <span className="text-[#555]">{count} shops · {formatCurrency(planPrices[plan] * count)}/mo</span>
+                        <span className="text-[#777]">{count} shops · {formatCurrency(planPrices[plan] * count)}/mo</span>
                       </div>
                       <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
                         <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -519,7 +519,7 @@ export default function AdminPage() {
                 })}
               </div>
               <div className="border-t border-border mt-4 pt-4 flex justify-between items-center">
-                <span className="text-sm text-[#555] font-medium">Total Estimated MRR</span>
+                <span className="text-sm text-[#777] font-medium">Total Estimated MRR</span>
                 <span className="text-gold font-bold text-xl">{formatCurrency(mrr)}</span>
               </div>
             </CardContent>
@@ -535,9 +535,9 @@ export default function AdminPage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Shop</h2>
-                <button onClick={() => setRejectModal(null)} className="text-[#555] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setRejectModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#555]">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Please provide a reason:</p>
+              <p className="text-sm text-[#777]">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Please provide a reason:</p>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}

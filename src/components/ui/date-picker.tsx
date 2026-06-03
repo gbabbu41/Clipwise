@@ -47,7 +47,7 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
           value ? "text-white" : "text-[#777]",
         )}
       >
-        <CalendarIcon size={15} className="text-[#555] flex-shrink-0" />
+        <CalendarIcon size={15} className="text-[#777] flex-shrink-0" />
         <span className="flex-1 truncate">{displayLabel}</span>
       </button>
 
@@ -60,7 +60,7 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
             <div className="fixed left-0 right-0 bottom-0 z-[61] bg-surface border-t border-border rounded-t-2xl p-4 animate-fade-in">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-white">Pick a date</span>
-                <button type="button" onClick={() => setOpen(false)} className="text-[#555] hover:text-white">
+                <button type="button" onClick={() => setOpen(false)} className="text-[#777] hover:text-white">
                   <X size={18} />
                 </button>
               </div>

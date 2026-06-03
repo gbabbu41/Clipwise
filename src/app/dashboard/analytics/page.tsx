@@ -360,7 +360,7 @@ export default function AnalyticsPage() {
                     {apptStatuses.map(s => (
                       <div key={s.name} className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                        <span className="text-xs text-[#999]">{s.name}</span>
+                        <span className="text-xs text-[#777]">{s.name}</span>
                         <span className="text-xs text-[#777] ml-auto">{s.value}%</span>
                       </div>
                     ))}
@@ -425,7 +425,7 @@ export default function AnalyticsPage() {
                         <td className="px-3 py-3 text-sm text-emerald-400">{bCompleted.length}</td>
                         <td className="px-3 py-3 text-sm text-orange-400">{bNoShows}</td>
                         <td className="px-3 py-3 text-sm text-white font-semibold">{formatCurrency(bRevenue)}</td>
-                        <td className="px-3 py-3 text-sm text-[#999]">{formatCurrency(bAvg)}</td>
+                        <td className="px-3 py-3 text-sm text-[#777]">{formatCurrency(bAvg)}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-[#141414] rounded-full overflow-hidden">

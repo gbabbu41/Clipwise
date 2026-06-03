@@ -139,7 +139,7 @@ export default function AcceptInvitePage() {
               <Lock size={20} className="text-blue-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Welcome back!</h1>
-            <p className="text-sm text-[#555] mt-2 leading-relaxed">
+            <p className="text-sm text-[#777] mt-2 leading-relaxed">
               You already have a ClipWise account with <span className="text-white font-medium">{userEmail}</span>. Sign in with your existing password to continue.
             </p>
           </div>
@@ -188,7 +188,7 @@ export default function AcceptInvitePage() {
               <Lock size={20} className="text-gold" />
             </div>
             <h1 className="text-xl font-bold text-white">Set your password</h1>
-            <p className="text-sm text-[#555] mt-1">One last step before your barber dashboard.</p>
+            <p className="text-sm text-[#777] mt-1">One last step before your barber dashboard.</p>
           </div>
 
           {pwError && (
@@ -272,7 +272,7 @@ export default function AcceptInvitePage() {
               <span className="text-2xl">✂️</span>
             </div>
             <p className="font-bold text-white text-lg">You&apos;re all set!</p>
-            <p className="text-sm text-[#555] mt-1">Taking you to your barber dashboard…</p>
+            <p className="text-sm text-[#777] mt-1">Taking you to your barber dashboard…</p>
           </>
         )}
         {status === "error" && (
@@ -281,7 +281,7 @@ export default function AcceptInvitePage() {
               <span className="text-2xl">🔗</span>
             </div>
             <p className="font-bold text-white text-lg mb-2">Invite error</p>
-            <p className="text-sm text-[#555]">{error}</p>
+            <p className="text-sm text-[#777]">{error}</p>
           </>
         )}
       </div>

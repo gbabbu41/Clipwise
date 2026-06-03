@@ -331,7 +331,7 @@ export default function MessagesPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <MessageSquare size={40} className="text-[#999] mb-4" />
+        <MessageSquare size={40} className="text-[#777] mb-4" />
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
         <p className="text-sm text-[#777]">Messages will appear here once your shop is active.</p>
       </div>
@@ -368,7 +368,7 @@ export default function MessagesPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search conversations..."
-              className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+              className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl pl-8 pr-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
             />
           </div>
         </div>
@@ -383,7 +383,7 @@ export default function MessagesPage() {
             </div>
           ) : filteredThreads.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <MessageSquare size={36} className="text-[#999] mb-3" />
+              <MessageSquare size={36} className="text-[#777] mb-3" />
               <p className="text-sm font-medium text-white mb-1">{search ? "No conversations match" : "No messages yet"}</p>
               <p className="text-xs text-[#777] mb-4">{search ? "Try a different search term" : "Send your first message to a client to get started"}</p>
               {!search && (
@@ -411,7 +411,7 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm font-semibold truncate", thread.unread > 0 ? "text-white" : "text-[#999]")}>
+                        <p className={cn("text-sm font-semibold truncate", thread.unread > 0 ? "text-white" : "text-[#777]")}>
                           {thread.clientName}
                         </p>
                         <span className="text-xs text-[#777] flex-shrink-0">
@@ -484,7 +484,7 @@ export default function MessagesPage() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 placeholder={`Message ${activeThread.clientName}…`}
-                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
               />
               <Button size="sm" loading={sending} onClick={sendMessage} disabled={!input.trim()}>
                 <Send size={16} />
@@ -495,7 +495,7 @@ export default function MessagesPage() {
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center text-center p-8">
           <div>
-            <MessageSquare size={48} className="text-[#555] mx-auto mb-4" />
+            <MessageSquare size={48} className="text-[#777] mx-auto mb-4" />
             <p className="text-lg font-semibold text-white mb-2">Select a conversation</p>
             <p className="text-sm text-[#777] mb-6">Choose a thread from the left or start a new message</p>
             <Button variant="outline" onClick={startCompose}>
@@ -519,7 +519,7 @@ export default function MessagesPage() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-[#999] mb-2">To</p>
+                <p className="text-sm font-medium text-[#777] mb-2">To</p>
                 {composeClient ? (
                   <div className="flex items-center gap-2 p-3 bg-[#141414] border border-black rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-sm">
@@ -550,7 +550,7 @@ export default function MessagesPage() {
                           value={composeSearch}
                           onChange={e => setComposeSearch(e.target.value)}
                           placeholder="Search by name, phone, or email…"
-                          className="w-full bg-white border border-[#1e1e1e] rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                          className="w-full bg-white border border-[#1e1e1e] rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                         />
                       </div>
                       <div className="max-h-56 overflow-y-auto border border-[#1e1e1e] rounded-xl divide-y divide-border/50">
@@ -573,7 +573,7 @@ export default function MessagesPage() {
                               <p className="text-sm text-white truncate">{c.name}</p>
                               {c.email && <p className="text-xs text-[#777] truncate">{c.email}</p>}
                               {c.phone && <p className="text-xs text-[#777] truncate">{c.phone}</p>}
-                              {!c.email && !c.phone && <p className="text-xs text-[#555] truncate italic">No contact info</p>}
+                              {!c.email && !c.phone && <p className="text-xs text-[#777] truncate italic">No contact info</p>}
                             </div>
                           </button>
                         ))}
@@ -585,13 +585,13 @@ export default function MessagesPage() {
 
               {composeClient && (
                 <div>
-                  <p className="text-sm font-medium text-[#999] mb-2">Message</p>
+                  <p className="text-sm font-medium text-[#777] mb-2">Message</p>
                   <textarea
                     value={composeMsg}
                     onChange={e => setComposeMsg(e.target.value)}
                     rows={3}
                     placeholder="Type your message..."
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black resize-none"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black resize-none"
                   />
                 </div>
               )}

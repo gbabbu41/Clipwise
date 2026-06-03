@@ -211,12 +211,12 @@ export default function ReviewsPage() {
                   </div>
                 </div>
 
-                {review.comment && <p className="text-sm text-[#999] leading-relaxed mb-3">&ldquo;{review.comment}&rdquo;</p>}
+                {review.comment && <p className="text-sm text-[#777] leading-relaxed mb-3">&ldquo;{review.comment}&rdquo;</p>}
 
                 {review.reply && (
                   <div className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e] mb-3">
                     <p className="text-xs text-white mb-1">Your reply:</p>
-                    <p className="text-sm text-[#999]">{review.reply}</p>
+                    <p className="text-sm text-[#777]">{review.reply}</p>
                   </div>
                 )}
 
@@ -237,7 +237,7 @@ export default function ReviewsPage() {
                   <div className="mt-4 space-y-2">
                     <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
                       placeholder="Write a reply to this review..."
-                      className="w-full rounded-xl border border-[#1e1e1e] bg-[#141414] px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20 resize-none"
+                      className="w-full rounded-xl border border-[#1e1e1e] bg-[#141414] px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-black/20 resize-none"
                       rows={3} />
                     <Button size="sm" loading={saving} onClick={() => sendReply(review.id)}>Send Reply</Button>
                   </div>

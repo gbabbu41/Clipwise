@@ -83,7 +83,7 @@ export function BarberSidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#aaa] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
         >
           <Menu size={20} />
         </button>
@@ -147,7 +147,7 @@ export function BarberSidebar() {
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                 isActive
                   ? "bg-white text-black border border-white"
-                  : "text-[#aaa] hover:text-white hover:bg-[#141414]"
+                  : "text-[#777] hover:text-white hover:bg-[#141414]"
               )}
             >
               <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
@@ -160,7 +160,7 @@ export function BarberSidebar() {
         {/* Owner-also-barber: show a way back to the owner dashboard */}
         {profile?.role === "shop_owner" && (
           <Link href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#555] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#777] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
             <Building2 size={18} className="text-[#777] group-hover:text-white" />
             <span className="flex-1">Owner Dashboard</span>
             <ChevronRight size={14} className="opacity-50" />

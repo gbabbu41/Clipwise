@@ -57,12 +57,12 @@ export default function AdminSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-xs text-[#555] font-medium uppercase tracking-wide">Admin Email</label>
+            <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Admin Email</label>
             <div className="flex items-center gap-3 mt-1.5">
               <p className="text-sm text-white font-medium">{settings.admin_email}</p>
               <Badge variant="gold">Super Admin</Badge>
             </div>
-            <p className="text-xs text-[#999] mt-1">Admin access is granted to users with the <code className="text-gold">super_admin</code> role in the users table.</p>
+            <p className="text-xs text-[#777] mt-1">Admin access is granted to users with the <code className="text-gold">super_admin</code> role in the users table.</p>
           </div>
         </CardContent>
       </Card>
@@ -104,7 +104,7 @@ export default function AdminSettingsPage() {
               <p className="text-2xl font-bold text-gold">{plan.price}</p>
               <ul className="space-y-1.5">
                 {plan.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-xs text-[#555]">
+                  <li key={f} className="flex items-center gap-2 text-xs text-[#777]">
                     <Check size={12} className="text-emerald-400 flex-shrink-0" />{f}
                   </li>
                 ))}
@@ -112,7 +112,7 @@ export default function AdminSettingsPage() {
             </div>
           ))}
         </div>
-        <p className="text-xs text-[#999] mt-3">Plan pricing is managed in Stripe. Contact dev to update.</p>
+        <p className="text-xs text-[#777] mt-3">Plan pricing is managed in Stripe. Contact dev to update.</p>
       </div>
 
       {/* Platform health */}

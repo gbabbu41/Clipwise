@@ -268,7 +268,7 @@ export default function MyStatsPage() {
                     {rev.comment && (
                       <p className="text-xs text-[#777] leading-relaxed line-clamp-2">{rev.comment}</p>
                     )}
-                    <p className="text-xs text-[#999] mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
+                    <p className="text-xs text-[#777] mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
                   </div>
                 ))}
               </div>

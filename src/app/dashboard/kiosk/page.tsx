@@ -196,7 +196,7 @@ export default function KioskPage() {
 
               <button
                 onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}
-                className="w-full text-sm text-[#777] hover:text-[#999] py-2 transition-colors"
+                className="w-full text-sm text-[#777] hover:text-[#777] py-2 transition-colors"
               >
                 Skip — I'll decide with my barber
               </button>
@@ -270,25 +270,25 @@ export default function KioskPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-[#999] block mb-2">Your Name *</label>
+                  <label className="text-sm font-medium text-[#777] block mb-2">Your Name *</label>
                   <input
                     type="text"
                     value={data.name}
                     onChange={e => setData(d => ({ ...d, name: e.target.value }))}
                     placeholder="First name is fine"
-                    className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#999] focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                     autoComplete="off"
                     autoCorrect="off"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-[#999] block mb-2">Phone (optional — for text when ready)</label>
+                  <label className="text-sm font-medium text-[#777] block mb-2">Phone (optional — for text when ready)</label>
                   <input
                     type="tel"
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
-                    className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#999] focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                     autoComplete="off"
                   />
                 </div>
@@ -380,7 +380,7 @@ export default function KioskPage() {
                 <p className="text-[#777]">Have a seat — we'll call your name when it's your turn.</p>
                 {data.phone && <p className="text-sm text-[#777]">We'll also text you at {data.phone}.</p>}
               </div>
-              <p className="text-xs text-[#999]">This screen resets in 8 seconds…</p>
+              <p className="text-xs text-[#777]">This screen resets in 8 seconds…</p>
             </div>
           )}
 
@@ -389,7 +389,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-[#555]">Powered by <span className="text-white font-semibold">ClipWise</span></p>
+        <p className="text-xs text-[#777]">Powered by <span className="text-white font-semibold">ClipWise</span></p>
       </div>
     </div>
   );

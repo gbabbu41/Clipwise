@@ -212,7 +212,7 @@ export default function GiftCardsPage() {
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by code, name..."
-            className="w-full bg-black shadow-sm border border-[#1e1e1e] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+            className="w-full bg-black shadow-sm border border-[#1e1e1e] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
         </div>
         <div className="flex gap-2">
           {(["all", "active", "used"] as const).map(f => (
@@ -232,7 +232,7 @@ export default function GiftCardsPage() {
             <div className="py-12 text-center text-[#777]">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
-              <Gift size={40} className="mx-auto mb-4 text-[#999]" />
+              <Gift size={40} className="mx-auto mb-4 text-[#777]" />
               <p className="text-white font-medium">No gift cards yet</p>
               <p className="text-sm text-[#777] mt-1">Issue your first gift card to get started</p>
               <Button className="mt-4" onClick={() => setShowAdd(true)}>
@@ -327,7 +327,7 @@ export default function GiftCardsPage() {
                   ))}
                 </div>
                 <input value={form.initial_value} onChange={e => setForm(p => ({ ...p, initial_value: e.target.value }))} type="number" min="1" placeholder="Custom amount"
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
               </div>
 
               {/* Recipient */}
@@ -335,22 +335,22 @@ export default function GiftCardsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Recipient Name</label>
                   <input value={form.recipient_name} onChange={e => setForm(p => ({ ...p, recipient_name: e.target.value }))} placeholder="Jane Smith"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Recipient Email (optional)</label>
                   <input value={form.recipient_email} onChange={e => setForm(p => ({ ...p, recipient_email: e.target.value }))} type="email" placeholder="jane@example.com"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Purchased By</label>
                   <input value={form.purchased_by} onChange={e => setForm(p => ({ ...p, purchased_by: e.target.value }))} placeholder="John Smith"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-[#777]">Note (optional)</label>
                   <input value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Birthday gift"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
                 </div>
               </div>
 
@@ -383,7 +383,7 @@ export default function GiftCardsPage() {
                       onChange={e => setRedeemCode(e.target.value.toUpperCase())}
                       onKeyDown={e => e.key === "Enter" && lookupCard()}
                       placeholder="XXXX-XXXX-XXXX"
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm font-mono text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm font-mono text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                       autoFocus
                     />
                   </div>
@@ -422,7 +422,7 @@ export default function GiftCardsPage() {
                           step="0.01"
                           max={redeemResult.remaining_value}
                           placeholder={`Max ${formatCurrency(redeemResult.remaining_value)}`}
-                          className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-black"
+                          className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                           autoFocus
                         />
                       </div>

@@ -232,7 +232,7 @@ export default function ServicesPage() {
             return (
               <div key={cat}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-[#999]">{cat}</h2>
+                  <h2 className="text-sm font-semibold text-[#777]">{cat}</h2>
                   <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-[#777] bg-gray-500/20 border-gray-500/30")}>
                     {catServices.length}
                   </span>
@@ -366,11 +366,11 @@ export default function ServicesPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
-                  <span className="text-sm text-[#999]">Active</span>
+                  <span className="text-sm text-[#777]">Active</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Switch checked={!!newSvc.deposit_required} onChange={v => setNewSvc(p => ({ ...p, deposit_required: v }))} />
-                  <span className="text-sm text-[#999]">Require deposit</span>
+                  <span className="text-sm text-[#777]">Require deposit</span>
                 </div>
                 {newSvc.deposit_required && (
                   <Input label="Deposit Amount ($)" type="number" value={newSvc.deposit_amount} onChange={e => setNewSvc(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="e.g. 20" />

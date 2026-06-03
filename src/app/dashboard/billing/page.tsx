@@ -199,7 +199,7 @@ export default function BillingPage() {
             <div className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center">
               <Building2 size={18} className="text-white" />
             </div>
-            <p className="text-sm text-[#999]">
+            <p className="text-sm text-[#777]">
               {billing?.connect.connected
                 ? "Your bank account is connected. Customer payments are deposited directly to you."
                 : "Connect your bank account to receive customer payments directly via Stripe."}

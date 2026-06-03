@@ -107,7 +107,7 @@ export default function BarberSignupPage() {
               <CheckCircle size={28} className="text-emerald-400" />
             </div>
             <h2 className="text-xl font-bold text-white">Account created!</h2>
-            <p className="text-sm text-[#555]">Your barber account is ready. Sign in to access your dashboard and complete your shop setup.</p>
+            <p className="text-sm text-[#777]">Your barber account is ready. Sign in to access your dashboard and complete your shop setup.</p>
             <Link href="/login" className="block mt-2 text-gold hover:underline text-sm font-medium">Go to Sign In →</Link>
           </div>
         ) : (

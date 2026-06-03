@@ -74,7 +74,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
           type="button"
           aria-label="Previous month"
           onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-white flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#777] hover:text-white flex items-center justify-center transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
@@ -83,7 +83,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
           type="button"
           aria-label="Next month"
           onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#999] hover:text-white flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-full hover:bg-[#141414] text-[#777] hover:text-white flex items-center justify-center transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -92,7 +92,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
       {/* Weekday header */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS.map((w, i) => (
-          <span key={i} className="text-[10px] uppercase tracking-wider text-[#999] text-center py-1.5 font-semibold">{w}</span>
+          <span key={i} className="text-[10px] uppercase tracking-wider text-[#777] text-center py-1.5 font-semibold">{w}</span>
         ))}
       </div>
 
@@ -114,7 +114,7 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
                 "rounded-lg text-sm transition-all flex flex-col items-center justify-center gap-0.5",
                 renderDayBadge ? "min-h-[44px] py-1" : "h-11 sm:h-9",
                 disabled && "text-[#333] cursor-not-allowed",
-                !disabled && !inMonth && "text-[#444]",
+                !disabled && !inMonth && "text-[#777]",
                 !disabled && inMonth && !isSelected && "text-white hover:bg-[#141414]",
                 isSelected && "bg-white text-black font-bold border border-white",
                 // Today indicator pops against the dark grid: thin white

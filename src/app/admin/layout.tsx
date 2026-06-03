@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="text-xs text-gold font-semibold flex items-center gap-1.5">
             <Shield size={12} /> Logged in as CEO
           </p>
-          <p className="text-xs text-[#555] mt-0.5 truncate">{user.email}</p>
+          <p className="text-xs text-[#777] mt-0.5 truncate">{user.email}</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 mt-2">
@@ -76,7 +76,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link key={href} href={href} onClick={() => setSidebarOpen(false)}>
                 <div className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-                  active ? "bg-gold/15 text-gold border border-gold/20" : "text-[#555] hover:text-white hover:bg-surface-raised"
+                  active ? "bg-gold/15 text-gold border border-gold/20" : "text-[#777] hover:text-white hover:bg-surface-raised"
                 )}>
                   <Icon size={16} />
                   {label}
@@ -102,7 +102,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       <div className="fixed top-0 left-0 right-0 h-14 bg-surface border-b border-border z-20 flex items-center px-4 lg:hidden">
-        <button onClick={() => setSidebarOpen(true)} className="text-[#555] hover:text-white mr-3">
+        <button onClick={() => setSidebarOpen(true)} className="text-[#777] hover:text-white mr-3">
           <div className="space-y-1">
             <span className="block w-5 h-0.5 bg-current" />
             <span className="block w-5 h-0.5 bg-current" />

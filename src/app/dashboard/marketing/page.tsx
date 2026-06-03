@@ -232,7 +232,7 @@ export default function MarketingPage() {
                       <p className="text-sm font-semibold text-white group-hover:text-white transition-colors">{qa.label}</p>
                       <p className="text-xs text-[#777] mt-0.5 leading-relaxed">{qa.desc}</p>
                     </div>
-                    <ChevronRight size={14} className="text-[#999] group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
+                    <ChevronRight size={14} className="text-[#777] group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
                   </div>
                 </button>
               ))}
@@ -301,7 +301,7 @@ export default function MarketingPage() {
 
                   {/* Segment picker */}
                   <div>
-                    <p className="text-sm font-medium text-[#999] mb-2">Audience Segment</p>
+                    <p className="text-sm font-medium text-[#777] mb-2">Audience Segment</p>
                     <div className="grid sm:grid-cols-2 gap-2">
                       {SEGMENTS.map(seg => {
                         const count = seg.filter(clients).filter(c => !!c.email).length;
@@ -331,7 +331,7 @@ export default function MarketingPage() {
                 <CardContent className="space-y-4">
                   {/* Template picker */}
                   <div>
-                    <p className="text-sm font-medium text-[#999] mb-2">Template</p>
+                    <p className="text-sm font-medium text-[#777] mb-2">Template</p>
                     <div className="flex flex-wrap gap-2">
                       {TEMPLATES.map(t => (
                         <button

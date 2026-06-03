@@ -61,7 +61,7 @@ export default function BarberEarningsPage() {
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 text-sm rounded-lg transition-all capitalize",
-                period === p ? "bg-gold/15 text-gold border border-gold/20" : "text-[#555] hover:text-white"
+                period === p ? "bg-gold/15 text-gold border border-gold/20" : "text-[#777] hover:text-white"
               )}
             >
               {p === "week" ? "Week" : p === "month" ? "Month" : "Year"}
@@ -84,14 +84,14 @@ export default function BarberEarningsPage() {
               <stat.icon size={16} className="text-gold" />
             </div>
             <p className="text-2xl font-bold text-white">{loading ? "—" : stat.value}</p>
-            <p className="text-xs text-[#999] mt-1">{stat.sub}</p>
+            <p className="text-xs text-[#777] mt-1">{stat.sub}</p>
           </div>
         ))}
       </div>
 
       {/* Transaction list */}
       <div>
-        <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">
           Transactions · {periodLabel}
         </h2>
 
@@ -101,8 +101,8 @@ export default function BarberEarningsPage() {
           </div>
         ) : transactions.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-            <DollarSign size={40} className="text-[#aaa] mx-auto mb-3" />
-            <p className="text-[#555]">No transactions {periodLabel.toLowerCase()}</p>
+            <DollarSign size={40} className="text-[#777] mx-auto mb-3" />
+            <p className="text-[#777]">No transactions {periodLabel.toLowerCase()}</p>
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-2xl overflow-hidden">
@@ -115,9 +115,9 @@ export default function BarberEarningsPage() {
               const commission = tx.commission_amount ?? ((tx.amount * (summary?.commissionPercent ?? 50)) / 100);
               return (
                 <div key={tx.id} className="grid grid-cols-4 px-4 py-3 border-b border-border/50 last:border-0 hover:bg-surface-raised transition-colors">
-                  <p className="text-sm text-[#555]">{new Date(tx.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</p>
+                  <p className="text-sm text-[#777]">{new Date(tx.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</p>
                   <p className="text-sm text-white">{tx.client_name ?? "—"}</p>
-                  <p className="text-sm text-[#555]">{tx.service_name ?? "—"}</p>
+                  <p className="text-sm text-[#777]">{tx.service_name ?? "—"}</p>
                   <div>
                     <p className="text-sm font-medium text-white">${(tx.amount + (tx.tip ?? 0)).toFixed(0)}</p>
                     <p className="text-xs text-gold">↳ ${commission.toFixed(0)} yours</p>

@@ -22,7 +22,7 @@ interface Appointment {
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-500/15 text-green-400 border-green-500/30",
   pending: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  completed: "bg-gray-500/15 text-[#555] border-gray-500/30",
+  completed: "bg-gray-500/15 text-[#777] border-gray-500/30",
   cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
   "no-show": "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -193,7 +193,7 @@ export default function BarberOverviewPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Next appointment */}
         <div className="lg:col-span-1">
-          <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">Next Up</h2>
+          <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">Next Up</h2>
           {nextAppt ? (
             <div className="bg-surface border border-gold/20 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-4">
@@ -227,15 +227,15 @@ export default function BarberOverviewPage() {
             </div>
           ) : (
             <div className="bg-surface border border-border rounded-2xl p-5 text-center">
-              <Calendar size={32} className="text-[#aaa] mx-auto mb-3" />
-              <p className="text-sm text-[#555]">No more appointments today</p>
-              <p className="text-xs text-[#999] mt-1">All clear! ✓</p>
+              <Calendar size={32} className="text-[#777] mx-auto mb-3" />
+              <p className="text-sm text-[#777]">No more appointments today</p>
+              <p className="text-xs text-[#777] mt-1">All clear! ✓</p>
             </div>
           )}
 
           <Link
             href="/barber-dashboard/schedule"
-            className="flex items-center justify-between mt-3 px-4 py-3 bg-surface border border-border rounded-xl text-sm text-[#555] hover:text-white hover:border-gold/30 transition-all"
+            className="flex items-center justify-between mt-3 px-4 py-3 bg-surface border border-border rounded-xl text-sm text-[#777] hover:text-white hover:border-gold/30 transition-all"
           >
             <span>View full schedule</span>
             <ChevronRight size={16} />
@@ -244,16 +244,16 @@ export default function BarberOverviewPage() {
 
         {/* Today's schedule */}
         <div className="lg:col-span-2">
-          <h2 className="text-sm font-semibold text-[#555] uppercase tracking-wider mb-3">Today's Schedule</h2>
+          <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">Today's Schedule</h2>
           {loading ? (
             <div className="space-y-3">
               {[1,2,3].map(i => <div key={i} className="bg-surface border border-border rounded-xl h-16 animate-pulse" />)}
             </div>
           ) : appointments.length === 0 ? (
             <div className="bg-surface border border-border rounded-2xl p-8 text-center">
-              <Calendar size={40} className="text-[#aaa] mx-auto mb-3" />
-              <p className="text-[#555]">No appointments today</p>
-              <p className="text-xs text-[#999] mt-1">Enjoy your day off!</p>
+              <Calendar size={40} className="text-[#777] mx-auto mb-3" />
+              <p className="text-[#777]">No appointments today</p>
+              <p className="text-xs text-[#777] mt-1">Enjoy your day off!</p>
             </div>
           ) : (
             <div className="space-y-2">
