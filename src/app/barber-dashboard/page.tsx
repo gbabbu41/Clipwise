@@ -4,7 +4,7 @@ import { Calendar, Clock, DollarSign, Star, ChevronRight, User, LogIn, LogOut } 
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb } from "@/lib/utils";
+import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -77,7 +77,7 @@ export default function BarberOverviewPage() {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
   const greeting = today.getHours() < 12 ? "Good morning" : today.getHours() < 17 ? "Good afternoon" : "Good evening";
-  const dayLabel = today.toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const dayLabel = friendlyDate(today);
 
   useEffect(() => {
     if (!accessToken) return;

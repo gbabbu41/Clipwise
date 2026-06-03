@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
-import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -417,7 +417,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-white tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
-          <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
+          <p className="text-[#777] text-sm mt-0.5">{friendlyDate(new Date())}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
           {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
@@ -659,7 +659,7 @@ export default function DashboardPage() {
               />
               {selectedCalDate && (
                 <p className="text-xs text-white mt-3 text-center">
-                  Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
+                  Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {friendlyDate(selectedCalDate)}
                   <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-[#777] hover:text-white underline">Clear</button>
                 </p>
               )}
@@ -670,7 +670,7 @@ export default function DashboardPage() {
               above, so the two cards read as a connected unit. */}
           <Card className="!bg-[#141414]">
             <CardHeader>
-              <CardTitle>{selectedCalDate ? `Appointments — ${new Date(selectedCalDate + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` : "Today's Schedule"}</CardTitle>
+              <CardTitle>{selectedCalDate ? `Appointments — ${friendlyDate(selectedCalDate)}` : "Today's Schedule"}</CardTitle>
               <Link href="/dashboard/appointments" className="text-xs text-white hover:underline">View all</Link>
             </CardHeader>
             <CardContent>

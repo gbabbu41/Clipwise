@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, friendlyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Send, Search, MessageSquare, Plus, X, Phone } from "lucide-react";
 import type { Message, Client } from "@/lib/database.types";
@@ -415,7 +415,7 @@ export default function MessagesPage() {
                           {thread.clientName}
                         </p>
                         <span className="text-xs text-[#777] flex-shrink-0">
-                          {new Date(thread.lastAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                          {friendlyDate(new Date(thread.lastAt))}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">

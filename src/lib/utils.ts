@@ -104,11 +104,40 @@ export function formatDateForDb(date: Date): string {
 }
 
 /**
- * Human-friendly date label:
+ * Context-aware short date label — single word/phrase, easy to scan.
+ *
+ *   -1 day  → "Yesterday"
+ *    0 day  → "Today"
+ *   +1 day  → "Tomorrow"
+ *   ±6 days from today (excluding the three above) → weekday name
+ *                                                    ("Monday", "Friday";
+ *                                                    "Last Monday" for
+ *                                                    past dates)
+ *   beyond  → "June 27" (or "June 27, 2025" if a different year)
+ */
+export function friendlyDate(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d + "T00:00:00") : new Date(d);
+  date.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((date.getTime() - today.getTime()) / 86400000);
+  if (diff === 0)  return "Today";
+  if (diff === 1)  return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  if (diff > 1 && diff < 7) return date.toLocaleDateString("en-CA", { weekday: "long" });
+  if (diff < -1 && diff > -7) return `Last ${date.toLocaleDateString("en-CA", { weekday: "long" })}`;
+  const sameYear = date.getFullYear() === today.getFullYear();
+  return date.toLocaleDateString("en-CA", {
+    month: "long",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/**
+ * Human-friendly date label (verbose):
  *   today      → "Today, June 3, 2026"
  *   tomorrow   → "Tomorrow, June 4, 2026"
  *   other date → "Tuesday, June 10, 2026"
- * Accepts either a Date or a "YYYY-MM-DD" string.
  */
 export function formatFriendlyDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d + "T00:00:00") : new Date(d);

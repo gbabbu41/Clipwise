@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -75,20 +75,11 @@ const DATE_FILTERS: { key: string; label: string }[] = [
   { key: "all", label: "All Time" },
 ];
 
-// Compact friendly date for table cells / list rows:
-//   today    → "Today · Jun 4"
-//   tomorrow → "Tomorrow · Jun 5"
-//   other    → "Fri · Jun 6"  (weekday abbreviation + short month-day)
+// Thin wrapper around the shared friendlyDate so we don't sprinkle a
+// stale local copy across pages. Kept here so existing call-sites don't
+// need touching.
 function shortFriendlyDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  const monthDay = d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-  if (d.getTime() === today.getTime()) return `Today · ${monthDay}`;
-  if (d.getTime() === tomorrow.getTime()) return `Tomorrow · ${monthDay}`;
-  const weekday = d.toLocaleDateString("en-CA", { weekday: "short" });
-  return `${weekday} · ${monthDay}`;
+  return friendlyDate(dateStr);
 }
 
 export default function AppointmentsPage() {

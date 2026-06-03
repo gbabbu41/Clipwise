@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, friendlyDate } from "@/lib/utils";
 
 type AppStatus = "confirmed" | "pending" | "completed" | "cancelled" | "no-show";
 
@@ -330,7 +330,7 @@ export default function BarberSchedulePage() {
       {/* Day appointments */}
       <div>
         <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">
-          {selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
+          {friendlyDate(selectedDate)}
           <span className="ml-2 text-[#777] normal-case">({dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""})</span>
         </h2>
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb } from "@/lib/utils";
+import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 
@@ -133,7 +133,7 @@ function AgendaSheet({
   onOpenAppt: (a: AppointmentWithDetails) => void;
   onDrillToDay: () => void;
 }) {
-  const dayLabel = date.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+  const dayLabel = friendlyDate(date);
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
