@@ -12,9 +12,7 @@ import type { Notification } from "@/lib/database.types";
 
 // Type → accent color used for the avatar tile + left border on unread rows.
 const TYPE_ACCENT: Record<string, { bg: string; border: string; text: string }> = {
-  // booking pill stays neutral white so 'new booking' doesn't compete with
-  // the celebratory 🎉 icon and the price in the title for attention.
-  booking:      { bg: "bg-white/10",       border: "border-white/40",      text: "text-white" },
+  booking:      { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400" },
   cancellation: { bg: "bg-red-500/10",     border: "border-red-500/40",     text: "text-red-400" },
   "no-show":    { bg: "bg-amber-500/10",   border: "border-amber-500/40",   text: "text-amber-400" },
   review:       { bg: "bg-white/10",       border: "border-white/40",       text: "text-white" },
@@ -202,10 +200,9 @@ export default function NotificationsPage() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-2">
-                        <p className={cn(
-                          "text-sm font-semibold leading-tight flex-1 min-w-0 truncate",
-                          notif.is_read ? "text-[#999]" : "text-white"
-                        )}>
+                        {/* Title (top header — 'New Paid Booking · $35')
+                            stays solid white regardless of read state. */}
+                        <p className="text-sm font-semibold leading-tight flex-1 min-w-0 truncate text-white">
                           {notif.title}
                         </p>
                         {!notif.is_read && (
