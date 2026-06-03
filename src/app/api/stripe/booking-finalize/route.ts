@@ -52,13 +52,20 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Notify the shop owner (fire-and-forget)
+    // Notify the shop owner (fire-and-forget). Title carries the amount
+    // so it's scannable at a glance ('New Paid Booking · $35'). Message
+    // formats the raw YYYY-MM-DD date as 'July 6' for readability — we
+    // don't use friendlyDate (Today/Tomorrow) here because the server's
+    // clock is in UTC and would mis-label dates near the day boundary.
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name").eq("id", m.shop_id).single();
     if (shopRow?.owner_id) {
+      const amountStr = `$${Number(m.total_amount ?? 0).toFixed(0)}`;
+      const dateObj = new Date(`${m.date}T00:00:00`);
+      const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
       supabaseAdmin.from("notifications").insert({
         user_id: shopRow.owner_id,
-        title: "New Paid Booking",
-        message: `${m.client_name} booked & paid a deposit for ${m.date} at ${m.time_slot}`,
+        title: `New Paid Booking · ${amountStr}`,
+        message: `${m.client_name} booked & paid for ${friendly} at ${m.time_slot}`,
         type: "booking",
         is_read: false,
       }).then(null, () => null);

@@ -23,7 +23,9 @@ const TYPE_ACCENT: Record<string, { bg: string; border: string; text: string }> 
 type NotificationType = "booking" | "cancellation" | "no-show" | "review" | "inventory";
 
 const TYPE_ICONS: Record<string, string> = {
-  booking: "📅", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
+  // 🎉 for bookings — celebrates the new paid booking instead of the
+  // generic calendar. Wiggles when unread (.cw-notif-wiggle in globals).
+  booking: "🎉", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
 };
 
 // Hybrid timestamp: relative for the last hour ("Just now", "12m ago",
@@ -187,12 +189,15 @@ export default function NotificationsPage() {
                         : "bg-[#141414] border-[#2a2a2a] hover:border-white/30"
                     )}
                   >
-                    {/* Type avatar — colored circle with the emoji */}
+                    {/* Type avatar — colored circle with the emoji. Unread
+                        rows get a playful wiggle so the eye is drawn to them. */}
                     <div className={cn(
                       "w-10 h-10 rounded-full border flex items-center justify-center text-lg flex-shrink-0",
                       accent.bg, accent.border,
                     )}>
-                      {TYPE_ICONS[notif.type] ?? "🔔"}
+                      <span className={cn(!notif.is_read && "cw-notif-wiggle")}>
+                        {TYPE_ICONS[notif.type] ?? "🔔"}
+                      </span>
                     </div>
 
                     {/* Content */}

@@ -720,6 +720,21 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    so it doesn't fight with the top-bar layout while animating. */
 @keyframes cw-logo-fade { from { opacity: 0; } to { opacity: 1; } }
 .cw-logo-fade { animation: cw-logo-fade 0.6s ease-out both; }
+
+/* Playful pop-wiggle for unread notification icons — bounces in scale
+   with a tiny rotation so the badge feels alive. Slow loop so it never
+   gets annoying. */
+@keyframes cw-notif-wiggle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  35%      { transform: scale(1.12) rotate(-8deg); }
+  60%      { transform: scale(1.05) rotate(6deg); }
+  80%      { transform: scale(1.02) rotate(-2deg); }
+}
+.cw-notif-wiggle {
+  animation: cw-notif-wiggle 2.4s ease-in-out infinite;
+  transform-origin: 50% 60%;
+  display: inline-block;
+}
 } /* end @layer components */
 
 @layer utilities {
