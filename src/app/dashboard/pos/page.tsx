@@ -217,11 +217,14 @@ export default function POSPage() {
   }, {} as Record<string, Service[]>);
 
   return (
-    <div className="flex h-screen bg-black overflow-hidden">
+    {/* Stack vertically on mobile (left panel scrolls, cart docks below);
+        side-by-side on tablet+. h-screen on desktop only — on mobile the
+        page can scroll naturally so the dashboard bottom nav stays clear. */}
+    <div className="flex flex-col md:flex-row md:h-screen bg-black md:overflow-hidden">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      {/* Left Panel */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 border-r border-[#1e1e1e]">
+      {/* Left Panel — services / products / recent */}
+      <div className="flex-1 md:overflow-y-auto p-4 space-y-4 md:border-r border-[#1e1e1e]">
         <div>
           <h1 className="text-xl font-bold text-white mb-1">Point of Sale</h1>
           <div className="flex gap-2 flex-wrap">
@@ -246,7 +249,7 @@ export default function POSPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {svcs.map(svc => (
                   <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                    className="p-4 rounded-2xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left">
+                    className="p-4 rounded-2xl border border-[#1e1e1e] bg-black shadow-sm hover:border-white hover:bg-[#141414] transition-all active:scale-95 text-left">
                     <p className="text-sm font-semibold text-white">{svc.name}</p>
                     <p className="text-xs text-[#777] mt-0.5">{svc.duration_minutes} min</p>
                     <p className="text-lg font-bold text-white mt-1">{formatCurrency(svc.price)}</p>
@@ -264,7 +267,7 @@ export default function POSPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {inventory.map(inv => (
                 <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                  className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-black hover:bg-black/5 transition-all active:scale-95 text-left",
+                  className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-white hover:bg-[#141414] transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
                   <p className="text-xs font-medium text-[#777] truncate">{inv.name}</p>
                   <p className="text-sm font-bold text-white mt-0.5">{formatCurrency(inv.price)}</p>
@@ -299,8 +302,9 @@ export default function POSPage() {
         )}
       </div>
 
-      {/* Right Panel - Order Summary */}
-      <div className="w-80 flex flex-col bg-black shadow-sm border-l border-[#1e1e1e]">
+      {/* Right Panel - Order Summary. Full width on mobile (stacks below
+          the left panel), fixed 320px column on tablet+. */}
+      <div className="w-full md:w-80 flex flex-col bg-black border-t md:border-t-0 md:border-l border-[#1e1e1e]">
         <div className="p-4 border-b border-[#1e1e1e]">
           <h2 className="text-base font-bold text-white">Order Summary</h2>
           <p className="text-xs text-[#777]">{client} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>

@@ -458,19 +458,50 @@ export default function AppointmentsPage() {
         <Button onClick={() => setShowAddModal(true)}>+ Add Appointment</Button>
       </div>
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total Today", value: todayApts.length, color: "text-white" },
-          { label: "Confirmed", value: confirmed, color: "text-emerald-700" },
-          { label: "No-Shows", value: noShows, color: "text-orange-700" },
-          { label: "Revenue Today", value: formatCurrency(revenue), color: "text-white" },
-        ].map(s => (
-          <Card key={s.label} className="py-4 px-5">
-            <p className="text-xs text-[#777]">{s.label}</p>
-            <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
-          </Card>
-        ))}
+      {/* Stats bar — v2 reference treatment: uppercase grey label, 28px
+          DM Mono value, colored indicator below (green up / red down). */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(() => {
+          type Tone = "muted" | "up" | "down";
+          const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
+            {
+              label: "Total Today",
+              value: String(todayApts.length),
+              sub: todayApts.length > 0 ? `${todayApts.length} booking${todayApts.length !== 1 ? "s" : ""}` : "No bookings",
+              tone: "muted",
+            },
+            {
+              label: "Confirmed",
+              value: String(confirmed),
+              sub: confirmed > 0 ? "↑ Locked in" : "None yet",
+              tone: confirmed > 0 ? "up" : "muted",
+            },
+            {
+              label: "No-Shows",
+              value: String(noShows),
+              sub: noShows > 0 ? "Follow up" : "↑ All clear",
+              tone: noShows > 0 ? "down" : "up",
+            },
+            {
+              label: "Revenue Today",
+              value: formatCurrency(revenue),
+              sub: revenue > 0 ? "↑ From completed" : "Awaiting completes",
+              tone: revenue > 0 ? "up" : "muted",
+            },
+          ];
+          return stats.map(s => (
+            <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
+              <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+              <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+              <p className={cn(
+                "text-[11px] mt-2 font-medium",
+                s.tone === "up"    && "text-emerald-400",
+                s.tone === "down"  && "text-red-400",
+                s.tone === "muted" && "text-[#777]",
+              )}>{s.sub}</p>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Tabs */}
