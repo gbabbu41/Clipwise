@@ -415,7 +415,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"},{" "}
+            Hello,{" "}
             <span className="md:inline">{profile?.name?.split(" ")[0] ?? "there"}</span>
           </h1>
           <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {shop?.name}</p>

@@ -191,11 +191,14 @@ export function Sidebar() {
           <Menu size={20} />
         </button>
         <Logo size="sm" className="text-white flex-shrink-0" />
-        <p className="text-xs text-[#777] truncate flex-1 ml-1">{shopName}</p>
+        {/* Shop name was rendered here — pulled out per request so the
+            closed-drawer top bar stays uncluttered. The shop name still
+            appears inside the open sidebar drawer under the logo. */}
+        <div className="flex-1" />
         <Link
           href="/dashboard/notifications"
           aria-label="Notifications"
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-white hover:border-white transition-colors flex-shrink-0 relative"
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors flex-shrink-0 relative"
         >
           <Bell size={15} />
           {unreadCount > 0 && (

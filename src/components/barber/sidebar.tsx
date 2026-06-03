@@ -88,7 +88,9 @@ export function BarberSidebar() {
           <Menu size={20} />
         </button>
         <Logo size="sm" className="text-white flex-shrink-0" />
-        <p className="text-xs text-[#777] truncate flex-1 ml-1">{shop?.name ?? "Barber Portal"}</p>
+        {/* Shop name removed from the closed-drawer top bar per request —
+            still appears inside the open drawer alongside the logo. */}
+        <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
           aria-label="Account"
