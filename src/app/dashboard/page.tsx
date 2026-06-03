@@ -416,7 +416,9 @@ export default function DashboardPage() {
           is maxed. */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
+          {/* Shop-name title only on desktop — mobile already has the shop
+              name in the top bar, so showing it twice is redundant. */}
+          <h1 className="hidden md:block text-2xl font-bold text-white tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
           <p className="text-[#777] text-sm mt-0.5">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
