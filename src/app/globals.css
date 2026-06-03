@@ -612,6 +612,10 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 .cw-hero-label { font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
 .cw-hero-value { font-size: 38px; font-weight: 800; color: #000; letter-spacing: -0.05em; font-family: 'DM Mono', monospace; line-height: 1; }
 .cw-hero-trend { font-size: 11px; color: #3d9e5f; margin-top: 6px; font-weight: 600; }
+/* Mini bar sparkline rendered to the right of the hero value */
+.cw-mini-bars { display: flex; align-items: flex-end; gap: 5px; height: 44px; }
+.cw-mb { width: 9px; border-radius: 5px; background: #e5e5e5; }
+.cw-mb.hi { background: #000; }
 
 /* Stat card (4-col grid on mobile, more on desktop) */
 .cw-stat {

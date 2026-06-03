@@ -69,8 +69,11 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
           </p>
           <p
             className={cn(
-              "font-bold text-white mt-1.5",
-              prominent ? "text-3xl sm:text-4xl tracking-tight" : "text-xl",
+              // Numbers use DM Mono via `font-mono` to match the design's
+              // numeric type treatment. Mobile bumps base size; desktop
+              // keeps the prominent variant for the 2-up KPI cards.
+              "font-extrabold text-white mt-1.5 font-mono tracking-tighter leading-none",
+              prominent ? "text-3xl sm:text-4xl" : "text-[28px] md:text-xl",
             )}
           >
             {value}
@@ -90,9 +93,11 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
             <p className={cn("text-[#777] mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
           )}
         </div>
+        {/* Icon chip hidden on mobile to match the reference's clean
+            label/value/sub stat cards. Shown md+ to break up the grid. */}
         <div
           className={cn(
-            "rounded-xl flex-shrink-0",
+            "rounded-xl flex-shrink-0 hidden md:flex items-center justify-center",
             iconChip,
             prominent ? "p-3" : "p-2",
           )}
@@ -424,8 +429,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Date Filter */}
-      <div className="flex flex-wrap gap-2 mb-6 items-center relative">
+      {/* Date Filter — hidden on mobile (the reference layout doesn't show
+          it; mobile defaults to Today and digs in via the calendar / list
+          below if a different range is needed). */}
+      <div className="hidden md:flex flex-wrap gap-2 mb-6 items-center relative">
         <select
           value={dateFilter}
           onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
@@ -490,19 +497,64 @@ export default function DashboardPage() {
           const hasCompleted = completed.length > 0;
           return (
             <div className="mb-6 space-y-3">
-              {/* Hero revenue card — white surface with DM Mono dollar amount.
-                  Matches the v2 design's `.cw-hero` pattern, only rendered
-                  on mobile where it's the visual anchor of the page. On
-                  tablet+ the regular two-card prominent row takes over. */}
-              <div className="cw-hero md:hidden">
-                <div className="flex-1">
+              {/* Hero revenue card — mobile-only anchor of the page.
+                  Mirrors `.cw-hero` from the v2 spec: white card, DM Mono
+                  dollar amount, trend line, mini bar sparkline on the right.
+                  Bar heights from the last 5 entries of `weeklyRevenue`,
+                  with the most-recent bar highlighted in solid black. */}
+              <div className="cw-hero md:flex md:hidden flex items-center justify-between">
+                <div className="flex-1 min-w-0">
                   <div className="cw-hero-label">Today&apos;s Revenue</div>
                   <div className="cw-hero-value">{formatCurrency(revenue)}</div>
-                  {hasCompleted && (
-                    <div className="cw-hero-trend">
-                      ↑ {completed.length} booking{completed.length !== 1 ? "s" : ""}
-                    </div>
-                  )}
+                  <div className="cw-hero-trend">
+                    {hasCompleted
+                      ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}`
+                      : "No bookings yet today"}
+                  </div>
+                </div>
+                <div className="cw-mini-bars">
+                  {(() => {
+                    // Use the last 5 days of chartData; if no data yet, render
+                    // a low placeholder set so the hero still shows the shape.
+                    const tail = chartData.length > 0
+                      ? chartData.slice(-5)
+                      : [0,0,0,0,0].map((_, i) => ({ day: `d${i}`, revenue: 0 }));
+                    const max = Math.max(1, ...tail.map(d => d.revenue));
+                    return tail.map((d, i) => (
+                      <div
+                        key={d.day + i}
+                        className={cn("cw-mb", i === tail.length - 1 && "hi")}
+                        style={{ height: `${Math.max(18, (d.revenue / max) * 100)}%` }}
+                      />
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Quick Actions — mobile-only row. 4 dark squares with the
+                  most-tapped destinations. Walk-in opens the existing modal;
+                  POS / Reports / Settings deep-link to their pages. */}
+              <div className="md:hidden">
+                <div className="cw-row-hdr">
+                  <div className="cw-row-title">Quick Actions</div>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <button type="button" onClick={() => setShowAddWalkin(true)} className="cw-qa">
+                    <div className="cw-qa-icon">➕</div>
+                    <div className="cw-qa-label">Walk In</div>
+                  </button>
+                  <Link href="/dashboard/pos" className="cw-qa">
+                    <div className="cw-qa-icon">💳</div>
+                    <div className="cw-qa-label">POS</div>
+                  </Link>
+                  <Link href="/dashboard/analytics" className="cw-qa">
+                    <div className="cw-qa-icon">📊</div>
+                    <div className="cw-qa-label">Reports</div>
+                  </Link>
+                  <Link href="/dashboard/settings" className="cw-qa">
+                    <div className="cw-qa-icon">⚙️</div>
+                    <div className="cw-qa-label">Settings</div>
+                  </Link>
                 </div>
               </div>
 
