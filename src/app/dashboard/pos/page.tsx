@@ -216,10 +216,10 @@ export default function POSPage() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  // Stack vertically on mobile (left panel scrolls, cart docks below);
+  // side-by-side on tablet+. h-screen on desktop only — on mobile the
+  // page can scroll naturally so the bottom nav stays clear.
   return (
-    {/* Stack vertically on mobile (left panel scrolls, cart docks below);
-        side-by-side on tablet+. h-screen on desktop only — on mobile the
-        page can scroll naturally so the dashboard bottom nav stays clear. */}
     <div className="flex flex-col md:flex-row md:h-screen bg-black md:overflow-hidden">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
