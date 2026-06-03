@@ -87,8 +87,8 @@ export function BarberSidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Brand chrome — recessed so the page header below dominates. */}
-        <Logo size="sm" className="text-white/60 font-bold flex-shrink-0" />
+        {/* Brand wordmark — full white, page greeting below is muted. */}
+        <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"

@@ -190,10 +190,10 @@ export function Sidebar() {
         >
           <Menu size={20} />
         </button>
-        {/* Brand chrome — recessed (60% opacity, smaller weight) so the
-            page header (greeting) below it is the unambiguous focal point.
-            UI hierarchy: top bar = chrome, page content = primary. */}
-        <Logo size="sm" className="text-white/60 font-bold flex-shrink-0" />
+        {/* Brand wordmark — full white, the visual anchor of the top bar.
+            Page greeting below is muted so the wordmark is the dominant
+            text on the page. */}
+        <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"

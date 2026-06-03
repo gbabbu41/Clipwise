@@ -414,7 +414,10 @@ export default function DashboardPage() {
           header matches the mobile reference layout exactly. */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          {/* Muted greeting — sits in visual hierarchy below the white
+              ClipWise wordmark in the top bar. Uses text-white/60 so it
+              reads as "soft introduction" not "page title." */}
+          <h1 className="text-2xl font-bold text-white/60 tracking-tight">
             Hello,{" "}
             <span className="md:inline">{profile?.name?.split(" ")[0] ?? "there"}</span>
           </h1>
