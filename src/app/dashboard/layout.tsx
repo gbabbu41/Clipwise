@@ -37,9 +37,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       {/* pt-12 reserves space for the mobile top bar in the Sidebar component;
           md:pt-0 removes that gap on desktop where the bar isn't rendered. */}
-      {/* pt-16 reserves space for the 14px mobile top bar + 2px breathing
-          room so the page header doesn't touch the wordmark above. */}
-      <main className="md:ml-64 pt-16 md:pt-0 pb-24 md:pb-0">
+      {/* pt-14 = exact mobile top-bar height (h-14). No border below the
+          bar now, so a gap would look like a stray empty strip. Content
+          sits flush against the translucent bar instead. */}
+      <main className="md:ml-64 pt-14 md:pt-0 pb-24 md:pb-0">
         {children}
       </main>
       <MobileNav />

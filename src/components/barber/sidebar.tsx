@@ -83,7 +83,7 @@ export function BarberSidebar() {
           on the left, avatar pill on the right. Slides off on scroll-down. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl border-b border-[#1e1e1e] transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-transform duration-200",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
