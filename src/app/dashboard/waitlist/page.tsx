@@ -234,13 +234,96 @@ export default function WaitlistPage() {
     return data?.id ?? null;
   };
 
+  // Payment modal — same flow as the appointments page. Opens when the
+  // owner clicks Complete on an unpaid walk-in with a positive total.
+  type PayCtx = {
+    waitlistId: string;
+    appointmentId: string;
+    clientName: string;
+    clientEmail: string | null;
+    totalAmount: number;
+  };
+  const [paymentCtx, setPaymentCtx] = useState<PayCtx | null>(null);
+  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  const { accessToken } = useAuth();
+
   const completeFromWaitlist = async (entry: WaitlistEntry) => {
     const apptId = await apptIdFor(entry);
-    if (!apptId) { showToast("Couldn't find the appointment — open Appointments to finish."); return; }
-    await supabase.from("appointments").update({ status: "completed" }).eq("id", apptId);
-    await supabase.from("waitlist").update({ status: "served" }).eq("id", entry.id);
-    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "served" } : e));
-    showToast(`${entry.client_name} completed`);
+    if (!apptId || !shop) { showToast("Couldn't find the appointment — open Appointments to finish."); return; }
+    // Look up the full appointment so we know whether it's paid + the
+    // amount + client email (for the Send Payment Link option).
+    const { data: appt } = await supabase
+      .from("appointments")
+      .select("id, total_amount, payment_status, client_name, client_email")
+      .eq("id", apptId)
+      .maybeSingle();
+    if (!appt) { showToast("Appointment not found"); return; }
+    // Already paid OR zero-amount? skip the modal and complete directly.
+    if (appt.payment_status === "paid" || !appt.total_amount) {
+      await supabase.from("appointments").update({ status: "completed" }).eq("id", apptId);
+      await supabase.from("waitlist").update({ status: "served" }).eq("id", entry.id);
+      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "served" } : e));
+      showToast(`${entry.client_name} completed`);
+      return;
+    }
+    // Otherwise pop the same Cash / Send Link / Skip flow as appointments.
+    setPaymentCtx({
+      waitlistId: entry.id,
+      appointmentId: apptId,
+      clientName: appt.client_name,
+      clientEmail: appt.client_email ?? null,
+      totalAmount: appt.total_amount,
+    });
+  };
+
+  const finishCompletion = async (waitlistId: string) => {
+    await supabase.from("waitlist").update({ status: "served" }).eq("id", waitlistId);
+    setEntries(prev => prev.map(e => e.id === waitlistId ? { ...e, status: "served" } : e));
+  };
+
+  const payCashAndComplete = async () => {
+    if (!paymentCtx) return;
+    setSavingPayment("cash");
+    await supabase.from("appointments").update({
+      status: "completed",
+      payment_status: "paid",
+      payment_method: "cash",
+    }).eq("id", paymentCtx.appointmentId);
+    await finishCompletion(paymentCtx.waitlistId);
+    setSavingPayment("");
+    setPaymentCtx(null);
+    showToast(`${paymentCtx.clientName} · Cash paid · Completed`);
+  };
+
+  const sendLinkAndComplete = async () => {
+    if (!paymentCtx || !accessToken) return;
+    setSavingPayment("link");
+    const res = await fetch("/api/stripe/payment-link", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: paymentCtx.appointmentId, send_email: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSavingPayment("");
+      showToast(`Failed: ${data.error}`);
+      return;
+    }
+    await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentCtx.appointmentId);
+    await finishCompletion(paymentCtx.waitlistId);
+    setSavingPayment("");
+    setPaymentCtx(null);
+    showToast(data.emailed ? "Payment link emailed · Completed" : "Payment link generated · Completed");
+  };
+
+  const skipAndComplete = async () => {
+    if (!paymentCtx) return;
+    setSavingPayment("skip");
+    await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentCtx.appointmentId);
+    await finishCompletion(paymentCtx.waitlistId);
+    setSavingPayment("");
+    setPaymentCtx(null);
+    showToast(`${paymentCtx.clientName} · Completed unpaid`);
   };
 
   const rejectFromWaitlist = async (entry: WaitlistEntry) => {
@@ -526,6 +609,40 @@ export default function WaitlistPage() {
                 <Button className="flex-1" loading={saving} disabled={!form.client_name.trim()} onClick={addEntry}>
                   Add to Queue
                 </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Payment modal — mirrors the appointments-page flow. Opens on
+          Complete when the underlying appointment is still unpaid. */}
+      {paymentCtx && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentCtx(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Take Payment</h2>
+                <button onClick={() => savingPayment === "" && setPaymentCtx(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentCtx.clientName}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-white font-bold">{formatCurrency(paymentCtx.totalAmount)}</span></div>
+              </div>
+              <div className="space-y-2">
+                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={payCashAndComplete}>
+                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                </button>
+                <button type="button" className="btn btn-blue w-full" disabled={savingPayment !== "" || !paymentCtx.clientEmail} onClick={sendLinkAndComplete}>
+                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
+                </button>
+                {!paymentCtx.clientEmail && (
+                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can&apos;t send link</p>
+                )}
+                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipAndComplete}>
+                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                </button>
               </div>
             </div>
           </div>
