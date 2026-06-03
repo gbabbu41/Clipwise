@@ -69,11 +69,10 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
           </p>
           <p
             className={cn(
-              // Numbers use DM Mono via `font-mono` to match the design's
-              // numeric type treatment. Mobile bumps base size; desktop
-              // keeps the prominent variant for the 2-up KPI cards.
+              // DM Mono via font-mono. Consistent 28px on every viewport —
+              // matches the reference design's stat-val treatment exactly.
               "font-extrabold text-white mt-1.5 font-mono tracking-tighter leading-none",
-              prominent ? "text-3xl sm:text-4xl" : "text-[28px] md:text-xl",
+              prominent ? "text-3xl sm:text-4xl" : "text-[28px]",
             )}
           >
             {value}
@@ -93,17 +92,8 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
             <p className={cn("text-[#777] mt-1.5", prominent ? "text-xs" : "text-[11px]")}>{sub}</p>
           )}
         </div>
-        {/* Icon chip hidden on mobile to match the reference's clean
-            label/value/sub stat cards. Shown md+ to break up the grid. */}
-        <div
-          className={cn(
-            "rounded-xl flex-shrink-0 hidden md:flex items-center justify-center",
-            iconChip,
-            prominent ? "p-3" : "p-2",
-          )}
-        >
-          <Icon size={prominent ? 22 : 18} />
-        </div>
+        {/* Icon chip removed entirely — the reference design's stat cards
+            are clean label/value/sub. Keeps the same visual on every screen. */}
       </div>
     </Card>
   );
@@ -426,10 +416,9 @@ export default function DashboardPage() {
         {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
           <span className="cw-plan-pill mt-1">{shop.subscription_plan}</span>
         )}
-        <div className="hidden md:flex gap-2">
-          <Link href="/dashboard/pos"><Button variant="outline" size="sm"><CreditCard size={16} /> Open POS</Button></Link>
-          <Button onClick={() => setShowAddWalkin(true)} size="sm"><Plus size={16} /> Add Walk-in</Button>
-        </div>
+        {/* Old "Open POS / Add Walk-in" header buttons removed — Quick
+            Actions below covers both on every screen, so this header
+            cluster was redundant on desktop. */}
       </div>
 
       {/* Date Filter — hidden on mobile (the reference layout doesn't show
@@ -500,12 +489,10 @@ export default function DashboardPage() {
           const hasCompleted = completed.length > 0;
           return (
             <div className="mb-6 space-y-3">
-              {/* Hero revenue card — mobile-only anchor of the page.
-                  Mirrors `.cw-hero` from the v2 spec: white card, DM Mono
-                  dollar amount, trend line, mini bar sparkline on the right.
-                  Bar heights from the last 5 entries of `weeklyRevenue`,
-                  with the most-recent bar highlighted in solid black. */}
-              <div className="cw-hero md:flex md:hidden flex items-center justify-between">
+              {/* Hero revenue card — the page's visual anchor on every
+                  viewport. White card, DM Mono dollar amount, trend line,
+                  mini bar sparkline on the right. */}
+              <div className="cw-hero flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="cw-hero-label">Today&apos;s Revenue</div>
                   <div className="cw-hero-value">{formatCurrency(revenue)}</div>
@@ -534,14 +521,14 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Quick Actions — mobile-only row. 4 dark squares with the
-                  most-tapped destinations. Walk-in opens the existing modal;
-                  POS / Reports / Settings deep-link to their pages. */}
-              <div className="md:hidden">
+              {/* Quick Actions — single row of 4 dark squares on every
+                  viewport. Walk-in opens the existing modal; POS / Reports /
+                  Settings deep-link. */}
+              <div>
                 <div className="cw-row-hdr">
                   <div className="cw-row-title">Quick Actions</div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
                   <button type="button" onClick={() => setShowAddWalkin(true)} className="cw-qa">
                     <div className="cw-qa-icon">➕</div>
                     <div className="cw-qa-label">Walk In</div>
@@ -561,30 +548,10 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Primary KPIs — Total Appointments + Revenue.
-                  Prominent variant: taller cards, larger value. Hidden on
-                  mobile (the hero card above already covers revenue). */}
-              <div className="hidden md:grid sm:grid-cols-2 gap-4">
-                <StatCard
-                  label="Total Appointments"
-                  value={String(appointments.length)}
-                  sub={`${completed.length} completed`}
-                  icon={Calendar} color="gold"
-                  prominent
-                  cta={!hasAppts ? { text: "Book your first appointment", href: "/dashboard/appointments" } : undefined}
-                />
-                <StatCard
-                  label="Revenue"
-                  value={formatCurrency(revenue)}
-                  sub={hasCompleted ? "Completed bookings" : "No bookings yet"}
-                  icon={DollarSign} color="green"
-                  prominent
-                />
-              </div>
-
-              {/* Secondary metrics — 2x2 on mobile (matches design),
-                  4-up on desktop. */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Stats grid — 2x2 on mobile, 4-up on tablet+. The previous
+                  prominent "Total Appointments + Revenue" row was removed
+                  because the white hero card above already shows Revenue. */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard
                   label="Appointments"
                   value={String(appointments.length)}
