@@ -80,25 +80,27 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
           >
             {value}
           </p>
-          {cta ? (
+          {/* Indicator line — always rendered with a color tone, never
+              replaced by a plain link. The cta destination still applies
+              if you tap the whole card. */}
+          <p className={cn(
+            "mt-2 font-medium",
+            prominent ? "text-xs" : "text-[11px]",
+            tone === "up"   && "text-emerald-400",
+            tone === "down" && "text-red-400",
+            tone === "muted" && "text-[#777]",
+          )}>{sub}</p>
+          {cta && (
             <Link
               href={cta.href}
               className={cn(
-                "text-white hover:text-white/80 hover:underline mt-2 inline-flex items-center gap-0.5",
-                prominent ? "text-sm" : "text-xs",
+                "mt-1 inline-flex items-center gap-0.5 text-white/70 hover:text-white hover:underline",
+                prominent ? "text-xs" : "text-[10px]",
               )}
             >
               {cta.text}
-              <ChevronRight size={prominent ? 13 : 11} />
+              <ChevronRight size={prominent ? 12 : 10} />
             </Link>
-          ) : (
-            <p className={cn(
-              "mt-1.5 font-medium",
-              prominent ? "text-xs" : "text-[11px]",
-              tone === "up"   && "text-emerald-400",
-              tone === "down" && "text-red-400",
-              tone === "muted" && "text-[#777]",
-            )}>{sub}</p>
           )}
         </div>
         {/* Icon chip removed entirely — the reference design's stat cards
@@ -552,14 +554,18 @@ export default function DashboardPage() {
                 <StatCard
                   label="Appointments"
                   value={String(appointments.length)}
-                  sub={`${completed.length} completed`}
+                  sub={hasCompleted
+                    ? `↑ ${completed.length} completed`
+                    : hasAppts
+                      ? `${appointments.length - completed.length} pending`
+                      : "No bookings yet"}
                   icon={Calendar} color="gold"
-                  tone="muted"
+                  tone={hasCompleted ? "up" : "muted"}
                 />
                 <StatCard
                   label="New Clients"
                   value={String(newClients)}
-                  sub={newClients > 0 ? "↑ This period" : "This period"}
+                  sub={newClients > 0 ? "↑ This period" : "No new clients yet"}
                   icon={Users} color="blue"
                   tone={newClients > 0 ? "up" : "muted"}
                   cta={newClients === 0 ? { text: "Share booking link", href: "/dashboard/share" } : undefined}
@@ -573,17 +579,21 @@ export default function DashboardPage() {
                 />
                 <StatCard
                   label="No-Show Rate"
-                  value={hasAppts ? `${noShowRate.toFixed(1)}%` : "—"}
-                  sub={hasAppts ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "All shows kept") : "No data yet"}
+                  value={hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}
+                  sub={hasAppts
+                    ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "↑ All shows kept")
+                    : "No data yet"}
                   icon={UserX} color="orange"
-                  tone={hasAppts && noShows > 0 ? "down" : "muted"}
+                  tone={hasAppts ? (noShows > 0 ? "down" : "up") : "muted"}
                 />
                 <StatCard
                   label="Avg Rating"
                   value={avgRating != null ? `${avgRating}★` : "—"}
-                  sub={totalReviews > 0 ? `${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"}
+                  sub={totalReviews > 0
+                    ? `↑ ${totalReviews} review${totalReviews !== 1 ? "s" : ""}`
+                    : "No reviews yet"}
                   icon={Star} color="purple"
-                  tone="muted"
+                  tone={totalReviews > 0 ? "up" : "muted"}
                   cta={totalReviews === 0 ? { text: "Invite reviews", href: "/dashboard/reviews" } : undefined}
                 />
               </div>
