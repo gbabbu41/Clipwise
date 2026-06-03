@@ -50,6 +50,14 @@ export function BarberSidebar() {
     }
   }, [mobileOpen]);
 
+  // Open the drawer when the mobile bottom-nav 'More' button dispatches
+  // the shared open-sidebar event.
+  useEffect(() => {
+    const open = () => setMobileOpen(true);
+    window.addEventListener("cw-open-sidebar", open);
+    return () => window.removeEventListener("cw-open-sidebar", open);
+  }, []);
+
   // Hide the mobile top bar on scroll down, reveal on scroll up.
   const [topBarHidden, setTopBarHidden] = useState(false);
   useEffect(() => {
@@ -79,15 +87,9 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
-        >
-          <Menu size={20} />
-        </button>
-        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar. */}
+        {/* CLIPWISE wordmark — visual anchor of the top bar.
+            Hamburger removed per request — sidebar opens from the bottom-
+            nav 'More' button. */}
         <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
@@ -187,19 +189,19 @@ export function BarberMobileNav() {
   const pathname = usePathname();
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
-  // Emoji icons matching the v2 design system (cw-bnav). Stays at 5 items
-  // max so the row stays balanced — Earnings is hidden when the perm is off.
-  const mobileItems = [
+  // 4 page-links + 1 'More' drawer-opener. Earnings hides when the perm
+  // is off — list shrinks to 3 links + More to keep balance.
+  const linkItems = [
     { href: "/barber-dashboard",              label: "Home",     emoji: "🏠", show: true },
     { href: "/barber-dashboard/schedule",     label: "Schedule", emoji: "📅", show: true },
     { href: "/barber-dashboard/availability", label: "Hours",    emoji: "⏰", show: true },
     { href: "/barber-dashboard/earnings",     label: "Earnings", emoji: "💰", show: perms.view_earnings !== false },
-    { href: "/barber-dashboard/profile",      label: "Profile",  emoji: "👤", show: true },
   ].filter(i => i.show);
+  const openDrawer = () => window.dispatchEvent(new Event("cw-open-sidebar"));
 
   return (
     <nav className="cw-bnav md:hidden">
-      {mobileItems.map((item) => {
+      {linkItems.map((item) => {
         const isActive = pathname === item.href
           || (item.href !== "/barber-dashboard" && pathname.startsWith(item.href));
         return (
@@ -210,6 +212,11 @@ export function BarberMobileNav() {
           </Link>
         );
       })}
+      {/* 'More' opens the sidebar drawer (Profile, Time Off, etc.). */}
+      <button type="button" onClick={openDrawer} className="cw-ni" aria-label="Open menu">
+        <div className="cw-ni-icon">⋯</div>
+        <div className="cw-ni-label">More</div>
+      </button>
     </nav>
   );
 }

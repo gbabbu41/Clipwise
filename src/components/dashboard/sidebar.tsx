@@ -113,6 +113,15 @@ export function Sidebar() {
     }
   }, [mobileOpen]);
 
+  // Allow the mobile bottom-nav 'More' button to open the drawer via a
+  // custom window event. Decouples MobileNav (rendered separately by the
+  // dashboard layout) from this component's state.
+  useEffect(() => {
+    const open = () => setMobileOpen(true);
+    window.addEventListener("cw-open-sidebar", open);
+    return () => window.removeEventListener("cw-open-sidebar", open);
+  }, []);
+
   // Hide the mobile top bar when scrolling down, reveal when scrolling up.
   // (Plain useEffect + scroll listener; no heavy animation library needed
   // for one transform on a single element.)
@@ -182,15 +191,9 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
-        >
-          <Menu size={20} />
-        </button>
-        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar. */}
+        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar.
+            Hamburger removed on mobile per request — sidebar access lives
+            in the bottom-nav 'More' button now. */}
         <Logo size="sm" className="text-white flex-shrink-0" />
         <div className="flex-1" />
         <Link
@@ -335,20 +338,19 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
-  // Emoji icons matching the v2 design spec (cw-bnav). Lucide icons read
-  // thin on small screens; the design uses fuller emoji glyphs with a white
-  // active label + underline indicator.
-  const mobileItems = [
+  // 4 page-links + 1 'More' drawer-opener. The drawer is the canonical
+  // way to reach everything else (Staff, Services, Settings, etc.).
+  const linkItems = [
     { href: "/dashboard",              label: "Home",     emoji: "🏠" },
     { href: "/dashboard/appointments", label: "Schedule", emoji: "📅" },
     { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
     { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
-    { href: "/dashboard/settings",     label: "More",     emoji: "⋯" },
   ];
+  const openDrawer = () => window.dispatchEvent(new Event("cw-open-sidebar"));
 
   return (
     <nav className="cw-bnav md:hidden">
-      {mobileItems.map((item) => {
+      {linkItems.map((item) => {
         const isActive = pathname === item.href
           || (item.href !== "/dashboard" && pathname.startsWith(item.href));
         return (
@@ -359,6 +361,13 @@ export function MobileNav() {
           </Link>
         );
       })}
+      {/* 'More' opens the sidebar drawer instead of navigating somewhere.
+          Replaces the old top-bar hamburger so all chrome lives in one
+          predictable spot at the bottom of the screen. */}
+      <button type="button" onClick={openDrawer} className="cw-ni" aria-label="Open menu">
+        <div className="cw-ni-icon">⋯</div>
+        <div className="cw-ni-label">More</div>
+      </button>
     </nav>
   );
 }
