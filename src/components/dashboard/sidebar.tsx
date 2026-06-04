@@ -113,14 +113,35 @@ export function Sidebar() {
     }
   }, [mobileOpen]);
 
-  // Allow the mobile bottom-nav 'More' button to open the drawer via a
-  // custom window event. Decouples MobileNav (rendered separately by the
-  // dashboard layout) from this component's state.
+  // Allow the mobile bottom-nav 'More' button to control the drawer via
+  // custom window events. `cw-toggle-sidebar` flips it; `cw-open-sidebar`
+  // forces it open (kept for back-compat). Decouples MobileNav from this
+  // component's state.
   useEffect(() => {
     const open = () => setMobileOpen(true);
+    const toggle = () => setMobileOpen(prev => !prev);
     window.addEventListener("cw-open-sidebar", open);
-    return () => window.removeEventListener("cw-open-sidebar", open);
+    window.addEventListener("cw-toggle-sidebar", toggle);
+    return () => {
+      window.removeEventListener("cw-open-sidebar", open);
+      window.removeEventListener("cw-toggle-sidebar", toggle);
+    };
   }, []);
+
+  // Notification quick-view popover (mobile top-bar bell). State + a
+  // refresh effect to grab the last 5 notifications when opened.
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
+  useEffect(() => {
+    if (!notifOpen || !user) return;
+    supabase
+      .from("notifications")
+      .select("id, title, message, type, is_read, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
+  }, [notifOpen, user, unreadCount]);
 
   // Hide the mobile top bar when scrolling down, reveal when scrolling up.
   // Also track whether the page has scrolled at all — used to fade in the
@@ -204,16 +225,24 @@ export function Sidebar() {
           ClipWise
         </span>
         <div className="flex-1" />
-        <Link
-          href="/dashboard/notifications"
+        {/* Bell toggles a quick-view popover. Same icon + dot treatment;
+            click again to close. 'See all' link inside the popover goes
+            to the full notifications page. */}
+        <button
+          type="button"
+          onClick={() => setNotifOpen(o => !o)}
           aria-label="Notifications"
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors flex-shrink-0 relative"
+          aria-expanded={notifOpen}
+          className={cn(
+            "w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border text-amber-400 transition-colors flex-shrink-0 relative",
+            notifOpen ? "border-amber-400" : "border-[#1e1e1e] hover:border-amber-400",
+          )}
         >
           <Bell size={15} />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
           )}
-        </Link>
+        </button>
         <Link
           href="/dashboard/settings"
           aria-label="Account"
@@ -222,6 +251,44 @@ export function Sidebar() {
           {initial}
         </Link>
       </div>
+
+      {/* Notification quick-view popover — slides down under the top bar
+          when the bell is on. Tap outside (or the bell again) to close. */}
+      {notifOpen && (
+        <>
+          <div className="md:hidden fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+          <div className="md:hidden fixed top-14 right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
+            <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
+              <p className="text-sm font-bold text-white">Notifications</p>
+              <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
+            </div>
+            {recentNotifs.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[#777] text-sm">Nothing here yet</div>
+            ) : (
+              <div className="divide-y divide-[#1e1e1e]">
+                {recentNotifs.map(n => (
+                  <Link key={n.id} href="/dashboard/notifications" onClick={() => setNotifOpen(false)}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-[#141414] transition-colors">
+                    <span className="text-lg leading-none mt-0.5">
+                      {n.type === "booking" ? "🎉"
+                        : n.type === "cancellation" ? "❌"
+                        : n.type === "no-show" ? "⚠️"
+                        : n.type === "review" ? "⭐"
+                        : n.type === "inventory" ? "📦"
+                        : "🔔"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm font-semibold truncate", n.is_read ? "text-[#777]" : "text-white")}>{n.title}</p>
+                      <p className="text-xs text-[#777] truncate">{n.message}</p>
+                    </div>
+                    {!n.is_read && <span className="w-2 h-2 rounded-full bg-white flex-shrink-0 mt-1.5" />}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (
@@ -354,7 +421,7 @@ export function MobileNav() {
     { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
     { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
   ];
-  const openDrawer = () => window.dispatchEvent(new Event("cw-open-sidebar"));
+  const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   return (
     <nav className="cw-bnav md:hidden">
@@ -372,7 +439,7 @@ export function MobileNav() {
       {/* 'More' opens the sidebar drawer instead of navigating somewhere.
           Replaces the old top-bar hamburger so all chrome lives in one
           predictable spot at the bottom of the screen. */}
-      <button type="button" onClick={openDrawer} className="cw-ni" aria-label="Open menu">
+      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
         <div className="cw-ni-icon">⋯</div>
         <div className="cw-ni-label">More</div>
       </button>

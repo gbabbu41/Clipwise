@@ -50,12 +50,17 @@ export function BarberSidebar() {
     }
   }, [mobileOpen]);
 
-  // Open the drawer when the mobile bottom-nav 'More' button dispatches
-  // the shared open-sidebar event.
+  // `cw-toggle-sidebar` flips the drawer; `cw-open-sidebar` forces open
+  // (back-compat). Listens for both.
   useEffect(() => {
     const open = () => setMobileOpen(true);
+    const toggle = () => setMobileOpen(prev => !prev);
     window.addEventListener("cw-open-sidebar", open);
-    return () => window.removeEventListener("cw-open-sidebar", open);
+    window.addEventListener("cw-toggle-sidebar", toggle);
+    return () => {
+      window.removeEventListener("cw-open-sidebar", open);
+      window.removeEventListener("cw-toggle-sidebar", toggle);
+    };
   }, []);
 
   // Hide on scroll-down; also track "scrolled at all" so the hairline
@@ -202,7 +207,7 @@ export function BarberMobileNav() {
     { href: "/barber-dashboard/availability", label: "Hours",    emoji: "⏰", show: true },
     { href: "/barber-dashboard/earnings",     label: "Earnings", emoji: "💰", show: perms.view_earnings !== false },
   ].filter(i => i.show);
-  const openDrawer = () => window.dispatchEvent(new Event("cw-open-sidebar"));
+  const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   return (
     <nav className="cw-bnav md:hidden">
@@ -218,7 +223,7 @@ export function BarberMobileNav() {
         );
       })}
       {/* 'More' opens the sidebar drawer (Profile, Time Off, etc.). */}
-      <button type="button" onClick={openDrawer} className="cw-ni" aria-label="Open menu">
+      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
         <div className="cw-ni-icon">⋯</div>
         <div className="cw-ni-label">More</div>
       </button>
