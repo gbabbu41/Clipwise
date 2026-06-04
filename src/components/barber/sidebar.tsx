@@ -91,10 +91,9 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — visual anchor of the top bar.
-            Hamburger removed per request — sidebar opens from the bottom-
-            nav 'More' button. */}
-        <Logo size="sm" className="text-white flex-shrink-0" />
+        {/* CLIPWISE wordmark — dimmed grey (#444) so the page headline
+            below dominates. Reads as a watermark, not a competing title. */}
+        <Logo size="sm" className="text-[#444] flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"

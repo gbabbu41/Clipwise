@@ -197,10 +197,10 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — full white, the visual anchor of the top bar.
-            Hamburger removed on mobile per request — sidebar access lives
-            in the bottom-nav 'More' button now. */}
-        <Logo size="sm" className="text-white flex-shrink-0" />
+        {/* CLIPWISE wordmark — dimmed grey (#444) so the page headline
+            below it has clear hierarchy precedence. Reads as a watermark,
+            not as a competing title. */}
+        <Logo size="sm" className="text-[#444] flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"
