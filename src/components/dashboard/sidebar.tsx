@@ -197,10 +197,9 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — dimmed grey (#444) so the page headline
-            below it has clear hierarchy precedence. Reads as a watermark,
-            not as a competing title. */}
-        <Logo size="sm" className="text-[#444] flex-shrink-0" />
+        {/* CLIPWISE wordmark — subtle grey, recessed below the page
+            headline so it doesn't compete, but still clearly readable. */}
+        <Logo size="sm" className="text-[#888] flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"

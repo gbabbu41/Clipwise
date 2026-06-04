@@ -91,9 +91,8 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — dimmed grey (#444) so the page headline
-            below dominates. Reads as a watermark, not a competing title. */}
-        <Logo size="sm" className="text-[#444] flex-shrink-0" />
+        {/* CLIPWISE wordmark — subtle grey, recessed but readable. */}
+        <Logo size="sm" className="text-[#888] flex-shrink-0" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
