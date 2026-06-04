@@ -183,6 +183,54 @@ h1, h2, h3, h4 {
 .btn-blue:hover      { background: #0b5ed7; border-color: #0a58ca; }
 .btn-blue:active     { background: #0a53be; border-color: #0a4ea7; }
 
+/* "Soft" variants — transparent gradient surfaces with the action color
+   showing through. Conveys intent (green = positive, red = destructive,
+   etc.) without going solid + loud. Border picks up the same hue at a
+   slightly stronger opacity so the button still has a clean edge. */
+.btn-soft-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(34, 197, 94, 0.06));
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.32);
+}
+.btn-soft-success:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.32), rgba(34, 197, 94, 0.10));
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.btn-soft-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(239, 68, 68, 0.06));
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.32);
+}
+.btn-soft-danger:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.32), rgba(239, 68, 68, 0.10));
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.btn-soft-blue {
+  background: linear-gradient(135deg, rgba(13, 110, 253, 0.22), rgba(13, 110, 253, 0.06));
+  color: #93c5fd;
+  border-color: rgba(13, 110, 253, 0.32);
+}
+.btn-soft-blue:hover {
+  background: linear-gradient(135deg, rgba(13, 110, 253, 0.32), rgba(13, 110, 253, 0.10));
+  color: #bfdbfe;
+  border-color: rgba(13, 110, 253, 0.5);
+}
+
+.btn-soft-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.06));
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.32);
+}
+.btn-soft-warning:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.32), rgba(245, 158, 11, 0.10));
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
 /* Outline variants — transparent fill, hairline border, hover swaps. */
 .btn-outline-primary   { background: transparent; color: #ffffff; border-color: #ffffff; }
 .btn-outline-primary:hover   { background: #ffffff; color: #000; }

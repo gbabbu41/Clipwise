@@ -34,11 +34,11 @@ type AppStatus = typeof STATUS_OPTIONS[number];
  * or confirmed (i.e. not yet finalized). Centralizing this here means the
  * mobile card list, desktop table, and side panel all stay in sync. */
 function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
-  // Minimal theme — primary action is the only solid button on the card
-  // (white-on-black, btn-light). Reject is a grey outline. No colored
-  // buttons fighting with the green price for attention.
-  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-light" };
-  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-light" };
+  // Soft transparent gradient buttons — color carries intent (green = go,
+  // blue = finish, red = reject, amber = no-show) without going solid +
+  // loud. Surfaces ~20% opacity, text the matching pastel.
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-soft-success" };
+  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-soft-blue"    };
   return null;
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
@@ -641,7 +641,7 @@ export default function AppointmentsPage() {
                       )}
                       {rejectable && (
                         <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                          className="btn btn-outline-secondary flex-1">Reject</button>
+                          className="btn btn-soft-danger flex-1">Reject</button>
                       )}
                     </div>
                   );
@@ -720,7 +720,7 @@ export default function AppointmentsPage() {
                                 )}
                                 {rejectable && (
                                   <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                                    className="btn btn-outline-secondary btn-sm">Reject</button>
+                                    className="btn btn-soft-danger btn-sm">Reject</button>
                                 )}
                               </div>
                             );
@@ -834,11 +834,11 @@ export default function AppointmentsPage() {
                         onClick={() => handleStatusChange(selectedApt, action.next)}>{action.label}</button>
                     )}
                     {rejectable && (
-                      <button type="button" className="btn btn-outline-secondary" disabled={savingStatus === selectedApt.id}
+                      <button type="button" className="btn btn-soft-danger" disabled={savingStatus === selectedApt.id}
                         onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</button>
                     )}
                     {rejectable && (
-                      <button type="button" className="btn btn-outline-secondary col-span-2" disabled={savingStatus === selectedApt.id}
+                      <button type="button" className="btn btn-soft-warning col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
                     )}
                   </div>
