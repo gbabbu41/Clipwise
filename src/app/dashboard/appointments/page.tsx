@@ -566,7 +566,7 @@ export default function AppointmentsPage() {
           <div className="md:hidden space-y-3">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 space-y-3 animate-pulse">
+                <div key={i} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 space-y-3 animate-pulse">
                   <div className="flex justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-16 rounded-full" /></div>
                   <Skeleton className="h-3 w-40" />
                   <Skeleton className="h-3 w-28" />
@@ -574,14 +574,14 @@ export default function AppointmentsPage() {
                 </div>
               ))
             ) : filtered.length === 0 ? (
-              <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl py-12 text-center">
+              <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl py-12 text-center">
                 <p className="text-3xl mb-3">📅</p>
                 <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                 <p className="text-sm text-[#777] px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
               </div>
             ) : filtered.map(apt => (
               <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors space-y-3">
+                className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
@@ -622,7 +622,7 @@ export default function AppointmentsPage() {
 
           {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
           {loading ? (
-            <div className="hidden md:block bg-black shadow-sm border border-[#1e1e1e] rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-[#1e1e1e]/50 last:border-0">
                 <Skeleton className="h-4 w-20" />
