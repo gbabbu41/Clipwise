@@ -86,13 +86,16 @@ export function BarberSidebar() {
           on the left, avatar pill on the right. Slides off on scroll-down. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
           scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — subtle grey, recessed but readable. */}
-        <Logo size="sm" className="text-[#888] flex-shrink-0" />
+        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out
+            watermark style. Page headline stays the visual primary. */}
+        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
+          ClipWise
+        </span>
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"

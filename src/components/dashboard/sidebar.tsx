@@ -190,16 +190,19 @@ export function Sidebar() {
           scroll-up. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 px-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
           // Border invisible at scroll-top, fades to a hairline once
           // content starts scrolling under the bar.
           scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — subtle grey, recessed below the page
-            headline so it doesn't compete, but still clearly readable. */}
-        <Logo size="sm" className="text-[#888] flex-shrink-0" />
+        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out.
+            Reads as a deliberate brand stamp (chrome) while the page
+            headline stays in Sora bold (content). */}
+        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
+          ClipWise
+        </span>
         <div className="flex-1" />
         <Link
           href="/dashboard/notifications"
