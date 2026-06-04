@@ -218,8 +218,12 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE logo SVG with barber-pole 'i' + tagline */}
-        <Logo size="sm" />
+        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out.
+            Reads as a deliberate brand stamp (chrome) while the page
+            headline stays in Sora bold (content). */}
+        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
+          ClipWise
+        </span>
         <div className="flex-1" />
         {/* Bell toggles a quick-view popover. Same icon + dot treatment;
             click again to close. 'See all' link inside the popover goes
