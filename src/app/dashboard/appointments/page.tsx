@@ -34,37 +34,40 @@ type AppStatus = typeof STATUS_OPTIONS[number];
  * or confirmed (i.e. not yet finalized). Centralizing this here means the
  * mobile card list, desktop table, and side panel all stay in sync. */
 function primaryAction(status: AppStatus): { label: string; next: AppStatus; variant: string } | null {
-  // Approve = green (positive, locking in the booking).
-  // Complete = blue (forward progress to the next status).
-  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-success" };
-  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-blue" };
+  // Minimal theme — primary action is the only solid button on the card
+  // (white-on-black, btn-light). Reject is a grey outline. No colored
+  // buttons fighting with the green price for attention.
+  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-light" };
+  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-light" };
   return null;
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
 
-/** Payment badge for an appointment row — subtle tinted pills matching
- *  the status palette. Returns null when there's nothing worth showing
- *  (e.g. completed-and-unpaid cash → finished state, no badge). */
+/** Payment badge — strict monochrome. The card holds at most one
+ *  colored element (the green price); payment state communicates via
+ *  the LABEL only. Returns null when there's nothing worth showing. */
 function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: string } | null {
   const status = apt.payment_status;
   const method = apt.payment_method;
   const isCompleted = apt.status === "completed";
 
+  // White text for actionable / fresh payment states; muted grey for
+  // settled-and-done states the owner doesn't need to act on.
+  const ACTIVE = "bg-[#1a1a1a] text-white";
+  const MUTED  = "bg-[#1a1a1a] text-[#888]";
+
   if (status === "paid") {
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
-    return { label: `Paid${suffix}`, bsClass: "bg-emerald-500/[0.12] text-emerald-400" };
+    return { label: `Paid${suffix}`, bsClass: MUTED };
   }
-  if (status === "refunded") return { label: "Refunded",       bsClass: "bg-[#1a1a1a] text-[#888]" };
-  if (status === "failed")   return { label: "Payment failed", bsClass: "bg-red-500/[0.12] text-red-400" };
+  if (status === "refunded") return { label: "Refunded",       bsClass: MUTED };
+  if (status === "failed")   return { label: "Payment failed", bsClass: ACTIVE };
 
-  // Customer picked "Pay in person" at booking time (method = cash) and
-  // hasn't been collected on yet. Subtle grey — quiet reminder, not loud.
   if (method === "cash" && !isCompleted) {
-    return { label: "Pay in person", bsClass: "bg-[#1a1a1a] text-[#888]" };
+    return { label: "Pay in person", bsClass: MUTED };
   }
-
   if ((method === "online" || method === "card") && !isCompleted) {
-    return { label: "Awaiting payment", bsClass: "bg-amber-500/[0.12] text-amber-400" };
+    return { label: "Awaiting payment", bsClass: ACTIVE };
   }
 
   return null;
@@ -638,7 +641,7 @@ export default function AppointmentsPage() {
                       )}
                       {rejectable && (
                         <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                          className="btn btn-danger flex-1">Reject</button>
+                          className="btn btn-outline-secondary flex-1">Reject</button>
                       )}
                     </div>
                   );
@@ -717,7 +720,7 @@ export default function AppointmentsPage() {
                                 )}
                                 {rejectable && (
                                   <button type="button" onClick={() => setRejectModal({ appt: apt, reason: "" })} disabled={savingStatus === apt.id}
-                                    className="btn btn-danger btn-sm">Reject</button>
+                                    className="btn btn-outline-secondary btn-sm">Reject</button>
                                 )}
                               </div>
                             );
@@ -831,11 +834,11 @@ export default function AppointmentsPage() {
                         onClick={() => handleStatusChange(selectedApt, action.next)}>{action.label}</button>
                     )}
                     {rejectable && (
-                      <button type="button" className="btn btn-danger" disabled={savingStatus === selectedApt.id}
+                      <button type="button" className="btn btn-outline-secondary" disabled={savingStatus === selectedApt.id}
                         onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</button>
                     )}
                     {rejectable && (
-                      <button type="button" className="btn btn-warning col-span-2" disabled={savingStatus === selectedApt.id}
+                      <button type="button" className="btn btn-outline-secondary col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
                     )}
                   </div>

@@ -25,22 +25,19 @@ export function formatDate(dateStr: string): string {
 }
 
 export function getStatusColor(status: string): string {
-  // Subtle tinted pills — 12% colored fill, soft saturated text. Reads
-  // calmly against the #0c0c0c card surface, no solid Bootstrap blocks
-  // competing with the row content.
-  //   confirmed → cool blue   (scheduled, locked in)
-  //   pending   → soft amber  (needs action)
-  //   completed → soft green  (positive outcome)
-  //   cancelled → soft red    (negative outcome)
-  //   no-show   → soft red    (negative outcome)
+  // Monochrome pills — the card holds at most one colored element (the
+  // green price). Statuses differentiate by LABEL, not hue. Active/upcoming
+  // states get full-white text; finished/inactive states drop to grey.
+  const ACTIVE = "bg-[#1a1a1a] text-white";
+  const MUTED  = "bg-[#1a1a1a] text-[#888]";
   const map: Record<string, string> = {
-    confirmed: "bg-blue-500/[0.12]     text-blue-400",
-    pending:   "bg-amber-500/[0.12]    text-amber-400",
-    completed: "bg-emerald-500/[0.12]  text-emerald-400",
-    cancelled: "bg-red-500/[0.12]      text-red-400",
-    "no-show": "bg-red-500/[0.12]      text-red-400",
+    confirmed: ACTIVE,
+    pending:   ACTIVE,
+    completed: MUTED,
+    cancelled: MUTED,
+    "no-show": MUTED,
   };
-  return map[status] ?? "bg-[#1a1a1a] text-[#888]";
+  return map[status] ?? MUTED;
 }
 
 export function getTagColor(tag: string): string {
