@@ -42,23 +42,35 @@ function primaryAction(status: AppStatus): { label: string; next: AppStatus; var
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
 
-/** Payment badge for an appointment row. Reflects the *current* state of
- *  `payment_status` + `payment_method`. Once Stripe webhooks are live the
- *  same fields update automatically, so this stays accurate without code
- *  changes — the badges here are already "real" data, not placeholders. */
-function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: string } {
+/** Payment badge for an appointment row. Returns null when there's nothing
+ *  worth showing (e.g. completed-and-unpaid cash → finished state, no
+ *  badge needed). Renderers must handle the null case. */
+function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: string } | null {
   const status = apt.payment_status;
   const method = apt.payment_method;
+  const isCompleted = apt.status === "completed";
+
   if (status === "paid") {
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
     return { label: `Paid${suffix}`, bsClass: "text-bg-success" };
   }
-  if (status === "refunded") return { label: "Refunded",        bsClass: "text-bg-secondary" };
-  if (status === "failed")   return { label: "Payment failed",  bsClass: "text-bg-danger" };
-  if (method === "cash")     return { label: "Cash on arrival", bsClass: "text-bg-light" };
-  if (method === "online" || method === "card")
-                             return { label: "Awaiting payment", bsClass: "text-bg-warning" };
-  return { label: "Unpaid", bsClass: "text-bg-light" };
+  if (status === "refunded") return { label: "Refunded",       bsClass: "text-bg-secondary" };
+  if (status === "failed")   return { label: "Payment failed", bsClass: "text-bg-danger" };
+
+  // Customer picked "Pay in person" at booking time (method = cash) and
+  // hasn't been collected on yet. Disappears once the appointment is
+  // completed — at that point the row's status pill already tells the
+  // owner what happened, no need to also pester them about payment.
+  if (method === "cash" && !isCompleted) {
+    return { label: "Pay in person", bsClass: "text-bg-light" };
+  }
+
+  if ((method === "online" || method === "card") && !isCompleted) {
+    return { label: "Awaiting payment", bsClass: "text-bg-warning" };
+  }
+
+  // Completed but never paid, or no info at all — show nothing.
+  return null;
 }
 
 const PAID_REFUND_WINDOW_DAYS = 30;
@@ -596,7 +608,7 @@ export default function AppointmentsPage() {
                   <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</span></p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-[#777]">Barber: {apt.barbers?.name ?? "—"}</p>
-                    {(() => { const p = paymentBadge(apt); return <span className={cn("badge", p.bsClass)}>{p.label}</span>; })()}
+                    {(() => { const p = paymentBadge(apt); return p ? <span className={cn("badge badge-pill", p.bsClass)}>{p.label}</span> : null; })()}
                   </div>
                 </div>
                 {(() => {
@@ -672,7 +684,7 @@ export default function AppointmentsPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</p>
-                          {(() => { const p = paymentBadge(apt); return <span className={cn("badge mt-1", p.bsClass)}>{p.label}</span>; })()}
+                          {(() => { const p = paymentBadge(apt); return p ? <span className={cn("badge badge-pill mt-1", p.bsClass)}>{p.label}</span> : null; })()}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           {(() => {
@@ -772,14 +784,16 @@ export default function AppointmentsPage() {
                   </div>
                 ))}
               </div>
-              {/* Payment summary row — always shown so the owner sees at a
-                  glance whether money has moved before deciding actions. */}
+              {/* Payment summary row — shows the current payment state when
+                  there's something to communicate. Hidden for completed +
+                  unpaid (the finished status already tells the story). */}
               {(() => {
                 const p = paymentBadge(selectedApt);
+                if (!p) return null;
                 return (
                   <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <span className="text-xs text-[#777] uppercase tracking-wide">Payment</span>
-                    <span className={cn("badge", p.bsClass)}>{p.label}</span>
+                    <span className={cn("badge badge-pill", p.bsClass)}>{p.label}</span>
                   </div>
                 );
               })()}
