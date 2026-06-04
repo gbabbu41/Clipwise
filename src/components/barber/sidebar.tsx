@@ -113,14 +113,14 @@ export function BarberSidebar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-40 animate-fade-in"
+          className="md:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200 md:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200 md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

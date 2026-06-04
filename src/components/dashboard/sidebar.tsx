@@ -293,7 +293,7 @@ export function Sidebar() {
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-40 animate-fade-in"
+          className="md:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -303,7 +303,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-50 w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 md:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
