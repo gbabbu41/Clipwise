@@ -132,7 +132,7 @@ export function BarberSidebar() {
       >
         <Menu size={18} />
       </button>
-      <div className="px-6 py-5 border-b border-border">
+      <div className="px-4 py-5 border-b border-border flex justify-center">
         <Logo size="md" className="text-white" />
       </div>
 

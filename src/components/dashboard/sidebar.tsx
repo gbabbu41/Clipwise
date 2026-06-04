@@ -317,7 +317,7 @@ export function Sidebar() {
         <Menu size={18} />
       </button>
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-[#1e1e1e]">
+      <div className="px-4 py-5 border-b border-[#1e1e1e] flex justify-center">
         <Logo size="md" />
       </div>
 
