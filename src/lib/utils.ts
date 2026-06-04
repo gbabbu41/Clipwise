@@ -25,17 +25,22 @@ export function formatDate(dateStr: string): string {
 }
 
 export function getStatusColor(status: string): string {
-  // Calm dark-theme pills — borderless, very subtle 8% fill, slightly
-  // de-saturated text. Reads quietly against the #0c0c0c card surface
-  // instead of pulling the eye away from the row's content.
+  // Bootstrap 4 colored badge variants. Combine with `badge badge-pill`
+  // at the callsite — e.g. <span className={cn("badge badge-pill",
+  // getStatusColor(s))}>. Visual semantics:
+  //   confirmed → success (green)
+  //   pending   → warning (amber)
+  //   completed → primary (blue)
+  //   cancelled → danger  (red)
+  //   no-show   → danger  (red)
   const map: Record<string, string> = {
-    confirmed: "text-emerald-300/90 bg-emerald-500/[0.08]",
-    pending:   "text-amber-300/90   bg-amber-500/[0.08]",
-    completed: "text-blue-300/90    bg-blue-500/[0.08]",
-    cancelled: "text-red-300/90     bg-red-500/[0.08]",
-    "no-show": "text-red-300/90     bg-red-500/[0.08]",
+    confirmed: "badge-success",
+    pending:   "badge-warning",
+    completed: "badge-primary",
+    cancelled: "badge-danger",
+    "no-show": "badge-danger",
   };
-  return map[status] ?? "text-[#aaa] bg-[#141414]";
+  return map[status] ?? "badge-secondary";
 }
 
 export function getTagColor(tag: string): string {
