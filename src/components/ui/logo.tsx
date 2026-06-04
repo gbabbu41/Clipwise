@@ -3,26 +3,34 @@ import { cn } from "@/lib/utils";
 interface LogoProps {
   className?: string;
   size?: "sm" | "md" | "lg";
-  /** Kept for back-compat; the logo is text-only. */
+  /** Kept for back-compat; the SVG already contains the wordmark. */
   showText?: boolean;
 }
 
+// Height per size variant — width auto-scales (SVG aspect ratio ~3.1:1).
+// Heights chosen so the wordmark sits as the visual weight the old text
+// version did at the same `size`.
+const SIZE_HEIGHT: Record<NonNullable<LogoProps["size"]>, string> = {
+  sm: "h-7",   // 28px — mobile top bar, dense rows
+  md: "h-10",  // 40px — desktop sidebar drawer header
+  lg: "h-16",  // 64px — auth / marketing pages
+};
+
 export function Logo({ className, size = "md" }: LogoProps) {
   return (
-    <span
+    // The SVG already contains the "CLIPWISE" wordmark with the barber-pole
+    // 'i' and the tagline. `<img>` is used (not next/image) so the SVG ships
+    // inline without optimization — keeps animations and gradients intact.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/clipwise-logo.svg"
+      alt="ClipWise"
       className={cn(
-        // ClipWise v2: extra-bold, slight negative tracking, all-caps,
-        // white by default. Same Sora face as surrounding UI. cw-logo-fade
-        // plays a single 0.6s fade-in when the component mounts (every
-        // page navigation triggers a fresh entrance).
-        "font-extrabold tracking-tight leading-none text-white uppercase cw-logo-fade",
-        size === "sm" && "text-[19px]",
-        size === "md" && "text-2xl",
-        size === "lg" && "text-4xl",
+        "w-auto select-none cw-logo-fade",
+        SIZE_HEIGHT[size],
         className,
       )}
-    >
-      ClipWise
-    </span>
+      draggable={false}
+    />
   );
 }

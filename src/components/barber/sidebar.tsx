@@ -96,11 +96,8 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out
-            watermark style. Page headline stays the visual primary. */}
-        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
-          ClipWise
-        </span>
+        {/* CLIPWISE logo SVG with barber-pole 'i' + tagline */}
+        <Logo size="sm" />
         <div className="flex-1" />
         <Link
           href="/barber-dashboard/profile"
