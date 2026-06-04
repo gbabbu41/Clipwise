@@ -42,9 +42,9 @@ function primaryAction(status: AppStatus): { label: string; next: AppStatus; var
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
 
-/** Payment badge for an appointment row. Returns null when there's nothing
- *  worth showing (e.g. completed-and-unpaid cash → finished state, no
- *  badge needed). Renderers must handle the null case. */
+/** Payment badge for an appointment row — subtle tinted pills matching
+ *  the status palette. Returns null when there's nothing worth showing
+ *  (e.g. completed-and-unpaid cash → finished state, no badge). */
 function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: string } | null {
   const status = apt.payment_status;
   const method = apt.payment_method;
@@ -52,24 +52,21 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
 
   if (status === "paid") {
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
-    return { label: `Paid${suffix}`, bsClass: "text-bg-success" };
+    return { label: `Paid${suffix}`, bsClass: "bg-emerald-500/[0.12] text-emerald-400" };
   }
-  if (status === "refunded") return { label: "Refunded",       bsClass: "text-bg-secondary" };
-  if (status === "failed")   return { label: "Payment failed", bsClass: "text-bg-danger" };
+  if (status === "refunded") return { label: "Refunded",       bsClass: "bg-[#1a1a1a] text-[#888]" };
+  if (status === "failed")   return { label: "Payment failed", bsClass: "bg-red-500/[0.12] text-red-400" };
 
   // Customer picked "Pay in person" at booking time (method = cash) and
-  // hasn't been collected on yet. Disappears once the appointment is
-  // completed — at that point the row's status pill already tells the
-  // owner what happened, no need to also pester them about payment.
+  // hasn't been collected on yet. Subtle grey — quiet reminder, not loud.
   if (method === "cash" && !isCompleted) {
-    return { label: "Pay in person", bsClass: "text-bg-light" };
+    return { label: "Pay in person", bsClass: "bg-[#1a1a1a] text-[#888]" };
   }
 
   if ((method === "online" || method === "card") && !isCompleted) {
-    return { label: "Awaiting payment", bsClass: "text-bg-warning" };
+    return { label: "Awaiting payment", bsClass: "bg-amber-500/[0.12] text-amber-400" };
   }
 
-  // Completed but never paid, or no info at all — show nothing.
   return null;
 }
 
@@ -611,7 +608,7 @@ export default function AppointmentsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
-                    <span className={cn("badge badge-pill capitalize", getStatusColor(apt.status))}>
+                    <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
                       {apt.status}
                     </span>
                   </div>
@@ -625,7 +622,7 @@ export default function AppointmentsPage() {
                       {apt.client_phone && ` · ${apt.client_phone}`}
                     </p>
                     {payBadge && (
-                      <span className={cn("badge badge-pill flex-shrink-0", payBadge.bsClass)}>{payBadge.label}</span>
+                      <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap flex-shrink-0", payBadge.bsClass)}>{payBadge.label}</span>
                     )}
                   </div>
                 )}
@@ -697,13 +694,13 @@ export default function AppointmentsPage() {
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
-                          <span className={cn("badge badge-pill capitalize", getStatusColor(apt.status))}>
+                          <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
                             {apt.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</p>
-                          {(() => { const p = paymentBadge(apt); return p ? <span className={cn("badge badge-pill mt-1", p.bsClass)}>{p.label}</span> : null; })()}
+                          {(() => { const p = paymentBadge(apt); return p ? <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap mt-1", p.bsClass)}>{p.label}</span> : null; })()}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           {(() => {
@@ -812,7 +809,7 @@ export default function AppointmentsPage() {
                 return (
                   <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <span className="text-xs text-[#777] uppercase tracking-wide">Payment</span>
-                    <span className={cn("badge badge-pill", p.bsClass)}>{p.label}</span>
+                    <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap", p.bsClass)}>{p.label}</span>
                   </div>
                 );
               })()}
