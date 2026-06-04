@@ -591,26 +591,44 @@ export default function AppointmentsPage() {
                 <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                 <p className="text-sm text-[#777] px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
               </div>
-            ) : filtered.map(apt => (
+            ) : filtered.map(apt => {
+              const [timeHour, timeMeridian] = (apt.time_slot ?? "").split(" ");
+              const payBadge = paymentBadge(apt);
+              const hasFooter = !!apt.client_phone || !!payBadge;
+              return (
               <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
-                    <p className="text-xs text-[#777]">{apt.client_phone || "—"}</p>
+                className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors">
+                {/* Primary row — time block · client/service · price/status */}
+                <div className="flex items-center gap-3">
+                  <div className="text-center min-w-[52px]">
+                    <p className="text-base font-bold text-white font-mono leading-none">{timeHour}</p>
+                    <p className="text-[10px] text-[#777] mt-1">{timeMeridian}</p>
                   </div>
-                  <span className={cn("badge badge-pill capitalize flex-shrink-0", getStatusColor(apt.status))}>
-                    {apt.status}
-                  </span>
-                </div>
-                <div className="space-y-1.5 text-sm">
-                  <p className="text-white font-medium">{shortFriendlyDate(apt.date)} · <span className="text-white">{apt.time_slot}</span></p>
-                  <p className="text-[#777]">{apt.services?.name ?? "—"} · <span className="font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</span></p>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-[#777]">Barber: {apt.barbers?.name ?? "—"}</p>
-                    {(() => { const p = paymentBadge(apt); return p ? <span className={cn("badge badge-pill", p.bsClass)}>{p.label}</span> : null; })()}
+                  <div className="w-px h-10 bg-[#1e1e1e] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{apt.client_name}</p>
+                    <p className="text-xs text-[#777] truncate">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
+                    <span className={cn("badge badge-pill capitalize", getStatusColor(apt.status))}>
+                      {apt.status}
+                    </span>
                   </div>
                 </div>
+                {/* Secondary row — date + phone + payment badge (only shown
+                    when there's something worth showing). */}
+                {hasFooter && (
+                  <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#1e1e1e]">
+                    <p className="text-[11px] text-[#777] truncate">
+                      {shortFriendlyDate(apt.date)}
+                      {apt.client_phone && ` · ${apt.client_phone}`}
+                    </p>
+                    {payBadge && (
+                      <span className={cn("badge badge-pill flex-shrink-0", payBadge.bsClass)}>{payBadge.label}</span>
+                    )}
+                  </div>
+                )}
                 {(() => {
                   const action = primaryAction(apt.status as AppStatus);
                   const rejectable = canReject(apt.status as AppStatus);
@@ -629,7 +647,8 @@ export default function AppointmentsPage() {
                   );
                 })()}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
