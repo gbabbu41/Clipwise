@@ -587,7 +587,7 @@ export default function AppointmentsPage() {
                     <p className="text-base font-semibold text-white truncate">{apt.client_name}</p>
                     <p className="text-xs text-[#777]">{apt.client_phone || "—"}</p>
                   </div>
-                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border flex-shrink-0", getStatusColor(apt.status))}>
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium flex-shrink-0", getStatusColor(apt.status))}>
                     {apt.status}
                   </span>
                 </div>
@@ -666,7 +666,7 @@ export default function AppointmentsPage() {
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
-                          <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getStatusColor(apt.status))}>
+                          <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", getStatusColor(apt.status))}>
                             {apt.status}
                           </span>
                         </td>

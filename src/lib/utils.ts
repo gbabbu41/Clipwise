@@ -25,17 +25,17 @@ export function formatDate(dateStr: string): string {
 }
 
 export function getStatusColor(status: string): string {
-  // ClipWise v2 dark theme — translucent fills against the black/#0c0c0c
-  // surfaces, hairline borders matching each hue. Completed reads as
-  // muted ("done, no further action") via card-raised neutral.
+  // Calm dark-theme pills — borderless, very subtle 8% fill, slightly
+  // de-saturated text. Reads quietly against the #0c0c0c card surface
+  // instead of pulling the eye away from the row's content.
   const map: Record<string, string> = {
-    confirmed: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
-    pending:   "text-amber-400   bg-amber-500/10   border-amber-500/25",
-    completed: "text-blue-400    bg-blue-500/10    border-blue-500/25",
-    cancelled: "text-red-400     bg-red-500/10     border-red-500/25",
-    "no-show": "text-red-400     bg-red-500/10     border-red-500/25",
+    confirmed: "text-emerald-300/90 bg-emerald-500/[0.08]",
+    pending:   "text-amber-300/90   bg-amber-500/[0.08]",
+    completed: "text-blue-300/90    bg-blue-500/[0.08]",
+    cancelled: "text-red-300/90     bg-red-500/[0.08]",
+    "no-show": "text-red-300/90     bg-red-500/[0.08]",
   };
-  return map[status] ?? "text-[#777] bg-[#141414] border-[#1e1e1e]";
+  return map[status] ?? "text-[#aaa] bg-[#141414]";
 }
 
 export function getTagColor(tag: string): string {
