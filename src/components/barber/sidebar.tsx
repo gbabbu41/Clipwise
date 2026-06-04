@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2, CalendarOff, Menu } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
+// Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
@@ -124,10 +124,19 @@ export function BarberSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Logo header — close-X removed; drawer closes via backdrop tap,
-          Escape, or tapping the More button again. */}
-      <div className="px-3 py-6 border-b border-border flex justify-center">
-        <Logo size="md" className="text-white" />
+      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned. */}
+      <div
+        className="cw-logo-fade whitespace-nowrap border-b border-border"
+        style={{
+          fontFamily: "'Sora', sans-serif",
+          fontWeight: 800,
+          fontSize: "24px",
+          letterSpacing: "1px",
+          color: "#ffffff",
+          padding: "20px",
+        }}
+      >
+        CLIPWISE
       </div>
 
       {/* Reused from the owner sidebar — only renders when shops.length > 1 */}

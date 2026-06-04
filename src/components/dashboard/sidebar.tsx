@@ -8,7 +8,7 @@ import {
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu,
 } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
+// Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -307,11 +307,20 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Logo header — wordmark centered with even padding both sides.
-          The close-X button was removed; the drawer already closes via
-          backdrop tap, Escape, or tapping the More button again. */}
-      <div className="px-3 py-6 border-b border-[#1e1e1e] flex justify-center">
-        <Logo size="md" />
+      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned,
+          single line, exact spec from design. */}
+      <div
+        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e]"
+        style={{
+          fontFamily: "'Sora', sans-serif",
+          fontWeight: 800,
+          fontSize: "24px",
+          letterSpacing: "1px",
+          color: "#ffffff",
+          padding: "20px",
+        }}
+      >
+        CLIPWISE
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
