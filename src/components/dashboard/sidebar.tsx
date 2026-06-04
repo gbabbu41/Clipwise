@@ -307,16 +307,9 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Mobile-only close button inside the drawer */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(false)}
-        aria-label="Close menu"
-        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors"
-      >
-        <Menu size={18} />
-      </button>
-      {/* Logo */}
+      {/* Logo header — wordmark centered with even padding both sides.
+          The close-X button was removed; the drawer already closes via
+          backdrop tap, Escape, or tapping the More button again. */}
       <div className="px-3 py-6 border-b border-[#1e1e1e] flex justify-center">
         <Logo size="md" />
       </div>

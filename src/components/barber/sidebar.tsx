@@ -124,14 +124,8 @@ export function BarberSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      <button
-        type="button"
-        onClick={() => setMobileOpen(false)}
-        aria-label="Close menu"
-        className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center text-gold hover:text-white hover:bg-surface-raised transition-colors"
-      >
-        <Menu size={18} />
-      </button>
+      {/* Logo header — close-X removed; drawer closes via backdrop tap,
+          Escape, or tapping the More button again. */}
       <div className="px-3 py-6 border-b border-border flex justify-center">
         <Logo size="md" className="text-white" />
       </div>
