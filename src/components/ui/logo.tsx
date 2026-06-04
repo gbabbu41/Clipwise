@@ -8,12 +8,13 @@ interface LogoProps {
 }
 
 // Height per size variant — width auto-scales (SVG aspect ratio ~3.1:1).
-// Heights chosen so the wordmark sits as the visual weight the old text
-// version did at the same `size`.
+// Note: the SVG includes a tagline below the wordmark, so the actual
+// readable wordmark is ~27% of the total height. Heights below are
+// chosen so the wordmark portion ends up at a comfortable read size.
 const SIZE_HEIGHT: Record<NonNullable<LogoProps["size"]>, string> = {
-  sm: "h-7",   // 28px — mobile top bar, dense rows
-  md: "h-10",  // 40px — desktop sidebar drawer header
-  lg: "h-16",  // 64px — auth / marketing pages
+  sm: "h-9",   // 36px total -> ~10px wordmark, mobile top bar
+  md: "h-16",  // 64px total -> ~17px wordmark, desktop sidebar (fits w-64)
+  lg: "h-24",  // 96px total -> ~26px wordmark, auth / marketing
 };
 
 export function Logo({ className, size = "md" }: LogoProps) {
