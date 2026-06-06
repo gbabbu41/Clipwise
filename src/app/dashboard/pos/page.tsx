@@ -12,7 +12,9 @@ import type { Barber, Service, InventoryItem, Transaction, PromoCode } from "@/l
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
-type ClientLite = { id: string; name: string; email: string | null; phone: string | null };
+// id is null for "past customers" surfaced from appointments (not yet saved as
+// a client row); saved flags whether they're already in the clients book.
+type ClientLite = { id: string | null; name: string; email: string | null; phone: string | null; saved?: boolean };
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -33,7 +35,7 @@ export default function POSPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [client, setClient] = useState("Walk-in");
+  const [client, setClient] = useState(""); // empty until a customer is chosen
   const [custPhone, setCustPhone] = useState("");
   const [custEmail, setCustEmail] = useState("");
   const [barberId, setBarberId] = useState("");
@@ -70,20 +72,39 @@ export default function POSPage() {
 
   const loadData = useCallback(async () => {
     if (!shop) return;
-    const [barbersRes, svcsRes, invRes, txRes, promoRes, clientsRes] = await Promise.all([
+    const [barbersRes, svcsRes, invRes, txRes, promoRes, clientsRes, apptCustRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("category").order("name"),
       supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name"),
       supabase.from("transactions").select("*").eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("promo_codes").select("*").eq("shop_id", shop.id).eq("is_active", true),
       supabase.from("clients").select("id, name, email, phone").eq("shop_id", shop.id).order("name"),
+      // Past customers from bookings — online bookings create appointments but
+      // not client rows, so include them so the picker finds everyone served.
+      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(500),
     ]);
     if (barbersRes.data) { setBarbers(barbersRes.data); if (barbersRes.data.length > 0) setBarberId(barbersRes.data[0].id); }
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
     if (txRes.data) setRecentTx(txRes.data);
     if (promoRes.data) setPromoCodes(promoRes.data);
-    if (clientsRes.data) setClientsList(clientsRes.data as ClientLite[]);
+    // Merge saved clients + past appointment customers, deduped by email→phone→name.
+    const dkey = (n?: string | null, e?: string | null, p?: string | null) =>
+      (e?.trim().toLowerCase() || p?.replace(/\D/g, "") || n?.trim().toLowerCase() || "");
+    const merged: ClientLite[] = [];
+    const seen = new Set<string>();
+    for (const c of (clientsRes.data ?? []) as ClientLite[]) {
+      const k = dkey(c.name, c.email, c.phone);
+      if (k && !seen.has(k)) { seen.add(k); merged.push({ ...c, saved: true }); }
+    }
+    for (const a of (apptCustRes.data ?? []) as { client_name: string | null; client_email: string | null; client_phone: string | null }[]) {
+      if (!a.client_name?.trim()) continue;
+      const k = dkey(a.client_name, a.client_email, a.client_phone);
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      merged.push({ id: null, name: a.client_name, email: a.client_email, phone: a.client_phone, saved: false });
+    }
+    setClientsList(merged);
     setDataLoaded(true);
   }, [shop]);
 
@@ -156,6 +177,17 @@ export default function POSPage() {
     if (!name) { showToast("Enter a name"); return; }
     const email = addEmail.trim();
     const phone = addPhone.trim();
+    // No contact details → treat as a one-off walk-in: use the name for this
+    // sale only, don't save to the book (nothing to match/dedupe on).
+    if (!email && !phone) {
+      setClient(name);
+      setSelectedClientId(null);
+      setCustPhone(""); setCustEmail("");
+      setPickerOpen(false);
+      setClientSearch(""); setDupClient(null);
+      setAddName(""); setAddPhone(""); setAddEmail("");
+      return;
+    }
     setAddingClient(true);
     setDupClient(null);
     try {
@@ -174,8 +206,9 @@ export default function POSPage() {
         total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
       }).select("id, name, email, phone").single();
       if (error || !inserted) { showToast("Could not add client"); return; }
-      setClientsList(prev => [inserted as ClientLite, ...prev]);
-      selectClient(inserted as ClientLite);
+      const savedClient = { ...(inserted as ClientLite), saved: true };
+      setClientsList(prev => [savedClient, ...prev]);
+      selectClient(savedClient);
       showToast(`Added ${name}`);
     } finally {
       setAddingClient(false);
@@ -250,6 +283,8 @@ export default function POSPage() {
   const charge = async () => {
     if (cart.length === 0) { showToast("Please select a service first"); return; }
     if (total <= 0) { showToast("Cannot charge $0 — please add items"); return; }
+    // A customer must be chosen (existing client or a name entered) before charging.
+    if (!client.trim()) { showToast("Select or add a customer first"); setPickerOpen(true); return; }
     const tipPct = tipPercent !== null ? tipPercent : customTip ? (Number(customTip) / subtotal) * 100 : 0;
     if (tipPct > 100) { showToast("Tip cannot exceed 100%"); return; }
     if (paymentMethod === "cash") {
@@ -348,7 +383,7 @@ export default function POSPage() {
 
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
-    setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("Walk-in");
+    setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
     setAddName(""); setAddPhone(""); setAddEmail("");
@@ -438,31 +473,41 @@ export default function POSPage() {
       {/* Left Panel — services / products / recent */}
       <div className="flex-1 lg:overflow-y-auto p-4 space-y-4 lg:border-r border-[#1e1e1e]">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Point of Sale</h1>
-          <div className="flex gap-2 flex-wrap">
-            {/* Customer selector — opens the search / add picker. Shows the
-                chosen customer's name + a hint of their saved contact. */}
-            <button type="button" onClick={() => setPickerOpen(true)}
-              className="flex-1 min-w-40 flex items-center gap-2 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-left hover:border-white transition-colors">
-              <User size={15} className="text-[#777] flex-shrink-0" />
-              <span className="flex-1 min-w-0 truncate text-white">{client || "Walk-in"}</span>
-              {(custEmail || custPhone) && (
-                <span className="hidden sm:block text-[10px] text-[#777] truncate max-w-[45%]">{custEmail || custPhone}</span>
-              )}
-              <Search size={13} className="text-[#777] flex-shrink-0" />
-            </button>
-            <select value={barberId} onChange={e => setBarberId(e.target.value)}
-              className="flex-1 min-w-40 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
-              {barbers.length === 0 && <option value="">No barbers</option>}
-              {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+          <h1 className="text-xl font-bold text-white mb-3">Point of Sale</h1>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Customer selector — opens the search / add picker. Prompts the
+                cashier to pick a customer; amber outline until one is chosen. */}
+            <div>
+              <label className="block text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-1">Customer</label>
+              <button type="button" onClick={() => setPickerOpen(true)}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-xl border bg-[#141414] px-3 py-2.5 text-sm text-left transition-colors",
+                  client ? "border-[#1e1e1e] hover:border-white" : "border-amber-500/40 hover:border-amber-400",
+                )}>
+                <User size={15} className="text-[#777] flex-shrink-0" />
+                <span className={cn("flex-1 min-w-0 truncate", client ? "text-white" : "text-[#888]")}>
+                  {client || "Select customer…"}
+                </span>
+                <Search size={13} className="text-[#777] flex-shrink-0" />
+              </button>
+            </div>
+            <div>
+              <label className="block text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-1">Barber</label>
+              <select value={barberId} onChange={e => setBarberId(e.target.value)}
+                className="w-full rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
+                {barbers.length === 0 && <option value="">No barbers</option>}
+                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
           </div>
-          {/* Saved-client confirmation row */}
-          {selectedClientId && (
+          {/* Chosen-customer confirmation row */}
+          {client && (
             <div className="flex items-center gap-2 mt-2 text-xs">
-              <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-full px-2 py-0.5">Saved client</span>
-              <span className="text-[#777] truncate">{custEmail || custPhone || "no contact on file"}</span>
-              <button onClick={clearClient} className="ml-auto text-[#777] hover:text-white underline">Clear</button>
+              {selectedClientId
+                ? <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-full px-2 py-0.5">Saved client</span>
+                : <span className="inline-flex items-center gap-1 bg-[#141414] border border-[#1e1e1e] text-[#999] rounded-full px-2 py-0.5">Walk-in</span>}
+              <span className="text-[#777] truncate">{[custEmail, custPhone].filter(Boolean).join(" · ") || "no contact on file"}</span>
+              <button onClick={clearClient} className="ml-auto text-[#777] hover:text-white underline">Change</button>
             </div>
           )}
         </div>
@@ -660,14 +705,15 @@ export default function POSPage() {
             <div className="max-h-56 overflow-y-auto">
               {filteredClients.length === 0 ? (
                 <p className="text-center text-xs text-[#777] py-6">{clientSearch ? "No matching clients" : "No clients yet — add one below"}</p>
-              ) : filteredClients.map(c => (
-                <button key={c.id} onClick={() => selectClient(c)}
+              ) : filteredClients.map((c, i) => (
+                <button key={c.id ?? `past-${i}-${c.email ?? c.phone ?? c.name}`} onClick={() => selectClient(c)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#141414] border-b border-[#1e1e1e]/60 last:border-0">
                   <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{c.name[0]?.toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white truncate">{c.name}</p>
                     <p className="text-[11px] text-[#777] truncate">{[c.email, c.phone].filter(Boolean).join(" · ") || "no contact"}</p>
                   </div>
+                  {!c.saved && <span className="text-[9px] uppercase tracking-wide text-[#777] border border-[#1e1e1e] rounded-full px-1.5 py-0.5 flex-shrink-0">Past</span>}
                 </button>
               ))}
             </div>
@@ -676,10 +722,11 @@ export default function POSPage() {
             <div className="p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
               <p className="text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-2 flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Input placeholder="Name" value={addName} onChange={e => { setAddName(e.target.value); setDupClient(null); }} />
+                <Input placeholder="Name *" value={addName} onChange={e => { setAddName(e.target.value); setDupClient(null); }} />
                 <Input type="tel" placeholder="Phone" value={addPhone} onChange={e => { setAddPhone(e.target.value); setDupClient(null); }} />
                 <Input type="email" placeholder="Email" value={addEmail} onChange={e => { setAddEmail(e.target.value); setDupClient(null); }} />
               </div>
+              <p className="text-[10px] text-[#666] mt-1">Add phone/email to save them to your client book — or leave blank for a quick walk-in.</p>
 
               {/* Already-on-file surface — catches the same email/phone under a
                   different name and offers the existing client for reuse. */}
