@@ -449,6 +449,70 @@ export default function POSPage() {
 
   const itemCount = cart.reduce((n, i) => n + i.qty, 0);
 
+  // Shared order-summary body — reused by the mobile drawer and the desktop
+  // side panel so there's a single source for items + checkout.
+  const cartItemsList = (
+    <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
+      {cart.length === 0 ? (
+        <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-[#555]">No items added</p></div>
+      ) : cart.map(item => (
+        <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-[#f0f0f0] truncate">{item.name}</p>
+            <p className="text-xs text-[#555]">{formatCurrency(item.price)}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => changeQty(item.id, -1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">−</button>
+            <span className="text-sm text-white w-5 text-center">{item.qty}</span>
+            <button onClick={() => changeQty(item.id, 1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">+</button>
+          </div>
+          <button onClick={() => removeItem(item.id)} className="ml-1 text-red-400 hover:text-red-300"><X size={16} /></button>
+        </div>
+      ))}
+    </div>
+  );
+
+  const cartFooter = (
+    <div className="shrink-0 px-4 pt-3 pb-4 border-t border-[#1e1e1e] space-y-3">
+      <div className="flex justify-between text-sm"><span className="text-[#555]">Subtotal</span><span className="text-[#f0f0f0]">{formatCurrency(subtotal)}</span></div>
+      {promoCodes.length > 0 && (
+        <div className="flex gap-2">
+          <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
+          <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
+        </div>
+      )}
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-[#555] mr-1 shrink-0">Tip</span>
+        {[10,15,20].map(t => (
+          <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
+            className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-colors", tipPercent === t ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
+            {t}%
+          </button>
+        ))}
+        <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
+          className="w-14 shrink-0 rounded-lg border border-[#222] bg-[#1a1a1a] px-1 py-2 text-xs text-white text-center focus:outline-none focus:border-[#00e5a0]/50" />
+      </div>
+      {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
+      {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+      <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
+        <span className="text-sm font-bold text-[#f0f0f0]">TOTAL</span>
+        <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(total)}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {(["card","cash","online"] as PM[]).map(m => (
+          <button key={m} onClick={() => setPaymentMethod(m)}
+            className={cn("py-2.5 rounded-[10px] text-xs font-medium capitalize border transition-colors", paymentMethod === m ? "bg-[#1a1a1a] text-white border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
+            {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
+          </button>
+        ))}
+      </div>
+      <button type="button" onClick={charge} disabled={charging || cart.length === 0}
+        className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
+        {charging ? "Processing…" : `CHARGE ${formatCurrency(total)}`}
+      </button>
+    </div>
+  );
+
   // Stack vertically on mobile (left panel scrolls, cart docks below);
   // side-by-side on tablet+. h-screen on desktop only — on mobile the
   // page can scroll naturally so the bottom nav stays clear.
@@ -456,9 +520,23 @@ export default function POSPage() {
     <div className="bg-[#0a0a0a]">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      {/* App shell — fixed height between the mobile top bar (3.5rem) and bottom
-          nav (68px); full height from md up (sidebar layout, no mobile nav). */}
-      <div className="flex flex-col h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
+      {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
+          bar + drawer. PC (lg): order summary as a side panel beside the grid. */}
+      <div className="flex flex-col lg:flex-row h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
+
+        {/* PC order-summary side panel (left). Hidden below lg, where the sticky
+            cart bar + drawer take over. Reuses the shared cart body. */}
+        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-[#0c0c0c] border-r border-[#1e1e1e]">
+          <div className="shrink-0 px-4 py-3 border-b border-[#1e1e1e]">
+            <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
+            <p className="text-xs text-[#555] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
+          </div>
+          {cartItemsList}
+          {cartFooter}
+        </div>
+
+        {/* Main column — top bar + scrollable service grid */}
+        <div className="flex-1 min-w-0 flex flex-col">
 
         {/* 1 ─ TOP BAR (fixed): Customer | Barber side by side, no labels */}
         <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
@@ -575,13 +653,13 @@ export default function POSPage() {
         )}
 
       </div>
-
+        </div>
       </div>
 
-      {/* 3 ─ STICKY CART BAR (collapsed). Above the bottom nav on mobile; flush
-          bottom on md+. Left area expands the drawer; right charges. */}
+      {/* 3 ─ STICKY CART BAR — mobile/tablet only (lg uses the side panel).
+          Above the bottom nav on mobile; flush bottom on md. */}
       {cart.length > 0 && !cartOpen && (
-        <div className="fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#1e1e1e]">
+        <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#1e1e1e]">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setCartOpen(true)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
               <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
@@ -600,78 +678,17 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Expanded order-summary drawer */}
+      {/* Expanded order-summary drawer — mobile/tablet only */}
       {cartOpen && (
         <>
-          <div className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
-          <div className="fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
+          <div className="lg:hidden fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
+          <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
             <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
               <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
               <button onClick={() => setCartOpen(false)} className="text-[#555] hover:text-white"><X size={20} /></button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
-              {cart.length === 0 ? (
-                <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-[#555]">No items added</p></div>
-              ) : cart.map(item => (
-                <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#f0f0f0] truncate">{item.name}</p>
-                    <p className="text-xs text-[#555]">{formatCurrency(item.price)}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => changeQty(item.id, -1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">−</button>
-                    <span className="text-sm text-white w-5 text-center">{item.qty}</span>
-                    <button onClick={() => changeQty(item.id, 1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">+</button>
-                  </div>
-                  <button onClick={() => removeItem(item.id)} className="ml-1 text-red-400 hover:text-red-300"><X size={16} /></button>
-                </div>
-              ))}
-            </div>
-            <div className="shrink-0 px-4 pt-3 pb-4 border-t border-[#1e1e1e] space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-[#555]">Subtotal</span><span className="text-[#f0f0f0]">{formatCurrency(subtotal)}</span></div>
-
-              {promoCodes.length > 0 && (
-                <div className="flex gap-2">
-                  <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
-                  <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
-                </div>
-              )}
-
-              {/* Tip */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-[#555] mr-1 shrink-0">Tip</span>
-                {[10,15,20].map(t => (
-                  <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                    className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-colors", tipPercent === t ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
-                    {t}%
-                  </button>
-                ))}
-                <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
-                  className="w-14 shrink-0 rounded-lg border border-[#222] bg-[#1a1a1a] px-1 py-2 text-xs text-white text-center focus:outline-none focus:border-[#00e5a0]/50" />
-              </div>
-              {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
-              {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
-
-              <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
-                <span className="text-sm font-bold text-[#f0f0f0]">TOTAL</span>
-                <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(total)}</span>
-              </div>
-
-              {/* Payment Method */}
-              <div className="grid grid-cols-3 gap-2">
-                {(["card","cash","online"] as PM[]).map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)}
-                    className={cn("py-2.5 rounded-[10px] text-xs font-medium capitalize border transition-colors", paymentMethod === m ? "bg-[#1a1a1a] text-white border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
-                    {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
-                  </button>
-                ))}
-              </div>
-
-              <button type="button" onClick={charge} disabled={charging || cart.length === 0}
-                className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
-                {charging ? "Processing…" : `CHARGE ${formatCurrency(total)}`}
-              </button>
-            </div>
+            {cartItemsList}
+            {cartFooter}
           </div>
         </>
       )}
