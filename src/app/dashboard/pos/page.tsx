@@ -148,7 +148,7 @@ export default function POSPage() {
 
   const clearClient = () => {
     setSelectedClientId(null);
-    setClient("Walk-in"); setCustPhone(""); setCustEmail("");
+    setClient(""); setCustPhone(""); setCustEmail("");
   };
 
   // Add a client manually from the picker. Runs a LIVE db lookup by email then
@@ -469,8 +469,14 @@ export default function POSPage() {
                   client ? "border-[#1e1e1e] hover:border-white" : "border-amber-500/40 hover:border-amber-400",
                 )}>
                 <User size={15} className="text-[#777] flex-shrink-0" />
-                <span className={cn("flex-1 min-w-0 truncate", client ? "text-white" : "text-[#888]")}>
-                  {client || "Select customer…"}
+                <span className="flex-1 min-w-0">
+                  <span className={cn("block truncate", client ? "text-white" : "text-[#888]")}>
+                    {client || "Select customer…"}
+                  </span>
+                  {/* Show the selected customer's email (or phone) underneath. */}
+                  {client && (custEmail || custPhone) && (
+                    <span className="block text-[11px] text-[#777] truncate leading-tight">{custEmail || custPhone}</span>
+                  )}
                 </span>
                 <Search size={13} className="text-[#777] flex-shrink-0" />
               </button>
