@@ -6,7 +6,13 @@ import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { Barber, Appointment } from "@/lib/database.types";
+
+const CHART_TOOLTIP = {
+  contentStyle: { background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, color: "#fff", fontSize: 12 },
+  cursor: { fill: "rgba(245,240,230,0.06)" },
+};
 
 interface StaffHour {
   id: string;
@@ -103,6 +109,16 @@ export default function PayrollPage() {
   const shopRevenue = totalServiceRevenue - totalCommission;
   const totalHours = payroll.reduce((s, p) => s + p.hoursWorked, 0);
 
+  // Per-barber chart data — barber commission vs. the shop's cut, stacked so
+  // each bar's height is that barber's total service revenue.
+  const chartData = payroll
+    .filter(p => p.serviceRevenue > 0)
+    .map(p => ({
+      name: p.barber.name.split(" ")[0],
+      Commission: Math.round(p.commissionEarned),
+      "Shop keeps": Math.round(p.serviceRevenue - p.commissionEarned),
+    }));
+
   const exportCSV = () => {
     const rows = [
       ["Barber", "Appointments", "Service Revenue", "Commission %", "Commission Earned", "Hours Worked", "Period"],
@@ -173,6 +189,29 @@ export default function PayrollPage() {
           <p className="text-2xl font-bold text-white mt-1">{totalHours.toFixed(1)}h</p>
         </Card>
       </div>
+
+      {/* Earnings chart — at-a-glance comparison of each barber's payout
+          vs. what the shop keeps. Stacked bar = total service revenue. */}
+      {chartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Earnings by Barber</CardTitle>
+            <p className="text-xs text-[#777]">Commission vs. shop&apos;s cut</p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#777" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#777" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...CHART_TOOLTIP} formatter={(v) => formatCurrency(Number(v))} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "#777" }} />
+                <Bar dataKey="Commission" stackId="a" fill="#C9A84C" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Shop keeps" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Per-barber breakdown */}
       <Card>

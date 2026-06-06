@@ -4,6 +4,7 @@ import { DollarSign, TrendingUp, Scissors, Receipt } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { cn } from "@/lib/utils";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 type Period = "week" | "month" | "year";
 
@@ -44,6 +45,22 @@ export default function BarberEarningsPage() {
   }, [accessToken, period, shop?.id]);
 
   const periodLabel = period === "week" ? "This Week" : period === "month" ? "This Month" : "This Year";
+
+  // Commission earned per day, oldest → newest, for the earnings trend chart.
+  const chartData = (() => {
+    const map: Record<string, number> = {};
+    for (const tx of transactions) {
+      const d = tx.created_at.split("T")[0];
+      const commission = tx.commission_amount ?? ((tx.amount * (summary?.commissionPercent ?? 50)) / 100);
+      map[d] = (map[d] ?? 0) + commission;
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, yours]) => ({
+        day: new Date(date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
+        yours: Math.round(yours),
+      }));
+  })();
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -88,6 +105,28 @@ export default function BarberEarningsPage() {
           </div>
         ))}
       </div>
+
+      {/* Earnings trend — commission earned per day across the period. */}
+      {!loading && chartData.length > 0 && (
+        <div className="bg-surface border border-border rounded-2xl p-4 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white">My Earnings Trend</h2>
+            <span className="text-xs text-[#777]">{periodLabel}</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#777" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#777" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+              <Tooltip
+                contentStyle={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, color: "#fff", fontSize: 12 }}
+                cursor={{ fill: "rgba(201,168,76,0.08)" }}
+                formatter={(v) => [`$${Number(v)}`, "Your cut"]}
+              />
+              <Bar dataKey="yours" fill="#C9A84C" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Transaction list */}
       <div>

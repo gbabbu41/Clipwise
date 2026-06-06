@@ -418,8 +418,8 @@ export function MobileNav() {
   // 4 page-links + 1 'More' drawer-opener. The drawer is the canonical
   // way to reach everything else (Staff, Services, Settings, etc.).
   const linkItems = [
-    { href: "/dashboard",              label: "Home",     emoji: "🏠" },
-    { href: "/dashboard/appointments", label: "Schedule", emoji: "📅" },
+    { href: "/dashboard",              label: "Home",         emoji: "🏠" },
+    { href: "/dashboard/appointments", label: "Appointments", emoji: "📅" },
     { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
     { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
   ];
@@ -442,7 +442,7 @@ export function MobileNav() {
           Replaces the old top-bar hamburger so all chrome lives in one
           predictable spot at the bottom of the screen. */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-        <div className="cw-ni-icon">⋯</div>
+        <div className="cw-ni-icon">⚙️</div>
         <div className="cw-ni-label">More</div>
       </button>
     </nav>

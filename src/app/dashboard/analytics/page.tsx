@@ -46,20 +46,25 @@ export default function AnalyticsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  // id → name lookup so the appointments fallback for "Revenue by Service"
+  // shows real service names instead of raw service_id UUIDs.
+  const [serviceNames, setServiceNames] = useState<Record<string, string>>({});
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [txRes, apptRes, barberRes] = await Promise.all([
+    const [txRes, apptRes, barberRes, svcRes] = await Promise.all([
       supabase.from("transactions").select("*").eq("shop_id", shop.id).order("created_at", { ascending: true }),
       supabase.from("appointments").select("*").eq("shop_id", shop.id),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+      supabase.from("services").select("id, name").eq("shop_id", shop.id),
     ]);
     if (txRes.data) setTransactions(txRes.data);
     if (apptRes.data) setAppointments(apptRes.data);
     if (barberRes.data) setBarbers(barberRes.data);
+    if (svcRes.data) setServiceNames(Object.fromEntries(svcRes.data.map((s: { id: string; name: string }) => [s.id, s.name])));
     setLoading(false);
   }, [shop]);
 
@@ -150,7 +155,9 @@ export default function AnalyticsPage() {
     }
     if (Object.keys(map).length === 0) {
       for (const a of filteredAppts.filter(a => a.status === "completed")) {
-        const key = a.service_id ?? "Unknown";
+        // Resolve the service_id to its real name; fall back to "Unknown"
+        // so the chart never renders a raw UUID.
+        const key = (a.service_id && serviceNames[a.service_id]) || "Unknown";
         map[key] = (map[key] ?? 0) + a.total_amount;
       }
     }
@@ -158,7 +165,7 @@ export default function AnalyticsPage() {
       .sort(([,a], [,b]) => b - a)
       .slice(0, 6)
       .map(([name, value], i) => ({ name, value, color: GOLD_PALETTE[i] ?? "#666" }));
-  }, [filteredTx, filteredAppts]);
+  }, [filteredTx, filteredAppts, serviceNames]);
 
   // Appointment status breakdown
   const apptStatuses = useMemo(() => {

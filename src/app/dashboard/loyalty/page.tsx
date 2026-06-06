@@ -46,7 +46,9 @@ export default function LoyaltyPage() {
     setLoading(true);
     const [clientRes, promoRes] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("loyalty_points", { ascending: false }),
-      supabase.from("promo_codes").select("*").eq("shop_id", shop.id).order("created_at", { ascending: false }),
+      // promo_codes has no created_at column — order by active-first then code.
+      // Ordering by the missing column returned a 400 and broke promo loading.
+      supabase.from("promo_codes").select("*").eq("shop_id", shop.id).order("is_active", { ascending: false }).order("code", { ascending: true }),
     ]);
     if (clientRes.data) setClients(clientRes.data);
     if (promoRes.data) setPromos(promoRes.data);

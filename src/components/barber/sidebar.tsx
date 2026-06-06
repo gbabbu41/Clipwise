@@ -227,7 +227,7 @@ export function BarberMobileNav() {
       })}
       {/* 'More' opens the sidebar drawer (Profile, Time Off, etc.). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-        <div className="cw-ni-icon">⋯</div>
+        <div className="cw-ni-icon">⚙️</div>
         <div className="cw-ni-label">More</div>
       </button>
     </nav>
