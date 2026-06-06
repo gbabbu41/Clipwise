@@ -521,12 +521,13 @@ export default function POSPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
-          bar + drawer. PC (lg): order summary as a side panel beside the grid. */}
-      <div className="flex flex-col lg:flex-row h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
+          bar + drawer. PC (lg): order summary as a side panel on the RIGHT
+          (flex-row-reverse keeps DOM order but renders the panel last). */}
+      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
 
-        {/* PC order-summary side panel (left). Hidden below lg, where the sticky
+        {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
-        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-[#0c0c0c] border-r border-[#1e1e1e]">
+        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-[#0c0c0c] border-l border-[#1e1e1e]">
           <div className="shrink-0 px-4 py-3 border-b border-[#1e1e1e]">
             <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
             <p className="text-xs text-[#555] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
