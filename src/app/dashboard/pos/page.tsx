@@ -554,7 +554,7 @@ export default function POSPage() {
       {/* Right Panel - Order Summary. Full width when stacked (mobile + iPad
           portrait, where the 256px sidebar leaves too little room for a
           side-by-side split), fixed 320px column from lg up. */}
-      <div className="w-full lg:w-80 shrink-0 max-h-[52vh] lg:max-h-none flex flex-col overflow-hidden bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
+      <div className="w-full lg:w-80 shrink-0 max-h-[42vh] lg:max-h-none flex flex-col overflow-hidden bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
         <div className="shrink-0 p-3 sm:p-4 border-b border-[#1e1e1e]">
           <h2 className="text-base font-bold text-white">Order Summary</h2>
           <p className="text-xs text-[#777] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
@@ -562,9 +562,9 @@ export default function POSPage() {
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
           {cart.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-4xl mb-2">🛒</p>
-              <p className="text-sm text-[#777]">No items added</p>
+            <div className="text-center py-4">
+              <p className="text-2xl mb-1">🛒</p>
+              <p className="text-xs text-[#777]">No items added</p>
             </div>
           ) : cart.map(item => (
             <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
@@ -582,20 +582,18 @@ export default function POSPage() {
           ))}
         </div>
 
-        <div className="shrink-0 p-3 sm:p-4 border-t border-[#1e1e1e] space-y-3">
-          {/* Tip */}
-          <div>
-            <p className="text-xs text-[#777] mb-2">Tip</p>
-            <div className="flex gap-1 flex-wrap">
-              {[10,15,20].map(t => (
-                <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#777] hover:text-white border border-[#1e1e1e]")}>
-                  {t}%
-                </button>
-              ))}
-              <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
-                className="flex-1 min-w-12 rounded-lg border border-[#1e1e1e] bg-[#141414] px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-black/20 text-center" />
-            </div>
+        <div className="shrink-0 p-3 sm:p-4 border-t border-[#1e1e1e] space-y-2.5">
+          {/* Tip — compact inline pills */}
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-[#777] mr-0.5 shrink-0">Tip</span>
+            {[10,15,20].map(t => (
+              <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
+                className={cn("flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#777] hover:text-white border border-[#1e1e1e]")}>
+                {t}%
+              </button>
+            ))}
+            <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
+              className="w-12 shrink-0 rounded-lg border border-[#1e1e1e] bg-[#141414] px-1 py-1 text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-black/20 text-center" />
           </div>
 
           {/* Promo */}
@@ -606,25 +604,25 @@ export default function POSPage() {
             </div>
           )}
 
-          {/* Totals */}
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-[#777]"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
-            <div className="flex justify-between text-[#777]"><span>Tip</span><span className="text-white">{formatCurrency(tipAmt)}</span></div>
-            {discount > 0 && <div className="flex justify-between text-[#777]"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
-            <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(total)}</span></div>
+          {/* Totals — full breakdown on desktop; just Total (+discount) on mobile */}
+          <div className="text-sm">
+            <div className="hidden lg:flex justify-between text-[#777]"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
+            <div className="hidden lg:flex justify-between text-[#777]"><span>Tip</span><span className="text-white">{formatCurrency(tipAmt)}</span></div>
+            {discount > 0 && <div className="flex justify-between text-xs text-[#777]"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
+            <div className="flex justify-between items-baseline font-bold"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(total)}</span></div>
           </div>
 
           {/* Payment Method */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             {(["card","cash","online"] as PM[]).map(m => (
               <button key={m} onClick={() => setPaymentMethod(m)}
-                className={cn("py-2 rounded-xl text-xs font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-black")}>
+                className={cn("py-1.5 rounded-lg text-[11px] font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-black")}>
                 {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
               </button>
             ))}
           </div>
 
-          <Button className="w-full" size="lg" loading={charging} onClick={charge} disabled={cart.length === 0}>
+          <Button className="w-full" size="md" loading={charging} onClick={charge} disabled={cart.length === 0}>
             {charging ? "Processing..." : `Charge ${formatCurrency(total)}`}
           </Button>
         </div>
