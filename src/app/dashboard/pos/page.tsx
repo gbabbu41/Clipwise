@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { User, Scissors, Search, X, UserPlus, AlertCircle } from "lucide-react";
+import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -58,6 +58,7 @@ export default function POSPage() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState("");
   const [lastCharge, setLastCharge] = useState<{ total: number; subtotal: number; method: PM; items: CartItem[]; tip: number; discount: number; summaryLabel?: string } | null>(null);
@@ -370,7 +371,7 @@ export default function POSPage() {
     setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
-    setAddName(""); setAddPhone(""); setAddEmail("");
+    setAddName(""); setAddPhone(""); setAddEmail(""); setCartOpen(false);
     finalizedRef.current = false; // allow the next card sale to finalize
     if (barbers.length > 0) setBarberId(barbers[0].id);
   };
@@ -446,230 +447,233 @@ export default function POSPage() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  const itemCount = cart.reduce((n, i) => n + i.qty, 0);
+
   // Stack vertically on mobile (left panel scrolls, cart docks below);
   // side-by-side on tablet+. h-screen on desktop only — on mobile the
   // page can scroll naturally so the bottom nav stays clear.
   return (
-    <div className="bg-black">
+    <div className="bg-[#0a0a0a]">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
-      {/* Fixed two-zone app layout: on phones it fills the space between the
-          top bar (3.5rem) and bottom nav (68px); on tablet/desktop it's a full
-          -height two-pane. Cards scroll in the top zone, cart docks below. */}
-      <div className="flex flex-col lg:flex-row overflow-hidden h-[calc(100dvh-3.5rem-68px)] md:h-screen">
 
-      {/* Left Panel — services (scrolls in the top zone) */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 lg:border-r border-[#1e1e1e]">
-        <div>
-          <h1 className="hidden lg:block text-xl font-bold text-white mb-3">Point of Sale</h1>
-          <div className="grid grid-cols-2 gap-2">
-            {/* Customer selector — opens the search / add picker. Prompts the
-                cashier to pick a customer; amber outline until one is chosen. */}
-            <div>
-              <label className="block text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-1">Customer</label>
-              <button type="button" onClick={() => setPickerOpen(true)}
-                className={cn(
-                  "w-full flex items-center gap-2 rounded-xl border bg-[#141414] px-3 py-2.5 text-sm text-left transition-colors",
-                  client ? "border-[#1e1e1e] hover:border-white" : "border-amber-500/40 hover:border-amber-400",
-                )}>
-                <User size={15} className="text-[#777] flex-shrink-0" />
-                <span className="flex-1 min-w-0">
-                  <span className={cn("block truncate", client ? "text-white" : "text-[#888]")}>
-                    {client || "Select customer…"}
-                  </span>
-                  {/* Show the selected customer's email (or phone) underneath. */}
-                  {client && (custEmail || custPhone) && (
-                    <span className="block text-[11px] text-[#777] truncate leading-tight">{custEmail || custPhone}</span>
-                  )}
-                </span>
-                <Search size={13} className="text-[#777] flex-shrink-0" />
-              </button>
-            </div>
-            <div>
-              <label className="block text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-1">Barber</label>
-              <select value={barberId} onChange={e => setBarberId(e.target.value)}
-                className="w-full rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
-                {barbers.length === 0 && <option value="">No barbers</option>}
-                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
+      {/* App shell — fixed height between the mobile top bar (3.5rem) and bottom
+          nav (68px); full height from md up (sidebar layout, no mobile nav). */}
+      <div className="flex flex-col h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
+
+        {/* 1 ─ TOP BAR (fixed): Customer | Barber side by side, no labels */}
+        <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
+          <button type="button" onClick={() => setPickerOpen(true)}
+            className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-[#141414] px-3 text-sm text-left transition-colors",
+              client ? "border-[#1e1e1e]" : "border-[#00e5a0]/40")}>
+            <User size={15} className="text-[#555] shrink-0" />
+            <span className="flex-1 min-w-0 leading-tight">
+              <span className={cn("block truncate", client ? "text-[#f0f0f0]" : "text-[#555]")}>{client || "Select customer"}</span>
+              {client && (custEmail || custPhone) && <span className="block text-[10px] text-[#555] truncate">{custEmail || custPhone}</span>}
+            </span>
+            <Search size={13} className="text-[#555] shrink-0" />
+          </button>
+          <div className="relative flex-1 min-w-0">
+            <select value={barberId} onChange={e => setBarberId(e.target.value)}
+              className="w-full h-11 appearance-none rounded-xl border border-[#1e1e1e] bg-[#141414] pl-3 pr-8 text-sm text-[#f0f0f0] focus:outline-none focus:border-[#00e5a0]/50">
+              {barbers.length === 0 && <option value="">No barbers</option>}
+              {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <ChevronDown size={15} className="text-[#555] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
-          {/* Chosen-customer confirmation row */}
-          {client && (
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              {selectedClientId
-                ? <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-full px-2 py-0.5">Saved client</span>
-                : <span className="inline-flex items-center gap-1 bg-[#141414] border border-[#1e1e1e] text-[#999] rounded-full px-2 py-0.5">Walk-in</span>}
-              <span className="text-[#777] truncate">{[custEmail, custPhone].filter(Boolean).join(" · ") || "no contact on file"}</span>
-              <button onClick={clearClient} className="ml-auto text-[#777] hover:text-white underline">Change</button>
-            </div>
-          )}
         </div>
 
-        {/* Services by category — small tiles: 3-up on phones, 4-up on
-            tablet/iPad, 5-up on wide desktop. Consistent compact sizing. */}
+        {/* 2 ─ SERVICE GRID (scrollable). pb-28 keeps the last row clear of the sticky bar */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-28">
+
         {!dataLoaded ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
-            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[68px] rounded-xl bg-[#171717] animate-pulse" />)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-[#141414] animate-pulse" />)}
           </div>
         ) : (
-          Object.entries(servicesByCategory).map(([cat, svcs]) => (
-            <div key={cat}>
-              <p className="text-[10px] text-[#888] mb-1.5 font-semibold uppercase tracking-wider">{cat}</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
-                {svcs.map(svc => (
-                  <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                    className="group p-2.5 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left">
-                    <p className="text-[12px] font-semibold text-white leading-tight line-clamp-2">{svc.name}</p>
-                    <p className="text-[10px] text-[#888] mt-0.5">{svc.duration_minutes} min</p>
-                    <p className="text-sm font-bold text-gold mt-1">{formatCurrency(svc.price)}</p>
+          <>
+            {Object.entries(servicesByCategory).map(([cat, svcs]) => (
+              <div key={cat}>
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {svcs.map(svc => {
+                    const selected = cart.some(i => i.id === svc.id);
+                    return (
+                      <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
+                        className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
+                          selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20")}>
+                        {selected && (
+                          <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
+                            <Check size={11} className="text-black" strokeWidth={3} />
+                          </span>
+                        )}
+                        <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight line-clamp-2 pr-4">{svc.name}</p>
+                        <div className="flex items-end justify-between gap-1">
+                          <span className="text-[12px] text-[#555] leading-none">{svc.duration_minutes} min</span>
+                          <span className="text-[14px] font-bold text-[#00e5a0] leading-none">{formatCurrency(svc.price)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {inventory.length > 0 && (
+              <div>
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2">Products</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {inventory.map(inv => {
+                    const selected = cart.some(i => i.id === `inv-${inv.id}`);
+                    return (
+                      <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
+                        className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
+                          selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20",
+                          inv.quantity === 0 && "opacity-40 pointer-events-none")}>
+                        {selected && (
+                          <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
+                            <Check size={11} className="text-black" strokeWidth={3} />
+                          </span>
+                        )}
+                        <p className="text-[13px] font-semibold text-[#f0f0f0] leading-tight line-clamp-2 pr-4">{inv.name}</p>
+                        <div className="flex items-end justify-between gap-1">
+                          {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0
+                            ? <span className="text-[10px] text-red-400 leading-none">{inv.quantity} left</span>
+                            : <span />}
+                          <span className="text-[14px] font-bold text-[#00e5a0] leading-none">{formatCurrency(inv.price)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Recent transactions — scrolls with the grid */}
+            {recentTx.length > 0 && (
+              <div>
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-5 mb-2">Recent</p>
+                <div className="space-y-2">
+                  {recentTx.slice(0, 5).map(tx => {
+                    const barberName = barbers.find(b => b.id === tx.barber_id)?.name;
+                    return (
+                      <div key={tx.id} className="flex items-center justify-between gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                        <div className="min-w-0">
+                          <p className="text-sm text-[#f0f0f0] truncate">{tx.service_name}</p>
+                          <p className="text-[11px] text-[#555] truncate">{[tx.client_name, barberName].filter(Boolean).join(" · ") || new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-[#f0f0f0]">{formatCurrency(tx.amount + tx.tip)}</p>
+                          <p className="text-[11px] text-[#555] capitalize">{tx.payment_method}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+      </div>
+
+      </div>
+
+      {/* 3 ─ STICKY CART BAR (collapsed). Above the bottom nav on mobile; flush
+          bottom on md+. Left area expands the drawer; right charges. */}
+      {cart.length > 0 && !cartOpen && (
+        <div className="fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#1e1e1e]">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setCartOpen(true)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
+              <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
+              <span className="text-sm text-[#f0f0f0] truncate">
+                <span className="font-semibold">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+                <span className="text-[#555]"> · </span>
+                <span className="font-bold">{formatCurrency(total)}</span>
+              </span>
+              <ChevronDown size={14} className="text-[#555] shrink-0" />
+            </button>
+            <button type="button" onClick={charge} disabled={charging}
+              className="shrink-0 flex items-center gap-1.5 rounded-[10px] bg-[#00e5a0] text-black font-bold text-sm px-5 py-2.5 active:scale-95 transition-transform disabled:opacity-60">
+              {charging ? "…" : "Charge"}<span aria-hidden>→</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded order-summary drawer */}
+      {cartOpen && (
+        <>
+          <div className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
+          <div className="fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+              <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
+              <button onClick={() => setCartOpen(false)} className="text-[#555] hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
+              {cart.length === 0 ? (
+                <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-[#555]">No items added</p></div>
+              ) : cart.map(item => (
+                <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#f0f0f0] truncate">{item.name}</p>
+                    <p className="text-xs text-[#555]">{formatCurrency(item.price)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => changeQty(item.id, -1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">−</button>
+                    <span className="text-sm text-white w-5 text-center">{item.qty}</span>
+                    <button onClick={() => changeQty(item.id, 1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">+</button>
+                  </div>
+                  <button onClick={() => removeItem(item.id)} className="ml-1 text-red-400 hover:text-red-300"><X size={16} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="shrink-0 px-4 pt-3 pb-4 border-t border-[#1e1e1e] space-y-3">
+              <div className="flex justify-between text-sm"><span className="text-[#555]">Subtotal</span><span className="text-[#f0f0f0]">{formatCurrency(subtotal)}</span></div>
+
+              {promoCodes.length > 0 && (
+                <div className="flex gap-2">
+                  <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
+                  <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
+                </div>
+              )}
+
+              {/* Tip */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-[#555] mr-1 shrink-0">Tip</span>
+                {[10,15,20].map(t => (
+                  <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
+                    className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-colors", tipPercent === t ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
+                    {t}%
+                  </button>
+                ))}
+                <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
+                  className="w-14 shrink-0 rounded-lg border border-[#222] bg-[#1a1a1a] px-1 py-2 text-xs text-white text-center focus:outline-none focus:border-[#00e5a0]/50" />
+              </div>
+              {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
+              {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+
+              <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
+                <span className="text-sm font-bold text-[#f0f0f0]">TOTAL</span>
+                <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(total)}</span>
+              </div>
+
+              {/* Payment Method */}
+              <div className="grid grid-cols-3 gap-2">
+                {(["card","cash","online"] as PM[]).map(m => (
+                  <button key={m} onClick={() => setPaymentMethod(m)}
+                    className={cn("py-2.5 rounded-[10px] text-xs font-medium capitalize border transition-colors", paymentMethod === m ? "bg-[#1a1a1a] text-white border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
+                    {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
                   </button>
                 ))}
               </div>
-            </div>
-          ))
-        )}
 
-        {/* Products */}
-        {inventory.length > 0 && (
-          <div>
-            <p className="text-[10px] text-[#888] mb-1.5 font-semibold uppercase tracking-wider">Products</p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
-              {inventory.map(inv => (
-                <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                  className={cn("p-2.5 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left",
-                    inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                  <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">{inv.name}</p>
-                  <p className="text-sm font-bold text-gold mt-0.5">{formatCurrency(inv.price)}</p>
-                  {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
-                    <p className="text-[10px] text-red-400 mt-0.5">{inv.quantity} left</p>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* Right Panel - Order Summary. Full width when stacked (mobile + iPad
-          portrait, where the 256px sidebar leaves too little room for a
-          side-by-side split), fixed 320px column from lg up. */}
-      <div className="w-full lg:w-80 shrink-0 max-h-[42vh] lg:max-h-none flex flex-col overflow-hidden bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
-        <div className="shrink-0 p-3 sm:p-4 border-b border-[#1e1e1e]">
-          <h2 className="text-base font-bold text-white">Order Summary</h2>
-          <p className="text-xs text-[#777] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
-          {cart.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-2xl mb-1">🛒</p>
-              <p className="text-xs text-[#777]">No items added</p>
-            </div>
-          ) : cart.map(item => (
-            <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">{item.name}</p>
-                <p className="text-xs text-white">{formatCurrency(item.price)}</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => changeQty(item.id, -1)} className="w-6 h-6 rounded-lg bg-black shadow-sm text-white text-xs flex items-center justify-center hover:bg-border">−</button>
-                <span className="text-sm text-white w-4 text-center">{item.qty}</span>
-                <button onClick={() => changeQty(item.id, 1)} className="w-6 h-6 rounded-lg bg-black shadow-sm text-white text-xs flex items-center justify-center hover:bg-border">+</button>
-              </div>
-              <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
-            </div>
-          ))}
-        </div>
-
-        <div className="shrink-0 p-3 sm:p-4 border-t border-[#1e1e1e] space-y-2.5">
-          {/* Tip — compact inline pills */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-[#777] mr-0.5 shrink-0">Tip</span>
-            {[10,15,20].map(t => (
-              <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-                className={cn("flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors", tipPercent === t ? "bg-gold text-black" : "bg-[#141414] text-[#777] hover:text-white border border-[#1e1e1e]")}>
-                {t}%
+              <button type="button" onClick={charge} disabled={charging || cart.length === 0}
+                className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
+                {charging ? "Processing…" : `CHARGE ${formatCurrency(total)}`}
               </button>
-            ))}
-            <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
-              className="w-12 shrink-0 rounded-lg border border-[#1e1e1e] bg-[#141414] px-1 py-1 text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-black/20 text-center" />
-          </div>
-
-          {/* Promo */}
-          {promoCodes.length > 0 && (
-            <div className="flex gap-2">
-              <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
-              <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
             </div>
-          )}
-
-          {/* Totals — full breakdown on desktop; just Total (+discount) on mobile */}
-          <div className="text-sm">
-            <div className="hidden lg:flex justify-between text-[#777]"><span>Subtotal</span><span className="text-white">{formatCurrency(subtotal)}</span></div>
-            <div className="hidden lg:flex justify-between text-[#777]"><span>Tip</span><span className="text-white">{formatCurrency(tipAmt)}</span></div>
-            {discount > 0 && <div className="flex justify-between text-xs text-[#777]"><span>Discount</span><span className="text-emerald-400">-{formatCurrency(discount)}</span></div>}
-            <div className="flex justify-between items-baseline font-bold"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(total)}</span></div>
           </div>
-
-          {/* Payment Method */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {(["card","cash","online"] as PM[]).map(m => (
-              <button key={m} onClick={() => setPaymentMethod(m)}
-                className={cn("py-1.5 rounded-lg text-[11px] font-medium capitalize transition-colors border", paymentMethod === m ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-black")}>
-                {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
-              </button>
-            ))}
-          </div>
-
-          <Button className="w-full" size="md" loading={charging} onClick={charge} disabled={cart.length === 0}>
-            {charging ? "Processing..." : `Charge ${formatCurrency(total)}`}
-          </Button>
-        </div>
-      </div>
-      </div>
-
-      {/* Recent Transactions — moved below the checkout so the order summary
-          stays the focus. Full-width under the two-pane area: stacked on
-          mobile, a 3-up grid on desktop. */}
-      {recentTx.length > 0 && (
-        <div className="p-4 border-t border-[#1e1e1e]">
-          <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">Recent Transactions</p>
-          <div className="space-y-2 lg:grid lg:grid-cols-3 lg:gap-2 lg:space-y-0">
-            {recentTx.map(tx => {
-              const barberName = barbers.find(b => b.id === tx.barber_id)?.name;
-              return (
-                <div key={tx.id} className="flex items-start justify-between gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                  <div className="min-w-0">
-                    <p className="text-sm text-white truncate">{tx.service_name}</p>
-                    {/* Small badges: customer + barber, only when available */}
-                    {(tx.client_name || barberName) && (
-                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                        {tx.client_name && (
-                          <span className="inline-flex items-center gap-1 max-w-[140px] text-[10px] text-[#aaa] bg-black/40 border border-[#1e1e1e] rounded-full px-2 py-0.5">
-                            <User size={9} className="flex-shrink-0 text-[#777]" />
-                            <span className="truncate">{tx.client_name}</span>
-                          </span>
-                        )}
-                        {barberName && (
-                          <span className="inline-flex items-center gap-1 max-w-[140px] text-[10px] text-[#aaa] bg-black/40 border border-[#1e1e1e] rounded-full px-2 py-0.5">
-                            <Scissors size={9} className="flex-shrink-0 text-[#777]" />
-                            <span className="truncate">{barberName}</span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <p className="text-[10px] text-[#777] mt-1.5">{new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-white">{formatCurrency(tx.amount + tx.tip)}</p>
-                    <p className="text-xs text-[#777] capitalize">{tx.payment_method}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        </>
       )}
 
       {/* ── Customer picker portal ─────────────────────────────────────────
