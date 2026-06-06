@@ -544,6 +544,14 @@ export default function BookingPage() {
     setBookingId(rows[0].id);
     setConfirmed(true);
 
+    // Auto-register the customer in the shop's client book (deduped server-side
+    // by email/phone). Fire-and-forget — booking already succeeded.
+    fetch("/api/clients/upsert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id, name: clientInfo.name, email: clientInfo.email, phone: clientInfo.phone }),
+    }).catch(() => null);
+
     // Create in-app notification for shop owner (fire-and-forget)
     supabase.from("notifications").insert({
       user_id: shop.owner_id,

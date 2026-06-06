@@ -52,6 +52,28 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // Auto-register the customer in the shop's client book, deduped by
+    // email → phone so a returning customer never doubles up.
+    {
+      const email = (m.client_email ?? "").trim();
+      const phone = (m.client_phone ?? "").trim();
+      let existingClient: { id: string } | null = null;
+      if (email) {
+        const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", m.shop_id).ilike("email", email).maybeSingle();
+        existingClient = data;
+      }
+      if (!existingClient && phone) {
+        const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", m.shop_id).eq("phone", phone).maybeSingle();
+        existingClient = data;
+      }
+      if (!existingClient && m.client_name) {
+        await supabaseAdmin.from("clients").insert({
+          shop_id: m.shop_id, name: m.client_name, email, phone,
+          total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
+        }).then(null, () => null);
+      }
+    }
+
     // Notify the shop owner (fire-and-forget). Title carries the amount
     // so it's scannable at a glance ('New Paid Booking · $35'). Message
     // formats the raw YYYY-MM-DD date as 'July 6' for readability — we

@@ -72,39 +72,23 @@ export default function POSPage() {
 
   const loadData = useCallback(async () => {
     if (!shop) return;
-    const [barbersRes, svcsRes, invRes, txRes, promoRes, clientsRes, apptCustRes] = await Promise.all([
+    const [barbersRes, svcsRes, invRes, txRes, promoRes, clientsRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("category").order("name"),
       supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name"),
       supabase.from("transactions").select("*").eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("promo_codes").select("*").eq("shop_id", shop.id).eq("is_active", true),
+      // Single source of truth — the clients book. Bookings now auto-register
+      // customers here (see /api/clients/upsert), so this is the one list POS
+      // and the Clients page both read from.
       supabase.from("clients").select("id, name, email, phone").eq("shop_id", shop.id).order("name"),
-      // Past customers from bookings — online bookings create appointments but
-      // not client rows, so include them so the picker finds everyone served.
-      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(500),
     ]);
     if (barbersRes.data) { setBarbers(barbersRes.data); if (barbersRes.data.length > 0) setBarberId(barbersRes.data[0].id); }
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
     if (txRes.data) setRecentTx(txRes.data);
     if (promoRes.data) setPromoCodes(promoRes.data);
-    // Merge saved clients + past appointment customers, deduped by email→phone→name.
-    const dkey = (n?: string | null, e?: string | null, p?: string | null) =>
-      (e?.trim().toLowerCase() || p?.replace(/\D/g, "") || n?.trim().toLowerCase() || "");
-    const merged: ClientLite[] = [];
-    const seen = new Set<string>();
-    for (const c of (clientsRes.data ?? []) as ClientLite[]) {
-      const k = dkey(c.name, c.email, c.phone);
-      if (k && !seen.has(k)) { seen.add(k); merged.push({ ...c, saved: true }); }
-    }
-    for (const a of (apptCustRes.data ?? []) as { client_name: string | null; client_email: string | null; client_phone: string | null }[]) {
-      if (!a.client_name?.trim()) continue;
-      const k = dkey(a.client_name, a.client_email, a.client_phone);
-      if (!k || seen.has(k)) continue;
-      seen.add(k);
-      merged.push({ id: null, name: a.client_name, email: a.client_email, phone: a.client_phone, saved: false });
-    }
-    setClientsList(merged);
+    if (clientsRes.data) setClientsList((clientsRes.data as ClientLite[]).map(c => ({ ...c, saved: true })));
     setDataLoaded(true);
   }, [shop]);
 
