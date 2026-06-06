@@ -455,9 +455,9 @@ export default function POSPage() {
       <div className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
 
       {/* Left Panel — services / products / recent */}
-      <div className="flex-1 lg:overflow-y-auto p-4 space-y-4 lg:border-r border-[#1e1e1e]">
+      <div className="flex-1 lg:overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 lg:border-r border-[#1e1e1e]">
         <div>
-          <h1 className="text-xl font-bold text-white mb-3">Point of Sale</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3">Point of Sale</h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Customer selector — opens the search / add picker. Prompts the
                 cashier to pick a customer; amber outline until one is chosen. */}
@@ -502,22 +502,23 @@ export default function POSPage() {
           )}
         </div>
 
-        {/* Services by category */}
+        {/* Services by category — small tiles: 3-up on phones, 4-up on
+            tablet/iPad, 5-up on wide desktop. Consistent compact sizing. */}
         {!dataLoaded ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[88px] rounded-2xl bg-[#171717] animate-pulse" />)}
+          <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[68px] rounded-xl bg-[#171717] animate-pulse" />)}
           </div>
         ) : (
           Object.entries(servicesByCategory).map(([cat, svcs]) => (
             <div key={cat}>
-              <p className="text-[11px] text-[#888] mb-2 font-semibold uppercase tracking-wider">{cat}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+              <p className="text-[10px] text-[#888] mb-1.5 font-semibold uppercase tracking-wider">{cat}</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
                 {svcs.map(svc => (
                   <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                    className="group p-3 sm:p-4 rounded-2xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left">
-                    <p className="text-sm font-semibold text-white leading-snug line-clamp-2">{svc.name}</p>
-                    <p className="text-[11px] text-[#888] mt-0.5">{svc.duration_minutes} min</p>
-                    <p className="text-base sm:text-lg font-bold text-gold mt-1.5">{formatCurrency(svc.price)}</p>
+                    className="group p-2.5 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left">
+                    <p className="text-[12px] font-semibold text-white leading-tight line-clamp-2">{svc.name}</p>
+                    <p className="text-[10px] text-[#888] mt-0.5">{svc.duration_minutes} min</p>
+                    <p className="text-sm font-bold text-gold mt-1">{formatCurrency(svc.price)}</p>
                   </button>
                 ))}
               </div>
@@ -528,16 +529,16 @@ export default function POSPage() {
         {/* Products */}
         {inventory.length > 0 && (
           <div>
-            <p className="text-[11px] text-[#888] mb-2 font-semibold uppercase tracking-wider">Products</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <p className="text-[10px] text-[#888] mb-1.5 font-semibold uppercase tracking-wider">Products</p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
               {inventory.map(inv => (
                 <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                  className={cn("p-3 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left",
+                  className={cn("p-2.5 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                  <p className="text-xs font-medium text-white truncate">{inv.name}</p>
+                  <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">{inv.name}</p>
                   <p className="text-sm font-bold text-gold mt-0.5">{formatCurrency(inv.price)}</p>
                   {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
-                    <p className="text-[11px] text-red-400 mt-0.5">{inv.quantity} left</p>
+                    <p className="text-[10px] text-red-400 mt-0.5">{inv.quantity} left</p>
                   )}
                 </button>
               ))}
