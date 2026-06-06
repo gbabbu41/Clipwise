@@ -504,20 +504,20 @@ export default function POSPage() {
 
         {/* Services by category */}
         {!dataLoaded ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-[#141414] animate-pulse" />)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[88px] rounded-2xl bg-[#171717] animate-pulse" />)}
           </div>
         ) : (
           Object.entries(servicesByCategory).map(([cat, svcs]) => (
             <div key={cat}>
-              <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">{cat}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <p className="text-[11px] text-[#888] mb-2 font-semibold uppercase tracking-wider">{cat}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {svcs.map(svc => (
                   <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                    className="p-4 rounded-2xl border border-[#1e1e1e] bg-black shadow-sm hover:border-white hover:bg-[#141414] transition-all active:scale-95 text-left">
-                    <p className="text-sm font-semibold text-white">{svc.name}</p>
-                    <p className="text-xs text-[#777] mt-0.5">{svc.duration_minutes} min</p>
-                    <p className="text-lg font-bold text-white mt-1">{formatCurrency(svc.price)}</p>
+                    className="group p-3 sm:p-4 rounded-2xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left">
+                    <p className="text-sm font-semibold text-white leading-snug line-clamp-2">{svc.name}</p>
+                    <p className="text-[11px] text-[#888] mt-0.5">{svc.duration_minutes} min</p>
+                    <p className="text-base sm:text-lg font-bold text-gold mt-1.5">{formatCurrency(svc.price)}</p>
                   </button>
                 ))}
               </div>
@@ -528,16 +528,16 @@ export default function POSPage() {
         {/* Products */}
         {inventory.length > 0 && (
           <div>
-            <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wide">Products</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <p className="text-[11px] text-[#888] mb-2 font-semibold uppercase tracking-wider">Products</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {inventory.map(inv => (
                 <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                  className={cn("p-3 rounded-xl border border-[#1e1e1e] bg-black shadow-sm hover:border-white hover:bg-[#141414] transition-all active:scale-95 text-left",
+                  className={cn("p-3 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:border-gold hover:bg-[#1f1f1f] transition-all active:scale-95 text-left",
                     inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                  <p className="text-xs font-medium text-[#777] truncate">{inv.name}</p>
-                  <p className="text-sm font-bold text-white mt-0.5">{formatCurrency(inv.price)}</p>
+                  <p className="text-xs font-medium text-white truncate">{inv.name}</p>
+                  <p className="text-sm font-bold text-gold mt-0.5">{formatCurrency(inv.price)}</p>
                   {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0 && (
-                    <p className="text-xs text-red-400 mt-0.5">{inv.quantity} left</p>
+                    <p className="text-[11px] text-red-400 mt-0.5">{inv.quantity} left</p>
                   )}
                 </button>
               ))}
@@ -550,10 +550,10 @@ export default function POSPage() {
       {/* Right Panel - Order Summary. Full width when stacked (mobile + iPad
           portrait, where the 256px sidebar leaves too little room for a
           side-by-side split), fixed 320px column from lg up. */}
-      <div className="w-full lg:w-80 flex flex-col bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
+      <div className="w-full lg:w-80 flex flex-col bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e] pb-28 lg:pb-0">
         <div className="p-4 border-b border-[#1e1e1e]">
           <h2 className="text-base font-bold text-white">Order Summary</h2>
-          <p className="text-xs text-[#777]">{client} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
+          <p className="text-xs text-[#777]">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -626,6 +626,28 @@ export default function POSPage() {
         </div>
       </div>
       </div>
+
+      {/* Mobile sticky cart bar — keeps the cart total + checkout on screen
+          while browsing service cards. Sits just above the 68px bottom nav.
+          Hidden on lg, where the order summary is always visible. */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed left-0 right-0 z-40 px-3" style={{ bottom: "76px" }}>
+          <button
+            type="button"
+            onClick={charge}
+            disabled={charging}
+            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gold text-black font-bold px-4 py-3 shadow-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <span className="flex items-center gap-2">
+              <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-black/25 text-sm">
+                {cart.reduce((n, i) => n + i.qty, 0)}
+              </span>
+              <span>{charging ? "Processing…" : "Charge"}</span>
+            </span>
+            <span className="text-lg">{formatCurrency(total)}</span>
+          </button>
+        </div>
+      )}
 
       {/* Recent Transactions — moved below the checkout so the order summary
           stays the focus. Full-width under the two-pane area: stacked on
