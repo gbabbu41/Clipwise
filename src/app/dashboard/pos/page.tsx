@@ -554,13 +554,13 @@ export default function POSPage() {
       {/* Right Panel - Order Summary. Full width when stacked (mobile + iPad
           portrait, where the 256px sidebar leaves too little room for a
           side-by-side split), fixed 320px column from lg up. */}
-      <div className="w-full lg:w-80 shrink-0 max-h-[50vh] lg:max-h-none flex flex-col bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
-        <div className="p-4 border-b border-[#1e1e1e]">
+      <div className="w-full lg:w-80 shrink-0 max-h-[52vh] lg:max-h-none flex flex-col overflow-hidden bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
+        <div className="shrink-0 p-3 sm:p-4 border-b border-[#1e1e1e]">
           <h2 className="text-base font-bold text-white">Order Summary</h2>
-          <p className="text-xs text-[#777]">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
+          <p className="text-xs text-[#777] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
           {cart.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-4xl mb-2">🛒</p>
@@ -582,7 +582,7 @@ export default function POSPage() {
           ))}
         </div>
 
-        <div className="p-4 border-t border-[#1e1e1e] space-y-4">
+        <div className="shrink-0 p-3 sm:p-4 border-t border-[#1e1e1e] space-y-3">
           {/* Tip */}
           <div>
             <p className="text-xs text-[#777] mb-2">Tip</p>
