@@ -452,13 +452,16 @@ export default function POSPage() {
   return (
     <div className="bg-black">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
-      <div className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
+      {/* Fixed two-zone app layout: on phones it fills the space between the
+          top bar (3.5rem) and bottom nav (68px); on tablet/desktop it's a full
+          -height two-pane. Cards scroll in the top zone, cart docks below. */}
+      <div className="flex flex-col lg:flex-row overflow-hidden h-[calc(100dvh-3.5rem-68px)] md:h-screen">
 
-      {/* Left Panel — services / products / recent */}
-      <div className="flex-1 lg:overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 lg:border-r border-[#1e1e1e]">
+      {/* Left Panel — services (scrolls in the top zone) */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 lg:border-r border-[#1e1e1e]">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3">Point of Sale</h1>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <h1 className="hidden lg:block text-xl font-bold text-white mb-3">Point of Sale</h1>
+          <div className="grid grid-cols-2 gap-2">
             {/* Customer selector — opens the search / add picker. Prompts the
                 cashier to pick a customer; amber outline until one is chosen. */}
             <div>
@@ -551,7 +554,7 @@ export default function POSPage() {
       {/* Right Panel - Order Summary. Full width when stacked (mobile + iPad
           portrait, where the 256px sidebar leaves too little room for a
           side-by-side split), fixed 320px column from lg up. */}
-      <div className="w-full lg:w-80 flex flex-col bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e] pb-28 lg:pb-0">
+      <div className="w-full lg:w-80 shrink-0 max-h-[50vh] lg:max-h-none flex flex-col bg-[#0c0c0c] lg:bg-black border-t lg:border-t-0 lg:border-l border-[#1e1e1e]">
         <div className="p-4 border-b border-[#1e1e1e]">
           <h2 className="text-base font-bold text-white">Order Summary</h2>
           <p className="text-xs text-[#777]">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
@@ -627,28 +630,6 @@ export default function POSPage() {
         </div>
       </div>
       </div>
-
-      {/* Mobile sticky cart bar — keeps the cart total + checkout on screen
-          while browsing service cards. Sits just above the 68px bottom nav.
-          Hidden on lg, where the order summary is always visible. */}
-      {cart.length > 0 && (
-        <div className="lg:hidden fixed left-0 right-0 z-40 px-3" style={{ bottom: "76px" }}>
-          <button
-            type="button"
-            onClick={charge}
-            disabled={charging}
-            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gold text-black font-bold px-4 py-3 shadow-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
-          >
-            <span className="flex items-center gap-2">
-              <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-black/25 text-sm">
-                {cart.reduce((n, i) => n + i.qty, 0)}
-              </span>
-              <span>{charging ? "Processing…" : "Charge"}</span>
-            </span>
-            <span className="text-lg">{formatCurrency(total)}</span>
-          </button>
-        </div>
-      )}
 
       {/* Recent Transactions — moved below the checkout so the order summary
           stays the focus. Full-width under the two-pane area: stacked on
