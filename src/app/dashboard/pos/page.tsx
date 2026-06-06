@@ -680,25 +680,25 @@ export default function POSPage() {
           Search the client book by name / email / phone, select to pull
           their saved contact, or add a new customer. */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-[80] flex items-start sm:items-center justify-center p-4 bg-black/70" onClick={() => setPickerOpen(false)}>
-          <div className="w-full max-w-md mt-16 sm:mt-0 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center sm:p-4 bg-black/70" onClick={() => setPickerOpen(false)}>
+          <div className="w-full sm:max-w-md max-h-[88vh] flex flex-col bg-[#0c0c0c] border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
               <h3 className="text-sm font-bold text-white">Select customer</h3>
               <button onClick={() => setPickerOpen(false)} className="text-[#777] hover:text-white"><X size={18} /></button>
             </div>
 
             {/* Search */}
-            <div className="p-3 border-b border-[#1e1e1e]">
+            <div className="shrink-0 p-3 border-b border-[#1e1e1e]">
               <div className="flex items-center gap-2 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3">
                 <Search size={15} className="text-[#777] flex-shrink-0" />
-                <input autoFocus value={clientSearch} onChange={e => setClientSearch(e.target.value)}
+                <input value={clientSearch} onChange={e => setClientSearch(e.target.value)}
                   placeholder="Search name, email, or phone"
                   className="flex-1 bg-transparent py-2 text-sm text-white focus:outline-none placeholder:text-[#555]" />
               </div>
             </div>
 
-            {/* Results */}
-            <div className="max-h-56 overflow-y-auto">
+            {/* Results — flexes to fill, scrolls internally */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredClients.length === 0 ? (
                 <p className="text-center text-xs text-[#777] py-6">{clientSearch ? "No matching clients" : "No clients yet — add one below"}</p>
               ) : filteredClients.map((c, i) => (
@@ -715,7 +715,7 @@ export default function POSPage() {
             </div>
 
             {/* Add new — columns for manual entry */}
-            <div className="p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
+            <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
               <p className="text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-2 flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Input placeholder="Name *" value={addName} onChange={e => { setAddName(e.target.value); setDupClient(null); }} />
