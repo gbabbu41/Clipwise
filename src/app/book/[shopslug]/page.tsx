@@ -568,10 +568,34 @@ export default function BookingPage() {
       };
     });
 
+    // Guard against double-booking the same barber/time (the DB also enforces
+    // this via a unique index; this pre-check just gives a friendlier message).
+    if (finalBarberId) {
+      const { data: clash } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("barber_id", finalBarberId)
+        .eq("date", formatDateForDb(selectedDate))
+        .in("time_slot", rows.map(r => r.time_slot))
+        .in("status", ["pending", "confirmed"])
+        .limit(1)
+        .maybeSingle();
+      if (clash) {
+        setSaving(false);
+        showToast("Sorry, that time was just booked. Please pick another slot.", false);
+        return;
+      }
+    }
+
     const { error } = await supabase.from("appointments").insert(rows);
 
     setSaving(false);
-    if (error) { showToast("Failed to book. Please try again.", false); return; }
+    if (error) {
+      // 23505 = our double-booking unique index rejected a same-instant race.
+      const taken = (error as { code?: string }).code === "23505";
+      showToast(taken ? "That time was just booked — please pick another slot." : "Failed to book. Please try again.", false);
+      return;
+    }
     setBookingId(rows[0].id);
     setConfirmed(true);
 

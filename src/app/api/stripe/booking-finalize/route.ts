@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { UNIQUE_VIOLATION } from "@/lib/booking-conflict";
 
 // Called when the customer returns from a paid booking checkout.
 // Verifies payment on the connected account, then creates the appointment (idempotent).
@@ -83,7 +84,28 @@ export async function POST(request: NextRequest) {
       stripe_payment_method_id: savedPaymentMethodId,
     }).select("id").single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      // Slot was taken in the race window between checkout and this finalize
+      // (the DB unique index rejected it). The customer already paid/authorized,
+      // so undo the money so they aren't charged for a slot they didn't get:
+      //  · held (manual capture)  → cancel the authorization
+      //  · paid                   → refund
+      //  · saved (setup mode)     → nothing was charged
+      if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
+        try {
+          if (isHold && paymentIntentId) {
+            await stripe.paymentIntents.cancel(paymentIntentId, undefined, acctOpts);
+          } else if (!isHold && !isSave && paymentIntentId) {
+            await stripe.refunds.create({ payment_intent: paymentIntentId }, acctOpts);
+          }
+        } catch { /* best-effort reversal — surface the conflict regardless */ }
+        return NextResponse.json(
+          { error: "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     // Auto-register the customer in the shop's client book, deduped by
     // email → phone so a returning customer never doubles up.

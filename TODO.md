@@ -79,6 +79,12 @@ These are the difference between "works on localhost" and "works for real custom
 - [ ] **Smart-waitlist table** (`supabase/migrations/phase3_appointment_waitlist.sql`) — REQUIRED
       for the "notify me when a spot opens" feature. Creates `appointment_waitlist`
       (customer opt-ins on full days). Without it, the booking-page "Notify me" button errors.
+- [ ] **Double-booking guard** (`supabase/migrations/phase4_prevent_double_booking.sql`) —
+      partial UNIQUE index on `(barber_id, date, time_slot)` for active (pending/confirmed)
+      rows with a barber assigned. Stops two appointments at the same barber/time even in a
+      race. ⚠️ Fails if active duplicates already exist — see the detection query in the file,
+      clean them first. App also pre-checks for a friendly message (and reverses online
+      payment if the slot is lost in the race).
 - [ ] *(optional)* **Per-visit reviews** — reviews currently dedupe one-per-client-per-shop.
       To allow a review per appointment, add `appointment_id uuid references appointments(id)`
       to `reviews` and switch the dedupe in `/api/reviews/submit` to use it.

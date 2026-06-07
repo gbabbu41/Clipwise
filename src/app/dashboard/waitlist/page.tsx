@@ -192,7 +192,8 @@ export default function WaitlistPage() {
     });
     if (apptErr) {
       setSeatSaving(false);
-      showToast(`Failed: ${apptErr.message}`);
+      const taken = (apptErr as { code?: string }).code === "23505";
+      showToast(taken ? "That barber already has a booking in this slot — pick another barber." : `Failed: ${apptErr.message}`);
       return;
     }
     // Flip waitlist row to `called` (in-service) and remember the linked

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { barberSlotTaken } from "@/lib/booking-conflict";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -31,6 +32,16 @@ export async function POST(request: NextRequest) {
     .eq("id", booking.shop_id).single();
 
   if (!shop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+
+  // Block double-booking BEFORE taking any money — otherwise a customer could
+  // pay and then have /booking-finalize fail the DB unique index, leaving them
+  // charged with no appointment.
+  if (await barberSlotTaken(booking.barber_id, booking.date, booking.time_slot)) {
+    return NextResponse.json(
+      { error: "Sorry, that time was just booked. Please pick another slot." },
+      { status: 409 },
+    );
+  }
 
   // Online payments are a Pro/Premium feature
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);

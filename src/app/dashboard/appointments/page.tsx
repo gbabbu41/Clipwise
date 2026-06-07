@@ -535,9 +535,33 @@ export default function AppointmentsPage() {
         total_amount: svc?.price ?? 0,
       };
     });
+    // Guard against double-booking the same barber/time. Only meaningful when a
+    // specific barber is chosen ("Any Barber" can't be uniquely held). The DB
+    // unique index is the real enforcer; this is the friendly pre-check.
+    if (addForm.barber_id) {
+      const { data: clash } = await supabase
+        .from("appointments")
+        .select("date, time_slot")
+        .eq("barber_id", addForm.barber_id)
+        .in("date", rows.map(r => r.date))
+        .eq("time_slot", addForm.time_slot)
+        .in("status", ["pending", "confirmed"])
+        .limit(1)
+        .maybeSingle();
+      if (clash) {
+        setSavingAdd(false);
+        showToast(`That barber is already booked on ${clash.date} at ${clash.time_slot}`);
+        return;
+      }
+    }
+
     const { error } = await supabase.from("appointments").insert(rows);
     setSavingAdd(false);
-    if (error) { showToast("Failed to add appointment"); return; }
+    if (error) {
+      const taken = (error as { code?: string }).code === "23505";
+      showToast(taken ? "That barber already has a booking at this time" : "Failed to add appointment");
+      return;
+    }
     setShowAddModal(false);
     setAddForm({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM", repeat: "none" });
     showToast(rows.length > 1 ? `${rows.length} appointments added!` : "Appointment added!");
