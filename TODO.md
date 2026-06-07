@@ -41,12 +41,17 @@ These are the difference between "works on localhost" and "works for real custom
 "Charge No-Show". Limitation: card auth holds expire ~7 days, so far-future bookings
 fall back to pay-in-person.
 
-- [ ] **Per-shop no-show settings** (Settings page → `shops`):
-      `no_show_fee_enabled`, `no_show_fee_amount` (cents), `cancellation_window_hours`.
-- [ ] **Auto-capture cron** (every ~30 min): for shops with the fee enabled, find
-      appointments past their time + grace that weren't completed/cancelled, capture the
-      no-show fee, set status `no-show`, SMS the client (Twilio is wired).
-- [ ] **SMS reminder** before the cancellation window closes ("cancel before X to avoid a fee").
+- [x] **Per-shop no-show settings** — Settings → Booking → "No-Show Protection" toggle +
+      "No-Show Fee ($)" (0 = full). Stored in `shops.booking_settings` JSON.
+- [x] **Auto-capture cron** — `POST/GET /api/cron/no-show` captures the held card ~2h after
+      a missed appointment, sets status `no-show`, SMSes the client (Twilio inlined).
+      - [ ] **SCHEDULE IT**: `vercel.json` has a `*/30 * * * *` cron (needs Vercel **Pro**).
+            On Hobby, instead point an external scheduler (cron-job.org / GitHub Actions) at
+            `https://<domain>/api/cron/no-show` with header `x-cron-secret: <CRON_SECRET>`.
+      - [ ] Note: slot times are parsed in server (UTC) time — fine with the 2h grace, but if
+            shops span timezones, store/compare an explicit tz later.
+- [ ] **SMS reminder** before the cancellation window closes ("cancel before X to avoid a fee")
+      — not built yet (separate from the no-show capture).
 - [ ] **Phase 3 — deposits**: per-shop `deposit_enabled`/`deposit_amount`; charge deposit at
       booking, balance at completion; refund rules on cancel (refund outside window,
       forfeit inside).

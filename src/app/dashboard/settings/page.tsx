@@ -26,12 +26,13 @@ type BookingSettings = {
   deposit: boolean;
   deposit_amount: number;
   no_show_protection: boolean;
+  no_show_fee_amount: number; // $ to charge for a no-show; 0 = full service price
   auto_confirm: boolean;
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
   advance_days: 30, cancellation_hours: 24, deposit: false,
-  deposit_amount: 10, no_show_protection: true, auto_confirm: false,
+  deposit_amount: 10, no_show_protection: true, no_show_fee_amount: 0, auto_confirm: false,
 };
 
 // Plan info — mirrors the pricing shown on the public homepage (src/app/page.tsx).
@@ -424,10 +425,17 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
                 <p className="text-sm font-medium text-white">No-Show Protection</p>
-                <p className="text-xs text-[#777]">Charge card on file for no-shows</p>
+                <p className="text-xs text-[#777]">Auto-charge the held card if a client doesn&apos;t show (≈2h after their time)</p>
               </div>
               <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
             </div>
+            {booking.no_show_protection && (
+              <div>
+                <Input label="No-Show Fee ($) — 0 = full service price" type="number" value={String(booking.no_show_fee_amount ?? 0)}
+                  onChange={e => setBooking(p => ({ ...p, no_show_fee_amount: Number(e.target.value) }))} />
+                <p className="text-xs text-[#777] mt-1">Charged from the card held at booking. Leave 0 to charge the full amount.</p>
+              </div>
+            )}
             <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
                 <p className="text-sm font-medium text-white">Auto-Confirm Bookings</p>

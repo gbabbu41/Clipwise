@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("owner_id, stripe_account_id, stripe_connected").eq("id", appt.shop_id).single();
+    .from("shops").select("owner_id, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).single();
   if (!shop) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
   if (shop.owner_id !== userId) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
@@ -46,9 +46,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, alreadyCaptured: true });
   }
 
+  // No-show fee: use the explicit amount if given, else the shop's configured
+  // flat fee (booking_settings.no_show_fee_amount, in $), else the full hold.
+  let feeCents = amount_cents && amount_cents > 0 ? amount_cents : 0;
+  if (reason === "no_show" && !feeCents) {
+    const bs = shop.booking_settings as { no_show_fee_amount?: number } | null;
+    const feeDollars = bs?.no_show_fee_amount ?? 0;
+    if (feeDollars > 0) feeCents = Math.min(Math.round(feeDollars * 100), Math.round((appt.total_amount ?? 0) * 100));
+  }
+
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
   const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
-  const captureParams = (amount_cents && amount_cents > 0) ? { amount_to_capture: amount_cents } : {};
+  const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};
 
   try {
     const pi = await stripe.paymentIntents.capture(appt.payment_intent_id, captureParams, opts);
