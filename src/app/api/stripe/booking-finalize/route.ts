@@ -152,6 +152,17 @@ export async function POST(request: NextRequest) {
       }).then(null, () => null);
     }
 
+    // Barber in-app notification + SMS to owner & barber (server-side helper).
+    // Drives the live portal pop-up + sound for the barber on paid bookings too.
+    {
+      const base = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      fetch(`${base}/api/appointments/notify-staff`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id }),
+      }).catch(() => null);
+    }
+
     // Text the customer a confirmation (best-effort). Note reflects the
     // payment state so a held/saved card isn't mistaken for a charge.
     {

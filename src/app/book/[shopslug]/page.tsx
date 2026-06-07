@@ -623,11 +623,20 @@ export default function BookingPage() {
     // Create in-app notification for shop owner (fire-and-forget)
     supabase.from("notifications").insert({
       user_id: shop.owner_id,
-      title: "New Booking",
-      message: `${clientInfo.name} booked ${service?.name ?? "a service"} on ${formatDateForDb(selectedDate!)} at ${selectedTime}`,
+      title: "New booking — needs approval",
+      message: `${clientInfo.name} booked ${service?.name ?? "a service"} on ${formatDateForDb(selectedDate!)} at ${selectedTime} · tap to approve`,
       type: "booking",
       is_read: false,
     }).then(null, () => null);
+
+    // Barber in-app notification + SMS to owner & barber (server-side, so it can
+    // read staff phone numbers). This is what makes the live pop-up + sound fire
+    // for the assigned barber's portal too.
+    fetch("/api/appointments/notify-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: rows[0].id }),
+    }).catch(() => null);
 
     const bookingData = {
       clientName: clientInfo.name,

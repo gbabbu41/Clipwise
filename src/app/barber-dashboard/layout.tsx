@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
+import { NotificationListener } from "@/components/notification-listener";
 
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
@@ -71,6 +72,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
     <BarberProvider>
       <BarberGuard>
         <div className="min-h-screen bg-background">
+          <NotificationListener />
           <BarberSidebar />
           {/* pt-12 reserves space for the BarberSidebar's mobile top bar. */}
           {/* pt-14 matches the mobile top-bar height — flush, no extra gap. */}

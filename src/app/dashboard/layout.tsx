@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
+import { NotificationListener } from "@/components/notification-listener";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-black">
+      <NotificationListener />
       <Sidebar />
       {/* pt-12 reserves space for the mobile top bar in the Sidebar component;
           md:pt-0 removes that gap on desktop where the bar isn't rendered. */}
