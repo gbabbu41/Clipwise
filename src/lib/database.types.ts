@@ -131,8 +131,9 @@ export interface Appointment {
   deposit_paid: boolean;
   total_amount: number;
   payment_method?: PaymentMethod;
-  payment_status?: "paid" | "failed" | "refunded" | "unpaid";
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured";
   payment_intent_id?: string;
+  no_show_fee_amount?: number; // cents captured for a no-show (Phase 1)
   created_at: string;
 }
 

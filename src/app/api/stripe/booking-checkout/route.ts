@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     time_slot: string;
     amount: number; // dollars to charge now (deposit or full)
     total_amount: number; // full appointment total
+    hold?: boolean; // when true: authorize (manual capture) instead of charging
   };
 
   const { data: shop } = await supabaseAdmin
@@ -44,10 +45,13 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
+        // hold = authorize only (no-show protection); captured later on
+        // completion / no-show. Otherwise charge immediately as before.
+        ...(booking.hold ? { payment_intent_data: { capture_method: "manual" as const } } : {}),
         line_items: [{
           price_data: {
             currency: "cad",
-            product_data: { name: `${booking.service_name} — deposit` },
+            product_data: { name: booking.hold ? `${booking.service_name} — hold (charged after visit)` : `${booking.service_name} — deposit` },
             unit_amount: Math.round(booking.amount * 100),
           },
           quantity: 1,
@@ -62,6 +66,7 @@ export async function POST(request: NextRequest) {
           date: booking.date,
           time_slot: booking.time_slot,
           total_amount: String(booking.total_amount),
+          hold: booking.hold ? "1" : "",
         },
         success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,

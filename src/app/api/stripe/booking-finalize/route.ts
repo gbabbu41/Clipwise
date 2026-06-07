@@ -20,12 +20,21 @@ export async function POST(request: NextRequest) {
       undefined,
       useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
     );
-    if (session.payment_status !== "paid") {
-      return NextResponse.json({ paid: false }, { status: 200 });
-    }
-
     const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
     const m = session.metadata ?? {};
+    const isHold = m.hold === "1";
+
+    // A card hold leaves the session "unpaid" until capture — confirm the
+    // PaymentIntent reached requires_capture (authorized). Otherwise require paid.
+    if (isHold) {
+      if (!paymentIntentId) return NextResponse.json({ paid: false }, { status: 200 });
+      const pi = await stripe.paymentIntents.retrieve(
+        paymentIntentId, undefined, useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
+      );
+      if (pi.status !== "requires_capture") return NextResponse.json({ paid: false }, { status: 200 });
+    } else if (session.payment_status !== "paid") {
+      return NextResponse.json({ paid: false }, { status: 200 });
+    }
 
     // Idempotency — don't double-create if this payment already produced an appointment
     if (paymentIntentId) {
@@ -45,8 +54,8 @@ export async function POST(request: NextRequest) {
       time_slot: m.time_slot,
       status: "confirmed",
       total_amount: Number(m.total_amount ?? 0),
-      deposit_paid: true,
-      payment_status: "paid",
+      deposit_paid: !isHold,
+      payment_status: isHold ? "held" : "paid",
       payment_intent_id: paymentIntentId,
     }).select("id").single();
 
@@ -86,8 +95,8 @@ export async function POST(request: NextRequest) {
       const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
       supabaseAdmin.from("notifications").insert({
         user_id: shopRow.owner_id,
-        title: `New Paid Booking · ${amountStr}`,
-        message: `${m.client_name} booked & paid for ${friendly} at ${m.time_slot}`,
+        title: isHold ? `New Booking · card held · ${amountStr}` : `New Paid Booking · ${amountStr}`,
+        message: `${m.client_name} booked ${isHold ? "(card on hold)" : "& paid"} for ${friendly} at ${m.time_slot}`,
         type: "booking",
         is_read: false,
       }).then(null, () => null);

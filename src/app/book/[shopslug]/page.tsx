@@ -465,6 +465,11 @@ export default function BookingPage() {
     // explicitly picks pay-in-person, we skip Stripe entirely even if the
     // service was tagged with a deposit requirement.
     const depositAmount = service?.deposit_required ? (service.deposit_amount ?? 0) : 0;
+    // No-show protection: for "pay online" within 7 days, AUTHORIZE the full
+    // amount (card held, not charged) — captured later on completion / no-show.
+    // Card auth holds expire ~7 days, so further-out bookings charge as before.
+    const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
+    const useHold = payMethodChoice === "online" && daysOut <= 7;
     const chargeAmount =
       payMethodChoice === "in_person" ? 0 :
       payMethodChoice === "online"    ? total :
@@ -487,6 +492,7 @@ export default function BookingPage() {
             time_slot: selectedTime,
             amount: chargeAmount,
             total_amount: total,
+            hold: useHold,
           }),
         });
         const pay = await res.json();

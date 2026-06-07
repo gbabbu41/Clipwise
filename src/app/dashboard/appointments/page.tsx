@@ -344,11 +344,50 @@ export default function AppointmentsPage() {
    *  decide how to take payment first. Everything else routes straight
    *  through to `updateStatus`. */
   const handleStatusChange = (apt: AppointmentWithDetails, next: AppStatus) => {
+    // Held card (no-show protection): completing auto-captures the held amount,
+    // no cash/link modal needed.
+    if (next === "completed" && apt.payment_status === "held") {
+      captureHeldAndComplete(apt);
+      return;
+    }
     if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
       setPaymentModal(apt);
       return;
     }
     updateStatus(apt.id, next);
+  };
+
+  // Capture a held PaymentIntent. reason "completed" charges the full hold and
+  // marks the appointment complete; "no_show" charges the no-show fee. Errors
+  // surface as a toast and the appointment is flagged for review server-side.
+  const captureHeld = async (appt: AppointmentWithDetails, reason: "completed" | "no_show") => {
+    if (!accessToken) return false;
+    const res = await fetch("/api/stripe/capture-appointment", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id, reason }),
+    });
+    const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+    if (!data.ok) { showToast(`Charge failed: ${data.error ?? "try again"}`); return false; }
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, payment_status: "captured" } as AppointmentWithDetails : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, payment_status: "captured" } as AppointmentWithDetails : null);
+    return true;
+  };
+
+  const captureHeldAndComplete = async (appt: AppointmentWithDetails) => {
+    showToast("Charging held card…");
+    const ok = await captureHeld(appt, "completed");
+    if (!ok) return;
+    await updateStatus(appt.id, "completed");
+    showToast(`Charged ${formatCurrency(appt.total_amount ?? 0)} · Completed`);
+  };
+
+  const chargeNoShow = async (appt: AppointmentWithDetails) => {
+    const amt = appt.total_amount ?? 0;
+    if (typeof window !== "undefined" && !window.confirm(`Charge ${formatCurrency(amt)} for no-show?`)) return;
+    showToast("Charging no-show fee…");
+    const ok = await captureHeld(appt, "no_show");
+    if (ok) showToast(`No-show fee charged · ${formatCurrency(amt)}`);
   };
 
   const markCashPaid = async (alsoComplete: boolean) => {
@@ -840,6 +879,11 @@ export default function AppointmentsPage() {
                     {rejectable && (
                       <button type="button" className="btn btn-soft-warning col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
+                    )}
+                    {/* No-show capture — only when a card is on hold */}
+                    {selectedApt.status === "no-show" && selectedApt.payment_status === "held" && (
+                      <button type="button" className="btn btn-soft-danger col-span-2" disabled={savingStatus === selectedApt.id}
+                        onClick={() => chargeNoShow(selectedApt)}>Charge No-Show · {formatCurrency(selectedApt.total_amount ?? 0)}</button>
                     )}
                   </div>
                 );
