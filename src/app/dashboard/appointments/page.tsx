@@ -5,6 +5,7 @@ import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
@@ -46,6 +47,11 @@ const canReject = (status: AppStatus) => status === "pending" || status === "con
 /** Display label for an appointment status. DB value stays "confirmed";
  *  we just show it as "Booked" to clients/owners. */
 const statusLabel = (s: string) => (s === "confirmed" ? "Booked" : s.charAt(0).toUpperCase() + s.slice(1));
+
+// Default ordering: actionable first — pending (needs approval), then booked
+// (needs completing), then finished/cancelled. Stable sort preserves the
+// date/time order from the query within each group.
+const STATUS_SORT: Record<string, number> = { pending: 0, confirmed: 1, completed: 2, "no-show": 2, cancelled: 3 };
 
 /** Payment badge — strict monochrome. The card holds at most one
  *  colored element (the green price); payment state communicates via
@@ -111,6 +117,8 @@ export default function AppointmentsPage() {
   const [tab, setTab] = useState<"appointments" | "waitlist">("appointments");
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
+  const [pickedDate, setPickedDate] = useState<string | null>(null); // calendar filter (YYYY-MM-DD)
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [barberFilter, setBarberFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -159,7 +167,7 @@ export default function AppointmentsPage() {
 
     // "Upcoming" is from today onward, sorted ascending so the next booking
     // is at the top — that's the view a barber actually wants to see.
-    const isUpcomingView = dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow";
+    const isUpcomingView = !!pickedDate || dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow";
     let apptQuery = supabase
       .from("appointments")
       .select("*, barbers(id, name), services(id, name, price, category)")
@@ -167,7 +175,9 @@ export default function AppointmentsPage() {
       .order("date", { ascending: isUpcomingView })
       .order("time_slot", { ascending: true });
 
-    if (dateFilter === "today") apptQuery = apptQuery.eq("date", today);
+    // A picked calendar date overrides the dropdown range.
+    if (pickedDate) apptQuery = apptQuery.eq("date", pickedDate);
+    else if (dateFilter === "today") apptQuery = apptQuery.eq("date", today);
     else if (dateFilter === "tomorrow") apptQuery = apptQuery.eq("date", tomorrow);
     else if (dateFilter === "week") apptQuery = apptQuery.gte("date", weekStart).lte("date", weekEnd);
     else if (dateFilter === "upcoming") apptQuery = apptQuery.gte("date", today).lte("date", upcomingEnd);
@@ -189,7 +199,7 @@ export default function AppointmentsPage() {
     setServices((svcs ?? []) as Service[]);
     setWaitlist(wl ?? []);
     setLoading(false);
-  }, [shop, dateFilter, profile, myBarberId]);
+  }, [shop, dateFilter, pickedDate, profile, myBarberId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -483,6 +493,8 @@ export default function AppointmentsPage() {
       a.client_name.toLowerCase().includes(search.toLowerCase()) ||
       (a.client_phone ?? "").includes(search)
     );
+    // Surface the ones that still need action (approve / complete) at the top.
+    apts.sort((a, b) => (STATUS_SORT[a.status] ?? 2) - (STATUS_SORT[b.status] ?? 2));
     return apts;
   }, [appointments, barberFilter, statusFilter, search]);
 
@@ -494,11 +506,11 @@ export default function AppointmentsPage() {
   const confirmed = scopeApts.filter(a => a.status === "confirmed").length;
   const noShows = scopeApts.filter(a => a.status === "no-show").length;
   const revenue = scopeApts.filter(a => a.status === "completed").reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const scopeLabel = DATE_FILTERS.find(f => f.key === dateFilter)?.label ?? "Today";
-  const totalLabel = dateFilter === "today" ? "Total Today"
-    : dateFilter === "tomorrow" ? "Total Tomorrow"
+  const scopeLabel = pickedDate ? friendlyDate(pickedDate) : (DATE_FILTERS.find(f => f.key === dateFilter)?.label ?? "Today");
+  const totalLabel = (!pickedDate && dateFilter === "today") ? "Total Today"
+    : (!pickedDate && dateFilter === "tomorrow") ? "Total Tomorrow"
     : `Total · ${scopeLabel}`;
-  const revLabel = dateFilter === "today" ? "Revenue Today" : `Revenue · ${scopeLabel}`;
+  const revLabel = (!pickedDate && dateFilter === "today") ? "Revenue Today" : `Revenue · ${scopeLabel}`;
 
   const TIME_SLOTS = ["8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM","4:00 PM","4:30 PM","5:00 PM","5:30 PM","6:00 PM","6:30 PM","7:00 PM"];
 
@@ -591,23 +603,38 @@ export default function AppointmentsPage() {
 
       {tab === "appointments" ? (
         <>
-          {/* Date chips — primary navigation. Barbers usually want
-              "today / tomorrow / this week", not a raw date picker. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {DATE_FILTERS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setDateFilter(f.key)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
-                  dateFilter === f.key
-                    ? "bg-gold text-black border-black"
-                    : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:border-gray-400 hover:text-white",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          {/* Date range dropdown + calendar picker */}
+          <div className="flex flex-wrap items-center gap-2 relative">
+            <select
+              value={pickedDate ? "" : dateFilter}
+              onChange={e => { setDateFilter(e.target.value); setPickedDate(null); }}
+              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
+              {pickedDate && <option value="">Picked date</option>}
+              {DATE_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+
+            <button type="button" onClick={() => setShowDatePicker(s => !s)}
+              className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-colors",
+                pickedDate ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:text-white hover:border-gray-400")}>
+              📅 {pickedDate ? friendlyDate(pickedDate) : "Pick date"}
+            </button>
+            {pickedDate && (
+              <button type="button" onClick={() => setPickedDate(null)} className="text-[#777] hover:text-white text-sm px-1" aria-label="Clear date">✕</button>
+            )}
+
+            {showDatePicker && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
+                <div className="absolute left-0 top-full mt-2 z-40">
+                  <CalendarPicker
+                    value={pickedDate ? new Date(pickedDate + "T00:00:00") : null}
+                    minDate={null}
+                    onChange={(d) => { setPickedDate(formatDateForDb(d)); setShowDatePicker(false); }}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Secondary filters */}
