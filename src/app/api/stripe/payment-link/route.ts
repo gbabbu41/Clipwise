@@ -3,8 +3,6 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
  * and optionally email the customer the link.
@@ -18,6 +16,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
  * their Stripe balance (0% platform fee, same as initial bookings).
  */
 export async function POST(request: NextRequest) {
+  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const { appointment_id, send_email } = await request.json() as {
     appointment_id: string;
     send_email?: boolean;

@@ -3,11 +3,12 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
 export async function POST(request: NextRequest) {
+  // Return URL from the live request origin so the redirect back from Stripe
+  // works on any port/domain (NEXT_PUBLIC_APP_URL can be stale, e.g. :3001).
+  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const booking = await request.json() as {
     shop_id: string;
     shop_slug: string;
