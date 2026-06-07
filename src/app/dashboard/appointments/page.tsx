@@ -116,11 +116,13 @@ export default function AppointmentsPage() {
   const { shop, profile, accessToken } = useAuth();
   const [tab, setTab] = useState<"appointments" | "waitlist">("appointments");
   const [search, setSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState("today");
+  // Default view = the action queue: open appointments (pending + booked) from
+  // today onward. The owner can widen via the date / status dropdowns.
+  const [dateFilter, setDateFilter] = useState("upcoming");
   const [pickedDate, setPickedDate] = useState<string | null>(null); // calendar filter (YYYY-MM-DD)
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [barberFilter, setBarberFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active"); // active = pending + confirmed/booked
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -488,7 +490,9 @@ export default function AppointmentsPage() {
   const filtered = useMemo(() => {
     let apts = [...appointments];
     if (barberFilter !== "all") apts = apts.filter(a => a.barber_id === barberFilter);
-    if (statusFilter !== "all") apts = apts.filter(a => a.status === statusFilter);
+    // "active" = still open (needs approval or completing); else exact status.
+    if (statusFilter === "active") apts = apts.filter(a => a.status === "pending" || a.status === "confirmed");
+    else if (statusFilter !== "all") apts = apts.filter(a => a.status === statusFilter);
     if (search) apts = apts.filter(a =>
       a.client_name.toLowerCase().includes(search.toLowerCase()) ||
       (a.client_phone ?? "").includes(search)
@@ -647,6 +651,7 @@ export default function AppointmentsPage() {
             </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
+              <option value="active">Open · needs action</option>
               <option value="all">All Statuses</option>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
             </select>
