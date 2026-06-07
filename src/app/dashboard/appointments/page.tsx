@@ -43,6 +43,10 @@ function primaryAction(status: AppStatus): { label: string; next: AppStatus; var
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
 
+/** Display label for an appointment status. DB value stays "confirmed";
+ *  we just show it as "Booked" to clients/owners. */
+const statusLabel = (s: string) => (s === "confirmed" ? "Booked" : s.charAt(0).toUpperCase() + s.slice(1));
+
 /** Payment badge — strict monochrome. The card holds at most one
  *  colored element (the green price); payment state communicates via
  *  the LABEL only. Returns null when there's nothing worth showing. */
@@ -282,7 +286,7 @@ export default function AppointmentsPage() {
 
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
-    showToast(`Marked as ${status}`);
+    showToast(`Marked as ${statusLabel(status)}`);
   };
 
   const saveNotes = async () => {
@@ -617,7 +621,7 @@ export default function AppointmentsPage() {
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Statuses</option>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
             </select>
           </div>
 
@@ -659,7 +663,7 @@ export default function AppointmentsPage() {
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
                     <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
-                      {apt.status}
+                      {statusLabel(apt.status)}
                     </span>
                   </div>
                 </div>
@@ -745,7 +749,7 @@ export default function AppointmentsPage() {
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
-                            {apt.status}
+                            {statusLabel(apt.status)}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -837,7 +841,7 @@ export default function AppointmentsPage() {
                   { label: "Date", value: formatFriendlyDate(selectedApt.date) },
                   { label: "Time", value: selectedApt.time_slot },
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
-                  { label: "Status", value: selectedApt.status },
+                  { label: "Status", value: statusLabel(selectedApt.status) },
                 ].map(item => (
                   <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <p className="text-xs text-[#777]">{item.label}</p>
