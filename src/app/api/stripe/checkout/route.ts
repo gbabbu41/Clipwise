@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, PLAN_PRICING } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-
 export async function POST(request: NextRequest) {
+  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

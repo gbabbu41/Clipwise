@@ -732,7 +732,22 @@ export default function SettingsPage() {
                         </div>
                         <Button variant={isCurrent ? "secondary" : "gold"} size="sm" className="w-full"
                           disabled={isCurrent}
-                          onClick={() => { setShowUpgradeModal(false); showToast(`Switching to ${plan.name}... (Demo mode)`); }}>
+                          onClick={async () => {
+                            setShowUpgradeModal(false);
+                            if (!accessToken) { showToast("Please sign in again"); return; }
+                            if (plan.key === "starter") { showToast("To move to Starter, cancel your plan from Billing."); return; }
+                            showToast("Opening secure checkout…");
+                            try {
+                              const res = await fetch("/api/stripe/checkout", {
+                                method: "POST",
+                                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                                body: JSON.stringify({ plan: plan.key, upgrade: true }),
+                              });
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                              else showToast(data.error || "Could not start checkout");
+                            } catch { showToast("Connection error. Please try again."); }
+                          }}>
                           {isCurrent ? "Current Plan" : `Switch to ${plan.name}`}
                         </Button>
                       </div>
