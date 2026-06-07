@@ -66,6 +66,11 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   if (status === "refunded") return { label: "Refunded",       bsClass: MUTED };
   if (status === "failed")   return { label: "Payment failed", bsClass: ACTIVE };
 
+  // Completed but nothing was collected/held → clearly flag as Unpaid.
+  if (isCompleted && (apt.total_amount ?? 0) > 0) {
+    return { label: "Unpaid", bsClass: "bg-amber-500/15 text-amber-400" };
+  }
+
   if (method === "cash" && !isCompleted) {
     return { label: "Pay in person", bsClass: MUTED };
   }
