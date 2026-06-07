@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
+// Public review submission. The review page is anonymous and RLS blocks anon
+// INSERT on `reviews`, so we insert with the service role here (no RLS change).
+// Validates the appointment, dedupes, records the review, recomputes the
+// barber's rating, and notifies the shop owner.
+export async function POST(request: NextRequest) {
+  const { booking_id, shopslug, rating, comment } = await request.json() as {
+    booking_id?: string; shopslug?: string; rating?: number; comment?: string;
+  };
+  if (!booking_id || !rating || rating < 1 || rating > 5) {
+    return NextResponse.json({ ok: false, error: "Invalid review" }, { status: 400 });
+  }
+
+  const { data: appt } = await supabaseAdmin
+    .from("appointments")
+    .select("id, shop_id, barber_id, client_name, client_email, client_phone, shops(slug)")
+    .eq("id", booking_id).single();
+  if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
+
+  const slug = Array.isArray(appt.shops)
+    ? (appt.shops[0] as { slug?: string } | undefined)?.slug
+    : (appt.shops as { slug?: string } | null)?.slug;
+  if (shopslug && slug && slug !== shopslug) {
+    return NextResponse.json({ ok: false, error: "Shop mismatch" }, { status: 400 });
+  }
+
+  // reviews.client_id is a FK to clients.id — resolve the appointment's
+  // customer by email then phone (null if they're not on file).
+  let clientId: string | null = null;
+  const email = (appt.client_email ?? "").trim();
+  const phone = (appt.client_phone ?? "").trim();
+  if (email) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).ilike("email", email).maybeSingle();
+    clientId = data?.id ?? null;
+  }
+  if (!clientId && phone) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).eq("phone", phone).maybeSingle();
+    clientId = data?.id ?? null;
+  }
+
+  // Dedupe — one review per client per shop (stops re-submitting the link).
+  if (clientId) {
+    const { data: existing } = await supabaseAdmin
+      .from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_id", clientId).maybeSingle();
+    if (existing) return NextResponse.json({ ok: true, alreadyReviewed: true });
+  }
+
+  const trimmed = (comment ?? "").trim();
+  const { error } = await supabaseAdmin.from("reviews").insert({
+    shop_id: appt.shop_id,
+    barber_id: appt.barber_id ?? null,
+    client_id: clientId,
+    client_name: appt.client_name,
+    rating,
+    comment: trimmed || null,
+  });
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  // Recompute the barber's rating + review count from all their reviews.
+  if (appt.barber_id) {
+    const { data: brevs } = await supabaseAdmin
+      .from("reviews").select("rating").eq("barber_id", appt.barber_id);
+    if (brevs && brevs.length) {
+      const avg = Math.round((brevs.reduce((s, r) => s + r.rating, 0) / brevs.length) * 10) / 10;
+      await supabaseAdmin.from("barbers")
+        .update({ rating: avg, total_reviews: brevs.length })
+        .eq("id", appt.barber_id).then(null, () => null);
+    }
+  }
+
+  // Notify the shop owner (fire-and-forget).
+  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();
+  if (shopRow?.owner_id) {
+    supabaseAdmin.from("notifications").insert({
+      user_id: shopRow.owner_id,
+      title: `New ${rating}-Star Review`,
+      message: `${appt.client_name} left a ${rating}-star review${trimmed ? `: "${trimmed.slice(0, 60)}"` : ""}`,
+      type: "review", is_read: false,
+    }).then(null, () => null);
+  }
+
+  return NextResponse.json({ ok: true });
+}

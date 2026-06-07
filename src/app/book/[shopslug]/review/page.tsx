@@ -35,6 +35,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!bookingId) { setNotFound(true); setLoading(false); return; }
@@ -69,34 +70,23 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   const submitReview = async () => {
     if (!appt || rating === 0) return;
     setSubmitting(true);
-
-    await supabase.from("reviews").insert({
-      shop_id: appt.shop_id,
-      barber_id: appt.barber_id ?? null,
-      client_id: bookingId,
-      client_name: appt.client_name,
-      rating,
-      comment: comment.trim() || null,
-    });
-
-    // Notify shop owner
-    const { data: shopRow } = await supabase
-      .from("shops")
-      .select("owner_id")
-      .eq("id", appt.shop_id)
-      .single();
-    if (shopRow?.owner_id) {
-      supabase.from("notifications").insert({
-        user_id: shopRow.owner_id,
-        title: `New ${rating}-Star Review`,
-        message: `${appt.client_name} left a ${rating}-star review${comment.trim() ? `: "${comment.trim().slice(0, 60)}..."` : ""}`,
-        type: "review",
-        is_read: false,
-      }).then(null, () => null);
+    setError("");
+    // Submit via the service-role API — anon RLS blocks a direct reviews insert.
+    try {
+      const res = await fetch("/api/reviews/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: bookingId, shopslug, rating, comment }),
+      });
+      const data = await res.json();
+      setSubmitting(false);
+      if (!data.ok) { setError(data.error || "Could not submit your review. Please try again."); return; }
+      if (data.alreadyReviewed) setAlreadyReviewed(true);
+      else setSubmitted(true);
+    } catch {
+      setSubmitting(false);
+      setError("Connection error. Please try again.");
     }
-
-    setSubmitting(false);
-    setSubmitted(true);
   };
 
   if (loading) {
@@ -238,6 +228,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
           >
             {rating === 0 ? "Select a rating to continue" : "Submit Review"}
           </Button>
+          {error && <p className="text-center text-sm text-red-400">{error}</p>}
         </div>
       </div>
     </div>
