@@ -102,7 +102,7 @@ const DATE_FILTERS: { key: string; label: string }[] = [
   { key: "tomorrow", label: "Tomorrow" },
   { key: "week", label: "This Week" },
   { key: "upcoming", label: "Upcoming" },
-  { key: "all", label: "All Time" },
+  { key: "all", label: "All Upcoming" },
 ];
 
 // Thin wrapper around the shared friendlyDate so we don't sprinkle a
@@ -169,7 +169,7 @@ export default function AppointmentsPage() {
 
     // "Upcoming" is from today onward, sorted ascending so the next booking
     // is at the top — that's the view a barber actually wants to see.
-    const isUpcomingView = !!pickedDate || dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow";
+    const isUpcomingView = !!pickedDate || dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow" || dateFilter === "all";
     let apptQuery = supabase
       .from("appointments")
       .select("*, barbers(id, name), services(id, name, price, category)")
@@ -183,6 +183,7 @@ export default function AppointmentsPage() {
     else if (dateFilter === "tomorrow") apptQuery = apptQuery.eq("date", tomorrow);
     else if (dateFilter === "week") apptQuery = apptQuery.gte("date", weekStart).lte("date", weekEnd);
     else if (dateFilter === "upcoming") apptQuery = apptQuery.gte("date", today).lte("date", upcomingEnd);
+    else if (dateFilter === "all") apptQuery = apptQuery.gte("date", today); // from today onward, no past
 
     // Barbers only see their own appointments
     if (profile?.role === "barber" && myBarberId) {
