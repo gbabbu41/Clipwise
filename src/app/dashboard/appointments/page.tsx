@@ -710,11 +710,10 @@ export default function AppointmentsPage() {
                     when there's something worth showing). */}
                 {hasFooter && (
                   <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#1e1e1e]">
-                    <p className="text-[11px] text-[#777] truncate">
-                      {shortFriendlyDate(apt.date)}
-                      <span className="text-[10px] text-[#555]"> · {monthDay(apt.date)}</span>
-                      {apt.client_phone && ` · ${apt.client_phone}`}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-[#777] truncate">{shortFriendlyDate(apt.date)}</p>
+                      <p className="text-[10px] text-[#555] truncate leading-tight">{monthDay(apt.date)}{apt.client_phone && ` · ${apt.client_phone}`}</p>
+                    </div>
                     {payBadge && (
                       <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap flex-shrink-0", payBadge.bsClass)}>{payBadge.label}</span>
                     )}
@@ -779,7 +778,10 @@ export default function AppointmentsPage() {
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
                         className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3 text-sm text-[#777] whitespace-nowrap">{shortFriendlyDate(apt.date)} <span className="text-xs text-[#555]">· {monthDay(apt.date)}</span></td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="text-sm text-[#777]">{shortFriendlyDate(apt.date)}</p>
+                          <p className="text-xs text-[#555] leading-tight">{monthDay(apt.date)}</p>
+                        </td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-white">{apt.client_name}</p>
