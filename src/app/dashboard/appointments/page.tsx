@@ -112,6 +112,12 @@ function shortFriendlyDate(dateStr: string): string {
   return friendlyDate(dateStr);
 }
 
+// Compact month + day, no year (e.g. "Jun 13") — shown small next to the
+// weekday so the actual date is always visible without clutter.
+function monthDay(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
 export default function AppointmentsPage() {
   const { shop, profile, accessToken } = useAuth();
   const [tab, setTab] = useState<"appointments" | "waitlist">("appointments");
@@ -706,6 +712,7 @@ export default function AppointmentsPage() {
                   <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#1e1e1e]">
                     <p className="text-[11px] text-[#777] truncate">
                       {shortFriendlyDate(apt.date)}
+                      <span className="text-[10px] text-[#555]"> · {monthDay(apt.date)}</span>
                       {apt.client_phone && ` · ${apt.client_phone}`}
                     </p>
                     {payBadge && (
@@ -772,7 +779,7 @@ export default function AppointmentsPage() {
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
                         className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3 text-sm text-[#777] whitespace-nowrap">{shortFriendlyDate(apt.date)}</td>
+                        <td className="px-4 py-3 text-sm text-[#777] whitespace-nowrap">{shortFriendlyDate(apt.date)} <span className="text-xs text-[#555]">· {monthDay(apt.date)}</span></td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-white">{apt.client_name}</p>
