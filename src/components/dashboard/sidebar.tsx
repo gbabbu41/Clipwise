@@ -79,7 +79,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
       { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
-      { href: "/dashboard/stripe-setup", label: "Stripe Setup", icon: CreditCard, ownerOnly: true },
     ],
   },
 ];

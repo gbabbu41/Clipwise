@@ -40,6 +40,7 @@ export default function BarberAvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const [syncedFromOwner, setSyncedFromOwner] = useState(false);
   // Track whether the barber has unsaved local edits so a realtime push from
   // the owner doesn't quietly stomp on work-in-progress the barber hasn't saved.
@@ -115,7 +116,8 @@ export default function BarberAvailabilityPage() {
     for (const slot of slots) {
       if (slot.is_available && slot.start_time >= slot.end_time) {
         setSaved(false);
-        alert(`${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][slot.day_of_week]}: closing time must be after opening time`);
+        setError(`${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][slot.day_of_week]}: closing time must be after opening time`);
+        setTimeout(() => setError(""), 4000);
         return;
       }
     }
@@ -143,6 +145,9 @@ export default function BarberAvailabilityPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      {error && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-red-500/15 border border-red-500/30 text-red-300 rounded-xl px-4 py-2 text-sm shadow-xl">{error}</div>
+      )}
       {syncedFromOwner && (
         <div className="mb-4 px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2 text-xs text-blue-200">
           <Clock size={14} className="text-blue-400" />

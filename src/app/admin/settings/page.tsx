@@ -28,7 +28,7 @@ export default function AdminSettingsPage() {
     platform_name: "ClipWise",
     support_email: "support@clipwise.com",
     admin_email: "gbabbu41@gmail.com",
-    booking_base_url: "http://localhost:3001/book",
+    booking_base_url: typeof window !== "undefined" ? `${window.location.origin}/book` : "/book",
   });
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };

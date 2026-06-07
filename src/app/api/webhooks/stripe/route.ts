@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Trim — a stray space in the env value silently breaks signature checks.
+  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!secret) return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
 
   const body = await request.text();
