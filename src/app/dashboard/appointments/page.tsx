@@ -55,13 +55,14 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   // settled-and-done states the owner doesn't need to act on.
   const ACTIVE = "bg-[#1a1a1a] text-white";
   const MUTED  = "bg-[#1a1a1a] text-[#888]";
+  const PAID   = "bg-[#00e5a0]/15 text-[#00e5a0]"; // green — payment settled
 
   if (status === "paid") {
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
-    return { label: `Paid${suffix}`, bsClass: MUTED };
+    return { label: `Paid${suffix}`, bsClass: PAID };
   }
   if (status === "held")     return { label: "💳 Card on hold", bsClass: ACTIVE };
-  if (status === "captured") return { label: "Paid · Card",     bsClass: MUTED };
+  if (status === "captured") return { label: "Paid · Card",     bsClass: PAID };
   if (status === "refunded") return { label: "Refunded",       bsClass: MUTED };
   if (status === "failed")   return { label: "Payment failed", bsClass: ACTIVE };
 
@@ -901,7 +902,7 @@ export default function AppointmentsPage() {
                 </div>
               )}
               {selectedApt.payment_status === "captured" && (
-                <p className="text-center text-xs text-[#777]">✓ Paid · card charged</p>
+                <p className="text-center text-xs text-[#00e5a0]">✓ Paid · card charged</p>
               )}
 
               {/* Take Payment — only when there's still an outstanding charge and
