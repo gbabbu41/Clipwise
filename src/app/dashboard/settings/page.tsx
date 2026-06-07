@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { NotifSoundToggle } from "@/components/notif-sound-toggle";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -399,7 +400,8 @@ export default function SettingsPage() {
       )}
 
       {tab === "booking" && (
-        <Card className="max-w-2xl">
+        <div className="space-y-4 max-w-2xl">
+        <Card>
           <CardHeader><CardTitle>Booking Settings</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div>
@@ -466,6 +468,14 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
+          <CardContent>
+            <NotifSoundToggle />
+          </CardContent>
+        </Card>
+        </div>
       )}
 
       {tab === "subscription" && (() => {

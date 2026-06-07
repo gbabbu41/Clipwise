@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { NotifSoundToggle } from "@/components/notif-sound-toggle";
 
 export default function BarberProfilePage() {
   const { user } = useAuth();
@@ -126,6 +127,12 @@ export default function BarberProfilePage() {
             {saving ? "Saving..." : saved ? "Saved!" : "Save Changes"}
           </button>
         </form>
+      </div>
+
+      {/* Notification preferences */}
+      <div className="mt-6">
+        <p className="text-xs font-semibold text-[#777] uppercase tracking-wider mb-2">Notifications</p>
+        <NotifSoundToggle />
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { Bell, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { isNotifSoundOn } from "@/lib/notif-sound";
 
 interface Popup { id: string; title: string; message: string; type: string }
 
@@ -44,6 +45,7 @@ export function NotificationListener() {
   }, []);
 
   const chime = useCallback(() => {
+    if (!isNotifSoundOn()) return; // user muted the sound in Settings
     const ctx = audioCtxRef.current;
     if (!ctx) return;
     try {
