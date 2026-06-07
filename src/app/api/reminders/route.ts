@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 // POST /api/reminders
 // Sends 24-hour reminder emails for appointments scheduled tomorrow.
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     id: string;
     client_name: string;
     client_email: string;
+    client_phone: string | null;
     time_slot: string;
     total_amount: number;
     shops: { name: string; email: string | null; slug: string } | null;
@@ -43,30 +45,43 @@ export async function POST(req: NextRequest) {
   let skipped = 0;
 
   for (const appt of appts) {
-    if (!appt.client_email || !appt.shops) { skipped++; continue; }
+    if (!appt.shops) { skipped++; continue; }
 
-    await fetch(`${BASE_URL}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "appointment_reminder",
-        data: {
-          clientName: appt.client_name,
-          clientEmail: appt.client_email,
-          shopName: appt.shops.name,
-          shopEmail: appt.shops.email ?? "",
-          barberName: appt.barbers?.name ?? "Your barber",
-          serviceName: appt.services?.name ?? "Your service",
-          date: tomorrowStr,
-          time: appt.time_slot,
-          total: `$${Number(appt.total_amount).toFixed(2)}`,
-          bookingId: appt.id.slice(0, 8).toUpperCase(),
-          slug: appt.shops.slug,
-        },
-      }),
-    }).catch(() => null);
+    // Email reminder (when we have an email).
+    if (appt.client_email) {
+      await fetch(`${BASE_URL}/api/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "appointment_reminder",
+          data: {
+            clientName: appt.client_name,
+            clientEmail: appt.client_email,
+            shopName: appt.shops.name,
+            shopEmail: appt.shops.email ?? "",
+            barberName: appt.barbers?.name ?? "Your barber",
+            serviceName: appt.services?.name ?? "Your service",
+            date: tomorrowStr,
+            time: appt.time_slot,
+            total: `$${Number(appt.total_amount).toFixed(2)}`,
+            bookingId: appt.id.slice(0, 8).toUpperCase(),
+            slug: appt.shops.slug,
+          },
+        }),
+      }).catch(() => null);
+    }
 
-    sent++;
+    // SMS reminder (when we have a phone) — best-effort, never blocks.
+    if (appt.client_phone) {
+      await sendSmsBestEffort(
+        appt.client_phone,
+        `Reminder: your appointment is tomorrow (${tomorrowStr}) at ${appt.time_slot}. See you then!`,
+        appt.shops.name,
+      );
+    }
+
+    if (appt.client_email || appt.client_phone) sent++;
+    else skipped++;
   }
 
   return NextResponse.json({ success: true, sent, skipped, date: tomorrowStr });

@@ -1,0 +1,69 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
+/**
+ * Customer opt-in to the smart waitlist for a fully-booked day.
+ * Called from the public booking page (no auth) when a day has no openings.
+ * Runs with the service-role key so it bypasses RLS (no anon insert policy
+ * exists on purpose — see phase3_appointment_waitlist.sql).
+ *
+ * Body: { shop_id | shop_slug, desired_date, client_name, client_email?,
+ *         client_phone?, barber_id?, service_id? }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const b = await request.json() as {
+      shop_id?: string;
+      shop_slug?: string;
+      desired_date?: string;
+      client_name?: string;
+      client_email?: string;
+      client_phone?: string;
+      barber_id?: string | null;
+      service_id?: string | null;
+    };
+
+    if (!b.desired_date || !b.client_name?.trim()) {
+      return NextResponse.json({ error: "Missing name or date" }, { status: 400 });
+    }
+    if (!b.client_email && !b.client_phone) {
+      return NextResponse.json({ error: "Enter an email or phone so we can reach you" }, { status: 400 });
+    }
+
+    // Resolve shop by id or slug.
+    let shopId = b.shop_id ?? null;
+    if (!shopId && b.shop_slug) {
+      const { data: shop } = await supabaseAdmin
+        .from("shops").select("id").eq("slug", b.shop_slug).maybeSingle();
+      shopId = shop?.id ?? null;
+    }
+    if (!shopId) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+
+    // Dedupe: same shop + date + contact already waiting → no duplicate row.
+    const { data: existing } = await supabaseAdmin
+      .from("appointment_waitlist")
+      .select("id")
+      .eq("shop_id", shopId)
+      .eq("desired_date", b.desired_date)
+      .eq("status", "waiting")
+      .or(`client_email.eq.${b.client_email ?? "___none___"},client_phone.eq.${b.client_phone ?? "___none___"}`)
+      .maybeSingle();
+    if (existing) return NextResponse.json({ ok: true, deduped: true });
+
+    const { error } = await supabaseAdmin.from("appointment_waitlist").insert({
+      shop_id: shopId,
+      barber_id: b.barber_id || null,
+      service_id: b.service_id || null,
+      client_name: b.client_name.trim(),
+      client_email: b.client_email?.trim() || null,
+      client_phone: b.client_phone?.trim() || null,
+      desired_date: b.desired_date,
+      status: "waiting",
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Server error" }, { status: 500 });
+  }
+}

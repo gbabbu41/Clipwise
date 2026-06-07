@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     amount: number; // dollars to charge now (deposit or full)
     total_amount: number; // full appointment total
     hold?: boolean; // when true: authorize (manual capture) instead of charging
+    saveCard?: boolean; // when true: save the card (no charge now), charge later on completion/no-show
   };
 
   const { data: shop } = await supabaseAdmin
@@ -41,8 +42,50 @@ export async function POST(request: NextRequest) {
   // fall back to a platform charge so demo / test-mode flows work without
   // the shop owner needing to complete Connect KYC.
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
+  const acctOpts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
+
+  // Shared booking details — written to the Checkout session metadata so
+  // /booking-finalize can create the appointment on return.
+  const metadata = {
+    shop_id: booking.shop_id,
+    barber_id: booking.barber_id ?? "",
+    service_id: booking.service_id,
+    client_name: booking.client_name,
+    client_email: booking.client_email,
+    client_phone: booking.client_phone,
+    date: booking.date,
+    time_slot: booking.time_slot,
+    total_amount: String(booking.total_amount),
+    hold: booking.hold ? "1" : "",
+    save: booking.saveCard ? "1" : "",
+  };
 
   try {
+    // ── Save-card path (booking >7 days out) ────────────────────────────────
+    // Card holds expire ~7 days, so we can't authorize this far ahead. Instead
+    // collect + store the card now (no charge) via Checkout `setup` mode and
+    // charge it off-session on completion / no-show. Setup mode requires an
+    // explicit Customer, created on the connected account.
+    if (booking.saveCard) {
+      const customer = await stripe.customers.create(
+        { email: booking.client_email || undefined, name: booking.client_name || undefined },
+        acctOpts,
+      );
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: "setup",
+          customer: customer.id,
+          payment_method_types: ["card"],
+          metadata,
+          setup_intent_data: { metadata },
+          success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,
+        },
+        acctOpts,
+      );
+      return NextResponse.json({ url: session.url });
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
@@ -57,22 +100,11 @@ export async function POST(request: NextRequest) {
           },
           quantity: 1,
         }],
-        metadata: {
-          shop_id: booking.shop_id,
-          barber_id: booking.barber_id ?? "",
-          service_id: booking.service_id,
-          client_name: booking.client_name,
-          client_email: booking.client_email,
-          client_phone: booking.client_phone,
-          date: booking.date,
-          time_slot: booking.time_slot,
-          total_amount: String(booking.total_amount),
-          hold: booking.hold ? "1" : "",
-        },
+        metadata,
         success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,
       },
-      useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined
+      acctOpts,
     );
 
     return NextResponse.json({ url: session.url });

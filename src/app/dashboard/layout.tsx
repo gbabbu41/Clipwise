@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
+import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           bar now, so a gap would look like a stray empty strip. Content
           sits flush against the translucent bar instead. */}
       <main className="md:ml-64 pt-14 md:pt-0 pb-24 md:pb-0">
+        <StripeWarningBanner />
         {children}
       </main>
       <MobileNav />

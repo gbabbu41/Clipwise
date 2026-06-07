@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 // Called when the customer returns from a paid booking checkout.
 // Verifies payment on the connected account, then creates the appointment (idempotent).
@@ -20,26 +21,47 @@ export async function POST(request: NextRequest) {
       undefined,
       useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
     );
+    const acctOpts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
     const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
     const m = session.metadata ?? {};
     const isHold = m.hold === "1";
+    const isSave = m.save === "1";
 
-    // A card hold leaves the session "unpaid" until capture — confirm the
-    // PaymentIntent reached requires_capture (authorized). Otherwise require paid.
-    if (isHold) {
+    // Saved-card path (>7 day booking): the session is `setup` mode — no charge.
+    // Confirm the SetupIntent succeeded and grab the Customer + saved card so we
+    // can charge off-session on completion / no-show.
+    let savedCustomerId: string | null = null;
+    let savedPaymentMethodId: string | null = null;
+    if (isSave) {
+      const setupIntentId = typeof session.setup_intent === "string" ? session.setup_intent : null;
+      if (!setupIntentId) return NextResponse.json({ paid: false }, { status: 200 });
+      const si = await stripe.setupIntents.retrieve(setupIntentId, undefined, acctOpts);
+      if (si.status !== "succeeded") return NextResponse.json({ paid: false }, { status: 200 });
+      savedCustomerId = typeof si.customer === "string" ? si.customer : null;
+      savedPaymentMethodId = typeof si.payment_method === "string" ? si.payment_method : null;
+      if (!savedPaymentMethodId) return NextResponse.json({ paid: false }, { status: 200 });
+    } else if (isHold) {
+      // A card hold leaves the session "unpaid" until capture — confirm the
+      // PaymentIntent reached requires_capture (authorized). Otherwise require paid.
       if (!paymentIntentId) return NextResponse.json({ paid: false }, { status: 200 });
-      const pi = await stripe.paymentIntents.retrieve(
-        paymentIntentId, undefined, useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
-      );
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId, undefined, acctOpts);
       if (pi.status !== "requires_capture") return NextResponse.json({ paid: false }, { status: 200 });
     } else if (session.payment_status !== "paid") {
       return NextResponse.json({ paid: false }, { status: 200 });
     }
 
-    // Idempotency — don't double-create if this payment already produced an appointment
+    // Idempotency — don't double-create if this checkout already produced an
+    // appointment. Paid/held rows dedupe on the PaymentIntent; saved-card rows
+    // have no PI yet, so dedupe on the saved card + exact slot instead.
     if (paymentIntentId) {
       const { data: existing } = await supabaseAdmin
         .from("appointments").select("id").eq("payment_intent_id", paymentIntentId).maybeSingle();
+      if (existing) return NextResponse.json({ paid: true, appointmentId: existing.id });
+    } else if (isSave && savedPaymentMethodId) {
+      const { data: existing } = await supabaseAdmin
+        .from("appointments").select("id")
+        .eq("stripe_payment_method_id", savedPaymentMethodId)
+        .eq("date", m.date).eq("time_slot", m.time_slot).maybeSingle();
       if (existing) return NextResponse.json({ paid: true, appointmentId: existing.id });
     }
 
@@ -54,9 +76,11 @@ export async function POST(request: NextRequest) {
       time_slot: m.time_slot,
       status: "confirmed",
       total_amount: Number(m.total_amount ?? 0),
-      deposit_paid: !isHold,
-      payment_status: isHold ? "held" : "paid",
+      deposit_paid: !isHold && !isSave,
+      payment_status: isSave ? "saved" : isHold ? "held" : "paid",
       payment_intent_id: paymentIntentId,
+      stripe_customer_id: savedCustomerId,
+      stripe_payment_method_id: savedPaymentMethodId,
     }).select("id").single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -93,13 +117,30 @@ export async function POST(request: NextRequest) {
     const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
     if (shopRow?.owner_id) {
       const amountStr = `$${Number(m.total_amount ?? 0).toFixed(0)}`;
+      const bookingTitle = isSave ? `New Booking · card on file · ${amountStr}`
+        : isHold ? `New Booking · card held · ${amountStr}`
+        : `New Paid Booking · ${amountStr}`;
+      const bookingVerb = isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
       supabaseAdmin.from("notifications").insert({
         user_id: shopRow.owner_id,
-        title: isHold ? `New Booking · card held · ${amountStr}` : `New Paid Booking · ${amountStr}`,
-        message: `${m.client_name} booked ${isHold ? "(card on hold)" : "& paid"} for ${friendly} at ${m.time_slot}`,
+        title: bookingTitle,
+        message: `${m.client_name} booked ${bookingVerb} for ${friendly} at ${m.time_slot}`,
         type: "booking",
         is_read: false,
       }).then(null, () => null);
+    }
+
+    // Text the customer a confirmation (best-effort). Note reflects the
+    // payment state so a held/saved card isn't mistaken for a charge.
+    {
+      const payNote = isSave ? " Card saved — charged after your visit."
+        : isHold ? " Card held — charged after your visit."
+        : " Paid online.";
+      sendSmsBestEffort(
+        m.client_phone,
+        `Your appointment on ${friendly} at ${m.time_slot} is confirmed.${payNote} Booking #${appt.id.slice(0, 8).toUpperCase()}.`,
+        shopRow?.name,
+      );
     }
 
     // Booking-confirmation emails — customer + owner + assigned barber. Online
@@ -122,7 +163,9 @@ export async function POST(request: NextRequest) {
         serviceName: service?.name ?? "Service",
         date: m.date, time: m.time_slot,
         total: `$${Number(m.total_amount ?? 0).toFixed(2)}`,
-        paymentNote: isHold ? "Card on hold — charged after your visit" : "Paid online",
+        paymentNote: isSave ? "Card saved — charged after your visit"
+          : isHold ? "Card on hold — charged after your visit"
+          : "Paid online",
         bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
       };
       const send = (type: string, extra: Record<string, unknown>) =>

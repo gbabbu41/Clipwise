@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
+import { sendPaymentReceipt, notifyChargeFailed } from "@/lib/payment-notify";
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // POST /api/cron/no-show  (run every ~30 min; needs x-cron-secret)
 // Auto-charges the held card for appointments a client didn't show up to
@@ -30,11 +33,12 @@ async function run() {
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Open appointments with a card still on hold, dated today or earlier.
+  // Open appointments with a card on hold (held) or on file (saved, for
+  // bookings >7 days out), dated today or earlier.
   const { data: rows } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_name, client_phone, date, time_slot, total_amount, payment_intent_id")
-    .eq("payment_status", "held")
+    .select("id, shop_id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .in("payment_status", ["held", "saved"])
     .in("status", ["pending", "confirmed"])
     .lte("date", today);
   const appts = rows ?? [];
@@ -43,7 +47,7 @@ async function run() {
   // Load each shop's settings + Connect info once.
   const shopIds = Array.from(new Set(appts.map(a => a.shop_id)));
   const { data: shops } = await supabaseAdmin
-    .from("shops").select("id, name, booking_settings, stripe_account_id, stripe_connected").in("id", shopIds);
+    .from("shops").select("id, name, email, owner_id, booking_settings, stripe_account_id, stripe_connected").in("id", shopIds);
   const shopMap = new Map((shops ?? []).map(s => [s.id, s]));
 
   const twilio = getTwilio();
@@ -53,20 +57,40 @@ async function run() {
   for (const a of appts) {
     const shop = shopMap.get(a.shop_id);
     const bs = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
-    if (!shop || !bs?.no_show_protection || !a.payment_intent_id) { skipped++; continue; }
+    const isSaved = a.payment_status === "saved";
+    // Held rows need a PaymentIntent to capture; saved rows need a stored card.
+    const hasCard = isSaved ? !!a.stripe_payment_method_id : !!a.payment_intent_id;
+    if (!shop || !bs?.no_show_protection || !hasCard) { skipped++; continue; }
 
     const dt = slotToDate(a.date, a.time_slot);
     if (!dt || dt.getTime() + GRACE_MS > now) { skipped++; continue; } // not yet past the grace window
 
     const feeDollars = bs.no_show_fee_amount ?? 0;
+    const totalCents = Math.round((a.total_amount ?? 0) * 100);
     const feeCents = feeDollars > 0
-      ? Math.min(Math.round(feeDollars * 100), Math.round((a.total_amount ?? 0) * 100))
+      ? Math.min(Math.round(feeDollars * 100), totalCents)
       : 0;
     const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
     const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
 
     try {
-      const pi = await stripe.paymentIntents.capture(a.payment_intent_id, feeCents > 0 ? { amount_to_capture: feeCents } : {}, opts);
+      let pi: { amount_received?: number | null };
+      if (isSaved) {
+        // No hold to capture — charge the saved card off-session for the
+        // no-show fee (or full price when fee is 0).
+        const chargeCents = feeCents > 0 ? feeCents : totalCents;
+        if (chargeCents <= 0) { skipped++; continue; }
+        pi = await stripe.paymentIntents.create({
+          amount: chargeCents,
+          currency: "cad",
+          customer: a.stripe_customer_id ?? undefined,
+          payment_method: a.stripe_payment_method_id!,
+          off_session: true,
+          confirm: true,
+        }, opts);
+      } else {
+        pi = await stripe.paymentIntents.capture(a.payment_intent_id!, feeCents > 0 ? { amount_to_capture: feeCents } : {}, opts);
+      }
       await supabaseAdmin.from("appointments")
         .update({ status: "no-show", payment_status: "captured", payment_method: "card" }).eq("id", a.id);
       await supabaseAdmin.from("appointments")
@@ -81,9 +105,26 @@ async function run() {
           body: `Hi ${a.client_name}, you missed your appointment at ${shop.name} on ${a.date}. A no-show fee of $${amt} has been charged. — ClipWise`,
         }).then(null, () => null);
       }
+      // Email the client a receipt for the fee (best-effort).
+      sendPaymentReceipt(BASE_URL, {
+        clientEmail: a.client_email,
+        clientName: a.client_name,
+        shopName: shop.name,
+        shopEmail: shop.email,
+        date: a.date,
+        amountCents: pi.amount_received ?? 0,
+        context: "No-show fee",
+      });
       charged++;
     } catch {
       await supabaseAdmin.from("appointments").update({ payment_status: "failed" }).eq("id", a.id).then(null, () => null);
+      // Alert the owner in-app so an auto-charge failure doesn't go unseen.
+      notifyChargeFailed({
+        ownerId: shop.owner_id,
+        clientName: a.client_name,
+        amountCents: feeCents > 0 ? feeCents : totalCents,
+        reason: "no_show",
+      });
       skipped++;
     }
   }

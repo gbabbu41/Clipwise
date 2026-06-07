@@ -425,7 +425,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
                 <p className="text-sm font-medium text-white">No-Show Protection</p>
-                <p className="text-xs text-[#777]">Auto-charge the held card if a client doesn&apos;t show (≈2h after their time)</p>
+                <p className="text-xs text-[#777]">Auto-charge the card if a client doesn&apos;t show (≈2h after their time). Bookings within 7 days hold the card; further out, the card is saved on file and charged then.</p>
               </div>
               <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
             </div>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
               <div>
                 <Input label="No-Show Fee ($) — 0 = full service price" type="number" value={String(booking.no_show_fee_amount ?? 0)}
                   onChange={e => setBooking(p => ({ ...p, no_show_fee_amount: Number(e.target.value) }))} />
-                <p className="text-xs text-[#777] mt-1">Charged from the card held at booking. Leave 0 to charge the full amount.</p>
+                <p className="text-xs text-[#777] mt-1">Charged from the card held (or saved) at booking. Leave 0 to charge the full amount.</p>
               </div>
             )}
             <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">

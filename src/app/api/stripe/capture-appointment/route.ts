@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendPaymentReceipt, notifyChargeFailed } from "@/lib/payment-notify";
 
 /**
  * Capture a previously-authorized (held) PaymentIntent for an appointment.
@@ -30,17 +31,21 @@ export async function POST(request: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, total_amount, payment_intent_id, payment_status")
+    .select("id, shop_id, service_id, client_name, client_email, date, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .eq("id", appointment_id).single();
   if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("owner_id, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).single();
+    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).single();
   if (!shop) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
   if (shop.owner_id !== userId) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
-  if (!appt.payment_intent_id) {
+  const isSaved = appt.payment_status === "saved";
+  if (!appt.payment_intent_id && !isSaved) {
     return NextResponse.json({ ok: false, error: "No card is on hold for this appointment." }, { status: 400 });
+  }
+  if (isSaved && !appt.stripe_payment_method_id) {
+    return NextResponse.json({ ok: false, error: "No saved card for this appointment." }, { status: 400 });
   }
   if (appt.payment_status === "captured" || appt.payment_status === "paid") {
     return NextResponse.json({ ok: true, alreadyCaptured: true });
@@ -57,12 +62,37 @@ export async function POST(request: NextRequest) {
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
   const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
-  const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};
 
   try {
-    const pi = await stripe.paymentIntents.capture(appt.payment_intent_id, captureParams, opts);
+    let pi: { amount_received?: number | null; id?: string };
+    if (isSaved) {
+      // Saved card (>7-day booking): nothing is held, so create + confirm a
+      // fresh PaymentIntent off-session against the stored card. For a no-show
+      // charge the fee; for completion charge the full total.
+      const chargeCents = feeCents > 0
+        ? feeCents
+        : Math.round((appt.total_amount ?? 0) * 100);
+      if (chargeCents <= 0) {
+        // Nothing to charge (e.g. $0 service) — just mark it settled.
+        await supabaseAdmin.from("appointments")
+          .update({ payment_status: "captured", payment_method: "card" }).eq("id", appointment_id);
+        return NextResponse.json({ ok: true, amount: 0 });
+      }
+      pi = await stripe.paymentIntents.create({
+        amount: chargeCents,
+        currency: "cad",
+        customer: appt.stripe_customer_id ?? undefined,
+        payment_method: appt.stripe_payment_method_id!,
+        off_session: true,
+        confirm: true,
+      }, opts);
+    } else {
+      // Held card: capture the existing authorization.
+      const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};
+      pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
+    }
     await supabaseAdmin.from("appointments")
-      .update({ payment_status: "captured", payment_method: "card" })
+      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id })
       .eq("id", appointment_id);
     // Best-effort — column may not exist until the Phase 1 migration is run.
     if (reason === "no_show") {
@@ -70,11 +100,36 @@ export async function POST(request: NextRequest) {
         .update({ no_show_fee_amount: pi.amount_received ?? amount_cents ?? null })
         .eq("id", appointment_id).then(null, () => null);
     }
-    return NextResponse.json({ ok: true, amount: (pi.amount_received ?? 0) / 100 });
+
+    // Email the customer a receipt for the charge (fire-and-forget).
+    const amountReceived = pi.amount_received ?? 0;
+    const { data: svc } = appt.service_id
+      ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
+      : { data: null as { name: string } | null };
+    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    sendPaymentReceipt(baseUrl, {
+      clientEmail: appt.client_email,
+      clientName: appt.client_name,
+      shopName: shop.name,
+      shopEmail: shop.email,
+      serviceName: svc?.name ?? null,
+      date: appt.date,
+      amountCents: amountReceived,
+      context: reason === "no_show" ? "No-show fee" : "Appointment completed",
+    });
+
+    return NextResponse.json({ ok: true, amount: amountReceived / 100 });
   } catch (err) {
-    // Flag for manual review instead of crashing the UI.
+    // Flag for manual review instead of crashing the UI, and alert the owner
+    // in-app so a silent card failure doesn't go unnoticed.
     await supabaseAdmin.from("appointments")
       .update({ payment_status: "failed" }).eq("id", appointment_id).then(null, () => null);
+    notifyChargeFailed({
+      ownerId: shop.owner_id,
+      clientName: appt.client_name,
+      amountCents: feeCents > 0 ? feeCents : Math.round((appt.total_amount ?? 0) * 100),
+      reason: reason === "no_show" ? "no_show" : "completed",
+    });
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Capture failed" }, { status: 500 });
   }
 }

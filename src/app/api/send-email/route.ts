@@ -326,6 +326,27 @@ function appointmentRejected(data: Record<string, string>) {
   `);
 }
 
+function paymentReceipt(data: Record<string, string>) {
+  // Sent when a card is actually charged for an appointment — held-card
+  // capture on completion, saved-card off-session charge, or a no-show fee.
+  // `context` is a short human label ("Appointment completed" / "No-show fee").
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">💳 Payment Received</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>This confirms a payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Shop</span><span class="val">${data.shopName}</span></div>
+    ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
+    ${data.date ? `<div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>` : ""}
+    ${data.context ? `<div class="row"><span class="label">Charge</span><span class="val">${data.context}</span></div>` : ""}
+    <div class="row"><span class="label">Amount Charged</span><span class="val">${data.amount}</span></div>
+    <hr class="divider">
+    <p style="font-size:13px;color:#6B7280">Charged to the card on file. This is your receipt — no action needed. Questions? Just reply to this email.</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function refundIssued(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -486,6 +507,30 @@ function barberInvite(data: Record<string, string>) {
   `);
 }
 
+function barberAppointmentChange(data: Record<string, string>) {
+  // Tells a barber one of their appointments changed state (cancelled by the
+  // customer, rejected by the shop, or marked no-show). `statusLabel` drives
+  // the copy so one template covers all three.
+  const isNoShow = (data.statusLabel ?? "").toLowerCase().includes("no-show");
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="${isNoShow ? "badge" : "red-badge"}">${isNoShow ? "👀 No-Show" : "📅 Slot Freed Up"}</div>
+    <h1>Hi ${data.barberName},</h1>
+    <p>${isNoShow
+      ? `Your appointment with <span class="highlight">${data.clientName}</span> was marked a no-show.`
+      : `Your appointment with <span class="highlight">${data.clientName}</span> at ${data.shopName} was cancelled — this slot is now open again.`}</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Status</span><span class="val">${data.statusLabel}</span></div>
+    <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    <hr class="divider">
+    <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function shopOwnerNewBarberRequest(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -504,6 +549,23 @@ function shopOwnerNewBarberRequest(data: Record<string, string>) {
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
+function waitlistSlotOpen(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">🎉 A Spot Opened Up</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>Good news — a spot just opened at <span class="highlight">${data.shopName}</span> on the day you were waiting for. Spots go fast, so book now to grab it.</p>
+    <hr class="divider">
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    ${data.barberName ? `<div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>` : ""}
+    <hr class="divider">
+    <a href="${data.bookingUrl}" class="btn">Book Now →</a>
+    <div class="link-box"><a href="${data.bookingUrl}">${data.bookingUrl}</a></div>
+    <p style="font-size:13px;color:#6B7280">You're receiving this because you asked to be notified when a spot opened. No further action is needed if you've already booked elsewhere.</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ error: "RESEND_API_KEY not configured" }, { status: 500 });
@@ -613,6 +675,16 @@ export async function POST(req: NextRequest) {
         subject = `Refund issued — ${data.shopName}`;
         html = refundIssued(data);
         break;
+      case "payment_receipt":
+        to = data.clientEmail;
+        subject = `Payment received — ${data.shopName}`;
+        html = paymentReceipt(data);
+        break;
+      case "barber_appointment_change":
+        to = data.barberEmail;
+        subject = `${data.statusLabel}: ${data.clientName} on ${data.date} — ${data.shopName}`;
+        html = barberAppointmentChange(data);
+        break;
       case "payment_link":
         to = data.clientEmail;
         subject = `Complete your payment for ${data.shopName}`;
@@ -627,6 +699,11 @@ export async function POST(req: NextRequest) {
         to = data.barberEmail;
         subject = `You're invited to join ${data.shopName} on ClipWise`;
         html = barberInvite(data);
+        break;
+      case "waitlist_slot_open":
+        to = data.clientEmail;
+        subject = `A spot opened up at ${data.shopName} 🎉`;
+        html = waitlistSlotOpen(data);
         break;
       case "marketing_campaign":
         to = data.to;
@@ -648,7 +725,8 @@ export async function POST(req: NextRequest) {
       "booking_confirmation", "appointment_reminder", "review_request",
       "appointment_rejected", "refund_issued", "rebooking_reminder",
       "no_show_followup", "birthday_wish", "payment_link", "direct_message",
-      "barber_invite", "new_booking_barber",
+      "barber_invite", "new_booking_barber", "payment_receipt",
+      "barber_appointment_change", "waitlist_slot_open",
     ];
     const replyTo = customerOrBarberFacing.includes(type)
       ? (data.shopEmail || undefined)

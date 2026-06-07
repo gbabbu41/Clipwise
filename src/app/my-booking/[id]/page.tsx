@@ -96,6 +96,20 @@ export default function MyBookingPage() {
     setView("cancelled");
     setCancelling(false);
 
+    // Notify the assigned barber their slot is free again (fire-and-forget).
+    fetch("/api/appointments/notify-cancellation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
+    }).catch(() => null);
+
+    // Smart waitlist: ping anyone waiting for this now-free day.
+    fetch("/api/waitlist/slot-opened", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id }),
+    }).catch(() => null);
+
     // Notify shop owner
     if (appt.shops) {
       const { data: shopRow } = await supabase.from("shops").select("owner_id").eq("id", appt.shop_id).single();

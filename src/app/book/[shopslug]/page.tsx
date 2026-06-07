@@ -85,6 +85,18 @@ export default function BookingPage() {
    *  money to take. Otherwise we route silently down the only viable path. */
   const [payMethodChoice, setPayMethodChoice] = useState<"online" | "in_person" | null>(null);
   const [showPayChoiceModal, setShowPayChoiceModal] = useState(false);
+  /** The customer's acceptance of the no-show charge disclaimer. Required
+   *  before any card is taken (held ≤7 days, or saved >7 days) when the shop
+   *  has no-show protection on. In-person bookings never need it. */
+  const [noShowConsent, setNoShowConsent] = useState(false);
+
+  // ── Smart waitlist (notify me when a spot opens on a full day) ──────────────
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [waitlistSaving, setWaitlistSaving] = useState(false);
+  const [waitlistForm, setWaitlistForm] = useState({ name: "", email: "", phone: "" });
+  // Dates the customer has already joined the waitlist for, so we can swap the
+  // button for a confirmation and avoid duplicate signups in one session.
+  const [waitlistedDates, setWaitlistedDates] = useState<Set<string>>(new Set());
 
   // ── Availability state ─────────────────────────────────────────────────────
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -465,16 +477,28 @@ export default function BookingPage() {
     // explicitly picks pay-in-person, we skip Stripe entirely even if the
     // service was tagged with a deposit requirement.
     const depositAmount = service?.deposit_required ? (service.deposit_amount ?? 0) : 0;
-    // No-show protection: for "pay online" within 7 days, AUTHORIZE the full
-    // amount (card held, not charged) — captured later on completion / no-show.
-    // Card auth holds expire ~7 days, so further-out bookings charge as before.
-    const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
-    const useHold = payMethodChoice === "online" && daysOut <= 7;
+    // No-show protection options for "pay online":
+    //   ≤7 days out  → AUTHORIZE the full amount (card held, not charged),
+    //                  captured later on completion / no-show.
+    //   >7 days out  → card holds expire ~7 days, so instead SAVE the card
+    //                  (no charge now) and charge it on completion / no-show.
+    const useHold = payMethodChoice === "online" && !willSaveCard;
+    const useSaveCard = payMethodChoice === "online" && willSaveCard;
+    // A card is being taken online — require the no-show consent first.
+    if (payMethodChoice === "online" && cardForNoShow && !noShowConsent) {
+      setSaving(false);
+      showToast("Please accept the no-show policy to continue.", false);
+      return;
+    }
+    // Amount to send: holds authorize the full total; saved cards charge $0
+    // now (setup mode ignores it); the legacy deposit path charges the deposit.
     const chargeAmount =
       payMethodChoice === "in_person" ? 0 :
-      payMethodChoice === "online"    ? total :
-                                         depositAmount;
-    if (chargeAmount > 0) {
+      useHold                         ? total :
+      useSaveCard                     ? 0 :
+                                        depositAmount;
+    // Route to Stripe whenever paying online (hold or save) or a deposit is due.
+    if (payMethodChoice === "online" || chargeAmount > 0) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
           method: "POST",
@@ -493,6 +517,7 @@ export default function BookingPage() {
             amount: chargeAmount,
             total_amount: total,
             hold: useHold,
+            saveCard: useSaveCard,
           }),
         });
         const pay = await res.json();
@@ -557,6 +582,19 @@ export default function BookingPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ shop_id: shop.id, name: clientInfo.name, email: clientInfo.email, phone: clientInfo.phone }),
     }).catch(() => null);
+
+    // Text the customer a confirmation (best-effort; in-person path = pay later).
+    if (clientInfo.phone) {
+      fetch("/api/twilio/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: clientInfo.phone,
+          shopName: shop.name,
+          body: `Your appointment on ${selectedDate ? formatDateForDb(selectedDate) : ""} at ${selectedTime} is confirmed. Pay at the shop. Booking #${rows[0].id.slice(0, 8).toUpperCase()}.`,
+        }),
+      }).catch(() => null);
+    }
 
     // Create in-app notification for shop owner (fire-and-forget)
     supabase.from("notifications").insert({
@@ -624,6 +662,20 @@ export default function BookingPage() {
       : promoApplied.discount_value
     : 0;
   const total = Math.max(0, totalPrice - discount);
+
+  // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
+  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
+  const noShowProtection = !!bookingSettings?.no_show_protection;
+  const noShowFee = bookingSettings?.no_show_fee_amount ?? 0; // 0 = full service price
+  const noShowFeeLabel = noShowFee > 0 ? formatCurrency(noShowFee) : "the full service price";
+  // Days until the appointment — drives hold (≤7d) vs save-card (>7d).
+  const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
+  const willSaveCard = daysOut > 7; // beyond the ~7-day card-hold window
+  // Whether paying online would take a card under no-show protection — used to
+  // gate the consent checkbox in the pay-method modal. (In-person never takes
+  // a card, so its button is never gated.)
+  const cardForNoShow = noShowProtection && total > 0;
+
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category)))];
   const filteredServices = services.filter((s) => s.is_active && (categoryFilter === "All" || s.category === categoryFilter));
 
@@ -664,6 +716,48 @@ export default function BookingPage() {
     const phoneErr = validatePhone(clientInfo.phone);
     if (phoneErr) errs.phone = phoneErr;
     return errs;
+  };
+
+  // ── Smart waitlist join ─────────────────────────────────────────────────────
+  const openWaitlist = () => {
+    // Prefill from anything they've already typed on the Your Info step.
+    setWaitlistForm({ name: clientInfo.name, email: clientInfo.email, phone: clientInfo.phone });
+    setShowWaitlistModal(true);
+  };
+
+  const joinWaitlist = async () => {
+    if (!shop || !selectedDate) return;
+    if (!waitlistForm.name.trim()) { setToast({ msg: "Enter your name", ok: false }); return; }
+    if (!waitlistForm.email.trim() && !waitlistForm.phone.trim()) {
+      setToast({ msg: "Enter an email or phone so we can reach you", ok: false });
+      return;
+    }
+    const dateStr = formatDateForDb(selectedDate);
+    setWaitlistSaving(true);
+    try {
+      const res = await fetch("/api/waitlist/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop_id: shop.id,
+          desired_date: dateStr,
+          client_name: waitlistForm.name,
+          client_email: waitlistForm.email || null,
+          client_phone: waitlistForm.phone || null,
+          barber_id: flow === "barber-first" ? selectedBarber : null,
+          service_id: selectedService,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setToast({ msg: data.error ?? "Could not join waitlist", ok: false }); return; }
+      setWaitlistedDates(prev => new Set(prev).add(dateStr));
+      setShowWaitlistModal(false);
+      setToast({ msg: "You're on the list — we'll text/email if a spot opens", ok: true });
+    } catch {
+      setToast({ msg: "Network error — try again", ok: false });
+    } finally {
+      setWaitlistSaving(false);
+    }
   };
 
   const canNext = () => {
@@ -782,7 +876,7 @@ export default function BookingPage() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -800,6 +894,22 @@ export default function BookingPage() {
   const clientStepIndex = flow === "time-first" ? 2 : 3;
   const promoStepIndex = flow === "time-first" ? 3 : 4;
   const confirmStepIndex = flow === "time-first" ? 4 : 5;
+
+  // No-show consent checkbox — shown wherever a card is about to be taken
+  // online under no-show protection. In-person bookings never render it.
+  const noShowConsentBox = (
+    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
+      <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
+        className="mt-0.5 h-4 w-4 accent-gold flex-shrink-0" />
+      <span className="text-xs text-amber-200/90 leading-relaxed">
+        {willSaveCard ? (
+          <>This booking is more than 7 days away, so my card will be securely <span className="font-semibold">saved</span> now (not charged) and charged after my visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if I don&apos;t show up. I accept this no-show policy.</>
+        ) : (
+          <>My card will be securely <span className="font-semibold">held</span> now and charged after my visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if I don&apos;t show up. I accept this no-show policy.</>
+        )}
+      </span>
+    </label>
+  );
 
   return (
     <div className="min-h-screen bg-black">
@@ -1084,7 +1194,24 @@ export default function BookingPage() {
                   </div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length === 0 && (
-                  <div className="py-16 text-center text-[#777] text-sm">No openings on this day.</div>
+                  <div className="py-12 text-center px-4">
+                    <p className="text-[#777] text-sm">No openings on this day.</p>
+                    {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
+                      <p className="mt-3 text-xs text-emerald-400 flex items-center justify-center gap-1">
+                        <Check size={13} /> You&apos;re on the waitlist for this day
+                      </p>
+                    ) : (
+                      <>
+                        <button
+                          onClick={openWaitlist}
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/20 transition-colors"
+                        >
+                          🔔 Notify me if a spot opens
+                        </button>
+                        <p className="mt-2 text-[11px] text-[#777]">We&apos;ll text or email you the moment someone cancels.</p>
+                      </>
+                    )}
+                  </div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && servicesPicked.length > 1 && (
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
@@ -1092,6 +1219,18 @@ export default function BookingPage() {
                       {flow === "barber-first" ? "This barber doesn't have" : "No barber has"} {totalDuration} min open on this day
                     </p>
                     <p className="text-xs text-[#777] mt-1">Try another day.</p>
+                    {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
+                      <p className="mt-3 text-xs text-emerald-400 flex items-center justify-center gap-1">
+                        <Check size={13} /> You&apos;re on the waitlist for this day
+                      </p>
+                    ) : (
+                      <button
+                        onClick={openWaitlist}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/20 transition-colors"
+                      >
+                        🔔 Notify me if a spot opens
+                      </button>
+                    )}
                   </div>
                 )}
                 {selectedDate && !slotsLoading && bookableSlots.length > 0 && (
@@ -1296,6 +1435,16 @@ export default function BookingPage() {
               ? <p className="text-xs text-white/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
               : <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
+
+            {/* No-show heads-up. The mandatory consent checkbox itself lives in
+                the pay-method modal (only the online/card path needs it), so an
+                in-person booker is never forced to accept it. This is just an
+                informational note for far-future bookings. */}
+            {cardForNoShow && willSaveCard && (
+              <p className="text-xs text-amber-200/80 text-center">
+                ⓘ More than 7 days out — if you pay online your card is <span className="font-semibold">saved</span> (not held) and charged after your visit.
+              </p>
+            )}
           </div>
           );
         })()}
@@ -1378,7 +1527,13 @@ export default function BookingPage() {
                 <p className="text-sm text-[#777] mt-1">You can pay now or settle up at the shop.</p>
               </div>
 
-              <button type="button" className="btn btn-primary w-full" style={{ padding: "1rem" }}
+              {/* No-show consent — required only for the online (card) path.
+                  Paying in person stays available without it, so the customer
+                  can always avoid handing over a card. */}
+              {cardForNoShow && noShowConsentBox}
+
+              <button type="button" className="btn btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed" style={{ padding: "1rem" }}
+                disabled={cardForNoShow && !noShowConsent}
                 onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("online"); setTimeout(confirmBooking, 0); }}>
                 💳 Pay online now (secure · Stripe)
               </button>
@@ -1391,6 +1546,56 @@ export default function BookingPage() {
               <p className="text-xs text-[#777] text-center">
                 Paying in person? Your booking is reserved as pending until the shop confirms.
               </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Smart-waitlist signup modal */}
+      {showWaitlistModal && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => !waitlistSaving && setShowWaitlistModal(false)} />
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Join the waitlist</h2>
+                  <p className="text-sm text-[#777] mt-0.5">
+                    {selectedDate ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" }) : ""}
+                  </p>
+                </div>
+                <button onClick={() => !waitlistSaving && setShowWaitlistModal(false)} className="text-[#777] hover:text-white"><X size={18} /></button>
+              </div>
+              <p className="text-xs text-[#777]">
+                This day is full. Leave your details and we&apos;ll text or email you the moment a spot opens — first to reply gets it.
+              </p>
+              <div className="space-y-3">
+                <input
+                  value={waitlistForm.name}
+                  onChange={e => setWaitlistForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Your name"
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold"
+                />
+                <input
+                  value={waitlistForm.email}
+                  onChange={e => setWaitlistForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="Email"
+                  type="email"
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold"
+                />
+                <input
+                  value={waitlistForm.phone}
+                  onChange={e => setWaitlistForm(p => ({ ...p, phone: formatPhone(e.target.value) }))}
+                  placeholder="Phone (for a text alert)"
+                  type="tel"
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold"
+                />
+                <p className="text-[11px] text-[#777] -mt-1">Add at least an email or phone.</p>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => setShowWaitlistModal(false)}>Cancel</Button>
+                <Button className="flex-1" loading={waitlistSaving} onClick={joinWaitlist}>Notify me</Button>
+              </div>
             </div>
           </div>
         </>

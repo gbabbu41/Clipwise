@@ -67,6 +67,13 @@ export async function POST(request: NextRequest) {
       }).catch(() => null);
     }
 
+    // Smart waitlist: a refunded booking frees its slot — ping waiters for that day.
+    fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id }),
+    }).catch(() => null);
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });

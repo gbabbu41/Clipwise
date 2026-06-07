@@ -92,6 +92,20 @@ export default function MyBookingsPage() {
       }
     }
 
+    // Notify the assigned barber their slot is free again (fire-and-forget).
+    fetch("/api/appointments/notify-cancellation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: id, statusLabel: "Cancelled" }),
+    }).catch(() => null);
+
+    // Smart waitlist: ping anyone waiting for this now-free day.
+    fetch("/api/waitlist/slot-opened", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: id }),
+    }).catch(() => null);
+
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
     setCancelId(null);
     setCancelling(false);

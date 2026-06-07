@@ -48,6 +48,13 @@ export interface Shop {
   /** When true, customers see a "Pay in person at the shop" option at
    *  booking time. When false, only online Stripe checkout is offered. */
   allow_pay_in_person?: boolean;
+  /** Booking-flow config (advance window, cancellation, deposit, no-show).
+   *  Stored as a JSON blob; only the fields read at runtime are typed here. */
+  booking_settings?: {
+    no_show_protection?: boolean;
+    no_show_fee_amount?: number;
+    [key: string]: unknown;
+  };
   created_at: string;
 }
 
@@ -131,9 +138,13 @@ export interface Appointment {
   deposit_paid: boolean;
   total_amount: number;
   payment_method?: PaymentMethod;
-  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured";
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved";
   payment_intent_id?: string;
   no_show_fee_amount?: number; // cents captured for a no-show (Phase 1)
+  // Phase 2 — saved card (off-session) for bookings >7 days out: the card is
+  // stored at booking and charged on completion / no-show via these.
+  stripe_customer_id?: string;
+  stripe_payment_method_id?: string;
   created_at: string;
 }
 
@@ -227,6 +238,22 @@ export interface WaitlistEntry {
   service_id?: string;
   added_at: string;
   status: "waiting" | "called" | "served" | "removed";
+}
+
+// Smart waitlist: a customer asking to be notified when a spot opens on a
+// fully-booked day. Distinct from WaitlistEntry (the in-shop walk-in queue).
+export interface AppointmentWaitlistEntry {
+  id: string;
+  shop_id: string;
+  barber_id?: string;   // null = any barber
+  service_id?: string;
+  client_name: string;
+  client_email?: string;
+  client_phone?: string;
+  desired_date: string; // "YYYY-MM-DD"
+  status: "waiting" | "notified" | "converted" | "cancelled";
+  notified_at?: string;
+  created_at: string;
 }
 
 export interface DaySchedule {

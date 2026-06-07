@@ -52,3 +52,29 @@ export function toE164(raw: string | null | undefined): string | null {
   if (cleaned.length >= 8) return `+${cleaned}`;
   return null;
 }
+
+/**
+ * Fire-and-forget SMS send for server routes (booking-finalize, reminders, …).
+ * Resolves silently when SMS isn't configured or the number is unusable, and
+ * never throws — a failed text must never block the surrounding action.
+ * Prefixes the shop name so the recipient knows who's texting (shared trial
+ * sender numbers are anonymous), unless the body already starts with it.
+ */
+export async function sendSmsBestEffort(
+  to: string | null | undefined,
+  body: string,
+  shopName?: string | null,
+): Promise<void> {
+  const twilio = getTwilio();
+  const sender = twilioSender();
+  const e164 = toE164(to);
+  if (!twilio || !sender || !e164) return;
+  const prefixed = shopName && !body.toLowerCase().startsWith(shopName.toLowerCase())
+    ? `${shopName}: ${body}`
+    : body;
+  try {
+    await twilio.messages.create({ to: e164, body: prefixed, ...sender });
+  } catch {
+    /* trial-mode unverified number, quota, etc. — best-effort only */
+  }
+}

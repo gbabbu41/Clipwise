@@ -72,6 +72,7 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
     return { label: `Paid${suffix}`, bsClass: PAID };
   }
   if (status === "held")     return { label: "💳 Card on hold", bsClass: ACTIVE };
+  if (status === "saved")    return { label: "💳 Card on file", bsClass: ACTIVE };
   if (status === "captured") return { label: "Paid · Card",     bsClass: PAID };
   if (status === "refunded") return { label: "Refunded",       bsClass: MUTED };
   if (status === "failed")   return { label: "Payment failed", bsClass: ACTIVE };
@@ -150,7 +151,7 @@ export default function AppointmentsPage() {
   const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
 
   // Add appointment form state
-  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM" });
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM", repeat: "none" });
   const [savingAdd, setSavingAdd] = useState(false);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
 
@@ -303,6 +304,24 @@ export default function AppointmentsPage() {
       }).catch(() => null);
     }
 
+    // Tell the assigned barber when a slot frees up or a client no-shows.
+    if (status === "no-show" || status === "cancelled") {
+      fetch("/api/appointments/notify-cancellation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: id, statusLabel: status === "no-show" ? "No-show" : "Cancelled" }),
+      }).catch(() => null);
+
+      // Smart waitlist: a slot just freed — ping anyone waiting for that day.
+      if (appt && shop) {
+        fetch("/api/waitlist/slot-opened", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }),
+        }).catch(() => null);
+      }
+    }
+
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     showToast(`Marked as ${statusLabel(status)}`);
@@ -349,6 +368,21 @@ export default function AppointmentsPage() {
         }),
       }).catch(() => null);
     }
+
+    // Notify the assigned barber their slot is free again.
+    fetch("/api/appointments/notify-cancellation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
+    }).catch(() => null);
+
+    // Smart waitlist: ping customers waiting for this now-free day.
+    fetch("/api/waitlist/slot-opened", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }),
+    }).catch(() => null);
+
     showToast("Appointment rejected" + (appt.client_email ? " · Email sent to client" : ""));
   };
 
@@ -375,9 +409,9 @@ export default function AppointmentsPage() {
    *  decide how to take payment first. Everything else routes straight
    *  through to `updateStatus`. */
   const handleStatusChange = (apt: AppointmentWithDetails, next: AppStatus) => {
-    // Held card (no-show protection): completing auto-captures the held amount,
-    // no cash/link modal needed.
-    if (next === "completed" && apt.payment_status === "held") {
+    // Held or saved card (no-show protection): completing auto-charges the
+    // card — held → capture, saved → off-session charge — no modal needed.
+    if (next === "completed" && (apt.payment_status === "held" || apt.payment_status === "saved")) {
       captureHeldAndComplete(apt);
       return;
     }
@@ -406,7 +440,7 @@ export default function AppointmentsPage() {
   };
 
   const captureHeldAndComplete = async (appt: AppointmentWithDetails) => {
-    showToast("Charging held card…");
+    showToast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
     const ok = await captureHeld(appt, "completed");
     if (!ok) return;
     await updateStatus(appt.id, "completed");
@@ -475,22 +509,38 @@ export default function AppointmentsPage() {
     if (addForm.date < today) { showToast("Please select a future date"); return; }
     setSavingAdd(true);
     const svc = services.find(s => s.id === addForm.service_id);
-    const { error } = await supabase.from("appointments").insert({
-      shop_id: shop.id,
-      barber_id: addForm.barber_id || null,
-      service_id: addForm.service_id,
-      client_name: addForm.client_name,
-      client_phone: addForm.client_phone || null,
-      date: addForm.date,
-      time_slot: addForm.time_slot,
-      status: "confirmed",
-      total_amount: svc?.price ?? 0,
+
+    // Recurring: build one row per occurrence, spaced by N days. Parse the
+    // date as LOCAL (not UTC) so adding days never drifts across a day boundary.
+    const REPEATS: Record<string, { stepDays: number; count: number }> = {
+      none:       { stepDays: 0,  count: 1 },
+      weekly4:    { stepDays: 7,  count: 4 },
+      biweekly4:  { stepDays: 14, count: 4 },
+      biweekly6:  { stepDays: 14, count: 6 },
+      monthly3:   { stepDays: 28, count: 3 },
+    };
+    const plan = REPEATS[addForm.repeat] ?? REPEATS.none;
+    const [y, m, d] = addForm.date.split("-").map(Number);
+    const rows = Array.from({ length: plan.count }, (_, i) => {
+      const dt = new Date(y, m - 1, d + i * plan.stepDays);
+      return {
+        shop_id: shop.id,
+        barber_id: addForm.barber_id || null,
+        service_id: addForm.service_id,
+        client_name: addForm.client_name,
+        client_phone: addForm.client_phone || null,
+        date: formatDateForDb(dt),
+        time_slot: addForm.time_slot,
+        status: "confirmed",
+        total_amount: svc?.price ?? 0,
+      };
     });
+    const { error } = await supabase.from("appointments").insert(rows);
     setSavingAdd(false);
     if (error) { showToast("Failed to add appointment"); return; }
     setShowAddModal(false);
-    setAddForm({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM" });
-    showToast("Appointment added!");
+    setAddForm({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM", repeat: "none" });
+    showToast(rows.length > 1 ? `${rows.length} appointments added!` : "Appointment added!");
     loadData();
   };
 
@@ -934,8 +984,8 @@ export default function AppointmentsPage() {
                       <button type="button" className="btn btn-soft-warning col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
                     )}
-                    {/* No-show capture — only when a card is on hold */}
-                    {selectedApt.status === "no-show" && selectedApt.payment_status === "held" && (
+                    {/* No-show capture — when a card is on hold or on file */}
+                    {selectedApt.status === "no-show" && (selectedApt.payment_status === "held" || selectedApt.payment_status === "saved") && (
                       <button type="button" className="btn btn-soft-danger col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => chargeNoShow(selectedApt)}>Charge No-Show · {formatCurrency(selectedApt.total_amount ?? 0)}</button>
                     )}
@@ -952,6 +1002,14 @@ export default function AppointmentsPage() {
                   <span className="block text-[#777] mt-0.5">Charged automatically when you mark this Complete.</span>
                 </div>
               )}
+              {/* Saved-card notice (booking was >7 days out, so the card is on
+                  file rather than authorized). Charged off-session on Complete. */}
+              {selectedApt.payment_status === "saved" && selectedApt.status !== "no-show" && (
+                <div className="rounded-xl border border-[#1e1e1e] bg-[#141414] p-3 text-xs text-[#aaa]">
+                  💳 Card on file · <span className="text-white font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
+                  <span className="block text-[#777] mt-0.5">Booked &gt;7 days out — charged when you mark this Complete (or as a no-show fee).</span>
+                </div>
+              )}
               {selectedApt.payment_status === "captured" && (
                 <p className="text-center text-xs text-[#00e5a0]">✓ Paid · card charged</p>
               )}
@@ -962,6 +1020,7 @@ export default function AppointmentsPage() {
               {selectedApt.payment_status !== "paid" &&
                selectedApt.payment_status !== "refunded" &&
                selectedApt.payment_status !== "held" &&
+               selectedApt.payment_status !== "saved" &&
                selectedApt.payment_status !== "captured" &&
                (selectedApt.total_amount ?? 0) > 0 && (
                 <button type="button" className="btn btn-success w-full" onClick={() => setPaymentModal(selectedApt)}>
@@ -1123,6 +1182,18 @@ export default function AppointmentsPage() {
               <Select label="Time" value={addForm.time_slot} onChange={e => setAddForm(p => ({ ...p, time_slot: e.target.value }))}>
                 {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
               </Select>
+              <Select label="Repeat" value={addForm.repeat} onChange={e => setAddForm(p => ({ ...p, repeat: e.target.value }))}>
+                <option value="none">Does not repeat</option>
+                <option value="weekly4">Weekly — 4 visits</option>
+                <option value="biweekly4">Every 2 weeks — 4 visits</option>
+                <option value="biweekly6">Every 2 weeks — 6 visits</option>
+                <option value="monthly3">Every 4 weeks — 3 visits</option>
+              </Select>
+              {addForm.repeat !== "none" && (
+                <p className="text-xs text-[#777] -mt-1">
+                  Creates the same booking on each date at {addForm.time_slot}.
+                </p>
+              )}
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={addAppointment}>Save</Button>
