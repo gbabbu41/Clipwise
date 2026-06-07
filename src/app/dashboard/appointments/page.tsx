@@ -60,6 +60,8 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
     return { label: `Paid${suffix}`, bsClass: MUTED };
   }
+  if (status === "held")     return { label: "💳 Card on hold", bsClass: ACTIVE };
+  if (status === "captured") return { label: "Paid · Card",     bsClass: MUTED };
   if (status === "refunded") return { label: "Refunded",       bsClass: MUTED };
   if (status === "failed")   return { label: "Payment failed", bsClass: ACTIVE };
 
@@ -889,11 +891,26 @@ export default function AppointmentsPage() {
                 );
               })()}
 
-              {/* Take Payment — visible whenever there's an outstanding charge,
-                  regardless of appointment status. Lets the owner collect
-                  cash or send a Stripe link after the fact. */}
+              {/* Card-on-hold notice — the customer's card is authorized; it's
+                  charged automatically on Complete (or via Charge No-Show). No
+                  "take payment" here, or it would double-charge. */}
+              {selectedApt.payment_status === "held" && selectedApt.status !== "no-show" && (
+                <div className="rounded-xl border border-[#1e1e1e] bg-[#141414] p-3 text-xs text-[#aaa]">
+                  💳 Card on hold · <span className="text-white font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
+                  <span className="block text-[#777] mt-0.5">Charged automatically when you mark this Complete.</span>
+                </div>
+              )}
+              {selectedApt.payment_status === "captured" && (
+                <p className="text-center text-xs text-[#777]">✓ Paid · card charged</p>
+              )}
+
+              {/* Take Payment — only when there's still an outstanding charge and
+                  no card is already held/captured. Lets the owner collect cash
+                  or send a Stripe link after the fact. */}
               {selectedApt.payment_status !== "paid" &&
                selectedApt.payment_status !== "refunded" &&
+               selectedApt.payment_status !== "held" &&
+               selectedApt.payment_status !== "captured" &&
                (selectedApt.total_amount ?? 0) > 0 && (
                 <button type="button" className="btn btn-success w-full" onClick={() => setPaymentModal(selectedApt)}>
                   💳 Take Payment ({formatCurrency(selectedApt.total_amount)})

@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
     // formats the raw YYYY-MM-DD date as 'July 6' for readability — we
     // don't use friendlyDate (Today/Tomorrow) here because the server's
     // clock is in UTC and would mis-label dates near the day boundary.
-    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name").eq("id", m.shop_id).single();
+    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();
+    const dateObj = new Date(`${m.date}T00:00:00`);
+    const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
     if (shopRow?.owner_id) {
       const amountStr = `$${Number(m.total_amount ?? 0).toFixed(0)}`;
-      const dateObj = new Date(`${m.date}T00:00:00`);
-      const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
       supabaseAdmin.from("notifications").insert({
         user_id: shopRow.owner_id,
         title: isHold ? `New Booking · card held · ${amountStr}` : `New Paid Booking · ${amountStr}`,
@@ -101,6 +101,39 @@ export async function POST(request: NextRequest) {
         is_read: false,
       }).then(null, () => null);
     }
+
+    // Booking-confirmation emails — customer + owner + assigned barber. Online
+    // bookings skipped these before, so barbers/owners weren't being told.
+    // Failures never block the booking.
+    try {
+      const [{ data: barber }, { data: service }] = await Promise.all([
+        m.barber_id
+          ? supabaseAdmin.from("barbers").select("name, email").eq("id", m.barber_id).maybeSingle()
+          : Promise.resolve({ data: null as { name: string; email: string | null } | null }),
+        m.service_id
+          ? supabaseAdmin.from("services").select("name").eq("id", m.service_id).maybeSingle()
+          : Promise.resolve({ data: null as { name: string } | null }),
+      ]);
+      const base = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const bookingData = {
+        clientName: m.client_name, clientEmail: m.client_email || "—", clientPhone: m.client_phone || "—",
+        shopName: shopRow?.name ?? "", shopEmail: shopRow?.email ?? "", shopSlug: shopRow?.slug ?? "",
+        barberName: barber?.name ?? "Any Available",
+        serviceName: service?.name ?? "Service",
+        date: m.date, time: m.time_slot,
+        total: `$${Number(m.total_amount ?? 0).toFixed(2)}`,
+        paymentNote: isHold ? "Card on hold — charged after your visit" : "Paid online",
+        bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
+      };
+      const send = (type: string, extra: Record<string, unknown>) =>
+        fetch(`${base}/api/send-email`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, data: { ...bookingData, ...extra } }),
+        }).catch(() => null);
+      if (m.client_email) send("booking_confirmation", { clientEmail: m.client_email });
+      if (shopRow?.email) send("new_booking_owner", { ownerEmail: shopRow.email });
+      if (barber?.email) send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name });
+    } catch { /* never block the booking on email */ }
 
     return NextResponse.json({ paid: true, appointmentId: appt.id });
   } catch (err) {
