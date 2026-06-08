@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { sendSmsBestEffort } from "@/lib/twilio";
@@ -60,6 +60,16 @@ export async function POST(request: NextRequest) {
   // platform-charge path is what makes test-mode / demo flows work without
   // the shop owner having to complete the multi-minute Connect KYC.
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
+
+  // With REAL money, never fall back to a platform charge for an un-onboarded
+  // shop — that would charge the customer into the platform account, not the
+  // shop's. Block until the owner finishes Stripe Connect.
+  if (!useConnect && STRIPE_LIVE_MODE) {
+    return NextResponse.json(
+      { error: "This shop hasn't finished setting up online payments yet. Please collect payment in person." },
+      { status: 409 },
+    );
+  }
 
   const serviceName = Array.isArray(appt.services)
     ? (appt.services[0]?.name ?? "Service")

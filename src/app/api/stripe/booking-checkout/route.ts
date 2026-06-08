@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { barberSlotTaken } from "@/lib/booking-conflict";
@@ -53,6 +53,17 @@ export async function POST(request: NextRequest) {
   // fall back to a platform charge so demo / test-mode flows work without
   // the shop owner needing to complete Connect KYC.
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
+
+  // With REAL money, never platform-charge for an un-onboarded shop — the funds
+  // would land in the platform account, not the shop's. Block online payment
+  // until the owner finishes Stripe Connect (the customer can still pay in person).
+  if (!useConnect && STRIPE_LIVE_MODE) {
+    return NextResponse.json(
+      { error: "This shop hasn't finished setting up online payments yet. Please choose pay in person." },
+      { status: 409 },
+    );
+  }
+
   const acctOpts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
 
   // Shared booking details — written to the Checkout session metadata so
