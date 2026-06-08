@@ -149,6 +149,13 @@ export default function AppointmentsPage() {
    *  Stripe Checkout link, optionally finalizing the appointment too. */
   const [paymentModal, setPaymentModal] = useState<AppointmentWithDetails | null>(null);
   const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  // Optional email typed at payment time (for appts with none on file) + the
+  // generated link to show/copy when no email is sent.
+  const [payEmail, setPayEmail] = useState("");
+  const [payLink, setPayLink] = useState("");
+  useEffect(() => {
+    if (paymentModal) { setPayEmail(paymentModal.client_email ?? ""); setPayLink(""); }
+  }, [paymentModal]);
 
   // Add appointment form state
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM", repeat: "none" });
@@ -472,10 +479,17 @@ export default function AppointmentsPage() {
   const sendPaymentLink = async (alsoComplete: boolean) => {
     if (!paymentModal || !accessToken) return;
     setSavingPayment("link");
+    // If an email was typed (appt had none), save it first so the link is
+    // emailed AND a receipt can later be sent.
+    const email = payEmail.trim();
+    const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (willEmail && email !== (paymentModal.client_email ?? "")) {
+      await supabase.from("appointments").update({ client_email: email }).eq("id", paymentModal.id);
+    }
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: true }),
+      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: willEmail }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -491,8 +505,15 @@ export default function AppointmentsPage() {
       if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, status: "completed" as AppStatus } : null);
     }
     setSavingPayment("");
-    setPaymentModal(null);
-    showToast(data.emailed ? "Payment link emailed to customer" : "Payment link generated (no email on file)");
+    if (data.emailed) {
+      setPaymentModal(null);
+      showToast("Payment link emailed to customer");
+    } else {
+      // No email — keep the modal open showing the link so it can be copied or
+      // opened for the customer. Stripe collects their email on its own page.
+      setPayLink(data.url ?? "");
+      showToast("Payment link ready");
+    }
   };
 
   const skipPaymentAndComplete = async () => {
@@ -1154,29 +1175,62 @@ export default function AppointmentsPage() {
                 <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="font-mono font-bold text-emerald-400">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
-              <div className="space-y-2">
-                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""}
-                  onClick={() => markCashPaid(true)}>
-                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
-                </button>
+              {payLink ? (
+                /* Link generated without an email — show it to copy / open. */
+                <div className="space-y-3">
+                  <p className="text-sm text-white font-medium">Payment link ready</p>
+                  <p className="text-xs text-[#777]">Send this to the customer to pay. They&apos;ll enter their email on the secure Stripe page.</p>
+                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn btn-primary w-full"
+                      onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
+                      Copy link
+                    </button>
+                    <a href={payLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">
+                      Open to pay
+                    </a>
+                  </div>
+                  <button type="button" className="btn btn-outline-secondary w-full" onClick={() => setPaymentModal(null)}>
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""}
+                      onClick={() => markCashPaid(true)}>
+                      {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                    </button>
 
-                <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== "" || !paymentModal.client_email}
-                  onClick={() => sendPaymentLink(true)}>
-                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
-                </button>
-                {!paymentModal.client_email && (
-                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can't send link</p>
-                )}
+                    {/* Optional email — type one to email the link, or leave blank
+                        to just generate a link to copy/open. */}
+                    <input
+                      type="email"
+                      value={payEmail}
+                      onChange={e => setPayEmail(e.target.value)}
+                      placeholder="Email (optional — to send the link)"
+                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white"
+                    />
+                    <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== ""}
+                      onClick={() => sendPaymentLink(true)}>
+                      {savingPayment === "link"
+                        ? "Working…"
+                        : payEmail.trim()
+                          ? "📧 Email online payment link"
+                          : "💳 Create online payment link"}
+                    </button>
 
-                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""}
-                  onClick={skipPaymentAndComplete}>
-                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
-                </button>
-              </div>
+                    <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""}
+                      onClick={skipPaymentAndComplete}>
+                      {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                    </button>
+                  </div>
 
-              <p className="text-xs text-[#777] text-center">
-                Cash and online links can be reconciled later from the appointment's payment badge.
-              </p>
+                  <p className="text-xs text-[#777] text-center">
+                    Cash and online links can be reconciled later from the appointment&apos;s payment badge.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </>
