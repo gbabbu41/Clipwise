@@ -246,6 +246,10 @@ export default function WaitlistPage() {
   };
   const [paymentCtx, setPaymentCtx] = useState<PayCtx | null>(null);
   const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  // Optional email the owner can type at payment time for a walk-in that has
+  // none on file, plus the generated link to show/copy when no email is sent.
+  const [payEmail, setPayEmail] = useState("");
+  const [payLink, setPayLink] = useState("");
   const { accessToken } = useAuth();
 
   const completeFromWaitlist = async (entry: WaitlistEntry) => {
@@ -268,6 +272,8 @@ export default function WaitlistPage() {
       return;
     }
     // Otherwise pop the same Cash / Send Link / Skip flow as appointments.
+    setPayEmail(appt.client_email ?? "");
+    setPayLink("");
     setPaymentCtx({
       waitlistId: entry.id,
       appointmentId: apptId,
@@ -299,10 +305,17 @@ export default function WaitlistPage() {
   const sendLinkAndComplete = async () => {
     if (!paymentCtx || !accessToken) return;
     setSavingPayment("link");
+    // If the owner typed an email (walk-in had none on file), save it to the
+    // appointment first so the link gets emailed AND a receipt can be sent.
+    const email = payEmail.trim();
+    const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (willEmail && email !== (paymentCtx.clientEmail ?? "")) {
+      await supabase.from("appointments").update({ client_email: email }).eq("id", paymentCtx.appointmentId);
+    }
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: paymentCtx.appointmentId, send_email: true }),
+      body: JSON.stringify({ appointment_id: paymentCtx.appointmentId, send_email: willEmail }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -310,11 +323,21 @@ export default function WaitlistPage() {
       showToast(`Failed: ${data.error}`);
       return;
     }
+    // Service is done — complete + clear the queue regardless of how they pay
+    // (the charge lands later via the Stripe webhook when the customer pays).
     await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentCtx.appointmentId);
     await finishCompletion(paymentCtx.waitlistId);
     setSavingPayment("");
-    setPaymentCtx(null);
-    showToast(data.emailed ? "Payment link emailed · Completed" : "Payment link generated · Completed");
+    if (data.emailed) {
+      setPaymentCtx(null);
+      showToast("Payment link emailed · Completed");
+    } else {
+      // No email — keep the modal open showing the link so the owner can hand
+      // it to the (present) walk-in to pay on the spot. Stripe collects the
+      // customer's email on its own checkout page.
+      setPayLink(data.url ?? "");
+      showToast("Link ready · Completed");
+    }
   };
 
   const skipAndComplete = async () => {
@@ -631,20 +654,55 @@ export default function WaitlistPage() {
                 <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentCtx.clientName}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-white font-bold">{formatCurrency(paymentCtx.totalAmount)}</span></div>
               </div>
-              <div className="space-y-2">
-                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={payCashAndComplete}>
-                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
-                </button>
-                <button type="button" className="btn btn-blue w-full" disabled={savingPayment !== "" || !paymentCtx.clientEmail} onClick={sendLinkAndComplete}>
-                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
-                </button>
-                {!paymentCtx.clientEmail && (
-                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can&apos;t send link</p>
-                )}
-                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipAndComplete}>
-                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
-                </button>
-              </div>
+
+              {payLink ? (
+                /* Link generated without an email — show it so the owner can
+                   hand it to the walk-in (who's standing right there). */
+                <div className="space-y-3">
+                  <p className="text-sm text-white font-medium">Payment link ready</p>
+                  <p className="text-xs text-[#777]">Have the customer scan/open this to pay. They&apos;ll enter their email on the secure Stripe page.</p>
+                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn btn-blue w-full"
+                      onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
+                      Copy link
+                    </button>
+                    <a href={payLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">
+                      Open to pay
+                    </a>
+                  </div>
+                  <button type="button" className="btn btn-outline-secondary w-full" onClick={() => setPaymentCtx(null)}>
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={payCashAndComplete}>
+                    {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                  </button>
+
+                  {/* Optional email — type one to email the link, or leave blank
+                      to just generate a link to hand over on the spot. */}
+                  <input
+                    type="email"
+                    value={payEmail}
+                    onChange={e => setPayEmail(e.target.value)}
+                    placeholder="Email (optional — to send the link)"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white"
+                  />
+                  <button type="button" className="btn btn-blue w-full" disabled={savingPayment !== ""} onClick={sendLinkAndComplete}>
+                    {savingPayment === "link"
+                      ? "Working…"
+                      : payEmail.trim()
+                        ? "📧 Email online payment link"
+                        : "💳 Create online payment link"}
+                  </button>
+
+                  <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipAndComplete}>
+                    {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>
