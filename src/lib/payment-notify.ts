@@ -50,7 +50,7 @@ export async function notifyNoShowCharged(args: {
   date?: string | null;
 }): Promise<void> {
   const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
-  const message = `Auto-charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
+  const message = `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
 
   const recipients = new Set<string>();
   if (args.ownerId) recipients.add(args.ownerId);

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyChargeFailed } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 /**
  * Capture a previously-authorized (held) PaymentIntent for an appointment.
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, service_id, client_name, client_email, date, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .eq("id", appointment_id).single();
   if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
 
@@ -117,6 +118,23 @@ export async function POST(request: NextRequest) {
       amountCents: amountReceived,
       context: reason === "no_show" ? "No-show fee" : "Appointment completed",
     });
+
+    // For a no-show charge: also TEXT the customer (parity with the auto cron)
+    // and post an in-app/web success alert to the owner + assigned barber.
+    if (reason === "no_show") {
+      sendSmsBestEffort(
+        appt.client_phone,
+        `You missed your appointment on ${appt.date}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
+        shop.name,
+      );
+      notifyNoShowCharged({
+        ownerId: shop.owner_id,
+        barberId: appt.barber_id,
+        clientName: appt.client_name,
+        amountCents: amountReceived,
+        date: appt.date,
+      });
+    }
 
     return NextResponse.json({ ok: true, amount: amountReceived / 100 });
   } catch (err) {
