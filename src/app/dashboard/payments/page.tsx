@@ -10,6 +10,7 @@ interface ApptRow {
   id: string;
   client_name: string;
   client_email: string | null;
+  client_phone: string | null;
   date: string;
   time_slot: string;
   total_amount: number | null;
@@ -69,7 +70,7 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, services(name), barbers(name)")
+        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, services(name), barbers(name)")
         .eq("shop_id", shop.id).gt("total_amount", 0).order("date", { ascending: false }),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at")
@@ -125,25 +126,52 @@ export default function PaymentsPage() {
     showToast(data.changed ? `Updated → ${statusInfo(data.payment_status).label}` : "No change — still " + statusInfo(data.payment_status).label.toLowerCase());
   };
 
-  // ── Re-send a payment link (emails the customer) ────────────────────────────
-  const sendLink = async (appt: ApptRow) => {
-    setBusy(appt.id);
+  // ── Send a payment link — chooser modal (email and/or text) ─────────────────
+  const [linkModal, setLinkModal] = useState<ApptRow | null>(null);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkPhone, setLinkPhone] = useState("");
+  const [viaEmail, setViaEmail] = useState(true);
+  const [viaSms, setViaSms] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState("");
+
+  const openSendLink = (appt: ApptRow) => {
+    setLinkEmail(appt.client_email ?? "");
+    setLinkPhone(appt.client_phone ?? "");
+    setViaEmail(!!appt.client_email);          // default to email if we have one
+    setViaSms(!appt.client_email && !!appt.client_phone); // else SMS if we have a phone
+    setGeneratedLink("");
+    setLinkModal(appt);
+  };
+
+  const submitSendLink = async () => {
+    if (!linkModal) return;
+    if (!viaEmail && !viaSms) { showToast("Pick email or text (or both)", false); return; }
+    if (viaEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(linkEmail.trim())) { showToast("Enter a valid email", false); return; }
+    if (viaSms && linkPhone.replace(/\D/g, "").length < 10) { showToast("Enter a valid phone number", false); return; }
+    setBusy(linkModal.id);
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: appt.id, send_email: true }),
+      body: JSON.stringify({
+        appointment_id: linkModal.id,
+        send_email: viaEmail,
+        send_sms: viaSms,
+        email: viaEmail ? linkEmail.trim() : undefined,
+        phone: viaSms ? linkPhone.trim() : undefined,
+      }),
     });
     const data = await res.json();
     setBusy(null);
     if (!res.ok) { showToast(data.error ?? "Couldn't create link.", false); return; }
-    if (data.emailed) {
-      showToast("Payment link emailed to the customer");
-    } else if (data.url) {
-      // No email on file — copy the link so the owner can still send/share it.
-      try { await navigator.clipboard?.writeText(data.url); } catch { /* clipboard blocked */ }
-      showToast("No email on file — payment link copied to clipboard");
+    const sent = [data.emailed && "email", data.texted && "text"].filter(Boolean).join(" + ");
+    if (sent) {
+      setLinkModal(null);
+      showToast(`Payment link sent by ${sent}`);
+      loadData();
     } else {
-      showToast("Payment link created");
+      // Nothing actually sent — surface the link to copy/open.
+      setGeneratedLink(data.url ?? "");
+      showToast("Link ready");
     }
   };
 
@@ -245,7 +273,7 @@ export default function PaymentsPage() {
                 <span className="text-base font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</span>
                 <span className={cn("text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[info.tone])}>{info.label}</span>
                 {canSendLink && (
-                  <button onClick={() => sendLink(a)} disabled={busy === a.id}
+                  <button onClick={() => openSendLink(a)} disabled={busy === a.id}
                     className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
                     <Send size={13} /> {busy === a.id ? "…" : "Send link"}
                   </button>
@@ -284,6 +312,66 @@ export default function PaymentsPage() {
         <Clock size={14} className="mt-0.5 flex-shrink-0" />
         <p>Cards held or on file are charged automatically when you mark the appointment Complete, or as a no-show fee. They appear here as &quot;Card held / on file&quot; until then.</p>
       </div>
+
+      {/* Send-link chooser modal */}
+      {linkModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => busy === null && setLinkModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Send payment link</h2>
+                <button onClick={() => busy === null && setLinkModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{linkModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-bold">{formatCurrency(linkModal.total_amount ?? 0)}</span></div>
+              </div>
+
+              {generatedLink ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-white font-medium">Link ready</p>
+                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{generatedLink}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn btn-primary w-full"
+                      onClick={() => { navigator.clipboard?.writeText(generatedLink); showToast("Link copied"); }}>Copy link</button>
+                    <a href={generatedLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">Open</a>
+                  </div>
+                  <button type="button" className="btn btn-outline-secondary w-full" onClick={() => { setLinkModal(null); loadData(); }}>Done</button>
+                </div>
+              ) : (
+                <>
+                  {/* Email row */}
+                  <label className="flex items-center gap-2 text-sm text-white">
+                    <input type="checkbox" checked={viaEmail} onChange={e => setViaEmail(e.target.checked)} className="form-check-input" />
+                    Email
+                  </label>
+                  <input
+                    type="email" value={linkEmail} onChange={e => setLinkEmail(e.target.value)}
+                    placeholder="customer@email.com" disabled={!viaEmail}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white disabled:opacity-40"
+                  />
+
+                  {/* Text row */}
+                  <label className="flex items-center gap-2 text-sm text-white pt-1">
+                    <input type="checkbox" checked={viaSms} onChange={e => setViaSms(e.target.checked)} className="form-check-input" />
+                    Text message
+                  </label>
+                  <input
+                    type="tel" value={linkPhone} onChange={e => setLinkPhone(e.target.value)}
+                    placeholder="(416) 555-0123" disabled={!viaSms}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white disabled:opacity-40"
+                  />
+
+                  <button type="button" className="btn btn-primary w-full mt-1" disabled={busy === linkModal.id} onClick={submitSendLink}>
+                    {busy === linkModal.id ? "Sending…" : "Send link"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
@@ -17,9 +18,12 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
  */
 export async function POST(request: NextRequest) {
   const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const { appointment_id, send_email } = await request.json() as {
+  const { appointment_id, send_email, send_sms, email, phone } = await request.json() as {
     appointment_id: string;
     send_email?: boolean;
+    send_sms?: boolean;
+    email?: string;   // optional override / fill-in when none on file
+    phone?: string;   // optional override / fill-in when none on file
   };
   if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
 
@@ -96,8 +100,25 @@ export async function POST(request: NextRequest) {
         .eq("id", appt.id);
     }
 
-    // Fire the email if requested and we have somewhere to send it
-    if (send_email && appt.client_email && session.url) {
+    // Resolve targets: caller can pass an email/phone to use (and we persist
+    // them to the appointment so receipts/SMS work next time too), else fall
+    // back to whatever is on file.
+    const emailTo = (email?.trim() || appt.client_email || "").trim();
+    const phoneTo = (phone?.trim() || appt.client_phone || "").trim();
+
+    // Persist any newly-provided contact details on the appointment.
+    const patch: Record<string, string> = {};
+    if (email?.trim() && email.trim() !== (appt.client_email ?? "")) patch.client_email = email.trim();
+    if (phone?.trim() && phone.trim() !== (appt.client_phone ?? "")) patch.client_phone = phone.trim();
+    if (Object.keys(patch).length) {
+      await supabaseAdmin.from("appointments").update(patch).eq("id", appt.id).then(null, () => null);
+    }
+
+    let emailed = false;
+    let texted = false;
+
+    // Email the link
+    if (send_email && emailTo && session.url) {
       fetch(`${BASE_URL}/api/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,7 +126,7 @@ export async function POST(request: NextRequest) {
           type: "payment_link",
           data: {
             clientName: appt.client_name,
-            clientEmail: appt.client_email,
+            clientEmail: emailTo,
             shopName: shop.name,
             shopEmail: shop.email ?? "",
             serviceName,
@@ -116,9 +137,20 @@ export async function POST(request: NextRequest) {
           },
         }),
       }).catch(() => null);
+      emailed = true;
     }
 
-    return NextResponse.json({ url: session.url, emailed: !!(send_email && appt.client_email) });
+    // Text the link
+    if (send_sms && phoneTo && session.url) {
+      await sendSmsBestEffort(
+        phoneTo,
+        `Pay for your ${serviceName} appointment: ${session.url}`,
+        shop.name,
+      );
+      texted = true;
+    }
+
+    return NextResponse.json({ url: session.url, emailed, texted });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 500 });
   }
