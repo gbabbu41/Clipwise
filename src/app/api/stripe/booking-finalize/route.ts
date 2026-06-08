@@ -179,6 +179,10 @@ export async function POST(request: NextRequest) {
     // Booking-confirmation emails — customer + owner + assigned barber. Online
     // bookings skipped these before, so barbers/owners weren't being told.
     // Failures never block the booking.
+    // Hoisted so the success-screen summary (returned below) can use the names —
+    // the customer's in-memory booking state is wiped by the Stripe redirect.
+    let summaryBarberName = "Any Available";
+    let summaryServiceName = "Service";
     try {
       const [{ data: barber }, { data: service }] = await Promise.all([
         m.barber_id
@@ -188,6 +192,8 @@ export async function POST(request: NextRequest) {
           ? supabaseAdmin.from("services").select("name").eq("id", m.service_id).maybeSingle()
           : Promise.resolve({ data: null as { name: string } | null }),
       ]);
+      summaryBarberName = barber?.name ?? "Any Available";
+      summaryServiceName = service?.name ?? "Service";
       const base = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const bookingData = {
         clientName: m.client_name, clientEmail: m.client_email || "—", clientPhone: m.client_phone || "—",
@@ -211,7 +217,25 @@ export async function POST(request: NextRequest) {
       if (barber?.email) send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name });
     } catch { /* never block the booking on email */ }
 
-    return NextResponse.json({ paid: true, appointmentId: appt.id });
+    return NextResponse.json({
+      paid: true,
+      appointmentId: appt.id,
+      // Summary for the confirmation screen — the customer's in-memory booking
+      // state is gone after the redirect to/from Stripe, so the client renders
+      // from this instead of showing blanks / $0.
+      summary: {
+        shopName: shopRow?.name ?? "",
+        barberName: summaryBarberName,
+        serviceName: summaryServiceName,
+        date: m.date,
+        time: m.time_slot,
+        total: Number(m.total_amount ?? 0),
+        clientEmail: m.client_email ?? "",
+        paymentNote: isSave ? "Card saved — charged after your visit"
+          : isHold ? "Card held — charged after your visit"
+          : "Paid online",
+      },
+    });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 500 });
   }

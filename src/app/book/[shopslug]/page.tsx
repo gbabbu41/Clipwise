@@ -77,6 +77,13 @@ export default function BookingPage() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  // Booking summary returned by /booking-finalize after the Stripe round-trip —
+  // the in-memory selections are wiped by the redirect, so the success screen
+  // renders from this when present (online path).
+  const [confirmedSummary, setConfirmedSummary] = useState<{
+    shopName: string; barberName: string; serviceName: string;
+    date: string; time: string; total: number; clientEmail: string; paymentNote: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
   /** Customer's payment-method pick. `null` means not yet decided. The
@@ -158,6 +165,7 @@ export default function BookingPage() {
         const data = await res.json();
         if (res.ok && data.paid && data.appointmentId) {
           setBookingId(data.appointmentId);
+          if (data.summary) setConfirmedSummary(data.summary);
           setConfirmed(true);
         } else {
           showToast("We couldn't confirm your payment. Contact the shop.", false);
@@ -863,6 +871,14 @@ export default function BookingPage() {
 
   // ── Success screen ─────────────────────────────────────────────────────────
   if (confirmed) {
+    // Prefer the server summary (online path: in-memory state was wiped by the
+    // Stripe redirect); fall back to live state for the in-person path.
+    const dispBarber = confirmedSummary?.barberName ?? barber?.name ?? "Any Available";
+    const dispService = confirmedSummary?.serviceName ?? service?.name ?? "";
+    const dispDateObj = confirmedSummary ? new Date(`${confirmedSummary.date}T12:00:00`) : selectedDate;
+    const dispTime = confirmedSummary?.time ?? selectedTime ?? "";
+    const dispTotal = confirmedSummary?.total ?? total;
+    const dispEmail = confirmedSummary?.clientEmail || clientInfo.email;
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
         {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
@@ -872,15 +888,15 @@ export default function BookingPage() {
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
           {bookingId && <p className="text-xs text-[#777] mb-1">Booking ID: <span className="text-white font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
-          <p className="text-[#777] mb-2">We&apos;ll send a confirmation to {clientInfo.email}</p>
+          {dispEmail && <p className="text-[#777] mb-2">We&apos;ll send a confirmation to {dispEmail}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
-              { label: "Shop", value: shop.name },
-              { label: "Barber", value: barber?.name ?? "Any Available" },
-              { label: "Service", value: service?.name ?? "" },
-              { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" }) ?? "" },
-              { label: "Time", value: selectedTime ?? "" },
+              { label: "Shop", value: confirmedSummary?.shopName || shop.name },
+              { label: "Barber", value: dispBarber },
+              { label: "Service", value: dispService },
+              { label: "Date", value: dispDateObj?.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" }) ?? "" },
+              { label: "Time", value: dispTime },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm">
                 <span className="text-[#777]">{label}</span>
@@ -889,32 +905,35 @@ export default function BookingPage() {
             ))}
             <div className="border-t border-[#1e1e1e] pt-3 flex justify-between font-bold">
               <span className="text-white">Total</span>
-              <span className="text-white text-lg">{formatCurrency(total)}</span>
+              <span className="text-white text-lg">{formatCurrency(dispTotal)}</span>
             </div>
+            {confirmedSummary?.paymentNote && (
+              <p className="text-xs text-[#777] text-center pt-1">{confirmedSummary.paymentNote}</p>
+            )}
           </div>
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => {
-              if (!selectedDate || !selectedTime || !service) return;
-              const [time, period] = selectedTime.split(" ");
+              if (!dispDateObj || !dispTime) return;
+              const [time, period] = dispTime.split(" ");
               const [hoursStr, minutesStr] = time.split(":");
               let hours = parseInt(hoursStr, 10);
               const minutes = parseInt(minutesStr || "0", 10);
               if (period === "PM" && hours !== 12) hours += 12;
               if (period === "AM" && hours === 12) hours = 0;
-              const start = new Date(selectedDate);
+              const start = new Date(dispDateObj);
               start.setHours(hours, minutes, 0, 0);
               const end = new Date(start.getTime() + (totalDuration || 60) * 60000);
               const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-              const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Haircut at ${shop.name}`)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Service: ${service.name}\nBarber: ${barber?.name ?? "Any Available"}\nBooking ID: ${bookingId?.slice(0, 8).toUpperCase() ?? ""}`)}&location=${encodeURIComponent(`${shop.address ?? ""}, ${shop.city ?? ""}`)}`;
+              const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Haircut at ${shop.name}`)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Service: ${dispService}\nBarber: ${dispBarber}\nBooking ID: ${bookingId?.slice(0, 8).toUpperCase() ?? ""}`)}&location=${encodeURIComponent(`${shop.address ?? ""}, ${shop.city ?? ""}`)}`;
               window.open(url, "_blank");
             }}>
               <Calendar size={16} /> Add to Calendar
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${selectedDate?.toLocaleDateString()} at ${selectedTime}`, url: window.location.href }); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${dispDateObj?.toLocaleDateString()} at ${dispTime}`, url: window.location.href }); }}>
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
             Book Another Appointment
           </Button>
         </div>
