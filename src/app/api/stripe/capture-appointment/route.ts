@@ -47,8 +47,18 @@ export async function POST(request: NextRequest) {
     console.warn("[capture-appointment] shop NOT FOUND", { appointment_id, shop_id: appt.shop_id, shopErr: shopErr?.message });
     return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
   }
-  console.log("[capture-appointment] found", { appointment_id, payment_status: appt.payment_status, owner_match: shop.owner_id === userId });
-  if (shop.owner_id !== userId) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  // Allow the shop OWNER, or a BARBER of this shop who's been granted the
+  // manage_appointments permission (the same gate that shows the action buttons
+  // in their portal). Otherwise forbidden.
+  let allowed = shop.owner_id === userId;
+  if (!allowed) {
+    const { data: barber } = await supabaseAdmin
+      .from("barbers").select("is_active, permissions").eq("shop_id", appt.shop_id).eq("user_id", userId).maybeSingle();
+    const perms = barber?.permissions as { manage_appointments?: boolean } | null;
+    allowed = !!barber?.is_active && perms?.manage_appointments === true;
+  }
+  console.log("[capture-appointment] found", { appointment_id, payment_status: appt.payment_status, allowed });
+  if (!allowed) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
   const isSaved = appt.payment_status === "saved";
   if (!appt.payment_intent_id && !isSaved) {

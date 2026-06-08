@@ -18,7 +18,7 @@ interface Appointment {
   status: AppStatus;
   total_amount: number;
   date: string;
-  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | null;
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "saved" | "captured" | null;
   payment_method?: "card" | "cash" | "online" | null;
   services?: { name: string; price?: number; duration_minutes?: number };
 }
@@ -155,9 +155,38 @@ export default function BarberSchedulePage() {
     }).catch(() => null);
   };
 
+  /** Capture a held/saved card via the server route (now barber-allowed when
+   *  the barber has manage_appointments). Charges the card and flags it
+   *  captured locally. */
+  const captureHeld = async (apt: Appointment, reason: "completed" | "no_show") => {
+    if (!accessToken) return false;
+    const res = await fetch("/api/stripe/capture-appointment", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: apt.id, reason }),
+    });
+    const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+    if (!data.ok) { showToast(`Charge failed: ${data.error ?? "try again"}`); return false; }
+    await patchAppt(apt.id, { payment_status: "captured" });
+    return true;
+  };
+
   const handlePrimary = async (apt: Appointment, next: AppStatus) => {
-    // Same intercept as owner side: completing an unpaid appointment opens
-    // the PaymentModal so the barber can record cash or send a Stripe link.
+    // Held/saved card (no-show protection): completing auto-charges the card —
+    // no modal. Mirrors the owner appointments page.
+    if (next === "completed" && (apt.payment_status === "held" || apt.payment_status === "saved")) {
+      setSavingId(apt.id);
+      showToast(apt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
+      const ok = await captureHeld(apt, "completed");
+      if (ok) {
+        await patchAppt(apt.id, { status: "completed" });
+        showToast(`Charged ${formatCurrency(apt.total_amount ?? 0)} · Completed`);
+      }
+      setSavingId("");
+      return;
+    }
+    // Otherwise: completing an unpaid appointment opens the PaymentModal so the
+    // barber can record cash or send a Stripe link.
     if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
       setPaymentModal(apt);
       return;
