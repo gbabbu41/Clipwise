@@ -36,6 +36,41 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   }).catch(() => null);
 }
 
+/**
+ * In-app (web) success alert when a no-show fee is charged — to the owner AND
+ * the assigned barber. Intentionally in-app ONLY (no email/SMS): it drives the
+ * realtime portal pop-up + chime via the notifications table. Uses the
+ * CHECK-allowed "no-show" notification type.
+ */
+export async function notifyNoShowCharged(args: {
+  ownerId?: string | null;
+  barberId?: string | null;   // barbers.id (resolved to its linked user)
+  clientName?: string | null;
+  amountCents?: number;
+  date?: string | null;
+}): Promise<void> {
+  const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const message = `Auto-charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
+
+  const recipients = new Set<string>();
+  if (args.ownerId) recipients.add(args.ownerId);
+  if (args.barberId) {
+    const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", args.barberId).maybeSingle();
+    if (b?.user_id) recipients.add(b.user_id);
+  }
+  if (recipients.size === 0) return;
+
+  await supabaseAdmin.from("notifications").insert(
+    Array.from(recipients).map(uid => ({
+      user_id: uid,
+      title: "✅ No-show fee charged",
+      message,
+      type: "no-show",
+      is_read: false,
+    })),
+  ).then(null, () => null);
+}
+
 export async function notifyChargeFailed(args: {
   ownerId?: string | null;
   clientName?: string | null;

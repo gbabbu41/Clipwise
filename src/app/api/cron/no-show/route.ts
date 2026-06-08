@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
-import { sendPaymentReceipt, notifyChargeFailed } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -37,7 +37,7 @@ async function run() {
   // bookings >7 days out), dated today or earlier.
   const { data: rows } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .in("payment_status", ["held", "saved"])
     .in("status", ["pending", "confirmed"])
     .lte("date", today);
@@ -114,6 +114,14 @@ async function run() {
         date: a.date,
         amountCents: pi.amount_received ?? 0,
         context: "No-show fee",
+      });
+      // In-app/web success alert to owner + assigned barber (pop-up + chime).
+      notifyNoShowCharged({
+        ownerId: shop.owner_id,
+        barberId: a.barber_id,
+        clientName: a.client_name,
+        amountCents: pi.amount_received ?? 0,
+        date: a.date,
       });
       charged++;
     } catch {
