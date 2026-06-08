@@ -81,6 +81,11 @@ These are the difference between "works on localhost" and "works for real custom
 ---
 
 ## 🗄️ 2. Pending SQL migrations (Supabase SQL editor)
+- [ ] 🔴 **Shop booking_settings column** (`supabase/migrations/phase5_shop_booking_settings.sql`)
+      — **CRITICAL, run this first.** `shops.booking_settings` was never created in prod, so
+      no-show protection/warning/hold + capture-appointment + auto-confirm + deposits all
+      silently fail (capture-appointment 404s with "column shops.booking_settings does not
+      exist"). Adds the JSONB column + a sane default for existing shops.
 - [ ] **Phase 1 no-show fee column** (`supabase/migrations/phase1_no_show.sql`):
       ```sql
       alter table public.appointments add column if not exists no_show_fee_amount integer;
