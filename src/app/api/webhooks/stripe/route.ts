@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendPaymentReceipt } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -30,14 +31,36 @@ export async function POST(request: NextRequest) {
         // Post-booking payment link flow — owner sent a payment link for an
         // existing appointment and the customer just paid. Flip the row.
         if (session.metadata?.flow === "post_booking_payment" && session.metadata?.appointment_id) {
-          await supabaseAdmin
+          const { data: paidAppt } = await supabaseAdmin
             .from("appointments")
             .update({
               payment_status: "paid",
               payment_method: "online",
               payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
             })
-            .eq("id", session.metadata.appointment_id);
+            .eq("id", session.metadata.appointment_id)
+            .select("client_email, client_name, date, total_amount, shop_id, services(name)")
+            .maybeSingle();
+
+          // Send the customer a receipt — link payments are confirmed here (not
+          // via the manual capture flow), so this is the only place that fires.
+          if (paidAppt?.client_email) {
+            const { data: shopRow } = await supabaseAdmin
+              .from("shops").select("name, email").eq("id", paidAppt.shop_id).maybeSingle();
+            const svcName = Array.isArray(paidAppt.services)
+              ? (paidAppt.services[0]?.name ?? "")
+              : ((paidAppt.services as { name?: string } | null)?.name ?? "");
+            await sendPaymentReceipt(BASE_URL, {
+              clientEmail: paidAppt.client_email,
+              clientName: paidAppt.client_name,
+              shopName: shopRow?.name,
+              shopEmail: shopRow?.email,
+              serviceName: svcName,
+              date: paidAppt.date,
+              amountCents: Math.round((paidAppt.total_amount ?? 0) * 100),
+              context: "Payment received",
+            });
+          }
           break;
         }
 

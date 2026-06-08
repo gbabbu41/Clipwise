@@ -60,6 +60,12 @@ These are the difference between "works on localhost" and "works for real custom
 - [ ] **Run pending SQL** in Supabase → SQL editor (see section 4).
 - [ ] **Email domain**: `FROM_EMAIL=Hello@clipwise.ca` — verify the domain in Resend and
       set up inbox/forwarding so replies don't bounce (MX / Cloudflare Email Routing).
+- [ ] **Receipts — later move to Stripe-native (optional):** the app currently sends its own
+      branded `payment_receipt` email via Resend (works in test mode, fired on manual capture
+      AND now on payment-link webhook). Stripe does NOT auto-send receipts in test mode. When
+      live, decide: keep the app's Resend receipt, OR enable Stripe's native receipts
+      (Stripe Dashboard → emails: "successful payments" + set `receipt_email` on the
+      PaymentIntent/session). Don't enable both or customers get two receipts.
 
 ---
 
