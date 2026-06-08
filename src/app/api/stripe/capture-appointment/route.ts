@@ -30,15 +30,24 @@ export async function POST(request: NextRequest) {
   const userId = userData?.user?.id;
   if (!userId) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  const { data: appt } = await supabaseAdmin
+  console.log("[capture-appointment] start", { appointment_id, reason });
+
+  const { data: appt, error: apptErr } = await supabaseAdmin
     .from("appointments")
     .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
-    .eq("id", appointment_id).single();
-  if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
+    .eq("id", appointment_id).maybeSingle();
+  if (apptErr || !appt) {
+    console.warn("[capture-appointment] appointment NOT FOUND", { appointment_id, apptErr: apptErr?.message });
+    return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
+  }
 
-  const { data: shop } = await supabaseAdmin
-    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).single();
-  if (!shop) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
+  const { data: shop, error: shopErr } = await supabaseAdmin
+    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).maybeSingle();
+  if (shopErr || !shop) {
+    console.warn("[capture-appointment] shop NOT FOUND", { appointment_id, shop_id: appt.shop_id, shopErr: shopErr?.message });
+    return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
+  }
+  console.log("[capture-appointment] found", { appointment_id, payment_status: appt.payment_status, owner_match: shop.owner_id === userId });
   if (shop.owner_id !== userId) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
   const isSaved = appt.payment_status === "saved";
