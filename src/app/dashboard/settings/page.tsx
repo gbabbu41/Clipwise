@@ -269,8 +269,8 @@ export default function SettingsPage() {
 
   // The shared Bootstrap form-switch wraps all of these; this local alias
   // keeps the existing call signature (`<Toggle value={..} onChange={..} />`).
-  const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
-    <Switch checked={value} onChange={onChange} />
+  const Toggle = ({ value, onChange, disabled }: { value: boolean; onChange: () => void; disabled?: boolean }) => (
+    <Switch checked={value} onChange={onChange} disabled={disabled} />
   );
 
   return (
@@ -438,12 +438,22 @@ export default function SettingsPage() {
                 <p className="text-xs text-[#777] mt-1">Charged from the card held (or saved) at booking. Leave 0 to charge the full amount.</p>
               </div>
             )}
-            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-              <div>
-                <p className="text-sm font-medium text-white">Auto-Confirm Bookings</p>
-                <p className="text-xs text-[#777]">Automatically confirm new bookings</p>
+            <div className={cn(
+              "flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]",
+              !profile.allow_pay_in_person && "opacity-50"
+            )}>
+              <div className="pr-4">
+                <p className="text-sm font-medium text-white">Auto-Confirm In-Person Bookings</p>
+                <p className="text-xs text-[#777]">
+                  {profile.allow_pay_in_person
+                    ? "When on, pay-in-person bookings are confirmed automatically — no manual approval needed. Online (prepaid) bookings always confirm on payment."
+                    : "Only applies when “Allow pay-in-person” is on. Online bookings already confirm automatically when paid."}
+                </p>
               </div>
-              <Toggle value={booking.auto_confirm} onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
+              <Toggle
+                value={profile.allow_pay_in_person && booking.auto_confirm}
+                disabled={!profile.allow_pay_in_person}
+                onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
 
             {/* Pay-in-person — controls whether the customer booking page

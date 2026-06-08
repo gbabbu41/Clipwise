@@ -538,6 +538,11 @@ export default function BookingPage() {
     // would be rejected ("new row violates RLS").
     const allSlots = generate24hSlots();
     const startIdx = allSlots.indexOf(selectedTime);
+    // Pay-in-person bookings normally land as "pending" for the owner/barber to
+    // Approve. When the shop turns on Auto-Confirm, skip that step and confirm
+    // them straight away. (Online/prepaid bookings always confirm on payment.)
+    const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
+    const inPersonStatus = autoConfirm ? "confirmed" : "pending";
     const rows = servicesPicked.map((svc, i) => {
       const slotsConsumedBefore = servicesPicked.slice(0, i)
         .reduce((sum, prev) => sum + Math.max(1, Math.ceil((prev.duration_minutes ?? 30) / 30)), 0);
@@ -554,7 +559,7 @@ export default function BookingPage() {
         client_phone: clientInfo.phone,
         date: formatDateForDb(selectedDate),
         time_slot,
-        status: "pending",
+        status: inPersonStatus,
         total_amount: rowAmount,
         deposit_paid: false,
         // When the customer explicitly picked "pay in person", tag the row
@@ -1469,13 +1474,16 @@ export default function BookingPage() {
               : <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
             }
 
-            {/* No-show heads-up. The mandatory consent checkbox itself lives in
-                the pay-method modal (only the online/card path needs it), so an
-                in-person booker is never forced to accept it. This is just an
-                informational note for far-future bookings. */}
-            {cardForNoShow && willSaveCard && (
-              <p className="text-xs text-amber-200/80 text-center">
-                ⓘ More than 7 days out — if you pay online your card is <span className="font-semibold">saved</span> (not held) and charged after your visit.
+            {/* No-show policy heads-up — always shown when this shop has no-show
+                protection on and there's a balance, so the customer sees the
+                charge policy before booking. The mandatory CONSENT checkbox
+                still lives in the pay-method modal (only the online/card path
+                needs to accept it); an in-person booker is never forced to. */}
+            {cardForNoShow && (
+              <p className="text-xs text-amber-200/90 text-center bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
+                ⓘ <span className="font-semibold">No-show policy:</span> if you pay online, your card is{" "}
+                {willSaveCard ? <>securely <span className="font-semibold">saved</span> (not charged now)</> : <>securely <span className="font-semibold">held</span></>}{" "}
+                and charged after your visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if you don&apos;t show up. Paying in person takes no card.
               </p>
             )}
           </div>
