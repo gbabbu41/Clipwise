@@ -328,22 +328,29 @@ function appointmentRejected(data: Record<string, string>) {
 
 function paymentReceipt(data: Record<string, string>) {
   // Sent when a card is actually charged for an appointment — held-card
-  // capture on completion, saved-card off-session charge, or a no-show fee.
-  // `context` is a short human label ("Appointment completed" / "No-show fee").
+  // capture on completion, saved-card off-session charge, no-show fee, or a
+  // payment-link payment confirmed by the webhook. `context` is a short human
+  // label ("Appointment completed" / "No-show fee" / "Payment received").
+  //
+  // Receipt is framed with the SHOP as the merchant/seller (merchant of record
+  // on Stripe direct charges) — ClipWise appears only as the software provider
+  // in small print. Keeps the seller relationship (and its tax/refund/dispute
+  // liability) clearly with the shop, not the platform.
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:22px">Receipt from ${data.shopName}</div>
     <div class="green-badge">💳 Payment Received</div>
     <h1>Hi ${data.clientName},</h1>
-    <p>This confirms a payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}.</p>
+    <p>Thanks for your payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}. ${data.shopName} is the seller for this purchase — your receipt is below.</p>
     <hr class="divider">
-    <div class="row"><span class="label">Shop</span><span class="val">${data.shopName}</span></div>
+    <div class="row"><span class="label">Sold by</span><span class="val">${data.shopName}</span></div>
     ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
     ${data.date ? `<div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>` : ""}
     ${data.context ? `<div class="row"><span class="label">Charge</span><span class="val">${data.context}</span></div>` : ""}
-    <div class="row"><span class="label">Amount Charged</span><span class="val">${data.amount}</span></div>
+    <div class="row"><span class="label">Amount Paid</span><span class="val">${data.amount}</span></div>
     <hr class="divider">
-    <p style="font-size:13px;color:#6B7280">Charged to the card on file. This is your receipt — no action needed. Questions? Just reply to this email.</p>
-    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+    <p style="font-size:13px;color:#6B7280">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
+    <p style="font-size:12px;color:#4B5563">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
   `);
 }
 

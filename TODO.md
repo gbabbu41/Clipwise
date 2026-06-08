@@ -60,6 +60,17 @@ These are the difference between "works on localhost" and "works for real custom
 - [ ] **Run pending SQL** in Supabase → SQL editor (see section 4).
 - [ ] **Email domain**: `FROM_EMAIL=Hello@clipwise.ca` — verify the domain in Resend and
       set up inbox/forwarding so replies don't bounce (MX / Cloudflare Email Routing).
+- [ ] ⚖️ **Merchant-of-record / liability (pre-launch, get legal review):** ClipWise must stay
+      the *platform*, with each **shop as the seller / merchant of record** — not ClipWise.
+      · This is already true on Stripe **direct charges** (connected account = MoR; shop owns
+        the tax, refunds, chargebacks). Keep using direct charges; the platform-charge
+        fallback is now LIVE-blocked (test-only) — never let it run with real money.
+      · Receipt re-skinned to lead with the SHOP as seller + "merchant of record" line;
+        ClipWise only in small print as the software provider.
+      · TODO before live: have a lawyer review the customer Terms + the Stripe Connect
+        platform agreement so the platform-vs-seller roles are documented; confirm sales-tax
+        responsibility sits with the shops; make sure no ClipWise tax IDs / "we sold this"
+        language appears on customer-facing payment docs.
 - [ ] **Receipts — later move to Stripe-native (optional):** the app currently sends its own
       branded `payment_receipt` email via Resend (works in test mode, fired on manual capture
       AND now on payment-link webhook). Stripe does NOT auto-send receipts in test mode. When
