@@ -592,8 +592,16 @@ export default function AppointmentsPage() {
   const filtered = useMemo(() => {
     let apts = [...appointments];
     if (barberFilter !== "all") apts = apts.filter(a => a.barber_id === barberFilter);
-    // "active" = still open (needs approval or completing); else exact status.
+    // "active" = still open (needs approval or completing); "unpaid" = money
+    // owed and not yet collected/secured (incl. completed-but-unpaid, e.g. a
+    // walk-in where a link was sent but the customer hasn't paid yet); else
+    // exact status.
     if (statusFilter === "active") apts = apts.filter(a => a.status === "pending" || a.status === "confirmed");
+    else if (statusFilter === "unpaid") apts = apts.filter(a => {
+      const s = a.payment_status;
+      const settledOrSecured = s === "paid" || s === "captured" || s === "refunded" || s === "held" || s === "saved";
+      return (a.total_amount ?? 0) > 0 && a.status !== "cancelled" && !settledOrSecured;
+    });
     else if (statusFilter !== "all") apts = apts.filter(a => a.status === statusFilter);
     if (search) apts = apts.filter(a =>
       a.client_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -754,6 +762,7 @@ export default function AppointmentsPage() {
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="active">Open · needs action</option>
+              <option value="unpaid">💲 Unpaid · money owed</option>
               <option value="all">All Statuses</option>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
             </select>
