@@ -48,9 +48,14 @@ export async function notifyNoShowCharged(args: {
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
+  kind?: "no_show" | "completed"; // default no_show
 }): Promise<void> {
+  const completed = args.kind === "completed";
   const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
-  const message = `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
+  const message = completed
+    ? `Charged ${args.clientName ?? "a client"}'s card${amt} on completion${args.date ? ` (${args.date})` : ""}.`
+    : `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
+  const title = completed ? "✅ Payment collected" : "✅ No-show fee charged";
 
   const recipients = new Set<string>();
   if (args.ownerId) recipients.add(args.ownerId);
@@ -63,9 +68,10 @@ export async function notifyNoShowCharged(args: {
   await supabaseAdmin.from("notifications").insert(
     Array.from(recipients).map(uid => ({
       user_id: uid,
-      title: "✅ No-show fee charged",
+      title,
       message,
-      type: "no-show",
+      // "no-show" is a CHECK-allowed type; "booking" fits a completion charge.
+      type: completed ? "booking" : "no-show",
       is_read: false,
     })),
   ).then(null, () => null);

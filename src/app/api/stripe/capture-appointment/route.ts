@@ -134,7 +134,6 @@ export async function POST(request: NextRequest) {
     // ledger). Fire-and-forget — never block the charge on bookkeeping.
     await supabaseAdmin.from("transactions").insert({
       shop_id: appt.shop_id,
-      appointment_id: appt.id,
       barber_id: appt.barber_id || null,
       client_name: appt.client_name || null,
       service_name: reason === "no_show" ? `No-show fee — ${svc?.name ?? "appointment"}` : (svc?.name ?? "Service"),
@@ -154,21 +153,22 @@ export async function POST(request: NextRequest) {
       context: reason === "no_show" ? "No-show fee" : "Appointment completed",
     });
 
-    // For a no-show charge: also TEXT the customer (parity with the auto cron)
-    // and post an in-app/web success alert to the owner + assigned barber.
+    // In-app/web success alert to owner + assigned barber for BOTH a completion
+    // charge and a no-show fee (pop-up + chime). No-show also texts the customer.
+    notifyNoShowCharged({
+      ownerId: shop.owner_id,
+      barberId: appt.barber_id,
+      clientName: appt.client_name,
+      amountCents: amountReceived,
+      date: appt.date,
+      kind: reason === "no_show" ? "no_show" : "completed",
+    });
     if (reason === "no_show") {
       sendSmsBestEffort(
         appt.client_phone,
         `You missed your appointment on ${appt.date}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
         shop.name,
       );
-      notifyNoShowCharged({
-        ownerId: shop.owner_id,
-        barberId: appt.barber_id,
-        clientName: appt.client_name,
-        amountCents: amountReceived,
-        date: appt.date,
-      });
     }
 
     return NextResponse.json({ ok: true, amount: amountReceived / 100 });

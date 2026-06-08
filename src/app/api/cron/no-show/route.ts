@@ -126,7 +126,6 @@ async function run() {
       // Record a transaction so the fee shows in Payments / revenue / analytics.
       await supabaseAdmin.from("transactions").insert({
         shop_id: a.shop_id,
-        appointment_id: a.id,
         barber_id: a.barber_id || null,
         client_name: a.client_name || null,
         service_name: "No-show fee",
