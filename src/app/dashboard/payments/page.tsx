@@ -136,7 +136,15 @@ export default function PaymentsPage() {
     const data = await res.json();
     setBusy(null);
     if (!res.ok) { showToast(data.error ?? "Couldn't create link.", false); return; }
-    showToast(data.emailed ? "Payment link emailed to the customer" : "Payment link created");
+    if (data.emailed) {
+      showToast("Payment link emailed to the customer");
+    } else if (data.url) {
+      // No email on file — copy the link so the owner can still send/share it.
+      try { await navigator.clipboard?.writeText(data.url); } catch { /* clipboard blocked */ }
+      showToast("No email on file — payment link copied to clipboard");
+    } else {
+      showToast("Payment link created");
+    }
   };
 
   const filteredAppts = appts.filter(a => {

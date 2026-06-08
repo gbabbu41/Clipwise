@@ -65,6 +65,11 @@ export default function BarberSchedulePage() {
   const [savingId, setSavingId] = useState("");
   const [paymentModal, setPaymentModal] = useState<Appointment | null>(null);
   const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  const [payEmail, setPayEmail] = useState("");
+  const [payLink, setPayLink] = useState("");
+  useEffect(() => {
+    if (paymentModal) { setPayEmail(paymentModal.client_email ?? ""); setPayLink(""); }
+  }, [paymentModal]);
   const [rejectModal, setRejectModal] = useState<{ appt: Appointment; reason: string } | null>(null);
   const [savingReject, setSavingReject] = useState(false);
 
@@ -200,10 +205,15 @@ export default function BarberSchedulePage() {
   const sendPaymentLink = async (alsoComplete: boolean) => {
     if (!paymentModal || !accessToken) return;
     setSavingPayment("link");
+    const email = payEmail.trim();
+    const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (willEmail && email !== (paymentModal.client_email ?? "")) {
+      await patchAppt(paymentModal.id, { client_email: email });
+    }
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: true }),
+      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: willEmail }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -213,8 +223,13 @@ export default function BarberSchedulePage() {
     }
     if (alsoComplete) await patchAppt(paymentModal.id, { status: "completed" });
     setSavingPayment("");
-    setPaymentModal(null);
-    showToast(data.emailed ? "Payment link emailed" : "Payment link generated");
+    if (data.emailed) {
+      setPaymentModal(null);
+      showToast("Payment link emailed");
+    } else {
+      setPayLink(data.url ?? "");
+      showToast("Payment link ready");
+    }
   };
 
   const skipPaymentAndComplete = async () => {
@@ -476,20 +491,48 @@ export default function BarberSchedulePage() {
                 <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-gold font-bold">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
-              <div className="space-y-2">
-                <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={() => markCashPaid(true)}>
-                  {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
-                </button>
-                <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== "" || !paymentModal.client_email} onClick={() => sendPaymentLink(true)}>
-                  {savingPayment === "link" ? "Sending…" : "📧 Send online payment link"}
-                </button>
-                {!paymentModal.client_email && (
-                  <p className="text-xs text-[#777] text-center -mt-1">Customer has no email — can&apos;t send link</p>
-                )}
-                <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipPaymentAndComplete}>
-                  {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
-                </button>
-              </div>
+              {payLink ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-white font-medium">Payment link ready</p>
+                  <p className="text-xs text-[#777]">Send this to the customer to pay. They&apos;ll enter their email on the secure Stripe page.</p>
+                  <div className="bg-surface-raised border border-border rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn btn-primary w-full"
+                      onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
+                      Copy link
+                    </button>
+                    <a href={payLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">
+                      Open to pay
+                    </a>
+                  </div>
+                  <button type="button" className="btn btn-outline-secondary w-full" onClick={() => setPaymentModal(null)}>
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={() => markCashPaid(true)}>
+                    {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
+                  </button>
+                  <input
+                    type="email"
+                    value={payEmail}
+                    onChange={e => setPayEmail(e.target.value)}
+                    placeholder="Email (optional — to send the link)"
+                    className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold"
+                  />
+                  <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== ""} onClick={() => sendPaymentLink(true)}>
+                    {savingPayment === "link"
+                      ? "Working…"
+                      : payEmail.trim()
+                        ? "📧 Email online payment link"
+                        : "💳 Create online payment link"}
+                  </button>
+                  <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipPaymentAndComplete}>
+                    {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>
