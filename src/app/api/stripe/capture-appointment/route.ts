@@ -104,10 +104,26 @@ export async function POST(request: NextRequest) {
 
     // Email the customer a receipt for the charge (fire-and-forget).
     const amountReceived = pi.amount_received ?? 0;
+    console.log("[capture-appointment] charged", { appointment_id, reason, isSaved, amountReceived, pi_id: pi.id });
     const { data: svc } = appt.service_id
       ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
       : { data: null as { name: string } | null };
     const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    // Record a transaction row so the charge shows up in Payments / revenue /
+    // analytics (appointment payment_status alone isn't in the transactions
+    // ledger). Fire-and-forget — never block the charge on bookkeeping.
+    await supabaseAdmin.from("transactions").insert({
+      shop_id: appt.shop_id,
+      appointment_id: appt.id,
+      barber_id: appt.barber_id || null,
+      client_name: appt.client_name || null,
+      service_name: reason === "no_show" ? `No-show fee — ${svc?.name ?? "appointment"}` : (svc?.name ?? "Service"),
+      amount: amountReceived / 100,
+      tip: 0,
+      payment_method: "card",
+      type: "service",
+    }).then(null, () => null);
     sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,
       clientName: appt.client_name,
@@ -140,6 +156,11 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     // Flag for manual review instead of crashing the UI, and alert the owner
     // in-app so a silent card failure doesn't go unnoticed.
+    console.error("[capture-appointment] charge FAILED", {
+      appointment_id, reason, isSaved,
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string })?.code,
+    });
     await supabaseAdmin.from("appointments")
       .update({ payment_status: "failed" }).eq("id", appointment_id).then(null, () => null);
     notifyChargeFailed({

@@ -123,6 +123,19 @@ async function run() {
         amountCents: pi.amount_received ?? 0,
         date: a.date,
       });
+      // Record a transaction so the fee shows in Payments / revenue / analytics.
+      await supabaseAdmin.from("transactions").insert({
+        shop_id: a.shop_id,
+        appointment_id: a.id,
+        barber_id: a.barber_id || null,
+        client_name: a.client_name || null,
+        service_name: "No-show fee",
+        amount: (pi.amount_received ?? 0) / 100,
+        tip: 0,
+        payment_method: "card",
+        type: "service",
+      }).then(null, () => null);
+      console.log("[cron/no-show] charged", { appointment_id: a.id, amount: pi.amount_received });
       charged++;
     } catch {
       await supabaseAdmin.from("appointments").update({ payment_status: "failed" }).eq("id", a.id).then(null, () => null);
