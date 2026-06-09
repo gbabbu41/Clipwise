@@ -91,6 +91,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Listen for subscription changes (webhook updates) and refresh shop data
+  useEffect(() => {
+    if (!shop?.id) return;
+    const channel = supabase
+      .channel(`shop-sub-${shop.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "shops",
+        filter: `id=eq.${shop.id}`,
+      }, () => { refreshShop(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [shop?.id, refreshShop]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);

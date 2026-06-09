@@ -390,7 +390,7 @@ export default function DashboardPage() {
       )}
 
       {/* Expired / past-due subscription banner */}
-      {shop && profile?.role === "shop_owner" && (shop.subscription_status === "cancelled" || shop.subscription_status === "past_due") && shop.subscription_plan !== "starter" && (
+      {shop && profile?.role === "shop_owner" && (shop.subscription_status === "cancelled" || shop.subscription_status === "past_due") && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
           <div className="flex items-center gap-3">
             <AlertCircle size={18} className="text-orange-400 flex-shrink-0" />

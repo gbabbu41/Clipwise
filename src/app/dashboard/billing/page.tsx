@@ -28,7 +28,7 @@ interface Billing {
 const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pro", premium: "Premium" };
 
 export default function BillingPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, refreshShop } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -52,8 +52,9 @@ export default function BillingPage() {
     if (new URLSearchParams(window.location.search).get("upgraded") === "1") {
       showToast("Plan upgraded! 🎉");
       window.history.replaceState({}, "", "/dashboard/billing");
+      refreshShop(); // unlock premium features in sidebar immediately
     }
-  }, []);
+  }, [refreshShop]);
 
   const startCheckoutUpgrade = async () => {
     if (!accessToken) return;
@@ -90,8 +91,11 @@ export default function BillingPage() {
     });
     setCancelling(false);
     setShowCancel(false);
-    if (res.ok) { showToast("Subscription cancelled"); load(); }
-    else { const d = await res.json(); showToast(d.error ?? "Could not cancel"); }
+    if (res.ok) {
+      showToast("Subscription cancelled. Premium features are now locked.");
+      await refreshShop(); // update sidebar + dashboard banner immediately
+      load();
+    } else { const d = await res.json(); showToast(d.error ?? "Could not cancel"); }
   };
 
   const statusBadge = (status: string) => {
