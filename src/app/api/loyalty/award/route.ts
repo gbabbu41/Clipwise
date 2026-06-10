@@ -53,11 +53,13 @@ export async function POST(request: NextRequest) {
   const points = Math.round(perVisit + perDollar * (appt.total_amount ?? 0));
 
   // Atomically claim the award so a double-fire can't double-credit.
-  const { count } = await supabaseAdmin.from("appointments")
+  // .select() returns the updated rows; an empty array means another call
+  // already claimed it (loyalty_awarded was no longer false).
+  const { data: claimed } = await supabaseAdmin.from("appointments")
     .update({ loyalty_awarded: true })
     .eq("id", appt.id).eq("loyalty_awarded", false)
-    .select("id", { count: "exact", head: true });
-  if (!count) return NextResponse.json({ ok: true, already: true });
+    .select("id");
+  if (!claimed || claimed.length === 0) return NextResponse.json({ ok: true, already: true });
 
   if (points <= 0) return NextResponse.json({ ok: true, points: 0 });
 

@@ -77,12 +77,14 @@ async function run() {
       // Pre-flight lock: atomically claim this row before charging.
       // If another cron run already set it to "capturing"/"captured", this
       // update matches 0 rows and we skip — preventing double-charges.
-      const { count } = await supabaseAdmin.from("appointments")
+      // (The WHERE on payment_status makes the claim atomic; .select() returns
+      // the updated rows so an empty array means another run won the race.)
+      const { data: claimed } = await supabaseAdmin.from("appointments")
         .update({ payment_status: "capturing" })
         .eq("id", a.id)
         .in("payment_status", ["held", "saved"])
-        .select("id", { count: "exact", head: true });
-      if (!count || count === 0) { skipped++; continue; }
+        .select("id");
+      if (!claimed || claimed.length === 0) { skipped++; continue; }
 
       let pi: { amount_received?: number | null };
       if (isSaved) {
