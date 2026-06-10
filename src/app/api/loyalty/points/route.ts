@@ -31,10 +31,20 @@ export async function POST(request: NextRequest) {
     .from("clients").select("id, loyalty_points").eq("id", client_id).eq("shop_id", shop.id).single();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
+  // Negative = redemption. Reject if the client doesn't have enough points.
+  if (points < 0 && client.loyalty_points + points < 0) {
+    return NextResponse.json({ error: "Not enough points to redeem" }, { status: 400 });
+  }
+
   const newTotal = Math.max(0, client.loyalty_points + points);
   const { error } = await supabaseAdmin
     .from("clients").update({ loyalty_points: newTotal }).eq("id", client_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Audit log (best-effort) — 'redeemed' for deductions, 'added' for manual credits.
+  await supabaseAdmin.from("loyalty_rewards").insert({
+    shop_id: shop.id, client_id, points, action: points < 0 ? "redeemed" : "added",
+  }).then(null, () => null);
 
   return NextResponse.json({ ok: true, loyalty_points: newTotal });
 }

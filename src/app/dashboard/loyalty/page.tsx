@@ -33,7 +33,10 @@ export default function LoyaltyPage() {
   const [editPromo, setEditPromo] = useState<PromoCode | null>(null);
   const [addPointsFor, setAddPointsFor] = useState<Client | null>(null);
   const [pointsToAdd, setPointsToAdd] = useState("10");
+  const [redeemFor, setRedeemFor] = useState<Client | null>(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState("100");
   const [saving, setSaving] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [reminders, setReminders] = useState({
     appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
   });
@@ -41,6 +44,58 @@ export default function LoyaltyPage() {
   const [newPromo, setNewPromo] = useState(BLANK_PROMO);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  // Load persisted loyalty settings from the shop's booking_settings blob.
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ls = (shop as any)?.booking_settings?.loyalty;
+    if (ls) {
+      setSettings({
+        points_per_visit: ls.points_per_visit ?? 10,
+        points_per_dollar: ls.points_per_dollar ?? 1,
+        redemption: ls.redemption_rate ?? 5,
+      });
+    }
+  }, [shop]);
+
+  const saveSettings = async () => {
+    if (!shop) return;
+    setSavingSettings(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const current = ((shop as any).booking_settings ?? {}) as Record<string, unknown>;
+    const next = {
+      ...current,
+      loyalty: {
+        enabled: true,
+        points_per_visit: settings.points_per_visit,
+        points_per_dollar: settings.points_per_dollar,
+        redemption_rate: settings.redemption,
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase.from("shops").update({ booking_settings: next as any }).eq("id", shop.id);
+    setSavingSettings(false);
+    showToast(error ? "Failed to save settings" : "Settings saved!");
+  };
+
+  const redeemPoints = async () => {
+    if (!redeemFor || !shop || !accessToken) return;
+    const pts = Number(pointsToRedeem);
+    const res = await fetch("/api/loyalty/points", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: redeemFor.id, points: -Math.abs(pts) }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setClients(prev => prev.map(c => c.id === redeemFor.id ? { ...c, loyalty_points: data.loyalty_points } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
+      const dollarValue = settings.redemption ? (pts / 100) * settings.redemption : 0;
+      showToast(`${pts} pts redeemed${dollarValue ? ` ($${dollarValue.toFixed(2)} value)` : ""} for ${redeemFor.name}`);
+    } else {
+      showToast(data.error ?? "Failed to redeem");
+    }
+    setRedeemFor(null);
+  };
 
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
@@ -181,7 +236,7 @@ export default function LoyaltyPage() {
                   </div>
                 ))}
               </div>
-              <Button onClick={() => showToast("Settings saved!")}>Save Settings</Button>
+              <Button loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
             </CardContent>
           </Card>
 
@@ -236,7 +291,10 @@ export default function LoyaltyPage() {
                           <td className="px-3 py-3 text-sm text-[#777]">{client.total_visits}</td>
                           <td className="px-3 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
-                            <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
+                              <Button variant="outline" size="sm" disabled={client.loyalty_points <= 0} onClick={() => { setPointsToRedeem("100"); setRedeemFor(client); }}>Redeem</Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -353,6 +411,27 @@ export default function LoyaltyPage() {
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsFor(null)}>Cancel</Button>
                 <Button size="sm" className="flex-1" onClick={addPoints}>Add Points</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Redeem Points Modal */}
+      {redeemFor && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setRedeemFor(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
+              <h3 className="text-white font-bold">Redeem Loyalty Points</h3>
+              <p className="text-sm text-[#777]">For: {redeemFor.name} · Balance: {redeemFor.loyalty_points} pts</p>
+              <Input label="Points to redeem" type="number" value={pointsToRedeem} onChange={e => setPointsToRedeem(e.target.value)} />
+              {settings.redemption > 0 && (
+                <p className="text-xs text-[#777]">≈ ${((Number(pointsToRedeem) / 100) * settings.redemption).toFixed(2)} discount value</p>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setRedeemFor(null)}>Cancel</Button>
+                <Button size="sm" className="flex-1" onClick={redeemPoints}>Redeem</Button>
               </div>
             </div>
           </div>

@@ -271,6 +271,16 @@ export default function AppointmentsPage() {
         }
       }
 
+      // Award loyalty points (fire-and-forget). The route is plan-gated and
+      // idempotent server-side, so it's safe to call unconditionally.
+      if (accessToken) {
+        fetch("/api/loyalty/award", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: id }),
+        }).catch(() => null);
+      }
+
       // Send review request email (fire-and-forget)
       if (appt.client_email) {
         fetch("/api/send-email", {
