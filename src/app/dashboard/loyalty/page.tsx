@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 const BLANK_PROMO = { code: "", discount_type: "percent", discount_value: "", uses_left: "", expires_at: "", is_active: true };
 
 export default function LoyaltyPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [tab, setTab] = useState<"loyalty" | "promos">("loyalty");
   const [toast, setToast] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
@@ -58,13 +59,19 @@ export default function LoyaltyPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const addPoints = async () => {
-    if (!addPointsFor || !shop) return;
+    if (!addPointsFor || !shop || !accessToken) return;
     const pts = Number(pointsToAdd);
-    const newTotal = addPointsFor.loyalty_points + pts;
-    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", addPointsFor.id);
-    if (!error) {
-      setClients(prev => prev.map(c => c.id === addPointsFor.id ? { ...c, loyalty_points: newTotal } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
+    const res = await fetch("/api/loyalty/points", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: addPointsFor.id, points: pts }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setClients(prev => prev.map(c => c.id === addPointsFor.id ? { ...c, loyalty_points: data.loyalty_points } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
       showToast(`${pts} points added to ${addPointsFor.name}!`);
+    } else {
+      showToast(data.error ?? "Failed to add points");
     }
     setAddPointsFor(null);
   };
@@ -114,6 +121,20 @@ export default function LoyaltyPage() {
         <p className="text-2xl mb-2">🎁</p>
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
         <p className="text-sm text-[#777]">Loyalty program will be available once your shop is set up.</p>
+      </div>
+    );
+  }
+
+  const activePlan = effectivePlan(shop.subscription_plan, shop.subscription_status);
+  if (!planHasFeature(activePlan, "loyalty")) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <p className="text-4xl mb-4">🔒</p>
+        <h2 className="text-xl font-bold text-white mb-2">Loyalty Program</h2>
+        <p className="text-sm text-[#777] mb-6 max-w-sm">Loyalty points, promo codes, and automated reminders are available on the Pro and Premium plans.</p>
+        <a href="/dashboard/billing" className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
+          Upgrade to unlock
+        </a>
       </div>
     );
   }
