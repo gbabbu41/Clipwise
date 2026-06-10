@@ -107,6 +107,17 @@ These are the difference between "works on localhost" and "works for real custom
       race. ⚠️ Fails if active duplicates already exist — see the detection query in the file,
       clean them first. App also pre-checks for a friendly message (and reverses online
       payment if the slot is lost in the race).
+- [x] **Phase 6 barber client read** (`supabase/migrations/phase6_barber_client_read.sql`) — RUN.
+      Lets barbers SELECT clients + their own transactions in their shop (POS lookup / context).
+- [x] **Phase 7 POS idempotency** (`supabase/migrations/phase7_pos_idempotency.sql`) — RUN.
+      Adds `transactions.stripe_session_id` + unique index so a POS double-submit can't
+      double-charge (pos-finalize returns the existing row instead of inserting twice).
+- [ ] **Phase 8 loyalty earning** (`supabase/migrations/phase8_loyalty_earning.sql`) — ⚠️ STILL TO RUN.
+      Adds `appointments.loyalty_awarded boolean default false`. Without it, completing an
+      appointment can't award loyalty points (the /api/loyalty/award claim no-ops gracefully).
+      ```sql
+      alter table public.appointments add column if not exists loyalty_awarded boolean default false;
+      ```
 - [ ] *(optional)* **Per-visit reviews** — reviews currently dedupe one-per-client-per-shop.
       To allow a review per appointment, add `appointment_id uuid references appointments(id)`
       to `reviews` and switch the dedupe in `/api/reviews/submit` to use it.

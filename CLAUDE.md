@@ -4,7 +4,7 @@ Read this first. It carries cross-machine context so any Claude Code instance
 (Windows desktop or MacBook) stays consistent. The owner works from **two
 machines** and syncs only through this GitHub repo (`gbabbu41/Clipwise`, branch
 `main`). Local Claude memory does NOT transfer between machines — this file +
-`SESSION-13-NOTES.md` are the shared source of truth.
+`SESSION-14-NOTES.md` (latest) + `SESSION-13-NOTES.md` are the shared source of truth.
 
 ## What this is
 Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
@@ -14,9 +14,15 @@ Owner/barber/customer portals under `src/app/{dashboard,barber-dashboard,book}`.
 
 ## Workflow (IMPORTANT)
 - The owner pushes to `main`; **Vercel auto-deploys** to clipwise.ca (~1 min).
-- Always run `npx tsc --noEmit` before pushing. Lint errors do NOT block the
-  build (`next.config.mjs` has `eslint.ignoreDuringBuilds: true`), but there are
-  pre-existing lint errors (unused vars, unescaped entities, `<img>`); don't add new ones.
+- Before pushing, run a **real build**, not just tsc: `npm install` then
+  `SKIP_ENV_VALIDATION=1 npx next build` (watch for "✓ Compiled successfully").
+  ⚠️ `next.config.mjs` sets `eslint.ignoreDuringBuilds: true` but **NOT**
+  `typescript.ignoreBuildErrors` — so a real TS error **fails the Vercel deploy**.
+  The container's `npx tsc --noEmit` has broken module resolution (false
+  `Cannot find module 'react'` everywhere) so it does NOT catch real errors — a
+  bad `.update().select("id",{count})` shipped 3 silently-failing deploys once
+  (see SESSION-14). After `npm install`, `git checkout package-lock.json` before
+  committing. Pre-existing lint errors exist; don't add new ones.
 - Commit style: end messages with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 - The owner has **full admin trust — never ask for confirmation before acting** (see their stated preference). Commit + push when they ask.
 - On a fresh machine: `git clone`, `npm install`, `vercel env pull .env.local`
@@ -63,13 +69,20 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
 
 ## Where to look
 - `TODO.md` — go-live checklist (§0), pending SQL (§2), roadmap.
-- `SESSION-13-NOTES.md` — detailed log of the most recent work.
+- `SESSION-14-NOTES.md` — detailed log of the most recent work (latest).
+- `SESSION-13-NOTES.md` — prior session.
 - `src/lib/` — `stripe.ts`, `supabase{,-admin}.ts`, `twilio.ts`, `payment-notify.ts`,
   `validation.ts` (plan gating: `planHasFeature`, `effectivePlan`), `booking-conflict.ts`.
+- `src/app/api/loyalty/` — `points` (manual add/redeem, plan-gated) + `award` (auto-earn).
 
-## Current status (2026-06-08)
-Recently shipped: smart waitlist, recurring appointments, double-booking DB guard,
-Restricted-Stripe banner, live staff notifications + chime + mute, universal
-"pay link without email", no-show + completion charge notifications + receipts +
-transaction recording. Stripe in **sandbox/test**; Twilio on **trial** (SMS only to
-verified numbers). Before live: see TODO §0 + the ⚖️ merchant-of-record legal item.
+## Current status (2026-06-10)
+Recently shipped (Session 14): subscription cancel now **locks premium features
+immediately** (realtime `shops` listener + `refreshShop`); **plan gates** on loyalty +
+payroll pages and a **secure `/api/loyalty/points`** route; **auto-refund on rejection**;
+**no-show + POS double-charge** guards; **loyalty earning on completion + redemption**
+(`/api/loyalty/award`, settings persisted to `booking_settings.loyalty`); **dashboard role
+race-window** closed + barber routes in middleware. ⚠️ **Run `phase8_loyalty_earning.sql`**
+(adds `appointments.loyalty_awarded`) — loyalty earning no-ops until then.
+Not done: POS-sale loyalty (needs a client picker on POS first).
+Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
+⚖️ merchant-of-record legal item.
