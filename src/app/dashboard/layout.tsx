@@ -34,6 +34,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) return null;
 
+  // Block rendering the owner dashboard for roles being redirected away.
+  // Without this, a barber/customer briefly sees owner financials while the
+  // useEffect redirect is still pending (the race window).
+  if (profile?.role === "barber" || profile?.role === "customer") {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#1e1e1e] border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#777] text-sm">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black">
       <NotificationListener />
