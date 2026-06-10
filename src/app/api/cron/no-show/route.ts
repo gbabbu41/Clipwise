@@ -74,6 +74,16 @@ async function run() {
     const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
 
     try {
+      // Pre-flight lock: atomically claim this row before charging.
+      // If another cron run already set it to "capturing"/"captured", this
+      // update matches 0 rows and we skip — preventing double-charges.
+      const { count } = await supabaseAdmin.from("appointments")
+        .update({ payment_status: "capturing" })
+        .eq("id", a.id)
+        .in("payment_status", ["held", "saved"])
+        .select("id", { count: "exact", head: true });
+      if (!count || count === 0) { skipped++; continue; }
+
       let pi: { amount_received?: number | null };
       if (isSaved) {
         // No hold to capture — charge the saved card off-session for the

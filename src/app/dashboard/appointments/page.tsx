@@ -348,6 +348,28 @@ export default function AppointmentsPage() {
     const updatedNotes = reason
       ? `[Rejected by shop: ${reason}]${appt.notes ? `\n${appt.notes}` : ""}`
       : appt.notes ?? "";
+
+    // Auto-refund if the appointment was paid online (captured payment intent)
+    const wasPaid = appt.payment_intent_id && appt.payment_status === "captured";
+    if (wasPaid && accessToken) {
+      const refundRes = await fetch("/api/stripe/refund", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id }),
+      }).catch(() => null);
+      // Refund route already cancels the appointment + emails customer — just update local state
+      if (refundRes?.ok) {
+        setSavingReject(false);
+        setRejectModal(null);
+        setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : a));
+        if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : null);
+        fetch("/api/appointments/notify-cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }) }).catch(() => null);
+        fetch("/api/waitlist/slot-opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }) }).catch(() => null);
+        showToast("Appointment rejected · Refund issued to customer");
+        return;
+      }
+    }
+
     await supabase.from("appointments").update({ status: "cancelled", notes: updatedNotes }).eq("id", appt.id);
     setSavingReject(false);
     setRejectModal(null);
