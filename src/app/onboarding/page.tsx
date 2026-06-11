@@ -23,9 +23,10 @@ type DayHours = { open: boolean; start: string; end: string };
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, profile, accessToken } = useAuth();
+  const { user, profile, accessToken, refreshShop } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState("");
 
   const confetti = Array.from({ length: 40 }, (_, i) => ({
@@ -424,9 +425,14 @@ export default function OnboardingPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>
-              <Button className="flex-1" onClick={() => {
+              <Button className="flex-1" loading={finishing} onClick={async () => {
                 const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
                 sessionStorage.removeItem("clipwise_plan");
+                // Sync the freshly-created shop into the auth context BEFORE we
+                // navigate — otherwise /dashboard sees shop=null and shows the
+                // "No shop found → Set Up My Shop" page until a manual refresh.
+                setFinishing(true);
+                try { await refreshShop(); } catch { /* dashboard will retry */ }
                 if (planData.autoApprove && (planData.plan === "pro" || planData.plan === "premium")) {
                   router.push("/onboarding/stripe-connect");
                 } else {
