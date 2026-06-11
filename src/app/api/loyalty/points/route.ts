@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -15,9 +16,10 @@ export async function POST(request: NextRequest) {
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
+  await ensurePlansHydrated();
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "loyalty")) {
-    return NextResponse.json({ error: "Loyalty program requires Pro or Premium plan" }, { status: 403 });
+    return NextResponse.json({ error: "Loyalty program requires a paid plan" }, { status: 403 });
   }
 
   const body = await request.json();

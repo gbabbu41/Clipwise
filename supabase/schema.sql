@@ -271,10 +271,33 @@ create table if not exists public.reviews (
 );
 
 -- ============================================================
+-- PLANS (admin-editable subscription tiers — see migrations/phase9_pricing_plans.sql)
+-- Single source of truth for pricing + feature gating. Edited by the
+-- super_admin from /admin/settings. price_cents drives Stripe Checkout;
+-- features[] drives what each plan can do (payments|loyalty|pos|inventory|
+-- staff_portal|commission); barber_limit NULL = unlimited.
+-- ============================================================
+create table if not exists public.plans (
+  id           text primary key,
+  name         text not null,
+  price_cents  integer not null default 0 check (price_cents >= 0),
+  barber_limit integer check (barber_limit is null or barber_limit >= 1),
+  features     text[] not null default '{}',
+  highlights   text[] not null default '{}',
+  badge        text,
+  description  text,
+  is_active    boolean not null default true,
+  sort_order   integer not null default 0,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
 alter table public.users enable row level security;
+alter table public.plans enable row level security;
 alter table public.shops enable row level security;
 alter table public.barbers enable row level security;
 alter table public.time_slots enable row level security;
@@ -600,3 +623,26 @@ create policy "messages_shop_owner" on public.messages for all using (
   or exists(select 1 from public.barbers where shop_id = messages.shop_id and user_id = auth.uid())
   or public.is_super_admin()
 );
+
+
+-- ============================================================
+-- PLANS — RLS + updated_at trigger (see migrations/phase9_pricing_plans.sql)
+-- Public reads active plans (pricing page); only super_admin writes.
+-- ============================================================
+create policy "plans_select_active" on public.plans
+  for select using (is_active = true or public.is_super_admin());
+create policy "plans_insert_admin" on public.plans
+  for insert with check (public.is_super_admin());
+create policy "plans_update_admin" on public.plans
+  for update using (public.is_super_admin());
+create policy "plans_delete_admin" on public.plans
+  for delete using (public.is_super_admin());
+
+create or replace function public.set_plans_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end;
+$$;
+drop trigger if exists plans_updated_at on public.plans;
+create trigger plans_updated_at
+  before update on public.plans
+  for each row execute function public.set_plans_updated_at();

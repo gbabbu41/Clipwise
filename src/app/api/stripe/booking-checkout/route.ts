@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 import { barberSlotTaken } from "@/lib/booking-conflict";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
@@ -43,10 +44,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Online payments are a Pro/Premium feature
+  // Online payments are a paid feature (per the admin-editable plans table)
+  await ensurePlansHydrated();
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "payments")) {
-    return NextResponse.json({ error: "Online payments require a Pro or Premium plan." }, { status: 403 });
+    return NextResponse.json({ error: "Online payments require a paid plan." }, { status: 403 });
   }
 
   // Connect direct-charge when the shop has finished onboarding. Otherwise

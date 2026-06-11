@@ -94,6 +94,7 @@ export default function AdminPage() {
   const [platformRevenue, setPlatformRevenue] = useState(0);
   const [totalAppts, setTotalAppts] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>({ starter: 0, pro: 23, premium: 49, business: 199 });
   const [rejectModal, setRejectModal] = useState<ShopWithOwner | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -113,6 +114,15 @@ export default function AdminPage() {
     setPlatformRevenue((txData ?? []).reduce((s: number, t: { amount: number }) => s + (t.amount ?? 0), 0));
     setTotalAppts((apptData ?? []).length);
     setTotalUsers(userCount ?? 0);
+
+    // Live plan prices (admin-editable) for accurate MRR — fall back to defaults.
+    const planRes = await fetch("/api/admin/plans", { headers: { Authorization: `Bearer ${accessToken ?? ""}` } });
+    if (planRes.ok) {
+      const { plans } = await planRes.json() as { plans: { id: string; price_cents: number }[] };
+      const map: Record<string, number> = {};
+      for (const p of plans ?? []) map[p.id] = (p.price_cents ?? 0) / 100;
+      if (Object.keys(map).length) setPlanPrices(map);
+    }
     setLoading(false);
   }, [accessToken]);
 
@@ -169,7 +179,6 @@ export default function AdminPage() {
   const totalShops = shops.length;
   const activeShops = shops.filter((s) => s.status === "approved").length;
   const pendingShops = shops.filter((s) => s.status === "pending");
-  const mrr = activeShops * 49; // Approximate avg plan price
 
   // New shops per month (last 6)
   const monthLabels: string[] = [];
@@ -193,10 +202,11 @@ export default function AdminPage() {
     return { month: label, shops: monthCounts[key] ?? 0 };
   });
 
-  // Plans
-  const planCounts: Record<string, number> = { starter: 0, pro: 0, premium: 0, business: 0 };
+  // Plans — counts of approved shops per tier, priced from the live plans table.
+  const planCounts: Record<string, number> = {};
+  Object.keys(planPrices).forEach((id) => { planCounts[id] = 0; });
   shops.filter((s) => s.status === "approved").forEach((s) => { planCounts[s.subscription_plan] = (planCounts[s.subscription_plan] ?? 0) + 1; });
-  const planPrices: Record<string, number> = { starter: 29, pro: 49, premium: 99, business: 199 };
+  const mrr = Object.entries(planCounts).reduce((sum, [plan, count]) => sum + (planPrices[plan] ?? 0) * count, 0);
 
   // Filtered shops for All Shops tab
   const filteredShops = shops.filter((s) =>

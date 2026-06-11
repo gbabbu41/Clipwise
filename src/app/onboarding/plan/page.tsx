@@ -6,79 +6,49 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { formatPlanPrice, type PlanRow } from "@/lib/plans";
 
-type Plan = "starter" | "pro" | "premium";
+type Plan = string;
 
-const PLANS = [
-  {
-    id: "starter" as Plan,
-    name: "Starter",
-    price: "Free",
-    sub: "forever",
-    icon: Zap,
-    accent: "border-gray-700 hover:border-gray-500",
-    badge: null,
-    features: [
-      "1 barber",
-      "Online booking page",
-      "Appointment management",
-      "SMS reminders",
-      "Basic analytics",
-    ],
-    limits: [
-      "No customer payments",
-      "No POS",
-      "Manual approval by admin",
-    ],
-    cta: "Get Started Free",
+// Per-tier visual styling, keyed by plan id. Unknown ids (e.g. a custom plan
+// the admin adds) fall back to the neutral premium look.
+const PLAN_STYLE: Record<string, {
+  icon: typeof Zap; accent: string; iconWrap: string; iconColor: string;
+  checkColor: string; btn: string; badgeBg: string;
+}> = {
+  starter: {
+    icon: Zap, accent: "border-gray-700 hover:border-gray-500",
+    iconWrap: "bg-surface-raised", iconColor: "text-[#777]", checkColor: "text-emerald-400",
+    btn: "bg-surface-raised text-white hover:bg-surface border border-border", badgeBg: "bg-gold text-black",
   },
-  {
-    id: "pro" as Plan,
-    name: "Pro",
-    price: "$23",
-    sub: "/month",
-    icon: Crown,
-    accent: "border-gold/50 hover:border-gold ring-1 ring-gold/20",
-    badge: "Most Popular",
-    features: [
-      "Up to 4 barbers",
-      "Online booking + customer payments",
-      "Advanced analytics",
-      "SMS reminders",
-      "Stripe Connect for payouts",
-      "Instant approval",
-    ],
-    limits: [],
-    cta: "Start with Pro",
+  pro: {
+    icon: Crown, accent: "border-gold/50 hover:border-gold ring-1 ring-gold/20",
+    iconWrap: "bg-gold/15", iconColor: "text-gold", checkColor: "text-gold",
+    btn: "bg-gold text-black hover:bg-gold/90", badgeBg: "bg-gold text-black",
   },
-  {
-    id: "premium" as Plan,
-    name: "Premium",
-    price: "$49",
-    sub: "/month",
-    icon: Crown,
-    accent: "border-purple-500/50 hover:border-purple-400",
-    badge: "Full Suite",
-    features: [
-      "Up to 9 barbers",
-      "Everything in Pro",
-      "Full POS via Stripe Terminal",
-      "Inventory management",
-      "Staff management",
-      "Full analytics & reports",
-      "Dedicated support",
-      "Stripe Connect + Terminal ready",
-      "Instant approval",
-    ],
-    limits: [],
-    cta: "Start with Premium",
+  premium: {
+    icon: Crown, accent: "border-purple-500/50 hover:border-purple-400",
+    iconWrap: "bg-purple-500/15", iconColor: "text-purple-400", checkColor: "text-purple-400",
+    btn: "bg-purple-500 text-white hover:bg-purple-600", badgeBg: "bg-purple-500 text-white",
   },
+};
+const styleFor = (id: string) => PLAN_STYLE[id] ?? PLAN_STYLE.premium;
+
+// Shown until /api/plans resolves (and if it ever fails) — mirrors the seeded tiers.
+const FALLBACK_PLANS: PlanRow[] = [
+  { id: "starter", name: "Starter", price_cents: 0, barber_limit: 1, features: [], badge: null, description: null, is_active: true, sort_order: 0,
+    highlights: ["1 barber", "Online booking page", "Appointment management", "SMS reminders", "Basic analytics"] },
+  { id: "pro", name: "Pro", price_cents: 2300, barber_limit: 4, features: ["payments", "loyalty"], badge: "Most Popular", description: null, is_active: true, sort_order: 1,
+    highlights: ["Up to 4 barbers", "Online booking + customer payments", "Loyalty program", "Advanced analytics", "Stripe Connect for payouts", "Instant approval"] },
+  { id: "premium", name: "Premium", price_cents: 4900, barber_limit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"], badge: "Full Suite", description: null, is_active: true, sort_order: 2,
+    highlights: ["Up to 9 barbers", "Everything in Pro", "Full POS", "Inventory management", "Staff management & payroll", "Full analytics & reports", "Dedicated support"] },
 ];
 
 function PlanPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accessToken } = useAuth();
+  const { accessToken, plans } = useAuth();
+  const cards = (plans.length ? plans : FALLBACK_PLANS).filter(p => p.is_active);
   const [step, setStep] = useState<"pick" | "redirecting" | "verifying" | "success">("pick");
   const [error, setError] = useState("");
 
@@ -113,8 +83,10 @@ function PlanPageInner() {
 
   async function selectPlan(plan: Plan) {
     setError("");
-    if (plan === "starter") {
-      sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan: "starter", autoApprove: false }));
+    const card = cards.find(c => c.id === plan);
+    if (!card || card.price_cents === 0) {
+      // Free tier → no checkout, shop goes to manual approval.
+      sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan, autoApprove: false }));
       router.push("/onboarding");
       return;
     }
@@ -178,50 +150,42 @@ function PlanPageInner() {
         )}
 
         <div className="grid md:grid-cols-3 gap-6">
-          {PLANS.map(plan => {
-            const Icon = plan.icon;
+          {cards.map(plan => {
+            const st = styleFor(plan.id);
+            const Icon = st.icon;
+            const isFree = plan.price_cents === 0;
+            const cta = isFree ? "Get Started Free" : `Start with ${plan.name}`;
             return (
-              <div key={plan.id} className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", plan.accent)}
+              <div key={plan.id} className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent)}
                 onClick={() => selectPlan(plan.id)}>
                 {plan.badge && (
-                  <div className={cn("absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full",
-                    plan.id === "pro" ? "bg-gold text-black" : "bg-purple-500 text-white")}>
+                  <div className={cn("absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full", st.badgeBg)}>
                     {plan.badge}
                   </div>
                 )}
 
                 <div className="mb-5">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4",
-                    plan.id === "starter" ? "bg-surface-raised" : plan.id === "pro" ? "bg-gold/15" : "bg-purple-500/15")}>
-                    <Icon size={20} className={plan.id === "starter" ? "text-[#777]" : plan.id === "pro" ? "text-gold" : "text-purple-400"} />
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4", st.iconWrap)}>
+                    <Icon size={20} className={st.iconColor} />
                   </div>
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-bold text-white">{plan.price}</span>
-                    <span className="text-[#777] text-sm">{plan.sub}</span>
+                    <span className="text-3xl font-bold text-white">{formatPlanPrice(plan.price_cents)}</span>
+                    <span className="text-[#777] text-sm">{isFree ? "forever" : "/month"}</span>
                   </div>
                 </div>
 
                 <ul className="space-y-2.5 flex-1 mb-6">
-                  {plan.features.map(f => (
+                  {plan.highlights.map(f => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-gray-300">
-                      <Check size={15} className={cn("flex-shrink-0 mt-0.5", plan.id === "pro" ? "text-gold" : plan.id === "premium" ? "text-purple-400" : "text-emerald-400")} />
+                      <Check size={15} className={cn("flex-shrink-0 mt-0.5", st.checkColor)} />
                       {f}
-                    </li>
-                  ))}
-                  {plan.limits.map(l => (
-                    <li key={l} className="flex items-start gap-2.5 text-sm text-[#777]">
-                      <span className="flex-shrink-0 mt-0.5 w-[15px] text-center">—</span>
-                      {l}
                     </li>
                   ))}
                 </ul>
 
-                <button className={cn("w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all",
-                  plan.id === "starter" ? "bg-surface-raised text-white hover:bg-surface border border-border" :
-                  plan.id === "pro" ? "bg-gold text-black hover:bg-gold/90" :
-                  "bg-purple-500 text-white hover:bg-purple-600")}>
-                  {plan.cta} <ArrowRight size={15} />
+                <button className={cn("w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all", st.btn)}>
+                  {cta} <ArrowRight size={15} />
                 </button>
               </div>
             );

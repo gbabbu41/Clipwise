@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 
 // In-person POS card sale → hosted Stripe Checkout on the shop's connected
 // account (platform-charge fallback when Connect KYC isn't done, so sandbox
@@ -35,10 +36,11 @@ export async function POST(request: NextRequest) {
     .eq("id", body.shop_id).single();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
-  // Card payments are a Pro/Premium feature (same gate as online bookings).
+  // Card payments are a paid feature (same gate as online bookings).
+  await ensurePlansHydrated();
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "payments")) {
-    return NextResponse.json({ error: "Card payments require a Pro or Premium plan." }, { status: 403 });
+    return NextResponse.json({ error: "Card payments require a paid plan." }, { status: 403 });
   }
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);

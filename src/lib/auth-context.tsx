@@ -3,12 +3,15 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { UserProfile, Shop } from "./database.types";
+import { hydratePlanConfig } from "./validation";
+import { planRowsToConfig, type PlanRow } from "./plans";
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   shop: Shop | null;
   shops: Shop[];
+  plans: PlanRow[];
   loading: boolean;
   accessToken: string | null;
   signOut: () => Promise<void>;
@@ -21,6 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   shop: null,
   shops: [],
+  plans: [],
   loading: true,
   accessToken: null,
   signOut: async () => {},
@@ -41,8 +45,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [plans, setPlans] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // Load admin-editable plans once and hydrate the sync gating config so the
+  // sidebar / page locks reflect the live DB (falls back to defaults on error).
+  useEffect(() => {
+    let active = true;
+    fetch("/api/plans")
+      .then((r) => (r.ok ? r.json() : { plans: [] }))
+      .then(({ plans: rows }: { plans?: PlanRow[] }) => {
+        if (!active || !rows?.length) return;
+        setPlans(rows);
+        hydratePlanConfig(planRowsToConfig(rows));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const setActiveShop = useCallback((s: Shop) => {
     setShop(s);
@@ -115,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, shop, shops, loading, accessToken, signOut, refreshShop, setActiveShop }}>
+    <AuthContext.Provider value={{ user, profile, shop, shops, plans, loading, accessToken, signOut, refreshShop, setActiveShop }}>
       {children}
     </AuthContext.Provider>
   );

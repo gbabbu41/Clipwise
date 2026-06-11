@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 
 /**
@@ -49,9 +50,10 @@ export async function POST(request: NextRequest) {
 
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
+  await ensurePlansHydrated();
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "payments")) {
-    return NextResponse.json({ error: "Online payments require a Pro or Premium plan." }, { status: 403 });
+    return NextResponse.json({ error: "Online payments require a paid plan." }, { status: 403 });
   }
 
   // Connect direct-charge when the shop has finished onboarding (money lands

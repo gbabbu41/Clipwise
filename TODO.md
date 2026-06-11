@@ -118,6 +118,14 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
+- [ ] **Phase 9 pricing plans** (`supabase/migrations/phase9_pricing_plans.sql`) — ⚠️ STILL TO RUN.
+      Creates the admin-editable `plans` table (single source of truth for pricing +
+      feature gating), RLS (public reads active, super_admin writes), and seeds the 4
+      current tiers. Also drops the hardcoded `shops.subscription_plan` CHECK so new
+      tiers can be assigned. Until run: the editor at /admin/settings shows no plans and
+      checkout/gating fall back to the historical hardcoded prices/features (safe, but
+      admin edits won't take effect). Edit plans afterward from **Admin → Settings →
+      Subscription Plans**.
 - [ ] *(optional)* **Per-visit reviews** — reviews currently dedupe one-per-client-per-shop.
       To allow a review per appointment, add `appointment_id uuid references appointments(id)`
       to `reviews` and switch the dedupe in `/api/reviews/submit` to use it.

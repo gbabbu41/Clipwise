@@ -94,32 +94,48 @@ export function time24ToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-// ── Plan limits ───────────────────────────────────────────────────────────────
-
-export const PLAN_BARBER_LIMITS: Record<string, number> = {
-  starter: 1,
-  pro: 4,
-  premium: 9,
-  business: Infinity,
-};
-
-export function getPlanLimit(plan: string): number {
-  return PLAN_BARBER_LIMITS[plan] ?? 1;
-}
-
-// ── Plan feature gating ─────────────────────────────────────────────────────────
+// ── Plan config (DB-driven with safe defaults) ──────────────────────────────────
+// Plans live in the `plans` table and are edited by the super_admin. The funcs
+// below stay SYNC (they're called in render paths + many API routes) and read
+// from an in-memory config that is hydrated from the DB:
+//   • client → AuthProvider fetches /api/plans on mount and calls hydratePlanConfig
+//   • server → gating routes call ensurePlansHydrated() (lib/plans-server) first
+// Until hydrated (or if a fetch fails) we fall back to these defaults, which
+// mirror the historical hardcoded tiers — so gating is always safe, never open.
 
 export type PlanFeature = "payments" | "loyalty" | "pos" | "inventory" | "staff_portal" | "commission";
 
-const PLAN_FEATURES: Record<string, PlanFeature[]> = {
-  starter: [],
-  pro: ["payments", "loyalty"],
-  premium: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"],
-  business: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"],
+export const ALL_PLAN_FEATURES: PlanFeature[] = ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"];
+
+export interface PlanConfigEntry {
+  barberLimit: number; // Infinity = unlimited
+  features: PlanFeature[];
+}
+
+const DEFAULT_PLAN_CONFIG: Record<string, PlanConfigEntry> = {
+  starter: { barberLimit: 1, features: [] },
+  pro: { barberLimit: 4, features: ["payments", "loyalty"] },
+  premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"] },
+  business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"] },
 };
 
+let planConfig: Record<string, PlanConfigEntry> = { ...DEFAULT_PLAN_CONFIG };
+
+/** Overwrite the live plan config from DB rows. Empty/falsy input is ignored so
+ *  a bad fetch never wipes gating down to "no features". DB plans are merged
+ *  over defaults so a tier missing from the DB still resolves safely. */
+export function hydratePlanConfig(entries: Record<string, PlanConfigEntry> | null | undefined) {
+  if (!entries || Object.keys(entries).length === 0) return;
+  planConfig = { ...DEFAULT_PLAN_CONFIG, ...entries };
+}
+
+export function getPlanLimit(plan: string): number {
+  return planConfig[plan]?.barberLimit ?? DEFAULT_PLAN_CONFIG[plan]?.barberLimit ?? 1;
+}
+
 export function planHasFeature(plan: string | undefined, feature: PlanFeature): boolean {
-  return (PLAN_FEATURES[plan ?? "starter"] ?? []).includes(feature);
+  const key = plan ?? "starter";
+  return (planConfig[key]?.features ?? DEFAULT_PLAN_CONFIG[key]?.features ?? []).includes(feature);
 }
 
 // A subscription that is cancelled/past_due/inactive means the shop falls back to starter

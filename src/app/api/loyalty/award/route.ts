@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 
 // Awards loyalty points for a completed appointment. Idempotent via the
 // appointments.loyalty_awarded flag. Called fire-and-forget when an
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
   }
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Plan gate — loyalty is a Pro/Premium feature
+  // Plan gate — loyalty is a paid feature (per the admin-editable plans table)
+  await ensurePlansHydrated();
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "loyalty")) return NextResponse.json({ ok: true, skipped: "plan" });
 

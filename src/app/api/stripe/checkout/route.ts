@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, PLAN_PRICING } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { ensurePlansHydrated, getPlanById } from "@/lib/plans-server";
 
 export async function POST(request: NextRequest) {
   const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -11,8 +12,23 @@ export async function POST(request: NextRequest) {
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { plan, upgrade } = await request.json() as { plan: string; upgrade?: boolean };
-  const pricing = PLAN_PRICING[plan];
-  if (!pricing) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+
+  // Pricing is the admin-editable DB plan; fall back to the hardcoded map only
+  // if the plans table is missing/empty (pre-migration safety). A purchasable
+  // plan must be active with a price > 0 (Starter is free → not a checkout).
+  const planRows = await ensurePlansHydrated();
+  const dbPlan = getPlanById(planRows, plan);
+  let amount: number;
+  let planName: string;
+  if (dbPlan && dbPlan.is_active && dbPlan.price_cents > 0) {
+    amount = dbPlan.price_cents;
+    planName = dbPlan.name;
+  } else {
+    const fallback = PLAN_PRICING[plan];
+    if (!fallback) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    amount = fallback.amount;
+    planName = fallback.name;
+  }
 
   // For an upgrade from the billing page, capture the existing subscription so the
   // webhook can cancel it once the new plan activates.
@@ -33,8 +49,8 @@ export async function POST(request: NextRequest) {
       line_items: [{
         price_data: {
           currency: "cad",
-          product_data: { name: pricing.name },
-          unit_amount: pricing.amount,
+          product_data: { name: planName },
+          unit_amount: amount,
           recurring: { interval: "month" },
         },
         quantity: 1,

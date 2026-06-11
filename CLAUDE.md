@@ -83,6 +83,17 @@ payroll pages and a **secure `/api/loyalty/points`** route; **auto-refund on rej
 (`/api/loyalty/award`, settings persisted to `booking_settings.loyalty`); **dashboard role
 race-window** closed + barber routes in middleware. ⚠️ **Run `phase8_loyalty_earning.sql`**
 (adds `appointments.loyalty_awarded`) — loyalty earning no-ops until then.
+
+Recently shipped (Session 15): **admin-editable pricing plans**. New `plans` table is the
+single source of truth for pricing + feature gating (replaced 4 inconsistent hardcoded price
+lists). Super-admin edits price / barber-limit / unlocked-features / marketing bullets / active
+at **Admin → Settings → Subscription Plans**. Prices flow into Stripe Checkout via dynamic
+`price_data` (no Stripe Price objects); `features[]` drives both server gates (the 5 payment/
+loyalty routes call `ensurePlansHydrated()`) and client UX (AuthProvider fetches `/api/plans`
+→ `hydratePlanConfig`). Sync helpers in `lib/validation.ts` keep safe hardcoded defaults until
+hydrated, so gating is never open. ⚠️ **Run `phase9_pricing_plans.sql`** or the table is empty
+and edits no-op (checkout/gating fall back to defaults). Key files: `lib/plans.ts` (shared),
+`lib/plans-server.ts` (DB + 60s cache), `api/plans` (public read), `api/admin/plans` (CRUD).
 Not done: POS-sale loyalty (needs a client picker on POS first).
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.
