@@ -63,3 +63,33 @@ in `TODO.md` §2b with file:line and proposed fixes. Recommended next batch:
 Then the payments cluster (refund correctness, POS discount, sub double-bill,
 checkout price fallback) and auth cluster (barber link, multi-shop active-shop
 reset, OAuth routing, rejected dead-end).
+
+### 4. Plan-gating hardening — commits `706639d`, `9c81844` (DEPLOYED)
+Owner reported a starter/free shop could reach premium features. Two real holes,
+both pre-existing but surfaced once the onboarding fix let new signups actually
+reach the dashboard:
+
+- **Page-level gates** (`706639d`) — POS, Inventory, Gift Cards, Payments only
+  relied on the sidebar HIDING their nav link; a direct URL still worked (and
+  Inventory has no server route — writes go straight to Supabase under the
+  owner's own RLS). Added a shared `components/dashboard/feature-lock.tsx`
+  `<FeatureLock>` screen + a page-level `planHasFeature(effectivePlan(...))`
+  check on each, mirroring the existing loyalty/payroll gates.
+- **Booking UI = pay-in-person-only for non-charging plans** (`9c81844`) — the
+  customer booking page (`book/[shopslug]`) computed `canPayOnline` from
+  `total>0` alone, so a Starter shop's page offered "Pay online (Stripe)",
+  deposits, and card-hold no-show even though `booking-checkout` 403s them. Now
+  gated on `shopCanCharge = planHasFeature(effectivePlan(shop plan/status),
+  "payments")` (same check the server uses; shop row is fetched `select("*")` so
+  it includes subscription_plan/status). Starter → only "Pay in person" (forced
+  available so paid services stay bookable); deposits + card-hold also gated off.
+
+⚠️ **Data caveat (the master switch):** all gating honors the `plans` table. If
+the **Starter** plan row has the `payments` feature (or any premium feature)
+ticked in Admin → Settings, those features are INTENTIONALLY unlocked — even with
+the gates. Verify Starter has no feature toggles ticked (instant fix, no deploy).
+
+Note: Analytics/Marketing/Clients/Staff/Services are NOT feature-gated by design
+(available on every plan). Inventory/POS page gates are client-side; truly
+server-enforcing them (beyond payment/loyalty routes which already are) is a
+follow-up — see TODO §2b.

@@ -174,6 +174,16 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
 - [ ] **Rejected/suspended shops dead-end on `/pending`** (`dashboard/layout.tsx`) — owner can't
       reach billing/settings to re-apply/upgrade. Allow those routes.
 
+**Plan-gating (page + booking UI gates DONE — commits `706639d`, `9c81844`; deployed):**
+- [x] Page-level `<FeatureLock>` on POS / Inventory / Gift Cards / Payments (were sidebar-hide only).
+- [x] Booking page is pay-in-person-only for non-charging plans (`shopCanCharge`).
+- [ ] **Server-side enforcement for Inventory/POS pages** — current gates are client-side;
+      the payment/loyalty server routes are gated, but inventory writes go straight to Supabase
+      under owner RLS (no plan check). Add a plan check to inventory/POS data paths for defence
+      in depth (low priority — client gate covers the normal UX).
+- [ ] **Reminder:** gating honors the `plans` table — keep the Starter plan's feature toggles
+      OFF in Admin → Settings, else features are intentionally unlocked.
+
 **Lower:**
 - [ ] **Webhook has no event-id idempotency** (`webhooks/stripe`) — Stripe retries re-run side
       effects (duplicate "payment failed" notifications). Add a processed-events guard.

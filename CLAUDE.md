@@ -107,6 +107,12 @@ is now **duration-aware** (booking-checkout + booking-finalize + in-person + slo
 no longer clobbers a captured no-show fee. **Remaining findings #4–#13 + 2 booking follow-ups
 are in `TODO.md` §2b** (race-proof DB exclusion constraint, multi-service-online, refund
 correctness, POS discount, sub double-bill, checkout price fallback, barber-link, multi-shop
-active-shop reset, OAuth routing, rejected dead-end, webhook idempotency).
+active-shop reset, OAuth routing, rejected dead-end, webhook idempotency). **Plan-gating
+hardening shipped** (`706639d`, `9c81844`): page-level `<FeatureLock>` gates on
+POS/Inventory/Gift Cards/Payments (sidebar only hid the link — direct URL still
+worked), and the customer booking page is now **pay-in-person-only for
+non-charging plans** (`shopCanCharge` gates online pay/deposits/card-hold).
+⚠️ All gating honors the `plans` table — Starter must have NO feature toggles
+ticked in Admin → Settings, or those features are intentionally unlocked.
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.
