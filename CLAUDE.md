@@ -68,9 +68,10 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
   `booking-finalize` (the Stripe redirect wipes in-memory state).
 
 ## Where to look
-- `TODO.md` — go-live checklist (§0), pending SQL (§2), roadmap.
-- `SESSION-14-NOTES.md` — detailed log of the most recent work (latest).
-- `SESSION-13-NOTES.md` — prior session.
+- `TODO.md` — go-live checklist (§0), pending SQL (§2), **code-review backlog (§2b)**, roadmap.
+- `SESSION-16-NOTES.md` — detailed log of the most recent work (latest).
+- `SESSION-14-NOTES.md` — prior session.
+- `SESSION-13-NOTES.md` — older session.
 - `src/lib/` — `stripe.ts`, `supabase{,-admin}.ts`, `twilio.ts`, `payment-notify.ts`,
   `validation.ts` (plan gating: `planHasFeature`, `effectivePlan`), `booking-conflict.ts`.
 - `src/app/api/loyalty/` — `points` (manual add/redeem, plan-gated) + `award` (auto-earn).
@@ -95,5 +96,17 @@ hydrated, so gating is never open. ⚠️ **Run `phase9_pricing_plans.sql`** or 
 and edits no-op (checkout/gating fall back to defaults). Key files: `lib/plans.ts` (shared),
 `lib/plans-server.ts` (DB + 60s cache), `api/plans` (public read), `api/admin/plans` (CRUD).
 Not done: POS-sale loyalty (needs a client picker on POS first).
+
+Recently shipped (Session 16): **phase9 pricing-plans migration RUN** by owner (plans
+live). **Onboarding race fixed** — new shop signups no longer land on "No shop found"
+(onboarding `refreshShop()` before nav + dashboard self-heal). **Code-review of the
+AI-generated code** (`/code-review`) → 13 verified findings; **#1–#3 fixed + deployed**
+(commit `2cc263f`): "Any Available" resolves to a concrete barber server-side; double-booking
+is now **duration-aware** (booking-checkout + booking-finalize + in-person + slot grid via
+`barberHasConflict`/`findAvailableBarber`/`occupiedSlots`); webhook `payment_intent.succeeded`
+no longer clobbers a captured no-show fee. **Remaining findings #4–#13 + 2 booking follow-ups
+are in `TODO.md` §2b** (race-proof DB exclusion constraint, multi-service-online, refund
+correctness, POS discount, sub double-bill, checkout price fallback, barber-link, multi-shop
+active-shop reset, OAuth routing, rejected dead-end, webhook idempotency).
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.

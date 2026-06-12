@@ -118,19 +118,68 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
-- [ ] **Phase 9 pricing plans** (`supabase/migrations/phase9_pricing_plans.sql`) — ⚠️ STILL TO RUN.
-      Creates the admin-editable `plans` table (single source of truth for pricing +
-      feature gating), RLS (public reads active, super_admin writes), and seeds the 4
-      current tiers. Also drops the hardcoded `shops.subscription_plan` CHECK so new
-      tiers can be assigned. Until run: the editor at /admin/settings shows no plans and
-      checkout/gating fall back to the historical hardcoded prices/features (safe, but
-      admin edits won't take effect). Edit plans afterward from **Admin → Settings →
-      Subscription Plans**.
+- [x] **Phase 9 pricing plans** (`supabase/migrations/phase9_pricing_plans.sql`) — RUN (owner ran it).
+      Created the admin-editable `plans` table (single source of truth for pricing +
+      feature gating), RLS (public reads active, super_admin writes), seeded the 4
+      current tiers, and dropped the hardcoded `shops.subscription_plan` CHECK so new
+      tiers can be assigned. Edit plans at **Admin → Settings → Subscription Plans**.
 - [ ] *(optional)* **Per-visit reviews** — reviews currently dedupe one-per-client-per-shop.
       To allow a review per appointment, add `appointment_id uuid references appointments(id)`
       to `reviews` and switch the dedupe in `/api/reviews/submit` to use it.
 - [ ] *(belt-and-suspenders)* unique index on `clients (shop_id, lower(email))` to enforce
       no-duplicate clients at the DB level (app already dedupes).
+
+---
+
+## 🔎 2b. Code-review backlog (Session 16 — `/code-review` of AI-generated code)
+Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLOYED**
+(commit `2cc263f`). The rest are open, ranked, with file:line + a proposed fix:
+
+**Follow-ups to the booking fix (recommended next):**
+- [ ] **Race-proof double-booking (DB-level)** — current overlap guard is app-level
+      (booking-checkout + booking-finalize + in-person pre-check + slot grid). A simultaneous
+      race on two *overlapping different-start* slots for the same barber isn't 100%
+      DB-guaranteed. Add a Postgres exclusion constraint (needs `btree_gist` + a generated
+      time-range from date+slot+duration; duration must be denormalised onto `appointments`).
+- [ ] **Multi-service ONLINE booking** (`book/[shopslug]/page.tsx` confirmBooking) — the online
+      path sends only the primary `service_id` + start slot but charges the full multi-service
+      total; only ONE appointment is created. Send all services (or block multi-service online).
+
+**Payments:**
+- [ ] **Refund is always full + wrong email + can't release holds** (`api/stripe/refund/route.ts:38`)
+      — `refunds.create({payment_intent})` (no amount); email shows `total_amount` even for a
+      partial no-show capture; a held/uncaptured PI throws (500). Refund the captured amount,
+      email the real figure, `cancel()` uncaptured holds.
+- [ ] **POS revenue overstated by discounts** (`api/stripe/pos-finalize/route.ts:46`) — stores
+      `amount: subtotal`, ignoring `discount`. Record the actually-collected amount.
+- [ ] **Subscription upgrade can double-bill** (`webhooks/stripe:82`) — old sub cancelled only
+      in the webhook and the error is swallowed (`.catch(()=>null)`). Also cancel synchronously
+      in the upgrade route / reconcile.
+- [ ] **Stale `PLAN_PRICING` fallback in checkout** (`api/stripe/checkout/route.ts`) — if a plan
+      is deactivated/repriced, checkout falls back to the hardcoded map → can charge the old
+      price for a retired plan. Reject when the DB plan is missing/inactive.
+
+**Auth / account:**
+- [ ] **Self-signup barbers stranded** (`signup/barber/page.tsx`) — creates user + role `barber`
+      but never links a `barbers` row → "Account not linked"; only owner-invite links them.
+      Clarify to invite-only, or auto-create a pending link.
+- [ ] **Multi-shop owners lose active shop hourly** (`lib/auth-context.tsx:72`) — `onAuthStateChange`
+      resets `shop` to `shops[0]` on EVERY event (incl. TOKEN_REFRESHED / focus), overwriting
+      `setActiveShop`. Only reset on real sign-in.
+- [ ] **Onboarding `.maybeSingle()` throws for multi-shop owners** (`onboarding/page.tsx:65`) —
+      restore-by-owner_id errors when an owner has 2+ shops. Use `.limit(1).maybeSingle()` /
+      order by created_at.
+- [ ] **Google OAuth has no callback/role routing** (`login/page.tsx:64`) — redirects straight to
+      `/dashboard`; non-owners land wrong, owner-via-Google impossible. Add a role-aware callback.
+- [ ] **Rejected/suspended shops dead-end on `/pending`** (`dashboard/layout.tsx`) — owner can't
+      reach billing/settings to re-apply/upgrade. Allow those routes.
+
+**Lower:**
+- [ ] **Webhook has no event-id idempotency** (`webhooks/stripe`) — Stripe retries re-run side
+      effects (duplicate "payment failed" notifications). Add a processed-events guard.
+- [ ] Plans-code edges (`lib/validation.ts`): `effectivePlan` hardcodes the free slug `'starter'`;
+      `hydratePlanConfig` ignores empty input so an all-plans-deleted state never propagates;
+      the 60s plan cache is per-instance (edits can lag up to 60s across warm Lambdas).
 
 ---
 
