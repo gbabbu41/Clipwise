@@ -6,7 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots } from "@/lib/utils";
-import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast } from "@/lib/validation";
+import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
 
@@ -462,8 +462,11 @@ export default function BookingPage() {
     // platform charge when the shop hasn't completed Stripe Connect, so the
     // customer can pay either way regardless of the shop's onboarding state.
     // In-person availability is the owner's call (allow_pay_in_person).
-    const canPayOnline = total > 0;
-    const canPayInPerson = (shop.allow_pay_in_person ?? true) && total > 0;
+    // Starter (free) shops can't take money online — pay-in-person is the only
+    // option (and is always available for them regardless of the owner toggle,
+    // since otherwise there'd be no way to book a paid service).
+    const canPayOnline = total > 0 && shopCanCharge;
+    const canPayInPerson = total > 0 && (shopCanCharge ? (shop.allow_pay_in_person ?? true) : true);
     if (canPayOnline && canPayInPerson && !payMethodChoice) {
       setShowPayChoiceModal(true);
       return;
@@ -491,7 +494,7 @@ export default function BookingPage() {
     // `in_person` always wins over `deposit_required` — when the customer
     // explicitly picks pay-in-person, we skip Stripe entirely even if the
     // service was tagged with a deposit requirement.
-    const depositAmount = service?.deposit_required ? (service.deposit_amount ?? 0) : 0;
+    const depositAmount = (shopCanCharge && service?.deposit_required) ? (service.deposit_amount ?? 0) : 0;
     // No-show protection options for "pay online":
     //   ≤7 days out  → AUTHORIZE the full amount (card held, not charged),
     //                  captured later on completion / no-show.
@@ -723,6 +726,12 @@ export default function BookingPage() {
     : 0;
   const total = Math.max(0, totalPrice - discount);
 
+  // Whether THIS shop's plan includes taking money online/by card. Starter
+  // (free) is pay-in-person only — so online checkout, deposits, and card-hold
+  // no-show protection are all hidden for it (the booking-checkout route also
+  // 403s these, but the UI must not offer them in the first place).
+  const shopCanCharge = !!shop && planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments");
+
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
   const noShowProtection = !!bookingSettings?.no_show_protection;
@@ -734,7 +743,7 @@ export default function BookingPage() {
   // Whether paying online would take a card under no-show protection — used to
   // gate the consent checkbox in the pay-method modal. (In-person never takes
   // a card, so its button is never gated.)
-  const cardForNoShow = noShowProtection && total > 0;
+  const cardForNoShow = noShowProtection && total > 0 && shopCanCharge;
 
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category)))];
   const filteredServices = services.filter((s) => s.is_active && (categoryFilter === "All" || s.category === categoryFilter));
@@ -1453,10 +1462,10 @@ export default function BookingPage() {
 
         {/* Confirm Step */}
         {step === confirmStepIndex && (() => {
-          const depositTotal = servicesPicked.reduce(
+          const depositTotal = shopCanCharge ? servicesPicked.reduce(
             (sum, s) => sum + (s.deposit_required ? (s.deposit_amount ?? 0) : 0),
             0
-          );
+          ) : 0;
           return (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Review your booking</h2>
