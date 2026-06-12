@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { UNIQUE_VIOLATION } from "@/lib/booking-conflict";
+import { UNIQUE_VIOLATION, barberHasConflict } from "@/lib/booking-conflict";
+import { timeToMinutes } from "@/lib/utils";
 
 // Called when the customer returns from a paid booking checkout.
 // Verifies payment on the connected account, then creates the appointment (idempotent).
@@ -64,6 +65,30 @@ export async function POST(request: NextRequest) {
         .eq("stripe_payment_method_id", savedPaymentMethodId)
         .eq("date", m.date).eq("time_slot", m.time_slot).maybeSingle();
       if (existing) return NextResponse.json({ paid: true, appointmentId: existing.id });
+    }
+
+    // Duration-aware conflict re-check. The DB unique index only covers the
+    // exact (barber, date, start-slot), so an overlap with a *longer* existing
+    // appointment — or a slot grabbed between checkout and this finalize —
+    // would slip through. Reverse the money rather than charge for a lost slot.
+    if (m.barber_id) {
+      const { data: fSvc } = await supabaseAdmin
+        .from("services").select("duration_minutes").eq("id", m.service_id).maybeSingle();
+      const fStart = timeToMinutes(m.time_slot);
+      const fEnd = fStart + (fSvc?.duration_minutes ?? 30);
+      if (await barberHasConflict(m.barber_id, m.date, fStart, fEnd)) {
+        try {
+          if (isHold && paymentIntentId) {
+            await stripe.paymentIntents.cancel(paymentIntentId, undefined, acctOpts);
+          } else if (!isHold && !isSave && paymentIntentId) {
+            await stripe.refunds.create({ payment_intent: paymentIntentId }, acctOpts);
+          }
+        } catch { /* best-effort reversal — surface the conflict regardless */ }
+        return NextResponse.json(
+          { error: "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
+          { status: 409 },
+        );
+      }
     }
 
     const { data: appt, error } = await supabaseAdmin.from("appointments").insert({

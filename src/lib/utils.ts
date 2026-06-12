@@ -65,6 +65,17 @@ export function generate24hSlots(): string[] {
   return slots;
 }
 
+/** All 30-min slot labels a booking occupies, given its start slot and the
+ *  service duration in minutes. A 60-min service at "9:00 AM" → ["9:00 AM","9:30 AM"].
+ *  Used to mark every covered slot as booked (not just the start). */
+export function occupiedSlots(startSlot: string, durationMin: number): string[] {
+  const all = generate24hSlots();
+  const startIdx = all.indexOf(startSlot);
+  if (startIdx < 0) return [startSlot];
+  const count = Math.max(1, Math.ceil((durationMin || 30) / 30));
+  return all.slice(startIdx, startIdx + count);
+}
+
 /** Convert display time "9:00 AM" → minutes since midnight (for comparison) */
 export function timeToMinutes(display: string): number {
   const [timePart, period] = display.split(" ");

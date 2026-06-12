@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar,
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -18,6 +18,13 @@ interface SlotAvailability {
 }
 
 interface Toast { msg: string; ok: boolean }
+
+// Duration (minutes) of a booked appointment row whose query joined the
+// service. Supabase returns the to-one relation as an object (or array).
+function apptDurationMin(a: { services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null }): number {
+  const s = Array.isArray(a.services) ? a.services[0] : a.services;
+  return s?.duration_minutes ?? 30;
+}
 
 // ─── Toast Component ──────────────────────────────────────────────────────────
 function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
@@ -272,7 +279,7 @@ export default function BookingPage() {
     await Promise.all(barberList.map(async (b) => {
       const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
         supabase.from("time_slots").select("*").eq("barber_id", b.id).eq("day_of_week", dow).eq("is_available", true).single(),
-        supabase.from("appointments").select("time_slot").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+        supabase.from("appointments").select("time_slot, services(duration_minutes)").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
         supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", b.id).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
       ]);
       if (!ts) return;
@@ -293,7 +300,7 @@ export default function BookingPage() {
         }
       }
       const bookedSlots = [
-        ...((booked ?? []).map((a: { time_slot: string }) => a.time_slot)),
+        ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a)))),
         ...Array.from(blockedSlotSet),
       ];
       const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
@@ -323,7 +330,7 @@ export default function BookingPage() {
     const dow = date.getDay();
     const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
       supabase.from("time_slots").select("*").eq("barber_id", barberId).eq("day_of_week", dow).eq("is_available", true).single(),
-      supabase.from("appointments").select("time_slot").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+      supabase.from("appointments").select("time_slot, services(duration_minutes)").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
       supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", barberId).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
     ]);
     if (!ts) { setSlotsLoading(false); return; }
@@ -340,7 +347,7 @@ export default function BookingPage() {
       }
     }
     const bookedSlots = [
-      ...((booked ?? []).map((a: { time_slot: string }) => a.time_slot)),
+      ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a)))),
       ...Array.from(blockedSlotSet),
     ];
     const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
@@ -581,18 +588,25 @@ export default function BookingPage() {
       };
     });
 
-    // Guard against double-booking the same barber/time (the DB also enforces
-    // this via a unique index; this pre-check just gives a friendlier message).
+    // Guard against double-booking the same barber/time. Duration-aware: an
+    // existing *longer* appointment that overlaps this booking's span (not just
+    // one starting on the same slot) is a clash. The DB unique index still
+    // backstops exact-slot races; this gives a friendlier message + catches
+    // overlaps the index can't see.
     if (finalBarberId) {
-      const { data: clash } = await supabase
+      const { data: existing } = await supabase
         .from("appointments")
-        .select("id")
+        .select("time_slot, services(duration_minutes)")
         .eq("barber_id", finalBarberId)
         .eq("date", formatDateForDb(selectedDate))
-        .in("time_slot", rows.map(r => r.time_slot))
-        .in("status", ["pending", "confirmed"])
-        .limit(1)
-        .maybeSingle();
+        .in("status", ["pending", "confirmed"]);
+      const newStart = timeToMinutes(selectedTime);
+      const newEnd = newStart + servicesPicked.reduce((sum, x) => sum + (x.duration_minutes ?? 30), 0);
+      const clash = (existing ?? []).some((a) => {
+        const s = timeToMinutes(a.time_slot);
+        const e = s + apptDurationMin(a);
+        return newStart < e && s < newEnd;
+      });
       if (clash) {
         setSaving(false);
         showToast("Sorry, that time was just booked. Please pick another slot.", false);

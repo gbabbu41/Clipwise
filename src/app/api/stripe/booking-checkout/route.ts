@@ -3,7 +3,8 @@ import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
-import { barberSlotTaken } from "@/lib/booking-conflict";
+import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
+import { timeToMinutes } from "@/lib/utils";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -35,13 +36,30 @@ export async function POST(request: NextRequest) {
   if (!shop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
 
   // Block double-booking BEFORE taking any money — otherwise a customer could
-  // pay and then have /booking-finalize fail the DB unique index, leaving them
-  // charged with no appointment.
-  if (await barberSlotTaken(booking.barber_id, booking.date, booking.time_slot)) {
-    return NextResponse.json(
-      { error: "Sorry, that time was just booked. Please pick another slot." },
-      { status: 409 },
-    );
+  // pay and then have /booking-finalize fail, leaving them charged with no
+  // appointment. Duration-aware (covers overlap with a longer existing
+  // appointment), and resolves an "Any Available" booking to a concrete free
+  // barber so the DB unique index actually protects it.
+  const { data: svc } = await supabaseAdmin
+    .from("services").select("duration_minutes").eq("id", booking.service_id).maybeSingle();
+  const startMin = timeToMinutes(booking.time_slot);
+  const endMin = startMin + (svc?.duration_minutes ?? 30);
+  let resolvedBarberId = booking.barber_id || null;
+  if (resolvedBarberId) {
+    if (await barberHasConflict(resolvedBarberId, booking.date, startMin, endMin)) {
+      return NextResponse.json(
+        { error: "Sorry, that time was just booked. Please pick another slot." },
+        { status: 409 },
+      );
+    }
+  } else {
+    resolvedBarberId = await findAvailableBarber(booking.shop_id, booking.date, startMin, endMin);
+    if (!resolvedBarberId) {
+      return NextResponse.json(
+        { error: "Sorry, that time is fully booked. Please pick another slot." },
+        { status: 409 },
+      );
+    }
   }
 
   // Online payments are a paid feature (per the admin-editable plans table)
@@ -72,7 +90,7 @@ export async function POST(request: NextRequest) {
   // /booking-finalize can create the appointment on return.
   const metadata = {
     shop_id: booking.shop_id,
-    barber_id: booking.barber_id ?? "",
+    barber_id: resolvedBarberId ?? "",
     service_id: booking.service_id,
     client_name: booking.client_name,
     client_email: booking.client_email,

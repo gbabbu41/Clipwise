@@ -132,9 +132,14 @@ export async function POST(request: NextRequest) {
       // ── Booking payment succeeded (backup to finalize route) ─────────────────
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
+        // Only promote a not-yet-settled booking to paid. Without this filter a
+        // captured no-show fee (status 'captured', partial amount) — whose
+        // capture also fires this event — would be overwritten to 'paid',
+        // losing the no-show distinction. Leave captured/paid/refunded alone.
         await supabaseAdmin.from("appointments")
           .update({ payment_status: "paid" })
-          .eq("payment_intent_id", pi.id);
+          .eq("payment_intent_id", pi.id)
+          .in("payment_status", ["unpaid", "held", "failed"]);
         break;
       }
 
