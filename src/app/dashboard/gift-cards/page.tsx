@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Gift, Plus, Search, Check, X, Copy, DollarSign } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -166,6 +168,11 @@ export default function GiftCardsPage() {
     setCards(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
     showToast("Gift card deactivated");
   };
+
+  // Plan gate — gift cards ride the loyalty feature (Pro/Premium).
+  if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "loyalty")) {
+    return <FeatureLock title="Gift Cards" description="Gift cards are available on the Pro and Premium plans." />;
+  }
 
   return (
     <div className="p-6 space-y-6">

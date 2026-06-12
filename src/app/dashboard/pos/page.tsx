@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -386,6 +388,12 @@ export default function POSPage() {
         </div>
       </div>
     );
+  }
+
+  // Plan gate — POS is a Premium feature. Backs up the hidden sidebar link so a
+  // direct URL visit doesn't grant access on a plan that doesn't include it.
+  if (!planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "pos")) {
+    return <FeatureLock title="Point of Sale" description="The in-person POS / card terminal is available on the Premium plan." />;
   }
 
   if (success && lastCharge) {

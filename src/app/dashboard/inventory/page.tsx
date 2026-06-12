@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Package, Plus, AlertTriangle, TrendingDown, TrendingUp, Search, Pencil, Trash2, Check, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -131,6 +133,12 @@ export default function InventoryPage() {
       category: item.category ?? "Other",
     });
   };
+
+  // Plan gate — Inventory is a Premium feature (no server route guards it, so
+  // this page-level check is the enforcement against a direct URL visit).
+  if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "inventory")) {
+    return <FeatureLock title="Inventory" description="Inventory management is available on the Premium plan." />;
+  }
 
   return (
     <div className="p-6 space-y-6">

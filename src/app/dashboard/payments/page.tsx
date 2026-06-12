@@ -2,6 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
 
@@ -194,6 +196,11 @@ export default function PaymentsPage() {
     { key: "pending", label: "Card held/on file" },
     { key: "refunded", label: "Refunded" },
   ];
+
+  // Plan gate — the Payments hub is a Pro/Premium feature.
+  if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")) {
+    return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
+  }
 
   return (
     <div className="min-h-screen bg-black px-4 sm:px-6 py-6 max-w-5xl mx-auto pb-28">
