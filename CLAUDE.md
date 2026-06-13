@@ -114,5 +114,14 @@ worked), and the customer booking page is now **pay-in-person-only for
 non-charging plans** (`shopCanCharge` gates online pay/deposits/card-hold).
 ⚠️ All gating honors the `plans` table — Starter must have NO feature toggles
 ticked in Admin → Settings, or those features are intentionally unlocked.
+
+UX polish (2026-06-13, deployed): **calendar** appts colored by status + legend,
+bigger month cells, email in detail card, **filter-by-barber** dropdown (owners
+w/ >1 barber); **onboarding** "Add barbers" step (add-self vs invite, multi-add,
+skip; reuses `/api/admin/barber/invite`); **Staff** "+ Add myself as a barber"
+when not already on the team; owner's own barber card shows an "Owner" tag and
+hides Permissions + Reset Password; barber **Reset Password now also emails** the
+recovery link (template `barber_password_reset`) + keeps the copy/paste link.
+See `SESSION-16-NOTES.md` §5 for commits.
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.

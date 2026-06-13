@@ -93,3 +93,36 @@ Note: Analytics/Marketing/Clients/Staff/Services are NOT feature-gated by design
 (available on every plan). Inventory/POS page gates are client-side; truly
 server-enforcing them (beyond payment/loyalty routes which already are) is a
 follow-up — see TODO §2b.
+
+### 5. Calendar + Staff/Onboarding UX (2026-06-13, all DEPLOYED)
+Owner-requested polish, each its own commit:
+
+- **Calendar status colors** (`48d07a0`) — appointment blocks are now colored by
+  STATUS (Booked/Pending/Completed/Cancelled/No-show) across month/week/day,
+  with a status legend; month view shows ALL statuses (was hiding cancelled),
+  bigger day cells (up to 4 blocks), and the tapped detail card + agenda rows
+  now show the client **email**. Removed the now-unused barber-colour palette
+  (barber identity still in day-view column headers + detail card).
+- **Calendar "filter by barber"** (`4368d4e`) — dropdown on the right of the
+  toolbar, shown only for owners with >1 barber; scopes the load query + the
+  day-view columns to the chosen barber.
+- **Onboarding "Add barbers" step** (`3399cae`) — "Add yourself as a barber"
+  (instant self-link) vs "Add someone else" (email invite); multi-add with
+  You/Invited tags; owner email blocked in the invite path; "Skip for now";
+  honors the plan barber limit; hours step now applies to every added barber.
+  Reuses `/api/admin/barber/invite` (owner-self path links user_id). No RLS change.
+- **Staff "+ Add myself as a barber"** (`3399cae`) — header button shown only
+  when the owner isn't already on the team (by linked user_id or email).
+- **Owner's own barber card** (`3e26040`) — shows an "Owner" tag; hides
+  Permissions + Reset Password/Resend (owner manages their own access). Set
+  Schedule + Remove stay. `isOwnerBarber` = linked user_id OR account-email match.
+- **Reset-password email** (`c7c60bc`) — Reset Password (non-owner barbers) now
+  also emails the recovery link to the barber's login email (new
+  `barber_password_reset` template) in addition to the copy/paste modal link.
+  Best-effort; Resend is still on sandbox so the copy/paste link is the reliable
+  fallback until a verified domain is set up.
+
+Tip for the next session: the dummy-env build command + git-proxy-403→PAT
+workflow from the top of this file still apply. The "unverified" stop-hook
+warning remains a false positive (GitHub shows the commits verified via the
+Claude app).
