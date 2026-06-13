@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { formatPlanPrice } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -28,7 +29,7 @@ interface Billing {
 const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pro", premium: "Premium" };
 
 export default function BillingPage() {
-  const { accessToken, refreshShop } = useAuth();
+  const { accessToken, refreshShop, plans } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -56,13 +57,13 @@ export default function BillingPage() {
     }
   }, [refreshShop]);
 
-  const startCheckoutUpgrade = async () => {
+  const startCheckoutUpgrade = async (planId: string) => {
     if (!accessToken) return;
-    setActionLoading("upgrade");
+    setActionLoading(planId);
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: "premium", upgrade: true }),
+      body: JSON.stringify({ plan: planId, upgrade: true }),
     });
     const data = await res.json();
     if (res.ok && data.url) window.location.href = data.url;
@@ -119,6 +120,11 @@ export default function BillingPage() {
 
   const isStarter = !billing || billing.plan === "starter";
   const isExpired = billing?.subscriptionStatus === "cancelled" || billing?.subscriptionStatus === "past_due";
+  const currentPlanId = billing?.plan ?? "starter";
+  const currentPlanName = PLAN_LABEL[currentPlanId] ?? plans.find(p => p.id === currentPlanId)?.name ?? currentPlanId;
+  // Every active PAID plan the owner can move to (all tiers except their current
+  // one) — driven by the admin-editable plans table, so any middle tier shows.
+  const otherPaidPlans = plans.filter(p => p.is_active && p.price_cents > 0 && p.id !== currentPlanId);
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -148,7 +154,7 @@ export default function BillingPage() {
               <Crown size={22} className={isStarter ? "text-[#777]" : "text-white"} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{PLAN_LABEL[billing?.plan ?? "starter"]}</p>
+              <p className="text-lg font-bold text-white">{currentPlanName}</p>
               {billing?.amount != null && <p className="text-sm text-[#777]">${billing.amount}/month</p>}
             </div>
           </div>
@@ -171,22 +177,27 @@ export default function BillingPage() {
             </div>
           ))}
 
-          <div className="flex flex-wrap gap-3">
-            {isStarter ? (
-              <Button loading={actionLoading === "upgrade"} onClick={startCheckoutUpgrade}>
-                <ArrowUpRight size={15} /> Upgrade to Premium
-              </Button>
-            ) : billing?.plan === "pro" ? (
-              <Button loading={actionLoading === "upgrade"} onClick={startCheckoutUpgrade}>
-                <ArrowUpRight size={15} /> Upgrade to Premium
-              </Button>
-            ) : null}
-            {!isStarter && billing?.subscriptionStatus === "active" && (
-              <Button variant="outline" className="text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => setShowCancel(true)}>
-                Cancel Subscription
-              </Button>
-            )}
-          </div>
+          {otherPaidPlans.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <p className="text-xs font-medium text-[#777] uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Switch plan"}</p>
+              {otherPaidPlans.map(p => (
+                <div key={p.id} className="flex items-center justify-between gap-3 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
+                    <p className="text-xs text-[#777]">{formatPlanPrice(p.price_cents)}/month</p>
+                  </div>
+                  <Button size="sm" loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                    <ArrowUpRight size={14} /> {isStarter || isExpired ? "Choose" : "Switch"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {!isStarter && billing?.subscriptionStatus === "active" && (
+            <Button variant="outline" className="text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => setShowCancel(true)}>
+              Cancel Subscription
+            </Button>
+          )}
         </CardContent>
       </Card>
 
