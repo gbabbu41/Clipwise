@@ -178,19 +178,37 @@ export default function BillingPage() {
           ))}
 
           {otherPaidPlans.length > 0 && (
-            <div className="space-y-2 mb-4">
+            <div className="space-y-3 mb-4">
               <p className="text-xs font-medium text-[#777] uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Switch plan"}</p>
               {otherPaidPlans.map(p => (
-                <div key={p.id} className="flex items-center justify-between gap-3 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
-                    <p className="text-xs text-[#777]">{formatPlanPrice(p.price_cents)}/month</p>
+                <div key={p.id} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
+                      <p className="text-xs text-[#777]">
+                        <span className="text-white font-semibold">{formatPlanPrice(p.price_cents)}</span>/month
+                        {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
+                      </p>
+                    </div>
+                    <Button size="sm" loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                      <ArrowUpRight size={14} /> {isStarter || isExpired ? "Choose" : "Switch"}
+                    </Button>
                   </div>
-                  <Button size="sm" loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
-                    <ArrowUpRight size={14} /> {isStarter || isExpired ? "Choose" : "Switch"}
-                  </Button>
+                  {p.highlights && p.highlights.length > 0 && (
+                    <ul className="space-y-1">
+                      {p.highlights.slice(0, 6).map(h => (
+                        <li key={h} className="flex items-start gap-2 text-xs text-gray-300">
+                          <Check size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" /> {h}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
+              <p className="text-[11px] text-[#777] leading-relaxed">
+                Billed monthly in CAD · <span className="text-gray-300">cancel anytime</span> from this page · secure checkout by Stripe.
+                Your plan renews automatically each month until you cancel — cancelling stops future charges and reverts you to the free Starter plan at the end of the billing period. No contracts, no hidden fees.
+              </p>
             </div>
           )}
           {!isStarter && billing?.subscriptionStatus === "active" && (
