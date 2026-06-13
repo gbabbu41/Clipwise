@@ -208,6 +208,7 @@ function AgendaSheet({
 export default function CalendarPage() {
   const { shop, profile } = useAuth();
   const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -259,6 +260,9 @@ export default function CalendarPage() {
 
     if (profile?.role === "barber" && myBarberId) {
       q = q.eq("barber_id", myBarberId);
+    } else if (barberFilter !== "all") {
+      // Owner filtered the calendar to a single barber
+      q = q.eq("barber_id", barberFilter);
     }
 
     const [{ data: appts }, { data: bs }] = await Promise.all([
@@ -269,7 +273,7 @@ export default function CalendarPage() {
     setAppointments((appts ?? []) as AppointmentWithDetails[]);
     setBarbers((bs ?? []) as Barber[]);
     setLoading(false);
-  }, [shop, currentDate, view, profile, myBarberId]);
+  }, [shop, currentDate, view, profile, myBarberId, barberFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -465,7 +469,8 @@ export default function CalendarPage() {
     }
 
     // Desktop: per-barber columns
-    const cols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+    const visibleCols = barberFilter !== "all" ? barbers.filter(b => b.id === barberFilter) : barbers;
+    const cols = visibleCols.length > 0 ? visibleCols : [{ id: "none", name: "All Barbers" } as Barber];
 
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
@@ -778,14 +783,29 @@ export default function CalendarPage() {
             {loading && <span className="text-xs text-[#777] ml-2 animate-pulse">Loading…</span>}
           </h2>
         </div>
-        <div className="flex bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 gap-1 self-start sm:self-auto">
-          {(["month", "week", "day"] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
-                view === v ? "bg-black/10 text-white" : "text-[#777] hover:text-white")}>
-              {v}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {profile?.role !== "barber" && barbers.length > 1 && (
+            <select
+              value={barberFilter}
+              onChange={(e) => setBarberFilter(e.target.value)}
+              aria-label="Filter by barber"
+              className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-gold/50 max-w-[160px]"
+            >
+              <option value="all">All barbers</option>
+              {barbers.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
+          <div className="flex bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 gap-1">
+            {(["month", "week", "day"] as const).map(v => (
+              <button key={v} onClick={() => setView(v)}
+                className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
+                  view === v ? "bg-black/10 text-white" : "text-[#777] hover:text-white")}>
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
