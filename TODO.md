@@ -118,8 +118,8 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
-- [ ] 🔴 **Phase 10 subscription backend update** (`supabase/migrations/phase10_subscription_backend_update.sql`)
-      — ⚠️ **REQUIRED for billing upgrades to work.** Relaxes `prevent_shop_field_escalation`
+- [x] **Phase 10 subscription backend update** (`supabase/migrations/phase10_subscription_backend_update.sql`) — RUN (owner ran it).
+      Relaxes `prevent_shop_field_escalation`
       so the trusted service-role backend (Stripe webhook + `/api/stripe/confirm-subscription`)
       can set `shops.subscription_plan/status`; previously the trigger rejected the plan change
       (auth.uid() is NULL for service role → treated as non-admin) so starter→pro upgrades
