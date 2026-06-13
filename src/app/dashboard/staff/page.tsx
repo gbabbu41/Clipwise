@@ -526,7 +526,12 @@ export default function StaffPage() {
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {barbers.map((barber) => (
+          {barbers.map((barber) => {
+            // The owner's OWN barber card — they manage their own login/permissions
+            // as the shop owner, so the staff-level Reset Password + Permissions
+            // tools don't apply to them.
+            const isOwnerBarber = (!!barber.user_id && barber.user_id === user?.id) || (!!user?.email && barber.email?.toLowerCase() === user.email!.toLowerCase());
+            return (
             <Card key={barber.id} className={cn(!activeMap[barber.id] && "opacity-60")}>
               {/* Card Header */}
               <div className="flex items-start justify-between mb-4">
@@ -539,6 +544,9 @@ export default function StaffPage() {
                     <h3 className="text-white font-semibold">{barber.name}</h3>
                     {barber.email && <p className="text-xs text-[#777]">{barber.email}</p>}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {isOwnerBarber && (
+                        <span className="text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5">Owner</span>
+                      )}
                       {barber.user_id ? (
                         <span className="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5">✓ Portal active</span>
                       ) : barber.email ? (
@@ -587,9 +595,11 @@ export default function StaffPage() {
               {/* Actions */}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => openSchedule(barber)}>Set Schedule</Button>
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => openPermissions(barber)}>
-                  <Shield size={13} className="mr-1.5" /> Permissions
-                </Button>
+                {!isOwnerBarber && (
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => openPermissions(barber)}>
+                    <Shield size={13} className="mr-1.5" /> Permissions
+                  </Button>
+                )}
               </div>
               <div className="mt-2">
                 <Button variant="secondary" size="sm" className="w-full" onClick={() => document.getElementById("clock-history")?.scrollIntoView({ behavior: "smooth" })}>
@@ -599,7 +609,7 @@ export default function StaffPage() {
 
               {/* Admin controls */}
               <div className="flex gap-2 mt-2">
-                {!barber.user_id && barber.email ? (
+                {!isOwnerBarber && (!barber.user_id && barber.email ? (
                   <Button
                     variant="outline"
                     size="sm"
@@ -620,7 +630,7 @@ export default function StaffPage() {
                     <KeyRound size={13} className="mr-1.5" />
                     Reset Password
                   </Button>
-                )}
+                ))}
                 <Button
                   variant="outline"
                   size="sm"
@@ -668,7 +678,8 @@ export default function StaffPage() {
                 </div>
               )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
