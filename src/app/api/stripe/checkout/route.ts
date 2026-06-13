@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       metadata: { user_id: user.id, plan, old_subscription_id: oldSubscriptionId },
       subscription_data: { metadata: { user_id: user.id, plan, old_subscription_id: oldSubscriptionId } },
       success_url: upgrade
-        ? `${BASE_URL}/dashboard/billing?upgraded=1`
+        ? `${BASE_URL}/dashboard/billing?upgraded=1&session_id={CHECKOUT_SESSION_ID}`
         : `${BASE_URL}/onboarding/plan?status=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: upgrade
         ? `${BASE_URL}/dashboard/billing`

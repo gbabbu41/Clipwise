@@ -50,12 +50,29 @@ export default function BillingPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("upgraded") === "1") {
-      showToast("Plan upgraded! 🎉");
-      window.history.replaceState({}, "", "/dashboard/billing");
-      refreshShop(); // unlock premium features in sidebar immediately
-    }
-  }, [refreshShop]);
+    if (!accessToken) return; // wait for auth before confirming
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") !== "1") return;
+    const sid = params.get("session_id");
+    window.history.replaceState({}, "", "/dashboard/billing");
+    (async () => {
+      // Apply the plan synchronously (don't rely on the platform webhook firing).
+      if (sid) {
+        const res = await fetch("/api/stripe/confirm-subscription", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sid }),
+        }).catch(() => null);
+        if (res && !res.ok) {
+          const d = await res.json().catch(() => ({}));
+          showToast(d.error ?? "Payment received, but we couldn't activate the plan — refresh in a moment.");
+        }
+      }
+      showToast("🎉 You're subscribed! Your plan is now active.");
+      await refreshShop(); // unlock premium features in sidebar immediately
+      load();
+    })();
+  }, [accessToken, refreshShop, load]);
 
   const startCheckoutUpgrade = async (planId: string) => {
     if (!accessToken) return;

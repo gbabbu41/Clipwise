@@ -514,6 +514,21 @@ function barberInvite(data: Record<string, string>) {
   `);
 }
 
+function subscriptionStarted(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">🎉 Subscription Active</div>
+    <h1>You're all set!</h1>
+    <p>Your <span class="highlight">${data.planName}</span> plan for <span class="highlight">${data.shopName}</span> is now active — every feature included in your plan is unlocked.</p>
+    <a href="${BASE_URL}/dashboard" class="btn">Go to my dashboard →</a>
+    <hr class="divider">
+    <p style="font-size:13px;color:#9CA3AF">Billed monthly in CAD. You can change or cancel your plan anytime from
+      <a href="${BASE_URL}/dashboard/billing" style="color:#F5F0E6">Billing</a> — cancelling stops future charges and
+      keeps your plan active until the end of the billing period. No contracts, no hidden fees.</p>
+    <p style="color:#4B5563">— ClipWise</p>
+  `);
+}
+
 function barberPasswordReset(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -724,6 +739,11 @@ export async function POST(req: NextRequest) {
         to = data.barberEmail;
         subject = `Reset your password — ${data.shopName}`;
         html = barberPasswordReset(data);
+        break;
+      case "subscription_started":
+        to = data.ownerEmail;
+        subject = `Your ${data.planName} plan is active — ClipWise`;
+        html = subscriptionStarted(data);
         break;
       case "waitlist_slot_open":
         to = data.clientEmail;
