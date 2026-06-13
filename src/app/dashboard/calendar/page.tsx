@@ -52,20 +52,35 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 
 // ── Barber palette ───────────────────────────────────────────────────────────
 // Flat fills, no borders. Colored by barber so "who is doing what" reads at a glance.
-const BARBER_PALETTE = [
-  "bg-sky-500/80 text-white",
-  "bg-emerald-500/80 text-white",
-  "bg-violet-500/80 text-white",
-  "bg-rose-500/80 text-white",
-  "bg-orange-500/90 text-white",
-  "bg-cyan-500/80 text-white",
-  "bg-fuchsia-500/80 text-white",
-  "bg-lime-500/90 text-white",
-];
 const BARBER_DOT_PALETTE = [
   "bg-sky-400", "bg-emerald-400", "bg-violet-400", "bg-rose-400",
   "bg-orange-400", "bg-cyan-400", "bg-fuchsia-400", "bg-lime-400",
 ];
+
+// ── Status palette ───────────────────────────────────────────────────────────
+// Appointment blocks are colored by STATUS so booked / pending / cancelled read
+// at a glance. Barber identity still shows via the day-view column headers, the
+// block text, and the detail card.
+const STATUS_FILL: Record<string, string> = {
+  pending:   "bg-amber-500/85 text-white",
+  confirmed: "bg-emerald-500/85 text-white",
+  completed: "bg-sky-500/85 text-white",
+  cancelled: "bg-red-500/70 text-white",
+  "no-show": "bg-zinc-500/70 text-white",
+};
+const STATUS_DOT: Record<string, string> = {
+  pending: "bg-amber-400", confirmed: "bg-emerald-400", completed: "bg-sky-400",
+  cancelled: "bg-red-400", "no-show": "bg-zinc-400",
+};
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Pending", confirmed: "Booked", completed: "Completed",
+  cancelled: "Cancelled", "no-show": "No-show",
+};
+const STATUS_ORDER = ["confirmed", "pending", "completed", "cancelled", "no-show"] as const;
+const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-white";
+const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
+const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
+const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 
 // ── Appointment detail modal ────────────────────────────────────────────────
 function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; barbers: Barber[]; onClose: () => void }) {
@@ -97,6 +112,10 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
               <span className="text-[#777]">Time</span>
               <span className="text-white">{appt.time_slot}</span>
             </div>
+            <div className="flex justify-between gap-3 py-1.5 border-b border-[#1e1e1e]/50">
+              <span className="text-[#777] flex-shrink-0">Email</span>
+              <span className="text-white truncate text-right">{appt.client_email || "—"}</span>
+            </div>
             <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
               <span className="text-[#777]">Phone</span>
               <span className="text-white">{appt.client_phone || "—"}</span>
@@ -120,7 +139,6 @@ function AgendaSheet({
   date,
   appts,
   barbers,
-  barberColorByIdx,
   onClose,
   onOpenAppt,
   onDrillToDay,
@@ -128,7 +146,6 @@ function AgendaSheet({
   date: Date;
   appts: AppointmentWithDetails[];
   barbers: Barber[];
-  barberColorByIdx: (id: string | null) => number;
   onClose: () => void;
   onOpenAppt: (a: AppointmentWithDetails) => void;
   onDrillToDay: () => void;
@@ -151,16 +168,14 @@ function AgendaSheet({
             <div className="text-center py-12 text-[#777] text-sm">No bookings on this day.</div>
           )}
           {appts.map(appt => {
-            const colorIdx = barberColorByIdx(appt.barber_id);
-            const dot = BARBER_DOT_PALETTE[colorIdx];
             const barber = barbers.find(b => b.id === appt.barber_id);
             return (
               <button key={appt.id} onClick={() => onOpenAppt(appt)}
                 className="w-full text-left p-3 rounded-xl bg-[#141414] hover:bg-[#141414]/80 transition-colors flex items-start gap-3">
-                <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", dot)} />
+                <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", statusDot(appt.status))} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className={cn("text-sm font-semibold text-white truncate", (appt.status === "cancelled" || appt.status === "no-show") && "line-through opacity-50")}>
+                    <p className={cn("text-sm font-semibold text-white truncate", isDimmed(appt.status) && "line-through opacity-60")}>
                       {appt.client_name}
                     </p>
                     <span className="text-xs text-[#777] flex-shrink-0">{appt.time_slot}</span>
@@ -168,6 +183,12 @@ function AgendaSheet({
                   <p className="text-xs text-[#777] truncate">
                     {(appt.services as { name: string } | null)?.name ?? "—"} · {barber?.name ?? "Any"}
                   </p>
+                  {appt.client_email && (
+                    <p className="text-xs text-[#777] truncate">{appt.client_email}</p>
+                  )}
+                  <span className={cn("inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded text-white", statusFill(appt.status).split(" ")[0])}>
+                    {statusLabel(appt.status)}
+                  </span>
                 </div>
               </button>
             );
@@ -259,13 +280,6 @@ export default function CalendarPage() {
     }
   }, [view]);
 
-  // Stable barber → palette index map
-  const barberColorByIdx = useMemo(() => {
-    const m = new Map<string, number>();
-    barbers.forEach((b, i) => m.set(b.id, i % BARBER_PALETTE.length));
-    return (id: string | null) => (id && m.has(id)) ? m.get(id)! : 0;
-  }, [barbers]);
-
   const navigate = (dir: -1 | 1) => {
     if (view === "month") setCurrentDate(prev => addMonths(prev, dir));
     else if (view === "week") setCurrentDate(prev => addDays(prev, dir * 7));
@@ -322,15 +336,15 @@ export default function CalendarPage() {
           {visibleDays.map((day) => {
             const inMonth = isSameMonth(day, currentDate);
             const dayStr = formatDateForDb(day);
-            const dayAppts = (apptsByDate.get(dayStr) ?? []).filter(a => a.status !== "cancelled" && a.status !== "no-show");
-            const visible = dayAppts.slice(0, 2);
+            const dayAppts = apptsByDate.get(dayStr) ?? [];
+            const visible = dayAppts.slice(0, 4);
             const overflow = dayAppts.length - visible.length;
             return (
               <button
                 key={dayStr}
                 onClick={() => setAgendaDate(day)}
                 className={cn(
-                  "border-r border-b border-[#1e1e1e]/40 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[72px] sm:min-h-[88px] transition-colors",
+                  "border-r border-b border-[#1e1e1e]/40 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
                   "hover:bg-[#141414]/40",
                   !inMonth && "bg-black shadow-sm/30",
                 )}
@@ -347,28 +361,26 @@ export default function CalendarPage() {
                 {isMobile ? (
                   // Phones: just colored dots per booking; cell is too narrow for chip text
                   <div className="flex flex-wrap gap-0.5 overflow-hidden">
-                    {dayAppts.slice(0, 6).map(a => (
-                      <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", BARBER_DOT_PALETTE[barberColorByIdx(a.barber_id)])} />
+                    {dayAppts.slice(0, 10).map(a => (
+                      <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", statusDot(a.status))} />
                     ))}
-                    {dayAppts.length > 6 && (
-                      <span className="text-[9px] text-[#777] leading-none">+{dayAppts.length - 6}</span>
+                    {dayAppts.length > 10 && (
+                      <span className="text-[9px] text-[#777] leading-none">+{dayAppts.length - 10}</span>
                     )}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-0.5 overflow-hidden">
-                    {visible.map(a => {
-                      const colorIdx = barberColorByIdx(a.barber_id);
-                      return (
-                        <span key={a.id}
-                          className={cn(
-                            "truncate text-[10px] leading-4 px-1.5 rounded-sm",
-                            BARBER_PALETTE[colorIdx],
-                          )}
-                        >
-                          {a.time_slot.replace(/:00 /, " ")} {a.client_name}
-                        </span>
-                      );
-                    })}
+                    {visible.map(a => (
+                      <span key={a.id}
+                        className={cn(
+                          "truncate text-[10px] leading-4 px-1.5 rounded-sm",
+                          statusFill(a.status),
+                          isDimmed(a.status) && "line-through",
+                        )}
+                      >
+                        {a.time_slot.replace(/:00 /, " ")} {a.client_name}
+                      </span>
+                    ))}
                     {overflow > 0 && (
                       <span className="text-[10px] text-[#777] pl-1.5">+{overflow} more</span>
                     )}
@@ -408,17 +420,16 @@ export default function CalendarPage() {
                   const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
                   const top = startH * ROW_PX;
                   const height = Math.max(36, (duration / 60) * ROW_PX - 4);
-                  const colorIdx = barberColorByIdx(appt.barber_id);
                   const barber = barbers.find(b => b.id === appt.barber_id);
-                  const dimmed = appt.status === "cancelled" || appt.status === "no-show";
+                  const dimmed = isDimmed(appt.status);
                   return (
                     <button
                       key={appt.id}
                       style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                       className={cn(
                         "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                        BARBER_PALETTE[colorIdx],
-                        dimmed && "opacity-40 line-through",
+                        statusFill(appt.status),
+                        dimmed && "opacity-70 line-through",
                       )}
                       onClick={() => setSelectedAppt(appt)}
                     >
@@ -497,7 +508,6 @@ export default function CalendarPage() {
                       const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
                       const top = startH * ROW_PX;
                       const height = Math.max(28, (duration / 60) * ROW_PX - 4);
-                      const colorIdx = barberColorByIdx(appt.barber_id);
                       const dimmed = appt.status === "cancelled" || appt.status === "no-show";
                       return (
                         <button
@@ -505,8 +515,8 @@ export default function CalendarPage() {
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className={cn(
                             "rounded-lg px-2 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:scale-[1.02] hover:z-10 shadow-sm",
-                            BARBER_PALETTE[colorIdx],
-                            dimmed && "opacity-40 line-through",
+                            statusFill(appt.status),
+                            dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
@@ -604,17 +614,16 @@ export default function CalendarPage() {
                     const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
                     const top = startH * ROW_PX;
                     const height = Math.max(36, (duration / 60) * ROW_PX - 4);
-                    const colorIdx = barberColorByIdx(appt.barber_id);
                     const barber = barbers.find(b => b.id === appt.barber_id);
-                    const dimmed = appt.status === "cancelled" || appt.status === "no-show";
+                    const dimmed = isDimmed(appt.status);
                     return (
                       <button
                         key={appt.id}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                         className={cn(
                           "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                          BARBER_PALETTE[colorIdx],
-                          dimmed && "opacity-40 line-through",
+                          statusFill(appt.status),
+                          dimmed && "opacity-70 line-through",
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
@@ -703,7 +712,6 @@ export default function CalendarPage() {
                       const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
                       const top = startH * ROW_PX;
                       const height = Math.max(22, (duration / 60) * ROW_PX - 3);
-                      const colorIdx = barberColorByIdx(appt.barber_id);
                       const dimmed = appt.status === "cancelled" || appt.status === "no-show";
                       return (
                         <button
@@ -711,8 +719,8 @@ export default function CalendarPage() {
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           className={cn(
                             "rounded px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:scale-[1.02] shadow-sm",
-                            BARBER_PALETTE[colorIdx],
-                            dimmed && "opacity-40 line-through",
+                            statusFill(appt.status),
+                            dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
@@ -781,17 +789,15 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Barber legend (only when there are multiple) */}
-      {barbers.length > 1 && (
-        <div className="px-4 sm:px-6 py-2 border-b border-[#1e1e1e]/50 flex flex-wrap gap-x-4 gap-y-1.5">
-          {barbers.map((b, i) => (
-            <span key={b.id} className="inline-flex items-center gap-1.5 text-xs">
-              <span className={cn("w-2.5 h-2.5 rounded-full", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])} />
-              <span className="text-[#777]">{b.name}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Status legend — appointments are colored by status */}
+      <div className="px-4 sm:px-6 py-2 border-b border-[#1e1e1e]/50 flex flex-wrap gap-x-4 gap-y-1.5">
+        {STATUS_ORDER.map(s => (
+          <span key={s} className="inline-flex items-center gap-1.5 text-xs">
+            <span className={cn("w-2.5 h-2.5 rounded-full", statusDot(s))} />
+            <span className="text-[#777]">{statusLabel(s)}</span>
+          </span>
+        ))}
+      </div>
 
       <div className="flex-1 overflow-hidden bg-black shadow-sm">
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
@@ -803,7 +809,6 @@ export default function CalendarPage() {
           date={agendaDate}
           appts={appointments.filter(a => a.date === formatDateForDb(agendaDate))}
           barbers={barbers}
-          barberColorByIdx={barberColorByIdx}
           onClose={() => setAgendaDate(null)}
           onOpenAppt={(a) => { setAgendaDate(null); setSelectedAppt(a); }}
           onDrillToDay={() => {
