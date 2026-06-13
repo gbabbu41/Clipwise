@@ -33,8 +33,6 @@ export default function BillingPage() {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
-  const [showCancel, setShowCancel] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
@@ -100,20 +98,17 @@ export default function BillingPage() {
     else { showToast(data.error ?? "Could not start Stripe Connect"); setActionLoading(""); }
   };
 
-  const cancelSubscription = async () => {
+  // Open the Stripe Customer Portal — cancel (at period end), update card, invoices.
+  const openPortal = async () => {
     if (!accessToken) return;
-    setCancelling(true);
-    const res = await fetch("/api/stripe/cancel-subscription", {
+    setActionLoading("portal");
+    const res = await fetch("/api/stripe/billing-portal", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     });
-    setCancelling(false);
-    setShowCancel(false);
-    if (res.ok) {
-      showToast("Subscription cancelled. Premium features are now locked.");
-      await refreshShop(); // update sidebar + dashboard banner immediately
-      load();
-    } else { const d = await res.json(); showToast(d.error ?? "Could not cancel"); }
+    const data = await res.json();
+    if (res.ok && data.url) window.location.href = data.url;
+    else { showToast(data.error ?? "Could not open billing portal"); setActionLoading(""); }
   };
 
   const statusBadge = (status: string) => {
@@ -223,14 +218,14 @@ export default function BillingPage() {
                 </div>
               ))}
               <p className="text-[11px] text-[#777] leading-relaxed">
-                Billed monthly in CAD · <span className="text-gray-300">cancel anytime</span> from this page · secure checkout by Stripe.
-                Your plan renews automatically each month until you cancel — cancelling stops future charges and reverts you to the free Starter plan at the end of the billing period. No contracts, no hidden fees.
+                Billed monthly in CAD · secure checkout by Stripe. Your plan renews automatically each month.
+                You can cancel or update your card anytime via <span className="text-gray-300">Manage subscription</span> — cancelling stops future charges and keeps your plan active until the end of the billing period (no refund for the unused days), then reverts to the free Starter plan. No contracts, no hidden fees.
               </p>
             </div>
           )}
-          {!isStarter && billing?.subscriptionStatus === "active" && (
-            <Button variant="outline" className="text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => setShowCancel(true)}>
-              Cancel Subscription
+          {!isStarter && (
+            <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
+              <CreditCard size={15} /> Manage subscription
             </Button>
           )}
         </CardContent>
@@ -287,25 +282,6 @@ export default function BillingPage() {
         </Card>
       )}
 
-      {/* Cancel confirmation */}
-      {showCancel && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setShowCancel(false)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
-                <AlertTriangle size={20} className="text-red-400" />
-              </div>
-              <h2 className="text-lg font-bold text-white">Cancel subscription?</h2>
-              <p className="text-sm text-[#777]">Your shop will be downgraded to the free Starter plan and Premium features will be locked. This cannot be undone.</p>
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowCancel(false)}>Keep Plan</Button>
-                <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={cancelling} onClick={cancelSubscription}>Cancel</Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
