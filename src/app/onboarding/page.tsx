@@ -1,15 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, ChevronLeft, Plus, Trash2, Copy, ExternalLink, AlertCircle } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, Plus, Trash2, Copy, ExternalLink, AlertCircle, User, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { generate24hSlots, cn } from "@/lib/utils";
+import { validateEmail, getPlanLimit } from "@/lib/validation";
 
-const STEPS = ["Shop Details", "Logo", "First Barber", "Services", "Hours", "Done!"];
+const STEPS = ["Shop Details", "Logo", "Barbers", "Services", "Hours", "Done!"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_SLOTS = generate24hSlots();
 const SERVICE_CATEGORIES = ["Hair", "Beard", "Packages", "Kids"];
@@ -42,8 +43,14 @@ export default function OnboardingPage() {
   const [createdShopSlug, setCreatedShopSlug] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [barber, setBarber] = useState({ name: "", email: "", commission: "50" });
-  const [createdBarberId, setCreatedBarberId] = useState("");
+  // Step 2 — "add barbers" (reuses /api/admin/barber/invite for both self + invites)
+  const [createdBarberIds, setCreatedBarberIds] = useState<string[]>([]);
+  const [addedBarbers, setAddedBarbers] = useState<{ id: string; name: string; email: string; self: boolean }[]>([]);
+  const [showAddOther, setShowAddOther] = useState(false);
+  const [otherBarber, setOtherBarber] = useState({ name: "", email: "" });
+  const [addingBarber, setAddingBarber] = useState(false);
+  const [barberError, setBarberError] = useState("");
+  const [chosenPlan, setChosenPlan] = useState("starter");
   const [services, setServices] = useState<ServiceRow[]>([
     { name: "Haircut", price: "30", duration: "30", category: "Hair" },
     { name: "Skin Fade", price: "35", duration: "45", category: "Hair" },
@@ -57,6 +64,14 @@ export default function OnboardingPage() {
     }))
   );
 
+  // Remember the chosen plan (for the barber-limit) from the plan step.
+  useEffect(() => {
+    try {
+      const p = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
+      if (p.plan) setChosenPlan(p.plan);
+    } catch { /* ignore */ }
+  }, []);
+
   // If the user reopens onboarding mid-flow (browser refresh / session blip), restore
   // any state we can from the DB so the rest of the flow doesn't silently drop data.
   useEffect(() => {
@@ -68,16 +83,22 @@ export default function OnboardingPage() {
       if (!existingShop) return;
       setCreatedShopId(existingShop.id);
       setCreatedShopSlug(existingShop.slug);
-      const { data: existingBarber } = await supabase
-        .from("barbers").select("id").eq("shop_id", existingShop.id)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (existingBarber) setCreatedBarberId(existingBarber.id);
+      const { data: existingBarbers } = await supabase
+        .from("barbers").select("id, name, email").eq("shop_id", existingShop.id)
+        .order("created_at", { ascending: true });
+      if (existingBarbers && existingBarbers.length > 0) {
+        setCreatedBarberIds(existingBarbers.map(b => b.id));
+        setAddedBarbers(existingBarbers.map(b => ({
+          id: b.id, name: b.name, email: b.email ?? "",
+          self: !!user.email && (b.email ?? "").toLowerCase() === user.email.toLowerCase(),
+        })));
+      }
     })();
   }, [user, createdShopId]);
 
   const canProceed = () => {
     if (step === 0) return shop.name && shop.address && shop.city && shop.phone;
-    if (step === 2) return !!barber.name;
+    // Step 2 (barbers) is always skippable — adds happen inline via the invite route.
     if (step === 3) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
   };
@@ -118,17 +139,6 @@ export default function OnboardingPage() {
         setCreatedShopSlug(data.slug);
       }
 
-      if (step === 2 && barber.name) {
-        if (!createdShopId) throw new Error("Shop wasn't saved — please go back to step 1 and click Continue.");
-        const { data, error: err } = await supabase
-          .from("barbers")
-          .insert({ shop_id: createdShopId, name: barber.name, email: barber.email, commission_percent: parseInt(barber.commission), is_active: true })
-          .select().single();
-        if (err) throw err;
-        if (!data?.id) throw new Error("Barber wasn't saved — please try again.");
-        setCreatedBarberId(data.id);
-      }
-
       if (step === 3) {
         const { error: err } = await supabase.from("services").insert(
           services.map((s) => ({ shop_id: createdShopId, name: s.name, price: parseFloat(s.price), duration_minutes: parseInt(s.duration), category: s.category, is_active: true }))
@@ -137,37 +147,25 @@ export default function OnboardingPage() {
       }
 
       if (step === 4) {
-        // Self-heal: if we lost createdBarberId mid-flow (refresh / session blip),
-        // look up the most-recently-created barber for this shop before saving hours.
-        let barberId = createdBarberId;
-        if (!barberId && createdShopId) {
+        // Apply the chosen business hours to EVERY barber added during onboarding.
+        // Self-heal: if the in-memory list is empty (refresh), look them up. If
+        // the owner skipped adding anyone, there's simply nothing to do here.
+        let barberIds = createdBarberIds;
+        if (barberIds.length === 0 && createdShopId) {
           const { data: existing } = await supabase
-            .from("barbers")
-            .select("id")
-            .eq("shop_id", createdShopId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (existing?.id) {
-            barberId = existing.id;
-            setCreatedBarberId(existing.id);
-          }
+            .from("barbers").select("id").eq("shop_id", createdShopId);
+          barberIds = (existing ?? []).map((b) => b.id);
         }
-
-        if (!barberId) {
-          // No barber row exists for this shop — the customer's hours have nowhere to go.
-          // Bail loudly so the user knows to add the barber from the Staff page later.
-          throw new Error("We couldn't find a barber for your shop. Please finish onboarding and add a barber from the Staff page — you can set their hours there.");
-        }
-
         const slots = hours
-          .map((day, idx) => day.open ? { barber_id: barberId, day_of_week: idx, start_time: toDbTime(day.start), end_time: toDbTime(day.end), is_available: true } : null)
+          .map((day, idx) => day.open ? { day_of_week: idx, start_time: toDbTime(day.start), end_time: toDbTime(day.end), is_available: true } : null)
           .filter((x): x is NonNullable<typeof x> => x !== null);
-        if (slots.length > 0) {
+        for (const barberId of barberIds) {
           // Clear any pre-existing slots first so re-running this step replaces, not duplicates.
           await supabase.from("time_slots").delete().eq("barber_id", barberId);
-          const { error: err } = await supabase.from("time_slots").insert(slots);
-          if (err) throw err;
+          if (slots.length > 0) {
+            const { error: err } = await supabase.from("time_slots").insert(slots.map((s) => ({ ...s, barber_id: barberId })));
+            if (err) throw err;
+          }
         }
       }
 
@@ -221,6 +219,57 @@ export default function OnboardingPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Step 2: add barbers (reuses the invite route; never touches RLS) ────────
+  const planLimit = getPlanLimit(chosenPlan);
+  const selfAdded = !!user?.email && addedBarbers.some((b) => b.self || b.email.toLowerCase() === user.email!.toLowerCase());
+  const atBarberLimit = addedBarbers.length >= planLimit;
+
+  const inviteBarber = async (name: string, email: string) => {
+    if (!createdShopId) { setBarberError("Please finish step 1 first."); return; }
+    if (!accessToken) { setBarberError("Session expired — please sign in again."); return; }
+    if (addedBarbers.length >= planLimit) {
+      setBarberError(`Your plan includes ${planLimit} barber${planLimit === 1 ? "" : "s"}. Upgrade later to add more.`);
+      return;
+    }
+    setAddingBarber(true);
+    setBarberError("");
+    try {
+      const res = await fetch("/api/admin/barber/invite", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, commission_percent: 50 }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.barber) { setBarberError(data.error ?? "Could not add barber."); return; }
+      setAddedBarbers((prev) => [...prev, { id: data.barber.id, name, email, self: !!data.ownerSelf }]);
+      setCreatedBarberIds((prev) => [...prev, data.barber.id]);
+      setShowAddOther(false);
+      setOtherBarber({ name: "", email: "" });
+    } catch {
+      setBarberError("Connection error — please try again.");
+    } finally {
+      setAddingBarber(false);
+    }
+  };
+
+  const addSelfAsBarber = () => {
+    if (!user?.email) { setBarberError("Your account email is missing — try signing in again."); return; }
+    inviteBarber(profile?.name || user.email.split("@")[0], user.email);
+  };
+
+  const addOtherBarber = () => {
+    const name = otherBarber.name.trim();
+    const email = otherBarber.email.trim();
+    if (!name) { setBarberError("Barber name is required."); return; }
+    const emailErr = validateEmail(email);
+    if (emailErr) { setBarberError(emailErr); return; }
+    if (user?.email && email.toLowerCase() === user.email.toLowerCase()) {
+      setBarberError("You're already set up as a barber — use “Add yourself” above.");
+      return;
+    }
+    inviteBarber(name, email);
   };
 
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://app.clipwise.ca"}/book/${createdShopSlug}`;
@@ -306,20 +355,72 @@ export default function OnboardingPage() {
 
         {step === 2 && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-xl font-bold text-white">Add your first barber</h2>
-            {[{ key: "name", label: "Barber Name *", placeholder: "Marcus Johnson" }, { key: "email", label: "Email", placeholder: "marcus@shop.ca" }].map(({ key, label, placeholder }) => (
-              <div key={key} className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">{label}</label>
-                <input value={barber[key as keyof typeof barber]} onChange={(e) => setBarber({ ...barber, [key]: e.target.value })} placeholder={placeholder}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+            <h2 className="text-xl font-bold text-white">Add your barbers</h2>
+            <p className="text-[#777] text-sm">Add yourself if you cut hair, and invite your team. You can always do this later from Staff.</p>
+
+            {barberError && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+                <p className="text-sm text-red-400">{barberError}</p>
               </div>
-            ))}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">Barber Commission: <span className="text-gold">{barber.commission}%</span></label>
-              <input type="range" min="30" max="70" step="5" value={barber.commission}
-                onChange={(e) => setBarber({ ...barber, commission: e.target.value })} className="w-full accent-gold" />
-              <p className="text-xs text-[#777]">Barber earns {barber.commission}%, shop keeps {100 - parseInt(barber.commission)}%</p>
-            </div>
+            )}
+
+            {addedBarbers.length > 0 && (
+              <div className="space-y-2">
+                {addedBarbers.map((b) => (
+                  <div key={b.id} className="flex items-center gap-3 bg-surface-raised border border-border rounded-xl px-4 py-2.5">
+                    <div className="w-8 h-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-sm font-bold flex-shrink-0">{(b.name[0] || "?").toUpperCase()}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{b.name}{b.self && <span className="text-gold"> (you)</span>}</p>
+                      {b.email && <p className="text-xs text-[#777] truncate">{b.email}</p>}
+                    </div>
+                    <span className={cn("text-[10px] px-2 py-0.5 rounded-full flex-shrink-0", b.self ? "bg-emerald-500/15 text-emerald-400" : "bg-orange-500/15 text-orange-300")}>
+                      {b.self ? "You" : "Invited"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {atBarberLimit ? (
+              <p className="text-xs text-[#777]">Your plan includes {planLimit} barber{planLimit === 1 ? "" : "s"}. Upgrade later from Billing to add more.</p>
+            ) : (
+              <div className="space-y-3">
+                {!selfAdded && (
+                  <button type="button" disabled={addingBarber} onClick={addSelfAsBarber}
+                    className="w-full flex items-center gap-3 bg-surface border border-gold/40 hover:border-gold rounded-2xl p-4 text-left transition-all disabled:opacity-60">
+                    <div className="w-10 h-10 rounded-xl bg-gold/15 flex items-center justify-center flex-shrink-0"><User size={18} className="text-gold" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white">Add yourself as a barber</p>
+                      <p className="text-xs text-[#777] truncate">{profile?.name || user?.email} · instant, no invite needed</p>
+                    </div>
+                  </button>
+                )}
+
+                {!showAddOther ? (
+                  <button type="button" onClick={() => { setShowAddOther(true); setBarberError(""); }}
+                    className="w-full flex items-center gap-3 bg-surface border border-border hover:border-gray-500 rounded-2xl p-4 text-left transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#777]" /></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">Add someone else</p>
+                      <p className="text-xs text-[#777]">Send an email invite to set up their own login</p>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white">Invite a barber</p>
+                      <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "" }); setBarberError(""); }} className="text-[#777] hover:text-white"><X size={16} /></button>
+                    </div>
+                    <input value={otherBarber.name} onChange={(e) => setOtherBarber((p) => ({ ...p, name: e.target.value }))} placeholder="Barber name *"
+                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                    <input value={otherBarber.email} onChange={(e) => setOtherBarber((p) => ({ ...p, email: e.target.value }))} placeholder="Barber email *" type="email"
+                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                    <Button className="w-full" loading={addingBarber} onClick={addOtherBarber}>Send invite</Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -449,7 +550,7 @@ export default function OnboardingPage() {
           <div className="max-w-lg mx-auto flex gap-3">
             {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
             <Button className="flex-1" disabled={!canProceed() || saving} loading={saving} onClick={step === 1 ? handleLogoStep : handleNext}>
-              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : "Continue"}
+              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : (step === 2 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
           </div>

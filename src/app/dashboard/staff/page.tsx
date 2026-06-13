@@ -109,8 +109,12 @@ export default function StaffPage() {
   const [permDraft, setPermDraft] = useState<BarberPermissions>(DEFAULT_BARBER_PERMISSIONS);
   const [savingPerms, setSavingPerms] = useState(false);
 
-  // Is the owner already on the team as a barber?
-  const alreadyOwnerBarber = !!(user?.email && barbers.some(b => b.email?.toLowerCase() === user.email!.toLowerCase()));
+  // Is the owner already on the team as a barber? (matched by their linked
+  // user_id, or by their account email — covers an onboarding self-add.)
+  const alreadyOwnerBarber = barbers.some(b =>
+    (!!b.user_id && b.user_id === user?.id) ||
+    (!!user?.email && b.email?.toLowerCase() === user.email!.toLowerCase())
+  );
   const [savingSchedule, setSavingSchedule] = useState(false);
   // Approved upcoming time-off for the barber whose Schedule modal is open
   const [scheduleTimeOff, setScheduleTimeOff] = useState<TimeOffRow[]>([]);
@@ -292,6 +296,30 @@ export default function StaffPage() {
   const inviteBarber = submitNewBarber;
   const addBarber = submitNewBarber;
 
+  // ── Owner self-add (one tap) ────────────────────────────────────────────────
+  // Reuses the invite route: when the email matches the caller's, it links the
+  // new barber to their user_id immediately (no invite email). Shown only when
+  // the owner isn't already on the team (e.g. they skipped it during onboarding).
+  const addSelfAsBarber = async () => {
+    if (!shop || !accessToken || !user?.email) return;
+    const limit = getPlanLimit(shop.subscription_plan);
+    if (barbers.length >= limit) {
+      showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
+      return;
+    }
+    setSavingAdd(true);
+    const res = await fetch("/api/admin/barber/invite", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 50 }),
+    });
+    const data = await res.json();
+    setSavingAdd(false);
+    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
+    showToast("You've been added as a barber! Open 'My Barber View' from the sidebar.");
+    loadBarbers();
+  };
+
   // ── Password reset ──────────────────────────────────────────────────────────
   const resetPassword = async (barber: BarberWithSchedule) => {
     if (!accessToken) return;
@@ -472,13 +500,18 @@ export default function StaffPage() {
           <h1 className="text-2xl font-bold text-white">Staff</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
-        {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
-          <Tooltip content={`${shop.subscription_plan} plan: max ${getPlanLimit(shop.subscription_plan)} barber${getPlanLimit(shop.subscription_plan) > 1 ? "s" : ""}. Upgrade to add more.`}>
-            <Button disabled>+ Add Barber</Button>
-          </Tooltip>
-        ) : (
-          <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!alreadyOwnerBarber && shop && barbers.length < getPlanLimit(shop.subscription_plan) && (
+            <Button variant="outline" loading={savingAdd} onClick={addSelfAsBarber}>+ Add myself as a barber</Button>
+          )}
+          {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
+            <Tooltip content={`${shop.subscription_plan} plan: max ${getPlanLimit(shop.subscription_plan)} barber${getPlanLimit(shop.subscription_plan) > 1 ? "s" : ""}. Upgrade to add more.`}>
+              <Button disabled>+ Add Barber</Button>
+            </Tooltip>
+          ) : (
+            <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
+          )}
+        </div>
       </div>
 
       {/* Barber Cards */}
