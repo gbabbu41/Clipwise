@@ -514,6 +514,19 @@ function barberInvite(data: Record<string, string>) {
   `);
 }
 
+function barberPasswordReset(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">🔑 Password Reset</div>
+    <h1>Hi ${data.barberName},</h1>
+    <p><span class="highlight">${data.shopName}</span> sent you a link to reset your ClipWise password.</p>
+    <a href="${data.resetLink}" class="btn">Reset My Password →</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
+    <hr class="divider">
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function barberAppointmentChange(data: Record<string, string>) {
   // Tells a barber one of their appointments changed state (cancelled by the
   // customer, rejected by the shop, or marked no-show). `statusLabel` drives
@@ -707,6 +720,11 @@ export async function POST(req: NextRequest) {
         subject = `You're invited to join ${data.shopName} on ClipWise`;
         html = barberInvite(data);
         break;
+      case "barber_password_reset":
+        to = data.barberEmail;
+        subject = `Reset your password — ${data.shopName}`;
+        html = barberPasswordReset(data);
+        break;
       case "waitlist_slot_open":
         to = data.clientEmail;
         subject = `A spot opened up at ${data.shopName} 🎉`;
@@ -732,7 +750,7 @@ export async function POST(req: NextRequest) {
       "booking_confirmation", "appointment_reminder", "review_request",
       "appointment_rejected", "refund_issued", "rebooking_reminder",
       "no_show_followup", "birthday_wish", "payment_link", "direct_message",
-      "barber_invite", "new_booking_barber", "payment_receipt",
+      "barber_invite", "barber_password_reset", "new_booking_barber", "payment_receipt",
       "barber_appointment_change", "waitlist_slot_open",
     ];
     const replyTo = customerOrBarberFacing.includes(type)

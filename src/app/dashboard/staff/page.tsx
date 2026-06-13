@@ -935,7 +935,7 @@ export default function StaffPage() {
                 <button onClick={() => setResetModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <p className="text-sm text-[#777]">
-                Share this link with <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.
+                We emailed this reset link to <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). You can also copy it below to share directly. It expires in 1 hour.
               </p>
               <ResetLinkCopy link={resetModal.link} />
               <p className="text-xs text-[#777]">The barber will be prompted to set a new password when they open this link.</p>

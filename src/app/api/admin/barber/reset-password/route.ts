@@ -45,9 +45,33 @@ export async function POST(request: NextRequest) {
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });
 
-  return NextResponse.json({
-    link: (linkData as { properties?: { action_link?: string } })?.properties?.action_link,
-    email,
-    name: barber.name,
-  });
+  const link = (linkData as { properties?: { action_link?: string } })?.properties?.action_link;
+
+  // Email the reset link to the barber's own login email (best-effort) in
+  // addition to returning it so the owner can still copy/paste it directly.
+  let emailed = false;
+  if (link) {
+    const { data: shopRow } = await supabaseAdmin
+      .from("shops").select("name, email").eq("id", barber.shop_id).maybeSingle();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+    try {
+      const res = await fetch(`${baseUrl}/api/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "barber_password_reset",
+          data: {
+            barberName: barber.name,
+            barberEmail: email,
+            shopName: shopRow?.name ?? "your shop",
+            shopEmail: shopRow?.email ?? "",
+            resetLink: link,
+          },
+        }),
+      });
+      emailed = res.ok;
+    } catch { /* best-effort — the owner still has the copy/paste link */ }
+  }
+
+  return NextResponse.json({ link, email, name: barber.name, emailed });
 }
