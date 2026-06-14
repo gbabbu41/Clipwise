@@ -4,7 +4,7 @@ Read this first. It carries cross-machine context so any Claude Code instance
 (Windows desktop or MacBook) stays consistent. The owner works from **two
 machines** and syncs only through this GitHub repo (`gbabbu41/Clipwise`, branch
 `main`). Local Claude memory does NOT transfer between machines — this file +
-`SESSION-14-NOTES.md` (latest) + `SESSION-13-NOTES.md` are the shared source of truth.
+`SESSION-16-NOTES.md` (latest) + `SESSION-14-NOTES.md` are the shared source of truth.
 
 ## What this is
 Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
@@ -76,52 +76,44 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
   `validation.ts` (plan gating: `planHasFeature`, `effectivePlan`), `booking-conflict.ts`.
 - `src/app/api/loyalty/` — `points` (manual add/redeem, plan-gated) + `award` (auto-earn).
 
-## Current status (2026-06-10)
-Recently shipped (Session 14): subscription cancel now **locks premium features
-immediately** (realtime `shops` listener + `refreshShop`); **plan gates** on loyalty +
-payroll pages and a **secure `/api/loyalty/points`** route; **auto-refund on rejection**;
-**no-show + POS double-charge** guards; **loyalty earning on completion + redemption**
-(`/api/loyalty/award`, settings persisted to `booking_settings.loyalty`); **dashboard role
-race-window** closed + barber routes in middleware. ⚠️ **Run `phase8_loyalty_earning.sql`**
-(adds `appointments.loyalty_awarded`) — loyalty earning no-ops until then.
+## Current status (2026-06-14)
+See `SESSION-16-NOTES.md` for the full log of all changes across sessions 14–16.
 
-Recently shipped (Session 15): **admin-editable pricing plans**. New `plans` table is the
-single source of truth for pricing + feature gating (replaced 4 inconsistent hardcoded price
-lists). Super-admin edits price / barber-limit / unlocked-features / marketing bullets / active
-at **Admin → Settings → Subscription Plans**. Prices flow into Stripe Checkout via dynamic
-`price_data` (no Stripe Price objects); `features[]` drives both server gates (the 5 payment/
-loyalty routes call `ensurePlansHydrated()`) and client UX (AuthProvider fetches `/api/plans`
-→ `hydratePlanConfig`). Sync helpers in `lib/validation.ts` keep safe hardcoded defaults until
-hydrated, so gating is never open. ⚠️ **Run `phase9_pricing_plans.sql`** or the table is empty
-and edits no-op (checkout/gating fall back to defaults). Key files: `lib/plans.ts` (shared),
-`lib/plans-server.ts` (DB + 60s cache), `api/plans` (public read), `api/admin/plans` (CRUD).
-Not done: POS-sale loyalty (needs a client picker on POS first).
+**Most recently shipped (2026-06-14, all deployed):**
 
-Recently shipped (Session 16): **phase9 pricing-plans migration RUN** by owner (plans
-live). **Onboarding race fixed** — new shop signups no longer land on "No shop found"
-(onboarding `refreshShop()` before nav + dashboard self-heal). **Code-review of the
-AI-generated code** (`/code-review`) → 13 verified findings; **#1–#3 fixed + deployed**
-(commit `2cc263f`): "Any Available" resolves to a concrete barber server-side; double-booking
-is now **duration-aware** (booking-checkout + booking-finalize + in-person + slot grid via
-`barberHasConflict`/`findAvailableBarber`/`occupiedSlots`); webhook `payment_intent.succeeded`
-no longer clobbers a captured no-show fee. **Remaining findings #4–#13 + 2 booking follow-ups
-are in `TODO.md` §2b** (race-proof DB exclusion constraint, multi-service-online, refund
-correctness, POS discount, sub double-bill, checkout price fallback, barber-link, multi-shop
-active-shop reset, OAuth routing, rejected dead-end, webhook idempotency). **Plan-gating
-hardening shipped** (`706639d`, `9c81844`): page-level `<FeatureLock>` gates on
-POS/Inventory/Gift Cards/Payments (sidebar only hid the link — direct URL still
-worked), and the customer booking page is now **pay-in-person-only for
-non-charging plans** (`shopCanCharge` gates online pay/deposits/card-hold).
-⚠️ All gating honors the `plans` table — Starter must have NO feature toggles
-ticked in Admin → Settings, or those features are intentionally unlocked.
+**Appointments/Calendar/Payments batch** (commits `a6ce40e`–`7c825cc`):
+- Auto-confirm in-person + pay-via-link flow (#1/#2)
+- Send-link email fixed from Appointments side card (#4)
+- Calendar payment sync (#5)
+- "Paid · X min ago" labels via new `timeAgo()` util (#6, needs phase13 SQL)
+- Multi-service = ONE combined appointment with `duration_minutes` (#7, needs phase14 SQL)
+- Duration badges on appointments (#8)
+- Calendar Approve/Complete/Reject action buttons (#9); shared logic in `lib/appointment-actions.ts`
+- Payment notifications + chime (phase12 migration ran)
 
-UX polish (2026-06-13, deployed): **calendar** appts colored by status + legend,
-bigger month cells, email in detail card, **filter-by-barber** dropdown (owners
-w/ >1 barber); **onboarding** "Add barbers" step (add-self vs invite, multi-add,
-skip; reuses `/api/admin/barber/invite`); **Staff** "+ Add myself as a barber"
-when not already on the team; owner's own barber card shows an "Owner" tag and
-hides Permissions + Reset Password; barber **Reset Password now also emails** the
-recovery link (template `barber_password_reset`) + keeps the copy/paste link.
-See `SESSION-16-NOTES.md` §5 for commits.
+**Booking availability + slot granularity** (commits `8d1f70f`–`f05a7bc`):
+- **Critical RLS fix**: customer booking page was querying appointments via anon client
+  (stakeholder-only SELECT → zero rows → every slot looked free → double-booking possible).
+  Fixed: new server-side `/api/availability` (service role) + `/api/book/in-person`.
+- **Slot occupancy rewrite**: `occupiedSlots()` now uses half-open interval overlap
+  (`m >= startMin && m < endMin`) — correctly handles 45-min bookings and 15-min grids.
+- **Appointments sort fix**: sorted by `timeToMinutes()` not text (12pm was above 10am).
+- **Quarter-hour scheduling**: `booking_settings.slot_interval_minutes` (30 or 15) drives
+  both the Set Schedule start/end dropdowns AND the customer booking grid slot list.
+  Staff → Set Schedule → "Time increments" toggle persists the choice shop-wide.
+
+⚠️ **Pending migrations** (run in Supabase SQL Editor):
+- `phase8_loyalty_earning.sql` — adds `appointments.loyalty_awarded`
+- `phase13_appointment_paid_at.sql` — adds `appointments.paid_at`
+- `phase14_appointment_duration.sql` — adds `appointments.duration_minutes`
+(phase12 realtime + phase9 plans already run)
+
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.
+
+## Key new files / routes (2026-06-14)
+- `src/app/api/availability/route.ts` — server-side barber availability (service role, no PII)
+- `src/app/api/book/in-person/route.ts` — server-side in-person booking creation
+- `src/lib/appointment-actions.ts` — shared side-effect logic for approve/complete/reject
+- `supabase/migrations/phase13_appointment_paid_at.sql` — ⚠️ not yet run on prod
+- `supabase/migrations/phase14_appointment_duration.sql` — ⚠️ not yet run on prod

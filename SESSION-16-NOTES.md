@@ -173,3 +173,70 @@ Commits `a6ce40e`, `c616849`, `53f68e2`, `328fa40`, `1ab991f`, `7c825cc`.
 `phase14_appointment_duration.sql` in Supabase (phase12 already run). Until
 then: paid-time labels are blank and multi-service duration falls back to the
 primary service only (booking still works).
+
+## Booking availability + slot-granularity fixes (2026-06-14 continued, DEPLOYED)
+
+Commits `8d1f70f`, `b0fe851`, `5b3942c`, `f05a7bc`.
+
+### Critical RLS gap — customer booking page was double-booking
+**Root cause:** The `appointments` (and `time_off_requests`) tables have
+stakeholder-only SELECT policies (shop owner + assigned barber). The anonymous
+customer booking page had NO matching policy, so every Supabase query returned
+zero rows — every slot looked free regardless of what was booked.
+
+**Fix — server-side availability route** (`src/app/api/availability/route.ts`):
+- Uses `supabaseAdmin` (service role, bypasses RLS)
+- Returns per-barber scheduling data only: `{ id, name, start_time, end_time,
+  fullDayOff, busy: [{time_slot, duration}], blocked: [{start_time, end_time}] }`
+- No customer PII in the response
+- Resilient to `duration_minutes` column not existing (retries without it)
+
+**Fix — server-side in-person booking** (`src/app/api/book/in-person/route.ts`):
+- Conflict check via service role (not RLS-blind anon client)
+- "Any Available" resolved server-side via `findAvailableBarber()`
+- DB unique index backstops exact-slot races
+- Returns `{ id, status, barber_id }` — no RLS-blocked `.select()` footgun
+
+Both the load paths (`loadTimeFirstSlots`, `loadBarberFirstSlots`) and the confirm
+path in `src/app/book/[shopslug]/page.tsx` now call these routes instead of
+querying Supabase directly. Dead anon owner-notification insert also removed (was
+silently failing RLS; `notify-staff` handles both via service role now).
+
+### Slot occupancy rewrite — overlap-based, not index-based
+`utils.ts` → `occupiedSlots(startSlot, durationMin, intervalMin = 30)` was
+previously stepping by 30-min indices. Rewrote to half-open interval overlap:
+blocks every slot `m` where `m >= startMin && m < endMin`. This correctly handles
+45-min bookings (9am+45 = 9:45 end → blocks 9:00, 9:15, 9:30 for 15-min grids;
+blocks 9:00, 9:30 for 30-min grids). Also parameterized `generate24hSlots()` and
+`getSlotsInRange()` to accept `intervalMin` so 15-min grids are consistent end-to-end.
+
+### Appointments list sort fix — `8d1f70f`
+Appointments page was sorting by `time_slot` as text ("12:00 PM" < "9:00 AM"
+lexicographically). Fixed: sort by `timeToMinutes(a.time_slot)`, then by date.
+
+### Quarter-hour scheduling — `f05a7bc`
+`booking_settings.slot_interval_minutes` (30 or 15) is now the single source of
+truth for slot granularity across the entire stack:
+- **Staff → Set Schedule modal**: "Time increments" toggle (30 min / 15 min)
+  appears at the top of the modal; choosing 15-min immediately persists to
+  `booking_settings` and regenerates the start/end time dropdowns to include
+  :00, :15, :30, :45 options (so a barber can start at e.g. 9:45 AM).
+  `changeInterval()` calls `refreshShop()` after saving so the owner UI updates.
+- **Customer booking grid**: reads `slot_interval_minutes` from the shop row via
+  `slotIntervalOf(shop)` → passes to `generate24hSlots(interval)` and
+  `occupiedSlots(..., interval)`. 15-min shops show 9:00, 9:15, 9:30, 9:45...
+- **`booking-conflict.ts`** resilience: if `duration_minutes` column doesn't exist
+  yet (phase14 not run), `barberIntervals` retries the query without the column
+  rather than failing — conflict detection is never silently disabled.
+- **Settings page**: removed the duplicate "Booking time slots" control (moved
+  authoritatively to Set Schedule under Staff).
+
+### booking-conflict.ts resilience note
+`barberIntervals()` was rewritten to try the `duration_minutes`-inclusive query
+first; on error (column missing), retries without it. This means phase14 migration
+is safe to run any time — the server never silently loses conflict detection while
+the column is absent.
+
+### Pending SQL (unchanged from above)
+Phase13 (`paid_at` column) and Phase14 (`duration_minutes` column) still need to
+be run in Supabase SQL Editor. Phase12 was already run.
