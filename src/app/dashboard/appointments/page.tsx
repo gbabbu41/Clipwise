@@ -303,6 +303,45 @@ export default function AppointmentsPage() {
       }
     }
 
+    // Booking approved (pending → confirmed): tell the customer it's confirmed.
+    if (status === "confirmed" && appt && shop) {
+      if (appt.client_email) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "booking_confirmation",
+            data: {
+              clientName: appt.client_name,
+              clientEmail: appt.client_email,
+              shopName: shop.name,
+              shopEmail: shop.email ?? "",
+              shopSlug: shop.slug,
+              barberName: (appt.barbers as { name: string } | null)?.name ?? "Your barber",
+              serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+              date: appt.date,
+              time: appt.time_slot,
+              total: `$${Number(appt.total_amount ?? 0).toFixed(2)}`,
+              paymentNote: "Pay in person at the shop",
+              bookingId: id.slice(0, 8).toUpperCase(),
+              appointmentId: id,
+            },
+          }),
+        }).catch(() => null);
+      }
+      if (appt.client_phone) {
+        fetch("/api/twilio/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: appt.client_phone,
+            shopName: shop.name,
+            body: `Good news! Your appointment at ${shop.name} on ${appt.date} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.`,
+          }),
+        }).catch(() => null);
+      }
+    }
+
     // Send no-show follow-up email
     if (status === "no-show" && appt?.client_email && shop) {
       fetch("/api/send-email", {

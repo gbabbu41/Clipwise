@@ -192,9 +192,47 @@ export default function BarberSchedulePage() {
       return;
     }
     setSavingId(apt.id);
-    await patchAppt(apt.id, { status: next });
+    const okPrimary = await patchAppt(apt.id, { status: next });
     setSavingId("");
     showToast(`Marked as ${next}`);
+    // Booking approved → tell the customer it's confirmed (email + SMS).
+    if (okPrimary && next === "confirmed" && shop) {
+      if (apt.client_email) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "booking_confirmation",
+            data: {
+              clientName: apt.client_name,
+              clientEmail: apt.client_email,
+              shopName: shop.name,
+              shopEmail: shop.email ?? "",
+              shopSlug: shop.slug,
+              barberName: barber?.name ?? "Your barber",
+              serviceName: (apt.services as { name: string } | null)?.name ?? "Your service",
+              date: apt.date,
+              time: apt.time_slot,
+              total: `$${Number(apt.total_amount ?? 0).toFixed(2)}`,
+              paymentNote: "Pay in person at the shop",
+              bookingId: apt.id.slice(0, 8).toUpperCase(),
+              appointmentId: apt.id,
+            },
+          }),
+        }).catch(() => null);
+      }
+      if (apt.client_phone) {
+        fetch("/api/twilio/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: apt.client_phone,
+            shopName: shop.name,
+            body: `Good news! Your appointment at ${shop.name} on ${apt.date} at ${apt.time_slot} is confirmed. Booking #${apt.id.slice(0, 8).toUpperCase()}.`,
+          }),
+        }).catch(() => null);
+      }
+    }
   };
 
   const submitReject = async () => {
