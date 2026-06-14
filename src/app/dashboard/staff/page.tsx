@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -19,7 +19,15 @@ import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const ALL_SLOTS = generate24hSlots();
+
+// Booking-window granularity (minutes between schedule + offered slot times).
+// Quarter-hour (15) lets a barber start at e.g. 9:45 AM. Stored shop-wide in
+// booking_settings.slot_interval_minutes; drives both the schedule pickers here
+// and the customer booking grid.
+function slotIntervalOf(shop: { booking_settings?: unknown } | null | undefined): number {
+  const v = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes;
+  return v === 15 ? 15 : 30;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StaffHourRow {
@@ -88,7 +96,7 @@ function defaultSchedule(): DaySchedule[] {
 }
 
 export default function StaffPage() {
-  const { shop, accessToken, user, profile } = useAuth();
+  const { shop, accessToken, user, profile, refreshShop } = useAuth();
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [barbers, setBarbers] = useState<BarberWithSchedule[]>([]);
@@ -99,6 +107,10 @@ export default function StaffPage() {
   const [toast, setToast] = useState("");
   const [scheduleBarber, setScheduleBarber] = useState<BarberWithSchedule | null>(null);
   const [editSchedule, setEditSchedule] = useState<DaySchedule[]>(defaultSchedule());
+  // Quarter-hour vs half-hour increments for the schedule pickers (and the
+  // customer booking grid). Shop-wide, persisted to booking_settings.
+  const [scheduleInterval, setScheduleInterval] = useState(30);
+  const scheduleSlotOptions = useMemo(() => generate24hSlots(scheduleInterval), [scheduleInterval]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addTab, setAddTab] = useState<"manual" | "invite">("invite");
   const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "50" });
@@ -204,6 +216,18 @@ export default function StaffPage() {
     return () => { supabase.removeChannel(channel); };
   }, [shop?.id, loadBarbers]);
 
+
+  // Change the shop-wide booking increment (30 ↔ 15 min). Persisted into the
+  // existing booking_settings JSON (merged so other settings aren't clobbered),
+  // then refreshed so the customer grid + this picker reflect it immediately.
+  const changeInterval = async (min: number) => {
+    setScheduleInterval(min);
+    if (!shop) return;
+    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), slot_interval_minutes: min };
+    const { error } = await supabase.from("shops").update({ booking_settings: merged }).eq("id", shop.id);
+    if (error) { showToast("Couldn't save time increments"); return; }
+    refreshShop?.();
+  };
 
   // ── Save schedule ───────────────────────────────────────────────────────────
   const saveSchedule = async () => {
@@ -393,6 +417,7 @@ export default function StaffPage() {
   const openSchedule = async (b: BarberWithSchedule) => {
     setEditSchedule(b.schedule.map((d) => ({ ...d }))); // optimistic from cache
     setScheduleBarber(b);
+    setScheduleInterval(slotIntervalOf(shop));
     setScheduleTimeOff(b.upcomingTimeOff ?? []);
     const todayStr = formatDateForDb(new Date());
     const [{ data: fresh }, { data: timeOff }] = await Promise.all([
@@ -774,6 +799,31 @@ export default function StaffPage() {
                 <h2 className="text-lg font-bold text-white">Schedule — {scheduleBarber.name}</h2>
                 <button onClick={() => setScheduleBarber(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
+
+              {/* Time increments — quarter-hour lets a barber start at e.g.
+                  9:45 AM. Shop-wide; the customer booking page offers the same
+                  start-time spacing. */}
+              <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                <div className="pr-3">
+                  <p className="text-sm font-medium text-white">Time increments</p>
+                  <p className="text-xs text-[#777]">Start/end + customer slots step by this. 15 min allows 9:45, 10:15…</p>
+                </div>
+                <div className="flex bg-black border border-[#1e1e1e] rounded-lg p-1 gap-1 flex-shrink-0">
+                  {[30, 15].map(min => (
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => changeInterval(min)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                        scheduleInterval === min ? "bg-gold text-black" : "text-[#777] hover:text-white",
+                      )}
+                    >
+                      {min} min
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-2">
                 {DAYS_FULL.map((day, dow) => {
                   // Find any approved time-off that touches this day-of-week
@@ -835,7 +885,7 @@ export default function StaffPage() {
                               onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
                               className="flex-1 rounded-lg border border-[#1e1e1e] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
-                              {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                              {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
                             <span className="text-[#777] text-xs flex-shrink-0">to</span>
                             <select
@@ -843,7 +893,7 @@ export default function StaffPage() {
                               onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
                               className="flex-1 rounded-lg border border-[#1e1e1e] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
-                              {ALL_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                              {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
                           </>
                         ) : (
