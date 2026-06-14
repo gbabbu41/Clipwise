@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
             .select("client_email, client_name, date, total_amount, shop_id, services(name)")
             .maybeSingle();
 
+          // A pay-in-person booking that's still awaiting approval is now paid —
+          // auto-confirm it (status-scoped so a completed/cancelled row is never
+          // regressed). Mirrors markAppointmentPaid for the customer-return path.
+          await supabaseAdmin.from("appointments")
+            .update({ status: "confirmed" })
+            .eq("id", session.metadata.appointment_id)
+            .eq("status", "pending")
+            .then(null, () => null);
+
           // Send the customer a receipt — link payments are confirmed here (not
           // via the manual capture flow), so this is the only place that fires.
           if (paidAppt?.client_email) {
