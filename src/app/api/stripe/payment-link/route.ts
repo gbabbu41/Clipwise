@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           appointment_id: appt.id,
           shop_id: appt.shop_id,
         },
-        success_url: `${BASE_URL}/book/${shop.slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${BASE_URL}/book/${shop.slug}?paid_appt=${appt.id}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${BASE_URL}/book/${shop.slug}?cancelled=1`,
       },
       useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined

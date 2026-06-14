@@ -514,6 +514,19 @@ function barberInvite(data: Record<string, string>) {
   `);
 }
 
+function ownerPaymentReceived(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">💰 Payment Received</div>
+    <h1>You got paid</h1>
+    <p><span class="highlight">${data.clientName}</span> paid <span class="highlight">${data.amount}</span> for ${data.serviceName}${data.date ? ` (${data.date}${data.time ? ` · ${data.time}` : ""})` : ""}.</p>
+    <p style="font-size:13px;color:#9CA3AF">The appointment is now marked <strong style="color:#fff">Paid</strong> in your dashboard.</p>
+    <a href="${BASE_URL}/dashboard/payments" class="btn">View payments →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">— ClipWise</p>
+  `);
+}
+
 function subscriptionStarted(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -744,6 +757,11 @@ export async function POST(req: NextRequest) {
         to = data.ownerEmail;
         subject = `Your ${data.planName} plan is active — ClipWise`;
         html = subscriptionStarted(data);
+        break;
+      case "owner_payment_received":
+        to = data.ownerEmail;
+        subject = `Payment received — ${data.amount} from ${data.clientName}`;
+        html = ownerPaymentReceived(data);
         break;
       case "waitlist_slot_open":
         to = data.clientEmail;

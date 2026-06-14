@@ -83,6 +83,7 @@ export default function BookingPage() {
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [paidThankYou, setPaidThankYou] = useState(false); // post-booking payment-link return
   const [bookingId, setBookingId] = useState<string | null>(null);
   // Booking summary returned by /booking-finalize after the Stripe round-trip —
   // the in-memory selections are wiped by the redirect, so the success screen
@@ -173,6 +174,29 @@ export default function BookingPage() {
         if (res.ok && data.paid && data.appointmentId) {
           setBookingId(data.appointmentId);
           if (data.summary) setConfirmedSummary(data.summary);
+          setConfirmed(true);
+        } else {
+          showToast("We couldn't confirm your payment. Contact the shop.", false);
+        }
+      })();
+    }
+    // Post-booking PAYMENT LINK return (owner-sent link for an existing
+    // appointment) — finalize the payment + show a "thank you" screen.
+    const paidAppt = searchParams.get("paid_appt");
+    if (paidAppt) {
+      const sessionId = searchParams.get("session_id");
+      if (!sessionId) return;
+      (async () => {
+        const res = await fetch("/api/stripe/payment-link-finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, appointment_id: paidAppt }),
+        });
+        const data = await res.json();
+        if (res.ok && data.paid) {
+          setBookingId(data.appointmentId);
+          if (data.summary) setConfirmedSummary(data.summary);
+          setPaidThankYou(true);
           setConfirmed(true);
         } else {
           showToast("We couldn't confirm your payment. Contact the shop.", false);
@@ -909,9 +933,9 @@ export default function BookingPage() {
           <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check size={36} className="text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Booking Confirmed!</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{paidThankYou ? "Payment received — thank you!" : "Booking Confirmed!"}</h1>
           {bookingId && <p className="text-xs text-[#777] mb-1">Booking ID: <span className="text-white font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
-          {dispEmail && <p className="text-[#777] mb-2">We&apos;ll send a confirmation to {dispEmail}</p>}
+          {dispEmail && <p className="text-[#777] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
@@ -956,7 +980,7 @@ export default function BookingPage() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setPaidThankYou(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
             Book Another Appointment
           </Button>
         </div>

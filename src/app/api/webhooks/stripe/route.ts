@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
               payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
             })
             .eq("id", session.metadata.appointment_id)
+            .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
             .select("client_email, client_name, date, total_amount, shop_id, services(name)")
             .maybeSingle();
 
