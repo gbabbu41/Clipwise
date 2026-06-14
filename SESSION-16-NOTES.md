@@ -126,3 +126,50 @@ Tip for the next session: the dummy-env build command + git-proxy-403→PAT
 workflow from the top of this file still apply. The "unverified" stop-hook
 warning remains a false positive (GitHub shows the commits verified via the
 Claude app).
+
+## Appointments / Payments / Calendar batch (2026-06-14, DEPLOYED)
+
+A numbered fix list for the Appointments, Payments and Calendar pages —
+constraint was "don't break the UI, keep buttons small, no layout changes".
+Commits `a6ce40e`, `c616849`, `53f68e2`, `328fa40`, `1ab991f`, `7c825cc`.
+
+- **#1 Auto-confirm in-person** — booking page re-reads `shops.booking_settings`
+  fresh at submit (in-memory copy could be stale); Settings save now surfaces
+  real errors instead of silently falling back to localStorage.
+- **#2 Pay-in-person → link paid → auto-confirm** — `markAppointmentPaid`
+  (customer-return path) sets `status: confirmed` when pending; the webhook
+  `post_booking_payment` branch now does the same, status-scoped `.eq("status",
+  "pending")` so completed/cancelled rows are never regressed.
+- **#4 Send-link email from Appointments side card** — was doing an RLS-bound
+  client `client_email` update then NOT passing `email` to the route; now passes
+  `email` straight through (route persists via service role + sends), matching
+  the Payments tab that always worked. Same fix in the Calendar send-link.
+- **#5 Calendar payment sync** — Calendar reconciles on load via
+  `/api/stripe/reconcile-payments` (same as Appointments + Payments).
+- **#6 "Paid · 10 min ago"** — new `appointments.paid_at` (⚠️ phase13 SQL) set
+  wherever we flip to paid/captured (online, link, capture, cash, no-show,
+  webhook, refresh). New `timeAgo()` util; shown on Payments rows, Appointments
+  side card payment row, Calendar detail card.
+- **#7 Multi-service = ONE appointment** — was one row per service at back-to-back
+  slots; now a single combined booking. New `appointments.duration_minutes`
+  (⚠️ phase14 SQL) holds the summed length (primary service stays `service_id`,
+  full list in notes). Online path forwards `duration_minutes`/`service_names`
+  via checkout metadata → booking-finalize. Duration-aware everywhere:
+  `booking-conflict.ts`, the booking slot grid, Calendar block heights + detail,
+  Appointments badges — all via a `duration_minutes ?? services.duration_minutes`
+  helper.
+- **#8 Duration badges** — Appointments mobile card / desktop table / side panel
+  show "· 50 min".
+- **#9 Calendar Approve/Complete/Reject** — the Calendar detail card now has the
+  same small action buttons as the Appointments page (held/saved auto-charge on
+  Complete; unpaid → Cash/Send-link/Skip; reject-with-refund). Shared logic in
+  new `src/lib/appointment-actions.ts` so both surfaces stay in sync.
+- **#11 Payment notification + chime** — root cause was `notifications` never
+  being in the `supabase_realtime` publication (phase12, owner ran). All payment
+  paths already insert a notification; they now deliver live + auto-dismiss.
+- **#12 Calendar in mobile/tablet bottom nav** — added next to Appointments.
+
+⚠️ **Owner still needs to run** `phase13_appointment_paid_at.sql` and
+`phase14_appointment_duration.sql` in Supabase (phase12 already run). Until
+then: paid-time labels are blank and multi-service duration falls back to the
+primary service only (booking still works).
