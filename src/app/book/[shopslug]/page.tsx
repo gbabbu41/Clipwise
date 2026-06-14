@@ -750,11 +750,16 @@ export default function BookingPage() {
     : 0;
   const total = Math.max(0, totalPrice - discount);
 
-  // Whether THIS shop's plan includes taking money online/by card. Starter
-  // (free) is pay-in-person only — so online checkout, deposits, and card-hold
-  // no-show protection are all hidden for it (the booking-checkout route also
-  // 403s these, but the UI must not offer them in the first place).
-  const shopCanCharge = !!shop && planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments");
+  // Whether THIS shop can actually take money online right now. Requires the
+  // paid plan (Starter = pay-in-person only) AND — in LIVE mode — a finished
+  // Stripe Connect setup, so funds can't slip to the platform instead of the
+  // shop. In test/sandbox we keep the platform-charge fallback so demos work
+  // without Connect. (The booking-checkout route enforces the same server-side.)
+  const stripeLiveMode = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "").startsWith("pk_live_");
+  const connectReady = !!(shop?.stripe_account_id && shop?.stripe_connected);
+  const shopCanCharge = !!shop
+    && planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")
+    && (connectReady || !stripeLiveMode);
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
