@@ -220,8 +220,9 @@ export default function SettingsPage() {
       allow_pay_in_person: profile.allow_pay_in_person,
     }).eq("id", shop.id);
     if (error) {
-      localStorage.setItem(`booking_${shop.id}`, JSON.stringify(booking));
-      showToast("Booking settings saved locally!");
+      // Surface the real failure — silently "saving locally" hid settings (like
+      // Auto-Confirm) never reaching the DB, so the booking page never saw them.
+      showToast(`Couldn't save settings: ${error.message}`);
     } else {
       showToast("Booking settings saved!");
     }

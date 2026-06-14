@@ -584,7 +584,15 @@ export default function BookingPage() {
     // Pay-in-person bookings normally land as "pending" for the owner/barber to
     // Approve. When the shop turns on Auto-Confirm, skip that step and confirm
     // them straight away. (Online/prepaid bookings always confirm on payment.)
-    const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
+    // Re-read the shop's booking settings fresh at submit time — the page may
+    // have loaded before the owner toggled Auto-Confirm, so don't trust the
+    // possibly-stale in-memory copy.
+    let autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
+    try {
+      const { data: freshShop } = await supabase
+        .from("shops").select("booking_settings").eq("id", shop.id).maybeSingle();
+      if (freshShop) autoConfirm = !!(freshShop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
+    } catch { /* keep the in-memory value on a transient error */ }
     const inPersonStatus = autoConfirm ? "confirmed" : "pending";
     const rows = servicesPicked.map((svc, i) => {
       const slotsConsumedBefore = servicesPicked.slice(0, i)
