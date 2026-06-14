@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+const CONNECT_NUDGE_TITLE = "Finish Stripe setup to get paid";
+
+// Drop a one-time notification telling the owner to connect Stripe (so they can
+// actually receive payments), and clear it once they're set up. Deduped by
+// title so repeated status checks don't spam. This route is only hit by shops on
+// a payments-capable plan (the warning banner gates the call), so it targets
+// exactly the owners who need it.
+async function syncConnectNudge(userId: string, connected: boolean): Promise<void> {
+  if (connected) {
+    await supabaseAdmin.from("notifications")
+      .delete().eq("user_id", userId).eq("title", CONNECT_NUDGE_TITLE).then(null, () => null);
+    return;
+  }
+  const { data: existing } = await supabaseAdmin.from("notifications")
+    .select("id").eq("user_id", userId).eq("title", CONNECT_NUDGE_TITLE).limit(1).maybeSingle();
+  if (!existing) {
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      title: CONNECT_NUDGE_TITLE,
+      message: "Your plan can take online payments, but you must connect Stripe to receive the money. Open Billing → Finish Stripe setup (a couple of minutes).",
+      type: "system",
+      is_read: false,
+    }).then(null, () => null);
+  }
+}
+
 // Check the Connect account status and sync it to the shop row
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -18,6 +44,7 @@ export async function GET(request: NextRequest) {
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
   if (!shop.stripe_account_id) {
+    await syncConnectNudge(user.id, false);
     return NextResponse.json({ connected: false, status: "pending", chargesEnabled: false, payoutsEnabled: false });
   }
 
@@ -30,6 +57,8 @@ export async function GET(request: NextRequest) {
     await supabaseAdmin.from("shops")
       .update({ stripe_connected: !!active, stripe_connect_status: status })
       .eq("id", shop.id);
+
+    await syncConnectNudge(user.id, !!active);
 
     return NextResponse.json({
       connected: !!active,
