@@ -29,11 +29,13 @@ type BookingSettings = {
   no_show_protection: boolean;
   no_show_fee_amount: number; // $ to charge for a no-show; 0 = full service price
   auto_confirm: boolean;
+  slot_interval_minutes: number; // booking-window granularity: 15 or 30
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
   advance_days: 30, cancellation_hours: 24, deposit: false,
   deposit_amount: 10, no_show_protection: true, no_show_fee_amount: 0, auto_confirm: false,
+  slot_interval_minutes: 30,
 };
 
 // Plan info — mirrors the pricing shown on the public homepage (src/app/page.tsx).
@@ -162,7 +164,9 @@ export default function SettingsPage() {
 
         if (!error && row) {
           if (row.booking_settings && typeof row.booking_settings === "object") {
-            setBooking(row.booking_settings as BookingSettings);
+            // Merge over defaults so newly-added fields (e.g. slot_interval_minutes)
+            // always have a value even for shops saved before they existed.
+            setBooking({ ...DEFAULT_BOOKING, ...(row.booking_settings as Partial<BookingSettings>) });
           } else {
             const cached = localStorage.getItem(`booking_${shop.id}`);
             if (cached) setBooking(JSON.parse(cached) as BookingSettings);
@@ -455,6 +459,34 @@ export default function SettingsPage() {
                 value={profile.allow_pay_in_person && booking.auto_confirm}
                 disabled={!profile.allow_pay_in_person}
                 onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
+            </div>
+
+            {/* Booking-window granularity — how far apart the start times the
+                customer can pick are. 15 min lets a 45-min service end at e.g.
+                9:45 and offer 9:45 as the next slot (instead of jumping to
+                10:00). Occupancy is duration-aware either way. */}
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+              <div className="pr-4">
+                <p className="text-sm font-medium text-white">Booking time slots</p>
+                <p className="text-xs text-[#777]">Spacing of the start times customers can pick. 15 min gives finer windows (e.g. 9:00, 9:15, 9:30…).</p>
+              </div>
+              <div className="flex bg-black border border-[#1e1e1e] rounded-lg p-1 gap-1 flex-shrink-0">
+                {[30, 15].map(min => (
+                  <button
+                    key={min}
+                    type="button"
+                    onClick={() => setBooking(p => ({ ...p, slot_interval_minutes: min }))}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                      (booking.slot_interval_minutes === 15 ? 15 : 30) === min
+                        ? "bg-gold text-black"
+                        : "text-[#777] hover:text-white",
+                    )}
+                  >
+                    {min} min
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Pay-in-person — controls whether the customer booking page

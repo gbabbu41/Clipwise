@@ -53,9 +53,10 @@ export function getTagColor(tag: string): string {
 // ─── Time Utilities ────────────────────────────────────────────────────────────
 
 /** Generate all 30-minute slots for a full 24-hour day */
-export function generate24hSlots(): string[] {
+export function generate24hSlots(intervalMin = 30): string[] {
+  const step = intervalMin > 0 ? intervalMin : 30;
   const slots: string[] = [];
-  for (let totalMin = 0; totalMin < 24 * 60; totalMin += 30) {
+  for (let totalMin = 0; totalMin < 24 * 60; totalMin += step) {
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
     const period = h < 12 ? "AM" : "PM";
@@ -65,15 +66,20 @@ export function generate24hSlots(): string[] {
   return slots;
 }
 
-/** All 30-min slot labels a booking occupies, given its start slot and the
- *  service duration in minutes. A 60-min service at "9:00 AM" → ["9:00 AM","9:30 AM"].
- *  Used to mark every covered slot as booked (not just the start). */
-export function occupiedSlots(startSlot: string, durationMin: number): string[] {
-  const all = generate24hSlots();
-  const startIdx = all.indexOf(startSlot);
-  if (startIdx < 0) return [startSlot];
-  const count = Math.max(1, Math.ceil((durationMin || 30) / 30));
-  return all.slice(startIdx, startIdx + count);
+/** Every start-slot a booking occupies, given its start slot and the service
+ *  duration in minutes. A slot is occupied when it falls inside the half-open
+ *  span [start, start+duration) — so a 45-min booking at "9:00 AM" blocks
+ *  9:00/9:30 on a 30-min grid (and 9:00/9:15/9:30, freeing 9:45, on a 15-min
+ *  grid), but never the slot at exactly start+duration. Used to mark covered
+ *  slots as booked (not just the start). */
+export function occupiedSlots(startSlot: string, durationMin: number, intervalMin = 30): string[] {
+  const startMin = timeToMinutes(startSlot);
+  if (Number.isNaN(startMin)) return [startSlot];
+  const endMin = startMin + (durationMin > 0 ? durationMin : intervalMin);
+  return generate24hSlots(intervalMin).filter((s) => {
+    const m = timeToMinutes(s);
+    return m >= startMin && m < endMin;
+  });
 }
 
 /** Convert display time "9:00 AM" → minutes since midnight (for comparison) */
@@ -225,22 +231,22 @@ export function getSlotsInRange(
   startTimeDb: string,
   endTimeDb: string,
   forDate: Date,
-  bookedSlots: string[] = []
+  bookedSlots: string[] = [],
+  intervalMin = 30,
 ): { slot: string; available: boolean }[] {
-  const SLOT_MINUTES = 30;
+  const SLOT_MINUTES = intervalMin > 0 ? intervalMin : 30;
   const startMins = timeToMinutes(dbTimeToDisplay(startTimeDb));
   const endMins = timeToMinutes(dbTimeToDisplay(endTimeDb));
   const isToday = formatDateForDb(forDate) === formatDateForDb(new Date());
   const booked = new Set(bookedSlots);
 
-  return generate24hSlots()
+  return generate24hSlots(SLOT_MINUTES)
     .filter((slot) => {
       const m = timeToMinutes(slot);
-      // A slot must START at or after the barber's start time AND
-      // its 30-min window must END at or before the barber's end time.
-      // Without the second check, a barber ending at 4:45 PM would still
-      // offer a 4:30 PM slot — whose 30-min appointment ends at 5:00 PM,
-      // 15 minutes past the barber's stated hours.
+      // A slot must START at or after the barber's start time AND its window
+      // must END at or before the barber's end time. Without the second check,
+      // a barber ending at 4:45 PM would still offer a slot whose appointment
+      // runs past the barber's stated hours.
       return m >= startMins && m + SLOT_MINUTES <= endMins;
     })
     .map((slot) => ({

@@ -29,6 +29,13 @@ function apptDurationMin(a: { duration_minutes?: number | null; services?: { dur
   return s?.duration_minutes ?? 30;
 }
 
+// Booking-window granularity (minutes between offered start times). Shops can
+// opt into 15-min windows in Settings; everyone else stays on 30.
+function slotIntervalOf(shop: { booking_settings?: unknown } | null | undefined): number {
+  const v = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes;
+  return v === 15 ? 15 : 30;
+}
+
 // ─── Toast Component ──────────────────────────────────────────────────────────
 function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
@@ -294,6 +301,7 @@ export default function BookingPage() {
     setSlotGrid([]);
     setExpandedSlot(null);
 
+    const interval = slotIntervalOf(shop);
     const dateStr = formatDateForDb(date);
     const dow = date.getDay();
 
@@ -316,22 +324,22 @@ export default function BookingPage() {
       const fullDayOff = (timeOff ?? []).some(o => o.type === "day_off" || o.type === "vacation" || o.type === "sick");
       if (fullDayOff) return;
       // blocked_hours mark a partial window — convert each window to the set
-      // of 30-min slot labels it covers and add to the booked set.
+      // of slot labels it covers and add to the booked set.
       const blockedSlotSet = new Set<string>();
       for (const o of (timeOff ?? [])) {
         if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
         const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
         const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
-        for (const slot of generate24hSlots()) {
+        for (const slot of generate24hSlots(interval)) {
           const m = timeToMinutes(slot);
           if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
         }
       }
       const bookedSlots = [
-        ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a)))),
+        ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a), interval))),
         ...Array.from(blockedSlotSet),
       ];
-      const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
+      const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots, interval);
       slots.forEach(({ slot, available }) => {
         if (!slotMap[slot]) slotMap[slot] = { available: false, barberIds: [] };
         if (available) {
@@ -343,7 +351,7 @@ export default function BookingPage() {
 
     setSlotGrid(
       Object.entries(slotMap)
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort(([a], [b]) => timeToMinutes(a) - timeToMinutes(b)) // chronological — string sort would put 9 AM after 12 PM
         .map(([slot, v]) => ({ slot, ...v }))
     );
     setSlotsLoading(false);
@@ -354,6 +362,7 @@ export default function BookingPage() {
     if (!shop) return;
     setSlotsLoading(true);
     setSlotGrid([]);
+    const interval = slotIntervalOf(shop);
     const dateStr = formatDateForDb(date);
     const dow = date.getDay();
     const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
@@ -369,16 +378,16 @@ export default function BookingPage() {
       if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
       const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
       const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
-      for (const slot of generate24hSlots()) {
+      for (const slot of generate24hSlots(interval)) {
         const m = timeToMinutes(slot);
         if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
       }
     }
     const bookedSlots = [
-      ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a)))),
+      ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a), interval))),
       ...Array.from(blockedSlotSet),
     ];
-    const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
+    const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots, interval);
     setSlotGrid(slots.map(({ slot, available }) => ({ slot, available, barberIds: available ? [barberId] : [] })));
     setSlotsLoading(false);
   }, [shop]);
@@ -798,10 +807,11 @@ export default function BookingPage() {
   const calendarDays = Array.from({ length: 180 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
     .filter(d => isWithin6Months(d));
 
-  // Multi-service: each slot in slotGrid is 30 min. For multiple services
-  // we need slotsNeeded consecutive 30-min slots, all available with at
-  // least one common barber (time-first) or the picked barber (barber-first).
-  const slotsNeeded = Math.max(1, Math.ceil((totalDuration || 30) / 30));
+  // Multi-service: slots are `bookingInterval` min apart. We need enough
+  // consecutive slots to cover the total duration, all available with at least
+  // one common barber (time-first) or the picked barber (barber-first).
+  const bookingInterval = slotIntervalOf(shop);
+  const slotsNeeded = Math.max(1, Math.ceil((totalDuration || bookingInterval) / bookingInterval));
   const slotGridForBlock = slotGrid.filter((s, i) => {
     if (!s.available) return false;
     if (slotsNeeded === 1) return true;
