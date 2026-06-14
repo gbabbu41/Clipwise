@@ -8,6 +8,16 @@ Twilio, Resend). Demo-mode leftovers removed. Below is what's left to ship and g
 ## 🟢 0. GO-LIVE CHECKLIST — switch from sandbox to real money
 Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code rewrite.
 
+> ℹ️ **How customer payments work (test vs live) — expected behavior, not a bug.**
+> Stripe **Connect** = receiving customer payments (payouts). In **sandbox/test**
+> mode the app intentionally falls back to a **platform charge** so demos work
+> *without* a shop completing Connect onboarding — that's why payments go through
+> even for an un-onboarded shop. In **live** mode this fallback is blocked
+> (`STRIPE_LIVE_MODE` in `lib/stripe.ts`): online pay is refused until the shop
+> finishes Connect, so the money lands in **their** account, not the platform's.
+> (Separate from the **Customer Portal**, which only manages the owner's own
+> ClipWise *subscription*.)
+
 ### A. Switch Stripe from test/sandbox → live (in Vercel env)
 - [ ] `STRIPE_SECRET_KEY` → change `sk_test_...` to `sk_live_...`
 - [ ] `STRIPE_PUBLISHABLE_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` → `pk_test_` to `pk_live_`
