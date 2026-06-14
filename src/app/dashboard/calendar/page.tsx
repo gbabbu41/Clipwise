@@ -206,7 +206,7 @@ function AgendaSheet({
 }
 
 export default function CalendarPage() {
-  const { shop, profile } = useAuth();
+  const { shop, profile, accessToken } = useAuth();
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -276,6 +276,18 @@ export default function CalendarPage() {
   }, [shop, currentDate, view, profile, myBarberId, barberFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Catch up on payment-link payments (status may flip pending→confirmed too),
+  // so the calendar reflects paid/confirmed without depending on the webhook.
+  useEffect(() => {
+    if (!accessToken) return;
+    let active = true;
+    fetch("/api/stripe/reconcile-payments", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d?.updated > 0) load(); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accessToken, load]);
 
   // Scroll Day/Week views to 8 AM on mount or when switching into them.
   useEffect(() => {

@@ -13,6 +13,7 @@ export interface PayableAppt {
   date: string;
   time_slot: string;
   total_amount: number | null;
+  status?: string | null;
   services?: { name?: string } | { name?: string }[] | null;
 }
 export interface PayShop {
@@ -44,6 +45,9 @@ export async function markAppointmentPaid(args: {
     .update({
       payment_status: "paid",
       payment_method: "online",
+      // A pending pay-in-person booking that gets paid is now confirmed — no
+      // separate manual approval needed once money is in.
+      ...(appt.status === "pending" ? { status: "confirmed" } : {}),
       ...(paymentIntentId ? { payment_intent_id: paymentIntentId } : {}),
     })
     .eq("id", appt.id)
