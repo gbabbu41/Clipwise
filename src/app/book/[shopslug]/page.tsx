@@ -19,21 +19,39 @@ interface SlotAvailability {
 
 interface Toast { msg: string; ok: boolean }
 
-// Duration (minutes) of a booked appointment row whose query joined the
-// service. Supabase returns the to-one relation as an object (or array).
-// A multi-service booking stores its combined length on the row itself
-// (duration_minutes); single-service rows fall back to the service duration.
-function apptDurationMin(a: { duration_minutes?: number | null; services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null }): number {
-  if (a.duration_minutes && a.duration_minutes > 0) return a.duration_minutes;
-  const s = Array.isArray(a.services) ? a.services[0] : a.services;
-  return s?.duration_minutes ?? 30;
-}
-
 // Booking-window granularity (minutes between offered start times). Shops can
 // opt into 15-min windows in Settings; everyone else stays on 30.
 function slotIntervalOf(shop: { booking_settings?: unknown } | null | undefined): number {
   const v = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes;
   return v === 15 ? 15 : 30;
+}
+
+// One barber's availability, as returned by /api/availability (no customer PII).
+type AvailBarber = {
+  id: string;
+  name: string;
+  start_time: string | null;
+  end_time: string | null;
+  fullDayOff: boolean;
+  busy: { time_slot: string; duration: number }[];
+  blocked: { start_time: string; end_time: string }[];
+};
+
+// Every booked/blocked start-slot for one barber, at the shop's interval.
+function bookedSlotsFor(b: AvailBarber, interval: number): string[] {
+  const blockedSlotSet = new Set<string>();
+  for (const o of b.blocked) {
+    const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
+    const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
+    for (const slot of generate24hSlots(interval)) {
+      const m = timeToMinutes(slot);
+      if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
+    }
+  }
+  return [
+    ...b.busy.flatMap((a) => occupiedSlots(a.time_slot, a.duration, interval)),
+    ...Array.from(blockedSlotSet),
+  ];
 }
 
 // ─── Toast Component ──────────────────────────────────────────────────────────
@@ -294,6 +312,22 @@ export default function BookingPage() {
     return !onTimeOff;
   }, [barberDows, barberTimeOff]);
 
+  // Fetch real availability from the server (service-role). The booking page is
+  // anonymous and the appointments/time-off RLS is stakeholder-only, so a direct
+  // client query returns NOTHING — every slot would look free. This route reads
+  // the truth (no PII) so the grid reflects the real database.
+  const fetchAvailability = useCallback(async (date: Date, barberId?: string): Promise<AvailBarber[]> => {
+    if (!shop) return [];
+    const res = await fetch("/api/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id, date: formatDateForDb(date), barber_id: barberId ?? null }),
+    }).catch(() => null);
+    if (!res || !res.ok) return [];
+    const data = await res.json().catch(() => ({ barbers: [] }));
+    return (data.barbers ?? []) as AvailBarber[];
+  }, [shop]);
+
   // ── Load slot grid (Option A — time first) ─────────────────────────────────
   const loadTimeFirstSlots = useCallback(async (date: Date) => {
     if (!shop) return;
@@ -302,44 +336,15 @@ export default function BookingPage() {
     setExpandedSlot(null);
 
     const interval = slotIntervalOf(shop);
-    const dateStr = formatDateForDb(date);
-    const dow = date.getDay();
+    const barberList = await fetchAvailability(date);
+    if (barberList.length === 0) { setSlotGrid([]); setSlotsLoading(false); return; }
 
-    // Get all active barbers for this shop
-    const barberList = barbers;
-    if (barberList.length === 0) { setSlotsLoading(false); return; }
-
-    // For each barber: get their schedule + bookings
     const slotMap: Record<string, { available: boolean; barberIds: string[] }> = {};
-
-    await Promise.all(barberList.map(async (b) => {
-      const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
-        supabase.from("time_slots").select("*").eq("barber_id", b.id).eq("day_of_week", dow).eq("is_available", true).single(),
-        supabase.from("appointments").select("time_slot, duration_minutes, services(duration_minutes)").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
-        supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", b.id).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
-      ]);
-      if (!ts) return;
-      // A whole-day type-off (day_off/vacation/sick) means this barber doesn't
-      // contribute ANY slots on this date — skip them entirely.
-      const fullDayOff = (timeOff ?? []).some(o => o.type === "day_off" || o.type === "vacation" || o.type === "sick");
-      if (fullDayOff) return;
-      // blocked_hours mark a partial window — convert each window to the set
-      // of slot labels it covers and add to the booked set.
-      const blockedSlotSet = new Set<string>();
-      for (const o of (timeOff ?? [])) {
-        if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
-        const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
-        const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
-        for (const slot of generate24hSlots(interval)) {
-          const m = timeToMinutes(slot);
-          if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
-        }
-      }
-      const bookedSlots = [
-        ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a), interval))),
-        ...Array.from(blockedSlotSet),
-      ];
-      const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots, interval);
+    for (const b of barberList) {
+      // A whole-day type-off, or no working hours this weekday → no slots.
+      if (b.fullDayOff || !b.start_time || !b.end_time) continue;
+      const bookedSlots = bookedSlotsFor(b, interval);
+      const slots = getSlotsInRange(b.start_time, b.end_time, date, bookedSlots, interval);
       slots.forEach(({ slot, available }) => {
         if (!slotMap[slot]) slotMap[slot] = { available: false, barberIds: [] };
         if (available) {
@@ -347,7 +352,7 @@ export default function BookingPage() {
           slotMap[slot].barberIds.push(b.id);
         }
       });
-    }));
+    }
 
     setSlotGrid(
       Object.entries(slotMap)
@@ -355,7 +360,7 @@ export default function BookingPage() {
         .map(([slot, v]) => ({ slot, ...v }))
     );
     setSlotsLoading(false);
-  }, [shop, barbers]);
+  }, [shop, fetchAvailability]);
 
   // ── Load slot grid (Option B — barber first) ───────────────────────────────
   const loadBarberFirstSlots = useCallback(async (barberId: string, date: Date) => {
@@ -363,34 +368,14 @@ export default function BookingPage() {
     setSlotsLoading(true);
     setSlotGrid([]);
     const interval = slotIntervalOf(shop);
-    const dateStr = formatDateForDb(date);
-    const dow = date.getDay();
-    const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
-      supabase.from("time_slots").select("*").eq("barber_id", barberId).eq("day_of_week", dow).eq("is_available", true).single(),
-      supabase.from("appointments").select("time_slot, duration_minutes, services(duration_minutes)").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
-      supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", barberId).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
-    ]);
-    if (!ts) { setSlotsLoading(false); return; }
-    const fullDayOff = (timeOff ?? []).some(o => o.type === "day_off" || o.type === "vacation" || o.type === "sick");
-    if (fullDayOff) { setSlotGrid([]); setSlotsLoading(false); return; }
-    const blockedSlotSet = new Set<string>();
-    for (const o of (timeOff ?? [])) {
-      if (o.type !== "blocked_hours" || !o.start_time || !o.end_time) continue;
-      const blockStart = timeToMinutes(dbTimeToDisplay(o.start_time));
-      const blockEnd = timeToMinutes(dbTimeToDisplay(o.end_time));
-      for (const slot of generate24hSlots(interval)) {
-        const m = timeToMinutes(slot);
-        if (m >= blockStart && m < blockEnd) blockedSlotSet.add(slot);
-      }
-    }
-    const bookedSlots = [
-      ...((booked ?? []).flatMap((a) => occupiedSlots(a.time_slot, apptDurationMin(a), interval))),
-      ...Array.from(blockedSlotSet),
-    ];
-    const slots = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots, interval);
+    const list = await fetchAvailability(date, barberId);
+    const b = list[0];
+    if (!b || b.fullDayOff || !b.start_time || !b.end_time) { setSlotGrid([]); setSlotsLoading(false); return; }
+    const bookedSlots = bookedSlotsFor(b, interval);
+    const slots = getSlotsInRange(b.start_time, b.end_time, date, bookedSlots, interval);
     setSlotGrid(slots.map(({ slot, available }) => ({ slot, available, barberIds: available ? [barberId] : [] })));
     setSlotsLoading(false);
-  }, [shop]);
+  }, [shop, fetchAvailability]);
 
   // ── Trigger slot load when date changes ───────────────────────────────────
   useEffect(() => {
@@ -602,75 +587,44 @@ export default function BookingPage() {
     // Re-read the shop's booking settings fresh at submit time — the page may
     // have loaded before the owner toggled Auto-Confirm, so don't trust the
     // possibly-stale in-memory copy.
-    let autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
-    try {
-      const { data: freshShop } = await supabase
-        .from("shops").select("booking_settings").eq("id", shop.id).maybeSingle();
-      if (freshShop) autoConfirm = !!(freshShop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
-    } catch { /* keep the in-memory value on a transient error */ }
-    const inPersonStatus = autoConfirm ? "confirmed" : "pending";
-    const combinedDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0);
     const isMulti = servicesPicked.length > 1;
-    const rows = [{
-      id: crypto.randomUUID(),
-      shop_id: shop.id,
-      barber_id: finalBarberId,
-      service_id: selectedService, // primary service of the combined booking
-      client_name: clientInfo.name,
-      client_email: clientInfo.email,
-      client_phone: clientInfo.phone,
-      date: formatDateForDb(selectedDate),
-      time_slot: selectedTime,
-      status: inPersonStatus,
-      total_amount: total, // combined total (discount already applied)
-      duration_minutes: combinedDuration,
-      deposit_paid: false,
-      // When the customer explicitly picked "pay in person", tag the row
-      // so the owner sees a Cash badge and can later either take cash or
-      // send a Stripe link via the appointments dashboard.
-      payment_method: payMethodChoice === "in_person" ? "cash" : null,
-      payment_status: payMethodChoice === "in_person" ? "unpaid" : null,
-      notes: isMulti
-        ? `Services: ${servicesPicked.map(s => s.name).join(" + ")}`
-        : null,
-    }];
+    const combinedDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0);
 
-    // Guard against double-booking the same barber/time. Duration-aware: an
-    // existing *longer* appointment that overlaps this booking's span (not just
-    // one starting on the same slot) is a clash. The DB unique index still
-    // backstops exact-slot races; this gives a friendlier message + catches
-    // overlaps the index can't see.
-    if (finalBarberId) {
-      const { data: existing } = await supabase
-        .from("appointments")
-        .select("time_slot, duration_minutes, services(duration_minutes)")
-        .eq("barber_id", finalBarberId)
-        .eq("date", formatDateForDb(selectedDate))
-        .in("status", ["pending", "confirmed"]);
-      const newStart = timeToMinutes(selectedTime);
-      const newEnd = newStart + servicesPicked.reduce((sum, x) => sum + (x.duration_minutes ?? 30), 0);
-      const clash = (existing ?? []).some((a) => {
-        const s = timeToMinutes(a.time_slot);
-        const e = s + apptDurationMin(a);
-        return newStart < e && s < newEnd;
-      });
-      if (clash) {
-        setSaving(false);
-        showToast("Sorry, that time was just booked. Please pick another slot.", false);
-        return;
-      }
-    }
-
-    const { error } = await supabase.from("appointments").insert(rows);
-
+    // Create the appointment SERVER-SIDE. The anonymous booking page can't read
+    // appointments under RLS, so a client-side conflict check is blind (that's
+    // how two customers grabbed the same slot). The route checks conflicts with
+    // the service-role client, resolves "Any Available" to a concrete free
+    // barber, decides auto-confirm from the shop's live settings, and lets the
+    // DB unique index backstop exact-slot races.
+    const res = await fetch("/api/book/in-person", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shop_id: shop.id,
+        barber_id: finalBarberId,
+        service_id: selectedService, // primary service of the combined booking
+        service_names: isMulti ? servicesPicked.map(s => s.name).join(" + ") : "",
+        duration_minutes: combinedDuration,
+        client_name: clientInfo.name,
+        client_email: clientInfo.email,
+        client_phone: clientInfo.phone,
+        date: formatDateForDb(selectedDate),
+        time_slot: selectedTime,
+        total_amount: total, // combined total (discount already applied)
+        pay_in_person: payMethodChoice === "in_person",
+      }),
+    }).catch(() => null);
+    if (!res) { setSaving(false); showToast("Connection error. Please try again.", false); return; }
+    const result = await res.json().catch(() => ({} as { id?: string; status?: string; barber_id?: string; error?: string }));
     setSaving(false);
-    if (error) {
-      // 23505 = our double-booking unique index rejected a same-instant race.
-      const taken = (error as { code?: string }).code === "23505";
-      showToast(taken ? "That time was just booked — please pick another slot." : "Failed to book. Please try again.", false);
+    if (!res.ok) {
+      showToast(result.error ?? "Failed to book. Please try again.", false);
       return;
     }
-    setBookingId(rows[0].id);
+    const newApptId = result.id as string;
+    const inPersonStatus = (result.status as string) ?? "pending";
+    finalBarberId = (result.barber_id as string) ?? finalBarberId; // server resolved "Any Available"
+    setBookingId(newApptId);
     setBookingPending(inPersonStatus === "pending");
     setConfirmed(true);
 
@@ -686,7 +640,7 @@ export default function BookingPage() {
     // the shop's approval — don't tell them it's "confirmed" yet.
     if (clientInfo.phone) {
       const dateStr = selectedDate ? formatDateForDb(selectedDate) : "";
-      const ref = rows[0].id.slice(0, 8).toUpperCase();
+      const ref = newApptId.slice(0, 8).toUpperCase();
       const smsBody = inPersonStatus === "pending"
         ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}.`
         : `Your appointment on ${dateStr} at ${selectedTime} is confirmed. Pay at the shop. Booking #${ref}.`;
@@ -697,22 +651,14 @@ export default function BookingPage() {
       }).catch(() => null);
     }
 
-    // Create in-app notification for shop owner (fire-and-forget)
-    supabase.from("notifications").insert({
-      user_id: shop.owner_id,
-      title: "New booking — needs approval",
-      message: `${clientInfo.name} booked ${service?.name ?? "a service"} on ${formatDateForDb(selectedDate!)} at ${selectedTime} · tap to approve`,
-      type: "booking",
-      is_read: false,
-    }).then(null, () => null);
-
-    // Barber in-app notification + SMS to owner & barber (server-side, so it can
-    // read staff phone numbers). This is what makes the live pop-up + sound fire
-    // for the assigned barber's portal too.
+    // Staff alerts (owner + assigned barber): in-app notifications + SMS, all
+    // server-side. The owner's in-app notification used to be inserted here via
+    // the anon client, which fails RLS (no auth.uid()) — so owners never got the
+    // live pop-up for customer bookings. notify-staff now creates both.
     fetch("/api/appointments/notify-staff", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: rows[0].id }),
+      body: JSON.stringify({ appointment_id: newApptId }),
     }).catch(() => null);
 
     const bookingData = {
@@ -727,8 +673,8 @@ export default function BookingPage() {
       date: selectedDate ? formatDateForDb(selectedDate) : "",
       time: selectedTime ?? "",
       total: `$${total.toFixed(2)}`,
-      bookingId: rows[0].id.slice(0, 8).toUpperCase(),
-      appointmentId: rows[0].id,
+      bookingId: newApptId.slice(0, 8).toUpperCase(),
+      appointmentId: newApptId,
     };
 
     // Email the customer. Pending in-person bookings get a "request received —

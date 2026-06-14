@@ -190,7 +190,8 @@ export async function POST(request: NextRequest) {
       fetch(`${base}/api/appointments/notify-staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id }),
+        // Owner already got a richer "New Paid Booking · $X" notification above.
+        body: JSON.stringify({ appointment_id: appt.id, notify_owner: false }),
       }).catch(() => null);
     }
 

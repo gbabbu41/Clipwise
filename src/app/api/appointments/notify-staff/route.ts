@@ -17,7 +17,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
  */
 export async function POST(request: NextRequest) {
   try {
-    const { appointment_id } = await request.json() as { appointment_id?: string };
+    const { appointment_id, notify_owner = true } = await request.json() as { appointment_id?: string; notify_owner?: boolean };
     if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
 
     const { data: appt } = await supabaseAdmin
@@ -60,12 +60,21 @@ export async function POST(request: NextRequest) {
       if (ou?.phone) ownerPhone = ou.phone;
     }
 
-    // Barber in-app notification (owner's is created by the booking path). Skip
-    // if the barber IS the owner (owner-as-barber) to avoid a duplicate.
-    if (barberUserId && barberUserId !== shop.owner_id) {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: barberUserId, title, message, type: "booking", is_read: false,
-      }).then(null, () => null);
+    // In-app notifications for the owner AND the assigned barber. These are
+    // created here (service-role) because the customer booking page is anonymous
+    // — an anon insert into notifications fails RLS, so the owner's pop-up never
+    // fired before. Dedupe when the barber IS the owner (owner-as-barber).
+    // notify_owner=false when the caller already created a richer owner
+    // notification (e.g. booking-finalize's "New Paid Booking · $X").
+    const notifyUserIds = new Set<string>();
+    if (notify_owner && shop.owner_id) notifyUserIds.add(shop.owner_id);
+    if (barberUserId) notifyUserIds.add(barberUserId);
+    if (notifyUserIds.size > 0) {
+      await supabaseAdmin.from("notifications").insert(
+        Array.from(notifyUserIds).map(uid => ({
+          user_id: uid, title, message, type: "booking", is_read: false,
+        })),
+      ).then(null, () => null);
     }
 
     // SMS — best-effort, never throws.

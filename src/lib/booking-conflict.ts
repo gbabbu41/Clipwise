@@ -21,17 +21,33 @@ function durationOf(r: ApptRow): number {
 }
 
 /** Active (pending/confirmed) appointments for a barber on a date, as
- *  [startMin, endMin) minute intervals — end derived from the service duration. */
+ *  [startMin, endMin) minute intervals — end derived from the appointment's
+ *  duration. Resilient to the `duration_minutes` column not existing yet
+ *  (pre-phase14): on that error it retries without it and falls back to the
+ *  linked service's duration. Critically, this means a missing migration can
+ *  never silently disable conflict detection. */
 async function barberIntervals(barber_id: string, date: string): Promise<[number, number][]> {
-  const { data } = await supabaseAdmin
+  let rows: ApptRow[];
+  const withDur = await supabaseAdmin
     .from("appointments")
     .select("time_slot, duration_minutes, services(duration_minutes)")
     .eq("barber_id", barber_id)
     .eq("date", date)
     .in("status", ["pending", "confirmed"]);
-  return (data ?? []).map((r) => {
-    const start = timeToMinutes((r as ApptRow).time_slot);
-    return [start, start + durationOf(r as ApptRow)] as [number, number];
+  if (withDur.error) {
+    const fallback = await supabaseAdmin
+      .from("appointments")
+      .select("time_slot, services(duration_minutes)")
+      .eq("barber_id", barber_id)
+      .eq("date", date)
+      .in("status", ["pending", "confirmed"]);
+    rows = (fallback.data ?? []) as ApptRow[];
+  } else {
+    rows = (withDur.data ?? []) as ApptRow[];
+  }
+  return rows.map((r) => {
+    const start = timeToMinutes(r.time_slot);
+    return [start, start + durationOf(r)] as [number, number];
   });
 }
 
