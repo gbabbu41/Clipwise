@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", session.metadata.appointment_id)
             .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
-            .select("client_email, client_name, date, total_amount, shop_id, services(name)")
+            .select("client_email, client_name, date, total_amount, shop_id, barber_id, services(name)")
             .maybeSingle();
 
           // A pay-in-person booking that's still awaiting approval is now paid —
@@ -53,23 +53,39 @@ export async function POST(request: NextRequest) {
             .eq("status", "pending")
             .then(null, () => null);
 
-          // Send the customer a receipt — link payments are confirmed here (not
-          // via the manual capture flow), so this is the only place that fires.
-          if (paidAppt?.client_email) {
+          // Only fire notifications + receipt on the real transition (paidAppt is
+          // null when the row was already paid, e.g. payment-link-finalize got there
+          // first — prevents double-notifying).
+          if (paidAppt) {
             const { data: shopRow } = await supabaseAdmin
-              .from("shops").select("name, email").eq("id", paidAppt.shop_id).maybeSingle();
+              .from("shops").select("name, email, owner_id").eq("id", paidAppt.shop_id).maybeSingle();
             const svcName = Array.isArray(paidAppt.services)
               ? (paidAppt.services[0]?.name ?? "")
               : ((paidAppt.services as { name?: string } | null)?.name ?? "");
-            await sendPaymentReceipt(BASE_URL, {
-              clientEmail: paidAppt.client_email,
+
+            // Customer receipt
+            if (paidAppt.client_email) {
+              await sendPaymentReceipt(BASE_URL, {
+                clientEmail: paidAppt.client_email,
+                clientName: paidAppt.client_name,
+                shopName: shopRow?.name,
+                shopEmail: shopRow?.email,
+                serviceName: svcName,
+                date: paidAppt.date,
+                amountCents: Math.round((paidAppt.total_amount ?? 0) * 100),
+                context: "Payment received",
+              });
+            }
+
+            // Owner + barber in-app notification + chime. Uses same helper as
+            // capture-appointment so the realtime pop-up fires for both portals.
+            notifyNoShowCharged({
+              ownerId: shopRow?.owner_id ?? null,
+              barberId: paidAppt.barber_id ?? null,
               clientName: paidAppt.client_name,
-              shopName: shopRow?.name,
-              shopEmail: shopRow?.email,
-              serviceName: svcName,
-              date: paidAppt.date,
               amountCents: Math.round((paidAppt.total_amount ?? 0) * 100),
-              context: "Payment received",
+              date: paidAppt.date,
+              kind: "completed",
             });
           }
           break;

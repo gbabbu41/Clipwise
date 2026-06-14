@@ -46,9 +46,25 @@ export async function POST(request: NextRequest) {
   try {
     session = await stripe.checkout.sessions.retrieve(session_id, undefined, acctOpts);
   } catch {
+    // Session retrieval failed (e.g. temporary Stripe error). Check if the
+    // webhook already settled this — if so, return success so the customer
+    // doesn't see an error screen even though their payment went through.
+    const { data: recheck } = await supabaseAdmin
+      .from("appointments").select("payment_status").eq("id", appointment_id).maybeSingle();
+    if (recheck?.payment_status === "paid") {
+      return NextResponse.json({ paid: true, appointmentId: appt.id, summary });
+    }
     return NextResponse.json({ paid: false }, { status: 200 });
   }
-  if (session.payment_status !== "paid") return NextResponse.json({ paid: false }, { status: 200 });
+  if (session.payment_status !== "paid") {
+    // Session not paid yet — do one more DB check in case webhook just fired.
+    const { data: recheck } = await supabaseAdmin
+      .from("appointments").select("payment_status").eq("id", appointment_id).maybeSingle();
+    if (recheck?.payment_status === "paid") {
+      return NextResponse.json({ paid: true, appointmentId: appt.id, summary });
+    }
+    return NextResponse.json({ paid: false }, { status: 200 });
+  }
 
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
