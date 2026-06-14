@@ -92,6 +92,13 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   return null;
 }
 
+// Block length (minutes) — multi-service bookings store their combined length
+// on the row (duration_minutes); single-service rows use the service duration.
+function apptDuration(a: AppointmentWithDetails): number | null {
+  if (a.duration_minutes && a.duration_minutes > 0) return a.duration_minutes;
+  return a.services?.duration_minutes ?? null;
+}
+
 const PAID_REFUND_WINDOW_DAYS = 30;
 const isRefundable = (apt: AppointmentWithDetails) =>
   apt.payment_status === "paid" &&
@@ -897,7 +904,7 @@ export default function AppointmentsPage() {
                     <p className="text-sm font-semibold text-white truncate">{apt.client_name}</p>
                     <p className="text-xs text-[#777] truncate">
                       {apt.services?.name ?? "—"}
-                      {apt.services?.duration_minutes ? <span className="text-[#555]"> · {apt.services.duration_minutes} min</span> : null}
+                      {apptDuration(apt) ? <span className="text-[#555]"> · {apptDuration(apt)} min</span> : null}
                       {" · "}{apt.barbers?.name ?? "—"}
                     </p>
                   </div>
@@ -990,7 +997,7 @@ export default function AppointmentsPage() {
                           <p className="text-xs text-[#777]">{apt.client_phone}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}{apt.services?.duration_minutes ? <span className="text-[#555]"> · {apt.services.duration_minutes} min</span> : null}</td>
+                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}{apptDuration(apt) ? <span className="text-[#555]"> · {apptDuration(apt)} min</span> : null}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
                             {statusLabel(apt.status)}
@@ -1084,7 +1091,7 @@ export default function AppointmentsPage() {
                   { label: "Barber", value: selectedApt.barbers?.name ?? "—" },
                   { label: "Date", value: formatFriendlyDate(selectedApt.date) },
                   { label: "Time", value: selectedApt.time_slot },
-                  { label: "Duration", value: selectedApt.services?.duration_minutes ? `${selectedApt.services.duration_minutes} min` : "—" },
+                  { label: "Duration", value: apptDuration(selectedApt) ? `${apptDuration(selectedApt)} min` : "—" },
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
                   { label: "Status", value: statusLabel(selectedApt.status) },
                 ].map(item => (

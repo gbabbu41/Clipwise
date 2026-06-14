@@ -137,6 +137,10 @@ export interface Appointment {
   notes?: string;
   deposit_paid: boolean;
   total_amount: number;
+  /** Authoritative block length in minutes. Set for multi-service bookings
+   *  (sum of all picked services). When absent, fall back to the linked
+   *  service's duration_minutes. */
+  duration_minutes?: number;
   payment_method?: PaymentMethod;
   payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved";
   payment_intent_id?: string;

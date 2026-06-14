@@ -8,10 +8,14 @@ const SLOT_MIN = 30;
 
 type ApptRow = {
   time_slot: string;
+  duration_minutes?: number | null;
   services: { duration_minutes: number } | { duration_minutes: number }[] | null;
 };
 
 function durationOf(r: ApptRow): number {
+  // Prefer the appointment's own block length (set for multi-service bookings);
+  // fall back to the linked service's duration for single-service rows.
+  if (r.duration_minutes && r.duration_minutes > 0) return r.duration_minutes;
   const s = Array.isArray(r.services) ? r.services[0] : r.services;
   return s?.duration_minutes ?? SLOT_MIN;
 }
@@ -21,7 +25,7 @@ function durationOf(r: ApptRow): number {
 async function barberIntervals(barber_id: string, date: string): Promise<[number, number][]> {
   const { data } = await supabaseAdmin
     .from("appointments")
-    .select("time_slot, services(duration_minutes)")
+    .select("time_slot, duration_minutes, services(duration_minutes)")
     .eq("barber_id", barber_id)
     .eq("date", date)
     .in("status", ["pending", "confirmed"]);

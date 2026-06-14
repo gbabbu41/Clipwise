@@ -75,7 +75,10 @@ export async function POST(request: NextRequest) {
       const { data: fSvc } = await supabaseAdmin
         .from("services").select("duration_minutes").eq("id", m.service_id).maybeSingle();
       const fStart = timeToMinutes(m.time_slot);
-      const fEnd = fStart + (fSvc?.duration_minutes ?? 30);
+      // Combined length for multi-service bookings (falls back to the primary
+      // service duration) so the re-check reserves the whole block.
+      const mDuration = Number(m.duration_minutes ?? 0) > 0 ? Number(m.duration_minutes) : (fSvc?.duration_minutes ?? 30);
+      const fEnd = fStart + mDuration;
       if (await barberHasConflict(m.barber_id, m.date, fStart, fEnd)) {
         try {
           if (isHold && paymentIntentId) {
@@ -102,6 +105,8 @@ export async function POST(request: NextRequest) {
       time_slot: m.time_slot,
       status: "confirmed",
       total_amount: Number(m.total_amount ?? 0),
+      ...(Number(m.duration_minutes ?? 0) > 0 ? { duration_minutes: Number(m.duration_minutes) } : {}),
+      ...(m.service_names ? { notes: `Services: ${m.service_names}` } : {}),
       deposit_paid: !isHold && !isSave,
       payment_status: isSave ? "saved" : isHold ? "held" : "paid",
       ...(!isSave && !isHold ? { paid_at: new Date().toISOString() } : {}),

@@ -128,6 +128,18 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
+- [ ] **Phase 14 appointment duration** (`supabase/migrations/phase14_appointment_duration.sql`) — ⚠️ STILL TO RUN.
+      Adds `appointments.duration_minutes int`. Multi-service bookings now create ONE
+      appointment spanning the combined length (stored here); without it the combined
+      duration / calendar block / conflict-window fall back to the primary service only.
+      ```sql
+      alter table public.appointments add column if not exists duration_minutes integer;
+      ```
+- [ ] **Phase 13 appointment paid_at** (`supabase/migrations/phase13_appointment_paid_at.sql`) — ⚠️ STILL TO RUN.
+      Adds `appointments.paid_at timestamptz` (+ backfills paid/captured rows with
+      created_at). Drives the "Paid · 10 min ago / yesterday" labels on the Payments
+      page, Appointments side card and Calendar detail card. Without it the relative
+      time is just blank (status badge still shows).
 - [x] **Phase 12 notifications realtime** (`supabase/migrations/phase12_notifications_realtime.sql`) — RUN (owner ran it).
       Adds `public.notifications` to the `supabase_realtime` publication so the live
       pop-up banner + chime (payments, bookings, no-shows) actually fires.

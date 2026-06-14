@@ -21,7 +21,10 @@ interface Toast { msg: string; ok: boolean }
 
 // Duration (minutes) of a booked appointment row whose query joined the
 // service. Supabase returns the to-one relation as an object (or array).
-function apptDurationMin(a: { services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null }): number {
+// A multi-service booking stores its combined length on the row itself
+// (duration_minutes); single-service rows fall back to the service duration.
+function apptDurationMin(a: { duration_minutes?: number | null; services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null }): number {
+  if (a.duration_minutes && a.duration_minutes > 0) return a.duration_minutes;
   const s = Array.isArray(a.services) ? a.services[0] : a.services;
   return s?.duration_minutes ?? 30;
 }
@@ -304,7 +307,7 @@ export default function BookingPage() {
     await Promise.all(barberList.map(async (b) => {
       const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
         supabase.from("time_slots").select("*").eq("barber_id", b.id).eq("day_of_week", dow).eq("is_available", true).single(),
-        supabase.from("appointments").select("time_slot, services(duration_minutes)").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+        supabase.from("appointments").select("time_slot, duration_minutes, services(duration_minutes)").eq("barber_id", b.id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
         supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", b.id).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
       ]);
       if (!ts) return;
@@ -355,7 +358,7 @@ export default function BookingPage() {
     const dow = date.getDay();
     const [{ data: ts }, { data: booked }, { data: timeOff }] = await Promise.all([
       supabase.from("time_slots").select("*").eq("barber_id", barberId).eq("day_of_week", dow).eq("is_available", true).single(),
-      supabase.from("appointments").select("time_slot, services(duration_minutes)").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
+      supabase.from("appointments").select("time_slot, duration_minutes, services(duration_minutes)").eq("barber_id", barberId).eq("date", dateStr).in("status", ["pending", "confirmed"]),
       supabase.from("time_off_requests").select("type, start_time, end_time").eq("barber_id", barberId).eq("status", "approved").lte("start_date", dateStr).gte("end_date", dateStr),
     ]);
     if (!ts) { setSlotsLoading(false); return; }
@@ -551,7 +554,9 @@ export default function BookingPage() {
             shop_slug: shop.slug,
             barber_id: finalBarberId,
             service_id: selectedService,
-            service_name: service?.name ?? "Service",
+            service_name: servicesPicked.length > 1
+              ? servicesPicked.map(s => s.name).join(" + ")
+              : (service?.name ?? "Service"),
             client_name: clientInfo.name,
             client_email: clientInfo.email,
             client_phone: clientInfo.phone,
@@ -559,6 +564,8 @@ export default function BookingPage() {
             time_slot: selectedTime,
             amount: chargeAmount,
             total_amount: total,
+            duration_minutes: servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0),
+            service_names: servicesPicked.length > 1 ? servicesPicked.map(s => s.name).join(" + ") : "",
             hold: useHold,
             saveCard: useSaveCard,
           }),
@@ -574,13 +581,12 @@ export default function BookingPage() {
       }
     }
 
-    // Multi-service: one appointment per service at back-to-back 30-min slots.
-    // Discount applied only to the first row so the row totals sum to `total`.
-    // Pre-assign UUIDs so the INSERT can use Prefer: return=minimal — anon
-    // customers don't match any SELECT policy on appointments, so RETURNING
-    // would be rejected ("new row violates RLS").
-    const allSlots = generate24hSlots();
-    const startIdx = allSlots.indexOf(selectedTime);
+    // Multi-service: ONE appointment that spans the combined length (e.g.
+    // haircut 30 + beard 20 = a single 50-min booking), not one row per
+    // service. The primary service stays as service_id; the full list lives in
+    // notes and the block length in duration_minutes. Pre-assign the UUID so
+    // the INSERT can use Prefer: return=minimal — anon customers don't match
+    // any SELECT policy on appointments, so RETURNING would be rejected.
     // Pay-in-person bookings normally land as "pending" for the owner/barber to
     // Approve. When the shop turns on Auto-Confirm, skip that step and confirm
     // them straight away. (Online/prepaid bookings always confirm on payment.)
@@ -594,35 +600,31 @@ export default function BookingPage() {
       if (freshShop) autoConfirm = !!(freshShop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
     } catch { /* keep the in-memory value on a transient error */ }
     const inPersonStatus = autoConfirm ? "confirmed" : "pending";
-    const rows = servicesPicked.map((svc, i) => {
-      const slotsConsumedBefore = servicesPicked.slice(0, i)
-        .reduce((sum, prev) => sum + Math.max(1, Math.ceil((prev.duration_minutes ?? 30) / 30)), 0);
-      const slotIdx = startIdx + slotsConsumedBefore;
-      const time_slot = allSlots[slotIdx] ?? selectedTime;
-      const rowAmount = i === 0 ? Math.max(0, (svc.price ?? 0) - discount) : (svc.price ?? 0);
-      return {
-        id: crypto.randomUUID(),
-        shop_id: shop.id,
-        barber_id: finalBarberId,
-        service_id: svc.id,
-        client_name: clientInfo.name,
-        client_email: clientInfo.email,
-        client_phone: clientInfo.phone,
-        date: formatDateForDb(selectedDate),
-        time_slot,
-        status: inPersonStatus,
-        total_amount: rowAmount,
-        deposit_paid: false,
-        // When the customer explicitly picked "pay in person", tag the row
-        // so the owner sees a Cash badge and can later either take cash or
-        // send a Stripe link via the appointments dashboard.
-        payment_method: payMethodChoice === "in_person" ? "cash" : null,
-        payment_status: payMethodChoice === "in_person" ? "unpaid" : null,
-        notes: servicesPicked.length > 1
-          ? `Part of multi-service booking · ${servicesPicked.map(s => s.name).join(" + ")}`
-          : null,
-      };
-    });
+    const combinedDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0);
+    const isMulti = servicesPicked.length > 1;
+    const rows = [{
+      id: crypto.randomUUID(),
+      shop_id: shop.id,
+      barber_id: finalBarberId,
+      service_id: selectedService, // primary service of the combined booking
+      client_name: clientInfo.name,
+      client_email: clientInfo.email,
+      client_phone: clientInfo.phone,
+      date: formatDateForDb(selectedDate),
+      time_slot: selectedTime,
+      status: inPersonStatus,
+      total_amount: total, // combined total (discount already applied)
+      duration_minutes: combinedDuration,
+      deposit_paid: false,
+      // When the customer explicitly picked "pay in person", tag the row
+      // so the owner sees a Cash badge and can later either take cash or
+      // send a Stripe link via the appointments dashboard.
+      payment_method: payMethodChoice === "in_person" ? "cash" : null,
+      payment_status: payMethodChoice === "in_person" ? "unpaid" : null,
+      notes: isMulti
+        ? `Services: ${servicesPicked.map(s => s.name).join(" + ")}`
+        : null,
+    }];
 
     // Guard against double-booking the same barber/time. Duration-aware: an
     // existing *longer* appointment that overlaps this booking's span (not just
@@ -632,7 +634,7 @@ export default function BookingPage() {
     if (finalBarberId) {
       const { data: existing } = await supabase
         .from("appointments")
-        .select("time_slot, services(duration_minutes)")
+        .select("time_slot, duration_minutes, services(duration_minutes)")
         .eq("barber_id", finalBarberId)
         .eq("date", formatDateForDb(selectedDate))
         .in("status", ["pending", "confirmed"]);

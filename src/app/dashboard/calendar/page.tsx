@@ -19,6 +19,14 @@ const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
 const ROW_PX = 56;                     // height of one hour row
 const DEFAULT_SCROLL_HOUR = 8;         // where week/day views land on open
 
+// Block length (minutes) for an appointment. Multi-service bookings carry their
+// combined length on the row (duration_minutes); single-service rows fall back
+// to the linked service's duration.
+function apptDuration(a: AppointmentWithDetails): number {
+  if (a.duration_minutes && a.duration_minutes > 0) return a.duration_minutes;
+  return (a.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
+}
+
 function parseTime(timeStr: string): number {
   const [time, period] = timeStr.split(" ");
   const [h, m] = time.split(":").map(Number);
@@ -111,7 +119,7 @@ function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   const barber = barbers.find(b => b.id === appt.barber_id);
   const [payChoice, setPayChoice] = useState(false);
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
-  const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes;
+  const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
 
@@ -638,7 +646,7 @@ export default function CalendarPage() {
               <div className="relative">
                 {dayAppts.map(appt => {
                   const startH = parseTime(appt.time_slot);
-                  const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
+                  const duration = apptDuration(appt);
                   const top = startH * ROW_PX;
                   const height = Math.max(36, (duration / 60) * ROW_PX - 4);
                   const barber = barbers.find(b => b.id === appt.barber_id);
@@ -727,7 +735,7 @@ export default function CalendarPage() {
                   <div key={b.id} className="relative">
                     {colAppts.map(appt => {
                       const startH = parseTime(appt.time_slot);
-                      const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
+                      const duration = apptDuration(appt);
                       const top = startH * ROW_PX;
                       const height = Math.max(28, (duration / 60) * ROW_PX - 4);
                       const dimmed = appt.status === "cancelled" || appt.status === "no-show";
@@ -833,7 +841,7 @@ export default function CalendarPage() {
                 <div className="relative">
                   {dayAppts.map(appt => {
                     const startH = parseTime(appt.time_slot);
-                    const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
+                    const duration = apptDuration(appt);
                     const top = startH * ROW_PX;
                     const height = Math.max(36, (duration / 60) * ROW_PX - 4);
                     const barber = barbers.find(b => b.id === appt.barber_id);
@@ -931,7 +939,7 @@ export default function CalendarPage() {
                   <div key={dateStr} className="relative">
                     {dayAppts.map(appt => {
                       const startH = parseTime(appt.time_slot);
-                      const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
+                      const duration = apptDuration(appt);
                       const top = startH * ROW_PX;
                       const height = Math.max(22, (duration / 60) * ROW_PX - 3);
                       const dimmed = appt.status === "cancelled" || appt.status === "no-show";

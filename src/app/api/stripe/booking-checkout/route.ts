@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
     time_slot: string;
     amount: number; // dollars to charge now (deposit or full)
     total_amount: number; // full appointment total
+    duration_minutes?: number; // combined length for multi-service bookings
+    service_names?: string;    // "Haircut + Beard" when multiple services were picked
     hold?: boolean; // when true: authorize (manual capture) instead of charging
     saveCard?: boolean; // when true: save the card (no charge now), charge later on completion/no-show
   };
@@ -43,7 +45,12 @@ export async function POST(request: NextRequest) {
   const { data: svc } = await supabaseAdmin
     .from("services").select("duration_minutes").eq("id", booking.service_id).maybeSingle();
   const startMin = timeToMinutes(booking.time_slot);
-  const endMin = startMin + (svc?.duration_minutes ?? 30);
+  // Use the combined length for multi-service bookings so the conflict check
+  // reserves the full block, not just the primary service's duration.
+  const bookingDuration = (booking.duration_minutes && booking.duration_minutes > 0)
+    ? booking.duration_minutes
+    : (svc?.duration_minutes ?? 30);
+  const endMin = startMin + bookingDuration;
   let resolvedBarberId = booking.barber_id || null;
   if (resolvedBarberId) {
     if (await barberHasConflict(resolvedBarberId, booking.date, startMin, endMin)) {
@@ -98,6 +105,8 @@ export async function POST(request: NextRequest) {
     date: booking.date,
     time_slot: booking.time_slot,
     total_amount: String(booking.total_amount),
+    duration_minutes: String(bookingDuration),
+    service_names: booking.service_names ?? "",
     hold: booking.hold ? "1" : "",
     save: booking.saveCard ? "1" : "",
   };
