@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, timeAgo } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, timeAgo, timeToMinutes } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -47,11 +47,6 @@ const canReject = (status: AppStatus) => status === "pending" || status === "con
 /** Display label for an appointment status. DB value stays "confirmed";
  *  we just show it as "Booked" to clients/owners. */
 const statusLabel = (s: string) => (s === "confirmed" ? "Booked" : s.charAt(0).toUpperCase() + s.slice(1));
-
-// Default ordering: actionable first — pending (needs approval), then booked
-// (needs completing), then finished/cancelled. Stable sort preserves the
-// date/time order from the query within each group.
-const STATUS_SORT: Record<string, number> = { pending: 0, confirmed: 1, completed: 2, "no-show": 2, cancelled: 3 };
 
 /** Payment badge — strict monochrome. The card holds at most one
  *  colored element (the green price); payment state communicates via
@@ -708,8 +703,13 @@ export default function AppointmentsPage() {
       a.client_name.toLowerCase().includes(search.toLowerCase()) ||
       (a.client_phone ?? "").includes(search)
     );
-    // Surface the ones that still need action (approve / complete) at the top.
-    apts.sort((a, b) => (STATUS_SORT[a.status] ?? 2) - (STATUS_SORT[b.status] ?? 2));
+    // Chronological order — earliest first. time_slot is text ("9:00 AM"), so
+    // sort by parsed minutes (a plain string sort would put "12:00 PM" above
+    // "9:00 AM"). Date first (YYYY-MM-DD sorts correctly as a string), then time.
+    apts.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return timeToMinutes(a.time_slot) - timeToMinutes(b.time_slot);
+    });
     return apts;
   }, [appointments, barberFilter, statusFilter, search]);
 
