@@ -481,6 +481,26 @@ function timeOffDecision(data: Record<string, string>) {
   `);
 }
 
+function bookingRequestReceived(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">⏳ Request received</div>
+    <h1>Thanks, ${data.clientName}!</h1>
+    <p>Your booking request at <span class="highlight">${data.shopName}</span> has been received and is <strong style="color:#fff">waiting for the shop to confirm</strong>. We'll email you as soon as it's approved.</p>
+    <hr class="divider">
+    <table style="width:100%;font-size:14px;color:#9CA3AF">
+      <tr><td>Service</td><td style="text-align:right;color:#fff">${data.serviceName}</td></tr>
+      <tr><td>Barber</td><td style="text-align:right;color:#fff">${data.barberName}</td></tr>
+      <tr><td>Date</td><td style="text-align:right;color:#fff">${data.date}</td></tr>
+      <tr><td>Time</td><td style="text-align:right;color:#fff">${data.time}</td></tr>
+    </table>
+    <hr class="divider">
+    <p style="font-size:13px;color:#9CA3AF">Booking ref: <strong style="color:#fff">${data.bookingId}</strong> · You'll pay in person at the shop.</p>
+    <a href="${BASE_URL}/my-booking/${data.appointmentId}" class="btn">View my booking →</a>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function barberInvite(data: Record<string, string>) {
   const existing = data.existingAccount === "true";
   const ctaText = existing ? "Open My Barber Dashboard →" : "Accept Invite & Set Up Account →";
@@ -743,6 +763,11 @@ export async function POST(req: NextRequest) {
         subject = `Message from ${data.shopName}`;
         html = directMessageEmail(data);
         break;
+      case "booking_request_received":
+        to = data.clientEmail;
+        subject = `We got your request — ${data.shopName}`;
+        html = bookingRequestReceived(data);
+        break;
       case "barber_invite":
         to = data.barberEmail;
         subject = `You're invited to join ${data.shopName} on ClipWise`;
@@ -789,7 +814,7 @@ export async function POST(req: NextRequest) {
       "appointment_rejected", "refund_issued", "rebooking_reminder",
       "no_show_followup", "birthday_wish", "payment_link", "direct_message",
       "barber_invite", "barber_password_reset", "new_booking_barber", "payment_receipt",
-      "barber_appointment_change", "waitlist_slot_open",
+      "barber_appointment_change", "waitlist_slot_open", "booking_request_received",
     ];
     const replyTo = customerOrBarberFacing.includes(type)
       ? (data.shopEmail || undefined)

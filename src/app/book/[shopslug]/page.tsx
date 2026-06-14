@@ -663,16 +663,18 @@ export default function BookingPage() {
       body: JSON.stringify({ shop_id: shop.id, name: clientInfo.name, email: clientInfo.email, phone: clientInfo.phone }),
     }).catch(() => null);
 
-    // Text the customer a confirmation (best-effort; in-person path = pay later).
+    // Text the customer (best-effort). A pending in-person booking is awaiting
+    // the shop's approval — don't tell them it's "confirmed" yet.
     if (clientInfo.phone) {
+      const dateStr = selectedDate ? formatDateForDb(selectedDate) : "";
+      const ref = rows[0].id.slice(0, 8).toUpperCase();
+      const smsBody = inPersonStatus === "pending"
+        ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}.`
+        : `Your appointment on ${dateStr} at ${selectedTime} is confirmed. Pay at the shop. Booking #${ref}.`;
       fetch("/api/twilio/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: clientInfo.phone,
-          shopName: shop.name,
-          body: `Your appointment on ${selectedDate ? formatDateForDb(selectedDate) : ""} at ${selectedTime} is confirmed. Pay at the shop. Booking #${rows[0].id.slice(0, 8).toUpperCase()}.`,
-        }),
+        body: JSON.stringify({ to: clientInfo.phone, shopName: shop.name, body: smsBody }),
       }).catch(() => null);
     }
 
@@ -710,12 +712,16 @@ export default function BookingPage() {
       appointmentId: rows[0].id,
     };
 
-    // Confirmation email to customer
+    // Email the customer. Pending in-person bookings get a "request received —
+    // awaiting confirmation" email, NOT a confirmation (that's sent on approve).
     if (clientInfo.email) {
       fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "booking_confirmation", data: { ...bookingData, clientEmail: clientInfo.email } }),
+        body: JSON.stringify({
+          type: inPersonStatus === "pending" ? "booking_request_received" : "booking_confirmation",
+          data: { ...bookingData, clientEmail: clientInfo.email },
+        }),
       }).catch(() => null);
     }
 
