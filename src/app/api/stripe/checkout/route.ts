@@ -36,10 +36,21 @@ export async function POST(request: NextRequest) {
   let customerId: string | undefined;
   if (upgrade) {
     const { data: shops } = await supabaseAdmin
-      .from("shops").select("stripe_subscription_id, stripe_customer_id")
+      .from("shops").select("name, stripe_subscription_id, stripe_customer_id")
       .eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
     oldSubscriptionId = shops?.[0]?.stripe_subscription_id ?? "";
     customerId = shops?.[0]?.stripe_customer_id ?? undefined;
+    const shopName = shops?.[0]?.name ?? "";
+    // Label the Stripe customer with the shop's BUSINESS name so subscription
+    // invoices read "To: <Shop>" instead of the cardholder's personal name.
+    try {
+      if (customerId) {
+        if (shopName) await stripe.customers.update(customerId, { name: shopName });
+      } else if (shopName) {
+        const customer = await stripe.customers.create({ email: user.email ?? undefined, name: shopName });
+        customerId = customer.id;
+      }
+    } catch { /* non-fatal — fall back to an email-only customer */ }
   }
 
   try {

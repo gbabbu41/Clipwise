@@ -43,6 +43,12 @@ export async function POST(request: NextRequest) {
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
+  // Label the Stripe customer with the shop's business name so invoices read
+  // "To: <Shop>" rather than the cardholder's personal name.
+  if (customerId && shop.name) {
+    await stripe.customers.update(customerId, { name: shop.name }).catch(() => null);
+  }
+
   const { error: updErr } = await supabaseAdmin.from("shops").update({
     subscription_status: "active",
     stripe_subscription_id: newSubId,

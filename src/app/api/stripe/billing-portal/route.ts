@@ -13,10 +13,16 @@ export async function POST(request: NextRequest) {
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: shops } = await supabaseAdmin
-    .from("shops").select("stripe_customer_id").eq("owner_id", user.id)
+    .from("shops").select("name, stripe_customer_id").eq("owner_id", user.id)
     .order("created_at", { ascending: false }).limit(1);
   const customerId = shops?.[0]?.stripe_customer_id;
   if (!customerId) return NextResponse.json({ error: "No subscription to manage yet." }, { status: 400 });
+
+  // Back-fill the customer's name with the shop's business name (fixes invoices
+  // that previously showed the cardholder's personal name).
+  if (shops?.[0]?.name) {
+    await stripe.customers.update(customerId, { name: shops[0].name }).catch(() => null);
+  }
 
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   try {
