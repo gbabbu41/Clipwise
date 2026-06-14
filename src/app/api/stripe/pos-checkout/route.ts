@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
@@ -45,10 +45,9 @@ export async function POST(request: NextRequest) {
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
-  // With REAL money, never platform-charge for an un-onboarded shop — funds
-  // would land in the platform account, not the shop's. Block card sales until
-  // the owner finishes Stripe Connect (cash still works in the POS).
-  if (!useConnect && STRIPE_LIVE_MODE) {
+  // Require Stripe Connect to take card — never platform-charge, so the money
+  // always lands in the shop's own account. Cash still works in the POS.
+  if (!useConnect) {
     return NextResponse.json(
       { error: "Card payments aren't set up yet — finish Stripe Connect in Billing. You can still take cash." },
       { status: 409 },

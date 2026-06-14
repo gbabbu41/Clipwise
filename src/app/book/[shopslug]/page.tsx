@@ -751,15 +751,13 @@ export default function BookingPage() {
   const total = Math.max(0, totalPrice - discount);
 
   // Whether THIS shop can actually take money online right now. Requires the
-  // paid plan (Starter = pay-in-person only) AND — in LIVE mode — a finished
-  // Stripe Connect setup, so funds can't slip to the platform instead of the
-  // shop. In test/sandbox we keep the platform-charge fallback so demos work
-  // without Connect. (The booking-checkout route enforces the same server-side.)
-  const stripeLiveMode = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "").startsWith("pk_live_");
+  // paid plan (Starter = pay-in-person only) AND a finished Stripe Connect setup
+  // — no platform-charge fallback in any mode, so funds always land in the
+  // shop's own account. (booking-checkout enforces the same server-side.)
   const connectReady = !!(shop?.stripe_account_id && shop?.stripe_connected);
   const shopCanCharge = !!shop
     && planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")
-    && (connectReady || !stripeLiveMode);
+    && connectReady;
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
