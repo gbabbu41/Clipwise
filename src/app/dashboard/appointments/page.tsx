@@ -186,7 +186,7 @@ export default function AppointmentsPage() {
     const isUpcomingView = !!pickedDate || dateFilter === "upcoming" || dateFilter === "week" || dateFilter === "today" || dateFilter === "tomorrow" || dateFilter === "all";
     let apptQuery = supabase
       .from("appointments")
-      .select("*, barbers(id, name), services(id, name, price, category)")
+      .select("*, barbers(id, name), services(id, name, price, duration_minutes, category)")
       .eq("shop_id", shop.id)
       .order("date", { ascending: isUpcomingView })
       .order("time_slot", { ascending: true });
@@ -884,7 +884,11 @@ export default function AppointmentsPage() {
                   <div className="w-px h-10 bg-[#1e1e1e] flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{apt.client_name}</p>
-                    <p className="text-xs text-[#777] truncate">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
+                    <p className="text-xs text-[#777] truncate">
+                      {apt.services?.name ?? "—"}
+                      {apt.services?.duration_minutes ? <span className="text-[#555]"> · {apt.services.duration_minutes} min</span> : null}
+                      {" · "}{apt.barbers?.name ?? "—"}
+                    </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
@@ -975,7 +979,7 @@ export default function AppointmentsPage() {
                           <p className="text-xs text-[#777]">{apt.client_phone}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}{apt.services?.duration_minutes ? <span className="text-[#555]"> · {apt.services.duration_minutes} min</span> : null}</td>
                         <td className="px-4 py-3">
                           <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
                             {statusLabel(apt.status)}
@@ -1069,6 +1073,7 @@ export default function AppointmentsPage() {
                   { label: "Barber", value: selectedApt.barbers?.name ?? "—" },
                   { label: "Date", value: formatFriendlyDate(selectedApt.date) },
                   { label: "Time", value: selectedApt.time_slot },
+                  { label: "Duration", value: selectedApt.services?.duration_minutes ? `${selectedApt.services.duration_minutes} min` : "—" },
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
                   { label: "Status", value: statusLabel(selectedApt.status) },
                 ].map(item => (

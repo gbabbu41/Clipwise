@@ -5,6 +5,13 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  sendApprovalNotifications,
+  runCompletionEffects,
+  notifyFreedSlot,
+  sendRejectionEmail,
+} from "@/lib/appointment-actions";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
@@ -82,9 +89,40 @@ const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 
+// Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
+// page so Approve / Complete / Reject behave identically from either surface.
+type ApptActions = {
+  approve: (a: AppointmentWithDetails) => void;
+  complete: (a: AppointmentWithDetails) => void;        // paid / zero-amount / skip-unpaid
+  captureComplete: (a: AppointmentWithDetails) => void; // held / saved card → auto-charge
+  cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
+  sendLink: (a: AppointmentWithDetails, email: string) => void;
+  reject: (a: AppointmentWithDetails) => void;
+};
+
 // ── Appointment detail modal ────────────────────────────────────────────────
-function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; barbers: Barber[]; onClose: () => void }) {
+function ApptDetail({ appt, barbers, onClose, actions, busy }: {
+  appt: AppointmentWithDetails;
+  barbers: Barber[];
+  onClose: () => void;
+  actions: ApptActions;
+  busy: string;
+}) {
   const barber = barbers.find(b => b.id === appt.barber_id);
+  const [payChoice, setPayChoice] = useState(false);
+  const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
+  const duration = (appt.services as { duration_minutes?: number } | null)?.duration_minutes;
+  const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
+  const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
+
+  // "Complete" is context-aware: held/saved cards auto-charge; already-paid /
+  // zero-amount complete straight through; otherwise we reveal payment choices.
+  const onComplete = () => {
+    if (heldOrSaved) { actions.captureComplete(appt); return; }
+    if (paid || (appt.total_amount ?? 0) <= 0) { actions.complete(appt); return; }
+    setPayChoice(true);
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
@@ -110,7 +148,7 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
               <span className="text-[#777]">Time</span>
-              <span className="text-white">{appt.time_slot}</span>
+              <span className="text-white">{appt.time_slot}{duration ? ` · ${duration} min` : ""}</span>
             </div>
             <div className="flex justify-between gap-3 py-1.5 border-b border-[#1e1e1e]/50">
               <span className="text-[#777] flex-shrink-0">Email</span>
@@ -128,6 +166,47 @@ function ApptDetail({ appt, barbers, onClose }: { appt: AppointmentWithDetails; 
           {appt.notes && (
             <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
           )}
+
+          {/* Actions — same set as the Appointments page, kept compact. */}
+          {payChoice ? (
+            <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
+              <p className="text-xs text-[#777]">How was this paid?</p>
+              <input
+                type="email"
+                value={payEmail}
+                onChange={e => setPayEmail(e.target.value)}
+                placeholder="Customer email (for the link)"
+                className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/50"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.cashComplete(appt)}>
+                  {busy === "cash" ? "…" : "Cash · Complete"}
+                </Button>
+                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.sendLink(appt, payEmail.trim())}>
+                  {busy === "link" ? "…" : "Send link"}
+                </Button>
+              </div>
+              <Button size="sm" variant="ghost" className="w-full" disabled={!!busy} onClick={() => actions.complete(appt)}>
+                {busy === "complete" ? "Completing…" : "Skip · Complete unpaid"}
+              </Button>
+            </div>
+          ) : (appt.status === "pending" || appt.status === "confirmed") ? (
+            <div className="flex gap-2 pt-1 border-t border-[#1e1e1e]">
+              {appt.status === "pending" && (
+                <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => actions.approve(appt)}>
+                  {busy === "approve" ? "…" : "Approve"}
+                </Button>
+              )}
+              {appt.status === "confirmed" && (
+                <Button size="sm" className="flex-1" disabled={!!busy} onClick={onComplete}>
+                  {busy === "complete" || busy === "capture" ? "…" : "Complete"}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="flex-1" disabled={!!busy} onClick={() => actions.reject(appt)}>
+                {busy === "reject" ? "…" : "Reject"}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     </>
@@ -217,6 +296,8 @@ export default function CalendarPage() {
   const [agendaDate, setAgendaDate] = useState<Date | null>(null);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
+  const [toast, setToast] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -295,6 +376,123 @@ export default function CalendarPage() {
       scrollRef.current.scrollTop = DEFAULT_SCROLL_HOUR * ROW_PX;
     }
   }, [view]);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3500);
+  }, []);
+
+  // Patch one appointment in both the grid list and the open detail card.
+  const applyLocal = useCallback((id: string, patch: Partial<AppointmentWithDetails>) => {
+    setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...patch } as AppointmentWithDetails : a)));
+    setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...patch } as AppointmentWithDetails : prev));
+  }, []);
+
+  // Appointment actions — same behavior as the Appointments page (Approve /
+  // Complete / Reject), so the calendar detail card stays in sync.
+  const apptActions: ApptActions = useMemo(() => ({
+    approve: async (appt) => {
+      if (!shop) return;
+      setActionBusy("approve");
+      const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", appt.id);
+      setActionBusy("");
+      if (error) { showToast(`Update failed: ${error.message}`); return; }
+      applyLocal(appt.id, { status: "confirmed" });
+      sendApprovalNotifications(appt, shop);
+      showToast("Approved · Customer notified");
+    },
+    complete: async (appt) => {
+      if (!shop) return;
+      setActionBusy("complete");
+      const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      if (error) { setActionBusy(""); showToast(`Update failed: ${error.message}`); return; }
+      applyLocal(appt.id, { status: "completed" });
+      await runCompletionEffects(supabase, appt, shop, accessToken);
+      setActionBusy("");
+      setSelectedAppt(null);
+      showToast("Marked complete");
+    },
+    captureComplete: async (appt) => {
+      if (!shop || !accessToken) return;
+      setActionBusy("capture");
+      showToast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
+      const res = await fetch("/api/stripe/capture-appointment", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, reason: "completed" }),
+      });
+      const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      if (!data.ok) { setActionBusy(""); showToast(`Charge failed: ${data.error ?? "try again"}`); return; }
+      await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      applyLocal(appt.id, { status: "completed", payment_status: "captured" });
+      await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
+      setActionBusy("");
+      setSelectedAppt(null);
+      showToast(`Charged · Completed`);
+    },
+    cashComplete: async (appt) => {
+      if (!shop) return;
+      setActionBusy("cash");
+      const patch = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const };
+      const { error } = await supabase.from("appointments").update(patch).eq("id", appt.id);
+      if (error) { setActionBusy(""); showToast(`Failed: ${error.message}`); return; }
+      applyLocal(appt.id, patch);
+      await runCompletionEffects(supabase, appt, shop, accessToken);
+      setActionBusy("");
+      setSelectedAppt(null);
+      showToast("Cash recorded · Completed");
+    },
+    sendLink: async (appt, email) => {
+      if (!shop || !accessToken) return;
+      setActionBusy("link");
+      const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (willEmail && email !== (appt.client_email ?? "")) {
+        await supabase.from("appointments").update({ client_email: email }).eq("id", appt.id);
+        applyLocal(appt.id, { client_email: email });
+      }
+      const res = await fetch("/api/stripe/payment-link", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setActionBusy("");
+      if (!res.ok) { showToast(`Failed: ${data.error ?? "try again"}`); return; }
+      if (data.emailed) { showToast("Payment link emailed to customer"); }
+      else if (data.url) {
+        try { await navigator.clipboard.writeText(data.url); showToast("Payment link copied to clipboard"); }
+        catch { showToast("Payment link ready"); }
+      } else { showToast("Payment link ready"); }
+    },
+    reject: async (appt) => {
+      if (!shop) return;
+      const wasPaid = !!(appt.payment_intent_id && appt.payment_status === "captured");
+      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${wasPaid ? " and refunded." : "."}`)) return;
+      setActionBusy("reject");
+      if (wasPaid && accessToken) {
+        const refundRes = await fetch("/api/stripe/refund", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => null);
+        if (refundRes?.ok) {
+          applyLocal(appt.id, { status: "cancelled", payment_status: "refunded" });
+          notifyFreedSlot(appt, shop, "Cancelled");
+          setActionBusy(""); setSelectedAppt(null);
+          showToast("Rejected · Refund issued");
+          return;
+        }
+      }
+      const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
+      setActionBusy("");
+      if (error) { showToast(`Failed: ${error.message}`); return; }
+      applyLocal(appt.id, { status: "cancelled" });
+      sendRejectionEmail(appt, shop, "");
+      notifyFreedSlot(appt, shop, "Cancelled");
+      setSelectedAppt(null);
+      showToast("Rejected" + (appt.client_email ? " · Email sent" : ""));
+    },
+  }), [shop, accessToken, applyLocal, showToast]);
 
   const navigate = (dir: -1 | 1) => {
     if (view === "month") setCurrentDate(prev => addMonths(prev, dir));
@@ -835,7 +1033,22 @@ export default function CalendarPage() {
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
 
-      {selectedAppt && <ApptDetail appt={selectedAppt} barbers={barbers} onClose={() => setSelectedAppt(null)} />}
+      {selectedAppt && (
+        <ApptDetail
+          appt={selectedAppt}
+          barbers={barbers}
+          onClose={() => setSelectedAppt(null)}
+          actions={apptActions}
+          busy={actionBusy}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+          <span className="text-white">✓</span>{toast}
+          <button onClick={() => setToast("")} className="text-[#777] hover:text-white ml-2">✕</button>
+        </div>
+      )}
       {agendaDate && (
         <AgendaSheet
           date={agendaDate}

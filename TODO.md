@@ -128,6 +128,9 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
+- [x] **Phase 12 notifications realtime** (`supabase/migrations/phase12_notifications_realtime.sql`) — RUN (owner ran it).
+      Adds `public.notifications` to the `supabase_realtime` publication so the live
+      pop-up banner + chime (payments, bookings, no-shows) actually fires.
 - [x] **Phase 11 appointment checkout session** (`supabase/migrations/phase11_appt_checkout_session.sql`) — RUN (owner ran it).
       Adds `appointments.stripe_checkout_session_id` for payment-link reconciliation.
 - [x] **Phase 10 subscription backend update** (`supabase/migrations/phase10_subscription_backend_update.sql`) — RUN (owner ran it).
