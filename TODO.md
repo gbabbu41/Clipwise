@@ -128,6 +128,11 @@ These are the difference between "works on localhost" and "works for real custom
       ```sql
       alter table public.appointments add column if not exists loyalty_awarded boolean default false;
       ```
+- [ ] 🔴 **Phase 11 appointment checkout session** (`supabase/migrations/phase11_appt_checkout_session.sql`)
+      — ⚠️ **REQUIRED for payment-link status sync.** Adds `appointments.stripe_checkout_session_id`
+      so `/api/stripe/reconcile-payments` can flip a link payment to "paid" even when the customer
+      never returns to the success page and the webhook didn't fire. Until run, payment-link sync
+      relies only on the customer landing back on the thank-you page.
 - [x] **Phase 10 subscription backend update** (`supabase/migrations/phase10_subscription_backend_update.sql`) — RUN (owner ran it).
       Relaxes `prevent_shop_field_escalation`
       so the trusted service-role backend (Stripe webhook + `/api/stripe/confirm-subscription`)

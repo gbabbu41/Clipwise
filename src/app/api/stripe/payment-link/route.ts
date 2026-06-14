@@ -102,14 +102,17 @@ export async function POST(request: NextRequest) {
       useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined
     );
 
-    // Store the session's payment_intent_id on the appointment ahead of time
-    // so the webhook can match either by metadata or by payment_intent_id.
-    if (typeof session.payment_intent === "string") {
-      await supabaseAdmin
-        .from("appointments")
-        .update({ payment_intent_id: session.payment_intent })
-        .eq("id", appt.id);
-    }
+    // Store the checkout session id (+ payment_intent if present) so the payment
+    // can be reconciled later even if the customer never lands back on the
+    // success page and the webhook doesn't fire (see /api/stripe/reconcile-payments).
+    await supabaseAdmin
+      .from("appointments")
+      .update({
+        stripe_checkout_session_id: session.id,
+        ...(typeof session.payment_intent === "string" ? { payment_intent_id: session.payment_intent } : {}),
+      })
+      .eq("id", appt.id)
+      .then(null, () => null);
 
     // Resolve targets: caller can pass an email/phone to use (and we persist
     // them to the appointment so receipts/SMS work next time too), else fall

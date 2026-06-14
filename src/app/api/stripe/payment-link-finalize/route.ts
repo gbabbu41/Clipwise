@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
+import { markAppointmentPaid, serviceNameOf } from "@/lib/finalize-appointment-payment";
 
 // Called when a customer returns from paying a post-booking PAYMENT LINK (owner
 // sent it from Payments for an existing unpaid appointment). Verifies the
@@ -21,13 +21,13 @@ export async function POST(request: NextRequest) {
     .from("shops").select("name, email, owner_id, stripe_account_id, stripe_connected").eq("id", appt.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
-  const pickName = (rel: unknown): string =>
-    Array.isArray(rel) ? ((rel[0] as { name?: string })?.name ?? "") : ((rel as { name?: string } | null)?.name ?? "");
-  const serviceName = pickName(appt.services) || "Service";
+  const barberName = Array.isArray(appt.barbers)
+    ? ((appt.barbers[0] as { name?: string })?.name ?? "Any Available")
+    : ((appt.barbers as { name?: string } | null)?.name ?? "Any Available");
   const summary = {
     shopName: shop.name,
-    barberName: pickName(appt.barbers) || "Any Available",
-    serviceName,
+    barberName,
+    serviceName: serviceNameOf(appt.services),
     date: appt.date,
     time: appt.time_slot,
     total: Number(appt.total_amount ?? 0),
@@ -51,61 +51,8 @@ export async function POST(request: NextRequest) {
   if (session.payment_status !== "paid") return NextResponse.json({ paid: false }, { status: 200 });
 
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
-
-  // Conditional flip — only the run that actually transitions unpaid→paid sends
-  // the notifications (so we don't double-notify against the webhook).
-  const { data: claimed } = await supabaseAdmin
-    .from("appointments")
-    .update({ payment_status: "paid", payment_method: "online", ...(paymentIntentId ? { payment_intent_id: paymentIntentId } : {}) })
-    .eq("id", appt.id)
-    .neq("payment_status", "paid")
-    .select("id");
-
-  if ((claimed?.length ?? 0) > 0) {
-    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const amountCents = Math.round(Number(appt.total_amount ?? 0) * 100);
-
-    // Customer receipt
-    sendPaymentReceipt(baseUrl, {
-      clientEmail: appt.client_email,
-      clientName: appt.client_name,
-      shopName: shop.name,
-      shopEmail: shop.email,
-      serviceName,
-      date: appt.date,
-      amountCents,
-      context: "Payment received",
-    });
-
-    // Owner + barber in-app pop-up ("✅ Payment collected")
-    notifyNoShowCharged({
-      ownerId: shop.owner_id,
-      barberId: appt.barber_id,
-      clientName: appt.client_name,
-      amountCents,
-      date: appt.date,
-      kind: "completed",
-    });
-
-    // Owner email
-    if (shop.email) {
-      fetch(`${baseUrl}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "owner_payment_received",
-          data: {
-            ownerEmail: shop.email,
-            clientName: appt.client_name ?? "A client",
-            serviceName,
-            amount: `$${(amountCents / 100).toFixed(2)}`,
-            date: appt.date,
-            time: appt.time_slot,
-          },
-        }),
-      }).catch(() => null);
-    }
-  }
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  await markAppointmentPaid({ appt, shop, baseUrl, paymentIntentId });
 
   return NextResponse.json({ paid: true, appointmentId: appt.id, summary });
 }

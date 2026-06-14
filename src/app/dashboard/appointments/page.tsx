@@ -220,6 +220,18 @@ export default function AppointmentsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Catch up on payment-link payments that completed without the customer
+  // returning / the webhook firing — flip them to paid, then refresh.
+  useEffect(() => {
+    if (!accessToken) return;
+    let active = true;
+    fetch("/api/stripe/reconcile-payments", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d?.updated > 0) loadData(); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accessToken, loadData]);
+
   // Keyboard: Escape closes side panel and modals
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

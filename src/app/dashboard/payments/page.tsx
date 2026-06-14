@@ -84,6 +84,18 @@ export default function PaymentsPage() {
   }, [shop]);
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Catch up on any payment-link payments that completed without the customer
+  // landing back / the webhook firing — flip them to paid, then refresh.
+  useEffect(() => {
+    if (!accessToken) return;
+    let active = true;
+    fetch("/api/stripe/reconcile-payments", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d?.updated > 0) loadData(); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accessToken, loadData]);
+
   // ── Summary ────────────────────────────────────────────────────────────────
   const collectedFromAppts = appts
     .filter(a => a.payment_status === "paid" || a.payment_status === "captured")
