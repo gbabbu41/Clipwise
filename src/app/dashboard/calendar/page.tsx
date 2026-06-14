@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
+import { cn, formatDateForDb, friendlyDate, timeAgo } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,6 +162,14 @@ function ApptDetail({ appt, barbers, onClose, actions, busy }: {
               <span className="text-[#777]">Total</span>
               <span className="text-white font-semibold">${Number(appt.total_amount).toFixed(2)}</span>
             </div>
+            {paid && (
+              <div className="flex justify-between py-1.5 border-t border-[#1e1e1e]/50">
+                <span className="text-[#777]">Payment</span>
+                <span className="text-[#00e5a0] font-medium">
+                  Paid{appt.paid_at ? ` · ${timeAgo(appt.paid_at)}` : ""}
+                </span>
+              </div>
+            )}
           </div>
           {appt.notes && (
             <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
@@ -424,7 +432,7 @@ export default function CalendarPage() {
       const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
       if (!data.ok) { setActionBusy(""); showToast(`Charge failed: ${data.error ?? "try again"}`); return; }
       await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
-      applyLocal(appt.id, { status: "completed", payment_status: "captured" });
+      applyLocal(appt.id, { status: "completed", payment_status: "captured", paid_at: new Date().toISOString() });
       await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
       setActionBusy("");
       setSelectedAppt(null);
@@ -433,7 +441,7 @@ export default function CalendarPage() {
     cashComplete: async (appt) => {
       if (!shop) return;
       setActionBusy("cash");
-      const patch = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const };
+      const patch = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const, paid_at: new Date().toISOString() };
       const { error } = await supabase.from("appointments").update(patch).eq("id", appt.id);
       if (error) { setActionBusy(""); showToast(`Failed: ${error.message}`); return; }
       applyLocal(appt.id, patch);
@@ -446,14 +454,13 @@ export default function CalendarPage() {
       if (!shop || !accessToken) return;
       setActionBusy("link");
       const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-      if (willEmail && email !== (appt.client_email ?? "")) {
-        await supabase.from("appointments").update({ client_email: email }).eq("id", appt.id);
-        applyLocal(appt.id, { client_email: email });
-      }
+      // The route persists the email via the service-role client + sends it,
+      // so we don't risk an RLS-blocked client update swallowing the link.
+      if (willEmail && email !== (appt.client_email ?? "")) applyLocal(appt.id, { client_email: email });
       const res = await fetch("/api/stripe/payment-link", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail }),
+        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail, email: willEmail ? email : undefined }),
       });
       const data = await res.json().catch(() => ({}));
       setActionBusy("");

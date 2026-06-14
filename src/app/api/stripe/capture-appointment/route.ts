@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       if (chargeCents <= 0) {
         // Nothing to charge (e.g. $0 service) — just mark it settled.
         await supabaseAdmin.from("appointments")
-          .update({ payment_status: "captured", payment_method: "card" }).eq("id", appointment_id);
+          .update({ payment_status: "captured", payment_method: "card", paid_at: new Date().toISOString() }).eq("id", appointment_id);
         return NextResponse.json({ ok: true, amount: 0 });
       }
       pi = await stripe.paymentIntents.create({
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
     }
     await supabaseAdmin.from("appointments")
-      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id })
+      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id, paid_at: new Date().toISOString() })
       .eq("id", appointment_id);
     // Best-effort — column may not exist until the Phase 1 migration is run.
     if (reason === "no_show") {

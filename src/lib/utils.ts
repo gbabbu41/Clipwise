@@ -180,6 +180,29 @@ export function formatFriendlyTime(t: string | null | undefined): string {
   return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
+/**
+ * Short relative-time label for a timestamp, e.g. "just now", "10 min ago",
+ * "3 h ago", "yesterday", "Jun 3". Used for "Paid · 10 min ago" payment
+ * labels. Returns "" for falsy / unparseable input.
+ */
+export function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMs = Date.now() - then;
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 0) return "just now";
+  if (sec < 45) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr} h ago`;
+  const days = Math.round(hr / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return new Date(then).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
 /** True if the given date is strictly before today (local time) */
 export function isDateInPast(date: Date): boolean {
   const today = new Date();

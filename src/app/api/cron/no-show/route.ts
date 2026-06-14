@@ -104,7 +104,7 @@ async function run() {
         pi = await stripe.paymentIntents.capture(a.payment_intent_id!, feeCents > 0 ? { amount_to_capture: feeCents } : {}, opts);
       }
       await supabaseAdmin.from("appointments")
-        .update({ status: "no-show", payment_status: "captured", payment_method: "card" }).eq("id", a.id);
+        .update({ status: "no-show", payment_status: "captured", payment_method: "card", paid_at: new Date().toISOString() }).eq("id", a.id);
       await supabaseAdmin.from("appointments")
         .update({ no_show_fee_amount: pi.amount_received ?? null }).eq("id", a.id).then(null, () => null);
 

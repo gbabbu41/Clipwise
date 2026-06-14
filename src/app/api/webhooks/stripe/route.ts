@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
             .update({
               payment_status: "paid",
               payment_method: "online",
+              paid_at: new Date().toISOString(),
               payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
             })
             .eq("id", session.metadata.appointment_id)
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
         // capture also fires this event — would be overwritten to 'paid',
         // losing the no-show distinction. Leave captured/paid/refunded alone.
         await supabaseAdmin.from("appointments")
-          .update({ payment_status: "paid" })
+          .update({ payment_status: "paid", paid_at: new Date().toISOString() })
           .eq("payment_intent_id", pi.id)
           .in("payment_status", ["unpaid", "held", "failed"]);
         break;

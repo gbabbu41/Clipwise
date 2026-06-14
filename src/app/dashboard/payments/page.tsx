@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, timeAgo } from "@/lib/utils";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -19,6 +19,7 @@ interface ApptRow {
   payment_status: string | null;
   payment_method: string | null;
   payment_intent_id: string | null;
+  paid_at: string | null;
   services: { name: string } | null;
   barbers: { name: string } | null;
 }
@@ -72,7 +73,7 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, services(name), barbers(name)")
+        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, services(name), barbers(name)")
         .eq("shop_id", shop.id).gt("total_amount", 0).order("date", { ascending: false }),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at")
@@ -290,6 +291,9 @@ export default function PaymentsPage() {
                   </p>
                 </div>
                 <span className="text-base font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</span>
+                {(a.payment_status === "paid" || a.payment_status === "captured") && a.paid_at && (
+                  <span className="text-[11px] text-[#777]">{timeAgo(a.paid_at)}</span>
+                )}
                 <span className={cn("text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[info.tone])}>{info.label}</span>
                 {canSendLink && (
                   <button onClick={() => openSendLink(a)} disabled={busy === a.id}

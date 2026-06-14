@@ -140,6 +140,9 @@ export interface Appointment {
   payment_method?: PaymentMethod;
   payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved";
   payment_intent_id?: string;
+  /** When the payment actually landed (paid / captured). Drives the
+   *  "Paid · 10 min ago" relative labels. Set wherever we flip to paid. */
+  paid_at?: string;
   no_show_fee_amount?: number; // cents captured for a no-show (Phase 1)
   // Phase 2 — saved card (off-session) for bookings >7 days out: the card is
   // stored at booking and charged on completion / no-show via these.

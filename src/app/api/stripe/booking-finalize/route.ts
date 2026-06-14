@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
       total_amount: Number(m.total_amount ?? 0),
       deposit_paid: !isHold && !isSave,
       payment_status: isSave ? "saved" : isHold ? "held" : "paid",
+      ...(!isSave && !isHold ? { paid_at: new Date().toISOString() } : {}),
       payment_intent_id: paymentIntentId,
       stripe_customer_id: savedCustomerId,
       stripe_payment_method_id: savedPaymentMethodId,

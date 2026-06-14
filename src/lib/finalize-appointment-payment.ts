@@ -45,6 +45,7 @@ export async function markAppointmentPaid(args: {
     .update({
       payment_status: "paid",
       payment_method: "online",
+      paid_at: new Date().toISOString(),
       // A pending pay-in-person booking that gets paid is now confirmed — no
       // separate manual approval needed once money is in.
       ...(appt.status === "pending" ? { status: "confirmed" } : {}),

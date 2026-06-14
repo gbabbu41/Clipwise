@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, timeAgo } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -524,8 +524,9 @@ export default function AppointmentsPage() {
     });
     const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
     if (!data.ok) { showToast(`Charge failed: ${data.error ?? "try again"}`); return false; }
-    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, payment_status: "captured" } as AppointmentWithDetails : a));
-    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, payment_status: "captured" } as AppointmentWithDetails : null);
+    const nowIso = new Date().toISOString();
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, payment_status: "captured", paid_at: nowIso } as AppointmentWithDetails : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, payment_status: "captured", paid_at: nowIso } as AppointmentWithDetails : null);
     return true;
   };
 
@@ -548,7 +549,7 @@ export default function AppointmentsPage() {
   const markCashPaid = async (alsoComplete: boolean) => {
     if (!paymentModal) return;
     setSavingPayment("cash");
-    const patch: Record<string, unknown> = { payment_status: "paid", payment_method: "cash" };
+    const patch: Record<string, unknown> = { payment_status: "paid", payment_method: "cash", paid_at: new Date().toISOString() };
     if (alsoComplete) patch.status = "completed";
     const { error } = await supabase.from("appointments").update(patch).eq("id", paymentModal.id);
     setSavingPayment("");
@@ -562,23 +563,33 @@ export default function AppointmentsPage() {
   const sendPaymentLink = async (alsoComplete: boolean) => {
     if (!paymentModal || !accessToken) return;
     setSavingPayment("link");
-    // If an email was typed (appt had none), save it first so the link is
-    // emailed AND a receipt can later be sent.
+    // Pass the typed email straight to the route, which persists it via the
+    // service-role client (bypassing RLS) AND emails the link. Doing the
+    // client_email update here through the user client could silently fail
+    // RLS, leaving the route with a stale/empty email so nothing got sent —
+    // that was the "Send link doesn't email from Appointments" bug. The
+    // Payments tab always worked because it passes `email` the same way.
     const email = payEmail.trim();
     const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (willEmail && email !== (paymentModal.client_email ?? "")) {
-      await supabase.from("appointments").update({ client_email: email }).eq("id", paymentModal.id);
-    }
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: paymentModal.id, send_email: willEmail }),
+      body: JSON.stringify({
+        appointment_id: paymentModal.id,
+        send_email: willEmail,
+        email: willEmail ? email : undefined,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
       setSavingPayment("");
       showToast(`Failed: ${data.error}`);
       return;
+    }
+    // Reflect the (route-persisted) email locally so the side panel stays fresh.
+    if (willEmail && email !== (paymentModal.client_email ?? "")) {
+      setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, client_email: email } : a));
+      if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, client_email: email } : null);
     }
     if (alsoComplete) {
       // Mark completed; the actual payment will land via the webhook when
@@ -1094,10 +1105,15 @@ export default function AppointmentsPage() {
               {(() => {
                 const p = paymentBadge(selectedApt);
                 if (!p) return null;
+                const paidWhen = (selectedApt.payment_status === "paid" || selectedApt.payment_status === "captured")
+                  ? timeAgo(selectedApt.paid_at) : "";
                 return (
                   <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                     <span className="text-xs text-[#777] uppercase tracking-wide">Payment</span>
-                    <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap", p.bsClass)}>{p.label}</span>
+                    <span className="flex items-center gap-2">
+                      {paidWhen && <span className="text-[11px] text-[#777]">{paidWhen}</span>}
+                      <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap", p.bsClass)}>{p.label}</span>
+                    </span>
                   </div>
                 );
               })()}

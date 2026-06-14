@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const changed = next !== appt.payment_status;
     if (changed) {
       await supabaseAdmin.from("appointments")
-        .update({ payment_status: next, ...(next === "paid" ? { payment_method: "card" } : {}) })
+        .update({ payment_status: next, ...(next === "paid" ? { payment_method: "card", paid_at: new Date().toISOString() } : {}) })
         .eq("id", appointment_id);
     }
     return NextResponse.json({ ok: true, payment_status: next, stripe_status: pi.status, changed });
