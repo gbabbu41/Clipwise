@@ -240,3 +240,62 @@ the column is absent.
 ### Pending SQL (unchanged from above)
 Phase13 (`paid_at` column) and Phase14 (`duration_minutes` column) still need to
 be run in Supabase SQL Editor. Phase12 was already run.
+
+---
+
+## Code-review fixes — commit `3ab8ea4` (2026-06-15, DEPLOYED)
+
+All 10 findings from the `/code-review` audit fixed in one commit. Files touched:
+`api/cron/no-show`, `api/availability`, `api/stripe/booking-checkout`,
+`api/stripe/booking-finalize`, `api/stripe/payment-link-finalize`,
+`api/webhooks/stripe`, `book/[shopslug]/page.tsx`, `lib/booking-conflict.ts`.
+
+**Finding 1 — no-show cron: stuck 'capturing' rows never retried**
+`src/app/api/cron/no-show/route.ts` catch block was setting `payment_status: "failed"`
+permanently. Changed to reset to `a.payment_status` (original 'held' or 'saved') so
+the next cron run picks it up and retries. The existing `notifyChargeFailed` call
+already alerts the owner — no separate change needed for Finding 10.
+
+**Finding 2 — availability: broad error swallow hid real DB errors**
+`src/app/api/availability/route.ts` fallback query ran for ANY error, making all
+slots look free on network/RLS failures. Narrowed to only fall back when
+`error.message.includes("duration_minutes")`; all other errors now return 500.
+
+**Finding 3 — payment-link-finalize: 'captured' not guarded**
+Early-return guard only checked `=== "paid"`. A captured no-show appointment could
+be overwritten. Added `|| appt.payment_status === "captured"` to the guard.
+
+**Finding 4 — booking-checkout: platform-charge fallback removed in test mode**
+`STRIPE_LIVE_MODE` guard was dropped, making all non-Connect shops return 409 even
+in sandbox. Restored: `if (!useConnect && STRIPE_LIVE_MODE)` — test shops can still
+book online without completing KYC.
+
+**Finding 5 — availability: null barber_id time-off silently discarded**
+Shop-wide closures stored with `barber_id = null` were silently dropped (null key
+never matched any barber). Fixed: when `barber_id === null`, apply the time-off to
+every active barber via a helper `applyOff()` extracted from the loop.
+
+**Finding 6 — booking-finalize: "payment reversed" message on saved-card path**
+Conflict-return error message said "Your payment was reversed" even for setup-mode
+(saved-card) bookings where nothing was charged. Now conditional on `isSave`:
+saved-card path says "Please pick another slot." without the reversal claim.
+
+**Finding 7 — booking page: slotsNeeded=1 when all services have null duration**
+`totalDuration` accumulated `s.duration_minutes ?? 0`, so all-null-duration services
+summed to 0, and `slotsNeeded` fell back to 1 slot for any multi-service booking.
+Changed default to `?? 30` (30 min per service, matching the server-side fallback in
+`durationOf()`). Display also improved: shows "30 min" instead of "0 min".
+
+**Finding 8 — booking-conflict: O(n) sequential queries in findAvailableBarber**
+`findAvailableBarber` called `barberHasConflict` (→ DB query) per barber in a
+sequential loop. Rewritten to fetch all barbers' appointments in one `IN` query,
+then group intervals in memory. Same resilience logic for pre-phase14 fallback.
+
+**Finding 9 — webhook: 'saved' missing from payment_intent.succeeded allowlist**
+`payment_intent.succeeded` allowlist was `["unpaid", "held", "failed"]`. A
+saved-card booking charged off-session fires this event but wouldn't be promoted to
+'paid'. Added `"saved"` to the list.
+
+**Finding 10 — no-show cron: owner not alerted on stuck charge**
+Already covered by Finding 1: the existing `notifyChargeFailed` call fires on every
+catch regardless of the status reset. No separate change needed.
