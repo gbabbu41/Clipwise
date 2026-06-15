@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
+import { ChevronDown, X, Plus, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -336,7 +336,7 @@ function AgendaSheet({
 
 export default function CalendarPage() {
   const { shop, profile, accessToken } = useAuth();
-  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [view, setView] = useState<"month" | "week" | "day">("day");
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
@@ -355,6 +355,8 @@ export default function CalendarPage() {
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string } | null>(null);
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "" });
   const [savingAdd, setSavingAdd] = useState(false);
+  const [dateMenu, setDateMenu] = useState(false);
+  const [viewMenu, setViewMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -663,6 +665,35 @@ export default function CalendarPage() {
       : currentDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   }, [view, currentDate, isMobile]);
 
+  // Contextual options for the single date dropdown — day/week/month aware.
+  const dateOptions = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const opts: { label: string; sub?: string; date: Date }[] = [];
+    if (view === "day") {
+      for (let off = -1; off <= 13; off++) {
+        const d = addDays(today, off);
+        opts.push({ label: friendlyDate(d), sub: d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), date: d });
+      }
+    } else if (view === "week") {
+      const ws0 = startOfWeek(today);
+      for (let off = -1; off <= 5; off++) {
+        const ws = addDays(ws0, off * 7);
+        const label = off === 0 ? "This week" : off === 1 ? "Next week" : off === -1 ? "Last week"
+          : `Week of ${ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
+        opts.push({ label, sub: ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), date: ws });
+      }
+    } else {
+      const ms0 = startOfMonth(today);
+      for (let off = -1; off <= 6; off++) {
+        const d = addMonths(ms0, off);
+        const label = off === 0 ? "This month" : off === 1 ? "Next month" : off === -1 ? "Last month"
+          : d.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
+        opts.push({ label, sub: d.toLocaleDateString("en-CA", { year: "numeric" }), date: d });
+      }
+    }
+    return opts;
+  }, [view]);
+
   // ── MONTH VIEW ─────────────────────────────────────────────────────────────
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
@@ -820,25 +851,12 @@ export default function CalendarPage() {
     const dayAppts = appointments.filter(a => a.date === dateStr);
     const activeBarberId = barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null);
 
-    // Mobile, a single barber selected, or a barber-role user → clean card grid
-    // for one barber. (A barber only ever sees their own day.)
-    if (isMobile || barberFilter !== "all" || profile?.role === "barber") {
+    // A single barber selected (avatar row), or a barber-role user → clean card
+    // grid for that one barber. (A barber only ever sees their own day.)
+    if (barberFilter !== "all" || profile?.role === "barber") {
       const activeBarber = barbers.find(b => b.id === activeBarberId);
       return (
         <div className="overflow-auto h-full">
-          {/* Barber picker — profile-pic chips (mobile only; desktop uses the
-              header dropdown). Tap a face to switch whose day you're viewing. */}
-          {isMobile && profile?.role !== "barber" && barbers.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto p-3 border-b border-gray-200">
-              {barbers.map((b, i) => (
-                <button key={b.id} onClick={() => setBarberFilter(b.id)}
-                  className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 transition-opacity", activeBarberId === b.id ? "opacity-100" : "opacity-50")}>
-                  <BarberAvatar b={b} i={i} />
-                  <span className="text-[10px] text-gray-600 truncate w-full text-center">{b.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
           {activeBarber
             ? renderBarberGrid(activeBarber)
             : <p className="text-center text-sm text-gray-400 py-12">No barbers yet.</p>}
@@ -846,7 +864,8 @@ export default function CalendarPage() {
       );
     }
 
-    // Desktop, all barbers → per-barber columns, bounded to the working window.
+    // All barbers → per-barber columns (vertical lists), bounded to working
+    // hours. Horizontally scrolls on narrow screens.
     const cols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
     const starts: number[] = [], ends: number[] = [];
     cols.forEach(b => {
@@ -1170,51 +1189,80 @@ export default function CalendarPage() {
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
     <div className="flex flex-col h-full bg-white text-gray-900">
-      {/* Header bar */}
-      <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} aria-label="Previous"
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors">
-            <ChevronLeft size={18} />
-          </button>
-          <button onClick={() => setCurrentDate(new Date())}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
-            Today
-          </button>
-          <button onClick={() => navigate(1)} aria-label="Next"
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors">
-            <ChevronRight size={18} />
-          </button>
-          <h2 className="ml-2 text-lg sm:text-xl font-bold text-gray-900">
+      {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
+      <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
+        {/* Date dropdown */}
+        <div className="relative">
+          <button onClick={() => { setDateMenu(o => !o); setViewMenu(false); }}
+            className="flex items-center gap-2 text-lg sm:text-xl font-bold text-gray-900 hover:text-gray-600 transition-colors">
             {titleText}
-            {loading && <span className="text-xs text-gray-400 ml-2 animate-pulse">Loading…</span>}
-          </h2>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {profile?.role !== "barber" && barbers.length > 1 && (
-            <select
-              value={barberFilter}
-              onChange={(e) => setBarberFilter(e.target.value)}
-              aria-label="Filter by barber"
-              className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-gold/50 max-w-[160px]"
-            >
-              <option value="all">All barbers</option>
-              {barbers.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+            <ChevronDown size={18} className="text-gray-400" />
+          </button>
+          {loading && <span className="text-xs text-gray-400 ml-2 animate-pulse">Loading…</span>}
+          {dateMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setDateMenu(false)} />
+              <div className="absolute left-0 mt-2 z-50 w-56 max-h-80 overflow-auto bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                {dateOptions.map((o, i) => {
+                  const active = formatDateForDb(o.date) === formatDateForDb(currentDate);
+                  return (
+                    <button key={i} onClick={() => { setCurrentDate(o.date); setDateMenu(false); }}
+                      className={cn("w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-50", active && "bg-amber-50")}>
+                      <span className={cn("font-medium", active ? "text-gold" : "text-gray-900")}>{o.label}</span>
+                      {o.sub && <span className="text-gray-400 text-xs">{o.sub}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
-          <div className="flex bg-gray-100 border border-gray-200 rounded-xl p-1 gap-1">
-            {(["month", "week", "day"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
-                  view === v ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900")}>
-                {v}
-              </button>
-            ))}
-          </div>
+        </div>
+
+        {/* View button (one button → month / week / day) */}
+        <div className="relative">
+          <button onClick={() => { setViewMenu(o => !o); setDateMenu(false); }}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors capitalize">
+            {view}
+            <ChevronDown size={14} className="text-gray-400" />
+          </button>
+          {viewMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
+              <div className="absolute right-0 mt-2 z-50 w-32 bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                {(["day", "week", "month"] as const).map(v => (
+                  <button key={v} onClick={() => { setView(v); setViewMenu(false); }}
+                    className={cn("w-full text-left px-4 py-2 text-sm capitalize hover:bg-gray-50", view === v ? "text-gray-900 font-semibold" : "text-gray-500")}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Persistent barber row — profile-pic chips incl. an "All barbers" chip.
+          Stays visible across day / week / month; it's the WHO selector. */}
+      {profile?.role !== "barber" && barbers.length > 0 && (
+        <div className="flex gap-4 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
+          <button onClick={() => setBarberFilter("all")}
+            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-50 hover:opacity-80")}>
+            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-gold ring-offset-1")}>
+              <Users size={18} />
+            </span>
+            <span className="text-[10px] text-gray-600 truncate w-full text-center">All barbers</span>
+          </button>
+          {barbers.map((b, i) => (
+            <button key={b.id} onClick={() => setBarberFilter(b.id)}
+              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-50 hover:opacity-80")}>
+              <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-gold ring-offset-1")}>
+                <BarberAvatar b={b} i={i} />
+              </span>
+              <span className="text-[10px] text-gray-600 truncate w-full text-center">{b.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Status legend — appointments are colored by status */}
       <div className="px-4 sm:px-6 py-2 border-b border-gray-200 flex flex-wrap gap-x-4 gap-y-1.5">

@@ -5,7 +5,19 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-15) — Calendar day view: schedule-aware, empty "+" slots, card grid
+### LATEST (2026-06-15) — Calendar chrome: day default, one date dropdown, persistent barber row
+- **Day is the default view** now (was month).
+- Date nav collapsed to **one contextual dropdown** (Today / Tomorrow / weekday …;
+  week & month variants too) — removed the prev/Today/next arrows + `navigate`.
+- Month/Week/Day collapsed to **one button** (dropdown) instead of a 3-way segmented control.
+- **Barber avatar row is now persistent** across day/week/month (was day-only). It's
+  the WHO selector; the old header `<select>` is gone. First chip = an **"All barbers"**
+  profile-style chip (Users icon), then each barber's avatar — all in one row.
+- All-barbers day view = **per-barber columns** (vertical lists); selecting a single
+  barber (or barber-role) = the card grid. Removed the in-view mobile chip selector
+  (the persistent row replaces it).
+
+### (2026-06-15) — Calendar day view: schedule-aware, empty "+" slots, card grid
 - Day view rebuilt to match the owner's wireframes (clean/minimal):
   - **Per-barber columns** (desktop, all-barbers) now **bounded to working hours**
     (read from `time_slots` for the current weekday; `time_slots_select_all` RLS
