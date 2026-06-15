@@ -237,24 +237,37 @@ export function prettyDate(d: string | null | undefined): string {
 }
 
 /**
- * Like prettyDate, but prefixes Today/Tomorrow when the date matches.
- * Uses UTC date strings for comparison — safe on Vercel (UTC server).
+ * Like prettyDate, but prefixes a relative label (Today / Tomorrow / weekday)
+ * so notifications, SMS and pop-ups carry day-context alongside the date.
  *
- *   today's UTC date     → "Today · June 15"
- *   tomorrow's UTC date  → "Tomorrow · June 16"
- *   any other date       → "June 14"  (unchanged from prettyDate)
+ *   today        → "Today · June 15"
+ *   tomorrow     → "Tomorrow · June 16"
+ *   within a week→ "Wednesday · June 17"  ("Last Wednesday · ..." in the past)
+ *   beyond       → "June 27"  (unchanged from prettyDate)
+ *
+ * "Today" is computed in Eastern time (the app is Canadian, clipwise.ca) — not
+ * the UTC server clock — so the Today/Tomorrow boundary matches a shop's real
+ * day instead of flipping a day early during the hours UTC runs ahead of ET.
+ * The day-count is done on UTC-midnight parses so DST never shifts it.
  */
 export function prettyDateWithContext(d: string | null | undefined): string {
   const pretty = prettyDate(d);
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d) || !pretty) return pretty;
-  const now = new Date();
-  const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
-  const tomorrowDate = new Date(now);
-  tomorrowDate.setUTCDate(now.getUTCDate() + 1);
-  const tomorrowUTC = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
-  if (d === todayUTC) return `Today · ${pretty}`;
-  if (d === tomorrowUTC) return `Tomorrow · ${pretty}`;
-  return pretty;
+
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date()); // "YYYY-MM-DD"
+  const diff = Math.round((Date.parse(d + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000);
+  const weekday = new Date(d + "T00:00:00Z").toLocaleDateString("en-CA", { weekday: "long", timeZone: "UTC" });
+
+  let prefix = "";
+  if (diff === 0) prefix = "Today";
+  else if (diff === 1) prefix = "Tomorrow";
+  else if (diff === -1) prefix = "Yesterday";
+  else if (diff > 1 && diff < 7) prefix = weekday;
+  else if (diff < -1 && diff > -7) prefix = `Last ${weekday}`;
+
+  return prefix ? `${prefix} · ${pretty}` : pretty;
 }
 
 /** True if the given date is strictly before today (local time) */
