@@ -5,8 +5,23 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-15) — No-show auto-charge + weekday notification context
-- **Notifications now carry day-context** (`prettyDateWithContext` in `utils.ts`):
+### LATEST (2026-06-15) — Calendar redesign: light "Fresha-style" canvas
+- The **calendar page only** (`dashboard/calendar/page.tsx`) is now a LIGHT canvas
+  inside the app's dark chrome (Option A). Sidebar/top-bar stay dark; the grid,
+  toolbar, legend, month/week/day views are white with Fresha-style soft pastel
+  appointment blocks (pale fill + colored left edge + dark text).
+- Kept ALL existing functionality (month/week/day, per-barber day columns,
+  duration-as-height blocks, current-time line, detail modal + Approve/Complete/
+  Reject actions, agenda side-sheet, barber filter). Pure theming + a Fresha touch:
+  initials **avatars** in the day-view column headers.
+- Modals (`ApptDetail`, `AgendaSheet`) and the toast stay DARK **on purpose** as
+  overlays — avoids re-skinning the dark-tuned Button/Badge/inputs. Three light
+  palettes: `statusBlock` (day/week grid), `statusChip` (month), `statusFill`
+  (kept, used only by the dark agenda chip).
+- Rest of the app is untouched and still dark. If we later want the modals light
+  too, that's a follow-up (would need light Button/Badge variants).
+
+### (2026-06-15) — No-show auto-charge + weekday notification context- **Notifications now carry day-context** (`prettyDateWithContext` in `utils.ts`):
   "Today · June 15" / "Tomorrow · June 16" / "Wednesday · June 17" (weekday for
   dates within a week) / bare "June 27" beyond. "Today" anchored to Eastern time,
   not the UTC server clock, so the boundary matches a Canadian shop's real day.

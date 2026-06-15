@@ -65,17 +65,37 @@ function endOfMonth(date: Date) {
 const isToday = (date: Date) => formatDateForDb(date) === formatDateForDb(new Date());
 const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 
+// Up-to-two-letter initials for the day-view column avatars.
+const initials = (name?: string | null) =>
+  (name ?? "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+
 // ── Barber palette ───────────────────────────────────────────────────────────
-// Flat fills, no borders. Colored by barber so "who is doing what" reads at a glance.
+// Colored avatar/dot per barber so "who is doing what" reads at a glance.
 const BARBER_DOT_PALETTE = [
   "bg-sky-400", "bg-emerald-400", "bg-violet-400", "bg-rose-400",
   "bg-orange-400", "bg-cyan-400", "bg-fuchsia-400", "bg-lime-400",
 ];
 
-// ── Status palette ───────────────────────────────────────────────────────────
-// Appointment blocks are colored by STATUS so booked / pending / cancelled read
-// at a glance. Barber identity still shows via the day-view column headers, the
-// block text, and the detail card.
+// ── Status palettes ──────────────────────────────────────────────────────────
+// The calendar canvas is LIGHT (Fresha-style), so appointment blocks use a pale
+// fill + a colored left edge + dark text. Identity by status: booked / pending /
+// completed / cancelled read at a glance.
+const STATUS_BLOCK: Record<string, string> = {
+  pending:   "bg-amber-50 text-amber-900 border-l-4 border-amber-400",
+  confirmed: "bg-emerald-50 text-emerald-900 border-l-4 border-emerald-400",
+  completed: "bg-sky-50 text-sky-900 border-l-4 border-sky-400",
+  cancelled: "bg-rose-50 text-rose-800 border-l-4 border-rose-300",
+  "no-show": "bg-zinc-100 text-zinc-600 border-l-4 border-zinc-400",
+};
+// Compact month-view chips (no left edge — too chunky in a small cell).
+const STATUS_CHIP: Record<string, string> = {
+  pending:   "bg-amber-100 text-amber-800",
+  confirmed: "bg-emerald-100 text-emerald-800",
+  completed: "bg-sky-100 text-sky-800",
+  cancelled: "bg-rose-100 text-rose-700",
+  "no-show": "bg-zinc-100 text-zinc-600",
+};
+// Saturated fill — used only by the DARK agenda side-sheet chip below.
 const STATUS_FILL: Record<string, string> = {
   pending:   "bg-amber-500/85 text-white",
   confirmed: "bg-emerald-500/85 text-white",
@@ -92,6 +112,8 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled", "no-show": "No-show",
 };
 const STATUS_ORDER = ["confirmed", "pending", "completed", "cancelled", "no-show"] as const;
+const statusBlock = (s: string) => STATUS_BLOCK[s] ?? "bg-sky-50 text-sky-900 border-l-4 border-sky-400";
+const statusChip = (s: string) => STATUS_CHIP[s] ?? "bg-sky-100 text-sky-800";
 const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-white";
 const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
@@ -108,7 +130,7 @@ type ApptActions = {
   reject: (a: AppointmentWithDetails) => void;
 };
 
-// ── Appointment detail modal ────────────────────────────────────────────────
+// ── Appointment detail modal (DARK overlay — intentional over the light canvas) ─
 function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
@@ -229,7 +251,7 @@ function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   );
 }
 
-// ── Day agenda side sheet (Apple-style "this day at a glance") ──────────────
+// ── Day agenda side sheet (DARK overlay — intentional over the light canvas) ──
 function AgendaSheet({
   date,
   appts,
@@ -291,7 +313,7 @@ function AgendaSheet({
         </div>
         <div className="p-4 border-t border-[#1e1e1e]">
           <button onClick={onDrillToDay}
-            className="w-full py-2.5 rounded-xl bg-black/10 hover:bg-black/15 text-white text-sm font-medium transition-colors">
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors">
             Open day view
           </button>
         </div>
@@ -556,9 +578,9 @@ export default function CalendarPage() {
 
     return (
       <div className="flex flex-col h-full">
-        <div className="grid grid-cols-7 border-b border-[#1e1e1e] bg-[#141414]/30">
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-[#777] text-center">{d}</div>
+            <div key={d} className="px-2 py-2 text-xs font-medium text-gray-500 text-center">{d}</div>
           ))}
         </div>
         <div className="flex-1 grid grid-cols-7 auto-rows-fr">
@@ -573,16 +595,16 @@ export default function CalendarPage() {
                 key={dayStr}
                 onClick={() => setAgendaDate(day)}
                 className={cn(
-                  "border-r border-b border-[#1e1e1e]/40 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
-                  "hover:bg-[#141414]/40",
-                  !inMonth && "bg-black shadow-sm/30",
+                  "border-r border-b border-gray-200 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
+                  "hover:bg-gray-50",
+                  !inMonth && "bg-gray-50/60",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
                     isToday(day) ? "bg-gold text-black font-bold" :
-                    inMonth ? "text-white" : "text-[#777]",
+                    inMonth ? "text-gray-900" : "text-gray-300",
                   )}>
                     {day.getDate()}
                   </span>
@@ -594,7 +616,7 @@ export default function CalendarPage() {
                       <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", statusDot(a.status))} />
                     ))}
                     {dayAppts.length > 10 && (
-                      <span className="text-[9px] text-[#777] leading-none">+{dayAppts.length - 10}</span>
+                      <span className="text-[9px] text-gray-400 leading-none">+{dayAppts.length - 10}</span>
                     )}
                   </div>
                 ) : (
@@ -602,16 +624,16 @@ export default function CalendarPage() {
                     {visible.map(a => (
                       <span key={a.id}
                         className={cn(
-                          "truncate text-[10px] leading-4 px-1.5 rounded-sm",
-                          statusFill(a.status),
-                          isDimmed(a.status) && "line-through",
+                          "truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
+                          statusChip(a.status),
+                          isDimmed(a.status) && "line-through opacity-70",
                         )}
                       >
                         {a.time_slot.replace(/:00 /, " ")} {a.client_name}
                       </span>
                     ))}
                     {overflow > 0 && (
-                      <span className="text-[10px] text-[#777] pl-1.5">+{overflow} more</span>
+                      <span className="text-[10px] text-gray-400 pl-1.5">+{overflow} more</span>
                     )}
                   </div>
                 )}
@@ -634,11 +656,11 @@ export default function CalendarPage() {
         <div ref={scrollRef} className="overflow-auto h-full">
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
-                <div className="border-l border-[#1e1e1e]/20" />
+                <div className="border-l border-gray-100" />
               </div>
             ))}
             <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -657,14 +679,14 @@ export default function CalendarPage() {
                       style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                       className={cn(
                         "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                        statusFill(appt.status),
+                        statusBlock(appt.status),
                         dimmed && "opacity-70 line-through",
                       )}
                       onClick={() => setSelectedAppt(appt)}
                     >
                       <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
                       {height > 44 && (
-                        <p className="text-[11px] opacity-90 truncate">
+                        <p className="text-[11px] opacity-80 truncate">
                           {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                         </p>
                       )}
@@ -693,22 +715,24 @@ export default function CalendarPage() {
       );
     }
 
-    // Desktop: per-barber columns
+    // Desktop: per-barber columns with initials avatars in the header
     const visibleCols = barberFilter !== "all" ? barbers.filter(b => b.id === barberFilter) : barbers;
     const cols = visibleCols.length > 0 ? visibleCols : [{ id: "none", name: "All Barbers" } as Barber];
 
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
         <div className="min-w-[600px]">
-          <div className="grid sticky top-0 z-10 bg-black shadow-sm border-b border-[#1e1e1e]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+          <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
             <div />
             {cols.map((b, i) => (
-              <div key={b.id} className="px-3 py-3 text-center border-l border-[#1e1e1e]/40">
-                <div className="flex items-center justify-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])} />
-                  <p className="text-xs text-white font-medium">{b.name}</p>
+              <div key={b.id} className="px-3 py-3 text-center border-l border-gray-100">
+                <div className="flex flex-col items-center gap-1">
+                  <span className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
+                    {initials(b.name)}
+                  </span>
+                  <p className="text-xs text-gray-900 font-medium">{b.name}</p>
                 </div>
-                <p className="text-[10px] text-[#777] mt-0.5">
+                <p className="text-[10px] text-gray-400 mt-0.5">
                   {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
                 </p>
               </div>
@@ -717,12 +741,12 @@ export default function CalendarPage() {
 
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {cols.map(b => (
-                  <div key={b.id} className="border-l border-[#1e1e1e]/20" />
+                  <div key={b.id} className="border-l border-gray-100" />
                 ))}
               </div>
             ))}
@@ -744,18 +768,18 @@ export default function CalendarPage() {
                           key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className={cn(
-                            "rounded-lg px-2 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:scale-[1.02] hover:z-10 shadow-sm",
-                            statusFill(appt.status),
+                            "rounded-lg px-2 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:scale-[1.02] hover:z-10 hover:shadow-md shadow-sm",
+                            statusBlock(appt.status),
                             dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-xs font-semibold truncate leading-tight">{appt.client_name}</p>
                           {height > 36 && (
-                            <p className="text-[11px] opacity-90 truncate">{(appt.services as { name: string } | null)?.name}</p>
+                            <p className="text-[11px] opacity-80 truncate">{(appt.services as { name: string } | null)?.name}</p>
                           )}
                           {height > 52 && (
-                            <p className="text-[10px] opacity-75">{appt.time_slot}</p>
+                            <p className="text-[10px] opacity-70">{appt.time_slot}</p>
                           )}
                         </button>
                       );
@@ -798,7 +822,7 @@ export default function CalendarPage() {
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
-          <div className="grid grid-cols-7 border-b border-[#1e1e1e] bg-[#141414]/30 flex-shrink-0">
+          <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50 flex-shrink-0">
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
               const isSelected = dateStr === selectedStr;
@@ -806,13 +830,13 @@ export default function CalendarPage() {
               const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
               return (
                 <button key={dateStr} onClick={() => setCurrentDate(day)}
-                  className="py-2 text-center hover:bg-[#141414]/50 transition-colors">
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#777]")}>
+                  className="py-2 text-center hover:bg-gray-100 transition-colors">
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-gray-900" : "text-gray-400")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-gold text-black" : today ? "text-white" : "text-white",
+                    isSelected ? "bg-gold text-black" : "text-gray-900",
                   )}>
                     {day.getDate()}
                   </p>
@@ -829,11 +853,11 @@ export default function CalendarPage() {
           <div ref={scrollRef} className="overflow-auto flex-1">
             <div className="relative">
               {HOURS_24.map(hour => (
-                <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                  <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+                <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                  <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </div>
-                  <div className="border-l border-[#1e1e1e]/20" />
+                  <div className="border-l border-gray-100" />
                 </div>
               ))}
               <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -852,14 +876,14 @@ export default function CalendarPage() {
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                         className={cn(
                           "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                          statusFill(appt.status),
+                          statusBlock(appt.status),
                           dimmed && "opacity-70 line-through",
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
                         <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
                         {height > 44 && (
-                          <p className="text-[11px] opacity-90 truncate">
+                          <p className="text-[11px] opacity-80 truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                           </p>
                         )}
@@ -892,7 +916,7 @@ export default function CalendarPage() {
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
         <div className="min-w-[700px]">
-          <div className="grid sticky top-0 z-10 bg-black shadow-sm border-b border-[#1e1e1e]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
+          <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -900,18 +924,18 @@ export default function CalendarPage() {
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => setAgendaDate(day)}
-                  className={cn("py-2 text-center border-l border-[#1e1e1e]/40 hover:bg-[#141414]/30 transition-colors", today && "bg-black/5")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#777]")}>
+                  className={cn("py-2 text-center border-l border-gray-100 hover:bg-gray-50 transition-colors", today && "bg-amber-50/60")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-gray-900" : "text-gray-400")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-gold text-black" : "text-white",
+                    today ? "bg-gold text-black" : "text-gray-900",
                   )}>
                     {day.getDate()}
                   </p>
                   {dayAppts.length > 0 && (
-                    <p className="text-[10px] text-[#777] mt-0.5">{dayAppts.length}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{dayAppts.length}</p>
                   )}
                 </button>
               );
@@ -920,12 +944,12 @@ export default function CalendarPage() {
 
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-[#1e1e1e]/20" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-[#1e1e1e]/20", isToday(day) && "bg-black/5")} />
+                  <div key={formatDateForDb(day)} className={cn("border-l border-gray-100", isToday(day) && "bg-amber-50/60")} />
                 ))}
               </div>
             ))}
@@ -948,15 +972,15 @@ export default function CalendarPage() {
                           key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           className={cn(
-                            "rounded px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:scale-[1.02] shadow-sm",
-                            statusFill(appt.status),
+                            "rounded px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:scale-[1.02] hover:shadow-md shadow-sm",
+                            statusBlock(appt.status),
                             dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-[11px] font-semibold leading-tight truncate">{appt.client_name}</p>
                           {height > 36 && (
-                            <p className="text-[10px] opacity-90 truncate">{appt.time_slot}</p>
+                            <p className="text-[10px] opacity-80 truncate">{appt.time_slot}</p>
                           )}
                         </button>
                       );
@@ -985,27 +1009,27 @@ export default function CalendarPage() {
     );
   };
 
-  // ── Layout ─────────────────────────────────────────────────────────────────
+  // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
-    <div className="flex flex-col h-full">
-      {/* Apple-style header bar */}
-      <div className="p-4 sm:p-6 pb-3 border-b border-[#1e1e1e] space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+    <div className="flex flex-col h-full bg-white text-gray-900">
+      {/* Header bar */}
+      <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} aria-label="Previous"
-            className="p-2 rounded-lg text-[#777] hover:text-white hover:bg-[#141414] transition-colors">
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors">
             <ChevronLeft size={18} />
           </button>
           <button onClick={() => setCurrentDate(new Date())}
-            className="px-3 py-1.5 text-xs font-medium text-white border border-black rounded-lg hover:bg-black/5 transition-colors">
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
             Today
           </button>
           <button onClick={() => navigate(1)} aria-label="Next"
-            className="p-2 rounded-lg text-[#777] hover:text-white hover:bg-[#141414] transition-colors">
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors">
             <ChevronRight size={18} />
           </button>
-          <h2 className="ml-2 text-lg sm:text-xl font-bold text-white">
+          <h2 className="ml-2 text-lg sm:text-xl font-bold text-gray-900">
             {titleText}
-            {loading && <span className="text-xs text-[#777] ml-2 animate-pulse">Loading…</span>}
+            {loading && <span className="text-xs text-gray-400 ml-2 animate-pulse">Loading…</span>}
           </h2>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -1014,7 +1038,7 @@ export default function CalendarPage() {
               value={barberFilter}
               onChange={(e) => setBarberFilter(e.target.value)}
               aria-label="Filter by barber"
-              className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-gold/50 max-w-[160px]"
+              className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-gold/50 max-w-[160px]"
             >
               <option value="all">All barbers</option>
               {barbers.map(b => (
@@ -1022,11 +1046,11 @@ export default function CalendarPage() {
               ))}
             </select>
           )}
-          <div className="flex bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 gap-1">
+          <div className="flex bg-gray-100 border border-gray-200 rounded-xl p-1 gap-1">
             {(["month", "week", "day"] as const).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={cn("px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors",
-                  view === v ? "bg-black/10 text-white" : "text-[#777] hover:text-white")}>
+                  view === v ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900")}>
                 {v}
               </button>
             ))}
@@ -1035,16 +1059,16 @@ export default function CalendarPage() {
       </div>
 
       {/* Status legend — appointments are colored by status */}
-      <div className="px-4 sm:px-6 py-2 border-b border-[#1e1e1e]/50 flex flex-wrap gap-x-4 gap-y-1.5">
+      <div className="px-4 sm:px-6 py-2 border-b border-gray-200 flex flex-wrap gap-x-4 gap-y-1.5">
         {STATUS_ORDER.map(s => (
           <span key={s} className="inline-flex items-center gap-1.5 text-xs">
             <span className={cn("w-2.5 h-2.5 rounded-full", statusDot(s))} />
-            <span className="text-[#777]">{statusLabel(s)}</span>
+            <span className="text-gray-500">{statusLabel(s)}</span>
           </span>
         ))}
       </div>
 
-      <div className="flex-1 overflow-hidden bg-black shadow-sm">
+      <div className="flex-1 overflow-hidden bg-white">
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
 
