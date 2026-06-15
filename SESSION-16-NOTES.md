@@ -24,6 +24,12 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
     labels/confirm instead of always the full price.
   - `capture-appointment` `isSaved` now also covers retry-after-failure for saved
     cards (status flipped to "failed" but `stripe_payment_method_id` still on file).
+  - **Caution modal before charging**: marking a no-show on a card-on-file now opens
+    a styled confirm dialog (mirrors the refund modal) showing the exact fee that
+    will hit the customer's card before anything is charged — no silent auto-charge.
+    One `noShowModal` with mode "mark" (charge + flag) vs "charge" (manual/retry,
+    charge only); both the "Mark as No-Show" and "Charge/Retry No-Show" buttons route
+    through it. Replaced the old `window.confirm` in `chargeNoShow`.
 
 
 All commits authored `Claude <noreply@anthropic.com>` and show **verified** on

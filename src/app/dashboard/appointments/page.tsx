@@ -146,6 +146,12 @@ export default function AppointmentsPage() {
   const [savingReject, setSavingReject] = useState(false);
   const [refundModal, setRefundModal] = useState<AppointmentWithDetails | null>(null);
   const [savingRefund, setSavingRefund] = useState(false);
+  /** Caution dialog shown before a no-show fee is charged to a customer's card.
+   *  mode "mark"  → also flag the appointment as a no-show after charging
+   *  mode "charge"→ charge only (appointment is already a no-show; this is the
+   *                 manual / retry path). */
+  const [noShowModal, setNoShowModal] = useState<{ appt: AppointmentWithDetails; mode: "mark" | "charge" } | null>(null);
+  const [savingNoShow, setSavingNoShow] = useState(false);
   /** Opened when the owner clicks "Complete" on an unpaid appointment.
    *  Lets them either record a cash payment or email the customer a
    *  Stripe Checkout link, optionally finalizing the appointment too. */
@@ -507,11 +513,12 @@ export default function AppointmentsPage() {
       captureHeldAndComplete(apt);
       return;
     }
-    // Same for no-shows: if a card is on file, marking no-show auto-charges the
-    // configured no-show fee (records a transaction + emails the customer a
-    // receipt server-side) — no separate "Charge No-Show" click required.
+    // No-show with a card on file: open a caution dialog first so the owner/
+    // barber sees the exact fee that will hit the customer's card before it's
+    // charged. Confirming charges the fee (records a transaction + emails the
+    // customer a receipt) AND flags the no-show.
     if (next === "no-show" && (apt.payment_status === "held" || apt.payment_status === "saved")) {
-      captureNoShowAndMark(apt);
+      setNoShowModal({ appt: apt, mode: "mark" });
       return;
     }
     if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
@@ -568,12 +575,26 @@ export default function AppointmentsPage() {
     return fee > 0 ? Math.min(fee, total) : total;
   };
 
+  // Charge-only path (appointment is already a no-show — this is the manual /
+  // retry button). Confirmation is handled by the caution modal, not here.
   const chargeNoShow = async (appt: AppointmentWithDetails) => {
     const amt = noShowFeeFor(appt);
-    if (typeof window !== "undefined" && !window.confirm(`Charge ${formatCurrency(amt)} for no-show?`)) return;
     showToast("Charging no-show fee…");
     const ok = await captureHeld(appt, "no_show");
-    if (ok) showToast(`No-show fee charged · ${formatCurrency(amt)}`);
+    showToast(ok ? `No-show fee charged · ${formatCurrency(amt)}` : "Charge needs retry");
+  };
+
+  // Confirm handler for the caution modal — dispatches to the right action and
+  // closes the dialog. "mark" both charges and flags the no-show; "charge"
+  // (retry) only charges.
+  const confirmNoShow = async () => {
+    if (!noShowModal) return;
+    const { appt, mode } = noShowModal;
+    setSavingNoShow(true);
+    if (mode === "mark") await captureNoShowAndMark(appt);
+    else await chargeNoShow(appt);
+    setSavingNoShow(false);
+    setNoShowModal(null);
   };
 
   const markCashPaid = async (alsoComplete: boolean) => {
@@ -1183,7 +1204,7 @@ export default function AppointmentsPage() {
                         auto-charge that failed and needs another attempt. */}
                     {selectedApt.status === "no-show" && (selectedApt.payment_status === "held" || selectedApt.payment_status === "saved" || selectedApt.payment_status === "failed") && (
                       <button type="button" className="btn btn-soft-danger col-span-2" disabled={savingStatus === selectedApt.id}
-                        onClick={() => chargeNoShow(selectedApt)}>
+                        onClick={() => setNoShowModal({ appt: selectedApt, mode: "charge" })}>
                         {selectedApt.payment_status === "failed" ? "Retry No-Show Charge" : "Charge No-Show"} · {formatCurrency(noShowFeeFor(selectedApt))}
                       </button>
                     )}
@@ -1304,6 +1325,39 @@ export default function AppointmentsPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setRefundModal(null)}>Cancel</Button>
                 <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white" loading={savingRefund} onClick={issueRefund}>
                   Refund ${(refundModal.total_amount ?? 0).toFixed(2)}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* No-Show charge caution — confirms the exact fee that will hit the
+          customer's card before charging. Shown for both "mark as no-show"
+          (charges + flags) and the manual "charge / retry" path. */}
+      {noShowModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => !savingNoShow && setNoShowModal(null)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">{noShowModal.mode === "mark" ? "Mark No-Show & Charge?" : "Charge No-Show Fee?"}</h2>
+                <button onClick={() => !savingNoShow && setNoShowModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{noShowModal.appt.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{noShowModal.appt.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">When</span><span className="text-white">{prettyDate(noShowModal.appt.date)} · {noShowModal.appt.time_slot}</span></div>
+                <div className="flex justify-between"><span className="text-[#777]">No-show fee</span><span className="font-mono font-bold text-amber-400">{formatCurrency(noShowFeeFor(noShowModal.appt))}</span></div>
+              </div>
+              <p className="text-sm text-[#777]">
+                ⚠️ This will charge <span className="text-white">{noShowModal.appt.client_name}</span>&apos;s card on file <span className="font-mono font-semibold text-amber-400">{formatCurrency(noShowFeeFor(noShowModal.appt))}</span>
+                {noShowModal.mode === "mark" ? " and mark the appointment a no-show." : "."} They&apos;ll be emailed a receipt. <span className="text-amber-400">The customer&apos;s card will be charged.</span>
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" disabled={savingNoShow} onClick={() => setNoShowModal(null)}>Cancel</Button>
+                <Button className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold" loading={savingNoShow} onClick={confirmNoShow}>
+                  Charge {formatCurrency(noShowFeeFor(noShowModal.appt))}
                 </Button>
               </div>
             </div>
