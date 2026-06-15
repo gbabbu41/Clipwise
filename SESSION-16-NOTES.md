@@ -5,6 +5,27 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
+### LATEST (2026-06-15) — No-show auto-charge + weekday notification context
+- **Notifications now carry day-context** (`prettyDateWithContext` in `utils.ts`):
+  "Today · June 15" / "Tomorrow · June 16" / "Wednesday · June 17" (weekday for
+  dates within a week) / bare "June 27" beyond. "Today" anchored to Eastern time,
+  not the UTC server clock, so the boundary matches a Canadian shop's real day.
+  Used by `api/appointments/notify-staff`.
+- **Marking a no-show now AUTO-CHARGES the no-show fee** when a card is on file.
+  Root cause of "marked no-show but card wasn't charged / no transaction / no
+  receipt": the "Mark as No-Show" button only called `updateStatus(...,"no-show")`
+  — the charge required a *separate* manual "Charge No-Show" click. Fix mirrors
+  the Complete auto-charge: `handleStatusChange` routes no-show with held/saved
+  card → new `captureNoShowAndMark` → `capture-appointment` (which already records
+  a transaction + emails the customer a `payment_receipt`). The no-show is always
+  flagged even if the card declines (server sets `payment_status="failed"`, manual
+  **Retry No-Show Charge** button then shows).
+  - `noShowFeeFor()` shows the real configured fee (capped at total) in the button
+    labels/confirm instead of always the full price.
+  - `capture-appointment` `isSaved` now also covers retry-after-failure for saved
+    cards (status flipped to "failed" but `stripe_payment_method_id` still on file).
+
+
 All commits authored `Claude <noreply@anthropic.com>` and show **verified** on
 GitHub via the Claude app (the local stop-hook "unverified" warning is a
 false positive — it only checks for a local GPG signature, which we don't add;

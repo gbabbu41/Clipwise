@@ -507,6 +507,13 @@ export default function AppointmentsPage() {
       captureHeldAndComplete(apt);
       return;
     }
+    // Same for no-shows: if a card is on file, marking no-show auto-charges the
+    // configured no-show fee (records a transaction + emails the customer a
+    // receipt server-side) — no separate "Charge No-Show" click required.
+    if (next === "no-show" && (apt.payment_status === "held" || apt.payment_status === "saved")) {
+      captureNoShowAndMark(apt);
+      return;
+    }
     if (next === "completed" && apt.payment_status !== "paid" && (apt.total_amount ?? 0) > 0) {
       setPaymentModal(apt);
       return;
@@ -540,8 +547,29 @@ export default function AppointmentsPage() {
     showToast(`Charged ${formatCurrency(appt.total_amount ?? 0)} · Completed`);
   };
 
+  // Mark a no-show AND charge the on-file card the no-show fee. The no-show is
+  // a real event regardless of the card outcome, so we always flag it (which
+  // sends the follow-up email + frees the slot); if the charge declines, the
+  // server flags payment_status = "failed" and the manual retry button shows.
+  const captureNoShowAndMark = async (appt: AppointmentWithDetails) => {
+    showToast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging no-show fee…");
+    const ok = await captureHeld(appt, "no_show");
+    await updateStatus(appt.id, "no-show");
+    showToast(ok ? "No-show fee charged · receipt emailed" : "Marked no-show · charge needs retry");
+  };
+
+  // What the card will actually be charged for a no-show — mirrors the server:
+  // the shop's configured flat fee (capped at the service total), or the full
+  // total when no fee is set (0 = full service price). Keeps the button labels
+  // and confirm honest instead of always showing the full price.
+  const noShowFeeFor = (appt: AppointmentWithDetails) => {
+    const total = appt.total_amount ?? 0;
+    const fee = shop?.booking_settings?.no_show_fee_amount ?? 0;
+    return fee > 0 ? Math.min(fee, total) : total;
+  };
+
   const chargeNoShow = async (appt: AppointmentWithDetails) => {
-    const amt = appt.total_amount ?? 0;
+    const amt = noShowFeeFor(appt);
     if (typeof window !== "undefined" && !window.confirm(`Charge ${formatCurrency(amt)} for no-show?`)) return;
     showToast("Charging no-show fee…");
     const ok = await captureHeld(appt, "no_show");
@@ -1147,12 +1175,17 @@ export default function AppointmentsPage() {
                     )}
                     {rejectable && (
                       <button type="button" className="btn btn-soft-warning col-span-2" disabled={savingStatus === selectedApt.id}
-                        onClick={() => updateStatus(selectedApt.id, "no-show")}>Mark as No-Show</button>
+                        onClick={() => handleStatusChange(selectedApt, "no-show")}>
+                        Mark as No-Show{(selectedApt.payment_status === "held" || selectedApt.payment_status === "saved") ? ` · charges ${formatCurrency(noShowFeeFor(selectedApt))}` : ""}
+                      </button>
                     )}
-                    {/* No-show capture — when a card is on hold or on file */}
-                    {selectedApt.status === "no-show" && (selectedApt.payment_status === "held" || selectedApt.payment_status === "saved") && (
+                    {/* No-show capture / retry — card on hold/file, or a prior
+                        auto-charge that failed and needs another attempt. */}
+                    {selectedApt.status === "no-show" && (selectedApt.payment_status === "held" || selectedApt.payment_status === "saved" || selectedApt.payment_status === "failed") && (
                       <button type="button" className="btn btn-soft-danger col-span-2" disabled={savingStatus === selectedApt.id}
-                        onClick={() => chargeNoShow(selectedApt)}>Charge No-Show · {formatCurrency(selectedApt.total_amount ?? 0)}</button>
+                        onClick={() => chargeNoShow(selectedApt)}>
+                        {selectedApt.payment_status === "failed" ? "Retry No-Show Charge" : "Charge No-Show"} · {formatCurrency(noShowFeeFor(selectedApt))}
+                      </button>
                     )}
                   </div>
                 );

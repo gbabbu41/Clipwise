@@ -61,7 +61,12 @@ export async function POST(request: NextRequest) {
   console.log("[capture-appointment] found", { appointment_id, payment_status: appt.payment_status, allowed });
   if (!allowed) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
-  const isSaved = appt.payment_status === "saved";
+  // "saved" path = charge a stored card off-session (nothing was held). Also
+  // covers a RETRY after a failed charge: payment_status flips to "failed" but
+  // the stored payment method is still on file and no intent was held, so we
+  // re-charge the saved card rather than (wrongly) looking for a held intent.
+  const isSaved = appt.payment_status === "saved"
+    || (!appt.payment_intent_id && !!appt.stripe_payment_method_id);
   if (!appt.payment_intent_id && !isSaved) {
     return NextResponse.json({ ok: false, error: "No card is on hold for this appointment." }, { status: 400 });
   }
