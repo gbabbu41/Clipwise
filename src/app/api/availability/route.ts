@@ -38,17 +38,25 @@ export async function POST(request: NextRequest) {
   if (barberIds.length === 0) return NextResponse.json({ barbers: [] });
 
   // Working hours for the weekday + active appointments + approved time-off.
-  // The appointment query is resilient to duration_minutes not existing (pre-phase14).
+  // Fallback to omitting duration_minutes if the column doesn't exist yet (pre-phase14).
   const apptWithDur = await supabaseAdmin
     .from("appointments")
     .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
     .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed"]);
-  const apptRows = apptWithDur.error
-    ? ((await supabaseAdmin
+  let apptRows: { barber_id: string; time_slot: string; duration_minutes?: number | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[];
+  if (apptWithDur.error) {
+    if (apptWithDur.error.message?.includes("duration_minutes")) {
+      const fallback = await supabaseAdmin
         .from("appointments")
         .select("barber_id, time_slot, services(duration_minutes)")
-        .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed"])).data ?? [])
-    : (apptWithDur.data ?? []);
+        .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed"]);
+      apptRows = (fallback.data ?? []) as typeof apptRows;
+    } else {
+      return NextResponse.json({ error: "Failed to load appointments" }, { status: 500 });
+    }
+  } else {
+    apptRows = (apptWithDur.data ?? []) as typeof apptRows;
+  }
 
   const [{ data: slots }, { data: timeOff }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("barber_id, start_time, end_time, is_available")
@@ -61,19 +69,26 @@ export async function POST(request: NextRequest) {
   (slots ?? []).forEach(s => slotByBarber.set(s.barber_id as string, { start_time: s.start_time as string, end_time: s.end_time as string }));
 
   const busyByBarber = new Map<string, Busy[]>();
-  (apptRows as { barber_id: string; time_slot: string; duration_minutes?: number | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[])
-    .forEach(a => {
-      const arr = busyByBarber.get(a.barber_id) ?? [];
-      arr.push({ time_slot: a.time_slot, duration: durationOf(a) });
-      busyByBarber.set(a.barber_id, arr);
-    });
+  apptRows.forEach(a => {
+    const arr = busyByBarber.get(a.barber_id) ?? [];
+    arr.push({ time_slot: a.time_slot, duration: durationOf(a) });
+    busyByBarber.set(a.barber_id, arr);
+  });
 
   const offByBarber = new Map<string, { fullDayOff: boolean; blocked: { start_time: string; end_time: string }[] }>();
-  (timeOff ?? []).forEach(o => {
-    const cur = offByBarber.get(o.barber_id as string) ?? { fullDayOff: false, blocked: [] };
+  function applyOff(bid: string, o: { type: string | null; start_time: string | null; end_time: string | null }) {
+    const cur = offByBarber.get(bid) ?? { fullDayOff: false, blocked: [] };
     if (o.type === "day_off" || o.type === "vacation" || o.type === "sick") cur.fullDayOff = true;
-    else if (o.type === "blocked_hours" && o.start_time && o.end_time) cur.blocked.push({ start_time: o.start_time as string, end_time: o.end_time as string });
-    offByBarber.set(o.barber_id as string, cur);
+    else if (o.type === "blocked_hours" && o.start_time && o.end_time) cur.blocked.push({ start_time: o.start_time, end_time: o.end_time });
+    offByBarber.set(bid, cur);
+  }
+  (timeOff ?? []).forEach(o => {
+    if (o.barber_id === null) {
+      // Shop-wide closure — apply to every active barber.
+      barberIds.forEach(bid => applyOff(bid, o));
+    } else {
+      applyOff(o.barber_id as string, o);
+    }
   });
 
   const result = (barbers ?? []).map(b => {

@@ -73,6 +73,7 @@ export async function barberHasConflict(
  * `preferredId` (e.g. the one the client tentatively chose) is tried first.
  * Returns null when every barber is busy — used to resolve an "Any Available"
  * booking to a concrete barber server-side so the DB unique index protects it.
+ * Fetches all barbers' appointments in a single query instead of O(n) sequential calls.
  */
 export async function findAvailableBarber(
   shop_id: string,
@@ -85,8 +86,37 @@ export async function findAvailableBarber(
     .from("barbers").select("id").eq("shop_id", shop_id).eq("is_active", true);
   const ids = (barbers ?? []).map((b) => b.id as string);
   const ordered = preferredId ? [preferredId, ...ids.filter((i) => i !== preferredId)] : ids;
+  if (ordered.length === 0) return null;
+
+  // Single round-trip: fetch all active appointments for all barbers on this date.
+  type RowWithBarber = ApptRow & { barber_id: string };
+  const withDur = await supabaseAdmin
+    .from("appointments")
+    .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
+    .in("barber_id", ordered).eq("date", date).in("status", ["pending", "confirmed"]);
+  let allRows: RowWithBarber[];
+  if (withDur.error) {
+    const fallback = await supabaseAdmin
+      .from("appointments")
+      .select("barber_id, time_slot, services(duration_minutes)")
+      .in("barber_id", ordered).eq("date", date).in("status", ["pending", "confirmed"]);
+    allRows = (fallback.data ?? []) as RowWithBarber[];
+  } else {
+    allRows = (withDur.data ?? []) as RowWithBarber[];
+  }
+
+  // Group intervals by barber in memory.
+  const intervalsByBarber = new Map<string, [number, number][]>();
+  for (const r of allRows) {
+    const arr = intervalsByBarber.get(r.barber_id) ?? [];
+    const s = timeToMinutes(r.time_slot);
+    arr.push([s, s + durationOf(r)]);
+    intervalsByBarber.set(r.barber_id, arr);
+  }
+
   for (const id of ordered) {
-    if (!(await barberHasConflict(id, date, startMin, endMin))) return id;
+    const intervals = intervalsByBarber.get(id) ?? [];
+    if (!intervals.some(([s, e]) => startMin < e && s < endMin)) return id;
   }
   return null;
 }

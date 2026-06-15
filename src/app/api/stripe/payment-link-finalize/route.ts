@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   };
 
   // Already settled — return the summary without re-notifying.
-  if (appt.payment_status === "paid") {
+  if (appt.payment_status === "paid" || appt.payment_status === "captured") {
     return NextResponse.json({ paid: true, appointmentId: appt.id, summary });
   }
 

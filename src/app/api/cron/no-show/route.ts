@@ -149,7 +149,9 @@ async function run() {
       console.log("[cron/no-show] charged", { appointment_id: a.id, amount: pi.amount_received });
       charged++;
     } catch {
-      await supabaseAdmin.from("appointments").update({ payment_status: "failed" }).eq("id", a.id).then(null, () => null);
+      // Reset to the original pre-claim status so the next cron run can retry.
+      // Setting "failed" permanently meant stuck rows were never retried.
+      await supabaseAdmin.from("appointments").update({ payment_status: a.payment_status }).eq("id", a.id).then(null, () => null);
       // Alert the owner in-app so an auto-charge failure doesn't go unseen.
       notifyChargeFailed({
         ownerId: shop.owner_id,

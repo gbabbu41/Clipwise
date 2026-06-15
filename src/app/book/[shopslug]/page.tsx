@@ -714,7 +714,7 @@ export default function BookingPage() {
   const service = services.find((s) => s.id === selectedService); // primary (back-compat)
   const servicesPicked = selectedServices.map(id => services.find(s => s.id === id)).filter(Boolean) as Service[];
   const totalPrice = servicesPicked.reduce((sum, s) => sum + (s.price ?? 0), 0);
-  const totalDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
+  const totalDuration = servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0);
   const barber = barbers.find((b) => b.id === selectedBarber);
   const discount = promoApplied
     ? promoApplied.discount_type === "percent"

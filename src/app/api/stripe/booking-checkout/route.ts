@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
@@ -81,10 +81,9 @@ export async function POST(request: NextRequest) {
   // the shop owner needing to complete Connect KYC.
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
-  // Require Stripe Connect to charge — no platform-charge fallback, so funds
-  // always land in the shop's own account, never the platform's. Until the
-  // owner finishes Connect the customer can only pay in person.
-  if (!useConnect) {
+  // In live mode require Connect — funds must land in the shop's own account.
+  // In test/sandbox allow a platform-charge fallback so demos work without KYC.
+  if (!useConnect && STRIPE_LIVE_MODE) {
     return NextResponse.json(
       { error: "This shop hasn't finished setting up online payments yet. Please choose pay in person." },
       { status: 409 },

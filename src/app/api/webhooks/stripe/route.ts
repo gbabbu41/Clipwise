@@ -163,10 +163,11 @@ export async function POST(request: NextRequest) {
         // captured no-show fee (status 'captured', partial amount) — whose
         // capture also fires this event — would be overwritten to 'paid',
         // losing the no-show distinction. Leave captured/paid/refunded alone.
+        // 'saved' included: a saved-card booking charged off-session fires this event.
         await supabaseAdmin.from("appointments")
           .update({ payment_status: "paid", paid_at: new Date().toISOString() })
           .eq("payment_intent_id", pi.id)
-          .in("payment_status", ["unpaid", "held", "failed"]);
+          .in("payment_status", ["unpaid", "held", "saved", "failed"]);
         break;
       }
 

@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
           }
         } catch { /* best-effort reversal — surface the conflict regardless */ }
         return NextResponse.json(
-          { error: "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
+          { error: isSave
+              ? "That time was just booked by someone else. Please pick another slot."
+              : "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
           { status: 409 },
         );
       }
@@ -131,7 +133,9 @@ export async function POST(request: NextRequest) {
           }
         } catch { /* best-effort reversal — surface the conflict regardless */ }
         return NextResponse.json(
-          { error: "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
+          { error: isSave
+              ? "That time was just booked by someone else. Please pick another slot."
+              : "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
           { status: 409 },
         );
       }
