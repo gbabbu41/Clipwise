@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency, cn, timeAgo } from "@/lib/utils";
+import { formatCurrency, cn, timeAgo, prettyDate } from "@/lib/utils";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -286,7 +286,7 @@ export default function PaymentsPage() {
                 <div className="flex-1 min-w-[180px]">
                   <p className="text-sm font-semibold text-white">{a.client_name}</p>
                   <p className="text-xs text-[#777]">
-                    {a.services?.name ?? "Service"} · {a.date} · {a.time_slot}
+                    {a.services?.name ?? "Service"} · {prettyDate(a.date)} · {a.time_slot}
                     {a.barbers?.name ? ` · ${a.barbers.name}` : ""}
                   </p>
                 </div>

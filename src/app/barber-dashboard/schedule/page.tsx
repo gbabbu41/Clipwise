@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, friendlyDate } from "@/lib/utils";
+import { cn, formatCurrency, friendlyDate, prettyDate } from "@/lib/utils";
 
 type AppStatus = "confirmed" | "pending" | "completed" | "cancelled" | "no-show";
 
@@ -228,7 +228,7 @@ export default function BarberSchedulePage() {
           body: JSON.stringify({
             to: apt.client_phone,
             shopName: shop.name,
-            body: `Good news! Your appointment at ${shop.name} on ${apt.date} at ${apt.time_slot} is confirmed. Booking #${apt.id.slice(0, 8).toUpperCase()}.`,
+            body: `Good news! Your appointment at ${shop.name} on ${prettyDate(apt.date)} at ${apt.time_slot} is confirmed. Booking #${apt.id.slice(0, 8).toUpperCase()}.`,
           }),
         }).catch(() => null);
       }

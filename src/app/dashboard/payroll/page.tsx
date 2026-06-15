@@ -4,7 +4,7 @@ import { DollarSign, Download, Calendar, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
-import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -305,7 +305,7 @@ export default function PayrollPage() {
                     <div className="mt-4 border-t border-[#1e1e1e] pt-3 space-y-1">
                       {p.appointments.map(a => (
                         <div key={a.id} className="flex items-center justify-between text-xs text-[#777]">
-                          <span>{a.date} — {a.client_name}</span>
+                          <span>{prettyDate(a.date)} — {a.client_name}</span>
                           <span className="text-white">{formatCurrency(a.total_amount)}</span>
                         </div>
                       ))}

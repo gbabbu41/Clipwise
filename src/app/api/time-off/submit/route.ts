@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { prettyDate } from "@/lib/utils";
 
 // Barber-side time-off submission. The barber's own auth context cannot
 // insert into notifications.user_id = <owner> (RLS allows only own rows),
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     .eq("id", body.shop_id)
     .single();
   if (shop) {
-    const dateRange = body.start_date + (body.end_date !== body.start_date ? ` → ${body.end_date}` : "");
+    const dateRange = prettyDate(body.start_date) + (body.end_date !== body.start_date ? ` → ${prettyDate(body.end_date)}` : "");
     const timeRange = body.type === "blocked_hours" && body.start_time && body.end_time
       ? ` (${body.start_time}–${body.end_time})` : "";
     const summary = `${TYPE_LABELS[body.type]} · ${dateRange}${timeRange}`;

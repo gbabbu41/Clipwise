@@ -299,3 +299,54 @@ saved-card booking charged off-session fires this event but wouldn't be promoted
 **Finding 10 — no-show cron: owner not alerted on stuck charge**
 Already covered by Finding 1: the existing `notifyChargeFailed` call fires on every
 catch regardless of the status reset. No separate change needed.
+
+---
+
+## Human-readable dates everywhere (2026-06-15, DEPLOYED)
+
+Owner ask: dates were showing as raw "2026-07-14" in emails, SMS, in-app
+notifications, pop-ups, and dashboard lists — wanted "easy to read" month-name
+format ("July 14").
+
+**New helper — `prettyDate()` in `src/lib/utils.ts`:**
+"2026-07-14" → "July 14" (adds the year only when it isn't the current year).
+- **Timezone-safe for SERVER use** (the key reason it's a new helper, not
+  `friendlyDate`): parses the date-only string at local midnight and NEVER uses
+  Today/Tomorrow relativity, so a UTC server (Vercel) can't mislabel a date near
+  the day boundary — same concern `booking-finalize` documented inline.
+- **Idempotent**: any input that isn't a plain "YYYY-MM-DD" (already-formatted
+  strings, ranges, empty/null) is returned unchanged — safe to apply at both the
+  producer AND the email-route chokepoint without double-formatting.
+
+**Single chokepoint for ALL emails:** `src/app/api/send-email/route.ts` now does
+`if (data?.date) data.date = prettyDate(data.date)` once, right after parsing the
+body — every template + subject reads `data.date`, so this covers all of them.
+
+**Formatted at the source (notifications / SMS / pop-ups):** `prettyDate` applied
+in `payment-notify` (notifyNoShowCharged msg), `notify-staff`, `booking-finalize`
+(owner notif), `cron/no-show` (SMS), `capture-appointment` (SMS), `reminders`
+(SMS), `appointment-actions` (SMS), `dashboard/appointments` + `barber-dashboard/
+schedule` (confirm SMS), `my-booking` + `my-bookings` (cancellation notif), and
+the time-off routes `submit`/`decide`/`cancel`/`exclude-date` (dateRange — note:
+`dateRange` is NOT covered by the email chokepoint since it's a composite string,
+so each route formats its own start/end via prettyDate). Pop-ups need no separate
+work — `NotificationListener` renders the stored notification `message`, which is
+now formatted at insert time.
+
+**Dashboard/customer list displays → `prettyDate`** (absolute, audit-friendly):
+`payments`, `payroll`, `staff` (timesheet), `clients` history, `my-bookings`,
+`my-booking`, booking `review` page, and the appointments clash toast.
+
+**`/code-review` follow-ups applied** (after the first pass used `friendlyDate`):
+- **Incomplete-fix bug**: the customer's OWN booking-confirmation SMS in
+  `book/[shopslug]/page.tsx` still sent the raw `dateStr` — the highest-visibility
+  text in the app. Now `prettyDate(formatDateForDb(selectedDate))`.
+- **Records/historical views**: switched from `friendlyDate` (relative
+  "Yesterday"/"Last Monday", and viewer-timezone drift) to absolute `prettyDate`
+  so payroll/payments/timesheet/visit-history/review read as fixed calendar dates
+  and match the owner's "14 july" request exactly.
+- **Consistency**: `exclude-date` time-off route had its own bespoke
+  "Tuesday, July 14, 2026" formatter — unified to `prettyDate` like its siblings.
+
+Build: `next build` compiles + type-checks clean (only the pre-existing
+container `supabaseUrl is required` page-data error, which needs env vars).

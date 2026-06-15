@@ -3,7 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { UNIQUE_VIOLATION, barberHasConflict } from "@/lib/booking-conflict";
-import { timeToMinutes } from "@/lib/utils";
+import { timeToMinutes, prettyDate } from "@/lib/utils";
 
 // Called when the customer returns from a paid booking checkout.
 // Verifies payment on the connected account, then creates the appointment (idempotent).
@@ -166,12 +166,11 @@ export async function POST(request: NextRequest) {
 
     // Notify the shop owner (fire-and-forget). Title carries the amount
     // so it's scannable at a glance ('New Paid Booking · $35'). Message
-    // formats the raw YYYY-MM-DD date as 'July 6' for readability — we
-    // don't use friendlyDate (Today/Tomorrow) here because the server's
-    // clock is in UTC and would mis-label dates near the day boundary.
+    // formats the raw YYYY-MM-DD date as 'July 6' for readability via
+    // prettyDate — which (unlike friendlyDate) never uses Today/Tomorrow, so a
+    // UTC server can't mis-label dates near the day boundary.
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();
-    const dateObj = new Date(`${m.date}T00:00:00`);
-    const friendly = dateObj.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
+    const friendly = prettyDate(m.date);
     if (shopRow?.owner_id) {
       const amountStr = `$${Number(m.total_amount ?? 0).toFixed(0)}`;
       const bookingTitle = isSave ? `New Booking · card on file · ${amountStr}`

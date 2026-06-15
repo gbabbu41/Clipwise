@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { prettyDate } from "@/lib/utils";
 
 /**
  * Capture a previously-authorized (held) PaymentIntent for an appointment.
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (reason === "no_show") {
       sendSmsBestEffort(
         appt.client_phone,
-        `You missed your appointment on ${appt.date}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
+        `You missed your appointment on ${prettyDate(appt.date)}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
         shop.name,
       );
     }

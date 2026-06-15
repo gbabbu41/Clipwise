@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { prettyDate } from "@/lib/utils";
 
 // POST /api/reminders
 // Sends 24-hour reminder emails for appointments scheduled tomorrow.
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     if (appt.client_phone) {
       await sendSmsBestEffort(
         appt.client_phone,
-        `Reminder: your appointment is tomorrow (${tomorrowStr}) at ${appt.time_slot}. See you then!`,
+        `Reminder: your appointment is tomorrow (${prettyDate(tomorrowStr)}) at ${appt.time_slot}. See you then!`,
         appt.shops.name,
       );
     }

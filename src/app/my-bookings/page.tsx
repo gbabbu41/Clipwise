@@ -6,7 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, prettyDate } from "@/lib/utils";
 
 interface BookingResult {
   id: string;
@@ -65,7 +65,7 @@ export default function MyBookingsPage() {
         supabase.from("notifications").insert({
           user_id: shopRow.owner_id,
           title: "Appointment Cancelled",
-          message: `${booking.client_name} cancelled their ${booking.services?.name ?? "appointment"} on ${booking.date} at ${booking.time_slot}`,
+          message: `${booking.client_name} cancelled their ${booking.services?.name ?? "appointment"} on ${prettyDate(booking.date)} at ${booking.time_slot}`,
           type: "cancellation",
           is_read: false,
         }).then(null, () => null);
@@ -188,7 +188,7 @@ export default function MyBookingsPage() {
                             <StatusBadge status={b.status} />
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-[#555]">
-                            <span className="flex items-center gap-1"><Calendar size={13} />{b.date}</span>
+                            <span className="flex items-center gap-1"><Calendar size={13} />{prettyDate(b.date)}</span>
                             <span className="flex items-center gap-1"><Clock size={13} />{b.time_slot}</span>
                             {b.shops && (
                               <span className="flex items-center gap-1"><MapPin size={13} />{b.shops.city}, {b.shops.province}</span>
@@ -232,7 +232,7 @@ export default function MyBookingsPage() {
                             <StatusBadge status={b.status} />
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-[#555]">
-                            <span className="flex items-center gap-1"><Calendar size={13} />{b.date}</span>
+                            <span className="flex items-center gap-1"><Calendar size={13} />{prettyDate(b.date)}</span>
                             <span className="flex items-center gap-1"><Clock size={13} />{b.time_slot}</span>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#777]">

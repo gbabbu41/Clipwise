@@ -5,7 +5,7 @@ import { Star, Check, Scissors } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, prettyDate } from "@/lib/utils";
 
 interface AppointmentInfo {
   id: string;
@@ -171,7 +171,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
             )}
             <div className="flex justify-between">
               <span className="text-[#777]">Date</span>
-              <span className="text-white">{appt.date}</span>
+              <span className="text-white">{prettyDate(appt.date)}</span>
             </div>
           </div>
 

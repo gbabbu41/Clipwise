@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { prettyDate } from "@/lib/utils";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send
@@ -52,9 +53,10 @@ export async function notifyNoShowCharged(args: {
 }): Promise<void> {
   const completed = args.kind === "completed";
   const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const niceDate = prettyDate(args.date);
   const message = completed
-    ? `Charged ${args.clientName ?? "a client"}'s card${amt} on completion${args.date ? ` (${args.date})` : ""}.`
-    : `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${args.date ? ` on ${args.date}` : ""}.`;
+    ? `Charged ${args.clientName ?? "a client"}'s card${amt} on completion${niceDate ? ` (${niceDate})` : ""}.`
+    : `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${niceDate ? ` on ${niceDate}` : ""}.`;
   const title = completed ? "✅ Payment collected" : "✅ No-show fee charged";
 
   const recipients = new Set<string>();

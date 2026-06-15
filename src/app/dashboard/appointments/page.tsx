@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, timeAgo, timeToMinutes } from "@/lib/utils";
+import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, prettyDate, timeAgo, timeToMinutes } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -350,7 +350,7 @@ export default function AppointmentsPage() {
           body: JSON.stringify({
             to: appt.client_phone,
             shopName: shop.name,
-            body: `Good news! Your appointment at ${shop.name} on ${appt.date} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.`,
+            body: `Good news! Your appointment at ${shop.name} on ${prettyDate(appt.date)} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.`,
           }),
         }).catch(() => null);
       }
@@ -667,7 +667,7 @@ export default function AppointmentsPage() {
         .maybeSingle();
       if (clash) {
         setSavingAdd(false);
-        showToast(`That barber is already booked on ${clash.date} at ${clash.time_slot}`);
+        showToast(`That barber is already booked on ${prettyDate(clash.date)} at ${clash.time_slot}`);
         return;
       }
     }

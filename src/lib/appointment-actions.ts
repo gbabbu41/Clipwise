@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppointmentWithDetails, Shop } from "@/lib/database.types";
+import { prettyDate } from "@/lib/utils";
 
 /**
  * Shared appointment-action side effects (emails / SMS / loyalty / waitlist).
@@ -47,7 +48,7 @@ export function sendApprovalNotifications(appt: AppointmentWithDetails, shop: Sh
       body: JSON.stringify({
         to: appt.client_phone,
         shopName: shop.name,
-        body: `Good news! Your appointment at ${shop.name} on ${appt.date} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.`,
+        body: `Good news! Your appointment at ${shop.name} on ${prettyDate(appt.date)} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.`,
       }),
     }).catch(() => null);
   }

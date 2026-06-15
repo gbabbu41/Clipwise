@@ -6,7 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, formatDateForDb, getSlotsInRange } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, getSlotsInRange, prettyDate } from "@/lib/utils";
 
 interface AppointmentDetail {
   id: string;
@@ -117,7 +117,7 @@ export default function MyBookingPage() {
         supabase.from("notifications").insert({
           user_id: shopRow.owner_id,
           title: "Appointment Cancelled",
-          message: `${appt.client_name} cancelled their appointment on ${appt.date} at ${appt.time_slot}`,
+          message: `${appt.client_name} cancelled their appointment on ${prettyDate(appt.date)} at ${appt.time_slot}`,
           type: "cancellation",
           is_read: false,
         }).then(null, () => null);
@@ -177,7 +177,7 @@ export default function MyBookingPage() {
               <X size={28} className="text-red-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Appointment Cancelled</h1>
-            <p className="text-[#555]">Your appointment on {appt.date} at {appt.time_slot} has been cancelled.</p>
+            <p className="text-[#555]">Your appointment on {prettyDate(appt.date)} at {appt.time_slot} has been cancelled.</p>
             <a href={`/book/${appt.shops?.slug ?? ""}`}>
               <Button className="w-full mt-4">Book a New Appointment</Button>
             </a>
@@ -342,7 +342,7 @@ export default function MyBookingPage() {
 
             <div className="bg-surface border border-border rounded-2xl p-4">
               <p className="text-xs text-[#777] mb-3 uppercase tracking-wider font-medium">Current Appointment</p>
-              <p className="text-sm text-white">{appt.date} at {appt.time_slot}</p>
+              <p className="text-sm text-white">{prettyDate(appt.date)} at {appt.time_slot}</p>
             </div>
 
             {/* Date picker */}

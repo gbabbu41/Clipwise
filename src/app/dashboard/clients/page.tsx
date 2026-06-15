@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, getTagColor } from "@/lib/utils";
+import { cn, formatCurrency, getTagColor, prettyDate } from "@/lib/utils";
 import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -657,7 +657,7 @@ export default function ClientsPage() {
                       <div key={apt.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
                         <div>
                           <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
-                          <p className="text-xs text-[#777]">{apt.date} {apt.time_slot}</p>
+                          <p className="text-xs text-[#777]">{prettyDate(apt.date)} {apt.time_slot}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</p>

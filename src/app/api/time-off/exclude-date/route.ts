@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { prettyDate } from "@/lib/utils";
 
 // Owner removes a single date from an approved multi-day time-off (e.g. a
 // vacation Mon-Fri stays in place, but Tuesday is excluded so the barber
@@ -98,15 +99,15 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Notify barber: in-app + email
-  const friendlyDate = new Date(exclude_date + "T00:00:00")
-    .toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  // Notify barber: in-app + email. Use prettyDate for consistency with the
+  // approve/deny/cancel routes (which all format dates the same way).
+  const niceDate = prettyDate(exclude_date);
 
   if (barber?.user_id) {
     await supabaseAdmin.from("notifications").insert({
       user_id: barber.user_id,
       title: "Time-Off Modified",
-      message: `Your ${TYPE_LABELS[req.type]} no longer covers ${friendlyDate}. The shop owner removed that day from your approved request.`,
+      message: `Your ${TYPE_LABELS[req.type]} no longer covers ${niceDate}. The shop owner removed that day from your approved request.`,
       type: "system",
       is_read: false,
     });
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
           shopEmail: shop.email ?? "",
           decision: "modified",
           requestType: TYPE_LABELS[req.type],
-          dateRange: friendlyDate,
+          dateRange: niceDate,
           timeRange: "",
         },
       }),

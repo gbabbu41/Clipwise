@@ -209,6 +209,33 @@ export function timeAgo(iso: string | null | undefined): string {
   return new Date(then).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
+/**
+ * Pretty, human-readable date for emails / SMS / notifications / pop-ups.
+ *   "2026-07-14" → "July 14"  (adds the year only when it isn't the current
+ *                              year, e.g. "January 2, 2027").
+ *
+ * Timezone-safe for SERVER use: parses the date-only string at local midnight
+ * and never applies Today/Tomorrow relativity, so a UTC server (Vercel) can't
+ * mislabel a date near the day boundary — the reason the rest of the app avoids
+ * `friendlyDate` in server-side emails/SMS.
+ *
+ * Idempotent: any input that isn't a plain "YYYY-MM-DD" date (already-formatted
+ * strings, ranges, empty) is returned unchanged, so it's safe to apply at both
+ * the producer and the email-route chokepoint without double-formatting.
+ */
+export function prettyDate(d: string | null | undefined): string {
+  if (!d) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already formatted / not a date-only string
+  const date = new Date(d + "T00:00:00");
+  if (Number.isNaN(date.getTime())) return d;
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString("en-CA", {
+    month: "long",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
 /** True if the given date is strictly before today (local time) */
 export function isDateInPast(date: Date): boolean {
   const today = new Date();

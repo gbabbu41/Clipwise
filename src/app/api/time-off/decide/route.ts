@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { prettyDate } from "@/lib/utils";
 
 // Owner-side approve/deny. Uses the service role so the in-app notification
 // to the barber goes through despite the notifications RLS (which only lets
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     .eq("id", request_id);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
-  const dateRange = req.start_date + (req.end_date !== req.start_date ? ` → ${req.end_date}` : "");
+  const dateRange = prettyDate(req.start_date) + (req.end_date !== req.start_date ? ` → ${prettyDate(req.end_date)}` : "");
   const timeRange = req.type === "blocked_hours" && req.start_time && req.end_time
     ? `${req.start_time}–${req.end_time}` : "";
 

@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
   cn, generate24hSlots, dbTimeToDisplay, displayTimeToDb, formatDateForDb,
-  formatFriendlyDate, formatFriendlyTime,
+  formatFriendlyDate, formatFriendlyTime, prettyDate,
 } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -733,7 +733,7 @@ export default function StaffPage() {
                   {staffHours.map((sh) => (
                     <tr key={sh.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
                       <td className="px-3 py-3 text-sm text-white">{sh.barbers?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-[#777]">{sh.date}</td>
+                      <td className="px-3 py-3 text-sm text-[#777]">{prettyDate(sh.date)}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
                       <td className="px-3 py-3 text-sm text-red-400">{sh.clock_out ?? "—"}</td>
                       <td className="px-3 py-3 text-sm text-white">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>

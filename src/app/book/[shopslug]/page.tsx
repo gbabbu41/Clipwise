@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar,
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -639,7 +639,7 @@ export default function BookingPage() {
     // Text the customer (best-effort). A pending in-person booking is awaiting
     // the shop's approval — don't tell them it's "confirmed" yet.
     if (clientInfo.phone) {
-      const dateStr = selectedDate ? formatDateForDb(selectedDate) : "";
+      const dateStr = selectedDate ? prettyDate(formatDateForDb(selectedDate)) : "";
       const ref = newApptId.slice(0, 8).toUpperCase();
       const smsBody = inPersonStatus === "pending"
         ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}.`

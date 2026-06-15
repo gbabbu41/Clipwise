@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
+import { prettyDate } from "@/lib/utils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -114,7 +115,7 @@ async function run() {
         const amt = ((pi.amount_received ?? 0) / 100).toFixed(2);
         twilio.messages.create({
           ...sender, to,
-          body: `Hi ${a.client_name}, you missed your appointment at ${shop.name} on ${a.date}. A no-show fee of $${amt} has been charged. — ClipWise`,
+          body: `Hi ${a.client_name}, you missed your appointment at ${shop.name} on ${prettyDate(a.date)}. A no-show fee of $${amt} has been charged. — ClipWise`,
         }).then(null, () => null);
       }
       // Email the client a receipt for the fee (best-effort).

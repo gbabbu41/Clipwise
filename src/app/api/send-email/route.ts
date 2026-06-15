@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { prettyDate } from "@/lib/utils";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
@@ -642,6 +643,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
+
+    // Normalize raw "YYYY-MM-DD" dates to a human-readable label ("July 14")
+    // once, here — every template + subject reads `data.date`, so this single
+    // chokepoint covers them all. Idempotent: already-friendly values pass
+    // through unchanged (see prettyDate).
+    if (data?.date) data.date = prettyDate(data.date);
 
     let to = "";
     let subject = "";
