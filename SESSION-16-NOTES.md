@@ -5,7 +5,27 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-15) — Calendar redesign: light "Fresha-style" canvas
+### LATEST (2026-06-15) — Calendar day view: schedule-aware, empty "+" slots, card grid
+- Day view rebuilt to match the owner's wireframes (clean/minimal):
+  - **Per-barber columns** (desktop, all-barbers) now **bounded to working hours**
+    (read from `time_slots` for the current weekday; `time_slots_select_all` RLS
+    lets the owner read them; fallback 9 AM–6 PM when a barber has no schedule).
+  - **Empty slots show a "+ Add"** affordance — generated from each barber's
+    working window via `getSlotsInRange`/`occupiedSlots` minus their bookings.
+    Clicking "+" opens a compact dark add-modal (client + service; barber/date/
+    time fixed by the slot) → POST `/api/book/in-person` (server conflict check)
+    → reload.
+  - **Single barber selected** (header dropdown) OR **mobile** OR **barber-role**
+    → a clean **card grid** (`renderBarberGrid`): booked slots = status-colored
+    cards, free slots = dashed "+ Add" cards. Mobile gets a profile-pic chip
+    selector to switch barber.
+  - Profile-pic **avatars** (`Barber.photo`, initials fallback) in day column
+    headers + mobile chips.
+  - Block height still ∝ duration; current-time line clamped to the window.
+- Month + week views unchanged. New state: `schedules`, `services`, `addCtx`,
+  `addForm`. Slot density from `booking_settings.slot_interval_minutes`.
+
+### (2026-06-15) — Calendar redesign: light "Fresha-style" canvas
 - The **calendar page only** (`dashboard/calendar/page.tsx`) is now a LIGHT canvas
   inside the app's dark chrome (Option A). Sidebar/top-bar stay dark; the grid,
   toolbar, legend, month/week/day views are white with Fresha-style soft pastel

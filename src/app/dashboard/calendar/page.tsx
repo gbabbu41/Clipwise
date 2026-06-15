@@ -1,11 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb, friendlyDate, timeAgo } from "@/lib/utils";
+import {
+  cn, formatDateForDb, friendlyDate, timeAgo,
+  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes,
+} from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
 import {
   sendApprovalNotifications,
   runCompletionEffects,
@@ -13,6 +17,8 @@ import {
   sendRejectionEmail,
 } from "@/lib/appointment-actions";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
+
+type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
@@ -34,6 +40,12 @@ function parseTime(timeStr: string): number {
   if (period === "PM" && h !== 12) hour += 12;
   if (period === "AM" && h === 12) hour = 0;
   return hour + m / 60;
+}
+
+// DB time "09:00:00" → decimal hours (9.0). Used to bound the day grid.
+function hourOfDb(db: string): number {
+  const [h, m] = db.split(":").map(Number);
+  return (h || 0) + (m || 0) / 60;
 }
 
 function addDays(date: Date, n: number) {
@@ -336,6 +348,13 @@ export default function CalendarPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [toast, setToast] = useState("");
+  // Day-view working hours (per barber, for the current weekday) + services for
+  // the quick-add modal, and the "+" empty-slot add context/form.
+  const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
+  const [services, setServices] = useState<ServiceLite[]>([]);
+  const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string } | null>(null);
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "" });
+  const [savingAdd, setSavingAdd] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -396,6 +415,33 @@ export default function CalendarPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Working hours for the current day's weekday, per barber — drives the day
+  // view's working-window bounds + empty-slot generation. Authenticated owner /
+  // barber can read time_slots under RLS; barbers with no row fall back to 9–6.
+  useEffect(() => {
+    if (!shop || barbers.length === 0) { setSchedules(new Map()); return; }
+    const dow = currentDate.getDay();
+    const ids = barbers.map(b => b.id);
+    let active = true;
+    supabase.from("time_slots").select("barber_id, start_time, end_time")
+      .in("barber_id", ids).eq("day_of_week", dow).eq("is_available", true)
+      .then(({ data }) => {
+        if (!active) return;
+        const m = new Map<string, { start: string; end: string }>();
+        (data ?? []).forEach(s => m.set(s.barber_id as string, { start: s.start_time as string, end: s.end_time as string }));
+        setSchedules(m);
+      });
+    return () => { active = false; };
+  }, [shop, barbers, currentDate]);
+
+  // Services for the quick-add modal (rarely change → fetch once per shop).
+  useEffect(() => {
+    if (!shop) return;
+    supabase.from("services").select("id, name, price, duration_minutes")
+      .eq("shop_id", shop.id).eq("is_active", true).order("name")
+      .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
+  }, [shop]);
+
   // Catch up on payment-link payments (status may flip pending→confirmed too),
   // so the calendar reflects paid/confirmed without depending on the webhook.
   useEffect(() => {
@@ -408,11 +454,12 @@ export default function CalendarPage() {
     return () => { active = false; };
   }, [accessToken, load]);
 
-  // Scroll Day/Week views to 8 AM on mount or when switching into them.
+  // Week view starts at 8 AM; the day view is now bounded to working hours so
+  // it starts at the top.
   useEffect(() => {
-    if ((view === "day" || view === "week") && scrollRef.current) {
-      scrollRef.current.scrollTop = DEFAULT_SCROLL_HOUR * ROW_PX;
-    }
+    if (!scrollRef.current) return;
+    if (view === "week") scrollRef.current.scrollTop = DEFAULT_SCROLL_HOUR * ROW_PX;
+    else if (view === "day") scrollRef.current.scrollTop = 0;
   }, [view]);
 
   const showToast = useCallback((msg: string) => {
@@ -531,6 +578,64 @@ export default function CalendarPage() {
     },
   }), [shop, accessToken, applyLocal, showToast]);
 
+  // Slot granularity from shop settings (15 or 30) — drives empty-slot density.
+  const slotInterval = ((shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes) || 30;
+
+  // Display-slots a barber's live appointments cover on the given day.
+  const bookedSlotsFor = useCallback((barberId: string, dateStr: string) => {
+    const set = new Set<string>();
+    appointments.forEach(a => {
+      if (a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status)) {
+        occupiedSlots(a.time_slot, apptDuration(a), slotInterval).forEach(s => set.add(s));
+      }
+    });
+    return set;
+  }, [appointments, slotInterval]);
+
+  // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
+  const rangeLabel = (start: string, mins: number) => {
+    const endMin = timeToMinutes(start) + (mins > 0 ? mins : slotInterval);
+    const h = Math.floor(endMin / 60) % 24, m = endMin % 60;
+    const end = dbTimeToDisplay(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
+    return `${start} – ${end}`;
+  };
+
+  // Barber profile pic with initials fallback.
+  const BarberAvatar = ({ b, i }: { b: Barber; i: number }) => {
+    const cls = "w-11 h-11 rounded-full object-cover";
+    if (b.photo) return <img src={b.photo} alt={b.name} className={cls} />;
+    return (
+      <span className={cn("w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
+        {initials(b.name)}
+      </span>
+    );
+  };
+
+  // Quick-add an in-person appointment from a "+" empty slot (server-side route
+  // runs the conflict check + creates the booking).
+  const createAppointment = async () => {
+    if (!shop || !addCtx) return;
+    if (!addForm.client_name.trim() || !addForm.service_id) { showToast("Add a name and pick a service"); return; }
+    const svc = services.find(s => s.id === addForm.service_id);
+    setSavingAdd(true);
+    const res = await fetch("/api/book/in-person", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shop_id: shop.id, barber_id: addCtx.barberId, service_id: addForm.service_id,
+        client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
+        date: formatDateForDb(currentDate), time_slot: addCtx.time,
+        total_amount: svc?.price ?? 0, duration_minutes: svc?.duration_minutes, pay_in_person: true,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSavingAdd(false);
+    if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
+    setAddCtx(null);
+    setAddForm({ client_name: "", client_phone: "", service_id: "" });
+    showToast("Appointment added");
+    load();
+  };
+
   const navigate = (dir: -1 | 1) => {
     if (view === "month") setCurrentDate(prev => addMonths(prev, dir));
     else if (view === "week") setCurrentDate(prev => addDays(prev, dir * 7));
@@ -646,78 +751,115 @@ export default function CalendarPage() {
   };
 
   // ── DAY VIEW ───────────────────────────────────────────────────────────────
+  // One barber's day as a clean card grid: booked slots are status-colored
+  // cards; the barber's free slots (within their working window) are dashed
+  // "+ Add" cards. Used for mobile and the single-barber desktop view.
+  const renderBarberGrid = (barber: Barber) => {
+    const dateStr = formatDateForDb(currentDate);
+    const sched = schedules.get(barber.id);
+    const startDb = sched?.start ?? "09:00:00";
+    const endDb = sched?.end ?? "18:00:00";
+    const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id);
+    const booked = bookedSlotsFor(barber.id, dateStr);
+    const slots = getSlotsInRange(startDb, endDb, currentDate, Array.from(booked), slotInterval);
+    const apptByStart = new Map(dayAppts.map(a => [a.time_slot, a] as const));
+
+    type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string };
+    const cells: Cell[] = [];
+    const seen = new Set<string>();
+    slots.forEach(({ slot, available }) => {
+      if (available) { cells.push({ k: "empty", s: slot }); return; }
+      const a = apptByStart.get(slot);
+      if (a && !seen.has(a.id)) { cells.push({ k: "appt", a }); seen.add(a.id); }
+    });
+    // Any appointment whose start didn't land on the slot grid still shows.
+    dayAppts.forEach(a => { if (!seen.has(a.id)) { cells.push({ k: "appt", a }); seen.add(a.id); } });
+    cells.sort((x, y) =>
+      timeToMinutes(x.k === "appt" ? x.a.time_slot : x.s) - timeToMinutes(y.k === "appt" ? y.a.time_slot : y.s));
+
+    return (
+      <div className="p-4 sm:p-5">
+        {!sched && (
+          <p className="text-xs text-gray-400 mb-3">No schedule set for this day — showing a default 9 AM–6 PM window.</p>
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {cells.map((c, ci) => c.k === "empty" ? (
+            <button key={`e${ci}`} onClick={() => setAddCtx({ barberId: barber.id, barberName: barber.name, time: c.s })}
+              className="group rounded-xl border border-dashed border-gray-300 hover:border-gold hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+              <span className="text-xs text-gray-500">{rangeLabel(c.s, slotInterval)}</span>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-gold">
+                <Plus size={14} /> Add
+              </span>
+            </button>
+          ) : (
+            <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
+              className={cn(
+                "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:shadow-md",
+                statusBlock(c.a.status), isDimmed(c.a.status) && "opacity-70 line-through",
+              )}>
+              <span className="text-xs font-medium opacity-80">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
+                <p className="text-[11px] opacity-80 truncate">{(c.a.services as { name: string } | null)?.name ?? "—"}</p>
+              </div>
+              <span className="text-[10px] font-semibold opacity-90">
+                {c.a.payment_status === "paid" || c.a.payment_status === "captured" ? "Paid" : statusLabel(c.a.status)}
+              </span>
+            </button>
+          ))}
+          {cells.length === 0 && (
+            <p className="col-span-full text-center text-sm text-gray-400 py-10">Nothing scheduled.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderDayView = () => {
     const dateStr = formatDateForDb(currentDate);
     const dayAppts = appointments.filter(a => a.date === dateStr);
+    const activeBarberId = barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null);
 
-    // Mobile: single vertical timeline, barber shown as a colored dot + name inline
-    if (isMobile) {
+    // Mobile, a single barber selected, or a barber-role user → clean card grid
+    // for one barber. (A barber only ever sees their own day.)
+    if (isMobile || barberFilter !== "all" || profile?.role === "barber") {
+      const activeBarber = barbers.find(b => b.id === activeBarberId);
       return (
-        <div ref={scrollRef} className="overflow-auto h-full">
-          <div className="relative">
-            {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
-                  {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
-                </div>
-                <div className="border-l border-gray-100" />
-              </div>
-            ))}
-            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
-              <div />
-              <div className="relative">
-                {dayAppts.map(appt => {
-                  const startH = parseTime(appt.time_slot);
-                  const duration = apptDuration(appt);
-                  const top = startH * ROW_PX;
-                  const height = Math.max(36, (duration / 60) * ROW_PX - 4);
-                  const barber = barbers.find(b => b.id === appt.barber_id);
-                  const dimmed = isDimmed(appt.status);
-                  return (
-                    <button
-                      key={appt.id}
-                      style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
-                      className={cn(
-                        "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                        statusBlock(appt.status),
-                        dimmed && "opacity-70 line-through",
-                      )}
-                      onClick={() => setSelectedAppt(appt)}
-                    >
-                      <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
-                      {height > 44 && (
-                        <p className="text-[11px] opacity-80 truncate">
-                          {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
-                        </p>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="overflow-auto h-full">
+          {/* Barber picker — profile-pic chips (mobile only; desktop uses the
+              header dropdown). Tap a face to switch whose day you're viewing. */}
+          {isMobile && profile?.role !== "barber" && barbers.length > 1 && (
+            <div className="flex gap-3 overflow-x-auto p-3 border-b border-gray-200">
+              {barbers.map((b, i) => (
+                <button key={b.id} onClick={() => setBarberFilter(b.id)}
+                  className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 transition-opacity", activeBarberId === b.id ? "opacity-100" : "opacity-50")}>
+                  <BarberAvatar b={b} i={i} />
+                  <span className="text-[10px] text-gray-600 truncate w-full text-center">{b.name}</span>
+                </button>
+              ))}
             </div>
-            {isToday(currentDate) && (() => {
-              const now = new Date();
-              const currentH = now.getHours() + now.getMinutes() / 60;
-              const top = currentH * ROW_PX;
-              return (
-                <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
-                  <div className="flex items-center">
-                    <div className="w-12 pr-2 text-right">
-                      <div className="w-2 h-2 rounded-full bg-red-500 ml-auto" />
-                    </div>
-                    <div className="flex-1 h-px bg-red-500" />
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+          )}
+          {activeBarber
+            ? renderBarberGrid(activeBarber)
+            : <p className="text-center text-sm text-gray-400 py-12">No barbers yet.</p>}
         </div>
       );
     }
 
-    // Desktop: per-barber columns with initials avatars in the header
-    const visibleCols = barberFilter !== "all" ? barbers.filter(b => b.id === barberFilter) : barbers;
-    const cols = visibleCols.length > 0 ? visibleCols : [{ id: "none", name: "All Barbers" } as Barber];
+    // Desktop, all barbers → per-barber columns, bounded to the working window.
+    const cols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+    const starts: number[] = [], ends: number[] = [];
+    cols.forEach(b => {
+      const s = schedules.get(b.id);
+      if (s) { starts.push(hourOfDb(s.start)); ends.push(hourOfDb(s.end)); }
+    });
+    dayAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
+    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 9;
+    let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
+    winStart = Math.max(0, winStart);
+    winEnd = Math.min(24, Math.max(winEnd, winStart + 1));
+    const hours: number[] = [];
+    for (let h = winStart; h < winEnd; h++) hours.push(h);
 
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
@@ -727,9 +869,7 @@ export default function CalendarPage() {
             {cols.map((b, i) => (
               <div key={b.id} className="px-3 py-3 text-center border-l border-gray-100">
                 <div className="flex flex-col items-center gap-1">
-                  <span className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
-                    {initials(b.name)}
-                  </span>
+                  <BarberAvatar b={b} i={i} />
                   <p className="text-xs text-gray-900 font-medium">{b.name}</p>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">
@@ -740,7 +880,7 @@ export default function CalendarPage() {
           </div>
 
           <div className="relative">
-            {HOURS_24.map(hour => (
+            {hours.map(hour => (
               <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
                 <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -755,14 +895,31 @@ export default function CalendarPage() {
               <div />
               {cols.map((b) => {
                 const colAppts = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id);
+                const sched = schedules.get(b.id);
+                const empties = sched
+                  ? getSlotsInRange(sched.start, sched.end, currentDate, Array.from(bookedSlotsFor(b.id, dateStr)), slotInterval).filter(s => s.available)
+                  : [];
                 return (
                   <div key={b.id} className="relative">
+                    {/* Free slots within the barber's window → "+ Add" */}
+                    {empties.map(({ slot }) => {
+                      const top = (parseTime(slot) - winStart) * ROW_PX;
+                      const height = Math.max(20, (slotInterval / 60) * ROW_PX - 4);
+                      return (
+                        <button key={`e${slot}`}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
+                          className="group rounded-lg border border-dashed border-gray-200 hover:border-gold hover:bg-amber-50/50 transition-colors pointer-events-auto flex items-center justify-center"
+                          onClick={() => setAddCtx({ barberId: b.id, barberName: b.name, time: slot })}>
+                          <Plus size={14} className="text-gray-300 group-hover:text-gold" />
+                        </button>
+                      );
+                    })}
+                    {/* Booked blocks — height ∝ duration, colored by status */}
                     {colAppts.map(appt => {
-                      const startH = parseTime(appt.time_slot);
+                      const top = (parseTime(appt.time_slot) - winStart) * ROW_PX;
                       const duration = apptDuration(appt);
-                      const top = startH * ROW_PX;
                       const height = Math.max(28, (duration / 60) * ROW_PX - 4);
-                      const dimmed = appt.status === "cancelled" || appt.status === "no-show";
+                      const dimmed = isDimmed(appt.status);
                       return (
                         <button
                           key={appt.id}
@@ -792,7 +949,8 @@ export default function CalendarPage() {
             {isToday(currentDate) && (() => {
               const now = new Date();
               const currentH = now.getHours() + now.getMinutes() / 60;
-              const top = currentH * ROW_PX;
+              if (currentH < winStart || currentH > winEnd) return null;
+              const top = (currentH - winStart) * ROW_PX;
               return (
                 <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                   <div className="flex items-center">
@@ -1101,6 +1259,42 @@ export default function CalendarPage() {
             setAgendaDate(null);
           }}
         />
+      )}
+
+      {/* Quick-add appointment (DARK overlay) — opened from a "+" empty slot.
+          Barber, date and time are fixed by the slot; the owner just picks a
+          client + service. */}
+      {addCtx && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-40" onClick={() => !savingAdd && setAddCtx(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">New appointment</h3>
+                <button onClick={() => !savingAdd && setAddCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
+              </div>
+              <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#aaa] space-y-0.5">
+                <p><span className="text-[#777]">Barber:</span> {addCtx.barberName}</p>
+                <p><span className="text-[#777]">When:</span> {friendlyDate(currentDate)} · {addCtx.time}</p>
+              </div>
+              <Input label="Client name *" value={addForm.client_name}
+                onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
+              <Input label="Phone" value={addForm.client_phone}
+                onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
+              <Select label="Service *" value={addForm.service_id}
+                onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
+                <option value="">Select a service</option>
+                {services.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>
+                ))}
+              </Select>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
+                <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
