@@ -5,7 +5,17 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-15) — Calendar chrome: day default, one date dropdown, persistent barber row
+### LATEST (2026-06-15) — Calendar: paginated barber columns (arrows + swipe)
+- All-barbers day view no longer h-scrolls; it now shows **as many barber columns
+  as fit** and **pages** the rest. A slim bar ("Barbers 1–4 of 8" with ‹ ›) plus
+  **left/right swipe** load the next/previous set. Columns fill the width (1fr).
+- `perPage` measured via ResizeObserver on the columns area (≈78px/col mobile,
+  150px/col desktop; fallback 4 mobile / 6 desktop before measure).
+- Working window computed from ALL barbers so the time rail doesn't jump between
+  pages; avatar colors keyed to each barber's global index so they stay stable.
+- Single-barber view unchanged (the card grid / "horizontal blocks").
+
+### (2026-06-15) — Calendar chrome: day default, one date dropdown, persistent barber row
 - **Day is the default view** now (was month).
 - Date nav collapsed to **one contextual dropdown** (Today / Tomorrow / weekday …;
   week & month variants too) — removed the prev/Today/next arrows + `navigate`.

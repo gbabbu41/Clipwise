@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronDown, X, Plus, Users } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -357,6 +357,11 @@ export default function CalendarPage() {
   const [savingAdd, setSavingAdd] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
+  // Barber-column pagination for the all-barbers day view (arrows / swipe).
+  const [colPage, setColPage] = useState(0);
+  const [colWrapW, setColWrapW] = useState(0);
+  const colWrapRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -463,6 +468,16 @@ export default function CalendarPage() {
     if (view === "week") scrollRef.current.scrollTop = DEFAULT_SCROLL_HOUR * ROW_PX;
     else if (view === "day") scrollRef.current.scrollTop = 0;
   }, [view]);
+
+  // Measure the day-columns area so we can page however many barber columns fit.
+  useEffect(() => {
+    const el = colWrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => setColWrapW(entries[0].contentRect.width));
+    ro.observe(el);
+    setColWrapW(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, [view, barberFilter, isMobile]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -865,10 +880,19 @@ export default function CalendarPage() {
     }
 
     // All barbers → per-barber columns (vertical lists), bounded to working
-    // hours. Horizontally scrolls on narrow screens.
-    const cols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+    // hours. Paginated: show as many columns as fit; arrows / swipe load more.
+    const allCols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+    const perPage = colWrapW > 0
+      ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 78 : 150)))
+      : (isMobile ? 4 : 6);
+    const pages = Math.max(1, Math.ceil(allCols.length / perPage));
+    const page = Math.max(0, Math.min(colPage, pages - 1));
+    const cols = allCols.slice(page * perPage, page * perPage + perPage);
+
+    // Working window from ALL barbers + bookings, so the time rail stays put
+    // when you page between barber sets.
     const starts: number[] = [], ends: number[] = [];
-    cols.forEach(b => {
+    allCols.forEach(b => {
       const s = schedules.get(b.id);
       if (s) { starts.push(hourOfDb(s.start)); ends.push(hourOfDb(s.end)); }
     });
@@ -880,23 +904,47 @@ export default function CalendarPage() {
     const hours: number[] = [];
     for (let h = winStart; h < winEnd; h++) hours.push(h);
 
+    const goPrev = () => setColPage(p => Math.max(0, p - 1));
+    const goNext = () => setColPage(p => Math.min(pages - 1, p + 1));
+
     return (
-      <div ref={scrollRef} className="overflow-auto h-full">
-        <div className="min-w-[600px]">
-          <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
-            <div />
-            {cols.map((b, i) => (
-              <div key={b.id} className="px-3 py-3 text-center border-l border-gray-100">
-                <div className="flex flex-col items-center gap-1">
-                  <BarberAvatar b={b} i={i} />
-                  <p className="text-xs text-gray-900 font-medium">{b.name}</p>
-                </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
-                </p>
-              </div>
-            ))}
+      <div ref={colWrapRef} className="flex flex-col h-full">
+        {pages > 1 && (
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 text-xs text-gray-500 flex-shrink-0">
+            <button onClick={goPrev} disabled={page === 0} aria-label="Previous barbers"
+              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+            <span>Barbers {page * perPage + 1}–{Math.min(allCols.length, page * perPage + perPage)} of {allCols.length}</span>
+            <button onClick={goNext} disabled={page >= pages - 1} aria-label="More barbers"
+              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
           </div>
+        )}
+        <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1"
+          onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={e => {
+            if (touchStartX.current == null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            touchStartX.current = null;
+            if (Math.abs(dx) < 50) return;
+            if (dx < 0) goNext(); else goPrev();
+          }}>
+          <div>
+            <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+              <div />
+              {cols.map((b) => {
+                const gi = barbers.indexOf(b);
+                return (
+                  <div key={b.id} className="px-3 py-3 text-center border-l border-gray-100">
+                    <div className="flex flex-col items-center gap-1">
+                      <BarberAvatar b={b} i={gi >= 0 ? gi : 0} />
+                      <p className="text-xs text-gray-900 font-medium truncate w-full">{b.name}</p>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
 
           <div className="relative">
             {hours.map(hour => (
@@ -981,6 +1029,7 @@ export default function CalendarPage() {
                 </div>
               );
             })()}
+          </div>
           </div>
         </div>
       </div>
