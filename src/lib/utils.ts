@@ -236,6 +236,27 @@ export function prettyDate(d: string | null | undefined): string {
   });
 }
 
+/**
+ * Like prettyDate, but prefixes Today/Tomorrow when the date matches.
+ * Uses UTC date strings for comparison — safe on Vercel (UTC server).
+ *
+ *   today's UTC date     → "Today · June 15"
+ *   tomorrow's UTC date  → "Tomorrow · June 16"
+ *   any other date       → "June 14"  (unchanged from prettyDate)
+ */
+export function prettyDateWithContext(d: string | null | undefined): string {
+  const pretty = prettyDate(d);
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d) || !pretty) return pretty;
+  const now = new Date();
+  const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  const tomorrowDate = new Date(now);
+  tomorrowDate.setUTCDate(now.getUTCDate() + 1);
+  const tomorrowUTC = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
+  if (d === todayUTC) return `Today · ${pretty}`;
+  if (d === tomorrowUTC) return `Tomorrow · ${pretty}`;
+  return pretty;
+}
+
 /** True if the given date is strictly before today (local time) */
 export function isDateInPast(date: Date): boolean {
   const today = new Date();

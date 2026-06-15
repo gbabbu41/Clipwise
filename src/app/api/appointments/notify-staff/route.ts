@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { prettyDate } from "@/lib/utils";
+import { prettyDateWithContext } from "@/lib/utils";
 
 /**
  * Fire-and-forget staff alerts for a NEW booking — the pieces the booking
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const serviceName = Array.isArray(appt.services)
       ? (appt.services[0]?.name ?? "a service")
       : ((appt.services as { name?: string } | null)?.name ?? "a service");
-    const friendly = prettyDate(appt.date);
+    const friendly = prettyDateWithContext(appt.date);
 
     // Unpaid/null = a pay-in-person booking that still needs the owner/barber to Approve.
     const needsApproval = !appt.payment_status || appt.payment_status === "unpaid";
