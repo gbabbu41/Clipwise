@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
     time_slot: string;               // "9:00 AM"
     total_amount: number;
     pay_in_person?: boolean;         // tag the row as cash/unpaid
+    confirmed?: boolean;             // owner-booked → skip the approval queue
+    note?: string;                   // extra note (e.g. "outside working hours")
   };
 
   if (!b.shop_id || !b.service_id || !b.client_name || !b.date || !b.time_slot) {
@@ -64,7 +66,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const status = autoConfirm ? "confirmed" : "pending";
+  // Owner-initiated bookings (b.confirmed) skip approval; customer self-bookings
+  // still respect the shop's auto-confirm setting.
+  const status = (b.confirmed || autoConfirm) ? "confirmed" : "pending";
+  const noteParts = [b.note, b.service_names ? `Services: ${b.service_names}` : null].filter(Boolean);
   const baseRow = {
     shop_id: b.shop_id,
     barber_id: barberId,
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
     deposit_paid: false,
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
-    notes: b.service_names ? `Services: ${b.service_names}` : null,
+    notes: noteParts.length ? noteParts.join(" · ") : null,
   };
 
   // Insert with duration_minutes; if the column doesn't exist yet (pre-phase14),

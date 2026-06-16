@@ -5,7 +5,17 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-16) — Calendar: grid fills to 10 PM (no black gap), empties kept
+### LATEST (2026-06-16) — Calendar: grey out-of-schedule slots + owner-add = Booked
+- Day-columns now show "+" boxes across the whole visible grid; slots **outside a
+  barber's schedule are greyed** (lighter dashed box + faint "+") but still
+  clickable. Booking one shows an **"outside working hours" caution** in the add
+  modal and tags the appointment notes. Barbers with no schedule are unchanged
+  (boxes not greyed — we don't know their hours).
+- **Owner-added appointments are now "Booked" (confirmed)** instead of going to the
+  approval queue. `/api/book/in-person` gained `confirmed?` + `note?` params;
+  customer self-bookings still respect shop auto-confirm.
+
+### (2026-06-16) — Calendar: grid fills to 10 PM (no black gap), empties kept
 - Day-columns grid now always runs to **at least 10 PM** (`winEnd ≥ 22`) and starts
   by 9 AM, so the white canvas fills the viewport — fixes the black gap below the
   calendar before the footer.

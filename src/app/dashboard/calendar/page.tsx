@@ -674,6 +674,15 @@ export default function CalendarPage() {
     );
   };
 
+  // True when a time falls outside a barber's set schedule (false if they have
+  // no schedule — then we don't know their hours, so it's not flagged).
+  const isOutsideSchedule = (barberId: string, time: string) => {
+    const s = schedules.get(barberId);
+    if (!s || !time) return false;
+    const m = timeToMinutes(time);
+    return m < timeToMinutes(dbTimeToDisplay(s.start)) || m >= timeToMinutes(dbTimeToDisplay(s.end));
+  };
+
   // Open the quick-add modal pre-filled for a slot.
   const openAdd = (barberId: string, barberName: string, time: string) => {
     setAddForm({ client_name: "", client_phone: "", service_id: "", time });
@@ -681,13 +690,15 @@ export default function CalendarPage() {
   };
 
   // Quick-add an in-person appointment from a "+" empty slot (server-side route
-  // runs the conflict check + creates the booking). The time can be a 15-min
-  // offset chosen in the modal, even though the "+" boxes are every 30 min.
+  // runs the conflict check + creates the booking). Owner-booked → confirmed
+  // ("Booked"), never the approval queue. The time can be a 15-min offset chosen
+  // in the modal; booking outside the barber's hours tags an "outside hours" note.
   const createAppointment = async () => {
     if (!shop || !addCtx) return;
     const time = addForm.time || addCtx.time;
     if (!addForm.client_name.trim() || !addForm.service_id) { showToast("Add a name and pick a service"); return; }
     const svc = services.find(s => s.id === addForm.service_id);
+    const outside = isOutsideSchedule(addCtx.barberId, time);
     setSavingAdd(true);
     const res = await fetch("/api/book/in-person", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -696,6 +707,8 @@ export default function CalendarPage() {
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
         date: formatDateForDb(currentDate), time_slot: time,
         total_amount: svc?.price ?? 0, duration_minutes: svc?.duration_minutes, pay_in_person: true,
+        confirmed: true,
+        note: outside ? "⚠️ Booked outside the barber's working hours" : undefined,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -703,7 +716,7 @@ export default function CalendarPage() {
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
     setAddForm({ client_name: "", client_phone: "", service_id: "", time: "" });
-    showToast("Appointment added");
+    showToast(outside ? "Booked · outside working hours" : "Booked");
     load();
   };
 
@@ -1033,22 +1046,29 @@ export default function CalendarPage() {
               {cols.map((b) => {
                 const colAppts = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id);
                 const laid = layoutColumn(colAppts);
-                // Free slots within the working window (schedule, or 9–6 default)
-                // shown every 30 min.
-                const win = schedules.get(b.id) ?? { start: "09:00:00", end: "22:00:00" };
-                const empties = windowEmpties(b.id, dateStr, win);
+                // Show "+" boxes across the whole visible grid; the ones outside
+                // the barber's schedule are greyed (still bookable as overtime).
+                const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
+                const empties = windowEmpties(b.id, dateStr, gridWin);
                 return (
                   <div key={b.id} className="relative">
-                    {/* Free 30-min slots → "+ Add" */}
+                    {/* Free 30-min slots → "+ Add" (greyed when outside hours) */}
                     {empties.map((slot) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
                       const height = Math.max(20, (EMPTY_STEP / 60) * ROW_PX - 4);
+                      const outside = isOutsideSchedule(b.id, slot);
                       return (
                         <button key={`e${slot}`}
+                          title={outside ? "Outside working hours" : undefined}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
-                          className="group rounded-lg border border-dashed border-gray-300 bg-gray-50/40 hover:border-amber-400 hover:bg-amber-50/60 transition-colors pointer-events-auto flex items-center justify-center"
+                          className={cn(
+                            "group rounded-lg border border-dashed transition-colors pointer-events-auto flex items-center justify-center",
+                            outside
+                              ? "border-gray-200 bg-gray-100/60 hover:border-amber-300 hover:bg-amber-50/40"
+                              : "border-gray-300 bg-gray-50/40 hover:border-amber-400 hover:bg-amber-50/60",
+                          )}
                           onClick={() => openAdd(b.id, b.name, slot)}>
-                          <Plus size={15} className="text-gray-400 group-hover:text-amber-500" />
+                          <Plus size={15} className={cn(outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
                         </button>
                       );
                     })}
@@ -1450,6 +1470,9 @@ export default function CalendarPage() {
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
                 {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
               </Select>
+              {isOutsideSchedule(addCtx.barberId, addForm.time) && (
+                <p className="text-xs text-amber-400">⚠️ This is outside {addCtx.barberName}&apos;s working hours.</p>
+              )}
               <Select label="Service *" value={addForm.service_id}
                 onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
                 <option value="">Select a service</option>
