@@ -60,7 +60,7 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   // settled-and-done states the owner doesn't need to act on.
   const ACTIVE = "bg-[#1a1a1a] text-white";
   const MUTED  = "bg-[#1a1a1a] text-[#888]";
-  const PAID   = "bg-[#00e5a0]/15 text-[#00e5a0]"; // green — payment settled
+  const PAID   = "text-[#00e5a0]"; // green text only — no pill/border for paid
 
   if (status === "paid") {
     const suffix = method === "online" ? " · Online" : method === "card" ? " · Card" : "";
@@ -85,6 +85,21 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   }
 
   return null;
+}
+
+// Status pill. "Completed" reads as blue with a small blue tick on the left;
+// every other status keeps its existing monochrome treatment.
+function StatusPill({ status }: { status: string }) {
+  const completed = status === "completed";
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize",
+      completed ? "bg-blue-500/15 text-blue-400" : getStatusColor(status),
+    )}>
+      {completed && <span className="text-blue-400 text-[10px] leading-none">✓</span>}
+      {statusLabel(status)}
+    </span>
+  );
 }
 
 // Block length (minutes) — multi-service bookings store their combined length
@@ -127,7 +142,7 @@ export default function AppointmentsPage() {
   const [search, setSearch] = useState("");
   // Default view = the action queue: open appointments (pending + booked) from
   // today onward. The owner can widen via the date / status dropdowns.
-  const [dateFilter, setDateFilter] = useState("upcoming");
+  const [dateFilter, setDateFilter] = useState("today");
   const [pickedDate, setPickedDate] = useState<string | null>(null); // calendar filter (YYYY-MM-DD)
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [barberFilter, setBarberFilter] = useState("all");
@@ -962,9 +977,7 @@ export default function AppointmentsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
-                    <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
-                      {statusLabel(apt.status)}
-                    </span>
+                    <StatusPill status={apt.status} />
                   </div>
                 </div>
                 {/* Secondary row — date + phone + payment badge (only shown
@@ -1051,9 +1064,7 @@ export default function AppointmentsPage() {
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
                         <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}{apptDuration(apt) ? <span className="text-[#555]"> · {apptDuration(apt)} min</span> : null}</td>
                         <td className="px-4 py-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap capitalize", getStatusColor(apt.status))}>
-                            {statusLabel(apt.status)}
-                          </span>
+                          <StatusPill status={apt.status} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</p>
