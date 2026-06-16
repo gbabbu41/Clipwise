@@ -795,7 +795,10 @@ export default function AppointmentsPage() {
           <h1 className="text-2xl font-bold text-white">Appointments</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage bookings and waitlist</p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>+ Add Appointment</Button>
+        <button onClick={() => setShowAddModal(true)} aria-label="Add appointment"
+          className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-2xl leading-none hover:opacity-90 transition-opacity flex-shrink-0">
+          +
+        </button>
       </div>
 
       {/* Stats bar — v2 reference treatment: uppercase grey label, 28px

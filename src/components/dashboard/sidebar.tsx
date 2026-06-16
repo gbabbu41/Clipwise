@@ -420,7 +420,7 @@ export function MobileNav() {
   // way to reach everything else (Staff, Services, Settings, etc.).
   const linkItems = [
     { href: "/dashboard",              label: "Home",         emoji: "🏠" },
-    { href: "/dashboard/appointments", label: "Appointments", emoji: "📅" },
+    { href: "/dashboard/appointments", label: "Appointments", emoji: "📋" },
     { href: "/dashboard/calendar",     label: "Calendar",     emoji: "🗓️" },
     { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
     { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
