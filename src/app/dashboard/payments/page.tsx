@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency, cn, timeAgo, prettyDate } from "@/lib/utils";
+import { formatCurrency, cn, timeAgo, prettyDate, timeToMinutes } from "@/lib/utils";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -32,6 +32,7 @@ interface TxRow {
   payment_method: string | null;
   type: string;
   created_at: string;
+  stripe_session_id: string | null;
 }
 
 type Filter = "all" | "collected" | "outstanding" | "pending" | "refunded";
@@ -76,7 +77,7 @@ export default function PaymentsPage() {
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, services(name), barbers(name)")
         .eq("shop_id", shop.id).gt("total_amount", 0).order("date", { ascending: false }),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at")
+        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -97,12 +98,61 @@ export default function PaymentsPage() {
     return () => { active = false; };
   }, [accessToken, loadData]);
 
-  // ── Summary ────────────────────────────────────────────────────────────────
-  const collectedFromAppts = appts
-    .filter(a => a.payment_status === "paid" || a.payment_status === "captured")
-    .reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const collectedFromTx = txs.reduce((s, t) => s + (t.amount ?? 0) + (t.tip ?? 0), 0);
-  const collected = collectedFromAppts + collectedFromTx;
+  // ── One de-duped, time-sorted feed (appointments + POS sales) ───────────────
+  // Appointment card-charges (no-show / completion) ALSO write a transactions
+  // row; we show the appointment for those and drop the duplicate tx so nothing
+  // is listed or counted twice. A POS sale always has a stripe_session_id (card)
+  // or comes straight from the POS screen — appointment captures never do.
+  const isPaid = (s: string | null) => s === "paid" || s === "captured";
+  const apptDateMs = (a: ApptRow) => new Date(a.date + "T00:00:00").getTime() + timeToMinutes(a.time_slot) * 60000;
+
+  type FeedItem = {
+    key: string; name: string; sub: string; amount: number;
+    statusLabel: string; tone: string; settled: boolean;
+    settledIso: string | null; settledTs: number; apptTs: number;
+    appt?: ApptRow;
+  };
+
+  // (client|amount) of collected appointments — used to spot the duplicate
+  // capture transaction (full charge) that has no Stripe session id.
+  const paidSig = new Set(appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`));
+  const posTxs = txs.filter(t => {
+    if ((t.service_name ?? "").startsWith("No-show fee")) return false;                 // appt no-show charge
+    if (!t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false; // appt completion charge
+    return true;
+  });
+
+  const feedAll: FeedItem[] = [
+    ...appts.map((a): FeedItem => {
+      const info = statusInfo(a.payment_status);
+      const paid = isPaid(a.payment_status);
+      return {
+        key: `a${a.id}`,
+        name: a.client_name,
+        sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
+        amount: a.total_amount ?? 0,
+        statusLabel: info.label, tone: info.tone, settled: paid,
+        settledIso: paid ? a.paid_at : null,
+        settledTs: paid && a.paid_at ? new Date(a.paid_at).getTime() : apptDateMs(a),
+        apptTs: apptDateMs(a),
+        appt: a,
+      };
+    }),
+    ...posTxs.map((t): FeedItem => ({
+      key: `t${t.id}`,
+      name: t.client_name || "Walk-in",
+      sub: `${t.service_name || "Sale"} · POS`,
+      amount: (t.amount ?? 0) + (t.tip ?? 0),
+      statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
+      tone: "good", settled: true,
+      settledIso: t.created_at,
+      settledTs: new Date(t.created_at).getTime(),
+      apptTs: new Date(t.created_at).getTime(),
+    })),
+  ];
+
+  // ── Summary (from the de-duped feed) ────────────────────────────────────────
+  const collected = feedAll.filter(i => i.settled).reduce((s, i) => s + i.amount, 0);
   const outstanding = appts
     .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
     .reduce((s, a) => s + (a.total_amount ?? 0), 0);
@@ -190,17 +240,23 @@ export default function PaymentsPage() {
     }
   };
 
-  const filteredAppts = appts.filter(a => {
-    const s = a.payment_status;
-    if (filter === "all") return true;
-    if (filter === "collected") return s === "paid" || s === "captured";
-    if (filter === "outstanding") return s === "unpaid" || s === "failed" || !s;
-    if (filter === "pending") return s === "held" || s === "saved";
-    if (filter === "refunded") return s === "refunded";
-    return true;
-  });
-  // POS sales only show under All / Collected (they're always paid).
-  const showTx = filter === "all" || filter === "collected";
+  // Filter, then sort: items awaiting action (unsettled) first by appointment
+  // time, then settled items newest-first by when the money actually moved.
+  const feed = feedAll
+    .filter(i => {
+      const s = i.appt?.payment_status;
+      if (filter === "all") return true;
+      if (filter === "collected") return i.settled;
+      if (filter === "outstanding") return !!i.appt && (s === "unpaid" || s === "failed" || !s);
+      if (filter === "pending") return s === "held" || s === "saved";
+      if (filter === "refunded") return s === "refunded";
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.settled !== b.settled) return a.settled ? 1 : -1;          // unsettled first
+      if (!a.settled) return b.apptTs - a.apptTs;                       // recent appt first
+      return b.settledTs - a.settledTs;                                // recent payment first
+    });
 
   const FILTERS: { key: Filter; label: string }[] = [
     { key: "all", label: "All" },
@@ -270,63 +326,53 @@ export default function PaymentsPage() {
 
       {loading ? (
         <div className="py-16 text-center text-[#777] text-sm">Loading payments…</div>
+      ) : feed.length === 0 ? (
+        <div className="py-16 text-center text-[#777] text-sm">No payments here yet.</div>
       ) : (
         <div className="space-y-2">
-          {filteredAppts.length === 0 && !(showTx && txs.length > 0) && (
-            <div className="py-16 text-center text-[#777] text-sm">No payments here yet.</div>
-          )}
-
-          {/* Appointment payments */}
-          {filteredAppts.map(a => {
-            const info = statusInfo(a.payment_status);
-            const canRefresh = !!a.payment_intent_id && a.payment_status !== "paid" && a.payment_status !== "captured" && a.payment_status !== "refunded";
-            const canSendLink = (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
+          {feed.map(i => {
+            const a = i.appt;
+            const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
+            const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
             return (
-              <div key={a.id} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 flex items-center gap-3 flex-wrap">
-                <div className="flex-1 min-w-[180px]">
-                  <p className="text-sm font-semibold text-white">{a.client_name}</p>
-                  <p className="text-xs text-[#777]">
-                    {a.services?.name ?? "Service"} · {prettyDate(a.date)} · {a.time_slot}
-                    {a.barbers?.name ? ` · ${a.barbers.name}` : ""}
-                  </p>
+              <div key={i.key} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white truncate">{i.name}</p>
+                    <p className="text-xs text-[#777] truncate">{i.sub}</p>
+                    <p className="text-[11px] text-[#666] mt-0.5">
+                      {i.settled
+                        ? (i.settledIso ? timeAgo(i.settledIso) : "Paid")
+                        : (a ? `${prettyDate(a.date)} · ${a.time_slot}` : "")}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-base font-bold text-white">{formatCurrency(i.amount)}</p>
+                    <span className={cn("inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[i.tone])}>
+                      {!a && (i.statusLabel.includes("Cash") ? <Banknote size={11} /> : <CreditCard size={11} />)}
+                      {i.statusLabel}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-base font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</span>
-                {(a.payment_status === "paid" || a.payment_status === "captured") && a.paid_at && (
-                  <span className="text-[11px] text-[#777]">{timeAgo(a.paid_at)}</span>
-                )}
-                <span className={cn("text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[info.tone])}>{info.label}</span>
-                {canSendLink && (
-                  <button onClick={() => openSendLink(a)} disabled={busy === a.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
-                    <Send size={13} /> {busy === a.id ? "…" : "Send link"}
-                  </button>
-                )}
-                {canRefresh && (
-                  <button onClick={() => refresh(a)} disabled={busy === a.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
-                    <RefreshCw size={13} className={busy === a.id ? "animate-spin" : ""} /> Refresh
-                  </button>
+                {a && (canSendLink || canRefresh) && (
+                  <div className="flex gap-2 mt-3">
+                    {canSendLink && (
+                      <button onClick={() => openSendLink(a)} disabled={busy === a.id}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
+                        <Send size={13} /> {busy === a.id ? "…" : "Send link"}
+                      </button>
+                    )}
+                    {canRefresh && (
+                      <button onClick={() => refresh(a)} disabled={busy === a.id}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
+                        <RefreshCw size={13} className={busy === a.id ? "animate-spin" : ""} /> Refresh
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             );
           })}
-
-          {/* POS sales */}
-          {showTx && txs.map(t => (
-            <div key={t.id} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 flex items-center gap-3 flex-wrap">
-              <div className="flex-1 min-w-[180px]">
-                <p className="text-sm font-semibold text-white">{t.client_name || "Walk-in"}</p>
-                <p className="text-xs text-[#777]">
-                  {t.service_name || "Sale"} · POS · {new Date(t.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                </p>
-              </div>
-              <span className="text-base font-bold text-white">{formatCurrency((t.amount ?? 0) + (t.tip ?? 0))}</span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#00e5a0]/15 text-[#00e5a0]">
-                {t.payment_method === "cash" ? <Banknote size={12} /> : <CreditCard size={12} />}
-                Paid{t.payment_method ? ` · ${t.payment_method === "cash" ? "Cash" : "Card"}` : ""}
-              </span>
-            </div>
-          ))}
         </div>
       )}
 
