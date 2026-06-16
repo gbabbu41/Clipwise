@@ -986,7 +986,14 @@ export default function CalendarPage() {
           }}>
           <div>
             <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
-              <div />
+              {/* "All barbers" — focused here since we're in the all-barbers view */}
+              <button type="button" onClick={() => setBarberFilter("all")}
+                className="flex flex-col items-center justify-center gap-1 py-3 hover:bg-gray-50 transition-colors">
+                <span className={cn("w-9 h-9 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-gold ring-offset-1")}>
+                  <Users size={16} />
+                </span>
+                <span className="text-[9px] text-gray-500 leading-tight">All</span>
+              </button>
               {cols.map((b) => {
                 const gi = barbers.indexOf(b);
                 return (
