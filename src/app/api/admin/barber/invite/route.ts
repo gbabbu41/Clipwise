@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
-  const { name, email: rawEmail, commission_percent = 50 } = await request.json() as {
-    name: string; email: string; commission_percent?: number;
+  const { name, email: rawEmail, commission_percent = 50, skip_invite = false } = await request.json() as {
+    name: string; email: string; commission_percent?: number; skip_invite?: boolean;
   };
 
   if (!name || !rawEmail) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -100,6 +100,12 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Manual add — the owner just wants the barber on the roster, no app invite.
+  // Skip the link generation + email entirely so the request can't hang.
+  if (skip_invite) {
+    return NextResponse.json({ ok: true, barber, manual: true });
+  }
+
   const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite`;
 
   // Try invite link (new user); fall back to magic link (existing user)
@@ -134,11 +140,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
   }
 
-  // Send branded invite email via Resend
+  // Send branded invite email via Resend — best-effort and time-bounded so a
+  // slow/blocked email provider can never hang the request (the owner also gets
+  // the link back in the UI to copy/paste).
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const emailCtrl = new AbortController();
+  const emailTimeout = setTimeout(() => emailCtrl.abort(), 6000);
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: emailCtrl.signal,
     body: JSON.stringify({
       type: "barber_invite",
       data: {
@@ -150,7 +161,8 @@ export async function POST(request: NextRequest) {
         existingAccount: existingAccount ? "true" : "false",
       },
     }),
-  });
+  }).catch(() => null);
+  clearTimeout(emailTimeout);
 
   // Return the link too — the owner can copy/paste it manually if the
   // email doesn't arrive (Resend sandbox restrictions, spam filter, etc.)

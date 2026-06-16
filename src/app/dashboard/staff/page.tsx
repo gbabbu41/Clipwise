@@ -265,7 +265,7 @@ export default function StaffPage() {
   // ── Add or invite a barber (single API path) ────────────────────────────────
   // Email is mandatory in both tabs — it's the only unique identifier we have
   // to differentiate owner-self adds (instant) from external invites.
-  const submitNewBarber = async () => {
+  const submitNewBarber = async (skipInvite = false) => {
     if (!shop) return;
     if (!addForm.name.trim()) { showToast("Full name is required"); return; }
     const emailErr = validateEmail(addForm.email.trim());
@@ -286,6 +286,7 @@ export default function StaffPage() {
         name: addForm.name.trim(),
         email: addForm.email.trim(),
         commission_percent: parseInt(addForm.commission_percent) || 50,
+        skip_invite: skipInvite,
       }),
     });
     const data = await res.json();
@@ -297,6 +298,15 @@ export default function StaffPage() {
       setShowAddModal(false);
       setAddForm({ name: "", email: "", commission_percent: "50" });
       showToast("You have been added as a barber! Open 'My Barber View' from the sidebar.");
+      loadBarbers();
+      return;
+    }
+
+    // Manual add (no app invite) → just create the record and refresh.
+    if (data.manual) {
+      setShowAddModal(false);
+      setAddForm({ name: "", email: "", commission_percent: "50" });
+      showToast("Barber added");
       loadBarbers();
       return;
     }
@@ -315,10 +325,10 @@ export default function StaffPage() {
     loadBarbers();
   };
 
-  // Both tabs (Invite / Add Manually) now run the same flow — the API decides
-  // whether to send an invite email or link the owner's user_id directly.
-  const inviteBarber = submitNewBarber;
-  const addBarber = submitNewBarber;
+  // Both tabs (Invite / Add Manually) run the same API path; the "manual" tab
+  // skips the invite email so it can't hang on a slow email send.
+  const inviteBarber = () => submitNewBarber(false);
+  const addBarber = () => submitNewBarber(true);
 
   // ── Owner self-add (one tap) ────────────────────────────────────────────────
   // Reuses the invite route: when the email matches the caller's, it links the
