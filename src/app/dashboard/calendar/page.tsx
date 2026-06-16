@@ -123,7 +123,6 @@ const STATUS_LABEL: Record<string, string> = {
   pending: "Pending", confirmed: "Booked", completed: "Completed",
   cancelled: "Cancelled", "no-show": "No-show",
 };
-const STATUS_ORDER = ["confirmed", "pending", "completed", "cancelled", "no-show"] as const;
 const statusBlock = (s: string) => STATUS_BLOCK[s] ?? "bg-sky-50 text-sky-900 border-l-4 border-sky-400";
 const statusChip = (s: string) => STATUS_CHIP[s] ?? "bg-sky-100 text-sky-800";
 const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-white";
@@ -353,7 +352,7 @@ export default function CalendarPage() {
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string } | null>(null);
-  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "" });
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "", time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
@@ -595,26 +594,59 @@ export default function CalendarPage() {
     },
   }), [shop, accessToken, applyLocal, showToast]);
 
-  // Slot granularity from shop settings (15 or 30) — drives empty-slot density.
-  const slotInterval = ((shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes) || 30;
+  // Empty "+" slots are shown every 30 min; a booking can still be added on a
+  // 15-min offset via the add modal's time picker.
+  const EMPTY_STEP = 30;
+  const ADD_STEP = 15;
 
-  // Display-slots a barber's live appointments cover on the given day.
-  const bookedSlotsFor = useCallback((barberId: string, dateStr: string) => {
+  // Display-slots a barber's live appointments cover on the given day, at the
+  // requested step. Cancelled/no-show are ignored so their times read as free.
+  const bookedSlotsFor = useCallback((barberId: string, dateStr: string, step: number = EMPTY_STEP) => {
     const set = new Set<string>();
     appointments.forEach(a => {
       if (a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status)) {
-        occupiedSlots(a.time_slot, apptDuration(a), slotInterval).forEach(s => set.add(s));
+        occupiedSlots(a.time_slot, apptDuration(a), step).forEach(s => set.add(s));
       }
     });
     return set;
-  }, [appointments, slotInterval]);
+  }, [appointments]);
 
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
-    const endMin = timeToMinutes(start) + (mins > 0 ? mins : slotInterval);
+    const endMin = timeToMinutes(start) + (mins > 0 ? mins : EMPTY_STEP);
     const h = Math.floor(endMin / 60) % 24, m = endMin % 60;
     const end = dbTimeToDisplay(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
     return `${start} – ${end}`;
+  };
+
+  // Lay overlapping appointments side-by-side: each gets a lane index + the
+  // number of lanes in its overlap cluster, so widths split evenly.
+  const layoutColumn = (appts: AppointmentWithDetails[]) => {
+    const items = appts
+      .map(a => ({ a, start: parseTime(a.time_slot) * 60, end: parseTime(a.time_slot) * 60 + apptDuration(a), lane: 0, lanes: 1 }))
+      .sort((x, y) => x.start - y.start || x.end - y.end);
+    const out: typeof items = [];
+    let cluster: typeof items = [];
+    let clusterEnd = -1;
+    const flush = () => {
+      const laneEnds: number[] = [];
+      cluster.forEach(it => {
+        let placed = false;
+        for (let l = 0; l < laneEnds.length; l++) {
+          if (laneEnds[l] <= it.start) { laneEnds[l] = it.end; it.lane = l; placed = true; break; }
+        }
+        if (!placed) { it.lane = laneEnds.length; laneEnds.push(it.end); }
+      });
+      cluster.forEach(it => { it.lanes = laneEnds.length; out.push(it); });
+      cluster = [];
+    };
+    items.forEach(it => {
+      if (cluster.length && it.start >= clusterEnd) { flush(); clusterEnd = -1; }
+      cluster.push(it);
+      clusterEnd = cluster.length === 1 ? it.end : Math.max(clusterEnd, it.end);
+    });
+    flush();
+    return out;
   };
 
   // Barber profile pic with initials fallback.
@@ -628,10 +660,18 @@ export default function CalendarPage() {
     );
   };
 
+  // Open the quick-add modal pre-filled for a slot.
+  const openAdd = (barberId: string, barberName: string, time: string) => {
+    setAddForm({ client_name: "", client_phone: "", service_id: "", time });
+    setAddCtx({ barberId, barberName, time });
+  };
+
   // Quick-add an in-person appointment from a "+" empty slot (server-side route
-  // runs the conflict check + creates the booking).
+  // runs the conflict check + creates the booking). The time can be a 15-min
+  // offset chosen in the modal, even though the "+" boxes are every 30 min.
   const createAppointment = async () => {
     if (!shop || !addCtx) return;
+    const time = addForm.time || addCtx.time;
     if (!addForm.client_name.trim() || !addForm.service_id) { showToast("Add a name and pick a service"); return; }
     const svc = services.find(s => s.id === addForm.service_id);
     setSavingAdd(true);
@@ -640,7 +680,7 @@ export default function CalendarPage() {
       body: JSON.stringify({
         shop_id: shop.id, barber_id: addCtx.barberId, service_id: addForm.service_id,
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
-        date: formatDateForDb(currentDate), time_slot: addCtx.time,
+        date: formatDateForDb(currentDate), time_slot: time,
         total_amount: svc?.price ?? 0, duration_minutes: svc?.duration_minutes, pay_in_person: true,
       }),
     });
@@ -648,16 +688,23 @@ export default function CalendarPage() {
     setSavingAdd(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
-    setAddForm({ client_name: "", client_phone: "", service_id: "" });
+    setAddForm({ client_name: "", client_phone: "", service_id: "", time: "" });
     showToast("Appointment added");
     load();
   };
 
-  const navigate = (dir: -1 | 1) => {
-    if (view === "month") setCurrentDate(prev => addMonths(prev, dir));
-    else if (view === "week") setCurrentDate(prev => addDays(prev, dir * 7));
-    else setCurrentDate(prev => addDays(prev, dir));
-  };
+  // Free 15-min start times for the add modal (within the barber's window,
+  // excluding times already booked), so a 15-min offset can be picked.
+  const addTimeOptions = useMemo(() => {
+    if (!addCtx) return [] as string[];
+    const sched = schedules.get(addCtx.barberId);
+    const win = sched ?? { start: "09:00:00", end: "18:00:00" };
+    const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
+    const free = getSlotsInRange(win.start, win.end, currentDate, Array.from(booked), ADD_STEP)
+      .filter(s => s.available).map(s => s.slot);
+    if (!free.includes(addCtx.time)) free.unshift(addCtx.time);
+    return free;
+  }, [addCtx, schedules, currentDate, bookedSlotsFor]);
 
   const titleText = useMemo(() => {
     const monthFmt = isMobile ? "short" : "long";
@@ -722,6 +769,7 @@ export default function CalendarPage() {
 
     const apptsByDate = new Map<string, AppointmentWithDetails[]>();
     appointments.forEach(a => {
+      if (a.status === "cancelled") return; // cancelled stay on the Appointments page, not the calendar
       const arr = apptsByDate.get(a.date) ?? [];
       arr.push(a);
       apptsByDate.set(a.date, arr);
@@ -805,9 +853,9 @@ export default function CalendarPage() {
     const sched = schedules.get(barber.id);
     const startDb = sched?.start ?? "09:00:00";
     const endDb = sched?.end ?? "18:00:00";
-    const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id);
+    const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
     const booked = bookedSlotsFor(barber.id, dateStr);
-    const slots = getSlotsInRange(startDb, endDb, currentDate, Array.from(booked), slotInterval);
+    const slots = getSlotsInRange(startDb, endDb, currentDate, Array.from(booked), EMPTY_STEP);
     const apptByStart = new Map(dayAppts.map(a => [a.time_slot, a] as const));
 
     type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string };
@@ -830,9 +878,9 @@ export default function CalendarPage() {
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
-            <button key={`e${ci}`} onClick={() => setAddCtx({ barberId: barber.id, barberName: barber.name, time: c.s })}
+            <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s)}
               className="group rounded-xl border border-dashed border-gray-300 hover:border-gold hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-gray-500">{rangeLabel(c.s, slotInterval)}</span>
+              <span className="text-xs text-gray-500">{rangeLabel(c.s, EMPTY_STEP)}</span>
               <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-gold">
                 <Plus size={14} /> Add
               </span>
@@ -863,7 +911,7 @@ export default function CalendarPage() {
 
   const renderDayView = () => {
     const dateStr = formatDateForDb(currentDate);
-    const dayAppts = appointments.filter(a => a.date === dateStr);
+    const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
     const activeBarberId = barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null);
 
     // A single barber selected (avatar row), or a barber-role user → clean card
@@ -948,9 +996,14 @@ export default function CalendarPage() {
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
-                  {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
+              <div key={hour} className="grid border-b border-gray-100 relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+                {/* half-hour divider line */}
+                <div className="absolute left-14 right-0 border-t border-dashed border-gray-100" style={{ top: `${ROW_PX / 2}px` }} />
+                <div className="relative text-right pr-2">
+                  <span className="text-[10px] text-gray-400">
+                    {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
+                  </span>
+                  <span className="absolute right-2 text-[9px] text-gray-300" style={{ top: `${ROW_PX / 2 - 6}px` }}>:30</span>
                 </div>
                 {cols.map(b => (
                   <div key={b.id} className="border-l border-gray-100" />
@@ -962,48 +1015,55 @@ export default function CalendarPage() {
               <div />
               {cols.map((b) => {
                 const colAppts = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id);
-                const sched = schedules.get(b.id);
-                const empties = sched
-                  ? getSlotsInRange(sched.start, sched.end, currentDate, Array.from(bookedSlotsFor(b.id, dateStr)), slotInterval).filter(s => s.available)
-                  : [];
+                const laid = layoutColumn(colAppts);
+                // Free slots within the working window (schedule, or 9–6 default)
+                // shown every 30 min.
+                const win = schedules.get(b.id) ?? { start: "09:00:00", end: "18:00:00" };
+                const empties = getSlotsInRange(win.start, win.end, currentDate, Array.from(bookedSlotsFor(b.id, dateStr)), EMPTY_STEP).filter(s => s.available);
                 return (
                   <div key={b.id} className="relative">
-                    {/* Free slots within the barber's window → "+ Add" */}
+                    {/* Free 30-min slots → "+ Add" */}
                     {empties.map(({ slot }) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
-                      const height = Math.max(20, (slotInterval / 60) * ROW_PX - 4);
+                      const height = Math.max(20, (EMPTY_STEP / 60) * ROW_PX - 4);
                       return (
                         <button key={`e${slot}`}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className="group rounded-lg border border-dashed border-gray-200 hover:border-gold hover:bg-amber-50/50 transition-colors pointer-events-auto flex items-center justify-center"
-                          onClick={() => setAddCtx({ barberId: b.id, barberName: b.name, time: slot })}>
+                          onClick={() => openAdd(b.id, b.name, slot)}>
                           <Plus size={14} className="text-gray-300 group-hover:text-gold" />
                         </button>
                       );
                     })}
-                    {/* Booked blocks — height ∝ duration, colored by status */}
-                    {colAppts.map(appt => {
+                    {/* Booked blocks — height ∝ duration; overlaps sit side-by-side */}
+                    {laid.map(({ a: appt, lane, lanes }) => {
                       const top = (parseTime(appt.time_slot) - winStart) * ROW_PX;
                       const duration = apptDuration(appt);
                       const height = Math.max(28, (duration / 60) * ROW_PX - 4);
                       const dimmed = isDimmed(appt.status);
+                      const widthPct = 100 / lanes;
                       return (
                         <button
                           key={appt.id}
-                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
+                          style={{
+                            top: `${top + 2}px`, height: `${height}px`,
+                            left: `calc(${lane * widthPct}% + 2px)`,
+                            width: `calc(${widthPct}% - 4px)`,
+                            position: "absolute",
+                          }}
                           className={cn(
-                            "rounded-lg px-2 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:scale-[1.02] hover:z-10 hover:shadow-md shadow-sm",
+                            "rounded-lg px-1.5 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:shadow-md shadow-sm",
                             statusBlock(appt.status),
                             dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <p className="text-xs font-semibold truncate leading-tight">{appt.client_name}</p>
-                          {height > 36 && (
-                            <p className="text-[11px] opacity-80 truncate">{(appt.services as { name: string } | null)?.name}</p>
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 30 && (
+                            <p className="text-[10px] opacity-80 truncate">{rangeLabel(appt.time_slot, duration)}</p>
                           )}
-                          {height > 52 && (
-                            <p className="text-[10px] opacity-70">{appt.time_slot}</p>
+                          {height > 50 && lanes === 1 && (
+                            <p className="text-[10px] opacity-70 truncate">{(appt.services as { name: string } | null)?.name}</p>
                           )}
                         </button>
                       );
@@ -1044,7 +1104,7 @@ export default function CalendarPage() {
     // Mobile: date strip at top, then a single-day timeline for currentDate
     if (isMobile) {
       const selectedStr = formatDateForDb(currentDate);
-      const dayAppts = appointments.filter(a => a.date === selectedStr);
+      const dayAppts = appointments.filter(a => a.date === selectedStr && a.status !== "cancelled");
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
@@ -1146,7 +1206,7 @@ export default function CalendarPage() {
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
-              const dayAppts = appointments.filter(a => a.date === dateStr);
+              const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => setAgendaDate(day)}
@@ -1184,7 +1244,7 @@ export default function CalendarPage() {
               <div />
               {weekDays.map(day => {
                 const dateStr = formatDateForDb(day);
-                const dayAppts = appointments.filter(a => a.date === dateStr);
+                const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
                 return (
                   <div key={dateStr} className="relative">
                     {dayAppts.map(appt => {
@@ -1313,16 +1373,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Status legend — appointments are colored by status */}
-      <div className="px-4 sm:px-6 py-2 border-b border-gray-200 flex flex-wrap gap-x-4 gap-y-1.5">
-        {STATUS_ORDER.map(s => (
-          <span key={s} className="inline-flex items-center gap-1.5 text-xs">
-            <span className={cn("w-2.5 h-2.5 rounded-full", statusDot(s))} />
-            <span className="text-gray-500">{statusLabel(s)}</span>
-          </span>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-hidden bg-white">
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
@@ -1346,7 +1396,7 @@ export default function CalendarPage() {
       {agendaDate && (
         <AgendaSheet
           date={agendaDate}
-          appts={appointments.filter(a => a.date === formatDateForDb(agendaDate))}
+          appts={appointments.filter(a => a.date === formatDateForDb(agendaDate) && a.status !== "cancelled")}
           barbers={barbers}
           onClose={() => setAgendaDate(null)}
           onOpenAppt={(a) => { setAgendaDate(null); setSelectedAppt(a); }}
@@ -1372,12 +1422,16 @@ export default function CalendarPage() {
               </div>
               <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#aaa] space-y-0.5">
                 <p><span className="text-[#777]">Barber:</span> {addCtx.barberName}</p>
-                <p><span className="text-[#777]">When:</span> {friendlyDate(currentDate)} · {addCtx.time}</p>
+                <p><span className="text-[#777]">When:</span> {friendlyDate(currentDate)}</p>
               </div>
               <Input label="Client name *" value={addForm.client_name}
                 onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone}
                 onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
+              <Select label="Time" value={addForm.time}
+                onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
+                {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+              </Select>
               <Select label="Service *" value={addForm.service_id}
                 onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
                 <option value="">Select a service</option>

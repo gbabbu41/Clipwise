@@ -5,7 +5,25 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-15) — Calendar: paginated barber columns (arrows + swipe)
+### LATEST (2026-06-16) — Calendar day-view polish (overlap, empties, 30-min rail, 15-min add)
+- **Cancelled appointments are hidden from the whole calendar** (month/week/day +
+  agenda); they still live on the Appointments page. This removed the reported
+  "overlap" (a cancelled + completed sharing a slot).
+- **Genuine overlaps now sit side-by-side** in a column via `layoutColumn` (lane
+  packing → each block gets `lane`/`lanes`, widths split evenly with calc()).
+- **"+" empty boxes restored** in the columns — generated from the working window
+  (schedule, or **9–6 fallback** when unset) at **30-min** steps. They were
+  vanishing because unscheduled barbers got no empties.
+- **Booked boxes show the time window** ("2:30 – 3:00 PM") in the columns too,
+  like the card grid.
+- **Time rail shows 30-min marks** (dashed half-hour line + ":30" label).
+- Removed the **status color legend** bar.
+- **Add modal got a 15-min Time picker** (`addTimeOptions`): empty boxes are 30-min,
+  but you can book a 15-min offset when free. `openAdd()` prefills barber/date/time;
+  `createAppointment` uses the chosen time. Constants `EMPTY_STEP=30`, `ADD_STEP=15`
+  replaced `slotInterval`; removed dead `navigate` + unused `STATUS_ORDER`.
+
+### (2026-06-15) — Calendar: paginated barber columns (arrows + swipe)
 - All-barbers day view no longer h-scrolls; it now shows **as many barber columns
   as fit** and **pages** the rest. A slim bar ("Barbers 1–4 of 8" with ‹ ›) plus
   **left/right swipe** load the next/previous set. Columns fill the width (1fr).
