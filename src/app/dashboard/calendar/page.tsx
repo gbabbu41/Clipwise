@@ -816,7 +816,7 @@ export default function CalendarPage() {
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
-                    isToday(day) ? "bg-gold text-black font-bold" :
+                    isToday(day) ? "bg-amber-500 text-white font-bold" :
                     inMonth ? "text-gray-900" : "text-gray-300",
                   )}>
                     {day.getDate()}
@@ -886,9 +886,9 @@ export default function CalendarPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
             <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s)}
-              className="group rounded-xl border border-dashed border-gray-300 hover:border-gold hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+              className="group rounded-xl border border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
               <span className="text-xs text-gray-500">{rangeLabel(c.s, EMPTY_STEP)}</span>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-gold">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-amber-500">
                 <Plus size={14} /> Add
               </span>
             </button>
@@ -988,11 +988,11 @@ export default function CalendarPage() {
             <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
-                className="flex flex-col items-center justify-center gap-1 py-3 hover:bg-gray-50 transition-colors">
-                <span className={cn("w-9 h-9 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-gold ring-offset-1")}>
+                className={cn("flex flex-col items-center justify-center gap-1 py-3 transition-colors", barberFilter === "all" ? "bg-amber-50" : "hover:bg-gray-50")}>
+                <span className={cn("w-9 h-9 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
                   <Users size={16} />
                 </span>
-                <span className="text-[9px] text-gray-500 leading-tight">All</span>
+                <span className={cn("text-[9px] leading-tight", barberFilter === "all" ? "text-amber-600 font-semibold" : "text-gray-500")}>All</span>
               </button>
               {cols.map((b) => {
                 const gi = barbers.indexOf(b);
@@ -1046,9 +1046,9 @@ export default function CalendarPage() {
                       return (
                         <button key={`e${slot}`}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
-                          className="group rounded-lg border border-dashed border-gray-300 bg-gray-50/40 hover:border-gold hover:bg-amber-50/60 transition-colors pointer-events-auto flex items-center justify-center"
+                          className="group rounded-lg border border-dashed border-gray-300 bg-gray-50/40 hover:border-amber-400 hover:bg-amber-50/60 transition-colors pointer-events-auto flex items-center justify-center"
                           onClick={() => openAdd(b.id, b.name, slot)}>
-                          <Plus size={15} className="text-gray-400 group-hover:text-gold" />
+                          <Plus size={15} className="text-gray-400 group-hover:text-amber-500" />
                         </button>
                       );
                     })}
@@ -1139,14 +1139,14 @@ export default function CalendarPage() {
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-gold text-black" : "text-gray-900",
+                    isSelected ? "bg-amber-500 text-white" : "text-gray-900",
                   )}>
                     {day.getDate()}
                   </p>
                   <div className="flex justify-center gap-0.5 mt-0.5 h-1">
-                    {count > 0 && <span className="w-1 h-1 rounded-full bg-gold/60" />}
-                    {count > 3 && <span className="w-1 h-1 rounded-full bg-gold/60" />}
-                    {count > 6 && <span className="w-1 h-1 rounded-full bg-gold/60" />}
+                    {count > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                    {count > 3 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                    {count > 6 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
                   </div>
                 </button>
               );
@@ -1233,7 +1233,7 @@ export default function CalendarPage() {
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-gold text-black" : "text-gray-900",
+                    today ? "bg-amber-500 text-white" : "text-gray-900",
                   )}>
                     {day.getDate()}
                   </p>
@@ -1334,7 +1334,7 @@ export default function CalendarPage() {
                   return (
                     <button key={i} onClick={() => { setCurrentDate(o.date); setDateMenu(false); }}
                       className={cn("w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-50", active && "bg-amber-50")}>
-                      <span className={cn("font-medium", active ? "text-gold" : "text-gray-900")}>{o.label}</span>
+                      <span className={cn("font-medium", active ? "text-amber-600" : "text-gray-900")}>{o.label}</span>
                       {o.sub && <span className="text-gray-400 text-xs">{o.sub}</span>}
                     </button>
                   );
@@ -1371,21 +1371,21 @@ export default function CalendarPage() {
           Hidden in the all-barbers DAY view, where the column headers double as
           the selector (no duplicate row). Shown everywhere else. */}
       {profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
-        <div className="flex gap-4 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
+        <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
           <button onClick={() => setBarberFilter("all")}
-            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-50 hover:opacity-80")}>
-            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-gold ring-offset-1")}>
+            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 rounded-xl py-1.5 transition-colors", barberFilter === "all" ? "bg-amber-50" : "opacity-60 hover:opacity-100")}>
+            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
               <Users size={18} />
             </span>
-            <span className="text-[10px] text-gray-600 truncate w-full text-center">All barbers</span>
+            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-amber-600 font-semibold" : "text-gray-600")}>All barbers</span>
           </button>
           {barbers.map((b, i) => (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
-              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-50 hover:opacity-80")}>
-              <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-gold ring-offset-1")}>
+              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 rounded-xl py-1.5 transition-colors", barberFilter === b.id ? "bg-amber-50" : "opacity-60 hover:opacity-100")}>
+              <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-amber-500 ring-offset-2")}>
                 <BarberAvatar b={b} i={i} />
               </span>
-              <span className="text-[10px] text-gray-600 truncate w-full text-center">{b.name}</span>
+              <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-amber-600 font-semibold" : "text-gray-600")}>{b.name}</span>
             </button>
           ))}
         </div>
