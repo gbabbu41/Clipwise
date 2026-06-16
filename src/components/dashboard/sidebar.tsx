@@ -187,7 +187,7 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
-      <div className="md:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.5rem)] right-3 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
+      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.5rem)] right-3 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
@@ -216,8 +216,8 @@ export function Sidebar() {
           when the bell is on. Tap outside (or the bell again) to close. */}
       {notifOpen && (
         <>
-          <div className="md:hidden fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-          <div className="md:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
+          <div className="lg:hidden fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
             <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
               <p className="text-sm font-bold text-white">Notifications</p>
               <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
@@ -253,7 +253,7 @@ export function Sidebar() {
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
+          className="lg:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -263,7 +263,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 md:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -387,7 +387,7 @@ export function MobileNav() {
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   return (
-    <nav className="cw-bnav md:hidden">
+    <nav className="cw-bnav lg:hidden">
       {linkItems.map((item) => {
         const isActive = pathname === item.href
           || (item.href !== "/dashboard" && pathname.startsWith(item.href));
