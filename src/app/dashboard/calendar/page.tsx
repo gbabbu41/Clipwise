@@ -988,7 +988,7 @@ export default function CalendarPage() {
             <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
-                className={cn("flex flex-col items-center justify-center gap-1 py-3 transition-colors", barberFilter === "all" ? "bg-amber-50" : "hover:bg-gray-50")}>
+                className="flex flex-col items-center justify-center gap-1 py-3 transition-colors hover:bg-gray-50">
                 <span className={cn("w-9 h-9 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
                   <Users size={16} />
                 </span>
@@ -1373,7 +1373,7 @@ export default function CalendarPage() {
       {profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
           <button onClick={() => setBarberFilter("all")}
-            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 rounded-xl py-1.5 transition-colors", barberFilter === "all" ? "bg-amber-50" : "opacity-60 hover:opacity-100")}>
+            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
             <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
               <Users size={18} />
             </span>
@@ -1381,7 +1381,7 @@ export default function CalendarPage() {
           </button>
           {barbers.map((b, i) => (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
-              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 rounded-xl py-1.5 transition-colors", barberFilter === b.id ? "bg-amber-50" : "opacity-60 hover:opacity-100")}>
+              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-60 hover:opacity-100")}>
               <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-amber-500 ring-offset-2")}>
                 <BarberAvatar b={b} i={i} />
               </span>
