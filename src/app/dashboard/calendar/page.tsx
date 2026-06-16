@@ -1337,6 +1337,9 @@ export default function CalendarPage() {
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
     <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip">
+      {/* Paint the chrome's top spacer white on mobile/tablet so the floating
+          bell+profile sit on white (not the dark page root showing through). */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-top))] bg-white z-20 pointer-events-none" />
       {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
       <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
         {/* Date dropdown */}
