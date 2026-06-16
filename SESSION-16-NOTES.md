@@ -5,7 +5,19 @@ SESSION-14 as the most recent. Cross-machine memory lives in the repo only.
 
 ## What shipped this session (all DEPLOYED to `main` → clipwise.ca)
 
-### LATEST (2026-06-16) — Calendar day-view polish (overlap, empties, 30-min rail, 15-min add)
+### LATEST (2026-06-16) — Calendar: grid fills to 10 PM (no black gap), empties kept
+- Day-columns grid now always runs to **at least 10 PM** (`winEnd ≥ 22`) and starts
+  by 9 AM, so the white canvas fills the viewport — fixes the black gap below the
+  calendar before the footer.
+- Empty "+" boxes kept for **unscheduled barbers** too; default/fallback window
+  extended **9 AM → 10 PM** (columns, card grid, and the add-modal time picker).
+- Calendar root gets `min-h-screen` so the white background always covers the viewport.
+- STILL QUEUED (confirmed direction, not yet built): cancelled stays on the calendar
+  unless its slot is taken by an active appt; detail shows declined-by-shop vs
+  cancelled-by-customer + charges + "+ add here"; allow booking outside a barber's
+  schedule (warning + note) with a single "+" for out-of-hours.
+
+### (2026-06-16) — Calendar day-view polish (overlap, empties, 30-min rail, 15-min add)
 - **Cancelled appointments are hidden from the whole calendar** (month/week/day +
   agenda); they still live on the Appointments page. This removed the reported
   "overlap" (a cancelled + completed sharing a slot).

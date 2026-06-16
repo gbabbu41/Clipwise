@@ -698,7 +698,7 @@ export default function CalendarPage() {
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
     const sched = schedules.get(addCtx.barberId);
-    const win = sched ?? { start: "09:00:00", end: "18:00:00" };
+    const win = sched ?? { start: "09:00:00", end: "22:00:00" };
     const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
     const free = getSlotsInRange(win.start, win.end, currentDate, Array.from(booked), ADD_STEP)
       .filter(s => s.available).map(s => s.slot);
@@ -852,7 +852,7 @@ export default function CalendarPage() {
     const dateStr = formatDateForDb(currentDate);
     const sched = schedules.get(barber.id);
     const startDb = sched?.start ?? "09:00:00";
-    const endDb = sched?.end ?? "18:00:00";
+    const endDb = sched?.end ?? "22:00:00";
     const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
     const booked = bookedSlotsFor(barber.id, dateStr);
     const slots = getSlotsInRange(startDb, endDb, currentDate, Array.from(booked), EMPTY_STEP);
@@ -874,7 +874,7 @@ export default function CalendarPage() {
     return (
       <div className="p-4 sm:p-5">
         {!sched && (
-          <p className="text-xs text-gray-400 mb-3">No schedule set for this day — showing a default 9 AM–6 PM window.</p>
+          <p className="text-xs text-gray-400 mb-3">No schedule set for this day — showing a default 9 AM–10 PM window.</p>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
@@ -947,8 +947,10 @@ export default function CalendarPage() {
     dayAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
     let winStart = starts.length ? Math.floor(Math.min(...starts)) : 9;
     let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
-    winStart = Math.max(0, winStart);
-    winEnd = Math.min(24, Math.max(winEnd, winStart + 1));
+    winStart = Math.min(9, Math.max(0, winStart));
+    // Always run the grid down to at least 10 PM so the canvas fills the
+    // viewport (no black gap below) and there's room to book evening slots.
+    winEnd = Math.min(24, Math.max(winEnd, 22));
     const hours: number[] = [];
     for (let h = winStart; h < winEnd; h++) hours.push(h);
 
@@ -1018,7 +1020,7 @@ export default function CalendarPage() {
                 const laid = layoutColumn(colAppts);
                 // Free slots within the working window (schedule, or 9–6 default)
                 // shown every 30 min.
-                const win = schedules.get(b.id) ?? { start: "09:00:00", end: "18:00:00" };
+                const win = schedules.get(b.id) ?? { start: "09:00:00", end: "22:00:00" };
                 const empties = getSlotsInRange(win.start, win.end, currentDate, Array.from(bookedSlotsFor(b.id, dateStr)), EMPTY_STEP).filter(s => s.available);
                 return (
                   <div key={b.id} className="relative">
@@ -1297,7 +1299,7 @@ export default function CalendarPage() {
 
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
-    <div className="flex flex-col h-full bg-white text-gray-900">
+    <div className="flex flex-col h-full min-h-screen bg-white text-gray-900">
       {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
       <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
         {/* Date dropdown */}
