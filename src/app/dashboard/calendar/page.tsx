@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo,
-  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes,
+  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -611,6 +611,20 @@ export default function CalendarPage() {
     return set;
   }, [appointments]);
 
+  // Open 30-min slots in a barber's window (not booked). Unlike getSlotsInRange
+  // this does NOT drop past times — the owner still wants to SEE the empty boxes
+  // (and can log a walk-in into one). Window-bounded only.
+  const windowEmpties = useCallback((barberId: string, dateStr: string, win: { start: string; end: string }) => {
+    const startMins = timeToMinutes(dbTimeToDisplay(win.start));
+    const endMins = timeToMinutes(dbTimeToDisplay(win.end));
+    if (Number.isNaN(startMins) || Number.isNaN(endMins) || endMins <= startMins) return [] as string[];
+    const booked = bookedSlotsFor(barberId, dateStr);
+    return generate24hSlots(EMPTY_STEP).filter(slot => {
+      const m = timeToMinutes(slot);
+      return m >= startMins && m + EMPTY_STEP <= endMins && !booked.has(slot);
+    });
+  }, [bookedSlotsFor]);
+
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
     const endMin = timeToMinutes(start) + (mins > 0 ? mins : EMPTY_STEP);
@@ -854,20 +868,13 @@ export default function CalendarPage() {
     const startDb = sched?.start ?? "09:00:00";
     const endDb = sched?.end ?? "22:00:00";
     const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
-    const booked = bookedSlotsFor(barber.id, dateStr);
-    const slots = getSlotsInRange(startDb, endDb, currentDate, Array.from(booked), EMPTY_STEP);
-    const apptByStart = new Map(dayAppts.map(a => [a.time_slot, a] as const));
+    const emptySlots = windowEmpties(barber.id, dateStr, { start: startDb, end: endDb });
 
     type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string };
-    const cells: Cell[] = [];
-    const seen = new Set<string>();
-    slots.forEach(({ slot, available }) => {
-      if (available) { cells.push({ k: "empty", s: slot }); return; }
-      const a = apptByStart.get(slot);
-      if (a && !seen.has(a.id)) { cells.push({ k: "appt", a }); seen.add(a.id); }
-    });
-    // Any appointment whose start didn't land on the slot grid still shows.
-    dayAppts.forEach(a => { if (!seen.has(a.id)) { cells.push({ k: "appt", a }); seen.add(a.id); } });
+    const cells: Cell[] = [
+      ...emptySlots.map(s => ({ k: "empty", s } as Cell)),
+      ...dayAppts.map(a => ({ k: "appt", a } as Cell)),
+    ];
     cells.sort((x, y) =>
       timeToMinutes(x.k === "appt" ? x.a.time_slot : x.s) - timeToMinutes(y.k === "appt" ? y.a.time_slot : y.s));
 
@@ -1021,19 +1028,19 @@ export default function CalendarPage() {
                 // Free slots within the working window (schedule, or 9–6 default)
                 // shown every 30 min.
                 const win = schedules.get(b.id) ?? { start: "09:00:00", end: "22:00:00" };
-                const empties = getSlotsInRange(win.start, win.end, currentDate, Array.from(bookedSlotsFor(b.id, dateStr)), EMPTY_STEP).filter(s => s.available);
+                const empties = windowEmpties(b.id, dateStr, win);
                 return (
                   <div key={b.id} className="relative">
                     {/* Free 30-min slots → "+ Add" */}
-                    {empties.map(({ slot }) => {
+                    {empties.map((slot) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
                       const height = Math.max(20, (EMPTY_STEP / 60) * ROW_PX - 4);
                       return (
                         <button key={`e${slot}`}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
-                          className="group rounded-lg border border-dashed border-gray-200 hover:border-gold hover:bg-amber-50/50 transition-colors pointer-events-auto flex items-center justify-center"
+                          className="group rounded-lg border border-dashed border-gray-300 bg-gray-50/40 hover:border-gold hover:bg-amber-50/60 transition-colors pointer-events-auto flex items-center justify-center"
                           onClick={() => openAdd(b.id, b.name, slot)}>
-                          <Plus size={14} className="text-gray-300 group-hover:text-gold" />
+                          <Plus size={15} className="text-gray-400 group-hover:text-gold" />
                         </button>
                       );
                     })}
