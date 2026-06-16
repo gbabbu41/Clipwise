@@ -428,14 +428,16 @@ export default function BookingPage() {
 
 
   // ── Auto-scroll the When-step timeline to 9 AM on open ─────────────────────
-  // The 0–24h timeline would otherwise open at midnight; landing at 9 AM gives
-  // the customer the usual "morning" reference point regardless of when the
-  // shop's first slot actually starts.
+  // Open the 0–24h timeline scrolled to the EARLIEST available slot (falling
+  // back to the earliest slot) so the first bookable time is visible right away
+  // — even if a barber starts before 9 AM.
   useEffect(() => {
     if (slotGrid.length === 0) return;
     if (!timelineRef.current) return;
     const ROW_PX = 64;
-    timelineRef.current.scrollTop = 9 * ROW_PX;
+    const firstAvail = slotGrid.find(s => s.available) ?? slotGrid[0];
+    const hour = timeToMinutes(firstAvail.slot) / 60;
+    timelineRef.current.scrollTop = Math.max(0, hour * ROW_PX - 16);
   }, [slotGrid]);
 
   // ── Apply promo code ───────────────────────────────────────────────────────
