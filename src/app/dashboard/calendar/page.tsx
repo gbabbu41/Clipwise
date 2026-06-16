@@ -674,11 +674,12 @@ export default function CalendarPage() {
     );
   };
 
-  // True when a time falls outside a barber's set schedule (false if they have
-  // no schedule — then we don't know their hours, so it's not flagged).
+  // True when a time is unavailable for a barber — either they have no schedule
+  // set at all (whole day unavailable), or the time is outside their hours.
   const isOutsideSchedule = (barberId: string, time: string) => {
     const s = schedules.get(barberId);
-    if (!s || !time) return false;
+    if (!s) return true;            // no schedule set → unavailable
+    if (!time) return false;
     const m = timeToMinutes(time);
     return m < timeToMinutes(dbTimeToDisplay(s.start)) || m >= timeToMinutes(dbTimeToDisplay(s.end));
   };
@@ -1019,6 +1020,7 @@ export default function CalendarPage() {
                     <p className="text-[10px] text-gray-400 mt-0.5">
                       {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
                     </p>
+                    {!schedules.has(b.id) && <p className="text-[9px] text-amber-500 mt-0.5">Not scheduled</p>}
                   </button>
                 );
               })}
@@ -1064,8 +1066,8 @@ export default function CalendarPage() {
                           className={cn(
                             "group rounded-lg border border-dashed transition-colors pointer-events-auto flex items-center justify-center",
                             outside
-                              ? "border-gray-200 bg-gray-100/60 hover:border-amber-300 hover:bg-amber-50/40"
-                              : "border-gray-300 bg-gray-50/40 hover:border-amber-400 hover:bg-amber-50/60",
+                              ? "border-gray-200 bg-gray-200/60 hover:border-amber-300 hover:bg-amber-50/40"
+                              : "border-gray-300 bg-white hover:border-amber-400 hover:bg-amber-50/60",
                           )}
                           onClick={() => openAdd(b.id, b.name, slot)}>
                           <Plus size={15} className={cn(outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
@@ -1471,7 +1473,11 @@ export default function CalendarPage() {
                 {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
               </Select>
               {isOutsideSchedule(addCtx.barberId, addForm.time) && (
-                <p className="text-xs text-amber-400">⚠️ This is outside {addCtx.barberName}&apos;s working hours.</p>
+                <p className="text-xs text-amber-400">
+                  ⚠️ {schedules.has(addCtx.barberId)
+                    ? `Outside ${addCtx.barberName}'s working hours.`
+                    : `${addCtx.barberName} has no schedule set for this day.`}
+                </p>
               )}
               <Select label="Service *" value={addForm.service_id}
                 onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
