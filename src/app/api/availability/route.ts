@@ -66,7 +66,19 @@ export async function POST(request: NextRequest) {
   ]);
 
   const slotByBarber = new Map<string, { start_time: string; end_time: string }>();
-  (slots ?? []).forEach(s => slotByBarber.set(s.barber_id as string, { start_time: s.start_time as string, end_time: s.end_time as string }));
+  (slots ?? []).forEach(s => {
+    const cur = slotByBarber.get(s.barber_id as string);
+    const start = s.start_time as string;
+    const end = s.end_time as string;
+    // If a barber somehow has >1 row for this weekday, use the WIDEST window
+    // (earliest start, latest end) instead of arbitrarily keeping one — which
+    // could otherwise hide early/late hours (string compare works for HH:MM:SS).
+    if (!cur) slotByBarber.set(s.barber_id as string, { start_time: start, end_time: end });
+    else slotByBarber.set(s.barber_id as string, {
+      start_time: start < cur.start_time ? start : cur.start_time,
+      end_time: end > cur.end_time ? end : cur.end_time,
+    });
+  });
 
   const busyByBarber = new Map<string, Busy[]>();
   apptRows.forEach(a => {

@@ -234,13 +234,21 @@ export default function StaffPage() {
     if (!scheduleBarber) return;
     setSavingSchedule(true);
     // Delete existing
-    await supabase.from("time_slots").delete().eq("barber_id", scheduleBarber.id);
+    const { error: delErr } = await supabase.from("time_slots").delete().eq("barber_id", scheduleBarber.id);
     // Insert new
     const inserts = editSchedule
       .map((day, dow) => day.isOpen ? { barber_id: scheduleBarber.id, day_of_week: dow, start_time: displayTimeToDb(day.startTime), end_time: displayTimeToDb(day.endTime), is_available: true } : null)
       .filter((x): x is NonNullable<typeof x> => x !== null);
-    if (inserts.length > 0) await supabase.from("time_slots").insert(inserts);
+    const { error: insErr } = inserts.length > 0
+      ? await supabase.from("time_slots").insert(inserts)
+      : { error: null };
     setSavingSchedule(false);
+    // Surface failures instead of silently reporting success (a blocked save
+    // would otherwise leave the OLD hours in place — e.g. customers still see 9 AM).
+    if (delErr || insErr) {
+      showToast(`Couldn't save schedule: ${(delErr || insErr)?.message ?? "try again"}`);
+      return;
+    }
     setScheduleBarber(null);
     showToast(`Schedule saved for ${scheduleBarber.name}`);
     loadBarbers();
