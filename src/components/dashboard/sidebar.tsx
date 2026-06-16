@@ -212,7 +212,7 @@ export function Sidebar() {
           scroll-up. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          "md:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
           // Border invisible at scroll-top, fades to a hairline once
           // content starts scrolling under the bar.
           scrolled ? "border-[#1e1e1e]" : "border-transparent",
@@ -258,7 +258,7 @@ export function Sidebar() {
       {notifOpen && (
         <>
           <div className="md:hidden fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-          <div className="md:hidden fixed top-14 right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
+          <div className="md:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
             <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
               <p className="text-sm font-bold text-white">Notifications</p>
               <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>

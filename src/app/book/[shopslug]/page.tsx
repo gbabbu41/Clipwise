@@ -998,7 +998,7 @@ export default function BookingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header */}
@@ -1206,7 +1206,7 @@ export default function BookingPage() {
           });
 
           return (
-            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100vh - 280px)", minHeight: "500px" }}>
+            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px" }}>
               {/* Header row: back / next week arrows (icon-only) */}
               <div className="flex items-center justify-between px-4 pb-2">
                 <button
@@ -1543,7 +1543,7 @@ export default function BookingPage() {
           Squire-style "always-visible price tally" pattern, but rendered
           as a rounded pill that floats with margin instead of a square
           edge-to-edge bar, so it reads distinct from theirs. */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pb-3 pt-2 pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
         <div className="pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
           {/* Running total — only shown when at least one service is picked.
               Falls back to a tiny step caption otherwise so the bar isn't empty. */}

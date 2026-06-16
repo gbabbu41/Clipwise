@@ -36,6 +36,12 @@ body {
   font-family: 'Sora', var(--font-body), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Never let a page exceed the viewport width. `clip` (not `hidden`) so it
+     doesn't create a scroll container — position:sticky keeps working — and it
+     removes any horizontal scroll (so no sideways bounce) without disabling the
+     browser's swipe-back gesture. Visual-only; no layout/design change. */
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* DM Mono utility — apply via `font-mono` (Tailwind) or `.font-numeric` for
@@ -757,8 +763,9 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--border);
-  height: 68px;
-  display: flex; align-items: center; padding: 0 6px; z-index: 50;
+  /* Reserve the home-indicator inset below the tab row (0 in a browser tab). */
+  height: calc(68px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; padding: 0 6px env(safe-area-inset-bottom); z-index: 50;
 }
 .cw-ni {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;

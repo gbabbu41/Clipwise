@@ -1336,7 +1336,7 @@ export default function CalendarPage() {
 
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
-    <div className="flex flex-col h-full min-h-screen bg-white text-gray-900">
+    <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip">
       {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
       <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
         {/* Date dropdown */}

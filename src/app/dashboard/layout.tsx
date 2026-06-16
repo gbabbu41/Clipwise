@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* pt-14 = exact mobile top-bar height (h-14). No border below the
           bar now, so a gap would look like a stray empty strip. Content
           sits flush against the translucent bar instead. */}
-      <main className="md:ml-64 pt-14 md:pt-0 pb-24 md:pb-0">
+      <main className="md:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
         <StripeWarningBanner />
         {children}
       </main>

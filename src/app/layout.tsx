@@ -42,6 +42,15 @@ export const metadata: Metadata = {
   },
 };
 
+// viewport-fit=cover is required for env(safe-area-inset-*) to report real
+// values on notch / Dynamic Island / home-indicator devices. It's a no-op in
+// a normal browser tab (insets resolve to 0), so it changes nothing there.
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
