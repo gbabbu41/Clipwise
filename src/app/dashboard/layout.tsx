@@ -68,9 +68,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-black">
       <NotificationListener />
       <Sidebar />
-      {/* Top spacer (mobile/tablet) clears the floating bell+profile pill so
-          page headers sit below it. lg+ uses the always-open sidebar. */}
-      <main className="lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
+      {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
+          main's background follows the active page so that spacer is the page's
+          own color — no separate bar. Light routes are listed here; everything
+          else is the default dark surface. */}
+      <main className={`lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-white" : ""}`}>
         <StripeWarningBanner />
         {children}
       </main>
