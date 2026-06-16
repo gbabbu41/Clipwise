@@ -1336,7 +1336,10 @@ export default function CalendarPage() {
 
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   return (
-    <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip max-lg:-mt-[calc(3.5rem+env(safe-area-inset-top))] max-lg:pt-[env(safe-area-inset-top)]">
+    <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip">
+      {/* Paint the chrome's top spacer white so the floating bell+profile sit on
+          white (not the dark page root showing through above the calendar). */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-top))] bg-white z-20 pointer-events-none" />
       {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
       <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
         {/* Date dropdown */}
@@ -1366,9 +1369,8 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* View button (one button → month / week / day). On mobile/tablet it
-            shifts left so it clears the floating bell+profile pill. */}
-        <div className="relative max-lg:mr-[5.5rem] lg:mr-0">
+        {/* View button (one button → month / week / day) */}
+        <div className="relative">
           <button onClick={() => { setViewMenu(o => !o); setDateMenu(false); }}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors capitalize">
             {view}

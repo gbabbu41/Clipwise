@@ -68,11 +68,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-black">
       <NotificationListener />
       <Sidebar />
-      {/* pt-12 reserves space for the mobile top bar in the Sidebar component;
-          lg:pt-0 removes that gap on desktop where the bar isn't rendered. */}
-      {/* pt-14 = exact mobile top-bar height (h-14). No border below the
-          bar now, so a gap would look like a stray empty strip. Content
-          sits flush against the translucent bar instead. */}
+      {/* Top spacer (mobile/tablet) clears the floating bell+profile pill so
+          page headers sit below it. lg+ uses the always-open sidebar. */}
       <main className="lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <StripeWarningBanner />
         {children}
