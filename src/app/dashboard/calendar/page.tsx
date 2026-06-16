@@ -990,7 +990,8 @@ export default function CalendarPage() {
               {cols.map((b) => {
                 const gi = barbers.indexOf(b);
                 return (
-                  <div key={b.id} className="px-3 py-3 text-center border-l border-gray-100">
+                  <button key={b.id} type="button" onClick={() => setBarberFilter(b.id)}
+                    className="px-3 py-3 text-center border-l border-gray-100 hover:bg-gray-50 transition-colors">
                     <div className="flex flex-col items-center gap-1">
                       <BarberAvatar b={b} i={gi >= 0 ? gi : 0} />
                       <p className="text-xs text-gray-900 font-medium truncate w-full">{b.name}</p>
@@ -998,7 +999,7 @@ export default function CalendarPage() {
                     <p className="text-[10px] text-gray-400 mt-0.5">
                       {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
                     </p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1359,9 +1360,10 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Persistent barber row — profile-pic chips incl. an "All barbers" chip.
-          Stays visible across day / week / month; it's the WHO selector. */}
-      {profile?.role !== "barber" && barbers.length > 0 && (
+      {/* Barber selector row — profile-pic chips incl. an "All barbers" chip.
+          Hidden in the all-barbers DAY view, where the column headers double as
+          the selector (no duplicate row). Shown everywhere else. */}
+      {profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
         <div className="flex gap-4 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-50 hover:opacity-80")}>
