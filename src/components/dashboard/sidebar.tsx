@@ -144,27 +144,6 @@ export function Sidebar() {
       .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
   }, [notifOpen, user, unreadCount]);
 
-  // Hide the mobile top bar when scrolling down, reveal when scrolling up.
-  // Also track whether the page has scrolled at all — used to fade in the
-  // hairline below the bar (iOS-style "chrome edge appears once content
-  // slides under it"), so at scroll-top the bar dissolves into the page.
-  const [topBarHidden, setTopBarHidden] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    let lastY = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      setScrolled(y > 4);
-      const delta = y - lastY;
-      if (Math.abs(delta) < 6) return; // ignore micro-scrolls / rubber-banding
-      if (delta > 0 && y > 40) setTopBarHidden(true);
-      else if (delta < 0) setTopBarHidden(false);
-      lastY = y;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   // Detect whether this owner is also linked as a barber → show role-switch link
   useEffect(() => {
     if (!user || !shop || profile?.role !== "shop_owner") { setIsAlsoBarber(false); return; }
@@ -205,41 +184,21 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar — v2 design header pattern: hamburger on the left,
-          ClipWise wordmark center-left, bell + circular avatar on the right.
-          Bell shows a notif dot when unreadCount > 0; avatar links to the
-          settings/account page. Slides off on scroll-down, slides back on
-          scroll-up. */}
-      <div
-        className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
-          // Border invisible at scroll-top, fades to a hairline once
-          // content starts scrolling under the bar.
-          scrolled ? "border-[#1e1e1e]" : "border-transparent",
-          topBarHidden ? "-translate-y-full" : "translate-y-0",
-        )}
-      >
-        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out.
-            Reads as a deliberate brand stamp (chrome) while the page
-            headline stays in Sora bold (content). */}
-        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
-          ClipWise
-        </span>
-        <div className="flex-1" />
-        {/* Bell toggles a quick-view popover. Same icon + dot treatment;
-            click again to close. 'See all' link inside the popover goes
-            to the full notifications page. */}
+      {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
+          top-right and always visible. The old full-width bar + "ClipWise"
+          wordmark are gone; page content scrolls under the blur. */}
+      <div className="md:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.5rem)] right-3 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center bg-[#0c0c0c] border text-amber-400 transition-colors flex-shrink-0 relative",
-            notifOpen ? "border-amber-400" : "border-[#1e1e1e] hover:border-amber-400",
+            "w-9 h-9 rounded-full flex items-center justify-center text-amber-400 transition-colors relative",
+            notifOpen ? "bg-white/10" : "hover:bg-white/10",
           )}
         >
-          <Bell size={15} />
+          <Bell size={16} />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
           )}
@@ -247,7 +206,7 @@ export function Sidebar() {
         <Link
           href="/dashboard/settings"
           aria-label="Account"
-          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
+          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity"
         >
           {initial}
         </Link>
