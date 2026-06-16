@@ -187,7 +187,7 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
-      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.5rem)] right-3 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
+      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
