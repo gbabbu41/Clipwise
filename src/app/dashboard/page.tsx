@@ -423,11 +423,12 @@ export default function DashboardPage() {
           {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
             <span className="cw-plan-pill">{shop.subscription_plan}</span>
           )}
-          {/* Desktop-only bell + avatar (mobile has them in the top bar) */}
+          {/* Desktop-only bell + avatar — only at lg+, where the floating
+              chrome pill is hidden (tablets/phones get it from the chrome). */}
           <Link
             href="/dashboard/notifications"
             aria-label="Notifications"
-            className="hidden md:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors relative"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors relative"
           >
             <Bell size={15} />
             {notifications.filter(n => !n.is_read).length > 0 && (
@@ -437,7 +438,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Account"
-            className="hidden md:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity"
           >
             {(profile?.name ?? "U").charAt(0).toUpperCase()}
           </Link>
