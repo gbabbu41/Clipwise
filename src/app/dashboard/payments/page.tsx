@@ -267,7 +267,10 @@ export default function PaymentsPage() {
   const feed = feedAll
     .filter(i => {
       const s = i.appt?.payment_status;
-      if (filter === "all") return true;
+      // "Recent transactions" = only rows where money actually moved: a POS sale
+      // (no appt), or an appointment that was paid / failed a charge / refunded.
+      // Unpaid, held/saved, and $0 "no charge" rows aren't transactions.
+      if (filter === "all") return !i.appt || s === "paid" || s === "captured" || s === "failed" || s === "refunded";
       if (filter === "collected") return i.settled;
       if (filter === "outstanding") return !!i.appt && (i.appt.total_amount ?? 0) > 0 && (s === "unpaid" || s === "failed" || !s);
       if (filter === "pending") return s === "held" || s === "saved";
@@ -352,18 +355,19 @@ export default function PaymentsPage() {
         <div className="space-y-2">
           {feed.map(i => {
             const a = i.appt;
+            const refunded = a?.payment_status === "refunded";
             const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
             const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
             return (
-              <div key={i.key} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 sm:p-4">
+              <div key={i.key} className={cn("rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 sm:p-4", refunded && "opacity-60")}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate">{i.name}</p>
+                    <p className={cn("text-sm font-semibold text-white truncate", refunded && "line-through")}>{i.name}</p>
                     <p className="text-xs text-[#777] truncate">{i.sub}</p>
                     <p className="text-[11px] text-[#666] mt-0.5">{timeAgo(i.tsIso) || "—"}</p>
                   </div>
                   <div className="flex-shrink-0 text-right">
-                    <p className="text-base font-bold text-white">{formatCurrency(i.amount)}</p>
+                    <p className={cn("text-base font-bold", refunded ? "text-[#888] line-through" : "text-white")}>{formatCurrency(i.amount)}</p>
                     <span className={cn("inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[i.tone])}>
                       {!a && (i.statusLabel.includes("Cash") ? <Banknote size={11} /> : <CreditCard size={11} />)}
                       {i.statusLabel}
