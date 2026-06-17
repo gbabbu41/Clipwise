@@ -279,34 +279,34 @@ export default function PaymentsPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Payments</h1>
-          <p className="text-sm text-[#777] mt-1">Track what you&apos;ve collected, what&apos;s outstanding, and cards on file.</p>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-white">Payments</h1>
+        <p className="text-sm text-[#777] mt-1">Track what you&apos;ve collected, what&apos;s outstanding, and cards on file.</p>
+      </div>
+
+      {/* Stripe note + dashboard link */}
+      <div className="flex items-start justify-between gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-2.5 mb-4">
+        <p className="text-[11px] leading-snug text-[#888]">
+          💡 Stripe is the source of truth for every charge &amp; payout. If a paid link still shows outstanding,
+          hit <span className="text-white font-medium">Refresh</span> on that row.
+        </p>
         <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-          className="flex items-center gap-2 rounded-xl bg-white text-black text-sm font-semibold px-4 py-2.5 hover:opacity-90 disabled:opacity-50 transition-opacity">
-          <ExternalLink size={15} /> {busy === "stripe" ? "Opening…" : "Open Stripe Dashboard"}
+          className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-white text-[11px] font-medium px-2.5 py-1.5 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
+          <ExternalLink size={13} /> {busy === "stripe" ? "Opening…" : "Stripe Dashboard"}
         </button>
       </div>
 
-      {/* Stripe note */}
-      <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 text-xs text-[#888] mb-6">
-        💡 Stripe is the source of truth for every charge, refund, and payout. This page mirrors it inside ClipWise.
-        If a paid link still shows as outstanding, hit <span className="text-white font-medium">Refresh</span> on that row to re-check Stripe.
-      </div>
-
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-2 mb-5">
         {[
-          { label: "Collected", value: collected, hint: "Paid appointments + POS sales", cls: "text-[#00e5a0]" },
-          { label: "Outstanding", value: outstanding, hint: "Unpaid / failed — send a link", cls: "text-amber-400" },
-          { label: "Card held / on file", value: pending, hint: "Charged on completion / no-show", cls: "text-white" },
+          { label: "Collected", value: collected, hint: "Paid + POS", cls: "text-[#00e5a0]" },
+          { label: "Outstanding", value: outstanding, hint: "Unpaid / failed", cls: "text-amber-400" },
+          { label: "On file", value: pending, hint: "Held for later", cls: "text-white" },
         ].map(c => (
-          <div key={c.label} className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
-            <p className="text-xs text-[#777]">{c.label}</p>
-            <p className={cn("text-2xl font-bold mt-1", c.cls)}>{formatCurrency(c.value)}</p>
-            <p className="text-[11px] text-[#666] mt-1">{c.hint}</p>
+          <div key={c.label} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">{c.label}</p>
+            <p className={cn("text-base sm:text-xl font-bold mt-0.5", c.cls)}>{formatCurrency(c.value)}</p>
+            <p className="text-[10px] text-[#666] mt-0.5 truncate">{c.hint}</p>
           </div>
         ))}
       </div>
