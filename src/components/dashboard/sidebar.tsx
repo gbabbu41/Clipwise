@@ -397,7 +397,7 @@ export function MobileNav() {
     { href: "/dashboard/appointments", label: "Appointments", emoji: "📋" },
     { href: "/dashboard/calendar",     label: "Calendar",     emoji: "🗓️" },
     { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
-    { href: "/dashboard/clients",      label: "Clients",  emoji: "👥" },
+    { href: "/dashboard/payments",     label: "Payments", emoji: "💰" },
   ];
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
