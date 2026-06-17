@@ -266,6 +266,34 @@ still takes no card. Needs the `phase2_save_card.sql` migration (section 2) run.
 - [ ] Marketing/SMS campaigns (broadcast offers, birthdays — birthday email exists, automate it).
 - [ ] Google Business review sync (Place ID field exists).
 
+### 4b. Tap to Pay / card-present (when wrapped in Capacitor)
+Decision (Session 17): take **native Tap to Pay** once ClipWise is wrapped as a
+native app with **Capacitor**. True "tap a card/phone onto the staff phone" needs
+the native Stripe Terminal SDK + NFC + secure element — **impossible in the web/
+PWA**, so it waits for the Capacitor shell. Today's POS "Card" = Stripe Checkout
+redirect (Apple/Google Pay already available on that hosted page).
+- **Market OK**: Tap to Pay on iPhone/Android is supported in **Canada** (clipwise.ca).
+- **Native bridge**: add a Capacitor Stripe Terminal plugin (`@capacitor-community/
+  stripe` now includes Terminal/Tap to Pay) or a thin custom plugin over Stripe's
+  native Terminal SDK. The web UI calls it through Capacitor.
+- **Apple**: request the *Tap to Pay on iPhone* entitlement
+  (`com.apple.developer.proximity-reader.payment.acceptance`); iPhone XS+ / iOS
+  16.7+; paid Apple Developer account. **Android**: NFC device, Android 11+.
+- **Stripe**: enable Terminal; create a **Location** object per shop; the phone
+  registers as the reader. Charges run on each shop's **connected account** (same
+  Connect model as the rest of the app).
+- **Reusable backend I can build now in this repo** (platform-agnostic — the
+  Capacitor app just calls these later; hold off wiring to UI until the app build
+  starts so we don't ship untested payment code to prod):
+  - `POST /api/stripe/terminal/connection-token` — Terminal connection token on
+    the connected account.
+  - card-present **PaymentIntent** create + capture (`payment_method_types:
+    ['card_present']`), then insert the SAME `transactions` row POS writes today
+    (`payment_method: "card"`, `stripe_session_id` or an intent id) so it shows
+    live in Payments + receipts with zero feed changes.
+- **What stays identical**: UI, transactions table, Payments realtime feed,
+  receipts. A Tap to Pay sale is just another card transaction.
+
 ---
 
 ## 🎨 5. Modern UX + libraries
