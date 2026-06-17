@@ -952,8 +952,8 @@ export default function CalendarPage() {
     // hours. Paginated: show as many columns as fit; arrows / swipe load more.
     const allCols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
     const perPage = colWrapW > 0
-      ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 78 : 150)))
-      : (isMobile ? 4 : 6);
+      ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
+      : (isMobile ? 2 : 6);
     const pages = Math.max(1, Math.ceil(allCols.length / perPage));
     const page = Math.max(0, Math.min(colPage, pages - 1));
     const cols = allCols.slice(page * perPage, page * perPage + perPage);
