@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency, cn, timeAgo, prettyDate, timeToMinutes } from "@/lib/utils";
+import { formatCurrency, cn, timeAgo, timeToMinutes } from "@/lib/utils";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -20,6 +20,7 @@ interface ApptRow {
   payment_method: string | null;
   payment_intent_id: string | null;
   paid_at: string | null;
+  created_at: string | null;
   services: { name: string } | null;
   barbers: { name: string } | null;
 }
@@ -74,7 +75,7 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, services(name), barbers(name)")
+        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, services(name), barbers(name)")
         .eq("shop_id", shop.id).gt("total_amount", 0).order("date", { ascending: false }),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id")
@@ -109,7 +110,7 @@ export default function PaymentsPage() {
   type FeedItem = {
     key: string; name: string; sub: string; amount: number;
     statusLabel: string; tone: string; settled: boolean;
-    settledIso: string | null; settledTs: number; apptTs: number;
+    ts: number; tsIso: string | null;
     appt?: ApptRow;
   };
 
@@ -122,19 +123,22 @@ export default function PaymentsPage() {
     return true;
   });
 
+  // One timestamp per row = when the activity happened: a paid row uses the
+  // charge time (paid_at); an outstanding row uses when it was booked
+  // (created_at); a POS sale uses created_at. Never the appointment date.
   const feedAll: FeedItem[] = [
     ...appts.map((a): FeedItem => {
       const info = statusInfo(a.payment_status);
       const paid = isPaid(a.payment_status);
+      const tsIso = paid ? (a.paid_at ?? a.created_at) : a.created_at;
       return {
         key: `a${a.id}`,
         name: a.client_name,
         sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
         amount: a.total_amount ?? 0,
         statusLabel: info.label, tone: info.tone, settled: paid,
-        settledIso: paid ? a.paid_at : null,
-        settledTs: paid && a.paid_at ? new Date(a.paid_at).getTime() : apptDateMs(a),
-        apptTs: apptDateMs(a),
+        tsIso,
+        ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
         appt: a,
       };
     }),
@@ -145,9 +149,8 @@ export default function PaymentsPage() {
       amount: (t.amount ?? 0) + (t.tip ?? 0),
       statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
       tone: "good", settled: true,
-      settledIso: t.created_at,
-      settledTs: new Date(t.created_at).getTime(),
-      apptTs: new Date(t.created_at).getTime(),
+      tsIso: t.created_at,
+      ts: new Date(t.created_at).getTime(),
     })),
   ];
 
@@ -240,8 +243,7 @@ export default function PaymentsPage() {
     }
   };
 
-  // Filter, then sort: items awaiting action (unsettled) first by appointment
-  // time, then settled items newest-first by when the money actually moved.
+  // Filter, then sort newest-first by when the activity actually happened.
   const feed = feedAll
     .filter(i => {
       const s = i.appt?.payment_status;
@@ -252,11 +254,7 @@ export default function PaymentsPage() {
       if (filter === "refunded") return s === "refunded";
       return true;
     })
-    .sort((a, b) => {
-      if (a.settled !== b.settled) return a.settled ? 1 : -1;          // unsettled first
-      if (!a.settled) return b.apptTs - a.apptTs;                       // recent appt first
-      return b.settledTs - a.settledTs;                                // recent payment first
-    });
+    .sort((a, b) => b.ts - a.ts);
 
   const FILTERS: { key: Filter; label: string }[] = [
     { key: "all", label: "All" },
@@ -340,11 +338,7 @@ export default function PaymentsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-white truncate">{i.name}</p>
                     <p className="text-xs text-[#777] truncate">{i.sub}</p>
-                    <p className="text-[11px] text-[#666] mt-0.5">
-                      {i.settled
-                        ? (i.settledIso ? timeAgo(i.settledIso) : "Paid")
-                        : (a ? `${prettyDate(a.date)} · ${a.time_slot}` : "")}
-                    </p>
+                    <p className="text-[11px] text-[#666] mt-0.5">{timeAgo(i.tsIso) || "—"}</p>
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <p className="text-base font-bold text-white">{formatCurrency(i.amount)}</p>
