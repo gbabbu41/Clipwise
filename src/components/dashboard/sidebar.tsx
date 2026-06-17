@@ -6,10 +6,24 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
-  Menu, BellRing,
+  Menu, BellRing, AlertTriangle, CalendarX2, Info,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
+
+// Notification visual config — one clean type-icon (no raw emoji), tinted chip.
+const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
+  booking:      { Icon: Calendar,     cls: "bg-emerald-500/15 text-emerald-400" },
+  cancellation: { Icon: CalendarX2,   cls: "bg-rose-500/15 text-rose-400" },
+  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
+  review:       { Icon: Star,         cls: "bg-yellow-500/15 text-yellow-400" },
+  inventory:    { Icon: Package,      cls: "bg-sky-500/15 text-sky-400" },
+  system:       { Icon: Info,         cls: "bg-white/10 text-[#aaa]" },
+};
+const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
+// Strip any leading emoji/symbols the stored title carries (e.g. "✅ Paid") so
+// the row shows a single, consistent icon instead of two.
+const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
@@ -226,24 +240,25 @@ export function Sidebar() {
               <div className="px-4 py-6 text-center text-[#777] text-sm">Nothing here yet</div>
             ) : (
               <div className="divide-y divide-[#1e1e1e]">
-                {recentNotifs.map(n => (
-                  <Link key={n.id} href="/dashboard/notifications" onClick={() => setNotifOpen(false)}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-[#141414] transition-colors">
-                    <span className="text-lg leading-none mt-0.5">
-                      {n.type === "booking" ? "🎉"
-                        : n.type === "cancellation" ? "❌"
-                        : n.type === "no-show" ? "⚠️"
-                        : n.type === "review" ? "⭐"
-                        : n.type === "inventory" ? "📦"
-                        : "🔔"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-semibold truncate", n.is_read ? "text-[#777]" : "text-white")}>{n.title}</p>
-                      <p className="text-xs text-[#777] truncate">{n.message}</p>
-                    </div>
-                    {!n.is_read && <span className="w-2 h-2 rounded-full bg-white flex-shrink-0 mt-1.5" />}
-                  </Link>
-                ))}
+                {recentNotifs.map(n => {
+                  const { Icon, cls } = notifIcon(n.type);
+                  return (
+                    <Link key={n.id} href="/dashboard/notifications" onClick={() => setNotifOpen(false)}
+                      className={cn("flex gap-3 px-4 py-3 transition-colors", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.035] hover:bg-white/[0.06]")}>
+                      <span className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                        <Icon size={15} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className={cn("text-sm truncate", n.is_read ? "font-medium text-[#9a9a9a]" : "font-semibold text-white")}>{cleanNotifTitle(n.title)}</p>
+                          <span className="text-[11px] text-[#666] flex-shrink-0">{timeAgo(n.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-[#777] line-clamp-2 mt-0.5">{n.message}</p>
+                      </div>
+                      {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -1,9 +1,23 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Package, Info, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, friendlyDate } from "@/lib/utils";
+
+// One clean type-icon per notification (no raw emoji), with a tinted chip.
+const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
+  booking:      { Icon: Calendar,      cls: "bg-emerald-500/15 text-emerald-400" },
+  cancellation: { Icon: CalendarX2,    cls: "bg-rose-500/15 text-rose-400" },
+  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
+  review:       { Icon: Star,          cls: "bg-yellow-500/15 text-yellow-400" },
+  inventory:    { Icon: Package,       cls: "bg-sky-500/15 text-sky-400" },
+  system:       { Icon: Info,          cls: "bg-white/10 text-[#aaa]" },
+};
+const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
+// Drop any leading emoji/symbol the stored title carries so the row shows a
+// single, consistent icon (e.g. "✅ Paid" → "Paid").
+const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -197,13 +211,12 @@ export default function NotificationsPage() {
                         : "bg-[#141414] border-[#2a2a2a] hover:border-white/30"
                     )}
                   >
-                    {/* Type icon — bare emoji, no circle backing. Unread
-                        rows get a playful wiggle to draw the eye. */}
-                    <div className="text-[26px] leading-none flex-shrink-0 mt-0.5">
-                      <span className={cn(!notif.is_read && "cw-notif-wiggle")}>
-                        {TYPE_ICONS[notif.type] ?? "🔔"}
-                      </span>
-                    </div>
+                    {/* Type icon — clean tinted chip, one icon per type. */}
+                    {(() => { const { Icon, cls } = notifIcon(notif.type); return (
+                      <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                        <Icon size={16} />
+                      </div>
+                    ); })()}
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
@@ -211,7 +224,7 @@ export default function NotificationsPage() {
                         {/* Title (top header — 'New Paid Booking · $35')
                             stays solid white regardless of read state. */}
                         <p className="text-sm font-semibold leading-tight flex-1 min-w-0 truncate text-white">
-                          {notif.title}
+                          {cleanNotifTitle(notif.title)}
                         </p>
                         {!notif.is_read && (
                           <span className="w-2 h-2 rounded-full bg-white flex-shrink-0 mt-1.5" />
