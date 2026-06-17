@@ -286,7 +286,6 @@ export default function PaymentsPage() {
       {/* Header */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-white">Payments</h1>
-        <p className="text-sm text-[#777] mt-1">Track what you&apos;ve collected, what&apos;s outstanding, and cards on file.</p>
       </div>
 
       {/* Stripe note + dashboard link */}
@@ -301,16 +300,17 @@ export default function PaymentsPage() {
         </button>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
+      {/* Summary cards — Collected is the headline (wider + larger number); the
+          other two are equal-size secondary stats. */}
+      <div className="grid grid-cols-4 gap-2 mb-5">
         {[
-          { label: "Collected", value: collected, hint: "Paid + POS", cls: "text-[#00e5a0]" },
-          { label: "Outstanding", value: outstanding, hint: "Unpaid / failed", cls: "text-amber-400" },
-          { label: "On file", value: pending, hint: "Held for later", cls: "text-white" },
+          { label: "Collected", value: collected, hint: "Paid + POS", cls: "text-[#00e5a0]", span: "col-span-2", valueCls: "text-xl sm:text-2xl" },
+          { label: "Outstanding", value: outstanding, hint: "Unpaid / failed", cls: "text-amber-400", span: "col-span-1", valueCls: "text-base sm:text-lg" },
+          { label: "On file", value: pending, hint: "Held for later", cls: "text-white", span: "col-span-1", valueCls: "text-base sm:text-lg" },
         ].map(c => (
-          <div key={c.label} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-2.5">
+          <div key={c.label} className={cn("rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3", c.span)}>
             <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">{c.label}</p>
-            <p className={cn("text-base sm:text-xl font-bold mt-0.5", c.cls)}>{formatCurrency(c.value)}</p>
+            <p className={cn("font-bold mt-0.5", c.valueCls, c.cls)}>{formatCurrency(c.value)}</p>
             <p className="text-[10px] text-[#666] mt-0.5 truncate">{c.hint}</p>
           </div>
         ))}
