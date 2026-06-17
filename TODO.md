@@ -91,6 +91,13 @@ These are the difference between "works on localhost" and "works for real custom
 ---
 
 ## 🗄️ 2. Pending SQL migrations (Supabase SQL editor)
+- [ ] 🟠 **Phase 15 transaction provenance** (`supabase/migrations/phase15_transaction_source.sql`)
+      — **RUN BEFORE deploying the phase15 code** (transactions `source` +
+      `appointment_id`). The POS finalize + cash inserts now set `source`; without
+      the columns those inserts fail (Stripe charged but sale not recorded).
+      Additive/nullable; makes Payments de-dup provenance-based instead of the
+      `client_name|amount` heuristic. Lives on branch `claude/gallant-euler-7fkw5h`
+      until the column exists; then push to main.
 - [ ] 🔴 **Shop booking_settings column** (`supabase/migrations/phase5_shop_booking_settings.sql`)
       — **CRITICAL, run this first.** `shops.booking_settings` was never created in prod, so
       no-show protection/warning/hold + capture-appointment + auto-confirm + deposits all

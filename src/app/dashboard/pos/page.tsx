@@ -336,6 +336,7 @@ export default function POSPage() {
       commission_amount: commission,
       payment_method: paymentMethod,
       type: txType,
+      source: "pos",
     }).select("id").single();
 
     if (txError) { showToast("Error saving transaction"); setCharging(false); return; }

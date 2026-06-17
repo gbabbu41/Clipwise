@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
       tip: 0,
       payment_method: "card",
       type: "service",
+      appointment_id,
+      source: reason === "no_show" ? "no_show" : "completion",
     }).then(null, () => null);
     sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,

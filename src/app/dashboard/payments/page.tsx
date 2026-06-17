@@ -35,6 +35,8 @@ interface TxRow {
   type: string;
   created_at: string;
   stripe_session_id: string | null;
+  appointment_id: string | null;
+  source: string | null;
 }
 
 type Filter = "all" | "collected" | "outstanding" | "pending" | "refunded";
@@ -79,7 +81,7 @@ export default function PaymentsPage() {
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id")
+        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, source")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -128,19 +130,20 @@ export default function PaymentsPage() {
     appt?: ApptRow;
   };
 
-  // (client|amount) of collected appointments — used to spot the duplicate
-  // completion-capture transaction (full charge) that has no Stripe session id.
+  // Provenance-based de-dup (phase15: transactions.source + appointment_id).
+  // A no-show fee charges only the fee (e.g. $20), NOT the appointment total, so
+  // we KEEP that transaction (it carries the real amount + "No-show fee" label)
+  // and drop the appointment's captured row below. A completion charge equals
+  // the total, so we drop the duplicate tx and keep the appointment row.
+  // Pre-phase15 rows have no `source` → fall back to the old name|amount
+  // heuristic so historical data still de-dups correctly.
   const paidSig = new Set(appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`));
-  const isNoShowTx = (t: TxRow) => (t.service_name ?? "").startsWith("No-show fee");
+  const isNoShowTx = (t: TxRow) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
   const posTxs = txs.filter(t => {
-    // A no-show fee charges only the fee (e.g. $20), NOT the appointment total,
-    // so we KEEP that transaction — it carries the real amount + "No-show fee"
-    // label — and instead drop the appointment's captured row below (which would
-    // wrongly show the full service price). A completion charge equals the total,
-    // so for those we drop the duplicate tx and keep the appointment row.
-    if (isNoShowTx(t)) return true;
-    if (!t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false; // appt completion charge
-    return true;
+    if (isNoShowTx(t)) return true;                                                       // keep — real fee + label
+    if (t.source === "completion") return false;                                          // shown as the appt row
+    if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false; // legacy completion
+    return true;                                                                          // POS sale / anything else
   });
 
   // One timestamp per row = when the activity happened: a paid row uses the

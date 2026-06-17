@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       payment_method: "card",
       type: m.type || "service",
       stripe_session_id: session_id,
+      source: "pos",
     }).select("id").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

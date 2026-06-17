@@ -146,6 +146,8 @@ async function run() {
         tip: 0,
         payment_method: "card",
         type: "service",
+        appointment_id: a.id,
+        source: "no_show",
       }).then(null, () => null);
       console.log("[cron/no-show] charged", { appointment_id: a.id, amount: pi.amount_received });
       charged++;
