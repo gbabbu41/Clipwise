@@ -4,7 +4,7 @@ Read this first. It carries cross-machine context so any Claude Code instance
 (Windows desktop or MacBook) stays consistent. The owner works from **two
 machines** and syncs only through this GitHub repo (`gbabbu41/Clipwise`, branch
 `main`). Local Claude memory does NOT transfer between machines — this file +
-`SESSION-16-NOTES.md` (latest) + `SESSION-14-NOTES.md` are the shared source of truth.
+`SESSION-17-NOTES.md` (latest) + `SESSION-16-NOTES.md` are the shared source of truth.
 
 ## What this is
 Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
@@ -68,15 +68,24 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
   `booking-finalize` (the Stripe redirect wipes in-memory state).
 
 ## Where to look
-- `TODO.md` — go-live checklist (§0), pending SQL (§2), **code-review backlog (§2b)**, roadmap.
-- `SESSION-16-NOTES.md` — detailed log of the most recent work (latest).
-- `SESSION-14-NOTES.md` — prior session.
-- `SESSION-13-NOTES.md` — older session.
+- `TODO.md` — go-live checklist (§0), pending SQL (§2), **code-review backlog (§2b)**, roadmap (§4b = Tap to Pay via Capacitor).
+- `SESSION-17-NOTES.md` — detailed log of the most recent work (latest).
+- `SESSION-16-NOTES.md` — prior session.
+- `SESSION-14-NOTES.md` — older session.
+- `CAPACITOR.md` — native-app (Capacitor) setup runbook + Tap to Pay prereqs.
 - `src/lib/` — `stripe.ts`, `supabase{,-admin}.ts`, `twilio.ts`, `payment-notify.ts`,
   `validation.ts` (plan gating: `planHasFeature`, `effectivePlan`), `booking-conflict.ts`.
 - `src/app/api/loyalty/` — `points` (manual add/redeem, plan-gated) + `award` (auto-earn).
 
-## Current status (2026-06-14)
+## Current status (2026-06-17)
+See `SESSION-17-NOTES.md` for the latest session (mobile modal/drawer overflow +
+iOS focus-zoom fixes; a big Payments pass — compact header, payment-aware
+completion toasts, $0 "No charge" rows, correct no-show fee amount/label,
+filters→"Recent transactions" dropdown that shows money-moved only + greyed
+refunds, and Supabase **realtime** live updates; calendar phone-column widths;
+bottom nav Clients→Payments; booking pay-modal contrast). **Capacitor**
+native-shell groundwork landed on branch `claude/gallant-euler-7fkw5h` ONLY (not
+main) toward native **Tap to Pay** — see `CAPACITOR.md` + TODO §4b.
 See `SESSION-16-NOTES.md` for the full log of all changes across sessions 14–16.
 
 **Most recently shipped (2026-06-14, all deployed):**
