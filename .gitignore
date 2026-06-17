@@ -35,3 +35,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 test-scripts/
+
+# Capacitor native build artifacts (generated on a Mac/Android machine via
+# `npx cap add ios|android`; commit the platform folders but not their builds)
+/ios/App/Pods
+/ios/App/build
+/ios/DerivedData
+/android/.gradle
+/android/build
+/android/app/build
+/android/local.properties
+/android/.idea
+/android/captures
+.capacitor*
