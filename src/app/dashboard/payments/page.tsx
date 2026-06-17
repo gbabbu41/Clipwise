@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check } from "lucide-react";
+import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -277,7 +277,7 @@ export default function PaymentsPage() {
     .sort((a, b) => b.ts - a.ts);
 
   const FILTERS: { key: Filter; label: string }[] = [
-    { key: "all", label: "All" },
+    { key: "all", label: "Recent transactions" },
     { key: "collected", label: "Collected" },
     { key: "outstanding", label: "Outstanding" },
     { key: "pending", label: "Card held/on file" },
@@ -331,15 +331,17 @@ export default function PaymentsPage() {
         ))}
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap mb-4">
-        {FILTERS.map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className={cn("px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
-              filter === f.key ? "bg-white text-black border-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
-            {f.label}
-          </button>
-        ))}
+      {/* Filter dropdown — defaults to "Recent transactions" (all) */}
+      <div className="relative mb-4 w-full sm:w-64">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as Filter)}
+          className="w-full appearance-none rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] text-white text-sm font-medium pl-4 pr-10 py-2.5 focus:outline-none focus:border-white cursor-pointer">
+          {FILTERS.map(f => (
+            <option key={f.key} value={f.key} className="bg-[#0c0c0c] text-white">{f.label}</option>
+          ))}
+        </select>
+        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#777]" />
       </div>
 
       {loading ? (
