@@ -100,6 +100,19 @@ export default function PaymentsPage() {
     return () => { active = false; };
   }, [accessToken, loadData]);
 
+  // Live updates — reload the feed the moment money moves, no manual refresh.
+  // Every card charge (completion / no-show / online pay) flips an appointment's
+  // payment_status, and POS sales insert a transactions row; we listen to both.
+  useEffect(() => {
+    if (!shop) return;
+    const ch = supabase
+      .channel(`payments:${shop.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `shop_id=eq.${shop.id}` }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [shop, loadData]);
+
   // ── One de-duped, time-sorted feed (appointments + POS sales) ───────────────
   // Appointment card-charges (no-show / completion) ALSO write a transactions
   // row; we show the appointment for those and drop the duplicate tx so nothing
