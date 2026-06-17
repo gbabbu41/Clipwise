@@ -513,3 +513,23 @@ only, so focusing never zooms; desktop keeps its denser sizing:
 
 Build: `next build` → "✓ Compiled successfully" (only the pre-existing container
 `supabaseUrl is required` page-data error, which needs env vars).
+
+**Follow-up — side-drawer cards clipped behind the bottom nav.**
+The first pass only covered centered `fixed inset-0 … items-center` overlays. The
+**slide-in detail drawers** (Client Profile, Appointment Details, Calendar day
+peek) use a different pattern — `fixed right-0 top-0 h-full … overflow-y-auto` —
+and they run the **full viewport height**. The mobile bottom nav (`.cw-bnav`,
+`position:fixed; bottom:0; z-index:50`, height `68px + safe-area`) paints over the
+drawer's lower edge, so the last content (e.g. the loyalty section under "Send
+Re-engagement", or the calendar drawer's "Open day view" button) sat **behind the
+nav and could not be scrolled into view**. The top edge also tucked under the
+notch.
+Fix (3 drawers): replace `p-6` with explicit padding that clears both insets —
+`pt-[calc(env(safe-area-inset-top)+1.5rem)]` so the header clears the notch, and
+`pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6` so the last content scrolls
+clear above the 68px nav (reverted to normal `pb` on `lg`, where the nav is hidden
+and the sidebar shows). Added `overscroll-contain`. Files:
+`dashboard/clients`, `dashboard/appointments`, `dashboard/calendar` (the calendar
+drawer is `flex-col`, so the same insets were applied to its header `pt` and its
+footer `pb`). Centered modals at `z-[70]` are unaffected (they paint above the nav
+and cover it). Build: ✓ Compiled successfully.

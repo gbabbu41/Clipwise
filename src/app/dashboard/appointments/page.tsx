@@ -1137,7 +1137,7 @@ export default function AppointmentsPage() {
       {selectedApt && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedApt(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto p-6 space-y-5">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Appointment Details</h2>
               <button onClick={() => setSelectedApt(null)} className="text-[#777] hover:text-white text-xl">✕</button>

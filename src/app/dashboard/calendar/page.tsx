@@ -283,7 +283,7 @@ function AgendaSheet({
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-black shadow-sm border-l border-[#1e1e1e] z-50 flex flex-col animate-fade-in">
-        <div className="p-5 border-b border-[#1e1e1e] flex items-center justify-between">
+        <div className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] border-b border-[#1e1e1e] flex items-center justify-between">
           <div>
             <p className="text-xs text-[#777]">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
             <h3 className="text-lg font-bold text-white">{dayLabel}</h3>
@@ -322,7 +322,7 @@ function AgendaSheet({
             );
           })}
         </div>
-        <div className="p-4 border-t border-[#1e1e1e]">
+        <div className="px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] lg:pb-4 border-t border-[#1e1e1e]">
           <button onClick={onDrillToDay}
             className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors">
             Open day view
