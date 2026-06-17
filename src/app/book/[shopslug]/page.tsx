@@ -984,10 +984,10 @@ export default function BookingPage() {
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
   const noShowConsentBox = (
-    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
+    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50 cursor-pointer">
       <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
-        className="mt-0.5 h-4 w-4 accent-gold flex-shrink-0" />
-      <span className="text-xs text-amber-200/90 leading-relaxed">
+        className="mt-0.5 h-4 w-4 accent-amber-600 flex-shrink-0" />
+      <span className="text-xs text-amber-900 leading-relaxed">
         {willSaveCard ? (
           <>This booking is more than 7 days away, so my card will be securely <span className="font-semibold">saved</span> now (not charged) and charged after my visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if I don&apos;t show up. I accept this no-show policy.</>
         ) : (
@@ -1612,8 +1612,8 @@ export default function BookingPage() {
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-white border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
               <div>
-                <h2 className="text-lg font-bold text-white">How would you like to pay?</h2>
-                <p className="text-sm text-[#777] mt-1">You can pay now or settle up at the shop.</p>
+                <h2 className="text-lg font-bold text-gray-900">How would you like to pay?</h2>
+                <p className="text-sm text-gray-500 mt-1">You can pay now or settle up at the shop.</p>
               </div>
 
               {/* No-show consent — required only for the online (card) path.
