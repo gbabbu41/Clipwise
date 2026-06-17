@@ -371,7 +371,7 @@ export default function DashboardPage() {
       {newBookingNotif && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setNewBookingNotif(null)} />
-          <div className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
               <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center mx-auto mb-4">
                 <Calendar size={24} className="text-white" />
@@ -834,7 +834,7 @@ export default function DashboardPage() {
 
       {/* Add Walk-in Modal */}
       {showAddWalkin && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
           <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl w-full max-w-md p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Add Walk-in Client</h2>

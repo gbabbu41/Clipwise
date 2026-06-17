@@ -771,7 +771,7 @@ export default function StaffPage() {
       {permBarber && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
@@ -811,7 +811,7 @@ export default function StaffPage() {
       {scheduleBarber && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setScheduleBarber(null)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Schedule — {scheduleBarber.name}</h2>
@@ -968,7 +968,7 @@ export default function StaffPage() {
       {inviteLinkModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
@@ -996,7 +996,7 @@ export default function StaffPage() {
       {resetModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Password Reset Link</h2>
@@ -1017,7 +1017,7 @@ export default function StaffPage() {
       {confirmRemove && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
@@ -1047,7 +1047,7 @@ export default function StaffPage() {
       {showAddModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Barber</h2>

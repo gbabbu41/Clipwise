@@ -509,7 +509,7 @@ export default function MessagesPage() {
       {showCompose && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowCompose(false)} />
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">New Message</h2>
