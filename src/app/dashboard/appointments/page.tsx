@@ -415,7 +415,18 @@ export default function AppointmentsPage() {
 
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
-    showToast(`Marked as ${statusLabel(status)}`);
+    // Completion feedback is payment-aware so the owner always knows what
+    // happened to the money — not just that the status changed. (A held/saved
+    // card capture shows its own "Charged $X" toast right after, which wins.)
+    if (status === "completed") {
+      const amt = appt?.total_amount ?? 0;
+      const ps = appt?.payment_status;
+      if (ps === "paid" || ps === "captured") showToast(`Completed · paid ${formatCurrency(amt)} ✓`);
+      else if (amt > 0) showToast(`Completed · ${formatCurrency(amt)} still unpaid — take payment from the row`);
+      else showToast("Completed · no price on this appointment, nothing to charge");
+    } else {
+      showToast(`Marked as ${statusLabel(status)}`);
+    }
   };
 
   const saveNotes = async () => {

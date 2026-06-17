@@ -76,7 +76,7 @@ export default function PaymentsPage() {
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, services(name), barbers(name)")
-        .eq("shop_id", shop.id).gt("total_amount", 0).order("date", { ascending: false }),
+        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }),
@@ -130,13 +130,18 @@ export default function PaymentsPage() {
     ...appts.map((a): FeedItem => {
       const info = statusInfo(a.payment_status);
       const paid = isPaid(a.payment_status);
+      // A completed appointment with no price never charged anything — read it
+      // as "No charge" rather than the alarming "Unpaid".
+      const noCharge = !paid && (a.total_amount ?? 0) <= 0;
       const tsIso = paid ? (a.paid_at ?? a.created_at) : a.created_at;
       return {
         key: `a${a.id}`,
         name: a.client_name,
         sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
         amount: a.total_amount ?? 0,
-        statusLabel: info.label, tone: info.tone, settled: paid,
+        statusLabel: noCharge ? "No charge" : info.label,
+        tone: noCharge ? "muted" : info.tone,
+        settled: paid,
         tsIso,
         ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
         appt: a,
@@ -249,7 +254,7 @@ export default function PaymentsPage() {
       const s = i.appt?.payment_status;
       if (filter === "all") return true;
       if (filter === "collected") return i.settled;
-      if (filter === "outstanding") return !!i.appt && (s === "unpaid" || s === "failed" || !s);
+      if (filter === "outstanding") return !!i.appt && (i.appt.total_amount ?? 0) > 0 && (s === "unpaid" || s === "failed" || !s);
       if (filter === "pending") return s === "held" || s === "saved";
       if (filter === "refunded") return s === "refunded";
       return true;
