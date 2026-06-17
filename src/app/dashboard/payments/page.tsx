@@ -21,6 +21,7 @@ interface ApptRow {
   payment_intent_id: string | null;
   paid_at: string | null;
   created_at: string | null;
+  status: string | null;
   services: { name: string } | null;
   barbers: { name: string } | null;
 }
@@ -75,7 +76,7 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, services(name), barbers(name)")
+        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id")
@@ -115,10 +116,16 @@ export default function PaymentsPage() {
   };
 
   // (client|amount) of collected appointments — used to spot the duplicate
-  // capture transaction (full charge) that has no Stripe session id.
+  // completion-capture transaction (full charge) that has no Stripe session id.
   const paidSig = new Set(appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`));
+  const isNoShowTx = (t: TxRow) => (t.service_name ?? "").startsWith("No-show fee");
   const posTxs = txs.filter(t => {
-    if ((t.service_name ?? "").startsWith("No-show fee")) return false;                 // appt no-show charge
+    // A no-show fee charges only the fee (e.g. $20), NOT the appointment total,
+    // so we KEEP that transaction — it carries the real amount + "No-show fee"
+    // label — and instead drop the appointment's captured row below (which would
+    // wrongly show the full service price). A completion charge equals the total,
+    // so for those we drop the duplicate tx and keep the appointment row.
+    if (isNoShowTx(t)) return true;
     if (!t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false; // appt completion charge
     return true;
   });
@@ -127,7 +134,11 @@ export default function PaymentsPage() {
   // charge time (paid_at); an outstanding row uses when it was booked
   // (created_at); a POS sale uses created_at. Never the appointment date.
   const feedAll: FeedItem[] = [
-    ...appts.map((a): FeedItem => {
+    // Skip a no-show appointment that was charged — its money shows as the
+    // "No-show fee" transaction (real amount), not the full service price.
+    ...appts
+      .filter(a => !(a.status === "no-show" && isPaid(a.payment_status)))
+      .map((a): FeedItem => {
       const info = statusInfo(a.payment_status);
       const paid = isPaid(a.payment_status);
       // A completed appointment with no price never charged anything — read it
@@ -147,16 +158,20 @@ export default function PaymentsPage() {
         appt: a,
       };
     }),
-    ...posTxs.map((t): FeedItem => ({
-      key: `t${t.id}`,
-      name: t.client_name || "Walk-in",
-      sub: `${t.service_name || "Sale"} · POS`,
-      amount: (t.amount ?? 0) + (t.tip ?? 0),
-      statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
-      tone: "good", settled: true,
-      tsIso: t.created_at,
-      ts: new Date(t.created_at).getTime(),
-    })),
+    ...posTxs.map((t): FeedItem => {
+      const noShow = isNoShowTx(t);
+      return {
+        key: `t${t.id}`,
+        name: t.client_name || "Walk-in",
+        sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"} · POS`,
+        amount: (t.amount ?? 0) + (t.tip ?? 0),
+        statusLabel: noShow ? "No-show fee" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card"),
+        tone: noShow ? "warn" : "good",
+        settled: true,
+        tsIso: t.created_at,
+        ts: new Date(t.created_at).getTime(),
+      };
+    }),
   ];
 
   // ── Summary (from the de-duped feed) ────────────────────────────────────────
