@@ -403,7 +403,7 @@ export default function LoyaltyPage() {
       {addPointsFor && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setAddPointsFor(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Add Loyalty Points</h3>
               <p className="text-sm text-[#777]">For: {addPointsFor.name}</p>
@@ -421,7 +421,7 @@ export default function LoyaltyPage() {
       {redeemFor && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setRedeemFor(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Redeem Loyalty Points</h3>
               <p className="text-sm text-[#777]">For: {redeemFor.name} · Balance: {redeemFor.loyalty_points} pts</p>
@@ -442,7 +442,7 @@ export default function LoyaltyPage() {
       {showPromoModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowPromoModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{editPromo ? "Edit Promo Code" : "Create Promo Code"}</h2>

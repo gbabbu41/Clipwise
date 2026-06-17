@@ -1282,7 +1282,7 @@ export default function AppointmentsPage() {
       {rejectModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRejectModal(null)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
@@ -1321,7 +1321,7 @@ export default function AppointmentsPage() {
       {refundModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRefundModal(null)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Issue Refund</h2>
@@ -1352,7 +1352,7 @@ export default function AppointmentsPage() {
       {noShowModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => !savingNoShow && setNoShowModal(null)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{noShowModal.mode === "mark" ? "Mark No-Show & Charge?" : "Charge No-Show Fee?"}</h2>
@@ -1384,7 +1384,7 @@ export default function AppointmentsPage() {
       {paymentModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentModal(null)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Take Payment</h2>
@@ -1461,7 +1461,7 @@ export default function AppointmentsPage() {
       {showAddModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Appointment</h2>

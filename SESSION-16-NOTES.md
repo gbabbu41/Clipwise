@@ -474,3 +474,42 @@ now formatted at insert time.
 
 Build: `next build` compiles + type-checks clean (only the pre-existing
 container `supabaseUrl is required` page-data error, which needs env vars).
+
+---
+
+## App-wide modal/card overflow + iOS focus-zoom fix (2026-06-17)
+
+**Reported:** "all cards that appear when contents tapped are strange, go beyond
+screen, and cannot move up and down at all… it zooms the page in and breaks the
+whole page." Two distinct root causes, both fixed:
+
+**1. Modals clipped off-screen, un-scrollable (every portal).**
+Every dialog used the overlay pattern
+`fixed inset-0 z-XX flex items-center justify-center p-4`. With `items-center`,
+a panel taller than the viewport centers vertically — so its **top is pushed
+above y=0 and clipped**, and because the overlay itself had no scroll, there was
+**nothing to scroll**. On a phone (or with the keyboard up) the panel's header
+and top fields became unreachable.
+Fix (swept across **~42 overlay containers** in ~20 files under `src/app` +
+`src/components`): `flex items-center justify-center p-4` →
+`flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain`.
+- `items-start` on mobile pins the panel to the top so it grows downward and the
+  overlay (now `overflow-y-auto`) scrolls the whole thing into reach.
+- `sm:items-center` keeps the familiar centered look on tablet/desktop where
+  panels fit.
+- `overscroll-contain` stops the scroll from chaining to the page behind it.
+
+**2. iOS Safari focus-zoom "breaks the page."**
+iOS auto-zooms when you focus a form control whose font is **< 16px**. Tons of
+inputs use `text-sm`/`text-xs`, so tapping any field zoomed the viewport and left
+the page panned/jammed. Fix in `globals.css` — force ≥16px on touch viewports
+only, so focusing never zooms; desktop keeps its denser sizing:
+```css
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea { font-size: 16px !important; }
+}
+```
+
+Build: `next build` → "✓ Compiled successfully" (only the pre-existing container
+`supabaseUrl is required` page-data error, which needs env vars).

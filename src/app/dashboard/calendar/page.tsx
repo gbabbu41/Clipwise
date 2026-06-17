@@ -167,7 +167,7 @@ function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
         <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">{appt.client_name}</h3>
@@ -1454,7 +1454,7 @@ export default function CalendarPage() {
       {addCtx && (
         <>
           <div className="fixed inset-0 bg-black/60 z-40" onClick={() => !savingAdd && setAddCtx(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">New appointment</h3>

@@ -44,6 +44,18 @@ body {
   overflow-x: clip;
 }
 
+/* iOS Safari auto-zooms (and then leaves the page panned/"broken") whenever you
+   focus a form control whose font is < 16px. Many inputs use text-sm/text-xs,
+   which triggered it across every modal/form. Force ≥16px on touch viewports so
+   focusing a field never zooms. Desktop keeps the smaller, denser sizing. */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* DM Mono utility — apply via `font-mono` (Tailwind) or `.font-numeric` for
    any numeric display (prices, stats, times). */
 .font-numeric, .font-mono {

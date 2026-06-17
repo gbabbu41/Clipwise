@@ -1609,7 +1609,7 @@ export default function BookingPage() {
       {showPayChoiceModal && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowPayChoiceModal(false)} />
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-white border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
               <div>
                 <h2 className="text-lg font-bold text-white">How would you like to pay?</h2>
@@ -1644,7 +1644,7 @@ export default function BookingPage() {
       {showWaitlistModal && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => !waitlistSaving && setShowWaitlistModal(false)} />
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[90] flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain">
             <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <div>
