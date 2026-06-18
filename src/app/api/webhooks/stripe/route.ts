@@ -192,6 +192,29 @@ export async function POST(request: NextRequest) {
         }
         break;
       }
+      // ── Charge refunded (in-app Refund OR straight in the Stripe dashboard) ──
+      // Sync our records so the row greys out + drops from Collected, keeping us
+      // in step with Stripe's payout balance. Connect refunds arrive here too
+      // (same endpoint that gets account.updated). Full refunds only — a partial
+      // refund leaves the row as-is so we don't mislabel it.
+      case "charge.refunded": {
+        const ch = event.data.object as Stripe.Charge;
+        const pi = typeof ch.payment_intent === "string"
+          ? ch.payment_intent
+          : (ch.payment_intent?.id ?? null);
+        if (pi && ch.refunded) {
+          await supabaseAdmin.from("appointments")
+            .update({ payment_status: "refunded" })
+            .eq("payment_intent_id", pi)
+            .neq("payment_status", "refunded")
+            .then(null, () => null);
+          await supabaseAdmin.from("transactions")
+            .update({ refunded: true })
+            .eq("payment_intent_id", pi)
+            .then(null, () => null);
+        }
+        break;
+      }
     }
 
     return NextResponse.json({ received: true });

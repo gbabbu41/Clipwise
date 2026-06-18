@@ -37,6 +37,7 @@ interface TxRow {
   stripe_session_id: string | null;
   appointment_id: string | null;
   payment_intent_id: string | null;
+  refunded: boolean | null;
   source: string | null;
 }
 
@@ -87,7 +88,7 @@ export default function PaymentsPage() {
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, source")
+        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -138,7 +139,7 @@ export default function PaymentsPage() {
     key: string; name: string; sub: string; amount: number;
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
-    pi: string | null; method: string | null;
+    pi: string | null; method: string | null; refunded: boolean;
     appt?: ApptRow;
   };
 
@@ -184,22 +185,25 @@ export default function PaymentsPage() {
         tsIso,
         ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
         pi: a.payment_intent_id, method: a.payment_method,
+        refunded: a.payment_status === "refunded",
         appt: a,
       };
     }),
     ...posTxs.map((t): FeedItem => {
       const noShow = isNoShowTx(t);
+      const refunded = !!t.refunded;
       return {
         key: `t${t.id}`,
         name: t.client_name || "Walk-in",
         sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"} · POS`,
         amount: (t.amount ?? 0) + (t.tip ?? 0),
-        statusLabel: noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card"),
-        tone: "good",
-        settled: true,
+        statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
+        tone: refunded ? "muted" : "good",
+        settled: !refunded,
         tsIso: t.created_at,
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method,
+        refunded,
       };
     }),
   ];
@@ -412,7 +416,7 @@ export default function PaymentsPage() {
         <div className="space-y-2">
           {feed.map(i => {
             const a = i.appt;
-            const refunded = a?.payment_status === "refunded";
+            const refunded = i.refunded;
             const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
             const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
             return (
