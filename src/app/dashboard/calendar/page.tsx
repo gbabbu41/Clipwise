@@ -351,7 +351,7 @@ export default function CalendarPage() {
   // the quick-add modal, and the "+" empty-slot add context/form.
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
   const [services, setServices] = useState<ServiceLite[]>([]);
-  const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string } | null>(null);
+  const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "", time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
@@ -710,9 +710,9 @@ export default function CalendarPage() {
   };
 
   // Open the quick-add modal pre-filled for a slot.
-  const openAdd = (barberId: string, barberName: string, time: string) => {
+  const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number) => {
     setAddForm({ client_name: "", client_phone: "", service_id: "", time });
-    setAddCtx({ barberId, barberName, time });
+    setAddCtx({ barberId, barberName, time, boxMinutes });
   };
 
   // Quick-add an in-person appointment from a "+" empty slot (server-side route
@@ -753,8 +753,15 @@ export default function CalendarPage() {
     const sched = schedules.get(addCtx.barberId);
     const win = sched ?? { start: "09:00:00", end: "22:00:00" };
     const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
-    const free = getSlotsInRange(win.start, win.end, currentDate, Array.from(booked), ADD_STEP)
+    let free = getSlotsInRange(win.start, win.end, currentDate, Array.from(booked), ADD_STEP)
       .filter(s => s.available).map(s => s.slot);
+    // Keep the picker inside the tapped box: a 10:15 box offers 10:15 / 10:30 /
+    // 10:45 — not 11:00 (that belongs to the next box).
+    if (addCtx.boxMinutes) {
+      const startM = timeToMinutes(addCtx.time);
+      const endM = startM + addCtx.boxMinutes;
+      free = free.filter(slot => { const m = timeToMinutes(slot); return m >= startM && m < endM; });
+    }
     if (!free.includes(addCtx.time)) free.unshift(addCtx.time);
     return free;
   }, [addCtx, schedules, currentDate, bookedSlotsFor]);
@@ -924,7 +931,7 @@ export default function CalendarPage() {
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
-            <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s)}
+            <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
               className="group rounded-xl border border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
               <span className="text-xs text-gray-500">{rangeLabel(c.s, c.minutes)}</span>
               <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-amber-500">
@@ -1094,7 +1101,7 @@ export default function CalendarPage() {
                               ? "border-gray-200 bg-gray-200/60 hover:border-amber-300 hover:bg-amber-50/40"
                               : "border-gray-300 bg-white hover:border-amber-400 hover:bg-amber-50/60",
                           )}
-                          onClick={() => openAdd(b.id, b.name, slot)}>
+                          onClick={() => openAdd(b.id, b.name, slot, minutes)}>
                           <Plus size={15} className={cn(outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
                         </button>
                       );
