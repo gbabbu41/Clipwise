@@ -478,10 +478,13 @@ export default function CalendarPage() {
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
 
-  // Lock the page behind the New-appointment modal so swiping the card scrolls
-  // the CARD, not the page (iOS-safe: pin the body + restore scroll on close).
+  // Lock the page behind any open calendar overlay (add modal, appointment
+  // detail, day agenda) so swiping the card scrolls the CARD, not the page
+  // (iOS-safe: pin the body + restore scroll on close). One boolean keeps it
+  // locked smoothly when one overlay opens another.
+  const anyModalOpen = !!(addCtx || selectedAppt || agendaDate);
   useEffect(() => {
-    if (!addCtx) return;
+    if (!anyModalOpen) return;
     const y = window.scrollY;
     const body = document.body;
     const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
@@ -496,7 +499,7 @@ export default function CalendarPage() {
       body.style.overflow = prev.overflow;
       window.scrollTo(0, y);
     };
-  }, [addCtx]);
+  }, [anyModalOpen]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
