@@ -1089,8 +1089,6 @@ export default function CalendarPage() {
                     {/* Free slots → "+ Add" (one per free hour; greyed when outside hours) */}
                     {empties.map(({ slot, minutes }) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
-                      // Height tracks the real gap; trim so a tiny gap never pokes
-                      // under the next block. min 16 keeps it tappable.
                       const height = Math.max(16, (minutes / 60) * ROW_PX - 4);
                       const outside = isOutsideSchedule(b.id, slot);
                       return (
@@ -1098,14 +1096,13 @@ export default function CalendarPage() {
                           title={outside ? "Outside working hours" : undefined}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className={cn(
-                            "group rounded-lg border border-dashed transition-colors pointer-events-auto flex items-center justify-center gap-1 px-1 overflow-hidden",
+                            "group rounded-lg border border-dashed transition-colors pointer-events-auto flex items-center justify-center overflow-hidden",
                             outside
                               ? "border-gray-200 bg-gray-200/60 hover:border-amber-300 hover:bg-amber-50/40"
                               : "border-gray-300 bg-white hover:border-amber-400 hover:bg-amber-50/60",
                           )}
                           onClick={() => openAdd(b.id, b.name, slot, minutes)}>
-                          <Plus size={12} className={cn("flex-shrink-0", outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
-                          <span className={cn("text-[9px] font-medium whitespace-nowrap", outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-600")}>{slot}</span>
+                          <Plus size={15} className={cn(outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
                         </button>
                       );
                     })}
@@ -1126,18 +1123,16 @@ export default function CalendarPage() {
                             position: "absolute",
                           }}
                           className={cn(
-                            "rounded-lg px-1.5 py-1 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:shadow-md shadow-sm",
+                            "rounded-lg px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:shadow-md shadow-sm",
                             statusBlock(appt.status),
                             dimmed && "opacity-70 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          {height > 30 && (
-                            <p className="text-[10px] opacity-80 truncate">{rangeLabel(appt.time_slot, duration)}</p>
-                          )}
+                          <p className="text-[10px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          <p className="text-[9px] opacity-80 truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
                           {height > 50 && lanes === 1 && (
-                            <p className="text-[10px] opacity-70 truncate">{(appt.services as { name: string } | null)?.name}</p>
+                            <p className="text-[9px] opacity-70 truncate leading-tight">{(appt.services as { name: string } | null)?.name}</p>
                           )}
                         </button>
                       );
