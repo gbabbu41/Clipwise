@@ -99,9 +99,12 @@ export async function POST(request: NextRequest) {
         ? feeCents
         : Math.round((appt.total_amount ?? 0) * 100);
       if (chargeCents <= 0) {
-        // Nothing to charge (e.g. $0 service) — just mark it settled.
+        // Nothing to charge (e.g. $0 service) — just mark it settled. paid_at
+        // is best-effort so a lagging migration can't fail the request.
         await supabaseAdmin.from("appointments")
-          .update({ payment_status: "captured", payment_method: "card", paid_at: new Date().toISOString() }).eq("id", appointment_id);
+          .update({ payment_status: "captured", payment_method: "card" }).eq("id", appointment_id);
+        await supabaseAdmin.from("appointments")
+          .update({ paid_at: new Date().toISOString() }).eq("id", appointment_id).then(null, () => null);
         return NextResponse.json({ ok: true, amount: 0 });
       }
       pi = await stripe.paymentIntents.create({
@@ -117,9 +120,15 @@ export async function POST(request: NextRequest) {
       const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};
       pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
     }
+    // Mark settled with the columns that always exist. `paid_at` is written
+    // separately + best-effort so a lagging migration can never make this throw
+    // and roll a SUCCESSFUL Stripe charge back to "failed" via the catch below.
     await supabaseAdmin.from("appointments")
-      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id, paid_at: new Date().toISOString() })
+      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id })
       .eq("id", appointment_id);
+    await supabaseAdmin.from("appointments")
+      .update({ paid_at: new Date().toISOString() })
+      .eq("id", appointment_id).then(null, () => null);
     // Best-effort — column may not exist until the Phase 1 migration is run.
     if (reason === "no_show") {
       await supabaseAdmin.from("appointments")
