@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo,
-  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes,
+  occupiedSlots, dbTimeToDisplay, timeToMinutes,
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -750,21 +750,21 @@ export default function CalendarPage() {
   // excluding times already booked), so a 15-min offset can be picked.
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
-    const sched = schedules.get(addCtx.barberId);
-    const win = sched ?? { start: "09:00:00", end: "22:00:00" };
     const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
-    let free = getSlotsInRange(win.start, win.end, currentDate, Array.from(booked), ADD_STEP)
-      .filter(s => s.available).map(s => s.slot);
-    // Keep the picker inside the tapped box: a 10:15 box offers 10:15 / 10:30 /
-    // 10:45 — not 11:00 (that belongs to the next box).
-    if (addCtx.boxMinutes) {
-      const startM = timeToMinutes(addCtx.time);
-      const endM = startM + addCtx.boxMinutes;
-      free = free.filter(slot => { const m = timeToMinutes(slot); return m >= startM && m < endM; });
+    const startM = timeToMinutes(addCtx.time);
+    const endM = startM + (addCtx.boxMinutes ?? 60);
+    // Build the picker straight from the tapped box: the exact start, then every
+    // 15-min mark inside that box (11 AM box → 11:00 / 11:15 / 11:30 / 11:45),
+    // never spilling into the next box. Skip marks that are already booked; past
+    // times are fine (the owner may log a walk-in after the fact).
+    const opts: string[] = [addCtx.time];
+    for (let m = Math.ceil(startM / ADD_STEP) * ADD_STEP; m < endM; m += ADD_STEP) {
+      if (m === startM) continue;
+      const slot = minsToSlot(m);
+      if (!booked.has(slot)) opts.push(slot);
     }
-    if (!free.includes(addCtx.time)) free.unshift(addCtx.time);
-    return free;
-  }, [addCtx, schedules, currentDate, bookedSlotsFor]);
+    return opts;
+  }, [addCtx, currentDate, bookedSlotsFor]);
 
   const titleText = useMemo(() => {
     const monthFmt = isMobile ? "short" : "long";
