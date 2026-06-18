@@ -596,7 +596,7 @@ export default function CalendarPage() {
 
   // Empty "+" slots are shown every 30 min; a booking can still be added on a
   // 15-min offset via the add modal's time picker.
-  const EMPTY_STEP = 30;
+  const EMPTY_STEP = 60;   // one empty "+" box per hour (add-modal still uses ADD_STEP)
   const ADD_STEP = 15;
 
   // Display-slots a barber's live appointments cover on the given day, at the
