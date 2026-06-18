@@ -478,6 +478,26 @@ export default function CalendarPage() {
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
 
+  // Lock the page behind the New-appointment modal so swiping the card scrolls
+  // the CARD, not the page (iOS-safe: pin the body + restore scroll on close).
+  useEffect(() => {
+    if (!addCtx) return;
+    const y = window.scrollY;
+    const body = document.body;
+    const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, y);
+    };
+  }, [addCtx]);
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3500);
