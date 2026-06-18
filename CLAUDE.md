@@ -78,6 +78,8 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
 - `src/app/api/loyalty/` — `points` (manual add/redeem, plan-gated) + `award` (auto-earn).
 
 ## Current status (2026-06-17)
+**Not yet live to customers** (pre-launch) — safe to iterate on `main`; no real
+customer money/data at risk yet. Stripe still sandbox/test, Twilio trial.
 See `SESSION-17-NOTES.md` for the latest session (mobile modal/drawer overflow +
 iOS focus-zoom fixes; a big Payments pass — compact header, payment-aware
 completion toasts, $0 "No charge" rows, correct no-show fee amount/label,
