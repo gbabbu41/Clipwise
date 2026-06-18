@@ -230,8 +230,8 @@ export function Sidebar() {
           when the bell is on. Tap outside (or the bell again) to close. */}
       {notifOpen && (
         <>
-          <div className="lg:hidden fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-50 max-h-[70vh] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
+          <div className="lg:hidden fixed inset-0 z-[70]" onClick={() => setNotifOpen(false)} />
+          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-[80] max-h-[calc(100dvh-3.5rem-5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
             <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
               <p className="text-sm font-bold text-white">Notifications</p>
               <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
