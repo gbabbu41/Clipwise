@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { NotificationListener } from "@/components/notification-listener";
+import { ModalChrome } from "@/components/modal-chrome";
 
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
@@ -72,6 +73,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
     <BarberProvider>
       <BarberGuard>
         <div className="min-h-screen bg-background">
+          <ModalChrome />
           <NotificationListener />
           <BarberSidebar />
           {/* pt-12 reserves space for the BarberSidebar's mobile top bar. */}

@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { useRubberBand } from "@/lib/use-rubber-band";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo,
   occupiedSlots, dbTimeToDisplay, timeToMinutes,
@@ -478,30 +477,6 @@ export default function CalendarPage() {
     setColWrapW(el.getBoundingClientRect().width);
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
-
-  // Lock the page behind any open calendar overlay (add modal, appointment
-  // detail, day agenda) so swiping the card scrolls the CARD, not the page
-  // (iOS-safe: pin the body + restore scroll on close). One boolean keeps it
-  // locked smoothly when one overlay opens another.
-  const addCardRef = useRubberBand<HTMLDivElement>(!!addCtx);
-  const anyModalOpen = !!(addCtx || selectedAppt || agendaDate);
-  useEffect(() => {
-    if (!anyModalOpen) return;
-    const y = window.scrollY;
-    const body = document.body;
-    const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
-    body.style.position = "fixed";
-    body.style.top = `-${y}px`;
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    return () => {
-      body.style.position = prev.position;
-      body.style.top = prev.top;
-      body.style.width = prev.width;
-      body.style.overflow = prev.overflow;
-      window.scrollTo(0, y);
-    };
-  }, [anyModalOpen]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -1550,8 +1525,8 @@ export default function CalendarPage() {
       {addCtx && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[70]" onClick={() => !savingAdd && setAddCtx(null)} />
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 pb-24 lg:pb-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div ref={addCardRef} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3 max-h-[85vh] overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">New appointment</h3>
                 <button onClick={() => !savingAdd && setAddCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>

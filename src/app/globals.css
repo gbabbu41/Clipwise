@@ -789,6 +789,8 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   cursor: pointer; padding: 8px 0;
   -webkit-tap-highlight-color: transparent;
 }
+/* While a modal is open, hide the bottom nav so cards never overlap it. */
+.cw-modal-open .cw-bnav { display: none; }
 .cw-ni-icon  { font-size: 20px; color: var(--grey-2); transition: color 0.15s; }
 .cw-ni-label { font-size: 10px; color: var(--grey-2); font-weight: 600; transition: color 0.15s; }
 .cw-ni.active .cw-ni-icon,

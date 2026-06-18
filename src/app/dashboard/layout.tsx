@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
 import { NotificationListener } from "@/components/notification-listener";
+import { ModalChrome } from "@/components/modal-chrome";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-black">
+      <ModalChrome />
       <NotificationListener />
       <Sidebar />
       {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
