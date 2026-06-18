@@ -49,9 +49,31 @@ export async function POST(request: NextRequest) {
       payment_method: "card",
       type: m.type || "service",
       stripe_session_id: session_id,
+      payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
       source: "pos",
     }).select("id").single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // If the payment_intent_id column doesn't exist yet (pre-phase16), retry
+    // without it so the POS sale still records.
+    let txRow = tx;
+    if (error && /payment_intent_id/.test(error.message)) {
+      const retry = await supabaseAdmin.from("transactions").insert({
+        shop_id,
+        barber_id: m.barber_id || null,
+        client_name: m.client_name || "Walk-in",
+        service_name: m.service_name || "Sale",
+        amount: subtotal,
+        tip,
+        commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
+        payment_method: "card",
+        type: m.type || "service",
+        stripe_session_id: session_id,
+        source: "pos",
+      }).select("id").single();
+      txRow = retry.data;
+      if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 500 });
+    } else if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     // Decrement inventory for any product items in the sale.
     let products: { id: string; qty: number }[] = [];
@@ -74,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       paid: true,
-      transactionId: tx.id,
+      transactionId: txRow!.id,
       sale: {
         subtotal, tip, discount, total, method: "card",
         client_name: m.client_name || "Walk-in",

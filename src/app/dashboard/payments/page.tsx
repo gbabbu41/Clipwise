@@ -36,6 +36,7 @@ interface TxRow {
   created_at: string;
   stripe_session_id: string | null;
   appointment_id: string | null;
+  payment_intent_id: string | null;
   source: string | null;
 }
 
@@ -67,6 +68,8 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
+  // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -84,12 +87,17 @@ export default function PaymentsPage() {
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, source")
+        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, source")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
     setLoading(false);
+    // Cross-check card money against Stripe (exact net after fees + payout balance).
+    fetch("/api/stripe/payments-summary", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id }),
+    }).then(r => (r.ok ? r.json() : null)).then(d => { if (d && !d.error) setStripeNet(d); }).catch(() => {});
   }, [shop]);
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -130,6 +138,7 @@ export default function PaymentsPage() {
     key: string; name: string; sub: string; amount: number;
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
+    pi: string | null; method: string | null;
     appt?: ApptRow;
   };
 
@@ -174,6 +183,7 @@ export default function PaymentsPage() {
         settled: paid,
         tsIso,
         ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
+        pi: a.payment_intent_id, method: a.payment_method,
         appt: a,
       };
     }),
@@ -189,12 +199,23 @@ export default function PaymentsPage() {
         settled: true,
         tsIso: t.created_at,
         ts: new Date(t.created_at).getTime(),
+        pi: t.payment_intent_id ?? null, method: t.payment_method,
       };
     }),
   ];
 
+  // Exact net (after Stripe fee) per item; cash + unmatched fall back to amount.
+  const netOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].net : i.amount;
+  const feeOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].fee : 0;
+
   // ── Summary (from the de-duped feed) ────────────────────────────────────────
-  const collected = feedAll.filter(i => i.settled).reduce((s, i) => s + i.amount, 0);
+  // Card = exact net from Stripe (after their fee); cash = full amount (in drawer).
+  const settledItems = feedAll.filter(i => i.settled);
+  const cashCollected = settledItems.filter(i => i.method === "cash").reduce((s, i) => s + i.amount, 0);
+  const cardNet = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + netOf(i), 0);
+  const cardFees = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + feeOf(i), 0);
+  const collected = cardNet + cashCollected;
+  const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
   const outstanding = appts
     .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
     .reduce((s, a) => s + (a.total_amount ?? 0), 0);
@@ -339,19 +360,36 @@ export default function PaymentsPage() {
 
       {/* Summary cards — Collected is the headline (wider + larger number); the
           other two are equal-size secondary stats. */}
-      <div className="grid grid-cols-4 gap-2 mb-5">
-        {[
-          { label: "Collected", value: collected, hint: "Paid + POS", cls: "text-[#00e5a0]", span: "col-span-2", valueCls: "text-xl sm:text-2xl" },
-          { label: "Outstanding", value: outstanding, hint: "Unpaid / failed", cls: "text-amber-400", span: "col-span-1", valueCls: "text-base sm:text-lg" },
-          { label: "On file", value: pending, hint: "Held for later", cls: "text-white", span: "col-span-1", valueCls: "text-base sm:text-lg" },
-        ].map(c => (
-          <div key={c.label} className={cn("rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3", c.span)}>
-            <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">{c.label}</p>
-            <p className={cn("font-bold mt-0.5", c.valueCls, c.cls)}>{formatCurrency(c.value)}</p>
-            <p className="text-[10px] text-[#666] mt-0.5 truncate">{c.hint}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-4 gap-2 mb-2">
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Collected</p>
+          <p className="font-bold mt-0.5 text-xl sm:text-2xl text-[#00e5a0]">{formatCurrency(collected)}</p>
+          <p className="text-[10px] mt-0.5 truncate">
+            <span className="text-[#888]">💳 {formatCurrency(cardNet)} net</span>
+            {cashCollected > 0 && <span className="text-amber-400"> · 💵 {formatCurrency(cashCollected)} cash</span>}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
+          <p className="font-bold mt-0.5 text-base sm:text-lg text-amber-400">{formatCurrency(outstanding)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5 truncate">Unpaid / failed</p>
+        </div>
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">On file</p>
+          <p className="font-bold mt-0.5 text-base sm:text-lg text-white">{formatCurrency(pending)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5 truncate">Held for later</p>
+        </div>
       </div>
+      {stripeNet?.connected && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] px-1">
+          <span className="text-[#777]">Stripe fees: <span className="text-[#aaa]">{formatCurrency(cardFees)}</span></span>
+          <span className="text-[#777]">Balance to payout: <span className="text-[#00e5a0] font-semibold">{formatCurrency(payout)}</span></span>
+          <span className="text-[#555]">available {formatCurrency(stripeNet.available)} · pending {formatCurrency(stripeNet.pending)}</span>
+        </div>
+      )}
+      {stripeNet && !stripeNet.connected && (
+        <p className="mb-5 text-[11px] text-[#666] px-1">Connect Stripe to see exact net (after fees) &amp; payout balance.</p>
+      )}
 
       {/* Filter dropdown — defaults to "Recent transactions" (all) */}
       <div className="relative mb-4 w-full sm:w-64">
@@ -386,9 +424,12 @@ export default function PaymentsPage() {
                     <p className="text-[11px] text-[#666] mt-0.5">{timeAgo(i.tsIso) || "—"}</p>
                   </div>
                   <div className="flex-shrink-0 text-right">
-                    <p className={cn("text-base font-bold", refunded ? "text-[#888] line-through" : "text-white")}>{formatCurrency(i.amount)}</p>
+                    <p className={cn("text-base font-bold", refunded ? "text-[#888] line-through" : "text-white")}>{formatCurrency(netOf(i))}</p>
+                    {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
+                      <p className="text-[10px] text-[#666]">net · after {formatCurrency(feeOf(i))} fee</p>
+                    )}
                     <span className={cn("inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-1 rounded-full", toneClass[i.tone])}>
-                      {!a && (i.statusLabel.includes("Cash") ? <Banknote size={11} /> : <CreditCard size={11} />)}
+                      {i.method === "cash" ? <Banknote size={11} /> : (i.settled ? <CreditCard size={11} /> : null)}
                       {i.statusLabel}
                     </span>
                   </div>

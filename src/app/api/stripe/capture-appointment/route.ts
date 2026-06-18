@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
       payment_method: "card",
       type: "service",
       appointment_id,
+      payment_intent_id: pi.id ?? appt.payment_intent_id ?? null,
       source: reason === "no_show" ? "no_show" : "completion",
     }).then(null, () => null);
     sendPaymentReceipt(baseUrl, {

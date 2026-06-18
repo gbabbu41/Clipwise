@@ -87,7 +87,7 @@ async function run() {
         .select("id");
       if (!claimed || claimed.length === 0) { skipped++; continue; }
 
-      let pi: { amount_received?: number | null };
+      let pi: { id?: string; amount_received?: number | null };
       if (isSaved) {
         // No hold to capture — charge the saved card off-session for the
         // no-show fee (or full price when fee is 0).
@@ -147,6 +147,7 @@ async function run() {
         payment_method: "card",
         type: "service",
         appointment_id: a.id,
+        payment_intent_id: pi.id ?? a.payment_intent_id ?? null,
         source: "no_show",
       }).then(null, () => null);
       console.log("[cron/no-show] charged", { appointment_id: a.id, amount: pi.amount_received });
