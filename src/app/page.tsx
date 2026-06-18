@@ -365,7 +365,7 @@ export default function LandingPage() {
             <div key={t.name} className="bg-surface border border-border rounded-2xl p-6 hover:border-gold/30 transition-all">
               <div className="flex gap-1 mb-4">
                 {Array.from({ length: t.rating }).map((_, i) => (
-                  <Star key={i} size={16} className="text-gold fill-gold" />
+                  <Star key={i} size={16} className="text-amber-400 fill-amber-400" />
                 ))}
               </div>
               <p className="text-gray-300 text-sm leading-relaxed mb-6 italic">&ldquo;{t.text}&rdquo;</p>

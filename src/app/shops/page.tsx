@@ -193,7 +193,7 @@ export default function ShopsPage() {
                     <div className="flex items-center gap-1">
                       {shop.avgRating !== undefined ? (
                         <>
-                          <Star size={13} className="text-gold fill-gold" />
+                          <Star size={13} className="text-amber-400 fill-amber-400" />
                           <span className="text-sm font-semibold text-white">{shop.avgRating.toFixed(1)}</span>
                           <span className="text-xs text-[#777]">({shop.reviewCount})</span>
                         </>

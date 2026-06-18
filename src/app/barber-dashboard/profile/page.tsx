@@ -57,7 +57,7 @@ export default function BarberProfilePage() {
             <p className="font-semibold text-white text-lg">{form.name || "Your Name"}</p>
             <p className="text-sm text-[#777]">{shop?.name ?? "Barber"}</p>
             {barber?.rating ? (
-              <p className="text-sm text-gold mt-0.5">★ {barber.rating.toFixed(1)} · {barber.total_reviews} reviews</p>
+              <p className="text-sm text-amber-400 mt-0.5">★ {barber.rating.toFixed(1)} · {barber.total_reviews} reviews</p>
             ) : null}
           </div>
         </div>

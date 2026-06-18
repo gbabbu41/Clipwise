@@ -23,7 +23,7 @@ function StarRow({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
     <div className="flex items-center gap-0.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i} size={size} className={cn(i < Math.round(rating) ? "text-gold fill-gold" : "text-[#999]")} />
+        <Star key={i} size={size} className={cn(i < Math.round(rating) ? "text-amber-400 fill-amber-400" : "text-[#999]")} />
       ))}
     </div>
   );
@@ -327,7 +327,7 @@ export default function ShopProfilePage() {
                       return (
                         <div key={star} className="flex items-center gap-2 text-xs">
                           <span className="text-[#555] w-3">{star}</span>
-                          <Star size={10} className="text-gold fill-gold" />
+                          <Star size={10} className="text-amber-400 fill-amber-400" />
                           <div className="flex-1 h-1.5 bg-surface-raised rounded-full overflow-hidden">
                             <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${pct}%` }} />
                           </div>

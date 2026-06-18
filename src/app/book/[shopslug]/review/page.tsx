@@ -130,7 +130,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
           {submitted && (
             <div className="flex justify-center gap-1 mt-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} size={20} className={cn("text-gold", i < rating ? "fill-gold" : "")} />
+                <Star key={i} size={20} className={cn("text-amber-400", i < rating ? "fill-amber-400" : "")} />
               ))}
             </div>
           )}
@@ -191,7 +191,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
                     size={36}
                     className={cn(
                       "transition-colors",
-                      i < displayRating ? "text-gold fill-gold" : "text-[#999]"
+                      i < displayRating ? "text-amber-400 fill-amber-400" : "text-[#999]"
                     )}
                   />
                 </button>

@@ -1088,7 +1088,7 @@ export default function BookingPage() {
                   <p className="font-semibold text-white">{b.name}</p>
                   {b.bio && <p className="text-xs text-[#777] mt-0.5 line-clamp-1">{b.bio}</p>}
                   <span className="flex items-center gap-1 text-xs text-white mt-1">
-                    <Star size={11} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)
+                    <Star size={11} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} reviews)
                   </span>
                 </div>
                 {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-white" />}
@@ -1400,7 +1400,7 @@ export default function BookingPage() {
                               }
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-white">{b.name}</p>
-                                <p className="text-xs text-white flex items-center gap-0.5"><Star size={10} className="fill-gold" /> {b.rating} ({b.total_reviews} reviews)</p>
+                                <p className="text-xs text-white flex items-center gap-0.5"><Star size={10} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} reviews)</p>
                               </div>
                               <ChevronRight size={16} className="text-[#777]" />
                             </button>
