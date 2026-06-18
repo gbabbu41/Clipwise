@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo,
-  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
+  getSlotsInRange, occupiedSlots, dbTimeToDisplay, timeToMinutes,
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -611,34 +611,44 @@ export default function CalendarPage() {
     return set;
   }, [appointments]);
 
-  // Open 30-min slots in a barber's window (not booked). Unlike getSlotsInRange
-  // this does NOT drop past times — the owner still wants to SEE the empty boxes
-  // (and can log a walk-in into one). Window-bounded only.
+  // minutes-from-midnight → "10:20 AM" display slot.
+  const minsToSlot = (m: number) =>
+    dbTimeToDisplay(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}:00`);
+
+  // Free time in a barber's window as bookable "+" boxes. We subtract the real
+  // booked intervals (active appts) and tile each free GAP on the hour: a fully
+  // free hour → one 60-min box, but a gap that starts mid-hour (right after a
+  // 10/20-min appointment) gets a box anchored at the EXACT end time — so staff
+  // can book any available time and nothing slips through a fixed grid. Does NOT
+  // drop past times (the owner still wants to see/log into empty boxes).
   const windowEmpties = useCallback((barberId: string, dateStr: string, win: { start: string; end: string }) => {
     const startMins = timeToMinutes(dbTimeToDisplay(win.start));
     const endMins = timeToMinutes(dbTimeToDisplay(win.end));
     if (Number.isNaN(startMins) || Number.isNaN(endMins) || endMins <= startMins) return [] as { slot: string; minutes: number }[];
-    const booked = bookedSlotsFor(barberId, dateStr, EMPTY_STEP);
-    const all = generate24hSlots(EMPTY_STEP);
+    const intervals = appointments
+      .filter(a => a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status))
+      .map(a => { const s = timeToMinutes(a.time_slot); return [s, s + apptDuration(a)] as [number, number]; })
+      .filter(([s, e]) => e > startMins && s < endMins)
+      .sort((x, y) => x[0] - y[0]);
     const out: { slot: string; minutes: number }[] = [];
-    for (let i = 0; i < all.length; i++) {
-      const slot = all[i];
-      const m = timeToMinutes(slot);
-      if (m < startMins || m + EMPTY_STEP > endMins || booked.has(slot)) continue;
-      // A fully-free hour shows ONE 60-min box; otherwise the leftover half-hour
-      // (e.g. after a 20-min appointment) shows its own 30-min box.
-      if (m % 60 === 0) {
-        const next = all[i + 1];
-        if (next && timeToMinutes(next) + EMPTY_STEP <= endMins && !booked.has(next)) {
-          out.push({ slot, minutes: 60 });
-          i++;
-          continue;
-        }
+    const tile = (from: number, to: number) => {
+      let c = from;
+      while (c < to - 0.5) {
+        const boundary = c % 60 === 0 ? c + 60 : Math.ceil(c / 60) * 60;
+        const end = Math.min(boundary, to);
+        out.push({ slot: minsToSlot(c), minutes: Math.round(end - c) });
+        c = end;
       }
-      out.push({ slot, minutes: EMPTY_STEP });
+    };
+    let cursor = startMins;
+    for (const [s, e] of intervals) {
+      const gapStart = Math.max(s, startMins);
+      if (gapStart > cursor) tile(cursor, gapStart);
+      cursor = Math.max(cursor, Math.min(e, endMins));
     }
+    if (cursor < endMins) tile(cursor, endMins);
     return out;
-  }, [bookedSlotsFor]);
+  }, [appointments]);
 
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
