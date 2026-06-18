@@ -596,7 +596,7 @@ export default function CalendarPage() {
 
   // Empty "+" slots are shown every 30 min; a booking can still be added on a
   // 15-min offset via the add modal's time picker.
-  const EMPTY_STEP = 60;   // one empty "+" box per hour (add-modal still uses ADD_STEP)
+  const EMPTY_STEP = 30;   // base granularity for detecting free time
   const ADD_STEP = 15;
 
   // Display-slots a barber's live appointments cover on the given day, at the
@@ -617,12 +617,27 @@ export default function CalendarPage() {
   const windowEmpties = useCallback((barberId: string, dateStr: string, win: { start: string; end: string }) => {
     const startMins = timeToMinutes(dbTimeToDisplay(win.start));
     const endMins = timeToMinutes(dbTimeToDisplay(win.end));
-    if (Number.isNaN(startMins) || Number.isNaN(endMins) || endMins <= startMins) return [] as string[];
-    const booked = bookedSlotsFor(barberId, dateStr);
-    return generate24hSlots(EMPTY_STEP).filter(slot => {
+    if (Number.isNaN(startMins) || Number.isNaN(endMins) || endMins <= startMins) return [] as { slot: string; minutes: number }[];
+    const booked = bookedSlotsFor(barberId, dateStr, EMPTY_STEP);
+    const all = generate24hSlots(EMPTY_STEP);
+    const out: { slot: string; minutes: number }[] = [];
+    for (let i = 0; i < all.length; i++) {
+      const slot = all[i];
       const m = timeToMinutes(slot);
-      return m >= startMins && m + EMPTY_STEP <= endMins && !booked.has(slot);
-    });
+      if (m < startMins || m + EMPTY_STEP > endMins || booked.has(slot)) continue;
+      // A fully-free hour shows ONE 60-min box; otherwise the leftover half-hour
+      // (e.g. after a 20-min appointment) shows its own 30-min box.
+      if (m % 60 === 0) {
+        const next = all[i + 1];
+        if (next && timeToMinutes(next) + EMPTY_STEP <= endMins && !booked.has(next)) {
+          out.push({ slot, minutes: 60 });
+          i++;
+          continue;
+        }
+      }
+      out.push({ slot, minutes: EMPTY_STEP });
+    }
+    return out;
   }, [bookedSlotsFor]);
 
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
@@ -884,9 +899,9 @@ export default function CalendarPage() {
     const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
     const emptySlots = windowEmpties(barber.id, dateStr, { start: startDb, end: endDb });
 
-    type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string };
+    type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string; minutes: number };
     const cells: Cell[] = [
-      ...emptySlots.map(s => ({ k: "empty", s } as Cell)),
+      ...emptySlots.map(e => ({ k: "empty", s: e.slot, minutes: e.minutes } as Cell)),
       ...dayAppts.map(a => ({ k: "appt", a } as Cell)),
     ];
     cells.sort((x, y) =>
@@ -901,7 +916,7 @@ export default function CalendarPage() {
           {cells.map((c, ci) => c.k === "empty" ? (
             <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s)}
               className="group rounded-xl border border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-gray-500">{rangeLabel(c.s, EMPTY_STEP)}</span>
+              <span className="text-xs text-gray-500">{rangeLabel(c.s, c.minutes)}</span>
               <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-amber-500">
                 <Plus size={14} /> Add
               </span>
@@ -1054,10 +1069,10 @@ export default function CalendarPage() {
                 const empties = windowEmpties(b.id, dateStr, gridWin);
                 return (
                   <div key={b.id} className="relative">
-                    {/* Free 30-min slots → "+ Add" (greyed when outside hours) */}
-                    {empties.map((slot) => {
+                    {/* Free slots → "+ Add" (one per free hour; greyed when outside hours) */}
+                    {empties.map(({ slot, minutes }) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
-                      const height = Math.max(20, (EMPTY_STEP / 60) * ROW_PX - 4);
+                      const height = Math.max(20, (minutes / 60) * ROW_PX - 4);
                       const outside = isOutsideSchedule(b.id, slot);
                       return (
                         <button key={`e${slot}`}
