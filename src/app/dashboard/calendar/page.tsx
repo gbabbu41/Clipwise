@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Check } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -722,8 +722,9 @@ export default function CalendarPage() {
   const createAppointment = async () => {
     if (!shop || !addCtx) return;
     const time = addForm.time || addCtx.time;
-    if (!addForm.client_name.trim() || addForm.service_ids.length === 0) { showToast("Add a name and pick a service"); return; }
-    const svcs = services.filter(s => addForm.service_ids.includes(s.id));
+    const chosenIds = addForm.service_ids.filter(Boolean);
+    if (!addForm.client_name.trim() || chosenIds.length === 0) { showToast("Add a name and pick a service"); return; }
+    const svcs = chosenIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceLite[];
     const duration = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
     const price = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
     // Must fit before the next booked appointment.
@@ -769,25 +770,29 @@ export default function CalendarPage() {
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
   }, [addCtx, appointments, currentDate]);
 
-  const addSelected = useMemo(
-    () => services.filter(s => addForm.service_ids.includes(s.id)),
-    [services, addForm.service_ids],
-  );
-  const addTotalDuration = addSelected.reduce((n, s) => n + (s.duration_minutes || 0), 0);
-  const addTotalPrice = addSelected.reduce((n, s) => n + Number(s.price || 0), 0);
+  // Combined totals — sum over the chosen rows (counts duplicates, ignores "").
+  const svcById = useCallback((id: string) => services.find(s => s.id === id), [services]);
+  const addTotalDuration = addForm.service_ids.reduce((n, id) => n + (svcById(id)?.duration_minutes || 0), 0);
+  const addTotalPrice = addForm.service_ids.reduce((n, id) => n + Number(svcById(id)?.price || 0), 0);
 
-  // Toggle a service in the combined appointment. If the new total no longer fits
-  // at the chosen start, snap the start back to the box start (always valid).
-  const toggleService = (id: string) => {
+  // Keep the start valid: if the new combined total no longer fits at the chosen
+  // start, snap the start back to the box start (always valid for a fitting combo).
+  const reflowTime = (service_ids: string[]) => {
+    const total = service_ids.reduce((n, id) => n + (svcById(id)?.duration_minutes || 0), 0);
     setAddForm(p => {
-      const has = p.service_ids.includes(id);
-      const service_ids = has ? p.service_ids.filter(x => x !== id) : [...p.service_ids, id];
-      const total = services.filter(s => service_ids.includes(s.id)).reduce((n, s) => n + (s.duration_minutes || 0), 0);
       let time = p.time;
       if (addCtx && addWindow && total > 0 && timeToMinutes(time) + total > addWindow.freeUntil) time = addCtx.time;
       return { ...p, service_ids, time };
     });
   };
+  // Service "rows": each is a dropdown. Set/append/remove a row.
+  const setServiceAt = (idx: number, id: string) => {
+    const next = [...addForm.service_ids];
+    if (idx >= next.length) next.push(id); else next[idx] = id;
+    reflowTime(next);
+  };
+  const addServiceRow = () => setAddForm(p => ({ ...p, service_ids: [...p.service_ids, ""] }));
+  const removeServiceRow = (idx: number) => reflowTime(addForm.service_ids.filter((_, i) => i !== idx));
 
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
@@ -1539,6 +1544,40 @@ export default function CalendarPage() {
                 onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone}
                 onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
+              {/* Services first — dropdown rows; "+" adds another for a combined appointment */}
+              <div>
+                <label className="block text-xs font-medium text-[#aaa] mb-1">Services * <span className="text-[#666] font-normal">(add one or more)</span></label>
+                <div className="space-y-2">
+                  {(addForm.service_ids.length ? addForm.service_ids : [""]).map((sid, idx) => {
+                    const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
+                    const otherDur = addForm.service_ids.reduce((n, id, i) => i === idx ? n : n + (svcById(id)?.duration_minutes || 0), 0);
+                    return (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <Select value={sid} className="flex-1" onChange={e => setServiceAt(idx, e.target.value)}>
+                          <option value="">Select a service</option>
+                          {services.map(s => {
+                            const wontFit = s.id !== sid && otherDur + s.duration_minutes > windowLen;
+                            return <option key={s.id} value={s.id} disabled={wontFit}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m{wontFit ? " — won't fit" : ""}</option>;
+                          })}
+                        </Select>
+                        {(addForm.service_ids.length > 1 || !!sid) && (
+                          <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
+                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-[#1e1e1e] text-[#777] hover:text-white hover:border-white flex items-center justify-center">
+                            <X size={15} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <button type="button" onClick={addServiceRow}
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300">
+                  <Plus size={15} /> Add another service
+                </button>
+                {addForm.service_ids.filter(Boolean).length > 0 && (
+                  <p className="text-xs text-[#aaa] mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
+                )}
+              </div>
               <Select label="Time" value={addForm.time}
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
                 {addTimeOptions.map(t => {
@@ -1553,35 +1592,6 @@ export default function CalendarPage() {
                     : `${addCtx.barberName} has no schedule set for this day.`}
                 </p>
               )}
-              <div>
-                <label className="block text-xs font-medium text-[#aaa] mb-1">Services * <span className="text-[#666] font-normal">(pick one or more)</span></label>
-                <div className="max-h-44 overflow-y-auto rounded-xl border border-[#1e1e1e] divide-y divide-[#1e1e1e]">
-                  {services.map(s => {
-                    const checked = addForm.service_ids.includes(s.id);
-                    const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
-                    const fits = checked || addTotalDuration + s.duration_minutes <= windowLen;
-                    return (
-                      <button key={s.id} type="button" disabled={!fits} onClick={() => toggleService(s.id)}
-                        className={cn(
-                          "w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
-                          checked ? "bg-white/10" : "hover:bg-white/5",
-                          !fits && "opacity-40 cursor-not-allowed",
-                        )}>
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className={cn("w-4 h-4 rounded border flex items-center justify-center flex-shrink-0", checked ? "bg-white border-white" : "border-[#444]")}>
-                            {checked && <Check size={12} className="text-black" />}
-                          </span>
-                          <span className="text-white truncate">{s.name}</span>
-                        </span>
-                        <span className="text-xs text-[#999] flex-shrink-0">${Number(s.price).toFixed(0)} · {s.duration_minutes}m{!fits ? " · won't fit" : ""}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {addForm.service_ids.length > 0 && (
-                  <p className="text-xs text-[#aaa] mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
-                )}
-              </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
