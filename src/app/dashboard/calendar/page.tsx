@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -352,7 +352,7 @@ export default function CalendarPage() {
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
-  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_id: "", time: "" });
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_ids: [] as string[], time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
@@ -711,7 +711,7 @@ export default function CalendarPage() {
 
   // Open the quick-add modal pre-filled for a slot.
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number) => {
-    setAddForm({ client_name: "", client_phone: "", service_id: "", time });
+    setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
     setAddCtx({ barberId, barberName, time, boxMinutes });
   };
 
@@ -722,17 +722,25 @@ export default function CalendarPage() {
   const createAppointment = async () => {
     if (!shop || !addCtx) return;
     const time = addForm.time || addCtx.time;
-    if (!addForm.client_name.trim() || !addForm.service_id) { showToast("Add a name and pick a service"); return; }
-    const svc = services.find(s => s.id === addForm.service_id);
+    if (!addForm.client_name.trim() || addForm.service_ids.length === 0) { showToast("Add a name and pick a service"); return; }
+    const svcs = services.filter(s => addForm.service_ids.includes(s.id));
+    const duration = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
+    const price = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
+    // Must fit before the next booked appointment.
+    if (addWindow && timeToMinutes(time) + duration > addWindow.freeUntil) {
+      showToast("Not enough time before the next appointment — shorten the service or start earlier");
+      return;
+    }
     const outside = isOutsideSchedule(addCtx.barberId, time);
     setSavingAdd(true);
     const res = await fetch("/api/book/in-person", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        shop_id: shop.id, barber_id: addCtx.barberId, service_id: addForm.service_id,
+        shop_id: shop.id, barber_id: addCtx.barberId, service_id: svcs[0].id,
+        service_names: svcs.length > 1 ? svcs.map(s => s.name).join(" + ") : undefined,
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
         date: formatDateForDb(currentDate), time_slot: time,
-        total_amount: svc?.price ?? 0, duration_minutes: svc?.duration_minutes, pay_in_person: true,
+        total_amount: price, duration_minutes: duration, pay_in_person: true,
         confirmed: true,
         note: outside ? "⚠️ Booked outside the barber's working hours" : undefined,
       }),
@@ -741,13 +749,46 @@ export default function CalendarPage() {
     setSavingAdd(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
-    setAddForm({ client_name: "", client_phone: "", service_id: "", time: "" });
+    setAddForm({ client_name: "", client_phone: "", service_ids: [], time: "" });
     showToast(outside ? "Booked · outside working hours" : "Booked");
     load();
   };
 
   // Free 15-min start times for the add modal (within the barber's window,
   // excluding times already booked), so a 15-min offset can be picked.
+  // Free runway from the tapped box start up to the next booked appointment
+  // (open-ended if none after it). Drives the service/time fit checks.
+  const addWindow = useMemo(() => {
+    if (!addCtx) return null;
+    const boxStart = timeToMinutes(addCtx.time);
+    const dateStr = formatDateForDb(currentDate);
+    const nexts = appointments
+      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !isDimmed(a.status))
+      .map(a => timeToMinutes(a.time_slot))
+      .filter(m => m > boxStart);
+    return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
+  }, [addCtx, appointments, currentDate]);
+
+  const addSelected = useMemo(
+    () => services.filter(s => addForm.service_ids.includes(s.id)),
+    [services, addForm.service_ids],
+  );
+  const addTotalDuration = addSelected.reduce((n, s) => n + (s.duration_minutes || 0), 0);
+  const addTotalPrice = addSelected.reduce((n, s) => n + Number(s.price || 0), 0);
+
+  // Toggle a service in the combined appointment. If the new total no longer fits
+  // at the chosen start, snap the start back to the box start (always valid).
+  const toggleService = (id: string) => {
+    setAddForm(p => {
+      const has = p.service_ids.includes(id);
+      const service_ids = has ? p.service_ids.filter(x => x !== id) : [...p.service_ids, id];
+      const total = services.filter(s => service_ids.includes(s.id)).reduce((n, s) => n + (s.duration_minutes || 0), 0);
+      let time = p.time;
+      if (addCtx && addWindow && total > 0 && timeToMinutes(time) + total > addWindow.freeUntil) time = addCtx.time;
+      return { ...p, service_ids, time };
+    });
+  };
+
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
     const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
@@ -1500,7 +1541,10 @@ export default function CalendarPage() {
                 onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
               <Select label="Time" value={addForm.time}
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
-                {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                {addTimeOptions.map(t => {
+                  const tooLong = !!addWindow && addTotalDuration > 0 && timeToMinutes(t) + addTotalDuration > addWindow.freeUntil;
+                  return <option key={t} value={t} disabled={tooLong}>{t}{tooLong ? " — won't fit" : ""}</option>;
+                })}
               </Select>
               {isOutsideSchedule(addCtx.barberId, addForm.time) && (
                 <p className="text-xs text-amber-400">
@@ -1509,13 +1553,35 @@ export default function CalendarPage() {
                     : `${addCtx.barberName} has no schedule set for this day.`}
                 </p>
               )}
-              <Select label="Service *" value={addForm.service_id}
-                onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
-                <option value="">Select a service</option>
-                {services.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>
-                ))}
-              </Select>
+              <div>
+                <label className="block text-xs font-medium text-[#aaa] mb-1">Services * <span className="text-[#666] font-normal">(pick one or more)</span></label>
+                <div className="max-h-44 overflow-y-auto rounded-xl border border-[#1e1e1e] divide-y divide-[#1e1e1e]">
+                  {services.map(s => {
+                    const checked = addForm.service_ids.includes(s.id);
+                    const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
+                    const fits = checked || addTotalDuration + s.duration_minutes <= windowLen;
+                    return (
+                      <button key={s.id} type="button" disabled={!fits} onClick={() => toggleService(s.id)}
+                        className={cn(
+                          "w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
+                          checked ? "bg-white/10" : "hover:bg-white/5",
+                          !fits && "opacity-40 cursor-not-allowed",
+                        )}>
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className={cn("w-4 h-4 rounded border flex items-center justify-center flex-shrink-0", checked ? "bg-white border-white" : "border-[#444]")}>
+                            {checked && <Check size={12} className="text-black" />}
+                          </span>
+                          <span className="text-white truncate">{s.name}</span>
+                        </span>
+                        <span className="text-xs text-[#999] flex-shrink-0">${Number(s.price).toFixed(0)} · {s.duration_minutes}m{!fits ? " · won't fit" : ""}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {addForm.service_ids.length > 0 && (
+                  <p className="text-xs text-[#aaa] mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
+                )}
+              </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
