@@ -76,13 +76,16 @@ export default function PaymentsPage() {
   const loadData = useCallback(async () => {
     if (!shop) return;
     setLoading(true);
+    // Cap at the 250 most-recent rows each so the feed stays fast as history
+    // grows. (Summary cards reflect this recent window; swap to a server-side
+    // aggregate if you ever need true all-time totals.)
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
         .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
-        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }),
+        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, source")
-        .eq("shop_id", shop.id).order("created_at", { ascending: false }),
+        .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
