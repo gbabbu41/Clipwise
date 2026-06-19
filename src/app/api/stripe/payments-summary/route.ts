@@ -31,6 +31,14 @@ export async function POST(req: NextRequest) {
     const available = sum(balance.available);
     const pending = sum(balance.pending);
 
+    // Next scheduled payout's arrival date (the upcoming deposit to the bank).
+    let nextPayoutDate: number | null = null;
+    try {
+      const payouts = await stripe.payouts.list({ limit: 5 }, opts);
+      const upcoming = payouts.data.find(p => p.status === "pending" || p.status === "in_transit");
+      nextPayoutDate = upcoming?.arrival_date ?? null;
+    } catch { /* schedule not available — leave null */ }
+
     // Walk balance transactions; map the underlying charge's PaymentIntent ->
     // exact gross/fee/net. Only charge sources carry a payment_intent, so refunds
     // and payouts are naturally skipped.
@@ -50,7 +58,7 @@ export async function POST(req: NextRequest) {
       startingAfter = list.data[list.data.length - 1]?.id;
     }
 
-    return NextResponse.json({ connected: true, byPi, available, pending });
+    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate });
   } catch (err) {
     return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: err instanceof Error ? err.message : "stripe error" });
   }

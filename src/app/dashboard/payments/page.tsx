@@ -70,7 +70,7 @@ export default function PaymentsPage() {
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
   // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
-  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number } | null>(null);
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
   const [busy, setBusy] = useState<string | null>(null);
@@ -380,6 +380,11 @@ export default function PaymentsPage() {
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Next payout</p>
           <p className="font-bold mt-0.5 text-2xl sm:text-3xl text-[#00e5a0]">{formatCurrency(payout)}</p>
+          {stripeNet?.nextPayoutDate && (
+            <p className="text-[10px] text-[#666] mt-0.5 truncate">
+              arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+            </p>
+          )}
         </div>
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
