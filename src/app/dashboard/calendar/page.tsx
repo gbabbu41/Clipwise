@@ -689,11 +689,11 @@ export default function CalendarPage() {
   };
 
   // Barber profile pic with initials fallback.
-  const BarberAvatar = ({ b, i }: { b: Barber; i: number }) => {
-    const cls = "w-11 h-11 rounded-full object-cover";
-    if (b.photo) return <img src={b.photo} alt={b.name} className={cls} />;
+  const BarberAvatar = ({ b, i, sm }: { b: Barber; i: number; sm?: boolean }) => {
+    const dim = sm ? "w-7 h-7 text-[11px]" : "w-11 h-11 text-sm";
+    if (b.photo) return <img src={b.photo} alt={b.name} className={cn(dim, "rounded-full object-cover")} />;
     return (
-      <span className={cn("w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
+      <span className={cn(dim, "rounded-full flex items-center justify-center font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
         {initials(b.name)}
       </span>
     );
@@ -1028,12 +1028,10 @@ export default function CalendarPage() {
 
     // All barbers → per-barber columns (vertical lists), bounded to working
     // hours. Paginated: show as many columns as fit; arrows / swipe load more.
-    const allCols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
-    const perPage = colWrapW > 0
-      ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
-      : (isMobile ? 2 : 6);
-    const pages = Math.max(1, Math.ceil(allCols.length / perPage));
-    const page = Math.max(0, Math.min(colPage, pages - 1));
+    const allCols = dayAllCols;
+    const perPage = dayPerPage;
+    const pages = dayPages;
+    const page = dayPage;
     const cols = allCols.slice(page * perPage, page * perPage + perPage);
 
     // Working window from ALL barbers + bookings, so the time rail stays put
@@ -1058,15 +1056,6 @@ export default function CalendarPage() {
 
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
-        {pages > 1 && (
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 text-xs text-gray-500 flex-shrink-0">
-            <button onClick={goPrev} disabled={page === 0} aria-label="Previous barbers"
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
-            <span>Barbers {page * perPage + 1}–{Math.min(allCols.length, page * perPage + perPage)} of {allCols.length}</span>
-            <button onClick={goNext} disabled={page >= pages - 1} aria-label="More barbers"
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
-          </div>
-        )}
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1"
           onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
           onTouchEnd={e => {
@@ -1080,25 +1069,23 @@ export default function CalendarPage() {
             <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
-                className="flex flex-col items-center justify-center gap-1 py-3 transition-colors hover:bg-gray-50">
-                <span className={cn("w-9 h-9 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
-                  <Users size={16} />
+                className="flex items-center justify-center py-1.5 transition-colors hover:bg-gray-50">
+                <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-1")}>
+                  <Users size={14} />
                 </span>
-                <span className={cn("text-[9px] leading-tight", barberFilter === "all" ? "text-amber-600 font-semibold" : "text-gray-500")}>All</span>
               </button>
               {cols.map((b) => {
                 const gi = barbers.indexOf(b);
+                const n = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length;
                 return (
                   <button key={b.id} type="button" onClick={() => setBarberFilter(b.id)}
-                    className="px-3 py-3 text-center border-l border-gray-100 hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col items-center gap-1">
-                      <BarberAvatar b={b} i={gi >= 0 ? gi : 0} />
-                      <p className="text-xs text-gray-900 font-medium truncate w-full">{b.name}</p>
+                    className="px-2 py-1.5 border-l border-gray-100 hover:bg-gray-50 transition-colors min-w-0">
+                    <div className="flex items-center justify-center gap-1.5 min-w-0">
+                      <BarberAvatar b={b} i={gi >= 0 ? gi : 0} sm />
+                      <span className="text-xs text-gray-900 font-medium truncate">{b.name}</span>
+                      {!schedules.has(b.id) && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" title="Not scheduled" />}
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      {dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length} appts
-                    </p>
-                    {!schedules.has(b.id) && <p className="text-[9px] text-amber-500 mt-0.5">Not scheduled</p>}
+                    <p className="text-[10px] text-gray-400 leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
                   </button>
                 );
               })}
@@ -1411,16 +1398,25 @@ export default function CalendarPage() {
   };
 
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
+  // Day-view barber pager, lifted to component scope so it can live in the top
+  // toolbar (one compact row instead of its own band).
+  const dayAllCols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+  const dayPerPage = colWrapW > 0
+    ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
+    : (isMobile ? 2 : 6);
+  const dayPages = Math.max(1, Math.ceil(dayAllCols.length / dayPerPage));
+  const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
+  const dayPagerVisible = view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
   return (
     <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip">
-      {/* Header bar — ONE date dropdown (left) + ONE view button (right) */}
-      <div className="p-4 sm:p-6 pb-3 border-b border-gray-200 flex items-center justify-between gap-4">
+      {/* Header bar — date (left) + barber pager (center, day view) + view (right), one row */}
+      <div className="px-4 sm:px-6 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
         {/* Date dropdown */}
         <div className="relative">
           <button onClick={() => { setDateMenu(o => !o); setViewMenu(false); }}
-            className="flex items-center gap-2 text-lg sm:text-xl font-bold text-gray-900 hover:text-gray-600 transition-colors">
+            className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-gray-900 hover:text-gray-600 transition-colors">
             {titleText}
-            <ChevronDown size={18} className="text-gray-400" />
+            <ChevronDown size={16} className="text-gray-400" />
           </button>
           {loading && <span className="text-xs text-gray-400 ml-2 animate-pulse">Loading…</span>}
           {dateMenu && (
@@ -1441,6 +1437,17 @@ export default function CalendarPage() {
             </>
           )}
         </div>
+
+        {/* Barber pager (day · all-barbers view) — folded into the toolbar */}
+        {dayPagerVisible && (
+          <div className="flex items-center gap-0.5 text-xs text-gray-500">
+            <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
+              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+            <span className="whitespace-nowrap tabular-nums">{dayPage * dayPerPage + 1}–{Math.min(dayAllCols.length, dayPage * dayPerPage + dayPerPage)}/{dayAllCols.length}</span>
+            <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
+              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+          </div>
+        )}
 
         {/* View button (one button → month / week / day) */}
         <div className="relative">
