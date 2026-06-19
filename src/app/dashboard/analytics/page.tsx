@@ -228,7 +228,7 @@ export default function AnalyticsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Analytics</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Analytics</h1>
           <p className="text-sm text-[#777] mt-0.5">Business performance overview</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => {

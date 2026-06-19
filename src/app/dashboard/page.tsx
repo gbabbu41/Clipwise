@@ -416,7 +416,7 @@ export default function DashboardPage() {
           is maxed. */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
           <p className="text-[#777] text-sm mt-0.5">{friendlyDate(new Date())}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">

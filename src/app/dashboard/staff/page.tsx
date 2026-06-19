@@ -540,7 +540,7 @@ export default function StaffPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Staff</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Staff</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
         <div className="flex items-center gap-2">

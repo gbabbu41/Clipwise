@@ -85,7 +85,7 @@ export default function SharePage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Share Your Booking Link</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Share Your Booking Link</h1>
         <p className="text-sm text-[#777] mt-0.5">Get more clients by sharing your ClipWise booking page</p>
       </div>
 

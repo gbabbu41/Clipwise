@@ -187,7 +187,7 @@ export default function ServicesPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Services & Inventory</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Services & Inventory</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage your menu and stock</p>
         </div>
         <Button onClick={() => {

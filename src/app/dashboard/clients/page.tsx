@@ -278,7 +278,7 @@ export default function ClientsPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Clients</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Clients</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage your client base</p>
         </div>
         <div className="flex gap-3">

@@ -147,7 +147,7 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Inventory</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Inventory</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage products and stock levels</p>
         </div>
         <Button onClick={() => setShowAdd(true)}>

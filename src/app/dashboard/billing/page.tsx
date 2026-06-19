@@ -143,7 +143,7 @@ export default function BillingPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Billing</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Billing</h1>
         <p className="text-sm text-[#777] mt-0.5">Manage your subscription and payouts</p>
       </div>
 

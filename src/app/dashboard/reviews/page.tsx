@@ -94,7 +94,7 @@ export default function ReviewsPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Reviews</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Reviews</h1>
         <p className="text-sm text-[#777] mt-0.5">Monitor and respond to client feedback</p>
       </div>
 

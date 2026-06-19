@@ -160,7 +160,7 @@ export default function PayrollPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Payroll & Earnings</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payroll & Earnings</h1>
           <p className="text-sm text-[#777] mt-0.5">Staff commission and hours breakdown</p>
         </div>
         <div className="flex gap-3">

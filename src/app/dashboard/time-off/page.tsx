@@ -210,7 +210,7 @@ export default function TimeOffPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Time Off & Availability</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Time Off & Availability</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage staff days off, vacations, and blocked hours</p>
         </div>
         <Button onClick={() => setShowModal(true)}>

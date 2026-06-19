@@ -378,7 +378,7 @@ export default function WaitlistPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Walk-In Waitlist</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Walk-In Waitlist</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage today's walk-in queue</p>
         </div>
         <div className="flex gap-3">

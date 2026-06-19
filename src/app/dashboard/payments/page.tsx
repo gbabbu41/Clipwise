@@ -387,15 +387,11 @@ export default function PaymentsPage() {
         </>
       )}
 
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-white">Payments</h1>
-      </div>
-
-      {/* Stripe dashboard link */}
-      <div className="flex justify-end mb-4">
+      {/* Header — title + Stripe link on one row (no awkward gap) */}
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
         <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-          className="flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-white text-[11px] font-medium px-2.5 py-1.5 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
+          className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-white text-[11px] font-medium px-2.5 py-1.5 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
           <ExternalLink size={13} /> {busy === "stripe" ? "Opening…" : "Stripe Dashboard"}
         </button>
       </div>
@@ -404,9 +400,9 @@ export default function PaymentsPage() {
           other two are equal-size secondary stats. */}
       {/* Hero: net heading to the bank this payout + current outstanding / on file */}
       <div className="grid grid-cols-4 gap-2 mb-2">
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-4 py-4 col-span-2">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Next payout</p>
-          <p className="font-bold mt-0.5 text-2xl sm:text-3xl text-[#00e5a0]">{formatCurrency(payout)}</p>
+          <p className="font-bold mt-1 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
           {stripeNet?.nextPayoutDate && (
             <p className="text-[10px] text-[#666] mt-0.5 truncate">
               arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}

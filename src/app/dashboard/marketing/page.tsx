@@ -168,7 +168,7 @@ export default function MarketingPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Marketing</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Marketing</h1>
           <p className="text-sm text-[#777] mt-0.5">Email campaigns to grow your client base</p>
         </div>
         {tab === "campaigns" && (

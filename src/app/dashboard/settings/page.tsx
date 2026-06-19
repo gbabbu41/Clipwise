@@ -283,7 +283,7 @@ export default function SettingsPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Settings</h1>
         <p className="text-sm text-[#777] mt-0.5">Manage your shop preferences</p>
       </div>
 

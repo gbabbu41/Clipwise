@@ -150,7 +150,7 @@ export default function NotificationsPage() {
 
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Notifications</h1>
           <p className="text-sm text-[#777] mt-0.5">
             {unreadCount > 0
               ? `${unreadCount} unread`

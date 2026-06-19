@@ -818,7 +818,7 @@ export default function AppointmentsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Appointments</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Appointments</h1>
           <p className="text-sm text-[#777] mt-0.5">Manage bookings and waitlist</p>
         </div>
         <button onClick={() => setShowAddModal(true)} aria-label="Add appointment"

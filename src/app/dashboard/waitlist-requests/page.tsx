@@ -114,7 +114,7 @@ export default function WaitlistRequestsPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Spot Waitlist</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Spot Waitlist</h1>
           <p className="text-sm text-[#777] mt-0.5">Customers waiting for a spot to open on a full day</p>
         </div>
         <button onClick={load} className="text-[#777] hover:text-white transition-colors p-2 rounded-xl hover:bg-[#141414]">

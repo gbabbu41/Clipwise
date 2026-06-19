@@ -200,7 +200,7 @@ export default function LoyaltyPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Loyalty & Marketing</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Loyalty & Marketing</h1>
           <p className="text-sm text-[#777] mt-0.5">Retain clients and drive repeat visits</p>
         </div>
       </div>

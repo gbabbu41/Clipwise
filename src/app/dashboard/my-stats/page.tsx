@@ -129,7 +129,7 @@ export default function MyStatsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">My Stats</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">My Stats</h1>
           <p className="text-sm text-[#777] mt-0.5">{profile.name} · {shop.name}</p>
         </div>
         <div className="flex gap-1 p-1 bg-[#141414] border border-[#1e1e1e] rounded-xl">
