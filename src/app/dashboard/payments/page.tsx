@@ -72,6 +72,7 @@ export default function PaymentsPage() {
   // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -212,13 +213,24 @@ export default function PaymentsPage() {
   const netOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].net : i.amount;
   const feeOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].fee : 0;
 
-  // ── Summary (from the de-duped feed) ────────────────────────────────────────
-  // Card = exact net from Stripe (after their fee); cash = full amount (in drawer).
+  // ── Summary ─────────────────────────────────────────────────────────────────
+  // Hero = net heading to the bank this payout (live Stripe balance). The Net /
+  // cash / fees indicators below are scoped to the chosen period; the list itself
+  // is never hidden by this filter.
   const settledItems = feedAll.filter(i => i.settled);
-  const cashCollected = settledItems.filter(i => i.method === "cash").reduce((s, i) => s + i.amount, 0);
-  const cardNet = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + netOf(i), 0);
-  const cardFees = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + feeOf(i), 0);
   const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
+  const periodStart = (() => {
+    if (period === "all") return 0;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (period === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
+    else if (period === "month") d.setDate(1);
+    return d.getTime();
+  })();
+  const periodSettled = settledItems.filter(i => i.ts >= periodStart);
+  const periodCardNet = periodSettled.filter(i => i.method !== "cash").reduce((s, i) => s + netOf(i), 0);
+  const periodCash = periodSettled.filter(i => i.method === "cash").reduce((s, i) => s + i.amount, 0);
+  const periodFees = periodSettled.filter(i => i.method !== "cash").reduce((s, i) => s + feeOf(i), 0);
   const outstanding = appts
     .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
     .reduce((s, a) => s + (a.total_amount ?? 0), 0);
@@ -363,35 +375,46 @@ export default function PaymentsPage() {
 
       {/* Summary cards — Collected is the headline (wider + larger number); the
           other two are equal-size secondary stats. */}
+      {/* Hero: net heading to the bank this payout + current outstanding / on file */}
       <div className="grid grid-cols-4 gap-2 mb-2">
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Collected · net</p>
-          <p className="font-bold mt-0.5 text-xl sm:text-2xl text-[#00e5a0]">{formatCurrency(cardNet)}</p>
-          {cashCollected > 0 && (
-            <p className="text-[11px] mt-0.5 font-semibold text-amber-400">+ {formatCurrency(cashCollected)} cash</p>
-          )}
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">This payout · to your bank</p>
+          <p className="font-bold mt-0.5 text-2xl sm:text-3xl text-[#00e5a0]">{formatCurrency(payout)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5 truncate">
+            {stripeNet?.connected
+              ? `available ${formatCurrency(stripeNet.available)} · pending ${formatCurrency(stripeNet.pending)}`
+              : "Connect Stripe to see payout"}
+          </p>
         </div>
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
           <p className="font-bold mt-0.5 text-base sm:text-lg text-amber-400">{formatCurrency(outstanding)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5 truncate">Unpaid / failed</p>
+          <p className="text-[10px] text-[#666] mt-0.5 truncate">Unpaid</p>
         </div>
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">On file</p>
           <p className="font-bold mt-0.5 text-base sm:text-lg text-white">{formatCurrency(pending)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5 truncate">Held for later</p>
+          <p className="text-[10px] text-[#666] mt-0.5 truncate">Held</p>
         </div>
       </div>
-      {stripeNet?.connected && (
-        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] px-1">
-          <span className="text-[#777]">Stripe fees: <span className="text-[#aaa]">{formatCurrency(cardFees)}</span></span>
-          <span className="text-[#777]">Balance to payout: <span className="text-[#00e5a0] font-semibold">{formatCurrency(payout)}</span></span>
-          <span className="text-[#555]">available {formatCurrency(stripeNet.available)} · pending {formatCurrency(stripeNet.pending)}</span>
-        </div>
-      )}
-      {stripeNet && !stripeNet.connected && (
-        <p className="mb-5 text-[11px] text-[#666] px-1">Connect Stripe to see exact net (after fees) &amp; payout balance.</p>
-      )}
+      {/* Period chips → drive the Net / cash / fees indicators (summary only) */}
+      <div className="flex items-center gap-1.5 mb-2">
+        {([["today", "Today"], ["week", "Week"], ["month", "Month"], ["all", "All"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setPeriod(k)}
+            className={cn("px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+              period === k ? "bg-white text-black border-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+        <span className="text-sm">
+          <span className="text-[#777]">Net{period === "all" ? "" : ` ${period}`}: </span>
+          <span className="text-[#00e5a0] font-bold">{formatCurrency(periodCardNet)}</span>
+        </span>
+        {periodCash > 0 && <span className="text-sm font-semibold text-amber-400">+ {formatCurrency(periodCash)} cash</span>}
+        {stripeNet?.connected && periodFees > 0 && <span className="text-[11px] text-[#666]">after {formatCurrency(periodFees)} Stripe fees</span>}
+      </div>
 
       {/* Filter dropdown — defaults to "Recent transactions" (all) */}
       <div className="relative mb-4 w-full sm:w-64">
