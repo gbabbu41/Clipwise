@@ -201,26 +201,26 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
-      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-1 p-1 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg">
+      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-amber-400 transition-colors relative",
-            notifOpen ? "bg-white/10" : "hover:bg-white/10",
+            "w-7 h-7 rounded-full flex items-center justify-center text-amber-400 transition-colors relative",
+            notifOpen ? "bg-black/20" : "hover:bg-black/10",
           )}
         >
-          <Bell size={16} />
+          <Bell size={15} />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
+            <span className="absolute top-0 right-0 w-[7px] h-[7px] bg-amber-400 rounded-full border-2 border-black" />
           )}
         </button>
         <Link
           href="/dashboard/settings"
           aria-label="Account"
-          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity"
+          className="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
         >
           {initial}
         </Link>
