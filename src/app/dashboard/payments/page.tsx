@@ -361,14 +361,10 @@ export default function PaymentsPage() {
         <h1 className="text-2xl font-bold text-white">Payments</h1>
       </div>
 
-      {/* Stripe note + dashboard link */}
-      <div className="flex items-start justify-between gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-2.5 mb-4">
-        <p className="text-[11px] leading-snug text-[#888]">
-          💡 Stripe is the source of truth for every charge &amp; payout. If a paid link still shows outstanding,
-          hit <span className="text-white font-medium">Refresh</span> on that row.
-        </p>
+      {/* Stripe dashboard link */}
+      <div className="flex justify-end mb-4">
         <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-          className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-white text-[11px] font-medium px-2.5 py-1.5 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-white text-[11px] font-medium px-2.5 py-1.5 hover:bg-[#1e1e1e] disabled:opacity-50 transition-colors">
           <ExternalLink size={13} /> {busy === "stripe" ? "Opening…" : "Stripe Dashboard"}
         </button>
       </div>
