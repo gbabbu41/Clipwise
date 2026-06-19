@@ -69,7 +69,7 @@ export function StatsCarousel({
     <div key="rev" className={card}>
       <p className="text-[11px] uppercase tracking-wide text-gray-400">Today&apos;s Revenue</p>
       <p className="text-3xl font-extrabold text-gray-900 mt-0.5 leading-none">{formatCurrency(revenue)}</p>
-      <p className={cn("text-xs mt-1", hasCompleted ? "text-emerald-600 font-medium" : "text-gray-400")}>
+      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-600" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
       <div className="flex-1 min-h-[88px] mt-2 -mx-2">
@@ -94,7 +94,7 @@ export function StatsCarousel({
     <div key="bk" className={card}>
       <p className="text-[11px] uppercase tracking-wide text-gray-400">Bookings</p>
       <p className="text-3xl font-extrabold text-gray-900 mt-0.5 leading-none">{totalBookings}</p>
-      <p className={cn("text-xs mt-1", hasCompleted ? "text-emerald-600 font-medium" : "text-gray-400")}>
+      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-600" : "text-amber-500")}>
         {hasCompleted ? `${completed.length} completed` : "No bookings yet"}
       </p>
       <div className="flex-1 min-h-[88px] mt-2 -mx-2">
