@@ -218,7 +218,6 @@ export default function PaymentsPage() {
   const cashCollected = settledItems.filter(i => i.method === "cash").reduce((s, i) => s + i.amount, 0);
   const cardNet = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + netOf(i), 0);
   const cardFees = settledItems.filter(i => i.method !== "cash").reduce((s, i) => s + feeOf(i), 0);
-  const collected = cardNet + cashCollected;
   const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
   const outstanding = appts
     .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
@@ -366,12 +365,11 @@ export default function PaymentsPage() {
           other two are equal-size secondary stats. */}
       <div className="grid grid-cols-4 gap-2 mb-2">
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Collected</p>
-          <p className="font-bold mt-0.5 text-xl sm:text-2xl text-[#00e5a0]">{formatCurrency(collected)}</p>
-          <p className="text-[10px] mt-0.5 truncate">
-            <span className="text-[#888]">💳 {formatCurrency(cardNet)} net</span>
-            {cashCollected > 0 && <span className="text-amber-400"> · 💵 {formatCurrency(cashCollected)} cash</span>}
-          </p>
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Collected · net</p>
+          <p className="font-bold mt-0.5 text-xl sm:text-2xl text-[#00e5a0]">{formatCurrency(cardNet)}</p>
+          {cashCollected > 0 && (
+            <p className="text-[11px] mt-0.5 font-semibold text-amber-400">+ {formatCurrency(cashCollected)} cash</p>
+          )}
         </div>
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
