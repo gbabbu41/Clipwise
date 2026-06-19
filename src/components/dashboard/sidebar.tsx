@@ -393,11 +393,11 @@ export function MobileNav() {
   // 4 page-links + 1 'More' drawer-opener. The drawer is the canonical
   // way to reach everything else (Staff, Services, Settings, etc.).
   const linkItems = [
-    { href: "/dashboard",              label: "Home",         emoji: "🏠" },
-    { href: "/dashboard/appointments", label: "Appointments", emoji: "📋" },
-    { href: "/dashboard/calendar",     label: "Calendar",     emoji: "🗓️" },
-    { href: "/dashboard/pos",          label: "POS",      emoji: "💳" },
-    { href: "/dashboard/payments",     label: "Payments", emoji: "💰" },
+    { href: "/dashboard",              label: "Home",         icon: LayoutDashboard },
+    { href: "/dashboard/appointments", label: "Appointments", icon: ClipboardList },
+    { href: "/dashboard/calendar",     label: "Calendar",     icon: CalendarDays },
+    { href: "/dashboard/pos",          label: "POS",          icon: CreditCard },
+    { href: "/dashboard/payments",     label: "Payments",     icon: Banknote },
   ];
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
@@ -408,7 +408,7 @@ export function MobileNav() {
           || (item.href !== "/dashboard" && pathname.startsWith(item.href));
         return (
           <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
-            <div className="cw-ni-icon">{item.emoji}</div>
+            <div className="cw-ni-icon"><item.icon size={20} /></div>
             <div className="cw-ni-label">{item.label}</div>
             {isActive && <div className="cw-ni-line" />}
           </Link>
@@ -418,7 +418,7 @@ export function MobileNav() {
           Replaces the old top-bar hamburger so all chrome lives in one
           predictable spot at the bottom of the screen. */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-        <div className="cw-ni-icon">⚙️</div>
+        <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
       </button>
     </nav>

@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
+import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -511,37 +512,15 @@ export default function DashboardPage() {
           const hasCompleted = completed.length > 0;
           return (
             <div className="mb-6 space-y-3">
-              {/* Hero revenue card — the page's visual anchor on every
-                  viewport. White card, DM Mono dollar amount, trend line,
-                  mini bar sparkline on the right. */}
-              <div className="cw-hero flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="cw-hero-label">Today&apos;s Revenue</div>
-                  <div className="cw-hero-value">{formatCurrency(revenue)}</div>
-                  <div className="cw-hero-trend">
-                    {hasCompleted
-                      ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}`
-                      : "No bookings yet today"}
-                  </div>
-                </div>
-                <div className="cw-mini-bars">
-                  {(() => {
-                    // Use the last 5 days of chartData; if no data yet, render
-                    // a low placeholder set so the hero still shows the shape.
-                    const tail = chartData.length > 0
-                      ? chartData.slice(-5)
-                      : [0,0,0,0,0].map((_, i) => ({ day: `d${i}`, revenue: 0 }));
-                    const max = Math.max(1, ...tail.map(d => d.revenue));
-                    return tail.map((d, i) => (
-                      <div
-                        key={d.day + i}
-                        className={cn("cw-mb", i === tail.length - 1 && "hi")}
-                        style={{ height: `${Math.max(18, (d.revenue / max) * 100)}%` }}
-                      />
-                    ));
-                  })()}
-                </div>
-              </div>
+              {/* Swipeable premium stats carousel — revenue, bookings, top
+                  barbers, status mix. Replaces the single static hero. */}
+              <StatsCarousel
+                revenue={revenue}
+                chartData={chartData}
+                appointments={appointments}
+                completed={completed}
+                barbers={barbers}
+              />
 
               {/* Stats grid — sits directly under the revenue hero so all
                   the KPIs form a single visual block. 2x2 on mobile, 4-up
