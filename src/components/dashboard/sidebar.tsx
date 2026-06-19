@@ -212,7 +212,7 @@ export function Sidebar() {
             notifOpen ? "bg-black/20" : "hover:bg-black/10",
           )}
         >
-          <Bell size={17} strokeWidth={2.5} />
+          <Bell size={20} strokeWidth={2.5} />
           {unreadCount > 0 && (
             <span className="absolute top-0 right-0 w-[8px] h-[8px] bg-red-500 rounded-full border border-white" />
           )}
