@@ -73,10 +73,20 @@ export default function PaymentsPage() {
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null } | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
+  const [showTip, setShowTip] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
+
+  // One-time tip popup (shows once ever per browser).
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("cw_payments_tip_v1")) setShowTip(true);
+  }, []);
+  const dismissTip = () => {
+    setShowTip(false);
+    try { localStorage.setItem("cw_payments_tip_v1", "1"); } catch { /* ignore */ }
+  };
 
   const loadData = useCallback(async () => {
     if (!shop) return;
@@ -354,6 +364,27 @@ export default function PaymentsPage() {
           toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300")}>
           {toast.ok ? <Check size={15} /> : "✕"} {toast.msg}
         </div>
+      )}
+
+      {/* One-time tip popup */}
+      {showTip && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[70]" onClick={dismissTip} />
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm text-center space-y-3">
+              <div className="text-3xl">💡</div>
+              <h3 className="text-lg font-bold text-white">Quick tip</h3>
+              <p className="text-sm text-[#aaa] leading-snug">
+                Stripe is the source of truth for every charge &amp; payout. If a paid link still shows
+                outstanding, hit <span className="text-white font-medium">Refresh</span> on that row.
+              </p>
+              <button onClick={dismissTip}
+                className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea] transition-colors">
+                Got it
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Header */}
