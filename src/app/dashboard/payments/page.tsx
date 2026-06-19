@@ -378,13 +378,8 @@ export default function PaymentsPage() {
       {/* Hero: net heading to the bank this payout + current outstanding / on file */}
       <div className="grid grid-cols-4 gap-2 mb-2">
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-2">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">This payout · to your bank</p>
+          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Next payout</p>
           <p className="font-bold mt-0.5 text-2xl sm:text-3xl text-[#00e5a0]">{formatCurrency(payout)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5 truncate">
-            {stripeNet?.connected
-              ? `available ${formatCurrency(stripeNet.available)} · pending ${formatCurrency(stripeNet.pending)}`
-              : "Connect Stripe to see payout"}
-          </p>
         </div>
         <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
           <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
