@@ -201,20 +201,20 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
-      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-1.5">
+      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-2">
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-7 h-7 rounded-full flex items-center justify-center text-amber-400 transition-colors relative",
+            "w-7 h-7 rounded-full flex items-center justify-center text-amber-500 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
             notifOpen ? "bg-black/20" : "hover:bg-black/10",
           )}
         >
-          <Bell size={15} />
+          <Bell size={17} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 w-[7px] h-[7px] bg-amber-400 rounded-full border-2 border-black" />
+            <span className="absolute top-0 right-0 w-[8px] h-[8px] bg-red-500 rounded-full border border-white" />
           )}
         </button>
         <Link
