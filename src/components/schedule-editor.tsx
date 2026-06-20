@@ -167,83 +167,8 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
   return (
     <div className="space-y-3">
-      {/* Quick actions */}
-      {canEdit && <div className="flex flex-wrap gap-2">
-        <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
-          Mon–Fri 9–7
-        </button>
-        <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
-          <Copy size={13} /> Copy first day to all
-        </button>
-      </div>}
-
-      <div className={cn("space-y-3", !canEdit && "pointer-events-none opacity-80")}>
-      {ORDER.map(dow => {
-        const d = days[dow];
-        return (
-          <div key={dow} className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-white">{DAYS[dow]}</span>
-              <button onClick={() => setDay(dow, { isOpen: !d.isOpen })}
-                className={cn("relative w-11 h-6 rounded-full transition-colors", d.isOpen ? "bg-emerald-500" : "bg-[#2a2a2a]")}
-                aria-label="Toggle open">
-                <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", d.isOpen ? "left-[22px]" : "left-0.5")} />
-              </button>
-            </div>
-
-            {!d.isOpen ? (
-              <p className="text-xs text-[#666] mt-2">Closed</p>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {/* Visual timeline bar */}
-                <div className="relative h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
-                  <div className="absolute inset-y-0 bg-emerald-500/70" style={{ left: `${pct(d.start)}%`, right: `${100 - pct(d.end)}%` }} />
-                  {d.breaks.map((b, i) => (
-                    <div key={i} className="absolute inset-y-0 bg-amber-500" style={{ left: `${pct(b.start)}%`, right: `${100 - pct(b.end)}%` }} />
-                  ))}
-                </div>
-                {/* Working hours */}
-                <div className="flex items-center gap-2 text-sm">
-                  <TimeSelect value={d.start} onChange={v => setDay(dow, { start: v })} className="flex-1 min-w-0" />
-                  <span className="text-[#666] flex-shrink-0">to</span>
-                  <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} className="flex-1 min-w-0" />
-                </div>
-                {/* Breaks */}
-                {d.breaks.map((b, i) => (
-                  <div key={i} className="rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] p-2 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input value={b.label} onChange={e => setBreak(dow, i, { label: e.target.value })} placeholder="Lunch"
-                        className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-500/50" />
-                      <button onClick={() => removeBreak(dow, i)} className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center"><X size={14} /></button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <TimeSelect value={b.start} onChange={v => setBreak(dow, i, { start: v })} small className="flex-1 min-w-0" />
-                      <span className="text-[#666] flex-shrink-0">–</span>
-                      <TimeSelect value={b.end} onChange={v => setBreak(dow, i, { end: v })} small className="flex-1 min-w-0" />
-                    </div>
-                  </div>
-                ))}
-                <button onClick={() => addBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
-                  <Plus size={14} /> Add break / lunch
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-      </div>
-
-      {canEdit ? (
-        <button onClick={save} disabled={saving}
-          className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3 hover:bg-[#eaeaea] disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
-          {saving ? "Saving…" : <><Check size={16} /> Save schedule</>}
-        </button>
-      ) : (
-        <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
-      )}
-
-      {/* ── Time off ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 mt-4">
+      {/* ── Time off (kept up top so it's easy to reach) ─────────────────── */}
+      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarOff size={16} className="text-amber-400" />
@@ -319,6 +244,81 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           ))}
         </div>
       </div>
+
+      {/* Quick actions */}
+      {canEdit && <div className="flex flex-wrap gap-2">
+        <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          Mon–Fri 9–7
+        </button>
+        <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          <Copy size={13} /> Copy first day to all
+        </button>
+      </div>}
+
+      <div className={cn("space-y-3", !canEdit && "pointer-events-none opacity-80")}>
+      {ORDER.map(dow => {
+        const d = days[dow];
+        return (
+          <div key={dow} className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-white">{DAYS[dow]}</span>
+              <button onClick={() => setDay(dow, { isOpen: !d.isOpen })}
+                className={cn("relative w-11 h-6 rounded-full transition-colors", d.isOpen ? "bg-emerald-500" : "bg-[#2a2a2a]")}
+                aria-label="Toggle open">
+                <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", d.isOpen ? "left-[22px]" : "left-0.5")} />
+              </button>
+            </div>
+
+            {!d.isOpen ? (
+              <p className="text-xs text-[#666] mt-2">Closed</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {/* Visual timeline bar */}
+                <div className="relative h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                  <div className="absolute inset-y-0 bg-emerald-500/70" style={{ left: `${pct(d.start)}%`, right: `${100 - pct(d.end)}%` }} />
+                  {d.breaks.map((b, i) => (
+                    <div key={i} className="absolute inset-y-0 bg-amber-500" style={{ left: `${pct(b.start)}%`, right: `${100 - pct(b.end)}%` }} />
+                  ))}
+                </div>
+                {/* Working hours */}
+                <div className="flex items-center gap-2 text-sm">
+                  <TimeSelect value={d.start} onChange={v => setDay(dow, { start: v })} className="flex-1 min-w-0" />
+                  <span className="text-[#666] flex-shrink-0">to</span>
+                  <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} className="flex-1 min-w-0" />
+                </div>
+                {/* Breaks */}
+                {d.breaks.map((b, i) => (
+                  <div key={i} className="rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] p-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input value={b.label} onChange={e => setBreak(dow, i, { label: e.target.value })} placeholder="Lunch"
+                        className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-500/50" />
+                      <button onClick={() => removeBreak(dow, i)} className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center"><X size={14} /></button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TimeSelect value={b.start} onChange={v => setBreak(dow, i, { start: v })} small className="flex-1 min-w-0" />
+                      <span className="text-[#666] flex-shrink-0">–</span>
+                      <TimeSelect value={b.end} onChange={v => setBreak(dow, i, { end: v })} small className="flex-1 min-w-0" />
+                    </div>
+                  </div>
+                ))}
+                <button onClick={() => addBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
+                  <Plus size={14} /> Add break / lunch
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      </div>
+
+      {canEdit ? (
+        <button onClick={save} disabled={saving}
+          className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3 hover:bg-[#eaeaea] disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
+          {saving ? "Saving…" : <><Check size={16} /> Save schedule</>}
+        </button>
+      ) : (
+        <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
+      )}
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>
