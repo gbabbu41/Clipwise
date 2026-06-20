@@ -1089,21 +1089,27 @@ export default function StaffPage() {
                   )}
                   {addTab === "manual" && (
                     <div className="text-xs text-[#777] bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2.5 space-y-2">
-                      <p>
-                        Use <span className="text-white font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
-                      </p>
-                      {user?.email && !alreadyOwnerBarber && (
-                        <button
-                          type="button"
-                          onClick={() => setAddForm({
-                            name: profile?.name || (user.email?.split("@")[0] ?? ""),
-                            email: user.email!,
-                            commission_percent: addForm.commission_percent,
-                          })}
-                          className="text-white hover:text-white/80 font-medium underline-offset-2 hover:underline"
-                        >
-                          + Add me as a barber
-                        </button>
+                      {alreadyOwnerBarber ? (
+                        <p>You&apos;re already on the team as a barber. Enter someone else&apos;s email to add them — they&apos;ll get an invite link.</p>
+                      ) : (
+                        <>
+                          <p>
+                            Use <span className="text-white font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
+                          </p>
+                          {user?.email && (
+                            <button
+                              type="button"
+                              onClick={() => setAddForm({
+                                name: profile?.name || (user.email?.split("@")[0] ?? ""),
+                                email: user.email!,
+                                commission_percent: addForm.commission_percent,
+                              })}
+                              className="text-white hover:text-white/80 font-medium underline-offset-2 hover:underline"
+                            >
+                              + Add me as a barber
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
