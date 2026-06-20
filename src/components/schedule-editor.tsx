@@ -146,19 +146,23 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 </div>
                 {/* Working hours */}
                 <div className="flex items-center gap-2 text-sm">
-                  <TimeSelect value={d.start} onChange={v => setDay(dow, { start: v })} />
-                  <span className="text-[#666]">to</span>
-                  <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} />
+                  <TimeSelect value={d.start} onChange={v => setDay(dow, { start: v })} className="flex-1 min-w-0" />
+                  <span className="text-[#666] flex-shrink-0">to</span>
+                  <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} className="flex-1 min-w-0" />
                 </div>
                 {/* Breaks */}
                 {d.breaks.map((b, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <input value={b.label} onChange={e => setBreak(dow, i, { label: e.target.value })}
-                      className="w-20 rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-500/50" />
-                    <TimeSelect value={b.start} onChange={v => setBreak(dow, i, { start: v })} small />
-                    <span className="text-[#666]">–</span>
-                    <TimeSelect value={b.end} onChange={v => setBreak(dow, i, { end: v })} small />
-                    <button onClick={() => removeBreak(dow, i)} className="ml-auto w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center"><X size={14} /></button>
+                  <div key={i} className="rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] p-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input value={b.label} onChange={e => setBreak(dow, i, { label: e.target.value })} placeholder="Lunch"
+                        className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-500/50" />
+                      <button onClick={() => removeBreak(dow, i)} className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center"><X size={14} /></button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TimeSelect value={b.start} onChange={v => setBreak(dow, i, { start: v })} small className="flex-1 min-w-0" />
+                      <span className="text-[#666] flex-shrink-0">–</span>
+                      <TimeSelect value={b.end} onChange={v => setBreak(dow, i, { end: v })} small className="flex-1 min-w-0" />
+                    </div>
                   </div>
                 ))}
                 <button onClick={() => addBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
@@ -187,11 +191,11 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
   );
 }
 
-function TimeSelect({ value, onChange, small }: { value: string; onChange: (v: string) => void; small?: boolean }) {
+function TimeSelect({ value, onChange, small, className }: { value: string; onChange: (v: string) => void; small?: boolean; className?: string }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
       className={cn("rounded-lg bg-[#141414] border border-[#1e1e1e] text-white focus:outline-none focus:border-white",
-        small ? "text-xs px-2 py-1.5" : "text-sm px-3 py-2 font-medium")}>
+        small ? "text-xs px-2 py-1.5" : "text-sm px-3 py-2 font-medium", className)}>
       {TIME_OPTIONS.map(t => <option key={t} value={t} className="bg-[#141414]">{t}</option>)}
     </select>
   );
