@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarRange, Check, AlertTriangle } from "lucide-react";
+import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ScheduleEditor } from "@/components/schedule-editor";
@@ -82,12 +82,10 @@ function PauseBookingsToggle() {
 
   return (
     <>
-      <button onClick={onClick} disabled={busy} aria-label="Pause bookings"
-        className="flex flex-col items-end gap-1 flex-shrink-0 disabled:opacity-50">
-        <span className="text-[11px] font-semibold text-amber-400">Pause bookings</span>
-        <span className={cn("relative w-11 h-6 rounded-full transition-colors", paused ? "bg-amber-500" : "bg-[#2a2a2a]")}>
-          <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", paused ? "left-[22px]" : "left-0.5")} />
-        </span>
+      <button onClick={onClick} disabled={busy} aria-label="Pause bookings" title={paused ? "Bookings paused — tap to resume" : "Pause bookings"}
+        className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50",
+          paused ? "bg-amber-500/20 text-amber-400" : "bg-[#141414] text-[#888] hover:text-white")}>
+        <Power size={18} />
       </button>
 
       {confirm && (
