@@ -32,10 +32,15 @@ export async function POST(request: NextRequest) {
   };
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status")
+    .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status, booking_settings")
     .eq("id", booking.shop_id).single();
 
   if (!shop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+
+  // Emergency pause — owner flipped the kill switch; stop taking bookings.
+  if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
+    return NextResponse.json({ error: "This shop isn't accepting bookings right now." }, { status: 403 });
+  }
 
   // Block double-booking BEFORE taking any money — otherwise a customer could
   // pay and then have /booking-finalize fail, leaving them charged with no

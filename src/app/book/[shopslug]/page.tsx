@@ -895,6 +895,23 @@ export default function BookingPage() {
     );
   }
 
+  // ── Emergency pause: owner flipped the kill switch → stop taking bookings ──
+  if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 bg-black/5 border border-[#1e1e1e] rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Logo size="sm" showText={false} />
+          </div>
+          <h1 className="text-2xl font-bold text-white">{shop.name}</h1>
+          <p className="text-[#777] mt-3">We&apos;ve temporarily paused online booking. Please check back soon{shop.phone ? " or give us a call" : ""}.</p>
+          <Badge variant="warning" className="mt-4">Not accepting bookings</Badge>
+          {shop.phone && <p className="text-sm text-[#aaa] mt-4">{shop.phone}</p>}
+        </div>
+      </div>
+    );
+  }
+
   // ── Success screen ─────────────────────────────────────────────────────────
   if (confirmed) {
     // Prefer the server summary (online path: in-memory state was wiped by the

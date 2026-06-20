@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
   }
+  // Emergency pause — block customer self-bookings, but still let the owner add
+  // walk-ins manually from the dashboard (b.confirmed = owner-initiated).
+  if (!b.confirmed && (shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
+    return NextResponse.json({ error: "This shop isn't accepting bookings right now." }, { status: 403 });
+  }
   const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
 
   // Resolve duration → conflict window.
