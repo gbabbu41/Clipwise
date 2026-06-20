@@ -448,7 +448,7 @@ export default function PaymentsPage() {
                     <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                       <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "6px 10px" }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>}

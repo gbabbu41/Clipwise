@@ -62,7 +62,8 @@ export function StatsCarousel({
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>;
   const card = "bg-white border border-gray-100 rounded-2xl p-4 shadow-sm h-full flex flex-col";
-  const tip = { contentStyle: { borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "6px 10px" } } as const;
+  // Pin tooltips to the top strip (empty space) and keep them inside the card.
+  const tip = { contentStyle: { borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }, position: { y: 0 }, allowEscapeViewBox: { x: false, y: false } } as const;
 
   const slides = [
     // 1 — Revenue (area)
