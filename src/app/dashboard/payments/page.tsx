@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check } from "lucide-react";
+import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -71,7 +72,8 @@ export default function PaymentsPage() {
   const [txs, setTxs] = useState<TxRow[]>([]);
   // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
-  const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
+  const [netSlide, setNetSlide] = useState(0);
+  const netRef = useRef<HTMLDivElement>(null);
   const [showTip, setShowTip] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -227,19 +229,40 @@ export default function PaymentsPage() {
   // cash / fees indicators below are scoped to the chosen period; the list itself
   // is never hidden by this filter.
   const settledItems = feedAll.filter(i => i.settled);
+  const cardSettled = settledItems.filter(i => i.method !== "cash");
+  const cashSettled = settledItems.filter(i => i.method === "cash");
   const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
-  const periodStart = (() => {
-    if (period === "all") return 0;
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    if (period === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
-    else if (period === "month") d.setDate(1);
+
+  const startOf = (kind: "today" | "week" | "month") => {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    if (kind === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
+    else if (kind === "month") d.setDate(1);
     return d.getTime();
-  })();
-  const periodSettled = settledItems.filter(i => i.ts >= periodStart);
-  const periodCardNet = periodSettled.filter(i => i.method !== "cash").reduce((s, i) => s + netOf(i), 0);
-  const periodCash = periodSettled.filter(i => i.method === "cash").reduce((s, i) => s + i.amount, 0);
-  const periodFees = periodSettled.filter(i => i.method !== "cash").reduce((s, i) => s + feeOf(i), 0);
+  };
+  const sumNet = (from: number) => cardSettled.filter(i => i.ts >= from).reduce((s, i) => s + netOf(i), 0);
+  const sumCash = (from: number) => cashSettled.filter(i => i.ts >= from).reduce((s, i) => s + i.amount, 0);
+  const todayNet = sumNet(startOf("today"));
+  const todayCash = sumCash(startOf("today"));
+
+  // Net buckets for the period carousel (by day; by month for All).
+  const bucketsFor = (from: number, monthly: boolean) => {
+    const m = new Map<string, { order: number; net: number }>();
+    cardSettled.filter(i => i.ts >= from).forEach(i => {
+      const dt = new Date(i.ts);
+      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
+      const label = monthly
+        ? dt.toLocaleDateString("en-CA", { month: "short" })
+        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+      const cur = m.get(label) ?? { order, net: 0 };
+      cur.net += netOf(i); m.set(label, cur);
+    });
+    return Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
+  };
+  const netPeriods = [
+    { key: "week", label: "This week", from: startOf("week"), monthly: false },
+    { key: "month", label: "This month", from: startOf("month"), monthly: false },
+    { key: "all", label: "All time", from: 0, monthly: true },
+  ].map(p => ({ ...p, net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
   const outstanding = appts
     .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
     .reduce((s, a) => s + (a.total_amount ?? 0), 0);
@@ -391,13 +414,21 @@ export default function PaymentsPage() {
             ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
             : "No payout scheduled yet"}
         </p>
-        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-          <span className="text-gray-400">Last payout</span>
-          <span className="font-medium text-gray-700">
-            {stripeNet?.lastPayout
-              ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-              : "—"}
-          </span>
+        <div className="mt-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+          <div>
+            <p className="text-gray-400">Net today</p>
+            <p className="font-semibold text-emerald-600">
+              {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-gray-400">Last payout</p>
+            <p className="font-medium text-gray-700">
+              {stripeNet?.lastPayout
+                ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+                : "—"}
+            </p>
+          </div>
         </div>
       </div>
       {/* Outstanding + On file — two equal cards side by side */}
@@ -413,23 +444,39 @@ export default function PaymentsPage() {
           <p className="text-[10px] text-[#666] mt-0.5">Held</p>
         </div>
       </div>
-      {/* Period chips → drive the Net / cash / fees indicators (summary only) */}
-      <div className="flex items-center gap-1.5 mb-3">
-        {([["today", "Today"], ["week", "Week"], ["month", "Month"], ["all", "All"]] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setPeriod(k)}
-            className={cn("px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
-              period === k ? "bg-white text-black border-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
-            {l}
-          </button>
-        ))}
-      </div>
-      <div className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
-        <span className="text-sm">
-          <span className="text-[#777]">Net{period === "all" ? "" : ` ${period}`}: </span>
-          <span className="text-[#00e5a0] font-bold">{formatCurrency(periodCardNet)}</span>
-        </span>
-        {periodCash > 0 && <span className="text-sm font-semibold text-amber-400">+ {formatCurrency(periodCash)} cash</span>}
-        {stripeNet?.connected && periodFees > 0 && <span className="text-[11px] text-[#666]">after {formatCurrency(periodFees)} Stripe fees</span>}
+      {/* Net by period — swipeable carousel with charts */}
+      <div className="mb-6">
+        <div ref={netRef}
+          onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {netPeriods.map(p => (
+            <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-baseline justify-between">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">Net · {p.label}</p>
+                {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
+              </div>
+              <p className="text-2xl font-extrabold text-emerald-600 mt-0.5">{formatCurrency(p.net)}</p>
+              <div className="h-16 mt-1 -mx-1">
+                {p.data.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
+                      <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "6px 10px" }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center gap-1.5 mt-2">
+          {netPeriods.map((_, i) => (
+            <button key={i} type="button" aria-label={`Period ${i + 1}`}
+              onClick={() => { const el = netRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
+              className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
+          ))}
+        </div>
       </div>
 
       {/* Transactions */}
