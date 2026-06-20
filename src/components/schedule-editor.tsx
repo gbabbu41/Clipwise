@@ -311,13 +311,15 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 {d.breaks.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {d.breaks.map((b, i) => (
-                      <div key={i} className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 pl-2.5 pr-1 py-1">
-                        <span className="text-xs font-medium text-amber-400">{b.label}</span>
-                        <span className="text-[11px] text-amber-400/70">{b.start}–{b.end}</span>
-                        <button onClick={() => openEditBreak(dow, i)} aria-label="Edit break"
-                          className="w-5 h-5 rounded-full text-amber-400/70 hover:text-amber-300 flex items-center justify-center"><Pencil size={12} /></button>
-                        <button onClick={() => removeBreak(dow, i)} aria-label="Remove break"
-                          className="w-5 h-5 rounded-full text-amber-400/70 hover:text-amber-300 flex items-center justify-center"><X size={12} /></button>
+                      <div key={i} className="inline-flex items-center gap-2 rounded-full bg-[#141414] pl-3 pr-2.5 py-1.5">
+                        <span className="text-xs font-medium text-white">{b.label}</span>
+                        <span className="text-[11px] text-[#888]">{b.start}–{b.end}</span>
+                        <div className="flex items-center gap-2.5 ml-0.5">
+                          <button onClick={() => openEditBreak(dow, i)} aria-label="Edit break"
+                            className="text-[#888] hover:text-white flex items-center justify-center"><Pencil size={12} /></button>
+                          <button onClick={() => removeBreak(dow, i)} aria-label="Remove break"
+                            className="text-[#888] hover:text-white flex items-center justify-center"><X size={13} /></button>
+                        </div>
                       </div>
                     ))}
                   </div>
