@@ -101,8 +101,11 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       }),
     });
     setSaving(false);
-    if (res.ok) showToast(`Schedule saved · emailed ${barberName.split(" ")[0]}`);
-    else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); }
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}));
+      if (d?.breaksError) showToast("Hours saved, but breaks didn't save — run the barber_breaks migration.");
+      else showToast(`Schedule saved · emailed ${barberName.split(" ")[0]}`);
+    } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); }
   };
 
   if (loading) return <div className="py-16 text-center text-[#777] text-sm">Loading schedule…</div>;

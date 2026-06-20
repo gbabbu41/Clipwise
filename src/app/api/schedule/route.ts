@@ -56,14 +56,18 @@ export async function POST(request: NextRequest) {
     if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
   }
 
-  // Replace recurring breaks (only on open days).
+  // Replace recurring breaks (only on open days). Surface failures (e.g. the
+  // barber_breaks table not migrated yet) instead of silently dropping them.
   const openDays = new Set(slotRows.map(s => s.day_of_week));
   const breakRows = (body.breaks ?? [])
     .filter(b => openDays.has(b.day_of_week) && b.start_time && b.end_time)
     .map(b => ({ barber_id: barber!.id, shop_id: barber!.shop_id, day_of_week: b.day_of_week, start_time: b.start_time, end_time: b.end_time, label: b.label || "Break" }));
-  await supabaseAdmin.from("barber_breaks").delete().eq("barber_id", barber!.id).then(null, () => null);
-  if (breakRows.length) {
-    await supabaseAdmin.from("barber_breaks").insert(breakRows).then(null, () => null);
+  let breaksError: string | null = null;
+  const del = await supabaseAdmin.from("barber_breaks").delete().eq("barber_id", barber!.id);
+  if (del.error) breaksError = del.error.message;
+  if (!breaksError && breakRows.length) {
+    const ins = await supabaseAdmin.from("barber_breaks").insert(breakRows);
+    if (ins.error) breaksError = ins.error.message;
   }
 
   // Email the barber their new weekly schedule (best-effort).
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, breaksError });
 }
 
 // Render schedule rows as HTML for the email.
