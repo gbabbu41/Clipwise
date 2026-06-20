@@ -5,6 +5,7 @@ import { Plus, X, Check, Copy, CalendarOff, Pencil } from "lucide-react";
 import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_ABBR = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon-first display order
 const BAR_START = 6 * 60;   // 6 AM
 const BAR_END = 23 * 60;    // 11 PM
@@ -88,7 +89,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
   const removeBreak = (dow: number, idx: number) =>
     setDays(p => p.map((d, i) => i === dow ? { ...d, breaks: d.breaks.filter((_, j) => j !== idx) } : d));
 
-  // Break add/edit happens in a popup so each day stays a compact info-tag view.
+  // Each day collapses to a one-line summary; tapping opens this day editor.
+  const [dayModal, setDayModal] = useState<number | null>(null);
+
+  // Break add/edit happens in a popup (nested on the day editor).
   const [breakModal, setBreakModal] = useState<{ dow: number; idx: number | null; label: string; start: string; end: string } | null>(null);
   const openAddBreak = (dow: number) => setBreakModal({ dow, idx: null, label: "Lunch", start: "12:00 PM", end: "1:00 PM" });
   const openEditBreak = (dow: number, idx: number) => { const b = days[dow].breaks[idx]; setBreakModal({ dow, idx, label: b.label, start: b.start, end: b.end }); };
@@ -111,7 +115,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     showToast("Copied to all open days");
   };
   const setWeekdays = () =>
-    setDays(p => p.map((d, dow) => ({ ...d, isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "7:00 PM" })));
+    setDays(p => p.map((d, dow) => ({ ...d, isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "6:00 PM" })));
 
   const save = async () => {
     if (!accessToken) return;
@@ -186,9 +190,56 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
   if (loading) return <div className="py-16 text-center text-[#777] text-sm">Loading schedule…</div>;
 
+  const dm = dayModal !== null ? days[dayModal] : null;
+
   return (
-    <div className="space-y-3">
-      {/* ── Time off (kept up top so it's easy to reach) ─────────────────── */}
+    <div className="space-y-4">
+      {/* ── Weekly schedule (compact one-line rows, edit in a popup) ─────── */}
+      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+        <h3 className="font-semibold text-white">Weekly Schedule</h3>
+        <p className="text-xs text-[#666] mt-0.5">Repeats every week — same hours, automatically.</p>
+
+        <div className={cn("mt-3 divide-y divide-[#161616]", !canEdit && "opacity-80")}>
+          {ORDER.map(dow => {
+            const d = days[dow];
+            const brk = d.breaks.length === 1 ? ` · ${d.breaks[0].label}` : d.breaks.length > 1 ? ` · ${d.breaks.length} breaks` : "";
+            return (
+              <button key={dow} onClick={() => canEdit && setDayModal(dow)} disabled={!canEdit}
+                className="w-full flex items-center gap-3 py-2.5 text-left disabled:cursor-default">
+                <span className="w-9 flex-shrink-0 text-[11px] font-bold uppercase tracking-wide text-[#888]">{DAY_ABBR[dow]}</span>
+                <span className={cn("w-2 h-2 rounded-full flex-shrink-0", d.isOpen ? "bg-emerald-500" : "border border-[#444]")} />
+                <span className="flex-1 min-w-0 text-sm truncate">
+                  {d.isOpen
+                    ? <span className="text-white">{d.start} → {d.end}<span className="text-[#888]">{brk}</span></span>
+                    : <span className="text-[#666]">Day off</span>}
+                </span>
+                {canEdit && <Pencil size={14} className="text-[#666] flex-shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Quick actions */}
+        {canEdit && <div className="flex flex-wrap gap-2 mt-3">
+          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+            Quick fill: Mon–Fri 9–6
+          </button>
+          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+            <Copy size={13} /> Copy first day to all
+          </button>
+        </div>}
+      </div>
+
+      {canEdit ? (
+        <button onClick={save} disabled={saving}
+          className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3 hover:bg-[#eaeaea] disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
+          {saving ? "Saving…" : <><Check size={16} /> Save schedule</>}
+        </button>
+      ) : (
+        <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
+      )}
+
+      {/* ── Time off ─────────────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -266,81 +317,71 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         </div>
       </div>
 
-      {/* Quick actions */}
-      {canEdit && <div className="flex flex-wrap gap-2">
-        <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
-          Mon–Fri 9–7
-        </button>
-        <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
-          <Copy size={13} /> Copy first day to all
-        </button>
-      </div>}
+      {/* ── Day editor popup ─────────────────────────────────────────────── */}
+      {dayModal !== null && dm && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[150]" onClick={() => setDayModal(null)} />
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 w-full max-w-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white">{DAYS[dayModal]}</h2>
+                <button onClick={() => setDayModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
 
-      <div className={cn("space-y-3", !canEdit && "pointer-events-none opacity-80")}>
-      {ORDER.map(dow => {
-        const d = days[dow];
-        return (
-          <div key={dow} className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-white">{DAYS[dow]}</span>
-              <button onClick={() => setDay(dow, { isOpen: !d.isOpen })}
-                className={cn("relative w-11 h-6 rounded-full transition-colors", d.isOpen ? "bg-emerald-500" : "bg-[#2a2a2a]")}
-                aria-label="Toggle open">
-                <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", d.isOpen ? "left-[22px]" : "left-0.5")} />
-              </button>
-            </div>
-
-            {!d.isOpen ? (
-              <p className="text-xs text-[#666] mt-2">Closed</p>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {/* Visual timeline bar */}
-                <div className="relative h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
-                  <div className="absolute inset-y-0 bg-emerald-500/70" style={{ left: `${pct(d.start)}%`, right: `${100 - pct(d.end)}%` }} />
-                  {d.breaks.map((b, i) => (
-                    <div key={i} className="absolute inset-y-0 bg-amber-500" style={{ left: `${pct(b.start)}%`, right: `${100 - pct(b.end)}%` }} />
-                  ))}
-                </div>
-                {/* Working hours */}
-                <div className="flex items-center gap-2 text-sm">
-                  <TimeSelect value={d.start} onChange={v => setDay(dow, { start: v })} className="flex-1 min-w-0" />
-                  <span className="text-[#666] flex-shrink-0">to</span>
-                  <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} className="flex-1 min-w-0" />
-                </div>
-                {/* Breaks — compact info tags; edit/add via popup */}
-                {d.breaks.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {d.breaks.map((b, i) => (
-                      <div key={i} className="inline-flex items-center gap-2 rounded-full bg-[#141414] pl-3 pr-2.5 py-1.5">
-                        <span className="text-xs font-medium text-white">{b.label}</span>
-                        <span className="text-[11px] text-[#888]">{b.start}–{b.end}</span>
-                        <div className="flex items-center gap-2.5 ml-0.5">
-                          <button onClick={() => openEditBreak(dow, i)} aria-label="Edit break"
-                            className="text-[#888] hover:text-white flex items-center justify-center"><Pencil size={12} /></button>
-                          <button onClick={() => removeBreak(dow, i)} aria-label="Remove break"
-                            className="text-[#888] hover:text-white flex items-center justify-center"><X size={13} /></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => openAddBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
-                  <Plus size={14} /> Add break / lunch
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#aaa]">{dm.isOpen ? "Open this day" : "Day off"}</span>
+                <button onClick={() => setDay(dayModal, { isOpen: !dm.isOpen })}
+                  className={cn("relative w-11 h-6 rounded-full transition-colors", dm.isOpen ? "bg-emerald-500" : "bg-[#2a2a2a]")}
+                  aria-label="Toggle open">
+                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", dm.isOpen ? "left-[22px]" : "left-0.5")} />
                 </button>
               </div>
-            )}
-          </div>
-        );
-      })}
-      </div>
 
-      {canEdit ? (
-        <button onClick={save} disabled={saving}
-          className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3 hover:bg-[#eaeaea] disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
-          {saving ? "Saving…" : <><Check size={16} /> Save schedule</>}
-        </button>
-      ) : (
-        <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
+              {dm.isOpen ? (
+                <div className="space-y-3">
+                  {/* Visual timeline */}
+                  <div className="relative h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                    <div className="absolute inset-y-0 bg-emerald-500/70" style={{ left: `${pct(dm.start)}%`, right: `${100 - pct(dm.end)}%` }} />
+                    {dm.breaks.map((b, i) => (
+                      <div key={i} className="absolute inset-y-0 bg-amber-500" style={{ left: `${pct(b.start)}%`, right: `${100 - pct(b.end)}%` }} />
+                    ))}
+                  </div>
+                  {/* Hours */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <TimeSelect value={dm.start} onChange={v => setDay(dayModal, { start: v })} className="flex-1 min-w-0" />
+                    <span className="text-[#666] flex-shrink-0">to</span>
+                    <TimeSelect value={dm.end} onChange={v => setDay(dayModal, { end: v })} className="flex-1 min-w-0" />
+                  </div>
+                  {/* Breaks */}
+                  {dm.breaks.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {dm.breaks.map((b, i) => (
+                        <div key={i} className="inline-flex items-center gap-2 rounded-full bg-[#141414] pl-3 pr-2.5 py-1.5">
+                          <span className="text-xs font-medium text-white">{b.label}</span>
+                          <span className="text-[11px] text-[#888]">{b.start}–{b.end}</span>
+                          <div className="flex items-center gap-2.5 ml-0.5">
+                            <button onClick={() => openEditBreak(dayModal, i)} aria-label="Edit break"
+                              className="text-[#888] hover:text-white flex items-center justify-center"><Pencil size={12} /></button>
+                            <button onClick={() => removeBreak(dayModal, i)} aria-label="Remove break"
+                              className="text-[#888] hover:text-white flex items-center justify-center"><X size={13} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => openAddBreak(dayModal)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
+                    <Plus size={14} /> Add break / lunch
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-[#666]">Toggle on to set working hours and breaks.</p>
+              )}
+
+              <button onClick={() => setDayModal(null)} className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea]">Done</button>
+              <p className="text-[11px] text-[#555] text-center -mt-1">Tap “Save schedule” to apply your changes.</p>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Break add/edit popup */}

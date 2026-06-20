@@ -33,14 +33,11 @@ export default function SchedulePage() {
         <p className="text-sm text-[#777] mt-0.5">Set working hours, breaks &amp; lunch — each barber gets emailed their schedule.</p>
       </div>
 
-      <BookingWindowCard />
-      <div className="h-4" />
-
       {barbers.length === 0 ? (
         <p className="text-sm text-[#777] py-12 text-center">No barbers yet. Add staff first.</p>
       ) : (
         <>
-          {/* Barber picker */}
+          {/* Barber picker first */}
           <div className="flex gap-2 overflow-x-auto pb-1 mb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {barbers.map(b => (
               <button key={b.id} onClick={() => setSelected(b.id)}
@@ -52,6 +49,11 @@ export default function SchedulePage() {
           </div>
 
           {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner />}
+
+          {/* Shop-wide setting at the bottom */}
+          <div className="mt-4 pt-4 border-t border-[#161616]">
+            <BookingWindowCard />
+          </div>
         </>
       )}
     </div>
