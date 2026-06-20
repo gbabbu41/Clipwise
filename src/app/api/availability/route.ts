@@ -58,11 +58,13 @@ export async function POST(request: NextRequest) {
     apptRows = (apptWithDur.data ?? []) as typeof apptRows;
   }
 
-  const [{ data: slots }, { data: timeOff }] = await Promise.all([
+  const [{ data: slots }, { data: timeOff }, { data: breaks }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("barber_id, start_time, end_time, is_available")
       .in("barber_id", barberIds).eq("day_of_week", dow).eq("is_available", true),
     supabaseAdmin.from("time_off_requests").select("barber_id, type, start_time, end_time")
       .eq("shop_id", shop_id).eq("status", "approved").lte("start_date", date).gte("end_date", date),
+    supabaseAdmin.from("barber_breaks").select("barber_id, start_time, end_time")
+      .in("barber_id", barberIds).eq("day_of_week", dow),
   ]);
 
   const slotByBarber = new Map<string, { start_time: string; end_time: string }>();
@@ -101,6 +103,12 @@ export async function POST(request: NextRequest) {
     } else {
       applyOff(o.barber_id as string, o);
     }
+  });
+  // Recurring breaks/lunch behave like blocked ranges for the day.
+  (breaks ?? []).forEach(b => {
+    const cur = offByBarber.get(b.barber_id as string) ?? { fullDayOff: false, blocked: [] };
+    cur.blocked.push({ start_time: b.start_time as string, end_time: b.end_time as string });
+    offByBarber.set(b.barber_id as string, cur);
   });
 
   const result = (barbers ?? []).map(b => {

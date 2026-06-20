@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/schedule", label: "My Schedule", icon: Calendar },
   // Availability stays visible even when edit is disabled — the page itself
   // shows a read-only view with a lock banner.
-  { href: "/barber-dashboard/availability", label: "Availability", icon: Clock },
+  { href: "/barber-dashboard/hours", label: "Availability", icon: Clock },
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
   { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, permKey: "view_earnings" },
@@ -207,7 +207,7 @@ export function BarberMobileNav() {
   const linkItems = [
     { href: "/barber-dashboard",              label: "Home",     emoji: "🏠", show: true },
     { href: "/barber-dashboard/schedule",     label: "Schedule", emoji: "📅", show: true },
-    { href: "/barber-dashboard/availability", label: "Hours",    emoji: "⏰", show: true },
+    { href: "/barber-dashboard/hours", label: "Hours",    emoji: "⏰", show: true },
     { href: "/barber-dashboard/earnings",     label: "Earnings", emoji: "💰", show: perms.view_earnings !== false },
   ].filter(i => i.show);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));

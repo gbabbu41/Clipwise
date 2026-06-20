@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
-  Menu, BellRing, AlertTriangle, CalendarX2, Info,
+  Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
@@ -72,6 +72,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
       { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true },
+      { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
       { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true },
     ],
   },

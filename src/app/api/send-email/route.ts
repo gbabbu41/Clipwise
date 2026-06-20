@@ -373,6 +373,18 @@ function refundIssued(data: Record<string, string>) {
   `);
 }
 
+// Schedule summary — pre-rendered rows (data.scheduleHtml) from the schedule
+// route / weekly cron. `weekly` only changes the heading copy.
+function scheduleEmail(data: Record<string, string>, weekly: boolean) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <h1>${weekly ? "Your schedule this week" : "Your schedule was updated"}</h1>
+    <p>Hi <span class="highlight">${data.barberName ?? "there"}</span>, here's your weekly schedule at ${data.shopName ?? "your shop"}:</p>
+    <div style="margin-top:16px">${data.scheduleHtml ?? ""}</div>
+    <p style="margin-top:20px">Questions about your hours? Just reply to this email.</p>
+  `);
+}
+
 function directMessageEmail(data: Record<string, string>) {
   // Free-form message from the shop owner (or, later, a barber) to a
   // customer. Kept visually quiet — looks like a personal note, not a
@@ -769,6 +781,16 @@ export async function POST(req: NextRequest) {
         to = data.clientEmail;
         subject = `Message from ${data.shopName}`;
         html = directMessageEmail(data);
+        break;
+      case "schedule_updated":
+        to = data.barberEmail;
+        subject = `Your schedule at ${data.shopName} was updated`;
+        html = scheduleEmail(data, false);
+        break;
+      case "weekly_schedule":
+        to = data.barberEmail;
+        subject = `Your schedule this week — ${data.shopName}`;
+        html = scheduleEmail(data, true);
         break;
       case "booking_request_received":
         to = data.clientEmail;
