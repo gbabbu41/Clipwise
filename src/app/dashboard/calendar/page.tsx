@@ -334,7 +334,7 @@ function AgendaSheet({
 }
 
 export default function CalendarPage() {
-  const { shop, profile, accessToken } = useAuth();
+  const { shop, profile, accessToken, user } = useAuth();
   const [view, setView] = useState<"month" | "week" | "day">("day");
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -371,11 +371,19 @@ export default function CalendarPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
+  // Identify the current user's own barber row — for BOTH barbers and owners who
+  // also cut hair. Match by user_id, falling back to account email (covers a
+  // barber row that was never linked to the account).
   useEffect(() => {
-    if (!profile || profile.role !== "barber" || !shop) return;
-    supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
-      .then(({ data }) => { if (data) setMyBarberId(data.id); });
-  }, [profile, shop]);
+    if (!profile || !shop) return;
+    supabase.from("barbers").select("id, user_id, email").eq("shop_id", shop.id)
+      .then(({ data }) => {
+        if (!data) return;
+        const mine = data.find(b => b.user_id === profile.id)
+          ?? data.find(b => !!user?.email && b.email?.toLowerCase() === user.email!.toLowerCase());
+        if (mine) setMyBarberId(mine.id);
+      });
+  }, [profile, shop, user]);
 
   const load = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
