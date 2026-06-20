@@ -42,11 +42,12 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     setLoading(true);
     const res = await fetch(`/api/schedule?barber_id=${barberId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await res.json().catch(() => null);
-    const next = defaultDays();
+    let next = defaultDays();
     if (data && !data.error) {
-      // Working hours
-      const hadSlots = (data.slots ?? []).length > 0;
-      if (hadSlots) next.forEach((d, dow) => { d.isOpen = false; }); // start from actual data
+      // Authoritative data loaded → reflect EXACTLY what's saved: start every day
+      // closed, then open the ones that have a saved slot. (Don't fall back to the
+      // Mon–Fri default when 0 slots, or turning every day off looks reverted.)
+      next = DAYS.map(() => ({ isOpen: false, start: "9:00 AM", end: "7:00 PM", breaks: [] as Brk[] }));
       (data.slots ?? []).forEach((s: { day_of_week: number; start_time: string; end_time: string; is_available: boolean }) => {
         const d = next[s.day_of_week];
         if (d) { d.isOpen = !!s.is_available; d.start = dbTimeToDisplay(s.start_time); d.end = dbTimeToDisplay(s.end_time); }
