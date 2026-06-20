@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarRange, Check, Power } from "lucide-react";
+import { CalendarRange, Check, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ScheduleEditor } from "@/components/schedule-editor";
@@ -33,9 +33,6 @@ export default function SchedulePage() {
         <p className="text-sm text-[#777] mt-0.5">Set working hours, breaks &amp; lunch — each barber gets emailed their schedule.</p>
       </div>
 
-      <PauseBookingsCard />
-      <div className="h-4" />
-
       {barbers.length === 0 ? (
         <p className="text-sm text-[#777] py-12 text-center">No barbers yet. Add staff first.</p>
       ) : (
@@ -51,7 +48,7 @@ export default function SchedulePage() {
             ))}
           </div>
 
-          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner />}
+          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner headerAction={<PauseBookingsToggle />} />}
 
           {/* Shop-wide setting at the bottom */}
           <div className="mt-4 pt-4 border-t border-[#161616]">
@@ -63,39 +60,55 @@ export default function SchedulePage() {
   );
 }
 
-// Emergency kill switch — instantly stop taking new bookings until turned off.
-function PauseBookingsCard() {
+// Emergency kill switch in the Weekly Schedule header — turning ON requires a
+// confirmation; turning OFF (resume) is immediate.
+function PauseBookingsToggle() {
   const { shop, refreshShop } = useAuth();
   const paused = !!(shop?.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused;
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
 
-  const toggle = async () => {
+  const setPaused = async (next: boolean) => {
     if (!shop || busy) return;
     setBusy(true);
-    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), bookings_paused: !paused };
+    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), bookings_paused: next };
     const { error } = await supabase.from("shops").update({ booking_settings: merged }).eq("id", shop.id);
     if (!error) await refreshShop();
     setBusy(false);
+    setConfirm(false);
   };
 
+  const onClick = () => { if (paused) setPaused(false); else setConfirm(true); };
+
   return (
-    <div className={cn("rounded-2xl border p-4 transition-colors", paused ? "border-red-500/40 bg-red-500/10" : "border-[#1e1e1e] bg-[#0c0c0c]")}>
-      <div className="flex items-center gap-3">
-        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0", paused ? "bg-red-500/20 text-red-400" : "bg-[#141414] text-[#888]")}>
-          <Power size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={cn("font-semibold", paused ? "text-red-300" : "text-white")}>{paused ? "Bookings paused" : "Pause bookings"}</p>
-          <p className="text-xs text-[#888] mt-0.5">
-            {paused ? "Customers can't book until you turn this back on." : "Emergency stop — instantly stop new bookings. Existing appointments stay."}
-          </p>
-        </div>
-        <button onClick={toggle} disabled={busy} aria-label="Toggle bookings paused"
-          className={cn("relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-50", paused ? "bg-red-500" : "bg-[#2a2a2a]")}>
-          <span className={cn("absolute top-0.5 w-6 h-6 rounded-full bg-white transition-all", paused ? "left-[22px]" : "left-0.5")} />
-        </button>
-      </div>
-    </div>
+    <>
+      <button onClick={onClick} disabled={busy} aria-label="Pause bookings"
+        className="flex flex-col items-end gap-1 flex-shrink-0 disabled:opacity-50">
+        <span className="text-[11px] font-semibold text-amber-400">Pause bookings</span>
+        <span className={cn("relative w-11 h-6 rounded-full transition-colors", paused ? "bg-amber-500" : "bg-[#2a2a2a]")}>
+          <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", paused ? "left-[22px]" : "left-0.5")} />
+        </span>
+      </button>
+
+      {confirm && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[150]" onClick={() => setConfirm(false)} />
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black shadow-sm border border-amber-500/40 rounded-2xl p-5 w-full max-w-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
+                <h2 className="text-base font-bold text-white">Pause all bookings?</h2>
+              </div>
+              <p className="text-sm text-[#aaa]">Customers won&apos;t be able to book online until you turn this back on. Your existing appointments stay.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirm(false)} className="flex-1 rounded-xl border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
+                <button onClick={() => setPaused(true)} disabled={busy} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400 disabled:opacity-50">{busy ? "Pausing…" : "Pause bookings"}</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

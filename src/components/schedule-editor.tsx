@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { Plus, X, Check, Copy, CalendarOff, Pencil } from "lucide-react";
 import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ const pct = (display: string) => {
   return Math.max(0, Math.min(100, ((m - BAR_START) / SPAN) * 100));
 };
 
-export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean }) {
+export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false, headerAction }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean; headerAction?: ReactNode }) {
   const [days, setDays] = useState<Day[]>(defaultDays);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -196,8 +196,13 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     <div className="space-y-4">
       {/* ── Weekly schedule (compact one-line rows, edit in a popup) ─────── */}
       <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
-        <h3 className="font-semibold text-white">Weekly Schedule</h3>
-        <p className="text-xs text-[#666] mt-0.5">Repeats every week — same hours, automatically.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-white">Weekly Schedule</h3>
+            <p className="text-xs text-[#666] mt-0.5">Repeats every week — same hours, automatically.</p>
+          </div>
+          {headerAction}
+        </div>
 
         <div className={cn("mt-3 divide-y divide-[#161616]", !canEdit && "opacity-80")}>
           {ORDER.map(dow => {
