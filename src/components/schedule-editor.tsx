@@ -41,7 +41,7 @@ const pct = (display: string) => {
   return Math.max(0, Math.min(100, ((m - BAR_START) / SPAN) * 100));
 };
 
-export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false, headerAction }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean; headerAction?: ReactNode }) {
+export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false, isPaused = false, headerAction }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean; isPaused?: boolean; headerAction?: ReactNode }) {
   const [days, setDays] = useState<Day[]>(defaultDays);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -204,7 +204,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           {headerAction}
         </div>
 
-        <div className={cn("mt-3 divide-y divide-[#161616]", !canEdit && "opacity-80")}>
+        <div className={cn("mt-3 divide-y divide-[#161616]", !canEdit && "opacity-80", isPaused && "opacity-40 pointer-events-none")}>
           {ORDER.map(dow => {
             const d = days[dow];
             const brk = d.breaks.length === 1 ? ` · ${d.breaks[0].label}` : d.breaks.length > 1 ? ` · ${d.breaks.length} breaks` : "";

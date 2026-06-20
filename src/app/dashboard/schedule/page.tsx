@@ -24,6 +24,8 @@ export default function SchedulePage() {
       });
   }, [shop]);
 
+  const paused = !!(shop?.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused;
+
   const current = barbers.find(b => b.id === selected);
 
   return (
@@ -48,7 +50,7 @@ export default function SchedulePage() {
             ))}
           </div>
 
-          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner headerAction={<PauseBookingsToggle />} />}
+          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner isPaused={paused} headerAction={<PauseBookingsToggle />} />}
 
           {/* Shop-wide setting at the bottom */}
           <div className="mt-4 pt-4 border-t border-[#161616]">
