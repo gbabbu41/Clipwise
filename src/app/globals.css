@@ -30,11 +30,22 @@
   box-sizing: border-box;
 }
 
+/* App-like: never allow horizontal scroll/bounce at the document level. `clip`
+   keeps position:sticky working and doesn't make the body a scroll container
+   (so it doesn't break fixed/sticky or vertical scroll). Applied to BOTH html
+   and body — body alone misses html-level overflow on mobile. */
+html {
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Sora', var(--font-body), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-x: none;
   -moz-osx-font-smoothing: grayscale;
   /* Never let a page exceed the viewport width. `clip` (not `hidden`) so it
      doesn't create a scroll container — position:sticky keeps working — and it
