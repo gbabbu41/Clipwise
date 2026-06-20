@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+const WEEKDAY: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+
+// Estimate the next payout date from the account's payout schedule (used when
+// Stripe hasn't created a pending payout object yet). Returns unix seconds.
+function estimateNextPayout(sch?: { interval?: string; weekly_anchor?: string | null; monthly_anchor?: number | null; delay_days?: number | null }): number | null {
+  if (!sch || sch.interval === "manual") return null;
+  const now = new Date();
+  const at = (d: Date) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 1000);
+  if (sch.interval === "daily") {
+    const d = new Date(now); d.setDate(d.getDate() + Math.max(1, sch.delay_days ?? 2)); return at(d);
+  }
+  if (sch.interval === "weekly") {
+    const target = WEEKDAY[sch.weekly_anchor ?? "friday"] ?? 5;
+    const d = new Date(now);
+    let add = (target - d.getDay() + 7) % 7; if (add === 0) add = 7;
+    d.setDate(d.getDate() + add); return at(d);
+  }
+  if (sch.interval === "monthly") {
+    const anchor = sch.monthly_anchor ?? 1;
+    const d = new Date(now.getFullYear(), now.getMonth(), anchor);
+    if (d.getTime() <= now.getTime()) d.setMonth(d.getMonth() + 1);
+    return at(d);
+  }
+  return null;
+}
+
 /**
  * Cross-check Payments against Stripe (the source of truth for card money).
  * For the shop's connected account it returns:
@@ -41,6 +67,14 @@ export async function POST(req: NextRequest) {
       const paid = payouts.data.find(p => p.status === "paid");
       if (paid) lastPayout = { amount: paid.amount / 100, date: paid.arrival_date };
     } catch { /* schedule not available — leave null */ }
+
+    // No pending payout object yet → estimate the next date from the schedule.
+    if (!nextPayoutDate) {
+      try {
+        const acct = await stripe.accounts.retrieve(shop!.stripe_account_id!);
+        nextPayoutDate = estimateNextPayout(acct.settings?.payouts?.schedule);
+      } catch { /* ignore */ }
+    }
 
     // Walk balance transactions; map the underlying charge's PaymentIntent ->
     // exact gross/fee/net. Only charge sources carry a payment_intent, so refunds

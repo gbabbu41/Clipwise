@@ -383,17 +383,15 @@ export default function PaymentsPage() {
       {/* Summary cards — Collected is the headline (wider + larger number); the
           other two are equal-size secondary stats. */}
       {/* Next payout — full-width white hero on its own row */}
-      <div className="rounded-2xl bg-white px-4 py-4 mb-2 shadow-sm">
-        <div className="flex items-baseline justify-between">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
-          {stripeNet?.nextPayoutDate && (
-            <p className="text-xs font-medium text-gray-500">
-              Arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}
-            </p>
-          )}
-        </div>
-        <p className="font-extrabold mt-1 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+      <div className="rounded-2xl bg-white px-4 py-6 mb-2 shadow-sm">
+        <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
+        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+        <p className="text-xs text-gray-500 mt-1.5">
+          {stripeNet?.nextPayoutDate
+            ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
+            : "No payout scheduled yet"}
+        </p>
+        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
           <span className="text-gray-400">Last payout</span>
           <span className="font-medium text-gray-700">
             {stripeNet?.lastPayout
