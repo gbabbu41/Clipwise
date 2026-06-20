@@ -149,9 +149,15 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     setOffBusy(false);
     if (res.ok) {
       const d = await res.json().catch(() => ({}));
-      if (d.request) setTimeOff(p => [...p, d.request].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+      // Replace state with the server's authoritative list (handles merges /
+      // dedupes / deletes) so the UI never drifts from the DB.
+      if (Array.isArray(d.timeOff)) setTimeOff(d.timeOff as TimeOff[]);
+      else if (d.request) setTimeOff(p => [...p, d.request].sort((a, b) => a.start_date.localeCompare(b.start_date)));
       setShowOffForm(false); setOffForm(blankOff());
-      showToast(isOwner ? "Time off added" : "Time-off request sent for approval");
+      const msg = d.action === "duplicate" ? "Those days are already off"
+        : d.action === "merged" ? "Merged into your existing time off"
+          : isOwner ? "Time off added" : "Time-off request sent for approval";
+      showToast(msg);
     } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save time off"); }
   };
 
