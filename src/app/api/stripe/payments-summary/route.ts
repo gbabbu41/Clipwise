@@ -31,12 +31,15 @@ export async function POST(req: NextRequest) {
     const available = sum(balance.available);
     const pending = sum(balance.pending);
 
-    // Next scheduled payout's arrival date (the upcoming deposit to the bank).
+    // Next scheduled payout's arrival date + the most recent completed payout.
     let nextPayoutDate: number | null = null;
+    let lastPayout: { amount: number; date: number } | null = null;
     try {
-      const payouts = await stripe.payouts.list({ limit: 5 }, opts);
+      const payouts = await stripe.payouts.list({ limit: 10 }, opts);
       const upcoming = payouts.data.find(p => p.status === "pending" || p.status === "in_transit");
       nextPayoutDate = upcoming?.arrival_date ?? null;
+      const paid = payouts.data.find(p => p.status === "paid");
+      if (paid) lastPayout = { amount: paid.amount / 100, date: paid.arrival_date };
     } catch { /* schedule not available — leave null */ }
 
     // Walk balance transactions; map the underlying charge's PaymentIntent ->
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
       startingAfter = list.data[list.data.length - 1]?.id;
     }
 
-    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate });
+    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate, lastPayout });
   } catch (err) {
     return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: err instanceof Error ? err.message : "stripe error" });
   }

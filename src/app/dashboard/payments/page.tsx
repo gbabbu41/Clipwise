@@ -70,7 +70,7 @@ export default function PaymentsPage() {
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
   // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
-  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null } | null>(null);
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
   const [showTip, setShowTip] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -382,15 +382,25 @@ export default function PaymentsPage() {
 
       {/* Summary cards — Collected is the headline (wider + larger number); the
           other two are equal-size secondary stats. */}
-      {/* Next payout — full-width hero on its own row */}
-      <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-4 py-4 mb-2">
-        <p className="text-[10px] uppercase tracking-wide text-[#777]">Next payout</p>
-        <p className="font-bold mt-1 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
-        {stripeNet?.nextPayoutDate && (
-          <p className="text-[10px] text-[#666] mt-0.5">
-            arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-          </p>
-        )}
+      {/* Next payout — full-width white hero on its own row */}
+      <div className="rounded-2xl bg-white px-4 py-4 mb-2 shadow-sm">
+        <div className="flex items-baseline justify-between">
+          <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
+          {stripeNet?.nextPayoutDate && (
+            <p className="text-xs font-medium text-gray-500">
+              Arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}
+            </p>
+          )}
+        </div>
+        <p className="font-extrabold mt-1 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+          <span className="text-gray-400">Last payout</span>
+          <span className="font-medium text-gray-700">
+            {stripeNet?.lastPayout
+              ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+              : "—"}
+          </span>
+        </div>
       </div>
       {/* Outstanding + On file — two equal cards side by side */}
       <div className="grid grid-cols-2 gap-2 mb-4">
