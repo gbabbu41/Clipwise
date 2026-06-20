@@ -403,60 +403,46 @@ export default function PaymentsPage() {
         </button>
       </div>
 
-      {/* Summary cards — Collected is the headline (wider + larger number); the
-          other two are equal-size secondary stats. */}
-      {/* Next payout — full-width white hero on its own row */}
-      <div className="rounded-2xl bg-white px-4 py-6 mb-2 shadow-sm">
-        <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
-        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
-        <p className="text-xs text-gray-500 mt-1.5">
-          {stripeNet?.nextPayoutDate
-            ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
-            : "No payout scheduled yet"}
-        </p>
-        <div className="mt-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
-          <div>
-            <p className="text-gray-400">Net today</p>
-            <p className="font-semibold text-emerald-600">
-              {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-gray-400">Last payout</p>
-            <p className="font-medium text-gray-700">
-              {stripeNet?.lastPayout
-                ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-                : "—"}
-            </p>
-          </div>
-        </div>
-      </div>
-      {/* Outstanding + On file — two equal cards side by side */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
-          <p className="text-[10px] uppercase tracking-wide text-[#777]">Outstanding</p>
-          <p className="font-bold mt-0.5 text-lg text-amber-400">{formatCurrency(outstanding)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5">Unpaid</p>
-        </div>
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
-          <p className="text-[10px] uppercase tracking-wide text-[#777]">On file</p>
-          <p className="font-bold mt-0.5 text-lg text-white">{formatCurrency(pending)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5">Held</p>
-        </div>
-      </div>
-      {/* Net by period — swipeable carousel with charts */}
-      <div className="mb-6">
+      {/* Summary carousel — slide 1: Next payout, then Net by period */}
+      <div className="mb-4">
         <div ref={netRef}
           onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
           className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {/* Slide 1 — Next payout */}
+          <div className="min-w-full snap-center min-h-[184px] rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+            <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
+            <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+            <p className="text-xs text-gray-500 mt-1.5">
+              {stripeNet?.nextPayoutDate
+                ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
+                : "No payout scheduled yet"}
+            </p>
+            <div className="mt-auto pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+              <div>
+                <p className="text-gray-400">Net today</p>
+                <p className="font-semibold text-emerald-600">
+                  {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-400">Last payout</p>
+                <p className="font-medium text-gray-700">
+                  {stripeNet?.lastPayout
+                    ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+          {/* Slides 2-4 — Net by period with charts */}
           {netPeriods.map(p => (
-            <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <div key={p.key} className="min-w-full snap-center min-h-[184px] rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
               <div className="flex items-baseline justify-between">
                 <p className="text-[10px] uppercase tracking-wide text-gray-400">Net · {p.label}</p>
                 {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
               </div>
-              <p className="text-2xl font-extrabold text-emerald-600 mt-0.5">{formatCurrency(p.net)}</p>
-              <div className="h-16 mt-1 -mx-1">
+              <p className="text-3xl sm:text-4xl font-extrabold text-emerald-600 mt-1.5">{formatCurrency(p.net)}</p>
+              <div className="flex-1 min-h-[72px] mt-3 -mx-1">
                 {p.data.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
@@ -471,11 +457,24 @@ export default function PaymentsPage() {
           ))}
         </div>
         <div className="flex justify-center gap-1.5 mt-2">
-          {netPeriods.map((_, i) => (
-            <button key={i} type="button" aria-label={`Period ${i + 1}`}
+          {Array.from({ length: 1 + netPeriods.length }).map((_, i) => (
+            <button key={i} type="button" aria-label={`Slide ${i + 1}`}
               onClick={() => { const el = netRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
               className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
           ))}
+        </div>
+      </div>
+      {/* Outstanding + On file — two equal cards side by side */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wide text-[#777]">Outstanding</p>
+          <p className="font-bold mt-0.5 text-lg text-amber-400">{formatCurrency(outstanding)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5">Unpaid</p>
+        </div>
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wide text-[#777]">On file</p>
+          <p className="font-bold mt-0.5 text-lg text-white">{formatCurrency(pending)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5">Held</p>
         </div>
       </div>
 
