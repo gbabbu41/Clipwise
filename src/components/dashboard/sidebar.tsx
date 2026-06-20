@@ -58,13 +58,10 @@ const navSections: NavSection[] = [
     label: "Operations",
     items: [
       { href: "/dashboard/appointments", label: "Appointments", icon: Calendar },
-      { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
       { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
-      { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
-      { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true },
-      { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true },
-      { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
-      { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
+      { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
+      { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
+      { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
     ],
   },
   {
@@ -72,7 +69,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
       { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true },
-      { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
       { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true },
     ],
   },
@@ -80,7 +76,11 @@ const navSections: NavSection[] = [
     label: "Business",
     items: [
       { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
-      { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
+      { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
+      { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true },
+      { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true },
+      { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
+      { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
       { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
       { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true },
       { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
@@ -395,7 +395,7 @@ export function MobileNav() {
   // way to reach everything else (Staff, Services, Settings, etc.).
   const linkItems = [
     { href: "/dashboard",              label: "Home",         icon: LayoutDashboard },
-    { href: "/dashboard/appointments", label: "Appointments", icon: ClipboardList },
+    { href: "/dashboard/schedule",     label: "Schedule",     icon: Clock },
     { href: "/dashboard/calendar",     label: "Calendar",     icon: CalendarDays },
     { href: "/dashboard/pos",          label: "POS",          icon: CreditCard },
     { href: "/dashboard/payments",     label: "Payments",     icon: Banknote },
