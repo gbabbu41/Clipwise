@@ -1400,7 +1400,10 @@ export default function CalendarPage() {
   // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
   // Day-view barber pager, lifted to component scope so it can live in the top
   // toolbar (one compact row instead of its own band).
-  const dayAllCols = barbers.length > 0 ? barbers : [{ id: "none", name: "All Barbers" } as Barber];
+  // Owner's own barber column leads (stable sort keeps the rest in order).
+  const dayAllCols = barbers.length > 0
+    ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
+    : [{ id: "none", name: "All Barbers" } as Barber];
   const dayPerPage = colWrapW > 0
     ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
     : (isMobile ? 2 : 6);

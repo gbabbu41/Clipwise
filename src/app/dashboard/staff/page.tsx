@@ -278,6 +278,12 @@ export default function StaffPage() {
     if (!addForm.name.trim()) { showToast("Full name is required"); return; }
     const emailErr = validateEmail(addForm.email.trim());
     if (emailErr) { showToast(emailErr); return; }
+    // Don't re-add someone already on the team (covers the owner adding their own
+    // email when they're already a barber).
+    if (barbers.some(b => b.email?.toLowerCase() === addForm.email.trim().toLowerCase())) {
+      showToast("That email is already on your team.");
+      return;
+    }
 
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
