@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronDown } from "lucide-react";
+import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -71,7 +71,6 @@ export default function PaymentsPage() {
   const [txs, setTxs] = useState<TxRow[]>([]);
   // Exact card net/fee per PaymentIntent + payout balance, pulled from Stripe.
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null } | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
   const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("today");
   const [showTip, setShowTip] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -328,29 +327,14 @@ export default function PaymentsPage() {
     }
   };
 
-  // Filter, then sort newest-first by when the activity actually happened.
+  // Recent transactions = rows where money actually moved: a POS sale (no appt),
+  // or an appointment that was paid / failed a charge / refunded. Newest first.
   const feed = feedAll
     .filter(i => {
       const s = i.appt?.payment_status;
-      // "Recent transactions" = only rows where money actually moved: a POS sale
-      // (no appt), or an appointment that was paid / failed a charge / refunded.
-      // Unpaid, held/saved, and $0 "no charge" rows aren't transactions.
-      if (filter === "all") return !i.appt || s === "paid" || s === "captured" || s === "failed" || s === "refunded";
-      if (filter === "collected") return i.settled;
-      if (filter === "outstanding") return !!i.appt && (i.appt.total_amount ?? 0) > 0 && (s === "unpaid" || s === "failed" || !s);
-      if (filter === "pending") return s === "held" || s === "saved";
-      if (filter === "refunded") return s === "refunded";
-      return true;
+      return !i.appt || s === "paid" || s === "captured" || s === "failed" || s === "refunded";
     })
     .sort((a, b) => b.ts - a.ts);
-
-  const FILTERS: { key: Filter; label: string }[] = [
-    { key: "all", label: "Recent transactions" },
-    { key: "collected", label: "Collected" },
-    { key: "outstanding", label: "Outstanding" },
-    { key: "pending", label: "Card held/on file" },
-    { key: "refunded", label: "Refunded" },
-  ];
 
   // Plan gate — the Payments hub is a Pro/Premium feature.
   if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")) {
@@ -398,30 +382,31 @@ export default function PaymentsPage() {
 
       {/* Summary cards — Collected is the headline (wider + larger number); the
           other two are equal-size secondary stats. */}
-      {/* Hero: net heading to the bank this payout + current outstanding / on file */}
-      <div className="grid grid-cols-4 gap-2 mb-2">
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-4 py-4 col-span-2">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Next payout</p>
-          <p className="font-bold mt-1 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
-          {stripeNet?.nextPayoutDate && (
-            <p className="text-[10px] text-[#666] mt-0.5 truncate">
-              arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-            </p>
-          )}
+      {/* Next payout — full-width hero on its own row */}
+      <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-4 py-4 mb-2">
+        <p className="text-[10px] uppercase tracking-wide text-[#777]">Next payout</p>
+        <p className="font-bold mt-1 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
+        {stripeNet?.nextPayoutDate && (
+          <p className="text-[10px] text-[#666] mt-0.5">
+            arrives {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+          </p>
+        )}
+      </div>
+      {/* Outstanding + On file — two equal cards side by side */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wide text-[#777]">Outstanding</p>
+          <p className="font-bold mt-0.5 text-lg text-amber-400">{formatCurrency(outstanding)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5">Unpaid</p>
         </div>
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">Outstanding</p>
-          <p className="font-bold mt-0.5 text-base sm:text-lg text-amber-400">{formatCurrency(outstanding)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5 truncate">Unpaid</p>
-        </div>
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3 col-span-1">
-          <p className="text-[10px] uppercase tracking-wide text-[#777] truncate">On file</p>
-          <p className="font-bold mt-0.5 text-base sm:text-lg text-white">{formatCurrency(pending)}</p>
-          <p className="text-[10px] text-[#666] mt-0.5 truncate">Held</p>
+        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wide text-[#777]">On file</p>
+          <p className="font-bold mt-0.5 text-lg text-white">{formatCurrency(pending)}</p>
+          <p className="text-[10px] text-[#666] mt-0.5">Held</p>
         </div>
       </div>
       {/* Period chips → drive the Net / cash / fees indicators (summary only) */}
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-1.5 mb-3">
         {([["today", "Today"], ["week", "Week"], ["month", "Month"], ["all", "All"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setPeriod(k)}
             className={cn("px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
@@ -430,7 +415,7 @@ export default function PaymentsPage() {
           </button>
         ))}
       </div>
-      <div className="mb-5 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+      <div className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
         <span className="text-sm">
           <span className="text-[#777]">Net{period === "all" ? "" : ` ${period}`}: </span>
           <span className="text-[#00e5a0] font-bold">{formatCurrency(periodCardNet)}</span>
@@ -439,18 +424,8 @@ export default function PaymentsPage() {
         {stripeNet?.connected && periodFees > 0 && <span className="text-[11px] text-[#666]">after {formatCurrency(periodFees)} Stripe fees</span>}
       </div>
 
-      {/* Filter dropdown — defaults to "Recent transactions" (all) */}
-      <div className="relative mb-4 w-full sm:w-64">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as Filter)}
-          className="w-full appearance-none rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] text-white text-sm font-medium pl-4 pr-10 py-2.5 focus:outline-none focus:border-white cursor-pointer">
-          {FILTERS.map(f => (
-            <option key={f.key} value={f.key} className="bg-[#0c0c0c] text-white">{f.label}</option>
-          ))}
-        </select>
-        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#777]" />
-      </div>
+      {/* Transactions */}
+      <h2 className="text-sm font-bold text-white mb-3">Recent Transactions</h2>
 
       {loading ? (
         <div className="py-16 text-center text-[#777] text-sm">Loading payments…</div>
