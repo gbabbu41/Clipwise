@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, X, Check, Copy, CalendarOff } from "lucide-react";
+import { Plus, X, Check, Copy, CalendarOff, Pencil } from "lucide-react";
 import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -83,10 +83,25 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
   const setDay = (dow: number, patch: Partial<Day>) => setDays(p => p.map((d, i) => i === dow ? { ...d, ...patch } : d));
   const setBreak = (dow: number, idx: number, patch: Partial<Brk>) =>
     setDays(p => p.map((d, i) => i === dow ? { ...d, breaks: d.breaks.map((b, j) => j === idx ? { ...b, ...patch } : b) } : d));
-  const addBreak = (dow: number) =>
-    setDays(p => p.map((d, i) => i === dow ? { ...d, breaks: [...d.breaks, { start: "12:00 PM", end: "1:00 PM", label: "Lunch" }] } : d));
+  const addBreakWith = (dow: number, brk: Brk) =>
+    setDays(p => p.map((d, i) => i === dow ? { ...d, breaks: [...d.breaks, brk] } : d));
   const removeBreak = (dow: number, idx: number) =>
     setDays(p => p.map((d, i) => i === dow ? { ...d, breaks: d.breaks.filter((_, j) => j !== idx) } : d));
+
+  // Break add/edit happens in a popup so each day stays a compact info-tag view.
+  const [breakModal, setBreakModal] = useState<{ dow: number; idx: number | null; label: string; start: string; end: string } | null>(null);
+  const openAddBreak = (dow: number) => setBreakModal({ dow, idx: null, label: "Lunch", start: "12:00 PM", end: "1:00 PM" });
+  const openEditBreak = (dow: number, idx: number) => { const b = days[dow].breaks[idx]; setBreakModal({ dow, idx, label: b.label, start: b.start, end: b.end }); };
+  const saveBreakModal = () => {
+    if (!breakModal) return;
+    const { dow, idx, label, start, end } = breakModal;
+    const day = days[dow];
+    if (timeToMinutes(end) <= timeToMinutes(start)) { showToast("Break end must be after start"); return; }
+    if (timeToMinutes(start) < timeToMinutes(day.start) || timeToMinutes(end) > timeToMinutes(day.end)) { showToast("Break must be within working hours"); return; }
+    const brk: Brk = { label: label.trim() || "Break", start, end };
+    if (idx === null) addBreakWith(dow, brk); else setBreak(dow, idx, brk);
+    setBreakModal(null);
+  };
 
   // Copy the first open day's hours + breaks to every other open day.
   const copyToAll = () => {
@@ -292,22 +307,22 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                   <span className="text-[#666] flex-shrink-0">to</span>
                   <TimeSelect value={d.end} onChange={v => setDay(dow, { end: v })} className="flex-1 min-w-0" />
                 </div>
-                {/* Breaks */}
-                {d.breaks.map((b, i) => (
-                  <div key={i} className="rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] p-2 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input value={b.label} onChange={e => setBreak(dow, i, { label: e.target.value })} placeholder="Lunch"
-                        className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-xs px-2 py-1.5 focus:outline-none focus:border-amber-500/50" />
-                      <button onClick={() => removeBreak(dow, i)} className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center"><X size={14} /></button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <TimeSelect value={b.start} onChange={v => setBreak(dow, i, { start: v })} small className="flex-1 min-w-0" />
-                      <span className="text-[#666] flex-shrink-0">–</span>
-                      <TimeSelect value={b.end} onChange={v => setBreak(dow, i, { end: v })} small className="flex-1 min-w-0" />
-                    </div>
+                {/* Breaks — compact info tags; edit/add via popup */}
+                {d.breaks.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {d.breaks.map((b, i) => (
+                      <div key={i} className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 pl-2.5 pr-1 py-1">
+                        <span className="text-xs font-medium text-amber-400">{b.label}</span>
+                        <span className="text-[11px] text-amber-400/70">{b.start}–{b.end}</span>
+                        <button onClick={() => openEditBreak(dow, i)} aria-label="Edit break"
+                          className="w-5 h-5 rounded-full text-amber-400/70 hover:text-amber-300 flex items-center justify-center"><Pencil size={12} /></button>
+                        <button onClick={() => removeBreak(dow, i)} aria-label="Remove break"
+                          className="w-5 h-5 rounded-full text-amber-400/70 hover:text-amber-300 flex items-center justify-center"><X size={12} /></button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                <button onClick={() => addBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
+                )}
+                <button onClick={() => openAddBreak(dow)} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300">
                   <Plus size={14} /> Add break / lunch
                 </button>
               </div>
@@ -324,6 +339,39 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         </button>
       ) : (
         <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
+      )}
+
+      {/* Break add/edit popup */}
+      {breakModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[180]" onClick={() => setBreakModal(null)} />
+          <div className="fixed inset-0 z-[190] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 w-full max-w-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white">{breakModal.idx === null ? "Add break / lunch" : "Edit break"}</h2>
+                <button onClick={() => setBreakModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <p className="text-xs text-[#666] -mt-2">{DAYS[breakModal.dow]} · within {days[breakModal.dow].start}–{days[breakModal.dow].end}</p>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[#777]">Label</label>
+                <input value={breakModal.label} onChange={e => setBreakModal(m => m && { ...m, label: e.target.value })} placeholder="Lunch"
+                  className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-sm px-3 py-2 focus:outline-none focus:border-amber-500/50" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[#777]">Time</label>
+                <div className="flex items-center gap-2">
+                  <TimeSelect value={breakModal.start} onChange={v => setBreakModal(m => m && { ...m, start: v })} className="flex-1 min-w-0" />
+                  <span className="text-[#666] flex-shrink-0">–</span>
+                  <TimeSelect value={breakModal.end} onChange={v => setBreakModal(m => m && { ...m, end: v })} className="flex-1 min-w-0" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setBreakModal(null)} className="flex-1 rounded-xl border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
+                <button onClick={saveBreakModal} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400">{breakModal.idx === null ? "Add" : "Save"}</button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {toast && (
