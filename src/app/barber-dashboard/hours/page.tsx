@@ -23,7 +23,7 @@ export default function BarberHoursPage() {
         </div>
       )}
       {barber
-        ? <ScheduleEditor key={barber.id} barberId={barber.id} barberName={barber.name ?? "you"} accessToken={accessToken} canEdit={canEdit} />
+        ? <ScheduleEditor key={barber.id} barberId={barber.id} barberName={barber.name ?? "you"} accessToken={accessToken} canEdit={canEdit} isOwner={false} />
         : <p className="text-sm text-[#777] py-12 text-center">Loading…</p>}
     </div>
   );

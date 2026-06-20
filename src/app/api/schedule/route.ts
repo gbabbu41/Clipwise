@@ -30,11 +30,14 @@ export async function GET(request: NextRequest) {
   const auth = await authorize(token, barberId);
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const [{ data: slots }, { data: breaks }] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: slots }, { data: breaks }, { data: timeOff }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("day_of_week, start_time, end_time, is_available").eq("barber_id", barberId),
     supabaseAdmin.from("barber_breaks").select("day_of_week, start_time, end_time, label").eq("barber_id", barberId),
+    supabaseAdmin.from("time_off_requests").select("id, type, start_date, end_date, reason, status")
+      .eq("barber_id", barberId).gte("end_date", today).order("start_date"),
   ]);
-  return NextResponse.json({ slots: slots ?? [], breaks: breaks ?? [] });
+  return NextResponse.json({ slots: slots ?? [], breaks: breaks ?? [], timeOff: timeOff ?? [] });
 }
 
 // ── Save the weekly schedule + email the barber their new schedule ──────────────

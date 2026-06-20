@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, X, Check, Copy } from "lucide-react";
-import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes } from "@/lib/utils";
+import { Plus, X, Check, Copy, CalendarOff } from "lucide-react";
+import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon-first display order
@@ -21,6 +21,16 @@ const TIME_OPTIONS = (() => {
 
 type Brk = { start: string; end: string; label: string };
 type Day = { isOpen: boolean; start: string; end: string; breaks: Brk[] };
+type TimeOff = { id: string; type: string; start_date: string; end_date: string; reason: string | null; status: string };
+
+const TIMEOFF_TYPES: { value: string; label: string }[] = [
+  { value: "day_off", label: "Day Off" },
+  { value: "vacation", label: "Vacation" },
+  { value: "sick", label: "Sick Day" },
+  { value: "blocked_hours", label: "Blocked Hours" },
+];
+const TIMEOFF_LABEL = (t: string) => TIMEOFF_TYPES.find(x => x.value === t)?.label ?? "Time Off";
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const defaultDays = (): Day[] =>
   DAYS.map((_, dow) => ({ isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "7:00 PM", breaks: [] }));
@@ -30,12 +40,19 @@ const pct = (display: string) => {
   return Math.max(0, Math.min(100, ((m - BAR_START) / SPAN) * 100));
 };
 
-export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean }) {
+export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean }) {
   const [days, setDays] = useState<Day[]>(defaultDays);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
+
+  // ── Time off ────────────────────────────────────────────────────────────
+  const [timeOff, setTimeOff] = useState<TimeOff[]>([]);
+  const [showOffForm, setShowOffForm] = useState(false);
+  const [offBusy, setOffBusy] = useState(false);
+  const blankOff = () => ({ type: "day_off", start_date: todayISO(), end_date: todayISO(), start_time: "12:00 PM", end_time: "1:00 PM", reason: "" });
+  const [offForm, setOffForm] = useState(blankOff);
 
   const load = useCallback(async () => {
     if (!barberId || !accessToken) return;
@@ -56,6 +73,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         const d = next[b.day_of_week];
         if (d) d.breaks.push({ start: dbTimeToDisplay(b.start_time), end: dbTimeToDisplay(b.end_time), label: b.label || "Break" });
       });
+      setTimeOff((data.timeOff ?? []) as TimeOff[]);
     }
     setDays(next);
     setLoading(false);
@@ -107,6 +125,42 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       if (d?.breaksError) showToast("Hours saved, but breaks didn't save — run the barber_breaks migration.");
       else showToast(`Schedule saved · emailed ${barberName.split(" ")[0]}`);
     } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); }
+  };
+
+  const addTimeOff = async () => {
+    if (!accessToken) return;
+    if (offForm.end_date < offForm.start_date) { showToast("End date can't be before start date"); return; }
+    if (offForm.type === "blocked_hours" && timeToMinutes(offForm.end_time) <= timeToMinutes(offForm.start_time)) {
+      showToast("Block end must be after start"); return;
+    }
+    setOffBusy(true);
+    const res = await fetch("/api/schedule/time-off", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        barber_id: barberId,
+        type: offForm.type,
+        start_date: offForm.start_date,
+        end_date: offForm.end_date,
+        start_time: offForm.type === "blocked_hours" ? displayTimeToDb(offForm.start_time) : null,
+        end_time: offForm.type === "blocked_hours" ? displayTimeToDb(offForm.end_time) : null,
+        reason: offForm.reason || null,
+      }),
+    });
+    setOffBusy(false);
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}));
+      if (d.request) setTimeOff(p => [...p, d.request].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+      setShowOffForm(false); setOffForm(blankOff());
+      showToast(isOwner ? "Time off added" : "Time-off request sent for approval");
+    } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save time off"); }
+  };
+
+  const cancelTimeOff = async (id: string) => {
+    if (!accessToken) return;
+    setTimeOff(p => p.filter(t => t.id !== id));
+    await fetch(`/api/schedule/time-off?id=${id}&barber_id=${barberId}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch(() => {});
   };
 
   if (loading) return <div className="py-16 text-center text-[#777] text-sm">Loading schedule…</div>;
@@ -187,6 +241,84 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       ) : (
         <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
       )}
+
+      {/* ── Time off ──────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 mt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarOff size={16} className="text-amber-400" />
+            <span className="font-semibold text-white">Time Off</span>
+          </div>
+          <button onClick={() => setShowOffForm(v => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+            <Plus size={13} /> {isOwner ? "Add time off" : "Request"}
+          </button>
+        </div>
+        <p className="text-xs text-[#666] mt-1">
+          {isOwner ? "Block off vacation, days off or specific hours — applied instantly." : "Request a day off or vacation — your owner approves it."}
+        </p>
+
+        {/* Add / request form */}
+        {showOffForm && (
+          <div className="mt-3 rounded-xl border border-[#1e1e1e] bg-[#0f0f0f] p-3 space-y-2.5">
+            <select value={offForm.type} onChange={e => setOffForm(f => ({ ...f, type: e.target.value }))}
+              className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-white text-sm px-3 py-2 focus:outline-none focus:border-white">
+              {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-[#141414]">{t.label}</option>)}
+            </select>
+            <div className="flex items-center gap-2 text-sm">
+              <input type="date" value={offForm.start_date} min={todayISO()} style={{ colorScheme: "dark" }}
+                onChange={e => setOffForm(f => ({ ...f, start_date: e.target.value, end_date: f.end_date < e.target.value ? e.target.value : f.end_date }))}
+                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-white px-3 py-2 focus:outline-none focus:border-white" />
+              <span className="text-[#666] flex-shrink-0">to</span>
+              <input type="date" value={offForm.end_date} min={offForm.start_date} style={{ colorScheme: "dark" }}
+                onChange={e => setOffForm(f => ({ ...f, end_date: e.target.value }))}
+                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-white px-3 py-2 focus:outline-none focus:border-white" />
+            </div>
+            {offForm.type === "blocked_hours" && (
+              <div className="flex items-center gap-2 text-sm">
+                <TimeSelect value={offForm.start_time} onChange={v => setOffForm(f => ({ ...f, start_time: v }))} small className="flex-1 min-w-0" />
+                <span className="text-[#666] flex-shrink-0">–</span>
+                <TimeSelect value={offForm.end_time} onChange={v => setOffForm(f => ({ ...f, end_time: v }))} small className="flex-1 min-w-0" />
+              </div>
+            )}
+            <input value={offForm.reason} onChange={e => setOffForm(f => ({ ...f, reason: e.target.value }))} placeholder="Reason (optional)"
+              className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-white text-sm px-3 py-2 focus:outline-none focus:border-white placeholder:text-[#555]" />
+            <button onClick={addTimeOff} disabled={offBusy}
+              className="w-full rounded-lg bg-amber-500 text-black font-semibold text-sm py-2 hover:bg-amber-400 disabled:opacity-50 transition-colors">
+              {offBusy ? "Saving…" : isOwner ? "Add time off" : "Send request"}
+            </button>
+          </div>
+        )}
+
+        {/* Upcoming list */}
+        <div className="mt-3 space-y-2">
+          {timeOff.length === 0 ? (
+            <p className="text-xs text-[#666]">No upcoming time off.</p>
+          ) : timeOff.map(t => (
+            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-white truncate">{TIMEOFF_LABEL(t.type)}</span>
+                  <span className={cn("text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full flex-shrink-0",
+                    t.status === "approved" ? "bg-emerald-500/15 text-emerald-400"
+                      : t.status === "rejected" ? "bg-red-500/15 text-red-400"
+                        : "bg-amber-500/15 text-amber-400")}>
+                    {t.status}
+                  </span>
+                </div>
+                <p className="text-xs text-[#888] truncate">
+                  {prettyDate(t.start_date)}{t.end_date !== t.start_date ? ` → ${prettyDate(t.end_date)}` : ""}
+                  {t.reason ? ` · ${t.reason}` : ""}
+                </p>
+              </div>
+              <button onClick={() => cancelTimeOff(t.id)} aria-label="Cancel time off"
+                className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>
