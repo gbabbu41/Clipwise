@@ -72,17 +72,18 @@ export function StatsCarousel({
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-600" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
-      <div className="flex-1 min-h-[88px] mt-2 -mx-2">
+      <div className="flex-1 min-h-[96px] mt-2 -mx-1">
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <defs>
                 <linearGradient id="cwRev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
                   <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#cwRev)" />
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
+              <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#cwRev)" dot={{ r: 2, fill: "#10b981", strokeWidth: 0 }} />
               <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} />
             </AreaChart>
           </ResponsiveContainer>
@@ -97,11 +98,12 @@ export function StatsCarousel({
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-600" : "text-amber-500")}>
         {hasCompleted ? `${completed.length} completed` : "No bookings yet"}
       </p>
-      <div className="flex-1 min-h-[88px] mt-2 -mx-2">
+      <div className="flex-1 min-h-[96px] mt-2 -mx-1">
         {bookingsByDay.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={bookingsByDay} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
+              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={26} />
               <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={{ fill: "#f3f4f6" }} />
             </BarChart>
           </ResponsiveContainer>
