@@ -11,7 +11,7 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, paymentTag } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -125,20 +125,6 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   return null;
 }
 
-// Universal status pill colors (match the calendar / payments palette).
-const STATUS_PILL: Record<string, string> = {
-  confirmed: "bg-[#00e5a0]/15 text-[#00e5a0]",
-  pending:   "bg-amber-500/15 text-amber-400",
-  completed: "bg-sky-500/15 text-sky-300",
-  cancelled: "bg-red-500/15 text-red-400",
-  "no-show": "bg-zinc-500/15 text-zinc-400",
-};
-const statusPill = (s: string) => STATUS_PILL[s] ?? "bg-[#1a1a1a] text-white";
-const STATUS_TEXT: Record<string, string> = {
-  confirmed: "Confirmed", pending: "Pending", completed: "Completed",
-  cancelled: "Cancelled", "no-show": "No-show",
-};
-const statusText = (s: string) => STATUS_TEXT[s] ?? s;
 const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
     ? a.duration_minutes
@@ -691,8 +677,8 @@ export default function DashboardPage() {
                 [...displayAppts]
                   .sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""))
                   .map((apt) => {
-                  const paid = apt.payment_status === "paid" || apt.payment_status === "captured";
                   const dimmed = apt.status === "cancelled" || apt.status === "no-show";
+                  const tag = paymentTag(apt);
                   const mins = apptMins(apt);
                   const [hh, mer] = (apt.time_slot ?? "").split(" ");
                   return (
@@ -711,15 +697,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
-                        {paid ? (
-                          <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-[#00e5a0]/10 text-[#00e5a0] font-medium whitespace-nowrap">
-                            Paid · {apt.payment_method === "cash" ? "Cash" : "Card"}
-                          </span>
-                        ) : (
-                          <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap capitalize", statusPill(apt.status))}>
-                            {statusText(apt.status)}
-                          </span>
-                        )}
+                        <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap", tag.className)}>
+                          {tag.label}
+                        </span>
                       </div>
                     </button>
                   );

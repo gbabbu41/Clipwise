@@ -4,7 +4,7 @@ import { Calendar, Clock, DollarSign, Star, ChevronRight, User, LogIn, LogOut } 
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
+import { cn, formatDateForDb, friendlyDate, paymentTag } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CalendarView } from "@/components/calendar-view";
 import Link from "next/link";
@@ -18,18 +18,10 @@ interface Appointment {
   total_amount: number;
   payment_status?: string;
   payment_method?: string;
+  stripe_checkout_session_id?: string | null;
   notes?: string;
   services?: { name: string; duration_minutes: number };
 }
-
-// Small, clean status pill — mirrors the owner dashboard's Today's Schedule.
-const STATUS_PILL: Record<string, string> = {
-  confirmed: "bg-green-500/10 text-green-400",
-  pending: "bg-orange-500/10 text-orange-400",
-  completed: "bg-[#777]/10 text-[#999]",
-  cancelled: "bg-red-500/10 text-red-400",
-  "no-show": "bg-red-500/10 text-red-400",
-};
 
 export default function BarberOverviewPage() {
   const { accessToken, profile } = useAuth();
@@ -276,8 +268,8 @@ export default function BarberOverviewPage() {
           ) : (
             <div className="space-y-2">
               {appointments.map(appt => {
-                const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
                 const dimmed = appt.status === "cancelled" || appt.status === "no-show";
+                const tag = paymentTag(appt);
                 const mins = appt.services?.duration_minutes;
                 return (
                   <div key={appt.id} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-3">
@@ -292,15 +284,9 @@ export default function BarberOverviewPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="text-sm font-semibold text-white">${appt.total_amount}</span>
-                      {paid ? (
-                        <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-[#00e5a0]/10 text-[#00e5a0] font-medium whitespace-nowrap">
-                          Paid · {appt.payment_method === "cash" ? "Cash" : "Card"}
-                        </span>
-                      ) : (
-                        <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap capitalize", STATUS_PILL[appt.status] ?? STATUS_PILL.pending)}>
-                          {appt.status}
-                        </span>
-                      )}
+                      <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap", tag.className)}>
+                        {tag.label}
+                      </span>
                     </div>
                   </div>
                 );

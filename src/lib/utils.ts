@@ -40,6 +40,36 @@ export function getStatusColor(status: string): string {
   return map[status] ?? MUTED;
 }
 
+/**
+ * Payment-state tag for an appointment — small, clean pill used on the
+ * dashboards' Today's Schedule. Colours match the Payments page:
+ *  • Paid · Card → green   • Paid · Cash → amber (the cash colour)
+ *  • Awaiting payment (a checkout link was emailed/texted) → sky
+ *  • Unpaid (payment due, no link sent) → amber
+ *  • Refunded / cancelled / no-show → muted grey
+ */
+export function paymentTag(a: {
+  payment_status?: string | null;
+  payment_method?: string | null;
+  status?: string | null;
+  stripe_checkout_session_id?: string | null;
+}): { label: string; className: string } {
+  const paid = a.payment_status === "paid" || a.payment_status === "captured";
+  if (paid) {
+    const cash = a.payment_method === "cash";
+    return cash
+      ? { label: "Paid · Cash", className: "bg-amber-500/10 text-amber-400" }
+      : { label: "Paid · Card", className: "bg-[#00e5a0]/10 text-[#00e5a0]" };
+  }
+  if (a.payment_status === "refunded") return { label: "Refunded", className: "bg-[#1a1a1a] text-[#888]" };
+  if (a.status === "no-show") return { label: "No-show", className: "bg-[#1a1a1a] text-[#888]" };
+  if (a.status === "cancelled") return { label: "Cancelled", className: "bg-[#1a1a1a] text-[#888]" };
+  // Unpaid: a sent checkout link means we're waiting on the customer;
+  // otherwise the payment is simply still due.
+  if (a.stripe_checkout_session_id) return { label: "Awaiting payment", className: "bg-sky-500/10 text-sky-400" };
+  return { label: "Unpaid", className: "bg-amber-500/10 text-amber-400" };
+}
+
 export function getTagColor(tag: string): string {
   const map: Record<string, string> = {
     VIP: "text-orange-400 bg-orange-500/20 border-orange-500/30",
