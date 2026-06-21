@@ -83,7 +83,8 @@ export default function PaymentsPage() {
   const [showBarberPicker, setShowBarberPicker] = useState(false);
 
   // Row expand + tx filter
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
+  const [refunding, setRefunding] = useState(false);
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid">("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
@@ -303,6 +304,24 @@ export default function PaymentsPage() {
     if (!data.ok) { showToast(data.error ?? "Refresh failed.", false); return; }
     setAppts(prev => prev.map(a => a.id === appt.id ? { ...a, payment_status: data.payment_status } : a));
     showToast(data.changed ? `Updated → ${statusInfo(data.payment_status).label}` : "No change — still " + statusInfo(data.payment_status).label.toLowerCase());
+  };
+
+  // ── Refund a settled card payment (appointment or POS) — keeps the booking ──
+  const refundItem = async (i: FeedItem) => {
+    if (!accessToken) return;
+    if (typeof window !== "undefined" && !window.confirm("Refund this payment to the customer's card? The appointment itself stays.")) return;
+    setRefunding(true);
+    const body = i.appt ? { appointment_id: i.appt.id } : { transaction_id: i.key.slice(1) };
+    const res = await fetch("/api/stripe/refund-payment", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    setRefunding(false);
+    if (!res.ok) { showToast(data.error ?? "Refund failed", false); return; }
+    showToast("Refunded · customer emailed");
+    setDetailItem(null);
+    loadData();
   };
 
   const [linkModal, setLinkModal] = useState<ApptRow | null>(null);
@@ -558,74 +577,41 @@ export default function PaymentsPage() {
       ) : (
         <div className="space-y-2">
           {feed.map(i => {
-            const a = i.appt;
             const refunded = i.refunded;
-            const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
-            const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
-            const expanded = expandedRow === i.key;
-            const hasActions = canSendLink || canRefresh;
-
             const isCash = i.method === "cash";
             const IconEl = isCash ? Banknote : CreditCard;
             const iconBg = isCash ? "bg-amber-500/10 text-amber-400" : i.settled ? "bg-emerald-500/10 text-emerald-400" : "bg-[#141414] text-[#666]";
 
             return (
-              <div key={i.key} className={cn("rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] overflow-hidden", refunded && "opacity-60")}>
-                <button
-                  className="w-full text-left p-3 flex items-center gap-3"
-                  onClick={() => hasActions && setExpandedRow(expanded ? null : i.key)}
-                  disabled={!hasActions}>
-                  {/* Payment method icon */}
-                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", iconBg)}>
-                    <IconEl size={17} />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className={cn("font-semibold text-white text-sm truncate", refunded && "line-through")}>{i.name}</span>
-                      <div className="flex flex-col items-end flex-shrink-0 leading-tight">
-                        <span className={cn("font-bold text-sm", refunded ? "text-[#888] line-through" : "text-white")}>
-                          {formatCurrency(netOf(i))}
-                        </span>
-                        {i.tsIso && timeAgo(i.tsIso) && (
-                          <span className="text-[9px] text-[#666] mt-0.5">{timeAgo(i.tsIso)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-xs text-[#777] truncate">{i.sub}</p>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[11px] text-[#666]">
-                        {fmtDate(i.tsIso)}{i.tsIso ? " · " : ""}{i.statusLabel}
-                        {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
-                          <span className="text-[#555]"> · after {formatCurrency(feeOf(i))} fee</span>
-                        )}
+              <button key={i.key} onClick={() => setDetailItem(i)}
+                className={cn("w-full text-left rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3 hover:border-[#2a2a2a] transition-colors", refunded && "opacity-60")}>
+                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", iconBg)}>
+                  <IconEl size={17} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={cn("font-semibold text-white text-sm truncate", refunded && "line-through")}>{i.name}</span>
+                    <div className="flex flex-col items-end flex-shrink-0 leading-tight">
+                      <span className={cn("font-bold text-sm", refunded ? "text-[#888] line-through" : "text-white")}>
+                        {formatCurrency(netOf(i))}
                       </span>
-                      {hasActions && (
-                        <ChevronRight size={14} className={cn("text-[#555] transition-transform flex-shrink-0", expanded && "rotate-90")} />
+                      {i.tsIso && timeAgo(i.tsIso) && (
+                        <span className="text-[9px] text-[#666] mt-0.5">{timeAgo(i.tsIso)}</span>
                       )}
                     </div>
                   </div>
-                </button>
-
-                {/* Expanded actions */}
-                {expanded && hasActions && (
-                  <div className="border-t border-[#1a1a1a] px-3 py-2 flex gap-2">
-                    {canSendLink && (
-                      <button onClick={() => openSendLink(a!)} disabled={busy === a!.id}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
-                        <Send size={12} /> {busy === a!.id ? "…" : "Send link"}
-                      </button>
-                    )}
-                    {canRefresh && (
-                      <button onClick={() => refresh(a!)} disabled={busy === a!.id}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] text-[#aaa] hover:text-white text-xs px-3 py-1.5 disabled:opacity-50">
-                        <RefreshCw size={12} className={busy === a!.id ? "animate-spin" : ""} /> Refresh
-                      </button>
-                    )}
+                  <p className="text-xs text-[#777] truncate">{i.sub}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="text-[11px] text-[#666]">
+                      {fmtDate(i.tsIso)}{i.tsIso ? " · " : ""}{i.statusLabel}
+                      {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
+                        <span className="text-[#555]"> · after {formatCurrency(feeOf(i))} fee</span>
+                      )}
+                    </span>
+                    <ChevronRight size={14} className="text-[#555] flex-shrink-0" />
                   </div>
-                )}
-              </div>
+                </div>
+              </button>
             );
           })}
         </div>
@@ -636,6 +622,69 @@ export default function PaymentsPage() {
         <Clock size={14} className="mt-0.5 flex-shrink-0" />
         <p>Cards held or on file are charged automatically when you mark the appointment Complete, or as a no-show fee.</p>
       </div>
+
+      {/* ── Transaction detail modal (method, time, fee + refund) ────────────── */}
+      {detailItem && (() => {
+        const i = detailItem;
+        const a = i.appt;
+        const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
+        const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
+        const refundable = i.settled && i.method !== "cash" && !!i.pi && !i.refunded;
+        const dt = i.tsIso ? new Date(i.tsIso) : null;
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setDetailItem(null)} />
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+              <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold text-white truncate">{i.name}</h2>
+                  <button onClick={() => setDetailItem(null)} className="text-[#777] hover:text-white text-xl leading-none flex-shrink-0">✕</button>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-3"><span className="text-[#777]">Service</span><span className="text-white text-right truncate">{i.sub}</span></div>
+                  <div className="flex justify-between"><span className="text-[#777]">Method</span><span className="text-white">{i.method === "cash" ? "Cash" : "Card"}</span></div>
+                  <div className="flex justify-between"><span className="text-[#777]">Status</span><span className="text-white">{i.statusLabel}</span></div>
+                  <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-semibold">{formatCurrency(netOf(i))}</span></div>
+                  {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
+                    <div className="flex justify-between"><span className="text-[#777]">Stripe fee</span><span className="text-[#aaa]">{formatCurrency(feeOf(i))}</span></div>
+                  )}
+                  {dt && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-[#777]">When</span>
+                      <span className="text-white text-right">
+                        {dt.toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        <span className="block text-[11px] text-[#666]">{timeAgo(i.tsIso)}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 pt-1">
+                  {canSendLink && a && (
+                    <button onClick={() => { setDetailItem(null); openSendLink(a); }}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#1e1e1e] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a]">
+                      <Send size={14} /> Send payment link
+                    </button>
+                  )}
+                  {canRefresh && a && (
+                    <button onClick={() => refresh(a)} disabled={busy === a.id}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#1e1e1e] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a] disabled:opacity-50">
+                      <RefreshCw size={14} className={busy === a.id ? "animate-spin" : ""} /> Refresh status
+                    </button>
+                  )}
+                  {refundable && (
+                    <button onClick={() => refundItem(i)} disabled={refunding}
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30 text-sm font-semibold py-2.5 hover:bg-red-500/25 disabled:opacity-50">
+                      {refunding ? "Refunding…" : "↩ Refund payment"}
+                    </button>
+                  )}
+                  {i.refunded && <p className="text-center text-xs text-[#777]">✓ Refunded</p>}
+                  {i.method === "cash" && !i.refunded && <p className="text-center text-[11px] text-[#666]">Cash payment — refund in person.</p>}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Send-link modal ──────────────────────────────────────────────────── */}
       {linkModal && (
