@@ -86,7 +86,7 @@ function PauseBookingsToggle() {
     <>
       <button onClick={onClick} disabled={busy} aria-label="Pause bookings" title={paused ? "Bookings paused — tap to resume" : "Pause bookings"}
         className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50",
-          paused ? "bg-amber-500/20 text-amber-400" : "bg-[#141414] text-[#888] hover:text-white")}>
+          paused ? "bg-red-500/20 text-red-400" : "bg-[#141414] text-[#888] hover:text-white")}>
         <Power size={18} />
       </button>
 
