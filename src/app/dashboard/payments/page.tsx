@@ -195,9 +195,18 @@ export default function PaymentsPage() {
   const netOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].net : i.amount;
   const feeOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].fee : 0;
 
-  const settledItems = feedAll.filter(i => i.settled);
-  const cardSettled = settledItems.filter(i => i.method !== "cash");
-  const cashSettled = settledItems.filter(i => i.method === "cash");
+  // Barber scope — when a specific barber is picked, every earnings figure
+  // (carousel + cards) reflects only their appointments. POS / walk-in sales
+  // aren't barber-attributed, so they fall out of a per-barber view.
+  const barberName = selectedBarber !== "all" ? (barbers.find(b => b.id === selectedBarber)?.name ?? null) : null;
+  const barberFirst = barberName?.split(" ")[0] ?? "";
+  const scopedSettled = feedAll.filter(i => i.settled && (!barberName || i.appt?.barbers?.name === barberName));
+  const cardSettled = scopedSettled.filter(i => i.method !== "cash");
+  const cashSettled = scopedSettled.filter(i => i.method === "cash");
+  // Net collected all-time for the current scope (drives the per-barber hero).
+  const scopeNetAll = cardSettled.reduce((s, i) => s + netOf(i), 0);
+  const scopeCashAll = cashSettled.reduce((s, i) => s + i.amount, 0);
+  // Payouts settle to the shop's connected account (shop-level, not per barber yet).
   const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
 
   const startOf = (kind: "today" | "week" | "month") => {
@@ -230,14 +239,13 @@ export default function PaymentsPage() {
     { key: "all", label: "All time", from: 0, monthly: true },
   ].map(p => ({ ...p, net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
 
-  const outstanding = appts
-    .filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status)
-    .reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const pending = appts
-    .filter(a => a.payment_status === "held" || a.payment_status === "saved")
-    .reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const outstandingCount = appts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status).length;
-  const pendingCount = appts.filter(a => a.payment_status === "held" || a.payment_status === "saved").length;
+  const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
+  const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
+  const pendingAppts = scopedAppts.filter(a => a.payment_status === "held" || a.payment_status === "saved");
+  const outstanding = outstandingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const pending = pendingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const outstandingCount = outstandingAppts.length;
+  const pendingCount = pendingAppts.length;
 
   const openStripeDashboard = async () => {
     if (!shop || !accessToken) return;
@@ -316,8 +324,7 @@ export default function PaymentsPage() {
     })
     .sort((a, b) => b.ts - a.ts);
 
-  // Apply barber + type filters
-  const barberName = selectedBarber !== "all" ? barbers.find(b => b.id === selectedBarber)?.name : null;
+  // Apply barber + type filters (barberName computed above for the summary scope)
   const feed = baseFeed
     .filter(i => !barberName || i.appt?.barbers?.name === barberName)
     .filter(i => {
@@ -377,32 +384,54 @@ export default function PaymentsPage() {
           onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
           className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
-          {/* Slide 1 — Next payout */}
-          <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-            <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
-            <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
-            <p className="text-xs text-gray-500 mt-1.5">
-              {stripeNet?.nextPayoutDate
-                ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
-                : "No payout scheduled yet"}
-            </p>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
-              <div>
-                <p className="text-gray-400">Net today</p>
-                <p className="font-semibold text-emerald-600">
-                  {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-gray-400">Last payout</p>
-                <p className="font-medium text-gray-700">
-                  {stripeNet?.lastPayout
-                    ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-                    : "—"}
-                </p>
+          {/* Slide 1 — shop payout (All barbers) OR a barber's net earned */}
+          {barberName ? (
+            <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">{barberFirst} · Net earned</p>
+              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(scopeNetAll)}</p>
+              <p className="text-xs text-gray-500 mt-1.5">
+                Collected all-time{scopeCashAll > 0 ? ` · +${formatCurrency(scopeCashAll)} cash` : ""}
+              </p>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+                <div>
+                  <p className="text-gray-400">Net today</p>
+                  <p className="font-semibold text-emerald-600">
+                    {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-400">Paid out</p>
+                  <p className="font-medium text-gray-700">Shop account</p>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
+              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+              <p className="text-xs text-gray-500 mt-1.5">
+                {stripeNet?.nextPayoutDate
+                  ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
+                  : "No payout scheduled yet"}
+              </p>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+                <div>
+                  <p className="text-gray-400">Net today</p>
+                  <p className="font-semibold text-emerald-600">
+                    {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-400">Last payout</p>
+                  <p className="font-medium text-gray-700">
+                    {stripeNet?.lastPayout
+                      ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Slides 2-4 — Net by period */}
           {netPeriods.map(p => (
@@ -441,6 +470,12 @@ export default function PaymentsPage() {
             {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
           </button>
         </div>
+
+        {barberName && (
+          <p className="text-[11px] text-[#666] mt-2 px-0.5 leading-snug">
+            Showing {barberFirst}&apos;s collected earnings. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
+          </p>
+        )}
       </div>
 
       {/* ── Outstanding + On file ────────────────────────────────────────────── */}
