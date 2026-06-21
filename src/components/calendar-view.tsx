@@ -507,7 +507,7 @@ function AgendaSheet({
   );
 }
 
-export function CalendarView({ embedded = false, canManage = true }: { embedded?: boolean; canManage?: boolean }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
   const [view, setView] = useState<"month" | "week" | "day">(embedded ? "month" : "day");
@@ -585,8 +585,11 @@ export function CalendarView({ embedded = false, canManage = true }: { embedded?
       .lte("date", formatDateForDb(rangeEnd))
       .order("time_slot");
 
-    if (profile?.role === "barber" && myBarberId) {
-      q = q.eq("barber_id", myBarberId);
+    // forceBarberId (barber portal) isolates to that barber regardless of role;
+    // otherwise a barber-role user sees only their own, an owner sees the shop.
+    const scopeId = forceBarberId ?? (profile?.role === "barber" ? myBarberId : null);
+    if (scopeId) {
+      q = q.eq("barber_id", scopeId);
     } else if (barberFilter !== "all") {
       // Owner filtered the calendar to a single barber
       q = q.eq("barber_id", barberFilter);
@@ -600,7 +603,7 @@ export function CalendarView({ embedded = false, canManage = true }: { embedded?
     setAppointments((appts ?? []) as AppointmentWithDetails[]);
     setBarbers((bs ?? []) as Barber[]);
     setLoading(false);
-  }, [shop, currentDate, view, profile, myBarberId, barberFilter]);
+  }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1100,11 +1103,11 @@ export function CalendarView({ embedded = false, canManage = true }: { embedded?
   const renderDayView = () => {
     const dateStr = formatDateForDb(currentDate);
     const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
-    const activeBarberId = barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null);
+    const activeBarberId = forceBarberId ?? (barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null));
 
-    // A single barber selected (avatar row), or a barber-role user → clean card
-    // grid for that one barber. (A barber only ever sees their own day.)
-    if (barberFilter !== "all" || profile?.role === "barber") {
+    // A single barber selected (avatar row), a barber-role user, or a forced
+    // barber (barber portal) → clean card grid for that one barber.
+    if (forceBarberId || barberFilter !== "all" || profile?.role === "barber") {
       const activeBarber = barbers.find(b => b.id === activeBarberId);
       return (
         <div className="overflow-auto h-full">

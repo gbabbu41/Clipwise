@@ -205,10 +205,10 @@ export function BarberMobileNav() {
   // 4 page-links + 1 'More' drawer-opener. Earnings hides when the perm
   // is off — list shrinks to 3 links + More to keep balance.
   const linkItems = [
-    { href: "/barber-dashboard",              label: "Home",     emoji: "🏠", show: true },
-    { href: "/barber-dashboard/schedule",     label: "Schedule", emoji: "📅", show: true },
-    { href: "/barber-dashboard/hours", label: "Hours",    emoji: "⏰", show: true },
-    { href: "/barber-dashboard/earnings",     label: "Earnings", emoji: "💰", show: perms.view_earnings !== false },
+    { href: "/barber-dashboard",          label: "Home",     icon: LayoutDashboard, show: true },
+    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Calendar,        show: true },
+    { href: "/barber-dashboard/hours",    label: "Hours",    icon: Clock,           show: true },
+    { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign,      show: perms.view_earnings !== false },
   ].filter(i => i.show);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
@@ -219,7 +219,7 @@ export function BarberMobileNav() {
           || (item.href !== "/barber-dashboard" && pathname.startsWith(item.href));
         return (
           <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
-            <div className="cw-ni-icon">{item.emoji}</div>
+            <div className="cw-ni-icon"><item.icon size={20} /></div>
             <div className="cw-ni-label">{item.label}</div>
             {isActive && <div className="cw-ni-line" />}
           </Link>
@@ -227,7 +227,7 @@ export function BarberMobileNav() {
       })}
       {/* 'More' opens the sidebar drawer (Profile, Time Off, etc.). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-        <div className="cw-ni-icon">⚙️</div>
+        <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
       </button>
     </nav>
