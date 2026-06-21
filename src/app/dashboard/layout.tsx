@@ -72,9 +72,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
           main's background follows the active page so that spacer is the page's
-          own color — no separate bar. Light routes are listed here; everything
-          else is the default dark surface. */}
-      <main className={`lg:ml-64 pt-[calc(2.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-white" : ""}`}>
+          own color — no separate bar. The calendar pins its own #0a0a0a so the
+          spacer matches its canvas; everything else uses the default dark surface. */}
+      <main className={`lg:ml-64 pt-[calc(2.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
         <StripeWarningBanner />
         {children}
       </main>
