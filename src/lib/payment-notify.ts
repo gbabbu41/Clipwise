@@ -98,3 +98,36 @@ export async function notifyChargeFailed(args: {
     is_read: false,
   }).then(null, () => null);
 }
+
+/**
+ * Alert the owner + barber that a customer paid online for an appointment that
+ * was ALREADY settled (e.g. by cash) — a double payment — and whether the
+ * duplicate card charge was auto-refunded. type "system" (CHECK-allowed).
+ */
+export async function notifyDuplicateRefund(args: {
+  ownerId?: string | null;
+  barberId?: string | null;   // barbers.id (resolved to its linked user)
+  clientName?: string | null;
+  amountCents?: number;
+  date?: string | null;
+  refunded: boolean;
+}): Promise<void> {
+  const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const niceDate = prettyDate(args.date);
+  const title = args.refunded ? "↩️ Duplicate payment auto-refunded" : "⚠️ Duplicate payment — refund needed";
+  const message = args.refunded
+    ? `${args.clientName ?? "A client"} paid online${amt} for an appointment already marked paid${niceDate ? ` (${niceDate})` : ""}. The card was auto-refunded — no action needed.`
+    : `${args.clientName ?? "A client"} paid online${amt} for an already-paid appointment${niceDate ? ` (${niceDate})` : ""}, but the auto-refund failed. Please refund it from Stripe.`;
+
+  const recipients = new Set<string>();
+  if (args.ownerId) recipients.add(args.ownerId);
+  if (args.barberId) {
+    const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", args.barberId).maybeSingle();
+    if (b?.user_id) recipients.add(b.user_id);
+  }
+  if (recipients.size === 0) return;
+
+  await supabaseAdmin.from("notifications").insert(
+    Array.from(recipients).map(uid => ({ user_id: uid, title, message, type: "system", is_read: false })),
+  ).then(null, () => null);
+}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicateRefund } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -31,15 +31,74 @@ export async function POST(request: NextRequest) {
         // Post-booking payment link flow — owner sent a payment link for an
         // existing appointment and the customer just paid. Flip the row.
         if (session.metadata?.flow === "post_booking_payment" && session.metadata?.appointment_id) {
+          const apptId = session.metadata.appointment_id;
+          const newPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+          // ── Duplicate-payment guard ──────────────────────────────────────────
+          // The appointment was already settled by another method (cash, or a
+          // held card) before this online payment landed → the customer paid
+          // twice. Auto-refund the card and alert everyone; never double-charge.
+          // Legit online payments always have payment_method "online" (set by
+          // markAppointmentPaid / the normal transition below), so they're never
+          // mistaken for a duplicate.
+          const { data: existing } = await supabaseAdmin
+            .from("appointments")
+            .select("payment_status, payment_method, payment_intent_id, client_email, client_name, date, total_amount, shop_id, barber_id, services(name)")
+            .eq("id", apptId)
+            .maybeSingle();
+          const alreadyPaid = !!existing && (existing.payment_status === "paid" || existing.payment_status === "captured");
+          const samePayment = !!existing?.payment_intent_id && !!newPi && existing.payment_intent_id === newPi;
+          if (alreadyPaid && existing!.payment_method !== "online" && !samePayment) {
+            const { data: shopRow } = await supabaseAdmin
+              .from("shops").select("name, email, slug, owner_id, stripe_account_id").eq("id", existing!.shop_id).maybeSingle();
+            let refundedOk = false;
+            if (newPi && shopRow?.stripe_account_id) {
+              try {
+                await stripe.refunds.create({ payment_intent: newPi }, { stripeAccount: shopRow.stripe_account_id });
+                refundedOk = true;
+              } catch { /* refund failed — owner alerted below to do it manually */ }
+            }
+            const dupSvc = Array.isArray(existing!.services)
+              ? (existing!.services[0]?.name ?? "Your service")
+              : ((existing!.services as { name?: string } | null)?.name ?? "Your service");
+            if (refundedOk && existing!.client_email) {
+              await fetch(`${BASE_URL}/api/send-email`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "refund_issued",
+                  data: {
+                    clientName: existing!.client_name,
+                    clientEmail: existing!.client_email,
+                    shopName: shopRow?.name ?? "",
+                    shopEmail: shopRow?.email ?? "",
+                    shopSlug: shopRow?.slug ?? "",
+                    serviceName: dupSvc,
+                    date: existing!.date,
+                    total: `$${(existing!.total_amount ?? 0).toFixed(2)}`,
+                  },
+                }),
+              }).catch(() => null);
+            }
+            await notifyDuplicateRefund({
+              ownerId: shopRow?.owner_id ?? null,
+              barberId: existing!.barber_id ?? null,
+              clientName: existing!.client_name,
+              amountCents: Math.round((existing!.total_amount ?? 0) * 100),
+              date: existing!.date,
+              refunded: refundedOk,
+            });
+            break;
+          }
+
           const { data: paidAppt } = await supabaseAdmin
             .from("appointments")
             .update({
               payment_status: "paid",
               payment_method: "online",
               paid_at: new Date().toISOString(),
-              payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+              payment_intent_id: newPi,
             })
-            .eq("id", session.metadata.appointment_id)
+            .eq("id", apptId)
             .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
             .select("client_email, client_name, date, total_amount, shop_id, barber_id, services(name)")
             .maybeSingle();

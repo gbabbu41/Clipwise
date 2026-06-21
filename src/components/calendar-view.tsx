@@ -233,6 +233,13 @@ export function makeApptActions(opts: {
       const { error } = await supabase.from("appointments").update(p).eq("id", appt.id);
       if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
       patch(appt.id, p);
+      // Settled by cash → expire any open payment link so it can't be paid too.
+      if (accessToken) {
+        fetch("/api/stripe/cancel-payment-link", {
+          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => {});
+      }
       await runCompletionEffects(supabase, appt, shop, accessToken);
       setBusy("");
       onDone();

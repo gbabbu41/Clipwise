@@ -633,6 +633,13 @@ export default function AppointmentsPage() {
     if (error) { showToast(`Failed: ${error.message}`); return; }
     setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, ...patch } as AppointmentWithDetails : a));
     if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
+    // Settled by cash → expire any open payment link so it can't be paid too.
+    if (accessToken) {
+      fetch("/api/stripe/cancel-payment-link", {
+        method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: paymentModal.id }),
+      }).catch(() => {});
+    }
     setPaymentModal(null);
     showToast(alsoComplete ? "Cash payment recorded · Appointment completed" : "Cash payment recorded");
   };
