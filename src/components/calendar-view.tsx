@@ -34,6 +34,7 @@ function apptDuration(a: AppointmentWithDetails): number {
 }
 
 function parseTime(timeStr: string): number {
+  if (!timeStr) return 0;
   const [time, period] = timeStr.split(" ");
   const [h, m] = time.split(":").map(Number);
   let hour = h;
@@ -356,7 +357,8 @@ function AgendaSheet({
 
 export function CalendarView({ embedded = false }: { embedded?: boolean }) {
   const { shop, profile, accessToken, user } = useAuth();
-  const [view, setView] = useState<"month" | "week" | "day">("day");
+  // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
+  const [view, setView] = useState<"month" | "week" | "day">(embedded ? "month" : "day");
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
@@ -963,7 +965,7 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
                           isDimmed(a.status) && "line-through opacity-70",
                         )}
                       >
-                        {a.time_slot.replace(/:00 /, " ")} {a.client_name}
+                        {a.time_slot ? `${a.time_slot.replace(/:00 /, " ")} ` : ""}{a.client_name}
                       </span>
                     ))}
                     {overflow > 0 && (

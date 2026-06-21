@@ -84,12 +84,13 @@ export function occupiedSlots(startSlot: string, durationMin: number, intervalMi
 
 /** Convert display time "9:00 AM" → minutes since midnight (for comparison) */
 export function timeToMinutes(display: string): number {
+  if (!display) return 0;
   const [timePart, period] = display.split(" ");
   const [h, m] = timePart.split(":").map(Number);
   let hours = h;
   if (period === "AM" && h === 12) hours = 0;
   if (period === "PM" && h !== 12) hours = h + 12;
-  return hours * 60 + m;
+  return hours * 60 + (m || 0);
 }
 
 /** Convert display time "9:00 AM" → DB time "09:00:00" */
