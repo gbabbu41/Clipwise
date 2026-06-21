@@ -16,16 +16,19 @@ interface Appointment {
   time_slot: string;
   status: string;
   total_amount: number;
+  payment_status?: string;
+  payment_method?: string;
   notes?: string;
   services?: { name: string; duration_minutes: number };
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  confirmed: "bg-green-500/15 text-green-400 border-green-500/30",
-  pending: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  completed: "bg-gray-500/15 text-[#777] border-gray-500/30",
-  cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
-  "no-show": "bg-red-500/15 text-red-400 border-red-500/30",
+// Small, clean status pill — mirrors the owner dashboard's Today's Schedule.
+const STATUS_PILL: Record<string, string> = {
+  confirmed: "bg-green-500/10 text-green-400",
+  pending: "bg-orange-500/10 text-orange-400",
+  completed: "bg-[#777]/10 text-[#999]",
+  cancelled: "bg-red-500/10 text-red-400",
+  "no-show": "bg-red-500/10 text-red-400",
 };
 
 export default function BarberOverviewPage() {
@@ -272,23 +275,36 @@ export default function BarberOverviewPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {appointments.map(appt => (
-                <div key={appt.id} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-4">
-                  <div className="text-center min-w-[52px]">
-                    <p className="text-sm font-semibold text-white">{appt.time_slot.split(" ")[0]}</p>
-                    <p className="text-xs text-[#777]">{appt.time_slot.split(" ")[1]}</p>
+              {appointments.map(appt => {
+                const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
+                const dimmed = appt.status === "cancelled" || appt.status === "no-show";
+                const mins = appt.services?.duration_minutes;
+                return (
+                  <div key={appt.id} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div className="text-center min-w-[52px]">
+                      <p className="text-sm font-semibold text-white">{appt.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-[#777]">{appt.time_slot.split(" ")[1]}</p>
+                    </div>
+                    <div className="w-px h-10 bg-border" />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{appt.client_name}</p>
+                      <p className="text-xs text-[#777] truncate">{appt.services?.name ?? "Service"}{mins ? ` · ${mins} min` : ""}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className="text-sm font-semibold text-white">${appt.total_amount}</span>
+                      {paid ? (
+                        <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-[#00e5a0]/10 text-[#00e5a0] font-medium whitespace-nowrap">
+                          Paid · {appt.payment_method === "cash" ? "Cash" : "Card"}
+                        </span>
+                      ) : (
+                        <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap capitalize", STATUS_PILL[appt.status] ?? STATUS_PILL.pending)}>
+                          {appt.status}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-px h-8 bg-border" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{appt.client_name}</p>
-                    <p className="text-xs text-[#777]">{appt.services?.name ?? "Service"}</p>
-                  </div>
-                  <span className={`text-xs px-2 py-1 rounded-full border capitalize ${STATUS_STYLES[appt.status] ?? STATUS_STYLES.pending}`}>
-                    {appt.status}
-                  </span>
-                  <p className="text-sm font-medium text-gold">${appt.total_amount}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -710,11 +710,16 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-semibold", statusPill(apt.status))}>{statusText(apt.status)}</span>
-                        <span className="text-sm font-semibold text-white">
-                          {formatCurrency(apt.total_amount)}
-                          {paid && <span className="text-[#00e5a0] text-[10px] font-medium ml-1">Paid</span>}
-                        </span>
+                        <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
+                        {paid ? (
+                          <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-[#00e5a0]/10 text-[#00e5a0] font-medium whitespace-nowrap">
+                            Paid · {apt.payment_method === "cash" ? "Cash" : "Card"}
+                          </span>
+                        ) : (
+                          <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap capitalize", statusPill(apt.status))}>
+                            {statusText(apt.status)}
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
