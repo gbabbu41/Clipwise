@@ -100,24 +100,34 @@ export async function notifyChargeFailed(args: {
 }
 
 /**
- * Alert the owner + barber that a customer paid online for an appointment that
- * was ALREADY settled (e.g. by cash) — a double payment — and whether the
- * duplicate card charge was auto-refunded. type "system" (CHECK-allowed).
+ * Alert the owner + barber about a double payment on one appointment.
+ *  · "auto_refunded" — the card was charged twice; we auto-reversed the
+ *    duplicate (safe, both charges are real card money). No action needed.
+ *  · "refund_failed" — duplicate card charge, but the auto-refund errored.
+ *  · "review" — paid online over an existing CASH (offline) record. We do NOT
+ *    auto-refund (the cash entry might be wrong); the barber decides + refunds.
+ * type "system" (CHECK-allowed).
  */
-export async function notifyDuplicateRefund(args: {
+export async function notifyDuplicatePayment(args: {
   ownerId?: string | null;
   barberId?: string | null;   // barbers.id (resolved to its linked user)
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
-  refunded: boolean;
+  mode: "auto_refunded" | "refund_failed" | "review";
 }): Promise<void> {
   const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
   const niceDate = prettyDate(args.date);
-  const title = args.refunded ? "↩️ Duplicate payment auto-refunded" : "⚠️ Duplicate payment — refund needed";
-  const message = args.refunded
-    ? `${args.clientName ?? "A client"} paid online${amt} for an appointment already marked paid${niceDate ? ` (${niceDate})` : ""}. The card was auto-refunded — no action needed.`
-    : `${args.clientName ?? "A client"} paid online${amt} for an already-paid appointment${niceDate ? ` (${niceDate})` : ""}, but the auto-refund failed. Please refund it from Stripe.`;
+  const who = args.clientName ?? "A client";
+  const when = niceDate ? ` (${niceDate})` : "";
+  const title = args.mode === "auto_refunded" ? "↩️ Duplicate card charge auto-refunded"
+    : args.mode === "refund_failed" ? "⚠️ Duplicate charge — refund failed"
+      : "⚠️ Possible double payment";
+  const message = args.mode === "auto_refunded"
+    ? `${who} was charged${amt} twice for one appointment${when}. The duplicate card charge was auto-refunded — no action needed.`
+    : args.mode === "refund_failed"
+      ? `${who} was charged${amt} twice for one appointment${when}, but the auto-refund failed. Please refund it from Stripe.`
+      : `${who} paid online${amt} for an appointment already marked paid by cash${when}. Review it and refund the card if needed — Payments → tap the transaction → Refund.`;
 
   const recipients = new Set<string>();
   if (args.ownerId) recipients.add(args.ownerId);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicateRefund } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -34,13 +34,16 @@ export async function POST(request: NextRequest) {
           const apptId = session.metadata.appointment_id;
           const newPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
 
-          // ── Duplicate-payment guard ──────────────────────────────────────────
-          // The appointment was already settled by another method (cash, or a
-          // held card) before this online payment landed → the customer paid
-          // twice. Auto-refund the card and alert everyone; never double-charge.
-          // Legit online payments always have payment_method "online" (set by
-          // markAppointmentPaid / the normal transition below), so they're never
-          // mistaken for a duplicate.
+          // ── Double-payment guard ─────────────────────────────────────────────
+          // The appointment was already settled before this online payment landed.
+          // Two cases, handled differently (per shop preference):
+          //   · CARD charged twice (existing has a real payment_intent that differs
+          //     from this one) → unambiguous duplicate → AUTO-REFUND this charge.
+          //   · Online over a CASH/offline record (no existing payment_intent) →
+          //     the cash entry might be wrong, so DON'T auto-refund — just alert
+          //     the barber/owner to review and refund manually if needed.
+          // A legit single online payment shares the same payment_intent
+          // (samePayment) and is left to the normal transition below.
           const { data: existing } = await supabaseAdmin
             .from("appointments")
             .select("payment_status, payment_method, payment_intent_id, client_email, client_name, date, total_amount, shop_id, barber_id, services(name)")
@@ -48,44 +51,52 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
           const alreadyPaid = !!existing && (existing.payment_status === "paid" || existing.payment_status === "captured");
           const samePayment = !!existing?.payment_intent_id && !!newPi && existing.payment_intent_id === newPi;
-          if (alreadyPaid && existing!.payment_method !== "online" && !samePayment) {
+          const dupCard = alreadyPaid && !!existing!.payment_intent_id && !!newPi && existing!.payment_intent_id !== newPi;
+          const onlineOverCash = alreadyPaid && !existing!.payment_intent_id && !samePayment;
+          if (dupCard || onlineOverCash) {
             const { data: shopRow } = await supabaseAdmin
               .from("shops").select("name, email, slug, owner_id, stripe_account_id").eq("id", existing!.shop_id).maybeSingle();
-            let refundedOk = false;
-            if (newPi && shopRow?.stripe_account_id) {
-              try {
-                await stripe.refunds.create({ payment_intent: newPi }, { stripeAccount: shopRow.stripe_account_id });
-                refundedOk = true;
-              } catch { /* refund failed — owner alerted below to do it manually */ }
-            }
             const dupSvc = Array.isArray(existing!.services)
               ? (existing!.services[0]?.name ?? "Your service")
               : ((existing!.services as { name?: string } | null)?.name ?? "Your service");
-            if (refundedOk && existing!.client_email) {
-              await fetch(`${BASE_URL}/api/send-email`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  type: "refund_issued",
-                  data: {
-                    clientName: existing!.client_name,
-                    clientEmail: existing!.client_email,
-                    shopName: shopRow?.name ?? "",
-                    shopEmail: shopRow?.email ?? "",
-                    shopSlug: shopRow?.slug ?? "",
-                    serviceName: dupSvc,
-                    date: existing!.date,
-                    total: `$${(existing!.total_amount ?? 0).toFixed(2)}`,
-                  },
-                }),
-              }).catch(() => null);
+            const amountCents = Math.round((existing!.total_amount ?? 0) * 100);
+
+            let mode: "auto_refunded" | "refund_failed" | "review" = "review";
+            if (dupCard) {
+              mode = "refund_failed";
+              if (newPi && shopRow?.stripe_account_id) {
+                try {
+                  await stripe.refunds.create({ payment_intent: newPi }, { stripeAccount: shopRow.stripe_account_id });
+                  mode = "auto_refunded";
+                } catch { /* leave as refund_failed — owner alerted to do it manually */ }
+              }
+              // Tell the customer only when we actually refunded.
+              if (mode === "auto_refunded" && existing!.client_email) {
+                await fetch(`${BASE_URL}/api/send-email`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "refund_issued",
+                    data: {
+                      clientName: existing!.client_name,
+                      clientEmail: existing!.client_email,
+                      shopName: shopRow?.name ?? "",
+                      shopEmail: shopRow?.email ?? "",
+                      shopSlug: shopRow?.slug ?? "",
+                      serviceName: dupSvc,
+                      date: existing!.date,
+                      total: `$${(existing!.total_amount ?? 0).toFixed(2)}`,
+                    },
+                  }),
+                }).catch(() => null);
+              }
             }
-            await notifyDuplicateRefund({
+            await notifyDuplicatePayment({
               ownerId: shopRow?.owner_id ?? null,
               barberId: existing!.barber_id ?? null,
               clientName: existing!.client_name,
-              amountCents: Math.round((existing!.total_amount ?? 0) * 100),
+              amountCents,
               date: existing!.date,
-              refunded: refundedOk,
+              mode,
             });
             break;
           }
