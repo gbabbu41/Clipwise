@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import { Plus, X, Check, Copy, CalendarOff, Pencil } from "lucide-react";
+import { Plus, X, Copy, CalendarOff, Pencil } from "lucide-react";
 import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -107,26 +107,35 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     setBreakModal(null);
   };
 
-  // Copy the first open day's hours + breaks to every other open day.
+  // Copy the first open day's hours + breaks to every other open day, then save.
   const copyToAll = () => {
     const src = ORDER.map(dow => days[dow]).find(d => d.isOpen);
     if (!src) { showToast("Open a day first"); return; }
-    setDays(p => p.map(d => d.isOpen ? { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) } : d));
-    showToast("Copied to all open days");
+    const next = days.map(d => d.isOpen ? { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) } : d);
+    setDays(next);
+    save(next);
   };
-  const setWeekdays = () =>
-    setDays(p => p.map((d, dow) => ({ ...d, isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "6:00 PM" })));
+  const setWeekdays = () => {
+    const next = days.map((d, dow) => ({ ...d, isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "6:00 PM" }));
+    setDays(next);
+    save(next);
+  };
 
-  const save = async () => {
-    if (!accessToken) return;
+  // Persist the schedule. Editing a day (pencil → popup → Save) and the quick
+  // actions all call this — there's no separate "Save schedule" button anymore.
+  // Pass an explicit `override` when saving right after a setDays() so we don't
+  // race React's async state (the quick actions do this).
+  const save = async (override?: Day[]): Promise<boolean> => {
+    if (!accessToken) return false;
+    const src = override ?? days;
     // Validate end > start and breaks within hours.
     for (const dow of ORDER) {
-      const d = days[dow];
+      const d = src[dow];
       if (!d.isOpen) continue;
-      if (timeToMinutes(d.end) <= timeToMinutes(d.start)) { showToast(`${DAYS[dow]}: end time must be after start`); return; }
+      if (timeToMinutes(d.end) <= timeToMinutes(d.start)) { showToast(`${DAYS[dow]}: end time must be after start`); return false; }
       for (const b of d.breaks) {
-        if (timeToMinutes(b.end) <= timeToMinutes(b.start)) { showToast(`${DAYS[dow]}: a break's end must be after its start`); return; }
-        if (timeToMinutes(b.start) < timeToMinutes(d.start) || timeToMinutes(b.end) > timeToMinutes(d.end)) { showToast(`${DAYS[dow]}: breaks must be within working hours`); return; }
+        if (timeToMinutes(b.end) <= timeToMinutes(b.start)) { showToast(`${DAYS[dow]}: a break's end must be after its start`); return false; }
+        if (timeToMinutes(b.start) < timeToMinutes(d.start) || timeToMinutes(b.end) > timeToMinutes(d.end)) { showToast(`${DAYS[dow]}: breaks must be within working hours`); return false; }
       }
     }
     setSaving(true);
@@ -134,8 +143,8 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         barber_id: barberId,
-        days: days.map((d, dow) => ({ day_of_week: dow, is_open: d.isOpen, start_time: displayTimeToDb(d.start), end_time: displayTimeToDb(d.end) })),
-        breaks: days.flatMap((d, dow) => d.isOpen ? d.breaks.map(b => ({ day_of_week: dow, start_time: displayTimeToDb(b.start), end_time: displayTimeToDb(b.end), label: b.label })) : []),
+        days: src.map((d, dow) => ({ day_of_week: dow, is_open: d.isOpen, start_time: displayTimeToDb(d.start), end_time: displayTimeToDb(d.end) })),
+        breaks: src.flatMap((d, dow) => d.isOpen ? d.breaks.map(b => ({ day_of_week: dow, start_time: displayTimeToDb(b.start), end_time: displayTimeToDb(b.end), label: b.label })) : []),
       }),
     });
     setSaving(false);
@@ -143,7 +152,8 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       const d = await res.json().catch(() => ({}));
       if (d?.breaksError) showToast("Hours saved, but breaks didn't save — run the barber_breaks migration.");
       else showToast(`Schedule saved · emailed ${barberName.split(" ")[0]}`);
-    } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); }
+      return true;
+    } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); return false; }
   };
 
   const addTimeOff = async () => {
@@ -235,12 +245,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         </div>}
       </div>
 
-      {canEdit ? (
-        <button onClick={save} disabled={saving}
-          className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3 hover:bg-[#eaeaea] disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
-          {saving ? "Saving…" : <><Check size={16} /> Save schedule</>}
-        </button>
-      ) : (
+      {!canEdit && (
         <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
       )}
 
@@ -382,8 +387,11 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 <p className="text-xs text-[#666]">Toggle on to set working hours and breaks.</p>
               )}
 
-              <button onClick={() => setDayModal(null)} className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea]">Done</button>
-              <p className="text-[11px] text-[#555] text-center -mt-1">Tap “Save schedule” to apply your changes.</p>
+              <button onClick={async () => { const ok = await save(); if (ok) setDayModal(null); }} disabled={saving}
+                className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea] disabled:opacity-50">
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <p className="text-[11px] text-[#555] text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
             </div>
           </div>
         </>
