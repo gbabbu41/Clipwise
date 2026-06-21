@@ -11,7 +11,7 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -679,7 +679,9 @@ export default function DashboardPage() {
                   <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
                 </div>
               ) : (
-                displayAppts.map((apt) => {
+                [...displayAppts]
+                  .sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""))
+                  .map((apt) => {
                   const paid = apt.payment_status === "paid" || apt.payment_status === "captured";
                   const dimmed = apt.status === "cancelled" || apt.status === "no-show";
                   const mins = apptMins(apt);
