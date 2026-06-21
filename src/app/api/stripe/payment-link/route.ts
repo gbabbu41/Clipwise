@@ -131,9 +131,10 @@ export async function POST(request: NextRequest) {
     let emailed = false;
     let texted = false;
 
-    // Email the link
+    // Email the link. IMPORTANT: await it — a fire-and-forget fetch gets killed
+    // when the serverless function returns, so the email silently never sends.
     if (send_email && emailTo && session.url) {
-      fetch(`${BASE_URL}/api/send-email`, {
+      const er = await fetch(`${BASE_URL}/api/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
           },
         }),
       }).catch(() => null);
-      emailed = true;
+      emailed = !!er && er.ok;
     }
 
     // Text the link
