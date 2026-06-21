@@ -1439,9 +1439,12 @@ export default function CalendarPage() {
   const dayAllCols = orderedBarbers.length > 0
     ? orderedBarbers
     : [{ id: "none", name: "All Barbers" } as Barber];
-  const dayPerPage = colWrapW > 0
-    ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
-    : (isMobile ? 2 : 6);
+  // Phone: exactly one barber column per page (swipe to the next). Tablet /
+  // desktop: fit as many columns as the width allows (all barbers for a typical
+  // shop; only paginates if there are a lot).
+  const dayPerPage = isMobile
+    ? 1
+    : (colWrapW > 0 ? Math.max(1, Math.floor((colWrapW - 56) / 150)) : 6);
   const dayPages = Math.max(1, Math.ceil(dayAllCols.length / dayPerPage));
   const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
   const dayPagerVisible = view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
