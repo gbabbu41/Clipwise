@@ -130,6 +130,27 @@ const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 
+// ── Dark palettes (ACTIVE theme) ──────────────────────────────────────────────
+// The calendar canvas is now DARK. Appointment blocks use a #1a1a1a fill + a
+// status-colored 3px left edge + light text. The LIGHT palettes above are kept
+// intact for the planned white-theme toggle — DO NOT delete them.
+const STATUS_BLOCK_DARK: Record<string, string> = {
+  pending:   "bg-[#1a1a1a] text-white border-l-[3px] border-amber-400",
+  confirmed: "bg-[#1a1a1a] text-white border-l-[3px] border-[#00e5a0]",
+  completed: "bg-[#1a1a1a] text-white border-l-[3px] border-sky-400",
+  cancelled: "bg-[#141414] text-[#888] border-l-[3px] border-rose-500/70",
+  "no-show": "bg-[#141414] text-[#888] border-l-[3px] border-zinc-500",
+};
+const STATUS_CHIP_DARK: Record<string, string> = {
+  pending:   "bg-amber-500/15 text-amber-300",
+  confirmed: "bg-[#00e5a0]/15 text-[#00e5a0]",
+  completed: "bg-sky-500/15 text-sky-300",
+  cancelled: "bg-rose-500/15 text-rose-300",
+  "no-show": "bg-zinc-500/15 text-zinc-300",
+};
+const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-[#1a1a1a] text-white border-l-[3px] border-[#00e5a0]";
+const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
+
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
 // page so Approve / Complete / Reject behave identically from either surface.
 type ApptActions = {
@@ -891,9 +912,9 @@ export default function CalendarPage() {
 
     return (
       <div className="flex flex-col h-full">
-        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+        <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c]">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-gray-500 text-center">{d}</div>
+            <div key={d} className="px-2 py-2 text-xs font-medium text-[#666] text-center">{d}</div>
           ))}
         </div>
         <div className="flex-1 grid grid-cols-7 auto-rows-fr">
@@ -908,16 +929,16 @@ export default function CalendarPage() {
                 key={dayStr}
                 onClick={() => setAgendaDate(day)}
                 className={cn(
-                  "border-r border-b border-gray-200 p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
-                  "hover:bg-gray-50",
-                  !inMonth && "bg-gray-50/60",
+                  "border-r border-b border-[#161616] p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
+                  "hover:bg-[#141414]",
+                  !inMonth && "bg-[#070707]",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
                     isToday(day) ? "bg-amber-500 text-white font-bold" :
-                    inMonth ? "text-gray-900" : "text-gray-300",
+                    inMonth ? "text-white" : "text-[#444]",
                   )}>
                     {day.getDate()}
                   </span>
@@ -929,7 +950,7 @@ export default function CalendarPage() {
                       <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", statusDot(a.status))} />
                     ))}
                     {dayAppts.length > 10 && (
-                      <span className="text-[9px] text-gray-400 leading-none">+{dayAppts.length - 10}</span>
+                      <span className="text-[9px] text-[#666] leading-none">+{dayAppts.length - 10}</span>
                     )}
                   </div>
                 ) : (
@@ -938,7 +959,7 @@ export default function CalendarPage() {
                       <span key={a.id}
                         className={cn(
                           "truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
-                          statusChip(a.status),
+                          statusChipDark(a.status),
                           isDimmed(a.status) && "line-through opacity-70",
                         )}
                       >
@@ -946,7 +967,7 @@ export default function CalendarPage() {
                       </span>
                     ))}
                     {overflow > 0 && (
-                      <span className="text-[10px] text-gray-400 pl-1.5">+{overflow} more</span>
+                      <span className="text-[10px] text-[#666] pl-1.5">+{overflow} more</span>
                     )}
                   </div>
                 )}
@@ -981,35 +1002,36 @@ export default function CalendarPage() {
     return (
       <div className="p-4 sm:p-5">
         {!sched && (
-          <p className="text-xs text-gray-400 mb-3">No schedule set for this day — showing a default 9 AM–10 PM window.</p>
+          <p className="text-xs text-[#666] mb-3">No schedule set for this day — showing a default 9 AM–10 PM window.</p>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
             <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
-              className="group rounded-xl border border-dashed border-gray-300 hover:border-amber-400 hover:bg-amber-50/40 transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-gray-500">{rangeLabel(c.s, c.minutes)}</span>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 group-hover:text-amber-500">
-                <Plus size={14} /> Add
-              </span>
+              className="rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+              <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
+              <span className="text-[10px] text-[#444]">Free</span>
             </button>
           ) : (
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
               className={cn(
-                "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:shadow-md",
-                statusBlock(c.a.status), isDimmed(c.a.status) && "opacity-70 line-through",
+                "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:brightness-125",
+                statusBlockDark(c.a.status), isDimmed(c.a.status) && "opacity-60 line-through",
               )}>
-              <span className="text-xs font-medium opacity-80">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
+              <span className="text-xs font-medium text-[#999]">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
-                <p className="text-[11px] opacity-80 truncate">{(c.a.services as { name: string } | null)?.name ?? "—"}</p>
+                <p className="text-[11px] text-[#999] truncate">
+                  {(c.a.services as { name: string } | null)?.name ?? "—"}
+                  {(c.a.total_amount ?? 0) > 0 ? ` · $${Number(c.a.total_amount).toFixed(0)}` : ""}
+                </p>
               </div>
-              <span className="text-[10px] font-semibold opacity-90">
+              <span className={cn("text-[10px] font-semibold", (c.a.payment_status === "paid" || c.a.payment_status === "captured") ? "text-[#00e5a0]" : "text-[#888]")}>
                 {c.a.payment_status === "paid" || c.a.payment_status === "captured" ? "Paid" : statusLabel(c.a.status)}
               </span>
             </button>
           ))}
           {cells.length === 0 && (
-            <p className="col-span-full text-center text-sm text-gray-400 py-10">Nothing scheduled.</p>
+            <p className="col-span-full text-center text-sm text-[#666] py-10">Nothing scheduled.</p>
           )}
         </div>
       </div>
@@ -1029,7 +1051,7 @@ export default function CalendarPage() {
         <div className="overflow-auto h-full">
           {activeBarber
             ? renderBarberGrid(activeBarber)
-            : <p className="text-center text-sm text-gray-400 py-12">No barbers yet.</p>}
+            : <p className="text-center text-sm text-[#666] py-12">No barbers yet.</p>}
         </div>
       );
     }
@@ -1074,11 +1096,11 @@ export default function CalendarPage() {
             if (dx < 0) goNext(); else goPrev();
           }}>
           <div>
-            <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+            <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
-                className="flex items-center justify-center py-1.5 transition-colors hover:bg-gray-50">
-                <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-1")}>
+                className="flex items-center justify-center py-1.5 transition-colors hover:bg-[#141414]">
+                <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
                   <Users size={14} />
                 </span>
               </button>
@@ -1087,13 +1109,13 @@ export default function CalendarPage() {
                 const n = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length;
                 return (
                   <button key={b.id} type="button" onClick={() => setBarberFilter(b.id)}
-                    className="px-2 py-1.5 border-l border-gray-100 hover:bg-gray-50 transition-colors min-w-0">
+                    className="px-2 py-1.5 border-l border-[#161616] hover:bg-[#141414] transition-colors min-w-0">
                     <div className="flex items-center justify-center gap-1.5 min-w-0">
                       <BarberAvatar b={b} i={gi >= 0 ? gi : 0} sm />
-                      <span className="text-xs text-gray-900 font-medium truncate">{b.name}</span>
+                      <span className="text-xs text-white font-medium truncate">{b.name}</span>
                       {!schedules.has(b.id) && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" title="Not scheduled" />}
                     </div>
-                    <p className="text-[10px] text-gray-400 leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
+                    <p className="text-[10px] text-[#666] leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
                   </button>
                 );
               })}
@@ -1101,17 +1123,17 @@ export default function CalendarPage() {
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-gray-100 relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+              <div key={hour} className="grid border-b border-[#161616] relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
                 {/* half-hour divider line */}
-                <div className="absolute left-14 right-0 border-t border-dashed border-gray-100" style={{ top: `${ROW_PX / 2}px` }} />
+                <div className="absolute left-14 right-0 border-t border-dashed border-[#141414]" style={{ top: `${ROW_PX / 2}px` }} />
                 <div className="relative text-right pr-2">
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-[#777]">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </span>
-                  <span className="absolute right-2 text-[9px] text-gray-300" style={{ top: `${ROW_PX / 2 - 6}px` }}>:30</span>
+                  <span className="absolute right-2 text-[9px] text-[#444]" style={{ top: `${ROW_PX / 2 - 6}px` }}>:30</span>
                 </div>
                 {cols.map(b => (
-                  <div key={b.id} className="border-l border-gray-100" />
+                  <div key={b.id} className="border-l border-[#141414]" />
                 ))}
               </div>
             ))}
@@ -1127,24 +1149,21 @@ export default function CalendarPage() {
                 const empties = windowEmpties(b.id, dateStr, gridWin);
                 return (
                   <div key={b.id} className="relative">
-                    {/* Free slots → "+ Add" (one per free hour; greyed when outside hours) */}
+                    {/* Free slots — quiet dark space (tap to add; no "+" chrome).
+                        In-hours = subtle #141414 fill; outside-hours = bare. */}
                     {empties.map(({ slot, minutes }) => {
                       const top = (parseTime(slot) - winStart) * ROW_PX;
                       const height = Math.max(16, (minutes / 60) * ROW_PX - 4);
                       const outside = isOutsideSchedule(b.id, slot);
                       return (
                         <button key={`e${slot}`}
-                          title={outside ? "Outside working hours" : undefined}
+                          title={outside ? "Outside working hours — tap to add" : "Add appointment"}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className={cn(
-                            "group rounded-lg border border-dashed transition-colors pointer-events-auto flex items-center justify-center overflow-hidden",
-                            outside
-                              ? "border-gray-200 bg-gray-200/60 hover:border-amber-300 hover:bg-amber-50/40"
-                              : "border-gray-300 bg-white hover:border-amber-400 hover:bg-amber-50/60",
+                            "rounded-lg transition-colors pointer-events-auto overflow-hidden",
+                            outside ? "bg-transparent hover:bg-[#141414]" : "bg-[#141414] hover:bg-[#1c1c1c]",
                           )}
-                          onClick={() => openAdd(b.id, b.name, slot, minutes)}>
-                          <Plus size={15} className={cn(outside ? "text-gray-300 group-hover:text-amber-400" : "text-gray-400 group-hover:text-amber-500")} />
-                        </button>
+                          onClick={() => openAdd(b.id, b.name, slot, minutes)} />
                       );
                     })}
                     {/* Booked blocks — height ∝ duration; overlaps sit side-by-side */}
@@ -1164,16 +1183,19 @@ export default function CalendarPage() {
                             position: "absolute",
                           }}
                           className={cn(
-                            "rounded-lg px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:shadow-md shadow-sm",
-                            statusBlock(appt.status),
-                            dimmed && "opacity-70 line-through",
+                            "rounded-r-lg rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
+                            statusBlockDark(appt.status),
+                            dimmed && "opacity-60 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <p className="text-[10px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          <p className="text-[9px] opacity-80 truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          <p className="text-[9px] text-[#999] truncate leading-tight">
+                            {(appt.services as { name: string } | null)?.name ?? "—"}
+                            {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
+                          </p>
                           {height > 50 && lanes === 1 && (
-                            <p className="text-[9px] opacity-70 truncate leading-tight">{(appt.services as { name: string } | null)?.name}</p>
+                            <p className="text-[9px] text-[#666] truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
                           )}
                         </button>
                       );
@@ -1218,7 +1240,7 @@ export default function CalendarPage() {
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
-          <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+          <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0">
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
               const isSelected = dateStr === selectedStr;
@@ -1226,13 +1248,13 @@ export default function CalendarPage() {
               const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
               return (
                 <button key={dateStr} onClick={() => setCurrentDate(day)}
-                  className="py-2 text-center hover:bg-gray-100 transition-colors">
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-gray-900" : "text-gray-400")}>
+                  className="py-2 text-center hover:bg-[#141414] transition-colors">
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-amber-500 text-white" : "text-gray-900",
+                    isSelected ? "bg-amber-500 text-white" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
@@ -1249,11 +1271,11 @@ export default function CalendarPage() {
           <div ref={scrollRef} className="overflow-auto flex-1">
             <div className="relative">
               {HOURS_24.map(hour => (
-                <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                  <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
+                <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                  <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </div>
-                  <div className="border-l border-gray-100" />
+                  <div className="border-l border-[#141414]" />
                 </div>
               ))}
               <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -1271,15 +1293,15 @@ export default function CalendarPage() {
                         key={appt.id}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                         className={cn(
-                          "rounded-lg px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto shadow-sm",
-                          statusBlock(appt.status),
-                          dimmed && "opacity-70 line-through",
+                          "rounded-r-lg rounded-l-sm px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto",
+                          statusBlockDark(appt.status),
+                          dimmed && "opacity-60 line-through",
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
                         <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
                         {height > 44 && (
-                          <p className="text-[11px] opacity-80 truncate">
+                          <p className="text-[11px] text-[#999] truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                           </p>
                         )}
@@ -1312,7 +1334,7 @@ export default function CalendarPage() {
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
         <div className="min-w-[700px]">
-          <div className="grid sticky top-0 z-10 bg-white border-b border-gray-200" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
+          <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -1320,18 +1342,18 @@ export default function CalendarPage() {
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => setAgendaDate(day)}
-                  className={cn("py-2 text-center border-l border-gray-100 hover:bg-gray-50 transition-colors", today && "bg-amber-50/60")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-gray-900" : "text-gray-400")}>
+                  className={cn("py-2 text-center border-l border-[#161616] hover:bg-[#141414] transition-colors", today && "bg-amber-500/10")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-amber-500 text-white" : "text-gray-900",
+                    today ? "bg-amber-500 text-white" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
                   {dayAppts.length > 0 && (
-                    <p className="text-[10px] text-gray-400 mt-0.5">{dayAppts.length}</p>
+                    <p className="text-[10px] text-[#666] mt-0.5">{dayAppts.length}</p>
                   )}
                 </button>
               );
@@ -1340,12 +1362,12 @@ export default function CalendarPage() {
 
           <div className="relative">
             {HOURS_24.map(hour => (
-              <div key={hour} className="grid border-b border-gray-100" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-gray-400 text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-gray-100", isToday(day) && "bg-amber-50/60")} />
+                  <div key={formatDateForDb(day)} className={cn("border-l border-[#141414]", isToday(day) && "bg-amber-500/10")} />
                 ))}
               </div>
             ))}
@@ -1368,15 +1390,15 @@ export default function CalendarPage() {
                           key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           className={cn(
-                            "rounded px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:scale-[1.02] hover:shadow-md shadow-sm",
-                            statusBlock(appt.status),
-                            dimmed && "opacity-70 line-through",
+                            "rounded-r rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
+                            statusBlockDark(appt.status),
+                            dimmed && "opacity-60 line-through",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-[11px] font-semibold leading-tight truncate">{appt.client_name}</p>
                           {height > 36 && (
-                            <p className="text-[10px] opacity-80 truncate">{appt.time_slot}</p>
+                            <p className="text-[10px] text-[#999] truncate">{appt.time_slot}</p>
                           )}
                         </button>
                       );
@@ -1419,28 +1441,28 @@ export default function CalendarPage() {
   const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
   const dayPagerVisible = view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
   return (
-    <div className="flex flex-col h-full min-h-[100dvh] bg-white text-gray-900 overflow-x-clip">
+    <div className="flex flex-col h-full min-h-[100dvh] bg-[#0a0a0a] text-white overflow-x-clip">
       {/* Header bar — date (left) + barber pager (center, day view) + view (right), one row */}
-      <div className="px-4 sm:px-6 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-6 py-2 border-b border-[#1a1a1a] flex items-center justify-between gap-3">
         {/* Date dropdown */}
         <div className="relative">
           <button onClick={() => { setDateMenu(o => !o); setViewMenu(false); }}
-            className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-gray-900 hover:text-gray-600 transition-colors">
+            className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-white hover:text-[#aaa] transition-colors">
             {titleText}
-            <ChevronDown size={16} className="text-gray-400" />
+            <ChevronDown size={16} className="text-[#666]" />
           </button>
-          {loading && <span className="text-xs text-gray-400 ml-2 animate-pulse">Loading…</span>}
+          {loading && <span className="text-xs text-[#666] ml-2 animate-pulse">Loading…</span>}
           {dateMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setDateMenu(false)} />
-              <div className="absolute left-0 mt-2 z-50 w-56 max-h-80 overflow-auto bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+              <div className="absolute left-0 mt-2 z-50 w-56 max-h-80 overflow-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
                 {dateOptions.map((o, i) => {
                   const active = formatDateForDb(o.date) === formatDateForDb(currentDate);
                   return (
                     <button key={i} onClick={() => { setCurrentDate(o.date); setDateMenu(false); }}
-                      className={cn("w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-50", active && "bg-amber-50")}>
-                      <span className={cn("font-medium", active ? "text-amber-600" : "text-gray-900")}>{o.label}</span>
-                      {o.sub && <span className="text-gray-400 text-xs">{o.sub}</span>}
+                      className={cn("w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#141414]", active && "bg-[#141414]")}>
+                      <span className={cn("font-medium", active ? "text-[#00e5a0]" : "text-white")}>{o.label}</span>
+                      {o.sub && <span className="text-[#666] text-xs">{o.sub}</span>}
                     </button>
                   );
                 })}
@@ -1449,31 +1471,30 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Barber pager (day · all-barbers view) — folded into the toolbar */}
+        {/* Barber pager (day · all-barbers view) — arrows only, no count label */}
         {dayPagerVisible && (
-          <div className="flex items-center gap-0.5 text-xs text-gray-500">
+          <div className="flex items-center gap-0.5 text-xs text-[#888]">
             <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
-            <span className="whitespace-nowrap tabular-nums">{dayPage * dayPerPage + 1}–{Math.min(dayAllCols.length, dayPage * dayPerPage + dayPerPage)}/{dayAllCols.length}</span>
+              className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
             <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+              className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
           </div>
         )}
 
         {/* View button (one button → month / week / day) */}
         <div className="relative">
           <button onClick={() => { setViewMenu(o => !o); setDateMenu(false); }}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors capitalize">
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-xl hover:bg-[#1a1a1a] transition-colors capitalize">
             {view}
-            <ChevronDown size={14} className="text-gray-400" />
+            <ChevronDown size={14} className="text-[#666]" />
           </button>
           {viewMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
-              <div className="absolute right-0 mt-2 z-50 w-32 bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+              <div className="absolute right-0 mt-2 z-50 w-32 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
                 {(["day", "week", "month"] as const).map(v => (
                   <button key={v} onClick={() => { setView(v); setViewMenu(false); }}
-                    className={cn("w-full text-left px-4 py-2 text-sm capitalize hover:bg-gray-50", view === v ? "text-gray-900 font-semibold" : "text-gray-500")}>
+                    className={cn("w-full text-left px-4 py-2 text-sm capitalize hover:bg-[#141414]", view === v ? "text-white font-semibold" : "text-[#888]")}>
                     {v}
                   </button>
                 ))}
@@ -1487,27 +1508,27 @@ export default function CalendarPage() {
           Hidden in the all-barbers DAY view, where the column headers double as
           the selector (no duplicate row). Shown everywhere else. */}
       {profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
-        <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-gray-200">
+        <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-gray-200 text-gray-600", barberFilter === "all" && "ring-2 ring-amber-500 ring-offset-2")}>
+            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
               <Users size={18} />
             </span>
-            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-amber-600 font-semibold" : "text-gray-600")}>All barbers</span>
+            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All barbers</span>
           </button>
           {barbers.map((b, i) => (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
               className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-              <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-amber-500 ring-offset-2")}>
+              <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
                 <BarberAvatar b={b} i={i} />
               </span>
-              <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-amber-600 font-semibold" : "text-gray-600")}>{b.name}</span>
+              <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name}</span>
             </button>
           ))}
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden bg-white">
+      <div className="flex-1 overflow-hidden bg-[#0a0a0a]">
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
 
