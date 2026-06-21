@@ -66,18 +66,22 @@ export async function POST(req: NextRequest) {
     const nowSec = Math.floor(Date.now() / 1000);
     try {
       const payouts = await stripe.payouts.list({ limit: 10 }, opts);
-      // pending + in_transit payouts have left balance.available/pending, so add
-      // them back for the true "heading to your bank" total (= Stripe's total balance).
-      const onTheWay = payouts.data.filter(p => p.status === "pending" || p.status === "in_transit");
+      // "On the way to your bank" = payouts not yet arrived. Sandbox marks payouts
+      // paid immediately but keeps a FUTURE arrival date, so include those too —
+      // otherwise this reads $0 even though Stripe clearly shows money on the way.
+      const onTheWay = payouts.data.filter(p =>
+        p.status === "pending" || p.status === "in_transit" ||
+        (p.status === "paid" && p.arrival_date > nowSec),
+      );
       inTransit = onTheWay.reduce((s, p) => s + p.amount, 0) / 100;
-      // Next payout = the soonest-arriving upcoming payout.
+      // Next payout = the soonest-arriving of those.
       const upcoming = [...onTheWay].sort((a, b) => a.arrival_date - b.arrival_date)[0];
       nextPayoutDate = upcoming?.arrival_date ?? null;
       nextPayoutAmount = upcoming ? upcoming.amount / 100 : null;
-      // Last payout = the most recent one Stripe has paid out. Show a date that
-      // isn't in the future: use arrival_date once it's passed, otherwise the
-      // created date (sandbox marks payouts paid with a future arrival date).
-      const paid = payouts.data.find(p => p.status === "paid");
+      // Last payout = the most recent one that has ALREADY landed (arrival passed);
+      // fall back to the most recent paid payout so it's never wrongly blank.
+      const paid = payouts.data.find(p => p.status === "paid" && p.arrival_date <= nowSec)
+        ?? payouts.data.find(p => p.status === "paid");
       if (paid) lastPayout = { amount: paid.amount / 100, date: paid.arrival_date <= nowSec ? paid.arrival_date : paid.created };
     } catch { /* schedule not available — leave null */ }
 
