@@ -1427,12 +1427,13 @@ export default function CalendarPage() {
     );
   };
 
-  // ── Layout — LIGHT calendar canvas inside the app's dark chrome ──────────────
+  // ── Layout — dark calendar canvas inside the app's dark chrome ───────────────
   // Day-view barber pager, lifted to component scope so it can live in the top
   // toolbar (one compact row instead of its own band).
-  // Owner's own barber column leads (stable sort keeps the rest in order).
+  // Columns follow the same order as the barber-selector chips (alphabetical, as
+  // fetched) so switching all-barbers ↔ single-barber never reshuffles positions.
   const dayAllCols = barbers.length > 0
-    ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
+    ? barbers
     : [{ id: "none", name: "All Barbers" } as Barber];
   const dayPerPage = colWrapW > 0
     ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
