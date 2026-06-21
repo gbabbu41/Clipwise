@@ -436,11 +436,14 @@ export default function PaymentsPage() {
             <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
               <p className="text-[10px] uppercase tracking-wide text-gray-400">Heading to your bank</p>
               <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
-              <p className="text-xs text-gray-500 mt-1.5">
-                {stripeNet?.nextPayoutDate
-                  ? `Next payout: ${stripeNet.nextPayoutAmount != null ? `${formatCurrency(stripeNet.nextPayoutAmount)} · ` : ""}${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}`
-                  : "No payout scheduled yet"}
-              </p>
+              {stripeNet?.nextPayoutDate ? (
+                <div className="text-xs text-gray-500 mt-1.5 leading-snug">
+                  <span>Next payout{stripeNet.nextPayoutAmount != null ? `: ${formatCurrency(stripeNet.nextPayoutAmount)}` : ""}</span>
+                  <span className="block text-gray-400">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1.5">No payout scheduled yet</p>
+              )}
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
                 <div>
                   <p className="text-gray-400">Net today</p>
