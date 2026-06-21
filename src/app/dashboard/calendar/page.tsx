@@ -1430,10 +1430,14 @@ export default function CalendarPage() {
   // ── Layout — dark calendar canvas inside the app's dark chrome ───────────────
   // Day-view barber pager, lifted to component scope so it can live in the top
   // toolbar (one compact row instead of its own band).
-  // Columns follow the same order as the barber-selector chips (alphabetical, as
-  // fetched) so switching all-barbers ↔ single-barber never reshuffles positions.
-  const dayAllCols = barbers.length > 0
-    ? barbers
+  // Owner's own barber leads; the rest keep their fetched (alphabetical) order.
+  // BOTH the selector chips and the day columns use this exact order, so
+  // switching all-barbers ↔ single-barber never reshuffles positions.
+  const orderedBarbers = barbers.length > 0
+    ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
+    : [];
+  const dayAllCols = orderedBarbers.length > 0
+    ? orderedBarbers
     : [{ id: "none", name: "All Barbers" } as Barber];
   const dayPerPage = colWrapW > 0
     ? Math.max(1, Math.floor((colWrapW - 56) / (isMobile ? 128 : 150)))
@@ -1517,11 +1521,11 @@ export default function CalendarPage() {
             </span>
             <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All barbers</span>
           </button>
-          {barbers.map((b, i) => (
+          {orderedBarbers.map((b) => (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
               className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-60 hover:opacity-100")}>
               <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
-                <BarberAvatar b={b} i={i} />
+                <BarberAvatar b={b} i={barbers.indexOf(b)} />
               </span>
               <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name}</span>
             </button>
