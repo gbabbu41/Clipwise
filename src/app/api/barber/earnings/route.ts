@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   let from: string;
-  if (period === "week") {
+  if (period === "all") {
+    from = "1970-01-01";
+  } else if (period === "week") {
     const day = now.getDay();
     const start = new Date(now);
     start.setDate(now.getDate() - day);
