@@ -84,11 +84,24 @@ function PauseBookingsToggle() {
 
   return (
     <>
-      <button onClick={onClick} disabled={busy} aria-label="Pause bookings" title={paused ? "Bookings paused — tap to resume" : "Pause bookings"}
-        className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50",
-          paused ? "bg-red-500/20 text-red-400" : "bg-[#141414] text-[#888] hover:text-white")}>
-        <Power size={18} />
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Status badge — reads booking_settings.bookings_paused, the SAME flag
+            the customer booking page + in-person/Stripe checkout routes check
+            before accepting a booking. So "Live" genuinely means customers can
+            book the same slots; "Paused" means they're blocked. One source of
+            truth, no separate state to drift. */}
+        <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full",
+          paused ? "bg-red-500/15 text-red-400" : "bg-[#00e5a0]/15 text-[#00e5a0]")}>
+          <span className={cn("w-1.5 h-1.5 rounded-full", paused ? "bg-red-400" : "bg-[#00e5a0] animate-pulse")} />
+          {paused ? "Paused" : "Live"}
+        </span>
+        <button onClick={onClick} disabled={busy} aria-label={paused ? "Resume bookings" : "Pause bookings"}
+          title={paused ? "Bookings paused — tap to resume" : "Bookings live — tap to pause"}
+          className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50",
+            paused ? "bg-red-500/20 text-red-400" : "bg-[#00e5a0]/15 text-[#00e5a0] hover:bg-[#00e5a0]/25")}>
+          <Power size={18} />
+        </button>
+      </div>
 
       {confirm && (
         <>
