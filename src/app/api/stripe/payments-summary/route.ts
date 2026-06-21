@@ -61,11 +61,17 @@ export async function POST(req: NextRequest) {
     let nextPayoutDate: number | null = null;
     let nextPayoutAmount: number | null = null;
     let lastPayout: { amount: number; date: number } | null = null;
+    // Money already sweeping to the bank (left the Stripe balance as payouts).
+    let inTransit = 0;
     const nowSec = Math.floor(Date.now() / 1000);
     try {
       const payouts = await stripe.payouts.list({ limit: 10 }, opts);
-      // Upcoming = not sent to the bank yet (pending / in_transit).
-      const upcoming = payouts.data.find(p => p.status === "pending" || p.status === "in_transit");
+      // pending + in_transit payouts have left balance.available/pending, so add
+      // them back for the true "heading to your bank" total (= Stripe's total balance).
+      const onTheWay = payouts.data.filter(p => p.status === "pending" || p.status === "in_transit");
+      inTransit = onTheWay.reduce((s, p) => s + p.amount, 0) / 100;
+      // Next payout = the soonest-arriving upcoming payout.
+      const upcoming = [...onTheWay].sort((a, b) => a.arrival_date - b.arrival_date)[0];
       nextPayoutDate = upcoming?.arrival_date ?? null;
       nextPayoutAmount = upcoming ? upcoming.amount / 100 : null;
       // Last payout = the most recent one Stripe has paid out. Show a date that
@@ -102,7 +108,7 @@ export async function POST(req: NextRequest) {
       startingAfter = list.data[list.data.length - 1]?.id;
     }
 
-    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate, nextPayoutAmount, lastPayout });
+    return NextResponse.json({ connected: true, byPi, available, pending, inTransit, nextPayoutDate, nextPayoutAmount, lastPayout });
   } catch (err) {
     return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: err instanceof Error ? err.message : "stripe error" });
   }

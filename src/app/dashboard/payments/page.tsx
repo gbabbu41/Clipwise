@@ -71,7 +71,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
-  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -234,7 +234,9 @@ export default function PaymentsPage() {
   const scopeNetAll = cardSettled.reduce((s, i) => s + netOf(i), 0);
   const scopeCashAll = cashSettled.reduce((s, i) => s + i.amount, 0);
   // Payouts settle to the shop's connected account (shop-level, not per barber yet).
-  const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0);
+  // Everything heading to the bank = balance still in Stripe + payouts already
+  // on the way (= Stripe's "Total balance").
+  const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0) + (stripeNet?.inTransit ?? 0);
 
   const startOf = (kind: "today" | "week" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
