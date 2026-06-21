@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock },
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
-  { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, permKey: "view_earnings" },
+  { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign, permKey: "view_earnings" },
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
 
@@ -201,13 +201,13 @@ export function BarberMobileNav() {
   const pathname = usePathname();
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
-  // 4 page-links + 1 'More' drawer-opener. Earnings hides when the perm
+  // 4 page-links + 1 'More' drawer-opener. Payments hides when the perm
   // is off — list shrinks to 3 links + More to keep balance.
   const linkItems = [
     { href: "/barber-dashboard",          label: "Home",     icon: LayoutDashboard, show: true },
     { href: "/barber-dashboard/calendar", label: "Calendar", icon: CalendarDays,    show: true },
     { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock,           show: true },
-    { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign,      show: perms.view_earnings !== false },
+    { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign,      show: perms.view_earnings !== false },
   ].filter(i => i.show);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 

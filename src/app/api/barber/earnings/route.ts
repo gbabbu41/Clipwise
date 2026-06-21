@@ -10,12 +10,22 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const shopId = searchParams.get("shop_id");
-  let barberQuery = supabaseAdmin.from("barbers").select("id, commission_percent").eq("user_id", user.id);
+  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent").eq("user_id", user.id);
   if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
   const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
   const barber = barberRows?.[0];
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
+
+  // Owner who also cuts keeps 100% — they earned it AND own the shop, so no
+  // commission split applies. Detected server-side via the shop's owner_id.
+  const effShopId = shopId ?? barber.shop_id;
+  let isOwner = false;
+  if (effShopId) {
+    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", effShopId).maybeSingle();
+    isOwner = shopRow?.owner_id === user.id;
+  }
+  const commissionPercent = isOwner ? 100 : barber.commission_percent;
 
   const period = searchParams.get("period") ?? "month";
 
@@ -40,17 +50,30 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   const list = transactions ?? [];
-  const revenue = list.reduce((s, t) => s + t.amount + (t.tip ?? 0), 0);
-  const commission = list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * barber.commission_percent) / 100), 0);
+  const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
+  const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
+  const revenue = serviceAmount + tips;
+  // Service-commission portion (no tips). Owner keeps the whole service amount.
+  const commission = isOwner
+    ? serviceAmount
+    : list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * barber.commission_percent) / 100), 0);
+  // What the barber takes home = their service commission + all tips.
+  // (Owner takes home everything; the shop's cut is whatever is left.)
+  const youKeep = isOwner ? revenue : commission + tips;
+  const shopKeeps = Math.max(0, revenue - youKeep);
 
   return NextResponse.json({
     transactions: list,
     summary: {
       revenue,
       commission,
+      tips,
+      youKeep,
+      shopKeeps,
+      isOwner,
       count: list.length,
       avgTicket: list.length ? revenue / list.length : 0,
-      commissionPercent: barber.commission_percent,
+      commissionPercent,
     },
   });
 }

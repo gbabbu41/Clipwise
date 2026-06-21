@@ -14,6 +14,10 @@ type Period = "week" | "month" | "year";
 interface Summary {
   revenue: number;
   commission: number;
+  tips: number;
+  youKeep: number;
+  shopKeeps: number;
+  isOwner: boolean;
   count: number;
   avgTicket: number;
   commissionPercent: number;
@@ -84,8 +88,9 @@ export default function BarberPaymentsPage() {
 
   const periodLabel = period === "week" ? "This Week" : period === "month" ? "This Month" : "This Year";
   const pct = summary?.commissionPercent ?? 0;
-  const youKeep = summary?.commission ?? 0;
-  const shopKeeps = Math.max(0, (summary?.revenue ?? 0) - youKeep);
+  const isOwner = summary?.isOwner ?? false;
+  const youKeep = summary?.youKeep ?? summary?.commission ?? 0;
+  const shopKeeps = summary?.shopKeeps ?? Math.max(0, (summary?.revenue ?? 0) - youKeep);
   const outstandingTotal = unpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);
 
   const chartData = (() => {
@@ -114,7 +119,7 @@ export default function BarberPaymentsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Payments</h1>
-          <p className="text-[#777] text-sm mt-0.5">{pct ? `${pct}% commission` : "Your pay breakdown"}</p>
+          <p className="text-[#777] text-sm mt-0.5">{isOwner ? "You own this shop · 100%" : pct ? `${pct}% commission` : "Your pay breakdown"}</p>
         </div>
         <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
           {(["week", "month", "year"] as Period[]).map(p => (
@@ -130,14 +135,18 @@ export default function BarberPaymentsPage() {
       {/* You keep / Shop keeps — the exact split of what was collected */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="rounded-2xl border border-[#00e5a0]/25 bg-[#00e5a0]/[0.06] p-4">
-          <p className="text-[10px] uppercase tracking-wide text-[#00e5a0]/80">You keep</p>
+          <p className="text-[10px] uppercase tracking-wide text-[#00e5a0]/80">You earned · keep</p>
           <p className="text-2xl font-extrabold text-[#00e5a0] mt-1">{loading ? "—" : formatCurrency(youKeep)}</p>
-          <p className="text-[11px] text-[#777] mt-0.5">{pct}% of {formatCurrency(summary?.revenue ?? 0)} collected</p>
+          <p className="text-[11px] text-[#777] mt-0.5">
+            {isOwner
+              ? "100% — you own this shop"
+              : `${pct}% of ${formatCurrency(summary?.revenue ?? 0)}${(summary?.tips ?? 0) > 0 ? ` + ${formatCurrency(summary?.tips ?? 0)} tips` : ""}`}
+          </p>
         </div>
         <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
-          <p className="text-[10px] uppercase tracking-wide text-[#777]">Shop keeps</p>
+          <p className="text-[10px] uppercase tracking-wide text-[#777]">Goes to shop</p>
           <p className="text-2xl font-extrabold text-white mt-1">{loading ? "—" : formatCurrency(shopKeeps)}</p>
-          <p className="text-[11px] text-[#777] mt-0.5">{periodLabel}</p>
+          <p className="text-[11px] text-[#777] mt-0.5">{isOwner ? "You keep everything" : `Shop's cut · ${periodLabel}`}</p>
         </div>
       </div>
 
@@ -145,7 +154,7 @@ export default function BarberPaymentsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: "Collected", value: summary ? formatCurrency(summary.revenue) : "—", icon: DollarSign, sub: periodLabel },
-          { label: "My Commission", value: summary ? formatCurrency(summary.commission) : "—", icon: TrendingUp, sub: `${pct}%` },
+          { label: "Tips", value: summary ? formatCurrency(summary.tips) : "—", icon: TrendingUp, sub: "all yours" },
           { label: "Services", value: String(summary?.count ?? "—"), icon: Scissors, sub: "completed" },
           { label: "Avg Ticket", value: summary ? formatCurrency(summary.avgTicket) : "—", icon: Receipt, sub: "per service" },
         ].map(stat => (
