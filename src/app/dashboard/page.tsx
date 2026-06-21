@@ -8,6 +8,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { CalendarView } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { cn, formatCurrency, getStatusColor, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate } from "@/lib/utils";
@@ -607,44 +608,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left / main column */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Calendar Widget — uses the shared <Calendar> component for proper
-              month navigation, focus handling, and tap targets. Past dates are
-              greyed via minDate, today and future remain clickable.
-              Soft bone tint (matches the ceramic accent palette) so it
-              visually separates from the surrounding cards. */}
-          <Card className="!bg-[#141414]">
-            <CardContent>
-              <CalendarPicker
-                value={selectedCalDate ? new Date(selectedCalDate + "T00:00:00") : null}
-                onChange={(d) => {
-                  const ds = formatDateForDb(d);
-                  setSelectedCalDate(ds === selectedCalDate ? null : ds);
-                }}
-                onMonthChange={(first) => { setCalYear(first.getFullYear()); setCalMonth(first.getMonth()); }}
-                renderDayBadge={(d) => {
-                  const ds = formatDateForDb(d);
-                  const count = apptCounts[ds] ?? 0;
-                  if (count === 0) return null;
-                  const isSelected = ds === selectedCalDate;
-                  return (
-                    <span className={cn(
-                      "min-w-[18px] text-center px-1 rounded-full text-[10px] font-bold leading-tight",
-                      isSelected ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-700",
-                    )}>
-                      {count}
-                    </span>
-                  );
-                }}
-                className="max-w-none w-full"
-              />
-              {selectedCalDate && (
-                <p className="text-xs text-white mt-3 text-center">
-                  Showing {apptCounts[selectedCalDate] ?? 0} appointment{(apptCounts[selectedCalDate] ?? 0) === 1 ? "" : "s"} for {friendlyDate(selectedCalDate)}
-                  <button onClick={() => setSelectedCalDate(null)} className="ml-2 text-[#777] hover:text-white underline">Clear</button>
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Calendar — the full Calendar tab embedded here (day/week/month,
+              barber columns, tap-to-add), so Home mirrors /dashboard/calendar. */}
+          <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
+            <CalendarView embedded />
+          </div>
 
           {/* Today's / Selected Schedule — same bone tint as the calendar
               above, so the two cards read as a connected unit. */}
