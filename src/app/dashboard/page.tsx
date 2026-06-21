@@ -464,13 +464,16 @@ export default function DashboardPage() {
           is maxed. */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white uppercase tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
-          <p className="text-[#777] text-sm mt-0.5">{friendlyDate(new Date())}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-2xl font-bold text-white uppercase tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
+            {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
+              <span className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-black text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 shadow-[0_2px_10px_rgba(245,158,11,0.45)] ring-1 ring-amber-200/40">
+                <Star size={10} className="fill-black" /> {shop.subscription_plan}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-          {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-            <span className="cw-plan-pill">{shop.subscription_plan}</span>
-          )}
           {/* Desktop-only bell + avatar — only at lg+, where the floating
               chrome pill is hidden (tablets/phones get it from the chrome). */}
           <Link
