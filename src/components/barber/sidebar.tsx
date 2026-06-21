@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Calendar, Clock, Users, DollarSign, User, LogOut, ChevronRight, Scissors, Building2, CalendarOff, Menu } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -19,10 +19,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/barber-dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/barber-dashboard/schedule", label: "My Schedule", icon: Calendar },
-  // Availability stays visible even when edit is disabled — the page itself
-  // shows a read-only view with a lock banner.
-  { href: "/barber-dashboard/hours", label: "Availability", icon: Clock },
+  { href: "/barber-dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  // Schedule = working hours (read-only unless edit_schedule is granted).
+  { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock },
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
   { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign, permKey: "view_earnings" },
@@ -206,8 +205,8 @@ export function BarberMobileNav() {
   // is off — list shrinks to 3 links + More to keep balance.
   const linkItems = [
     { href: "/barber-dashboard",          label: "Home",     icon: LayoutDashboard, show: true },
-    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Calendar,        show: true },
-    { href: "/barber-dashboard/hours",    label: "Hours",    icon: Clock,           show: true },
+    { href: "/barber-dashboard/calendar", label: "Calendar", icon: CalendarDays,    show: true },
+    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock,           show: true },
     { href: "/barber-dashboard/earnings", label: "Earnings", icon: DollarSign,      show: perms.view_earnings !== false },
   ].filter(i => i.show);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
