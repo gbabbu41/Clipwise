@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency, cn, timeToMinutes } from "@/lib/utils";
+import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -582,11 +582,16 @@ export default function PaymentsPage() {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <span className={cn("font-semibold text-white text-sm truncate", refunded && "line-through")}>{i.name}</span>
-                      <span className={cn("font-bold text-sm flex-shrink-0", refunded ? "text-[#888] line-through" : "text-white")}>
-                        {formatCurrency(netOf(i))}
-                      </span>
+                      <div className="flex flex-col items-end flex-shrink-0 leading-tight">
+                        <span className={cn("font-bold text-sm", refunded ? "text-[#888] line-through" : "text-white")}>
+                          {formatCurrency(netOf(i))}
+                        </span>
+                        {i.tsIso && timeAgo(i.tsIso) && (
+                          <span className="text-[9px] text-[#666] mt-0.5">{timeAgo(i.tsIso)}</span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-[#777] truncate">{i.sub}</p>
                     <div className="flex items-center justify-between mt-0.5">
