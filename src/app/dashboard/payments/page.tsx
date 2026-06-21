@@ -234,9 +234,9 @@ export default function PaymentsPage() {
   const scopeNetAll = cardSettled.reduce((s, i) => s + netOf(i), 0);
   const scopeCashAll = cashSettled.reduce((s, i) => s + i.amount, 0);
   // Payouts settle to the shop's connected account (shop-level, not per barber yet).
-  // "Heading to your bank" = payouts Stripe is actively sending now (in-transit).
-  // Matches Stripe's "On the way to your bank" (excludes funds still settling).
-  const payout = stripeNet?.inTransit ?? 0;
+  // Hero = Stripe's Total balance: everything not yet in the bank — funds still
+  // settling (available + pending) plus payouts already on the way (in-transit).
+  const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0) + (stripeNet?.inTransit ?? 0);
 
   const startOf = (kind: "today" | "week" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -436,7 +436,7 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400">Heading to your bank</p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">Stripe balance</p>
               <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
               {stripeNet?.nextPayoutDate ? (
                 <div className="text-xs text-gray-500 mt-1.5 leading-snug">
