@@ -296,12 +296,13 @@ export function makeApptActions(opts: {
 }
 
 // ── Appointment detail modal (DARK overlay — intentional over the light canvas) ─
-export function ApptDetail({ appt, barbers, onClose, actions, busy }: {
+export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = false }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
   onClose: () => void;
   actions: ApptActions;
   busy: string;
+  readOnly?: boolean;   // hide all action buttons (e.g. barber without manage_appointments)
 }) {
   const barber = barbers.find(b => b.id === appt.barber_id);
   const [payChoice, setPayChoice] = useState(false);
@@ -375,8 +376,10 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy }: {
             <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
           )}
 
-          {/* Actions — same set as the Appointments page, kept compact. */}
-          {payChoice ? (
+          {/* Actions — same set as the Appointments page, kept compact.
+              Hidden entirely in read-only mode (e.g. a barber without
+              manage_appointments) — they get a view-only detail card. */}
+          {readOnly ? null : payChoice ? (
             <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
               <p className="text-xs text-[#777]">How was this paid?</p>
               <input
@@ -504,7 +507,7 @@ function AgendaSheet({
   );
 }
 
-export function CalendarView({ embedded = false }: { embedded?: boolean }) {
+export function CalendarView({ embedded = false, canManage = true }: { embedded?: boolean; canManage?: boolean }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
   const [view, setView] = useState<"month" | "week" | "day">(embedded ? "month" : "day");
@@ -793,6 +796,7 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
 
   // Open the quick-add modal pre-filled for a slot.
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number) => {
+    if (!canManage) return; // read-only (e.g. a barber without manage_appointments)
     setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
     setAddCtx({ barberId, barberName, time, boxMinutes });
   };
@@ -1603,6 +1607,7 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
             onClose={() => setSelectedAppt(null)}
             actions={apptActions}
             busy={actionBusy}
+            readOnly={!canManage}
           />
         </Portal>
       )}

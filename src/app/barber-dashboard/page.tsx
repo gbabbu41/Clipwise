@@ -6,6 +6,7 @@ import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CalendarView } from "@/components/calendar-view";
 import Link from "next/link";
 
 interface Appointment {
@@ -30,6 +31,8 @@ const STATUS_STYLES: Record<string, string> = {
 export default function BarberOverviewPage() {
   const { accessToken } = useAuth();
   const { barber, shop, loading: barberLoading } = useBarber();
+  // Owner grants this per barber; without it the embedded calendar is read-only.
+  const canManage = barber?.permissions?.manage_appointments === true;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
@@ -188,6 +191,15 @@ export default function BarberOverviewPage() {
             </div>
           ));
         })()}
+      </div>
+
+      {/* Calendar — the same embedded calendar as the owner portal, scoped to
+          you. Read-only unless the owner granted "manage appointments". */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">My Calendar</h2>
+        <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
+          <CalendarView embedded canManage={canManage} />
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
