@@ -302,6 +302,11 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
+  // Outstanding = a real balance not yet settled and not on a held/saved card
+  // (those auto-charge on Complete). Drives the standalone "Take Payment" button.
+  const outstanding = (appt.total_amount ?? 0) > 0
+    && appt.payment_status !== "paid" && appt.payment_status !== "captured"
+    && appt.payment_status !== "refunded" && !heldOrSaved;
 
   // "Complete" is context-aware: held/saved cards auto-charge; already-paid /
   // zero-amount complete straight through; otherwise we reveal payment choices.
@@ -386,23 +391,35 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy }: {
                 {busy === "complete" ? "Completing…" : "Skip · Complete unpaid"}
               </Button>
             </div>
-          ) : (appt.status === "pending" || appt.status === "confirmed") ? (
-            <div className="flex gap-2 pt-1 border-t border-[#1e1e1e]">
-              {appt.status === "pending" && (
-                <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => actions.approve(appt)}>
-                  {busy === "approve" ? "…" : "Approve"}
+          ) : (
+            <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
+              {(appt.status === "pending" || appt.status === "confirmed") && (
+                <div className="flex gap-2">
+                  {appt.status === "pending" && (
+                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => actions.approve(appt)}>
+                      {busy === "approve" ? "…" : "Approve"}
+                    </Button>
+                  )}
+                  {appt.status === "confirmed" && (
+                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={onComplete}>
+                      {busy === "complete" || busy === "capture" ? "…" : "Complete"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="flex-1" disabled={!!busy} onClick={() => actions.reject(appt)}>
+                    {busy === "reject" ? "…" : "Reject"}
+                  </Button>
+                </div>
+              )}
+              {/* Take Payment — any unpaid appointment with a balance (e.g. a
+                  completed, manually-added booking). Held/saved cards auto-charge
+                  on Complete, so they're excluded here. */}
+              {outstanding && (
+                <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => setPayChoice(true)}>
+                  💳 Take Payment · ${Number(appt.total_amount ?? 0).toFixed(0)}
                 </Button>
               )}
-              {appt.status === "confirmed" && (
-                <Button size="sm" className="flex-1" disabled={!!busy} onClick={onComplete}>
-                  {busy === "complete" || busy === "capture" ? "…" : "Complete"}
-                </Button>
-              )}
-              <Button size="sm" variant="outline" className="flex-1" disabled={!!busy} onClick={() => actions.reject(appt)}>
-                {busy === "reject" ? "…" : "Reject"}
-              </Button>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </>
