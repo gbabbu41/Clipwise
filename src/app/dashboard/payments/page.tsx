@@ -95,6 +95,20 @@ export default function PaymentsPage() {
       .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string }[]));
   }, [shop]);
 
+  // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
+  // can re-sync it on its own cadence (Stripe state doesn't fire Supabase events).
+  const syncStripe = useCallback(async () => {
+    if (!shop) return;
+    try {
+      const r = await fetch("/api/stripe/payments-summary", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shop.id }),
+      });
+      const d = r.ok ? await r.json() : null;
+      if (d && !d.error) setStripeNet(d);
+    } catch { /* transient/offline — keep last known figures */ }
+  }, [shop]);
+
   const loadData = useCallback(async () => {
     if (!shop) return;
     setLoading(true);
@@ -109,12 +123,25 @@ export default function PaymentsPage() {
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
     setLoading(false);
-    fetch("/api/stripe/payments-summary", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shop_id: shop.id }),
-    }).then(r => (r.ok ? r.json() : null)).then(d => { if (d && !d.error) setStripeNet(d); }).catch(() => {});
-  }, [shop]);
+    syncStripe();
+  }, [shop, syncStripe]);
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Keep the Stripe payout/balance figures live. A payout landing or the balance
+  // moving never fires a Supabase change, so re-sync from Stripe when the tab
+  // regains focus and on a light interval while the page is visible.
+  useEffect(() => {
+    if (!shop) return;
+    const onVisible = () => { if (document.visibilityState === "visible") syncStripe(); };
+    window.addEventListener("focus", syncStripe);
+    document.addEventListener("visibilitychange", onVisible);
+    const id = setInterval(onVisible, 60000);
+    return () => {
+      window.removeEventListener("focus", syncStripe);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(id);
+    };
+  }, [shop, syncStripe]);
 
   useEffect(() => {
     if (!accessToken) return;
