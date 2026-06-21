@@ -957,13 +957,13 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
     });
 
     return (
-      <div className="flex flex-col h-full">
+      <div className={cn("flex flex-col", !embedded && "h-full")}>
         <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c]">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
             <div key={d} className="px-2 py-2 text-xs font-medium text-[#666] text-center">{d}</div>
           ))}
         </div>
-        <div className="flex-1 grid grid-cols-7 auto-rows-fr">
+        <div className={cn("grid grid-cols-7", embedded ? "" : "flex-1 auto-rows-fr")}>
           {visibleDays.map((day) => {
             const inMonth = isSameMonth(day, currentDate);
             const dayStr = formatDateForDb(day);
@@ -975,7 +975,8 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
                 key={dayStr}
                 onClick={() => setAgendaDate(day)}
                 className={cn(
-                  "border-r border-b border-[#161616] p-1 sm:p-1.5 text-left flex flex-col gap-1 min-h-[96px] sm:min-h-[132px] transition-colors",
+                  "border-r border-b border-[#161616] p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors",
+                  embedded ? "min-h-[58px] sm:min-h-[88px]" : "min-h-[96px] sm:min-h-[132px]",
                   "hover:bg-[#141414]",
                   !inMonth && "bg-[#070707]",
                 )}
@@ -1583,7 +1584,7 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden bg-[#0a0a0a]">
+      <div className={cn("flex-1 bg-[#0a0a0a]", embedded ? "overflow-y-auto" : "overflow-hidden")}>
         {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
       </div>
 
