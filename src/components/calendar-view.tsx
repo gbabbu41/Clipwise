@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -19,6 +20,16 @@ import {
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 
 type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
+
+// Overlays (modals / side sheet) render through the document body so their
+// position:fixed always resolves to the viewport — when this calendar is
+// embedded (e.g. on the dashboard) an ancestor with a transform/animation would
+// otherwise trap fixed positioning and break their layout + dismissal.
+function Portal({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  return mounted && typeof document !== "undefined" ? createPortal(children, document.body) : null;
+}
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
@@ -1543,41 +1554,47 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
       </div>
 
       {selectedAppt && (
-        <ApptDetail
-          appt={selectedAppt}
-          barbers={barbers}
-          onClose={() => setSelectedAppt(null)}
-          actions={apptActions}
-          busy={actionBusy}
-        />
+        <Portal>
+          <ApptDetail
+            appt={selectedAppt}
+            barbers={barbers}
+            onClose={() => setSelectedAppt(null)}
+            actions={apptActions}
+            busy={actionBusy}
+          />
+        </Portal>
       )}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-          <span className="text-white">✓</span>{toast}
-          <button onClick={() => setToast("")} className="text-[#777] hover:text-white ml-2">✕</button>
-        </div>
+        <Portal>
+          <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+            <span className="text-white">✓</span>{toast}
+            <button onClick={() => setToast("")} className="text-[#777] hover:text-white ml-2">✕</button>
+          </div>
+        </Portal>
       )}
       {agendaDate && (
-        <AgendaSheet
-          date={agendaDate}
-          appts={appointments.filter(a => a.date === formatDateForDb(agendaDate) && a.status !== "cancelled")}
-          barbers={barbers}
-          onClose={() => setAgendaDate(null)}
-          onOpenAppt={(a) => { setAgendaDate(null); setSelectedAppt(a); }}
-          onDrillToDay={() => {
-            setCurrentDate(agendaDate);
-            setView("day");
-            setAgendaDate(null);
-          }}
-        />
+        <Portal>
+          <AgendaSheet
+            date={agendaDate}
+            appts={appointments.filter(a => a.date === formatDateForDb(agendaDate) && a.status !== "cancelled")}
+            barbers={barbers}
+            onClose={() => setAgendaDate(null)}
+            onOpenAppt={(a) => { setAgendaDate(null); setSelectedAppt(a); }}
+            onDrillToDay={() => {
+              setCurrentDate(agendaDate);
+              setView("day");
+              setAgendaDate(null);
+            }}
+          />
+        </Portal>
       )}
 
       {/* Quick-add appointment (DARK overlay) — opened from a "+" empty slot.
           Barber, date and time are fixed by the slot; the owner just picks a
           client + service. */}
       {addCtx && (
-        <>
+        <Portal>
           <div className="fixed inset-0 bg-black/60 z-[70]" onClick={() => !savingAdd && setAddCtx(null)} />
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
@@ -1647,7 +1664,7 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
               </div>
             </div>
           </div>
-        </>
+        </Portal>
       )}
     </div>
   );
