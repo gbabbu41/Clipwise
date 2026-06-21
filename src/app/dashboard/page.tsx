@@ -177,6 +177,13 @@ export default function DashboardPage() {
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showAddWalkin, setShowAddWalkin] = useState(false);
+  // Defer mounting the heavy embedded calendar until after the dashboard paints,
+  // so a slow calendar load never holds up the rest of the home.
+  const [calReady, setCalReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setCalReady(true), 50);
+    return () => clearTimeout(t);
+  }, []);
   const [walkinName, setWalkinName] = useState("");
   const [walkinBarber, setWalkinBarber] = useState("");
   const [walkinService, setWalkinService] = useState("");
@@ -660,7 +667,9 @@ export default function DashboardPage() {
           {/* Calendar — the full Calendar tab embedded here (day/week/month,
               barber columns, tap-to-add), so Home mirrors /dashboard/calendar. */}
           <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
-            <CalendarView embedded />
+            {calReady
+              ? <CalendarView embedded />
+              : <div className="h-full flex items-center justify-center text-[#777] text-sm">Loading calendar…</div>}
           </div>
 
           {/* Today's / Selected Schedule — same bone tint as the calendar
