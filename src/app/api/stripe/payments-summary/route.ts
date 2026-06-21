@@ -64,19 +64,15 @@ export async function POST(req: NextRequest) {
     const nowSec = Math.floor(Date.now() / 1000);
     try {
       const payouts = await stripe.payouts.list({ limit: 10 }, opts);
-      // Upcoming = money not in the bank yet: pending / in_transit, OR even a
-      // "paid" payout whose arrival date is still in the future (test/sandbox
-      // marks payouts paid immediately but keeps a future arrival date).
-      const upcoming = payouts.data.find(p =>
-        p.status === "pending" || p.status === "in_transit" ||
-        (p.status === "paid" && p.arrival_date > nowSec),
-      );
+      // Upcoming = not sent to the bank yet (pending / in_transit).
+      const upcoming = payouts.data.find(p => p.status === "pending" || p.status === "in_transit");
       nextPayoutDate = upcoming?.arrival_date ?? null;
       nextPayoutAmount = upcoming ? upcoming.amount / 100 : null;
-      // Last payout = one that has GENUINELY landed: paid AND already arrived.
-      // Never show a "last payout" dated in the future.
-      const paid = payouts.data.find(p => p.status === "paid" && p.arrival_date <= nowSec);
-      if (paid) lastPayout = { amount: paid.amount / 100, date: paid.arrival_date };
+      // Last payout = the most recent one Stripe has paid out. Show a date that
+      // isn't in the future: use arrival_date once it's passed, otherwise the
+      // created date (sandbox marks payouts paid with a future arrival date).
+      const paid = payouts.data.find(p => p.status === "paid");
+      if (paid) lastPayout = { amount: paid.amount / 100, date: paid.arrival_date <= nowSec ? paid.arrival_date : paid.created };
     } catch { /* schedule not available — leave null */ }
 
     // No pending payout object yet → estimate the next date from the schedule.
