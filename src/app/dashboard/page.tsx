@@ -11,7 +11,8 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, paymentTag } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
+import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -678,7 +679,6 @@ export default function DashboardPage() {
                   .sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""))
                   .map((apt) => {
                   const dimmed = apt.status === "cancelled" || apt.status === "no-show";
-                  const tag = paymentTag(apt);
                   const mins = apptMins(apt);
                   const [hh, mer] = (apt.time_slot ?? "").split(" ");
                   return (
@@ -697,9 +697,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
-                        <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap", tag.className)}>
-                          {tag.label}
-                        </span>
+                        <PaymentTag appt={apt} />
                       </div>
                     </button>
                   );

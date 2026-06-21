@@ -4,7 +4,8 @@ import { Calendar, Clock, DollarSign, Star, ChevronRight, User, LogIn, LogOut } 
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatDateForDb, friendlyDate, paymentTag } from "@/lib/utils";
+import { cn, formatDateForDb, friendlyDate } from "@/lib/utils";
+import { PaymentTag } from "@/components/payment-tag";
 import { Button } from "@/components/ui/button";
 import { CalendarView } from "@/components/calendar-view";
 import Link from "next/link";
@@ -269,7 +270,6 @@ export default function BarberOverviewPage() {
             <div className="space-y-2">
               {appointments.map(appt => {
                 const dimmed = appt.status === "cancelled" || appt.status === "no-show";
-                const tag = paymentTag(appt);
                 const mins = appt.services?.duration_minutes;
                 return (
                   <div key={appt.id} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-3">
@@ -284,9 +284,7 @@ export default function BarberOverviewPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="text-sm font-semibold text-white">${appt.total_amount}</span>
-                      <span className={cn("text-[10px] leading-none px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap", tag.className)}>
-                        {tag.label}
-                      </span>
+                      <PaymentTag appt={appt} />
                     </div>
                   </div>
                 );

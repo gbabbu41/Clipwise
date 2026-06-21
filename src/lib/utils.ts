@@ -41,9 +41,11 @@ export function getStatusColor(status: string): string {
 }
 
 /**
- * Payment-state tag for an appointment — small, clean pill used on the
- * dashboards' Today's Schedule. Colours match the Payments page:
- *  • Paid · Card → green   • Paid · Cash → amber (the cash colour)
+ * Payment-state tag for an appointment — returns coloured text segments for a
+ * small, clean pill used on the dashboards' Today's Schedule. Colours match
+ * the Payments page, and the pill is two-toned: "Paid" is always green, while
+ * the method word carries its own colour (Cash → amber, Card → green).
+ *  • Paid · Card → green · green   • Paid · Cash → green · amber (cash colour)
  *  • Awaiting payment (a checkout link was emailed/texted) → sky
  *  • Unpaid (payment due, no link sent) → amber
  *  • Refunded / cancelled / no-show → muted grey
@@ -53,21 +55,27 @@ export function paymentTag(a: {
   payment_method?: string | null;
   status?: string | null;
   stripe_checkout_session_id?: string | null;
-}): { label: string; className: string } {
+}): { bg: string; segments: { text: string; className: string }[] } {
+  const GREEN = "text-[#00e5a0]";
+  const AMBER = "text-amber-400";
+  const SKY = "text-sky-400";
+  const MUTED = "text-[#888]";
+  const bg = "bg-white/[0.06]";
   const paid = a.payment_status === "paid" || a.payment_status === "captured";
   if (paid) {
     const cash = a.payment_method === "cash";
-    return cash
-      ? { label: "Paid · Cash", className: "bg-amber-500/10 text-amber-400" }
-      : { label: "Paid · Card", className: "bg-[#00e5a0]/10 text-[#00e5a0]" };
+    return { bg, segments: [
+      { text: "Paid", className: GREEN },
+      { text: cash ? "Cash" : "Card", className: cash ? AMBER : GREEN },
+    ] };
   }
-  if (a.payment_status === "refunded") return { label: "Refunded", className: "bg-[#1a1a1a] text-[#888]" };
-  if (a.status === "no-show") return { label: "No-show", className: "bg-[#1a1a1a] text-[#888]" };
-  if (a.status === "cancelled") return { label: "Cancelled", className: "bg-[#1a1a1a] text-[#888]" };
+  if (a.payment_status === "refunded") return { bg, segments: [{ text: "Refunded", className: MUTED }] };
+  if (a.status === "no-show") return { bg, segments: [{ text: "No-show", className: MUTED }] };
+  if (a.status === "cancelled") return { bg, segments: [{ text: "Cancelled", className: MUTED }] };
   // Unpaid: a sent checkout link means we're waiting on the customer;
   // otherwise the payment is simply still due.
-  if (a.stripe_checkout_session_id) return { label: "Awaiting payment", className: "bg-sky-500/10 text-sky-400" };
-  return { label: "Unpaid", className: "bg-amber-500/10 text-amber-400" };
+  if (a.stripe_checkout_session_id) return { bg, segments: [{ text: "Awaiting payment", className: SKY }] };
+  return { bg, segments: [{ text: "Unpaid", className: AMBER }] };
 }
 
 export function getTagColor(tag: string): string {
