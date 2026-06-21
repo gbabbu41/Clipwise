@@ -14,7 +14,7 @@ export default function BarberCalendarPage() {
       <h1 className="text-2xl font-bold text-white uppercase tracking-wide mb-3">Calendar</h1>
       <div className="h-[calc(100dvh-11rem)] min-h-[480px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
         {barber
-          ? <CalendarView embedded canManage={canManage} forceBarberId={barber.id} />
+          ? <CalendarView embedded defaultView="day" canManage={canManage} forceBarberId={barber.id} />
           : <div className="h-full flex items-center justify-center text-[#777] text-sm">Loading calendar…</div>}
       </div>
     </div>

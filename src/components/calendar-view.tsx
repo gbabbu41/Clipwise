@@ -507,10 +507,14 @@ function AgendaSheet({
   );
 }
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "month" | "week" | "day" }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
-  const [view, setView] = useState<"month" | "week" | "day">(embedded ? "month" : "day");
+  // defaultView overrides both (the barber Calendar tab opens on today).
+  const [view, setView] = useState<"month" | "week" | "day">(defaultView ?? (embedded ? "month" : "day"));
+  // Barber portal (forceBarberId) isolates the calendar to that one barber —
+  // even for an owner who also cuts: no other-barber chrome (selector/pager).
+  const isolated = !!forceBarberId;
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
@@ -1495,9 +1499,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Owner's own barber leads; the rest keep their fetched (alphabetical) order.
   // BOTH the selector chips and the day columns use this exact order, so
   // switching all-barbers ↔ single-barber never reshuffles positions.
-  const orderedBarbers = barbers.length > 0
-    ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
-    : [];
+  const orderedBarbers = isolated
+    ? barbers.filter(b => b.id === forceBarberId)
+    : barbers.length > 0
+      ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
+      : [];
   const dayAllCols = orderedBarbers.length > 0
     ? orderedBarbers
     : [{ id: "none", name: "All Barbers" } as Barber];
@@ -1509,7 +1515,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     : (colWrapW > 0 ? Math.max(1, Math.floor((colWrapW - 56) / 150)) : 6);
   const dayPages = Math.max(1, Math.ceil(dayAllCols.length / dayPerPage));
   const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
-  const dayPagerVisible = view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
+  const dayPagerVisible = !isolated && view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
   return (
     <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
       {/* Header bar — date (left) + barber pager (center, day view) + view (right), one row */}
@@ -1577,7 +1583,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       {/* Barber selector row — profile-pic chips incl. an "All barbers" chip.
           Hidden in the all-barbers DAY view, where the column headers double as
           the selector (no duplicate row). Shown everywhere else. */}
-      {profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
+      {!isolated && profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
