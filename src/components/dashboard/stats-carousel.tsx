@@ -62,8 +62,16 @@ export function StatsCarousel({
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>;
   const card = "bg-white border border-gray-100 rounded-2xl p-4 shadow-sm h-full flex flex-col";
-  // Pin tooltips to the top strip (empty space) and keep them inside the card.
-  const tip = { contentStyle: { borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }, position: { y: 0 }, allowEscapeViewBox: { x: false, y: false } } as const;
+  // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
+  // — so tapping a bar shows its value without the popup covering / blocking the
+  // neighbouring bars. Shared by every chart so the behaviour is global.
+  const tip = {
+    contentStyle: { borderRadius: 10, border: "1px solid #eee", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.10)" },
+    wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
+    position: { y: 0 },
+    allowEscapeViewBox: { x: true, y: true },
+    isAnimationActive: false,
+  } as const;
 
   const slides = [
     // 1 — Revenue (area)
@@ -74,7 +82,7 @@ export function StatsCarousel({
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
       <div className="flex-1 min-h-[96px] mt-2 -mx-1">
-        {chartData.length > 0 ? (
+        {chartData.length > 1 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <defs>
@@ -84,9 +92,18 @@ export function StatsCarousel({
                 </linearGradient>
               </defs>
               <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
-              <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#cwRev)" dot={{ r: 2, fill: "#10b981", strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#cwRev)" dot={{ r: 2, fill: "#10b981", strokeWidth: 0 }} isAnimationActive={false} />
               <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} />
             </AreaChart>
+          </ResponsiveContainer>
+        ) : chartData.length === 1 ? (
+          // One day (e.g. "Today") can't draw an area — show a single clean bar.
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={44} isAnimationActive={false} />
+              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "#f3f4f6" }} />
+            </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
       </div>
@@ -104,7 +121,7 @@ export function StatsCarousel({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
-              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
               <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={{ fill: "#f3f4f6" }} />
             </BarChart>
           </ResponsiveContainer>
@@ -121,7 +138,7 @@ export function StatsCarousel({
             <BarChart data={revenueByBarber} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
               <XAxis type="number" hide />
               <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} isAnimationActive={false} />
               <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "#f3f4f6" }} />
             </BarChart>
           </ResponsiveContainer>
@@ -138,7 +155,7 @@ export function StatsCarousel({
             <div className="w-1/2 h-[120px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={statusMix} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} stroke="none">
+                  <Pie data={statusMix} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} stroke="none" isAnimationActive={false}>
                     {statusMix.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
                   <Tooltip {...tip} />
