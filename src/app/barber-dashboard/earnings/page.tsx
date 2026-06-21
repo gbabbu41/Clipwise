@@ -17,8 +17,11 @@ interface Tx {
   tip: number;
   commission_amount?: number | null;
   payment_method?: string | null;
+  payment_intent_id?: string | null;
   created_at: string;
 }
+
+const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
 
 // Tooltip rides the top strip and never captures touches (see stats carousel).
 const tip = {
@@ -38,31 +41,48 @@ export default function BarberPaymentsPage() {
   const [pct, setPct] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [stripeNet, setStripeNet] = useState<{ byPi: Record<string, { gross: number; fee: number; net: number }> } | null>(null);
 
   const [slide, setSlide] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   // ── All-time transactions in one call; periods are derived client-side ──
-  useEffect(() => {
+  const loadEarnings = useCallback(async () => {
     if (!accessToken) return;
-    setLoading(true);
     const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
-    fetch(`/api/barber/earnings?period=all${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
-      .then(({ transactions, summary }) => {
-        setTxs((transactions ?? []) as Tx[]);
-        setPct(summary?.commissionPercent ?? 0);
-        setIsOwner(summary?.isOwner ?? false);
-      })
-      .finally(() => setLoading(false));
+    const r = await fetch(`/api/barber/earnings?period=all${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const d = r.ok ? await r.json() : null;
+    if (d) { setTxs((d.transactions ?? []) as Tx[]); setPct(d.summary?.commissionPercent ?? 0); setIsOwner(d.summary?.isOwner ?? false); }
+    setLoading(false);
   }, [accessToken, shop?.id]);
 
-  // His take-home per transaction = commission cut (100% if owner) + all tips.
+  // Exact Stripe net/fees per card payment (fees aren't stored in our DB).
+  const syncStripe = useCallback(async () => {
+    if (!shop?.id) return;
+    try {
+      const r = await fetch("/api/stripe/payments-summary", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shop.id }),
+      });
+      const d = r.ok ? await r.json() : null;
+      if (d && !d.error) setStripeNet(d);
+    } catch { /* transient/offline — keep last known figures */ }
+  }, [shop?.id]);
+
+  useEffect(() => { loadEarnings(); syncStripe(); }, [loadEarnings, syncStripe]);
+
+  // Card payments lose a Stripe fee (not stored locally). An owner keeping 100%
+  // nets gross − fee; a staff barber keeps their commission on the service
+  // amount and the shop bears the processing fee.
+  const feeOf = useCallback((t: Tx) =>
+    (t.payment_method !== "cash" && t.payment_intent_id && stripeNet?.byPi[t.payment_intent_id])
+      ? stripeNet.byPi[t.payment_intent_id].fee : 0, [stripeNet]);
   const earnedOf = useCallback((t: Tx) => {
-    const commission = isOwner ? t.amount : (t.commission_amount ?? (t.amount * pct) / 100);
-    return commission + (t.tip ?? 0);
-  }, [isOwner, pct]);
-  const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
+    const tip = t.tip ?? 0;
+    if (isOwner) return grossOf(t) - feeOf(t);
+    const commission = t.commission_amount ?? (t.amount * pct) / 100;
+    return commission + tip;
+  }, [isOwner, pct, feeOf]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -77,6 +97,7 @@ export default function BarberPaymentsPage() {
     const earned = inP.reduce((s, t) => s + earnedOf(t), 0);
     const gross = inP.reduce((s, t) => s + grossOf(t), 0);
     const tips = inP.reduce((s, t) => s + (t.tip ?? 0), 0);
+    const fees = inP.reduce((s, t) => s + feeOf(t), 0);
     const cash = inP.filter(t => t.payment_method === "cash").reduce((s, t) => s + earnedOf(t), 0);
     const count = inP.length;
     const m = new Map<string, { order: number; val: number }>();
@@ -90,8 +111,8 @@ export default function BarberPaymentsPage() {
       cur.val += earnedOf(t); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, val: v.val, order: v.order })).sort((a, b) => a.order - b.order);
-    return { earned, gross, tips, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
-  }, [txs, earnedOf]);
+    return { earned, gross, tips, fees, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
+  }, [txs, earnedOf, feeOf]);
 
   const periods = useMemo(() => [
     { key: "week", label: "This week", ...summarize(startOf("week"), false) },
@@ -125,6 +146,28 @@ export default function BarberPaymentsPage() {
     setUnpaid(rows);
   }, [shop?.id, barber?.id]);
   useEffect(() => { loadUnpaid(); }, [loadUnpaid]);
+
+  // Realtime + refresh — a charge/no-show fee shows up without a manual reload.
+  // (Stripe state never fires a DB event, so also re-sync on focus + interval.)
+  useEffect(() => {
+    if (!shop?.id) return;
+    const reload = () => { loadEarnings(); loadUnpaid(); syncStripe(); };
+    const ch = supabase
+      .channel(`barber-payments:${shop.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `shop_id=eq.${shop.id}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, reload)
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") reload(); };
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", onVisible);
+    const id = setInterval(onVisible, 60000);
+    return () => {
+      supabase.removeChannel(ch);
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(id);
+    };
+  }, [shop?.id, loadEarnings, loadUnpaid, syncStripe]);
 
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
     setUnpaid(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
@@ -164,7 +207,7 @@ export default function BarberPaymentsPage() {
             <p className="text-[10px] uppercase tracking-wide text-gray-400">You earned · all-time</p>
             <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(all.earned)}</p>
             <p className="text-xs text-gray-500 mt-1.5">
-              From {formatCurrency(all.gross)} collected{all.cash > 0 ? ` · ${formatCurrency(all.cash)} in cash` : ""}
+              From {formatCurrency(all.gross)} collected{all.fees > 0 ? ` · ${formatCurrency(all.fees)} Stripe fees` : ""}
             </p>
             <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
               <div>
@@ -280,7 +323,11 @@ export default function BarberPaymentsPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-semibold text-white">{formatCurrency(grossOf(t))}</p>
-                  <p className="text-[11px]"><span className="text-[#00e5a0]">↳ {formatCurrency(earnedOf(t))}</span> <span className={cash ? "text-amber-400" : "text-[#666]"}>{cash ? "cash" : "card"}</span></p>
+                  <p className="text-[11px]">
+                    <span className="text-[#00e5a0]">↳ {formatCurrency(earnedOf(t))}</span>{" "}
+                    <span className={cash ? "text-amber-400" : "text-[#666]"}>{cash ? "cash" : "card"}</span>
+                    {!cash && feeOf(t) > 0 && <span className="text-[#666]"> · −{formatCurrency(feeOf(t))} fee</span>}
+                  </p>
                 </div>
               </div>
             );
