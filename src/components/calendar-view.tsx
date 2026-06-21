@@ -17,7 +17,7 @@ import {
   notifyFreedSlot,
   sendRejectionEmail,
 } from "@/lib/appointment-actions";
-import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
+import type { AppointmentWithDetails, Barber, Shop } from "@/lib/database.types";
 
 type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
 
@@ -25,7 +25,7 @@ type ServiceLite = { id: string; name: string; price: number; duration_minutes: 
 // position:fixed always resolves to the viewport — when this calendar is
 // embedded (e.g. on the dashboard) an ancestor with a transform/animation would
 // otherwise trap fixed positioning and break their layout + dismissal.
-function Portal({ children }: { children: ReactNode }) {
+export function Portal({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   return mounted && typeof document !== "undefined" ? createPortal(children, document.body) : null;
@@ -165,7 +165,7 @@ const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 te
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
 // page so Approve / Complete / Reject behave identically from either surface.
-type ApptActions = {
+export type ApptActions = {
   approve: (a: AppointmentWithDetails) => void;
   complete: (a: AppointmentWithDetails) => void;        // paid / zero-amount / skip-unpaid
   captureComplete: (a: AppointmentWithDetails) => void; // held / saved card → auto-charge
@@ -174,8 +174,122 @@ type ApptActions = {
   reject: (a: AppointmentWithDetails) => void;
 };
 
+// Shared factory for the appointment actions (Approve / Complete / Charge / cash /
+// send-link / Reject) so the calendar AND the dashboard's Today's Schedule run the
+// exact same logic. Wrap in useMemo at the call site.
+export function makeApptActions(opts: {
+  shop: Shop | null;
+  accessToken: string | null;
+  patch: (id: string, p: Partial<AppointmentWithDetails>) => void; // update local row(s) + open detail
+  setBusy: (key: string) => void;                                  // "" when idle
+  toast: (msg: string) => void;
+  onDone: () => void;                                              // close the detail card after a terminal action
+}): ApptActions {
+  const { shop, accessToken, patch, setBusy, toast, onDone } = opts;
+  return {
+    approve: async (appt) => {
+      if (!shop) return;
+      setBusy("approve");
+      const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", appt.id);
+      setBusy("");
+      if (error) { toast(`Update failed: ${error.message}`); return; }
+      patch(appt.id, { status: "confirmed" });
+      sendApprovalNotifications(appt, shop);
+      toast("Approved · Customer notified");
+    },
+    complete: async (appt) => {
+      if (!shop) return;
+      setBusy("complete");
+      const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      if (error) { setBusy(""); toast(`Update failed: ${error.message}`); return; }
+      patch(appt.id, { status: "completed" });
+      await runCompletionEffects(supabase, appt, shop, accessToken);
+      setBusy("");
+      onDone();
+      toast("Marked complete");
+    },
+    captureComplete: async (appt) => {
+      if (!shop || !accessToken) return;
+      setBusy("capture");
+      toast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
+      const res = await fetch("/api/stripe/capture-appointment", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, reason: "completed" }),
+      });
+      const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
+      await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      patch(appt.id, { status: "completed", payment_status: "captured", paid_at: new Date().toISOString() });
+      await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
+      setBusy("");
+      onDone();
+      toast("Charged · Completed");
+    },
+    cashComplete: async (appt) => {
+      if (!shop) return;
+      setBusy("cash");
+      const p = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const, paid_at: new Date().toISOString() };
+      const { error } = await supabase.from("appointments").update(p).eq("id", appt.id);
+      if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
+      patch(appt.id, p);
+      await runCompletionEffects(supabase, appt, shop, accessToken);
+      setBusy("");
+      onDone();
+      toast("Cash recorded · Completed");
+    },
+    sendLink: async (appt, email) => {
+      if (!shop || !accessToken) return;
+      setBusy("link");
+      const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (willEmail && email !== (appt.client_email ?? "")) patch(appt.id, { client_email: email });
+      const res = await fetch("/api/stripe/payment-link", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail, email: willEmail ? email : undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setBusy("");
+      if (!res.ok) { toast(`Failed: ${data.error ?? "try again"}`); return; }
+      if (data.emailed) { toast("Payment link emailed to customer"); }
+      else if (data.url) {
+        try { await navigator.clipboard.writeText(data.url); toast("Payment link copied to clipboard"); }
+        catch { toast("Payment link ready"); }
+      } else { toast("Payment link ready"); }
+    },
+    reject: async (appt) => {
+      if (!shop) return;
+      const wasPaid = !!(appt.payment_intent_id && appt.payment_status === "captured");
+      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${wasPaid ? " and refunded." : "."}`)) return;
+      setBusy("reject");
+      if (wasPaid && accessToken) {
+        const refundRes = await fetch("/api/stripe/refund", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => null);
+        if (refundRes?.ok) {
+          patch(appt.id, { status: "cancelled", payment_status: "refunded" });
+          notifyFreedSlot(appt, shop, "Cancelled");
+          setBusy(""); onDone();
+          toast("Rejected · Refund issued");
+          return;
+        }
+      }
+      const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
+      setBusy("");
+      if (error) { toast(`Failed: ${error.message}`); return; }
+      patch(appt.id, { status: "cancelled" });
+      sendRejectionEmail(appt, shop, "");
+      notifyFreedSlot(appt, shop, "Cancelled");
+      onDone();
+      toast("Rejected" + (appt.client_email ? " · Email sent" : ""));
+    },
+  };
+}
+
 // ── Appointment detail modal (DARK overlay — intentional over the light canvas) ─
-function ApptDetail({ appt, barbers, onClose, actions, busy }: {
+export function ApptDetail({ appt, barbers, onClose, actions, busy }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
   onClose: () => void;
@@ -531,110 +645,12 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...patch } as AppointmentWithDetails : prev));
   }, []);
 
-  // Appointment actions — same behavior as the Appointments page (Approve /
-  // Complete / Reject), so the calendar detail card stays in sync.
-  const apptActions: ApptActions = useMemo(() => ({
-    approve: async (appt) => {
-      if (!shop) return;
-      setActionBusy("approve");
-      const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", appt.id);
-      setActionBusy("");
-      if (error) { showToast(`Update failed: ${error.message}`); return; }
-      applyLocal(appt.id, { status: "confirmed" });
-      sendApprovalNotifications(appt, shop);
-      showToast("Approved · Customer notified");
-    },
-    complete: async (appt) => {
-      if (!shop) return;
-      setActionBusy("complete");
-      const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
-      if (error) { setActionBusy(""); showToast(`Update failed: ${error.message}`); return; }
-      applyLocal(appt.id, { status: "completed" });
-      await runCompletionEffects(supabase, appt, shop, accessToken);
-      setActionBusy("");
-      setSelectedAppt(null);
-      showToast("Marked complete");
-    },
-    captureComplete: async (appt) => {
-      if (!shop || !accessToken) return;
-      setActionBusy("capture");
-      showToast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
-      const res = await fetch("/api/stripe/capture-appointment", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, reason: "completed" }),
-      });
-      const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
-      if (!data.ok) { setActionBusy(""); showToast(`Charge failed: ${data.error ?? "try again"}`); return; }
-      await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
-      applyLocal(appt.id, { status: "completed", payment_status: "captured", paid_at: new Date().toISOString() });
-      await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
-      setActionBusy("");
-      setSelectedAppt(null);
-      showToast(`Charged · Completed`);
-    },
-    cashComplete: async (appt) => {
-      if (!shop) return;
-      setActionBusy("cash");
-      const patch = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const, paid_at: new Date().toISOString() };
-      const { error } = await supabase.from("appointments").update(patch).eq("id", appt.id);
-      if (error) { setActionBusy(""); showToast(`Failed: ${error.message}`); return; }
-      applyLocal(appt.id, patch);
-      await runCompletionEffects(supabase, appt, shop, accessToken);
-      setActionBusy("");
-      setSelectedAppt(null);
-      showToast("Cash recorded · Completed");
-    },
-    sendLink: async (appt, email) => {
-      if (!shop || !accessToken) return;
-      setActionBusy("link");
-      const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-      // The route persists the email via the service-role client + sends it,
-      // so we don't risk an RLS-blocked client update swallowing the link.
-      if (willEmail && email !== (appt.client_email ?? "")) applyLocal(appt.id, { client_email: email });
-      const res = await fetch("/api/stripe/payment-link", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail, email: willEmail ? email : undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      setActionBusy("");
-      if (!res.ok) { showToast(`Failed: ${data.error ?? "try again"}`); return; }
-      if (data.emailed) { showToast("Payment link emailed to customer"); }
-      else if (data.url) {
-        try { await navigator.clipboard.writeText(data.url); showToast("Payment link copied to clipboard"); }
-        catch { showToast("Payment link ready"); }
-      } else { showToast("Payment link ready"); }
-    },
-    reject: async (appt) => {
-      if (!shop) return;
-      const wasPaid = !!(appt.payment_intent_id && appt.payment_status === "captured");
-      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${wasPaid ? " and refunded." : "."}`)) return;
-      setActionBusy("reject");
-      if (wasPaid && accessToken) {
-        const refundRes = await fetch("/api/stripe/refund", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ appointment_id: appt.id }),
-        }).catch(() => null);
-        if (refundRes?.ok) {
-          applyLocal(appt.id, { status: "cancelled", payment_status: "refunded" });
-          notifyFreedSlot(appt, shop, "Cancelled");
-          setActionBusy(""); setSelectedAppt(null);
-          showToast("Rejected · Refund issued");
-          return;
-        }
-      }
-      const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
-      setActionBusy("");
-      if (error) { showToast(`Failed: ${error.message}`); return; }
-      applyLocal(appt.id, { status: "cancelled" });
-      sendRejectionEmail(appt, shop, "");
-      notifyFreedSlot(appt, shop, "Cancelled");
-      setSelectedAppt(null);
-      showToast("Rejected" + (appt.client_email ? " · Email sent" : ""));
-    },
-  }), [shop, accessToken, applyLocal, showToast]);
+  // Appointment actions — shared factory (same behavior as the Appointments page),
+  // so the calendar detail card and the dashboard board stay in sync.
+  const apptActions: ApptActions = useMemo(
+    () => makeApptActions({ shop, accessToken, patch: applyLocal, setBusy: setActionBusy, toast: showToast, onDone: () => setSelectedAppt(null) }),
+    [shop, accessToken, applyLocal, showToast],
+  );
 
   // Empty "+" slots are shown every 30 min; a booking can still be added on a
   // 15-min offset via the add modal's time picker.

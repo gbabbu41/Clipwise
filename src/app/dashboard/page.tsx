@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, CreditCard,
@@ -8,13 +8,12 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { CalendarView } from "@/components/calendar-view";
+import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { runCompletionEffects, sendApprovalNotifications } from "@/lib/appointment-actions";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
@@ -182,7 +181,9 @@ export default function DashboardPage() {
   const [walkinBarber, setWalkinBarber] = useState("");
   const [walkinService, setWalkinService] = useState("");
   const [savingWalkin, setSavingWalkin] = useState(false);
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  // Today's Schedule → full appointment detail modal (reuses the calendar/Appointments flow).
+  const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
+  const [detailBusy, setDetailBusy] = useState("");
   const [toast, setToast] = useState("");
   const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
   const [clockLoading, setClockLoading] = useState(false);
@@ -339,63 +340,16 @@ export default function DashboardPage() {
   const displayAppts = selectedCalDate ? selectedDayAppts : appointments;
   const todayStr = formatDateForDb(new Date());
 
-  // ── Today's Schedule inline actions (Approve / Complete / Charge) ────────────
-  // Mirrors the calendar/appointments behaviour so you can act without leaving Home.
-  const patchAppt = (id: string, patch: Partial<AppointmentWithDetails>) => {
-    setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...patch } as AppointmentWithDetails : a)));
-    setSelectedDayAppts(prev => prev.map(a => (a.id === id ? { ...a, ...patch } as AppointmentWithDetails : a)));
-  };
-  const approveAppt = async (apt: AppointmentWithDetails) => {
-    if (!shop) return;
-    setActionBusy(apt.id);
-    const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", apt.id);
-    setActionBusy(null);
-    if (error) { showToast("Couldn't approve"); return; }
-    patchAppt(apt.id, { status: "confirmed" });
-    sendApprovalNotifications(apt, shop);
-    showToast("Approved · customer notified");
-  };
-  // Charge a held/saved card via the capture route.
-  const captureCard = async (apt: AppointmentWithDetails) => {
-    const res = await fetch("/api/stripe/capture-appointment", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: apt.id, reason: "completed" }),
-    });
-    return res.json().catch(() => ({ ok: false, error: "Network error" }));
-  };
-  const completeAppt = async (apt: AppointmentWithDetails) => {
-    if (!shop) return;
-    const heldOrSaved = apt.payment_status === "held" || apt.payment_status === "saved";
-    setActionBusy(apt.id);
-    if (heldOrSaved && accessToken) {
-      showToast("Charging card…");
-      const data = await captureCard(apt);
-      if (!data.ok) { setActionBusy(null); showToast(`Charge failed: ${data.error ?? "try again"}`); return; }
-      await supabase.from("appointments").update({ status: "completed" }).eq("id", apt.id);
-      patchAppt(apt.id, { status: "completed", payment_status: "captured", paid_at: new Date().toISOString() });
-      await runCompletionEffects(supabase, { ...apt, payment_status: "captured" }, shop, accessToken);
-      setActionBusy(null);
-      showToast("Charged · completed");
-      return;
-    }
-    const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", apt.id);
-    if (error) { setActionBusy(null); showToast("Couldn't complete"); return; }
-    patchAppt(apt.id, { status: "completed" });
-    await runCompletionEffects(supabase, apt, shop, accessToken);
-    setActionBusy(null);
-    showToast("Marked complete");
-  };
-  const chargeAppt = async (apt: AppointmentWithDetails) => {
-    if (!shop || !accessToken) return;
-    setActionBusy(apt.id);
-    showToast("Charging card…");
-    const data = await captureCard(apt);
-    setActionBusy(null);
-    if (!data.ok) { showToast(`Charge failed: ${data.error ?? "try again"}`); return; }
-    patchAppt(apt.id, { payment_status: "captured", paid_at: new Date().toISOString() });
-    showToast("Charged");
-  };
+  // ── Today's Schedule → full appointment actions (reuse the shared modal) ─────
+  const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
+    setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
+    setSelectedDayAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
+    setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
+  }, []);
+  const apptActions = useMemo(
+    () => makeApptActions({ shop, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => setSelectedAppt(null) }),
+    [shop, accessToken, patchAppt],
+  );
   const todayAppts = appointments.filter((a) => a.date === todayStr);
 
   const completed = appointments.filter((a) => a.status === "completed");
@@ -447,6 +401,19 @@ export default function DashboardPage() {
   return (
     <div className="p-4 lg:p-8 animate-fade-in">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
+
+      {/* Today's Schedule → full appointment detail + actions (shared modal) */}
+      {selectedAppt && (
+        <Portal>
+          <ApptDetail
+            appt={selectedAppt}
+            barbers={barbers}
+            onClose={() => setSelectedAppt(null)}
+            actions={apptActions}
+            busy={detailBusy}
+          />
+        </Portal>
+      )}
 
       {/* New Booking Notification Modal */}
       {newBookingNotif && (
@@ -711,48 +678,31 @@ export default function DashboardPage() {
               ) : (
                 displayAppts.map((apt) => {
                   const paid = apt.payment_status === "paid" || apt.payment_status === "captured";
-                  const heldOrSaved = apt.payment_status === "held" || apt.payment_status === "saved";
                   const dimmed = apt.status === "cancelled" || apt.status === "no-show";
                   const mins = apptMins(apt);
-                  const busy = actionBusy === apt.id;
-                  // Common-sense action per status.
-                  const action =
-                    apt.status === "pending" ? { label: "Approve", run: () => approveAppt(apt) }
-                    : apt.status === "confirmed" ? { label: heldOrSaved ? "Charge & complete" : "Complete", run: () => completeAppt(apt) }
-                    : (apt.status === "completed" && heldOrSaved) ? { label: "Charge card", run: () => chargeAppt(apt) }
-                    : null;
                   const [hh, mer] = (apt.time_slot ?? "").split(" ");
                   return (
-                    <div key={apt.id} className="py-3 border-b border-[#1e1e1e] last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="text-center min-w-[52px]">
-                          <p className="text-xs text-white font-medium">{hh}</p>
-                          <p className="text-[10px] text-[#777]">{mer}</p>
-                        </div>
-                        <div className="w-px h-10 bg-[#1e1e1e]" />
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
-                          <p className="text-xs text-[#777] truncate">
-                            {apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-semibold", statusPill(apt.status))}>{statusText(apt.status)}</span>
-                          <span className="text-sm font-semibold text-white">
-                            {formatCurrency(apt.total_amount)}
-                            {paid && <span className="text-[#00e5a0] text-[10px] font-medium ml-1">Paid</span>}
-                          </span>
-                        </div>
+                    <button key={apt.id} onClick={() => setSelectedAppt(apt)}
+                      className="w-full text-left flex items-center gap-3 py-3 border-b border-[#1e1e1e] last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <div className="text-center min-w-[52px]">
+                        <p className="text-xs text-white font-medium">{hh}</p>
+                        <p className="text-[10px] text-[#777]">{mer}</p>
                       </div>
-                      {action && (
-                        <div className="flex justify-end mt-2">
-                          <button onClick={action.run} disabled={busy}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[#1f1f1f] text-white hover:bg-[#262626] disabled:opacity-50 transition-colors">
-                            {busy ? "…" : action.label}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      <div className="w-px h-10 bg-[#1e1e1e]" />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
+                        <p className="text-xs text-[#777] truncate">
+                          {apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-semibold", statusPill(apt.status))}>{statusText(apt.status)}</span>
+                        <span className="text-sm font-semibold text-white">
+                          {formatCurrency(apt.total_amount)}
+                          {paid && <span className="text-[#00e5a0] text-[10px] font-medium ml-1">Paid</span>}
+                        </span>
+                      </div>
+                    </button>
                   );
                 })
               )}
