@@ -971,8 +971,8 @@ export function CalendarView({ embedded = false }: { embedded?: boolean }) {
                   )}>
                     {day.getDate()}
                   </span>
-                  {isToday(day) && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">Today</span>}
                 </div>
+                {isToday(day) && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 leading-none">Today</span>}
                 {isMobile ? (
                   // Phones: just colored dots per booking; cell is too narrow for chip text
                   <div className="flex flex-wrap gap-0.5 overflow-hidden">
