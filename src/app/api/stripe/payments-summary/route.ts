@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
     const available = sum(balance.available);
     const pending = sum(balance.pending);
 
-    // Next scheduled payout's arrival date + the most recent completed payout.
+    // Next scheduled payout's arrival date + amount + the most recent completed payout.
     let nextPayoutDate: number | null = null;
+    let nextPayoutAmount: number | null = null;
     let lastPayout: { amount: number; date: number } | null = null;
     const nowSec = Math.floor(Date.now() / 1000);
     try {
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
         (p.status === "paid" && p.arrival_date > nowSec),
       );
       nextPayoutDate = upcoming?.arrival_date ?? null;
+      nextPayoutAmount = upcoming ? upcoming.amount / 100 : null;
       // Last payout = one that has GENUINELY landed: paid AND already arrived.
       // Never show a "last payout" dated in the future.
       const paid = payouts.data.find(p => p.status === "paid" && p.arrival_date <= nowSec);
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
       startingAfter = list.data[list.data.length - 1]?.id;
     }
 
-    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate, lastPayout });
+    return NextResponse.json({ connected: true, byPi, available, pending, nextPayoutDate, nextPayoutAmount, lastPayout });
   } catch (err) {
     return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: err instanceof Error ? err.message : "stripe error" });
   }

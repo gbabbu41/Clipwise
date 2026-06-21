@@ -71,7 +71,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
-  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -434,11 +434,11 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400">Next payout</p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">Heading to your bank</p>
               <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
               <p className="text-xs text-gray-500 mt-1.5">
                 {stripeNet?.nextPayoutDate
-                  ? `Expected ${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}`
+                  ? `Next payout: ${stripeNet.nextPayoutAmount != null ? `${formatCurrency(stripeNet.nextPayoutAmount)} · ` : ""}${new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}`
                   : "No payout scheduled yet"}
               </p>
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
