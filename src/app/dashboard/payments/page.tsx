@@ -234,9 +234,9 @@ export default function PaymentsPage() {
   const scopeNetAll = cardSettled.reduce((s, i) => s + netOf(i), 0);
   const scopeCashAll = cashSettled.reduce((s, i) => s + i.amount, 0);
   // Payouts settle to the shop's connected account (shop-level, not per barber yet).
-  // Everything heading to the bank = balance still in Stripe + payouts already
-  // on the way (= Stripe's "Total balance").
-  const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0) + (stripeNet?.inTransit ?? 0);
+  // "Heading to your bank" = payouts Stripe is actively sending now (in-transit).
+  // Matches Stripe's "On the way to your bank" (excludes funds still settling).
+  const payout = stripeNet?.inTransit ?? 0;
 
   const startOf = (kind: "today" | "week" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
