@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
 
-export function BarberSidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: boolean; onToggleCollapsed?: () => void }) {
+export function BarberSidebar() {
   const pathname = usePathname();
   const { user, profile, signOut } = useAuth();
   const { barber, shop, shops, setActiveShop } = useBarber();
@@ -86,24 +86,11 @@ export function BarberSidebar({ collapsed = false, onToggleCollapsed }: { collap
 
   return (
     <>
-      {/* Floating reopen button — shows at the docked breakpoint only when the
-          sidebar has been collapsed, so it can always be brought back. */}
-      {collapsed && (
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-label="Open sidebar"
-          className="hidden md:flex fixed left-3 top-3 z-[60] w-9 h-9 rounded-lg items-center justify-center bg-surface border border-border text-[#aaa] hover:text-white shadow-lg transition-colors"
-        >
-          <PanelLeftOpen size={18} />
-        </button>
-      )}
-
       {/* Mobile top bar — v2 header pattern: hamburger + ClipWise wordmark
           on the left, avatar pill on the right. Slides off on scroll-down. */}
       <div
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          "lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
           scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
@@ -125,43 +112,30 @@ export function BarberSidebar({ collapsed = false, onToggleCollapsed }: { collap
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
+          className="lg:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200",
+          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          // Docked at md+, but collapsible — dismiss to reclaim the full width.
-          collapsed ? "md:-translate-x-full" : "md:translate-x-0",
         )}
       >
-      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned, with a
-          collapse button (docked breakpoint) to dismiss the sidebar. */}
-      <div className="flex items-center justify-between border-b border-border pr-3">
-        <div
-          className="cw-logo-fade whitespace-nowrap"
-          style={{
-            fontFamily: "'Sora', sans-serif",
-            fontWeight: 800,
-            fontSize: "24px",
-            letterSpacing: "1px",
-            color: "#ffffff",
-            padding: "20px",
-          }}
-        >
-          CLIPWISE
-        </div>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-label="Collapse sidebar"
-          className="hidden md:flex w-8 h-8 rounded-lg items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
-        >
-          <PanelLeftClose size={18} />
-        </button>
+      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned. */}
+      <div
+        className="cw-logo-fade whitespace-nowrap border-b border-border"
+        style={{
+          fontFamily: "'Sora', sans-serif",
+          fontWeight: 800,
+          fontSize: "24px",
+          letterSpacing: "1px",
+          color: "#ffffff",
+          padding: "20px",
+        }}
+      >
+        CLIPWISE
       </div>
 
       {/* Reused from the owner sidebar — only renders when shops.length > 1 */}
@@ -238,7 +212,7 @@ export function BarberMobileNav() {
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   return (
-    <nav className="cw-bnav md:hidden">
+    <nav className="cw-bnav lg:hidden">
       {linkItems.map((item) => {
         const isActive = pathname === item.href
           || (item.href !== "/barber-dashboard" && pathname.startsWith(item.href));
