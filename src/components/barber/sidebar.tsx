@@ -95,19 +95,18 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* CLIPWISE wordmark — DM Mono medium, uppercase, tracked-out
-            watermark style. Page headline stays the visual primary. */}
-        <span className="font-mono font-medium uppercase tracking-[0.18em] text-[14px] text-[#888] leading-none flex-shrink-0 select-none">
-          ClipWise
-        </span>
         <div className="flex-1" />
-        <Link
-          href="/barber-dashboard/profile"
-          aria-label="Account"
-          className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
-        >
-          {initial}
-        </Link>
+        {/* Account avatar — hidden on the profile page itself (you're already
+            there) so it doesn't double up with the page's own avatar. */}
+        {pathname !== "/barber-dashboard/profile" && (
+          <Link
+            href="/barber-dashboard/profile"
+            aria-label="Account"
+            className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
+          >
+            {initial}
+          </Link>
+        )}
       </div>
 
       {mobileOpen && (
