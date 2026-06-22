@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment } from "@/lib/payment-notify";
+import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -132,6 +133,18 @@ export async function POST(request: NextRequest) {
             const svcName = Array.isArray(paidAppt.services)
               ? (paidAppt.services[0]?.name ?? "")
               : ((paidAppt.services as { name?: string } | null)?.name ?? "");
+
+            // Ledger row so the barber portal + analytics see the online payment
+            // (idempotent — payment-link-finalize may have written it already).
+            await recordOnlinePaymentTx({
+              appointmentId: apptId,
+              shopId: paidAppt.shop_id,
+              barberId: paidAppt.barber_id ?? null,
+              clientName: paidAppt.client_name,
+              serviceName: svcName || "Service",
+              amountDollars: Number(paidAppt.total_amount ?? 0),
+              paymentIntentId: newPi,
+            });
 
             // Customer receipt
             if (paidAppt.client_email) {

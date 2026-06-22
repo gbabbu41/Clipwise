@@ -7,6 +7,7 @@ import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 
 export interface PayableAppt {
   id: string;
+  shop_id?: string | null;
   barber_id: string | null;
   client_name: string | null;
   client_email: string | null;
@@ -24,6 +25,54 @@ export interface PayShop {
 
 export function serviceNameOf(rel: PayableAppt["services"]): string {
   return Array.isArray(rel) ? (rel[0]?.name ?? "Service") : (rel?.name ?? "Service");
+}
+
+/**
+ * Record a transactions-ledger row for an ONLINE (link/checkout) payment, so it
+ * shows up wherever the ledger is read — the barber Payments page and analytics —
+ * the same way POS / no-show / completion charges already do. Without this an
+ * online payment only flips appointments.payment_status and is invisible to the
+ * barber portal (it reads `transactions` only), while the owner Payments page
+ * still shows it (it reads `appointments` too). Attributed to the appointment's
+ * barber. Idempotent (a payment can be finalized by both the customer-return
+ * route AND the webhook) and best-effort — bookkeeping never blocks a payment.
+ *
+ * Tagged source="completion" (the same bucket capture-appointment uses for a
+ * card charge that's already represented by its appointment row) so the owner
+ * Payments feed de-dupes it for free — only the barber page / analytics, which
+ * read every ledger row, surface it.
+ */
+export async function recordOnlinePaymentTx(args: {
+  appointmentId: string;
+  shopId: string | null | undefined;
+  barberId: string | null;
+  clientName: string | null;
+  serviceName: string;
+  amountDollars: number;
+  paymentIntentId: string | null;
+}): Promise<void> {
+  const { appointmentId, shopId, barberId, clientName, serviceName, amountDollars, paymentIntentId } = args;
+  if (!shopId || amountDollars <= 0) return;
+  // Dedup: prefer the PaymentIntent as the key (shared across return-route +
+  // webhook); fall back to this appointment's existing row. If one is already
+  // there, this is a no-op.
+  const dupe = paymentIntentId
+    ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", paymentIntentId).limit(1)
+    : await supabaseAdmin.from("transactions").select("id").eq("appointment_id", appointmentId).eq("source", "completion").limit(1);
+  if ((dupe.data?.length ?? 0) > 0) return;
+  await supabaseAdmin.from("transactions").insert({
+    shop_id: shopId,
+    barber_id: barberId || null,
+    client_name: clientName || null,
+    service_name: serviceName || "Service",
+    amount: amountDollars,
+    tip: 0,
+    payment_method: "card",
+    type: "service",
+    appointment_id: appointmentId,
+    payment_intent_id: paymentIntentId ?? null,
+    source: "completion",
+  }).then(null, () => null);
 }
 
 /**
@@ -59,6 +108,17 @@ export async function markAppointmentPaid(args: {
 
   const serviceName = serviceNameOf(appt.services);
   const amountCents = Math.round(Number(appt.total_amount ?? 0) * 100);
+
+  // Put the online payment in the ledger so the barber portal + analytics see it.
+  await recordOnlinePaymentTx({
+    appointmentId: appt.id,
+    shopId: appt.shop_id,
+    barberId: appt.barber_id,
+    clientName: appt.client_name,
+    serviceName,
+    amountDollars: amountCents / 100,
+    paymentIntentId: paymentIntentId ?? null,
+  });
 
   sendPaymentReceipt(baseUrl, {
     clientEmail: appt.client_email,

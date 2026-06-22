@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { UNIQUE_VIOLATION, barberHasConflict } from "@/lib/booking-conflict";
+import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 
 // Called when the customer returns from a paid booking checkout.
@@ -229,6 +230,20 @@ export async function POST(request: NextRequest) {
       ]);
       summaryBarberName = barber?.name ?? "Any Available";
       summaryServiceName = service?.name ?? "Service";
+      // A pay-now booking is an online payment — record it in the ledger so the
+      // barber portal + analytics count it (held/saved cards charge later via
+      // capture-appointment, which writes its own row).
+      if (!isSave && !isHold && paymentIntentId) {
+        await recordOnlinePaymentTx({
+          appointmentId: appt.id,
+          shopId: m.shop_id,
+          barberId: m.barber_id || null,
+          clientName: m.client_name ?? null,
+          serviceName: summaryServiceName,
+          amountDollars: Number(m.total_amount ?? 0),
+          paymentIntentId,
+        });
+      }
       const base = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const bookingData = {
         clientName: m.client_name, clientEmail: m.client_email || "—", clientPhone: m.client_phone || "—",
