@@ -322,11 +322,10 @@ export default function BarberPaymentsPage() {
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-white">{formatCurrency(grossOf(t))}</p>
+                  <p className="text-sm font-semibold text-white">{formatCurrency(earnedOf(t))}</p>
                   <p className="text-[11px]">
-                    <span className="text-[#00e5a0]">↳ {formatCurrency(earnedOf(t))}</span>{" "}
                     <span className={cash ? "text-amber-400" : "text-[#666]"}>{cash ? "cash" : "card"}</span>
-                    {!cash && feeOf(t) > 0 && <span className="text-[#666]"> · −{formatCurrency(feeOf(t))} fee</span>}
+                    {isOwner && !cash && feeOf(t) > 0 && <span className="text-[#666]"> · after {formatCurrency(feeOf(t))} fee</span>}
                   </p>
                 </div>
               </div>
