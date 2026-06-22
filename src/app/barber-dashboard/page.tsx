@@ -142,11 +142,12 @@ export default function BarberOverviewPage() {
               <LogIn size={14} /> Clock In
             </Button>
           )}
-          {/* Desktop bell + avatar — mobile has them in the barber top bar */}
+          {/* Desktop bell + avatar — shown only at lg+ where the mobile top
+              bar (which carries its own avatar) is hidden, so they never double. */}
           <Link
             href="/barber-dashboard/profile"
             aria-label="Account"
-            className="hidden md:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1"
           >
             {(barber?.name ?? "U").charAt(0).toUpperCase()}
           </Link>
