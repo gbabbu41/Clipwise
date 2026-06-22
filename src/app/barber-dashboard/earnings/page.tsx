@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { CreditCard, Banknote, DollarSign } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
@@ -23,6 +23,12 @@ interface Tx {
 
 const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
 
+// Which window the earnings card + transactions reflect. The shop owner pays
+// each barber on their own cycle (weekly / bi-weekly / …) which the app can't
+// know, so the barber picks the window — including a Custom from→to range — that
+// matches how they're actually paid.
+type PeriodKey = "week" | "biweekly" | "month" | "all" | "custom";
+
 // Tooltip rides the top strip and never captures touches (see stats carousel).
 const tip = {
   contentStyle: { borderRadius: 10, border: "1px solid #eee", fontSize: 11, padding: "4px 8px" },
@@ -43,10 +49,12 @@ export default function BarberPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [stripeNet, setStripeNet] = useState<{ byPi: Record<string, { gross: number; fee: number; net: number }> } | null>(null);
 
-  const [slide, setSlide] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
+  // Selected earnings window
+  const [periodKey, setPeriodKey] = useState<PeriodKey>("week");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
-  // ── All-time transactions in one call; periods are derived client-side ──
+  // ── All-time transactions in one call; the window is applied client-side ──
   const loadEarnings = useCallback(async () => {
     if (!accessToken) return;
     const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
@@ -78,10 +86,10 @@ export default function BarberPaymentsPage() {
     (t.payment_method !== "cash" && t.payment_intent_id && stripeNet?.byPi[t.payment_intent_id])
       ? stripeNet.byPi[t.payment_intent_id].fee : 0, [stripeNet]);
   const earnedOf = useCallback((t: Tx) => {
-    const tip = t.tip ?? 0;
+    const tipAmt = t.tip ?? 0;
     if (isOwner) return grossOf(t) - feeOf(t);
     const commission = t.commission_amount ?? (t.amount * pct) / 100;
-    return commission + tip;
+    return commission + tipAmt;
   }, [isOwner, pct, feeOf]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
@@ -92,8 +100,8 @@ export default function BarberPaymentsPage() {
     return d.getTime();
   };
 
-  const summarize = useCallback((from: number, monthly: boolean) => {
-    const inP = txs.filter(t => new Date(t.created_at).getTime() >= from);
+  const summarize = useCallback((from: number, to: number, monthly: boolean) => {
+    const inP = txs.filter(t => { const ms = new Date(t.created_at).getTime(); return ms >= from && ms <= to; });
     const earned = inP.reduce((s, t) => s + earnedOf(t), 0);
     const gross = inP.reduce((s, t) => s + grossOf(t), 0);
     const tips = inP.reduce((s, t) => s + (t.tip ?? 0), 0);
@@ -114,15 +122,24 @@ export default function BarberPaymentsPage() {
     return { earned, gross, tips, fees, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
   }, [txs, earnedOf, feeOf]);
 
-  const periods = useMemo(() => [
-    { key: "week", label: "This week", ...summarize(startOf("week"), false) },
-    { key: "biweekly", label: "Bi-weekly", ...summarize(startOf("biweekly"), false) },
-    { key: "month", label: "This month", ...summarize(startOf("month"), false) },
-    { key: "all", label: "All time", ...summarize(0, true) },
-  ], [summarize]);
+  // Resolve the selected window to a {from, to} range + label + chart bucketing.
+  const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  const period = useMemo(() => {
+    const now = Date.now();
+    if (periodKey === "all") return { from: 0, to: Infinity, label: "All time", monthly: true };
+    if (periodKey === "custom") {
+      const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
+      const to = customTo ? new Date(customTo + "T23:59:59.999").getTime() : now;
+      const label = (customFrom || customTo)
+        ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}`
+        : "Custom range";
+      return { from, to, label, monthly: (to - from) > 62 * 86400000 };
+    }
+    const label = periodKey === "week" ? "This week" : periodKey === "biweekly" ? "Last 14 days" : "This month";
+    return { from: startOf(periodKey), to: now, label, monthly: false };
+  }, [periodKey, customFrom, customTo]);
 
-  const all = summarize(0, true);
-  const earnedToday = txs.filter(t => new Date(t.created_at).getTime() >= startOf("today")).reduce((s, t) => s + earnedOf(t), 0);
+  const sel = useMemo(() => summarize(period.from, period.to, period.monthly), [summarize, period]);
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
@@ -179,9 +196,14 @@ export default function BarberPaymentsPage() {
   );
   const outstandingTotal = unpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);
 
-  const goTo = (i: number) => { const el = carouselRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
+  // Transactions within the selected window (newest first).
+  const inWindow = (t: Tx) => { const ms = new Date(t.created_at).getTime(); return ms >= period.from && ms <= period.to; };
+  const windowTxs = [...txs].filter(inWindow).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const recent = windowTxs.slice(0, periodKey === "all" ? 50 : 300);
 
-  const recent = [...txs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 30);
+  const presets: [PeriodKey, string][] = [
+    ["week", "This week"], ["biweekly", "Last 14 days"], ["month", "This month"], ["all", "All time"], ["custom", "Custom"],
+  ];
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-28">
@@ -196,70 +218,53 @@ export default function BarberPaymentsPage() {
         <p className="text-[#777] text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
       </div>
 
-      {/* ── Earnings carousel (mirrors the owner Payments cards) ────────────── */}
-      <div className="mb-4">
-        <div ref={carouselRef}
-          onScroll={() => { const el = carouselRef.current; if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-
-          {/* Slide 1 — hero: net earned all-time + key indicators */}
-          <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-            <p className="text-[10px] uppercase tracking-wide text-gray-400">You earned · all-time</p>
-            <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(all.earned)}</p>
-            <p className="text-xs text-gray-500 mt-1.5">
-              From {formatCurrency(all.gross)} collected{all.fees > 0 ? ` · ${formatCurrency(all.fees)} Stripe fees` : ""}
-            </p>
-            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <p className="text-gray-400">Earned today</p>
-                <p className="font-semibold text-emerald-600">{formatCurrency(earnedToday)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Tips</p>
-                <p className="font-semibold text-amber-500">{formatCurrency(all.tips)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-gray-400">{isOwner ? "Your cut" : "Shop kept"}</p>
-                <p className="font-semibold text-gray-700">{isOwner ? "100%" : formatCurrency(all.shopCut)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Slides 2-5 — earned by period, each with a daily/monthly bar chart */}
-          {periods.map(p => (
-            <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <div className="flex items-baseline justify-between">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">Earned · {p.label}</p>
-                {p.tips > 0 && <span className="text-xs font-semibold text-amber-500">{formatCurrency(p.tips)} tips</span>}
-              </div>
-              <p className="text-3xl sm:text-4xl font-extrabold text-emerald-600 mt-1.5">{formatCurrency(p.earned)}</p>
-              <div className="flex-1 min-h-[72px] mt-2 -mx-1">
-                {p.data.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-                      <Bar dataKey="val" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-                      <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "#f3f4f6" }} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No earnings yet</div>}
-              </div>
-              {/* Extra indicators */}
-              <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
-                <div><p className="text-gray-400">Services</p><p className="font-semibold text-gray-800">{p.count}</p></div>
-                <div><p className="text-gray-400">Avg ticket</p><p className="font-semibold text-gray-800">{formatCurrency(p.avg)}</p></div>
-                <div className="text-right"><p className="text-gray-400">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-gray-700">{isOwner ? formatCurrency(p.gross) : formatCurrency(p.shopCut)}</p></div>
-              </div>
-            </div>
+      {/* ── Period filter — presets + a custom from→to range ─────────────────── */}
+      <div className="mb-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {presets.map(([k, lbl]) => (
+            <button key={k} type="button" onClick={() => setPeriodKey(k)}
+              className={cn("px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors",
+                periodKey === k ? "bg-white text-black border-white" : "bg-[#141414] text-[#aaa] border-[#1e1e1e] hover:text-white")}>
+              {lbl}
+            </button>
           ))}
         </div>
+        {periodKey === "custom" && (
+          <div className="flex items-center gap-2 mt-2.5">
+            <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
+              className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+            <span className="text-[#777] text-xs">to</span>
+            <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
+              className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+          </div>
+        )}
+      </div>
 
-        {/* Dots */}
-        <div className="flex justify-center gap-1.5 mt-2.5">
-          {Array.from({ length: 1 + periods.length }).map((_, i) => (
-            <button key={i} type="button" aria-label={`Slide ${i + 1}`} onClick={() => goTo(i)}
-              className={cn("h-1.5 rounded-full transition-all", i === slide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-          ))}
+      {/* ── Earnings card for the selected window ────────────────────────────── */}
+      <div className="mb-6 rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-wide text-gray-400">You earned · {period.label}</p>
+          {sel.tips > 0 && <span className="text-xs font-semibold text-amber-500">{formatCurrency(sel.tips)} tips</span>}
+        </div>
+        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(sel.earned)}</p>
+        <p className="text-xs text-gray-500 mt-1.5">
+          From {formatCurrency(sel.gross)} collected{sel.fees > 0 ? ` · ${formatCurrency(sel.fees)} Stripe fees` : ""}
+        </p>
+        <div className="flex-1 min-h-[80px] mt-3 -mx-1">
+          {sel.data.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
+                <Bar dataKey="val" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "#f3f4f6" }} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No earnings in this period</div>}
+        </div>
+        <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
+          <div><p className="text-gray-400">Services</p><p className="font-semibold text-gray-800">{sel.count}</p></div>
+          <div><p className="text-gray-400">Avg ticket</p><p className="font-semibold text-gray-800">{formatCurrency(sel.avg)}</p></div>
+          <div className="text-right"><p className="text-gray-400">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-gray-700">{isOwner ? formatCurrency(sel.gross) : formatCurrency(sel.shopCut)}</p></div>
         </div>
       </div>
 
@@ -297,14 +302,17 @@ export default function BarberPaymentsPage() {
         </div>
       )}
 
-      {/* ── Recent transactions ───────────────────────────────────────────── */}
-      <h2 className="text-sm font-bold text-white mb-3">Recent Transactions</h2>
+      {/* ── Transactions (selected window) ──────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-white">Transactions</h2>
+        <span className="text-xs text-[#777]">{period.label}</span>
+      </div>
       {loading ? (
         <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl h-14 animate-pulse" />)}</div>
       ) : recent.length === 0 ? (
         <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-10 text-center">
           <DollarSign size={36} className="text-[#777] mx-auto mb-3" />
-          <p className="text-[#777] text-sm">No transactions yet</p>
+          <p className="text-[#777] text-sm">No transactions in this period</p>
         </div>
       ) : (
         <div className="space-y-2">
