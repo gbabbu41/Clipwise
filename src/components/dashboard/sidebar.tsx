@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
-  Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock,
+  Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
@@ -101,7 +101,7 @@ const navSections: NavSection[] = [
 ];
 
 
-export function Sidebar() {
+export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: boolean; onToggleCollapsed?: () => void }) {
   const pathname = usePathname();
   const { user, profile, shop, shops, setActiveShop, signOut } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -199,6 +199,19 @@ export function Sidebar() {
 
   return (
     <>
+      {/* Floating reopen button — shows at the docked breakpoint only when the
+          sidebar has been collapsed, so it can always be brought back. */}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label="Open sidebar"
+          className="hidden lg:flex fixed left-3 top-3 z-[60] w-9 h-9 rounded-lg items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-[#aaa] hover:text-white shadow-lg transition-colors"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+      )}
+
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
@@ -279,24 +292,37 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 lg:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
+          // Docked at lg+, but collapsible — the user can dismiss it to reclaim
+          // the full width (a floating button brings it back).
+          collapsed ? "lg:-translate-x-full" : "lg:translate-x-0",
         )}
       >
-      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned,
-          single line, exact spec from design. */}
-      <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e]"
-        style={{
-          fontFamily: "'Sora', sans-serif",
-          fontWeight: 800,
-          fontSize: "24px",
-          letterSpacing: "1px",
-          color: "#ffffff",
-          padding: "20px",
-        }}
-      >
-        CLIPWISE
+      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned, with a
+          collapse button (docked breakpoint) to dismiss the sidebar. */}
+      <div className="flex items-center justify-between border-b border-[#1e1e1e] pr-3">
+        <div
+          className="cw-logo-fade whitespace-nowrap"
+          style={{
+            fontFamily: "'Sora', sans-serif",
+            fontWeight: 800,
+            fontSize: "24px",
+            letterSpacing: "1px",
+            color: "#ffffff",
+            padding: "20px",
+          }}
+        >
+          CLIPWISE
+        </div>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label="Collapse sidebar"
+          className="hidden lg:flex w-8 h-8 rounded-lg items-center justify-center text-[#777] hover:text-white hover:bg-[#141414] transition-colors flex-shrink-0"
+        >
+          <PanelLeftClose size={18} />
+        </button>
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />

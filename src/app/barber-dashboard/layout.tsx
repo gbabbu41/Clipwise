@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
@@ -51,6 +51,15 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
   const { user, profile, loading } = useAuth();
   const router = useRouter();
 
+  // Sidebar collapse (docked breakpoint) — persisted across navigations/reloads.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(localStorage.getItem("cw_sidebar_collapsed") === "1"); }, []);
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c;
+    try { localStorage.setItem("cw_sidebar_collapsed", next ? "1" : "0"); } catch { /* ignore */ }
+    return next;
+  });
+
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
@@ -75,10 +84,10 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
         <div className="min-h-screen bg-background">
           <ModalChrome />
           <NotificationListener />
-          <BarberSidebar />
-          {/* pt-12 reserves space for the BarberSidebar's mobile top bar. */}
-          {/* pt-14 matches the mobile top-bar height — flush, no extra gap. */}
-          <main className="md:ml-64 pt-14 md:pt-0 pb-24 md:pb-0">
+          <BarberSidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+          {/* pt-14 matches the mobile top-bar height — flush, no extra gap.
+              Left margin drops to 0 when the sidebar is collapsed. */}
+          <main className={`${collapsed ? "md:ml-0" : "md:ml-64"} pt-14 md:pt-0 pb-24 md:pb-0`}>
             {children}
           </main>
           <BarberMobileNav />

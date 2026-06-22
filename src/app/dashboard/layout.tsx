@@ -14,6 +14,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const triedRefresh = useRef(false);
   const [recovering, setRecovering] = useState(false);
 
+  // Sidebar collapse (docked breakpoint) — persisted so a dismissed sidebar
+  // stays dismissed across navigations/reloads.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(localStorage.getItem("cw_sidebar_collapsed") === "1"); }, []);
+  const toggleCollapsed = () => setCollapsed(c => {
+    const next = !c;
+    try { localStorage.setItem("cw_sidebar_collapsed", next ? "1" : "0"); } catch { /* ignore */ }
+    return next;
+  });
+
   // A shop owner whose shop hasn't loaded into context yet (e.g. just finished
   // onboarding) would otherwise fall through to the "No shop found" page. Try a
   // single re-fetch before any no-shop UI renders; if it's still null after,
@@ -69,12 +79,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-black">
       <ModalChrome />
       <NotificationListener />
-      <Sidebar />
+      <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own #0a0a0a so the
-          spacer matches its canvas; everything else uses the default dark surface. */}
-      <main className={`lg:ml-64 pt-[calc(2.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
+          spacer matches its canvas; everything else uses the default dark surface.
+          The left margin drops to 0 when the sidebar is collapsed. */}
+      <main className={`${collapsed ? "lg:ml-0" : "lg:ml-64"} pt-[calc(2.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
         <StripeWarningBanner />
         {children}
       </main>
