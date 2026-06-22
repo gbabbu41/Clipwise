@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
     }
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => {
       const d = new Date(date);
-      return { date, label: `${d.getMonth()+1}/${d.getDate()}`, day: d.toLocaleDateString("en-CA", { weekday: "short" }), ...v };
+      return { date, label: d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), day: d.toLocaleDateString("en-CA", { weekday: "short" }), ...v };
     });
   }, [filteredTx, filteredAppts]);
 

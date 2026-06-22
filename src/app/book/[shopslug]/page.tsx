@@ -975,7 +975,7 @@ export default function BookingPage() {
             }}>
               <Calendar size={16} /> Add to Calendar
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${dispDateObj?.toLocaleDateString()} at ${dispTime}`, url: window.location.href }); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${dispDateObj?.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })} at ${dispTime}`, url: window.location.href }); }}>
               <Share2 size={16} /> Share
             </Button>
           </div>
