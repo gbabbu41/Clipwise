@@ -2,19 +2,32 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
+import { supabase } from "@/lib/supabase";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
+
+// Notification visual config — one clean type-icon, tinted chip (mirrors owner).
+const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
+  booking:      { Icon: Calendar,      cls: "bg-emerald-500/15 text-emerald-400" },
+  cancellation: { Icon: CalendarX2,    cls: "bg-rose-500/15 text-rose-400" },
+  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
+  system:       { Icon: Info,          cls: "bg-white/10 text-[#aaa]" },
+};
+const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
+// Strip any leading emoji/symbol so the row shows one consistent icon.
+const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ElementType;
   permKey?: keyof BarberPermissions;
+  badge?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -25,6 +38,7 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
   { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign, permKey: "view_earnings" },
+  { href: "/barber-dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
 
@@ -33,6 +47,36 @@ export function BarberSidebar() {
   const { user, profile, signOut } = useAuth();
   const { barber, shop, shops, setActiveShop } = useBarber();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Notifications (scoped to THIS barber's auth id) — mirrors the owner sidebar.
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchCount = () => supabase
+      .from("notifications").select("id", { count: "exact", head: true })
+      .eq("user_id", user.id).eq("is_read", false)
+      .then(({ count }) => setUnreadCount(count ?? 0));
+    fetchCount();
+    const channel = supabase
+      .channel(`barber-notifs:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, fetchCount)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  // Recent 5 for the popover — refetched whenever it opens / the count changes.
+  useEffect(() => {
+    if (!notifOpen || !user) return;
+    supabase
+      .from("notifications").select("id, title, message, type, is_read, created_at")
+      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(5)
+      .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
+  }, [notifOpen, user, unreadCount]);
+
+  useEffect(() => { setNotifOpen(false); }, [pathname]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   useEffect(() => {
@@ -96,6 +140,23 @@ export function BarberSidebar() {
         )}
       >
         <div className="flex-1" />
+        {/* Notifications bell — same control as the owner mobile header,
+            scoped to this barber. Red dot when there's anything unread. */}
+        <button
+          type="button"
+          onClick={() => setNotifOpen(o => !o)}
+          aria-label="Notifications"
+          aria-expanded={notifOpen}
+          className={cn(
+            "w-9 h-9 rounded-full flex items-center justify-center text-amber-500 transition-colors relative flex-shrink-0",
+            notifOpen ? "bg-white/10" : "hover:bg-white/5",
+          )}
+        >
+          <Bell size={20} strokeWidth={2.5} />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-[8px] h-[8px] bg-red-500 rounded-full border border-black" />
+          )}
+        </button>
         {/* Account avatar — hidden on the profile page itself (you're already
             there) so it doesn't double up with the page's own avatar. */}
         {pathname !== "/barber-dashboard/profile" && (
@@ -108,6 +169,44 @@ export function BarberSidebar() {
           </Link>
         )}
       </div>
+
+      {/* Notification quick-view popover — slides down under the top bar. */}
+      {notifOpen && (
+        <>
+          <div className="lg:hidden fixed inset-0 z-[70]" onClick={() => setNotifOpen(false)} />
+          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-[80] max-h-[calc(100dvh-3.5rem-5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
+            <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
+              <p className="text-sm font-bold text-white">Notifications</p>
+              <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
+            </div>
+            {recentNotifs.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[#777] text-sm">Nothing here yet</div>
+            ) : (
+              <div className="divide-y divide-[#1e1e1e]">
+                {recentNotifs.map(n => {
+                  const { Icon, cls } = notifIcon(n.type);
+                  return (
+                    <Link key={n.id} href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)}
+                      className={cn("flex gap-3 px-4 py-3 transition-colors", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.035] hover:bg-white/[0.06]")}>
+                      <span className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                        <Icon size={15} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className={cn("text-sm truncate", n.is_read ? "font-medium text-[#9a9a9a]" : "font-semibold text-white")}>{cleanNotifTitle(n.title)}</p>
+                          <span className="text-[11px] text-[#666] flex-shrink-0">{timeAgo(n.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-[#777] line-clamp-2 mt-0.5">{n.message}</p>
+                      </div>
+                      {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {mobileOpen && (
         <div
@@ -161,6 +260,12 @@ export function BarberSidebar() {
             >
               <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
               <span className="flex-1">{item.label}</span>
+              {item.badge && unreadCount > 0 && (
+                <span className={cn(
+                  "text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center",
+                  isActive ? "bg-black text-white" : "bg-white text-black",
+                )}>{unreadCount}</span>
+              )}
               {isActive && <ChevronRight size={14} className="text-black" />}
             </Link>
           );
