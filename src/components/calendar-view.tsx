@@ -1341,7 +1341,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
                             bl.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
                           <p className="text-[9px] font-semibold text-[#cfcfcf] flex items-center gap-0.5 leading-tight"><Ban size={9} /> Blocked</p>
-                          {bl.reason && height > 34 && <p className="text-[8px] text-[#888] truncate leading-tight">{bl.reason}</p>}
+                          {height > 28 && <p className="text-[8px] text-[#999] truncate leading-tight">{dbTimeToDisplay(bl.start_time!)}–{dbTimeToDisplay(bl.end_time!)}</p>}
+                          {bl.reason && height > 44 && <p className="text-[8px] text-[#888] truncate leading-tight">{bl.reason}</p>}
                         </button>
                       );
                     })}
