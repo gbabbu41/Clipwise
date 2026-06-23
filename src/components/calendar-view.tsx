@@ -1498,7 +1498,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute",
                           backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
                         className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-2 py-1 text-left", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
-                        <p className="text-xs font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-1"><Ban size={11} /> Blocked{b.reason ? ` · ${b.reason}` : ""}</p>
+                        <p className="text-xs font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-1"><Ban size={11} /> Blocked</p>
+                        {height > 30 && <p className="text-[11px] text-[#999] truncate leading-tight">{dbTimeToDisplay(b.start_time!)} – {dbTimeToDisplay(b.end_time!)}{b.reason ? ` · ${b.reason}` : ""}</p>}
                       </button>
                     );
                   })}
@@ -1609,6 +1610,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
                           className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
                           <p className="text-[10px] font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-0.5"><Ban size={9} /> Blocked</p>
+                          {height > 32 && <p className="text-[9px] text-[#999] truncate leading-tight">{dbTimeToDisplay(b.start_time!)}–{dbTimeToDisplay(b.end_time!)}</p>}
                         </button>
                       );
                     })}
