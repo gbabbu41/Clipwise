@@ -73,6 +73,8 @@ export function paymentTag(a: {
   if (a.payment_status === "refunded") return { bg, segments: [{ text: "Refunded", className: MUTED }] };
   if (a.status === "no-show") return { bg, segments: [{ text: "No-show", className: MUTED }] };
   if (a.status === "cancelled") return { bg, segments: [{ text: "Cancelled", className: MUTED }] };
+  // Service done but not paid → flag the balance due (two-tone).
+  if (a.status === "completed") return { bg, segments: [{ text: "Completed", className: MUTED }, { text: "Unpaid", className: AMBER }] };
   // Unpaid: a sent checkout link means we're waiting on the customer;
   // otherwise the payment is simply still due.
   if (a.stripe_checkout_session_id) return { bg, segments: [{ text: "Awaiting payment", className: SKY }] };

@@ -1234,6 +1234,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
                   </span>
                 </span>
+              ) : c.a.status === "completed" ? (
+                <span className="text-[10px] font-semibold">
+                  <span className="text-[#888]">Completed</span>
+                  <span className="text-[#555]"> · </span>
+                  <span className="text-amber-400">Unpaid</span>
+                </span>
               ) : (
                 <span className="text-[10px] font-semibold text-[#888]">{statusLabel(c.a.status)}</span>
               )}
