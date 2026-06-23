@@ -540,6 +540,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [isMobile, setIsMobile] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [toast, setToast] = useState("");
+  // Day view hides barbers who aren't scheduled today; a chip reveals them.
+  const [showUnscheduled, setShowUnscheduled] = useState(false);
   // Day-view working hours (per barber, for the current weekday) + services for
   // the quick-add modal, and the "+" empty-slot add context/form.
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
@@ -1264,6 +1266,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
+        {unscheduledCount > 0 && (
+          <button type="button" onClick={() => setShowUnscheduled(v => !v)}
+            className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#1e1e1e] text-[#999] hover:text-white transition-colors flex-shrink-0">
+            {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
+          </button>
+        )}
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1"
           onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
           onTouchEnd={e => {
@@ -1291,7 +1299,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     <div className="flex items-center justify-center gap-1.5 min-w-0">
                       <BarberAvatar b={b} i={gi >= 0 ? gi : 0} sm />
                       <span className="text-xs text-white font-medium truncate">{b.name}</span>
-                      {!schedules.has(b.id) && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" title="Not scheduled" />}
+                      {!schedules.has(b.id) && <span className="text-[9px] text-[#666] flex-shrink-0" title="No schedule set for today">off</span>}
                     </div>
                     <p className="text-[10px] text-[#666] leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
                   </button>
@@ -1668,8 +1676,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     : barbers.length > 0
       ? [...barbers].sort((a, b) => Number(b.id === myBarberId) - Number(a.id === myBarberId))
       : [];
-  const dayAllCols = orderedBarbers.length > 0
-    ? orderedBarbers
+  // Day view: hide barbers with no hours today by default; the "off today" chip
+  // reveals them. If NOBODY is scheduled, fall back to everyone (never blank).
+  const scheduledBarbers = orderedBarbers.filter(b => schedules.has(b.id));
+  const unscheduledCount = orderedBarbers.length - scheduledBarbers.length;
+  const dayCols = (showUnscheduled || scheduledBarbers.length === 0) ? orderedBarbers : scheduledBarbers;
+  const dayAllCols = dayCols.length > 0
+    ? dayCols
     : [{ id: "none", name: "All Barbers" } as Barber];
   // Phone: exactly one barber column per page (swipe to the next). Tablet /
   // desktop: fit as many columns as the width allows (all barbers for a typical
