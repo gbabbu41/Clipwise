@@ -542,6 +542,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [toast, setToast] = useState("");
   // Day view hides barbers who aren't scheduled today; a chip reveals them.
   const [showUnscheduled, setShowUnscheduled] = useState(false);
+  // Appointment ids to briefly flash (e.g. just flipped to paid via realtime).
+  const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   // Day-view working hours (per barber, for the current weekday) + services for
   // the quick-add modal, and the "+" empty-slot add context/form.
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
@@ -685,6 +687,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .catch(() => {});
     return () => { active = false; };
   }, [accessToken, load]);
+
+  // Live updates — a payment collected (or a block / new booking) flips the
+  // calendar without a manual refresh. Subscribe once per shop; a ref always
+  // calls the latest load() so we don't re-subscribe on every date/view change.
+  // When an appointment flips to paid, flash its card briefly.
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
+  useEffect(() => {
+    if (!shop) return;
+    const ch = supabase
+      .channel(`calendar:${shop.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, (payload) => {
+        if (payload.eventType === "UPDATE") {
+          const n = payload.new as { id?: string; payment_status?: string };
+          if (n?.id && (n.payment_status === "paid" || n.payment_status === "captured")) {
+            const id = n.id;
+            setFlashIds(prev => { const s = new Set(prev); s.add(id); return s; });
+            setTimeout(() => setFlashIds(prev => { const s = new Set(prev); s.delete(id); return s; }), 3000);
+          }
+        }
+        loadRef.current();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, () => loadRef.current())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [shop]);
 
   // Week view starts at 8 AM; the day view is now bounded to working hours so
   // it starts at the top.
@@ -1188,6 +1216,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               className={cn(
                 "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:brightness-125",
                 statusBlockDark(c.a.status), isDimmed(c.a.status) && "opacity-60 line-through",
+                flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
               <span className="text-xs font-medium text-[#999]">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
@@ -1392,6 +1421,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             "rounded-r-lg rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
                             statusBlockDark(appt.status),
                             dimmed && "opacity-60 line-through",
+                            flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
