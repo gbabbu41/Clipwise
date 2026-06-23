@@ -1435,7 +1435,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           {height > 24 && (
                             <div className="flex items-baseline justify-between gap-1.5 leading-tight">
                               <span className="text-[9px] text-[#bbb] truncate">{rangeLabel(appt.time_slot, duration)}</span>
-                              <span className="text-[9px] font-semibold flex-shrink-0 whitespace-nowrap">
+                              <span className="text-[8px] font-normal flex-shrink-0 whitespace-nowrap opacity-90">
                                 {paymentTag(appt).segments.map((s, i) => (
                                   <Fragment key={i}>
                                     {i > 0 && <span className="text-[#555]">·</span>}
