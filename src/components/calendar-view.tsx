@@ -1432,18 +1432,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          {height > 26 && (
-                            <p className="text-[9px] text-[#bbb] truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
-                          )}
-                          {height > 40 && (
-                            <p className="text-[9px] font-semibold truncate leading-tight mt-0.5">
-                              {paymentTag(appt).segments.map((s, i) => (
-                                <Fragment key={i}>
-                                  {i > 0 && <span className="text-[#555]"> · </span>}
-                                  <span className={s.className}>{s.text}</span>
-                                </Fragment>
-                              ))}
-                            </p>
+                          {height > 24 && (
+                            <div className="flex items-baseline justify-between gap-1.5 leading-tight">
+                              <span className="text-[9px] text-[#bbb] truncate">{rangeLabel(appt.time_slot, duration)}</span>
+                              <span className="text-[9px] font-semibold flex-shrink-0 whitespace-nowrap">
+                                {paymentTag(appt).segments.map((s, i) => (
+                                  <Fragment key={i}>
+                                    {i > 0 && <span className="text-[#555]">·</span>}
+                                    <span className={s.className}>{s.text}</span>
+                                  </Fragment>
+                                ))}
+                              </span>
+                            </div>
                           )}
                           {height > 64 && (
                             <p className="text-[9px] text-[#999] truncate leading-tight">
