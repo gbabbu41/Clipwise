@@ -86,8 +86,15 @@ export async function markAppointmentPaid(args: {
   shop: PayShop;
   baseUrl: string;
   paymentIntentId?: string | null;
+  /**
+   * Checkout flow: the barber hit "Check out" → "Send payment link", so paying
+   * it should finish the visit. Flip straight to "completed". Omitted/false for
+   * a plain pay-in-person link or booking-time prepay, which only become
+   * "confirmed" (still need an in-person check-out to complete).
+   */
+  completeOnPaid?: boolean;
 }): Promise<boolean> {
-  const { appt, shop, baseUrl, paymentIntentId } = args;
+  const { appt, shop, baseUrl, paymentIntentId, completeOnPaid } = args;
 
   const { data: claimed } = await supabaseAdmin
     .from("appointments")
@@ -95,9 +102,10 @@ export async function markAppointmentPaid(args: {
       payment_status: "paid",
       payment_method: "online",
       paid_at: new Date().toISOString(),
-      // A pending pay-in-person booking that gets paid is now confirmed — no
-      // separate manual approval needed once money is in.
-      ...(appt.status === "pending" ? { status: "confirmed" } : {}),
+      // Checkout-link payment finishes the visit → completed. Otherwise a
+      // pending pay-in-person booking that gets paid is now confirmed (no
+      // separate manual approval needed once money is in).
+      ...(completeOnPaid ? { status: "completed" } : appt.status === "pending" ? { status: "confirmed" } : {}),
       ...(paymentIntentId ? { payment_intent_id: paymentIntentId } : {}),
     })
     .eq("id", appt.id)

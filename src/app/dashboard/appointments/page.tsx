@@ -38,8 +38,11 @@ function primaryAction(status: AppStatus): { label: string; next: AppStatus; var
   // Soft transparent gradient buttons — color carries intent (green = go,
   // blue = finish, red = reject, amber = no-show) without going solid +
   // loud. Surfaces ~20% opacity, text the matching pastel.
-  if (status === "pending")   return { label: "Approve",  next: "confirmed", variant: "btn-soft-success" };
-  if (status === "confirmed") return { label: "Complete", next: "completed", variant: "btn-soft-blue"    };
+  if (status === "pending")   return { label: "Approve",   next: "confirmed", variant: "btn-soft-success" };
+  // "Check out" (not "Complete"): a confirmed appt — even one prepaid online —
+  // is checked out here, where the barber takes/settles payment, which is what
+  // flips it to completed. The status itself stays distinct from this action.
+  if (status === "confirmed") return { label: "Check out",  next: "completed", variant: "btn-soft-blue"   };
   return null;
 }
 const canReject = (status: AppStatus) => status === "pending" || status === "confirmed";
@@ -75,6 +78,12 @@ function paymentBadge(apt: AppointmentWithDetails): { label: string; bsClass: st
   // Completed but nothing was collected/held → clearly flag as Unpaid.
   if (isCompleted && (apt.total_amount ?? 0) > 0) {
     return { label: "Unpaid", bsClass: "bg-amber-500/15 text-amber-400" };
+  }
+
+  // A checkout link is out and still unpaid → waiting on the customer (paying it
+  // auto-completes the visit). Mirrors the calendar's "Awaiting payment" tag.
+  if (!isCompleted && apt.stripe_checkout_session_id) {
+    return { label: "Awaiting payment", bsClass: ACTIVE };
   }
 
   if (method === "cash" && !isCompleted) {
@@ -655,6 +664,7 @@ export default function AppointmentsPage() {
     // Payments tab always worked because it passes `email` the same way.
     const email = payEmail.trim();
     const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const willSms = !!paymentModal.client_phone;
     const res = await fetch("/api/stripe/payment-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -662,6 +672,12 @@ export default function AppointmentsPage() {
         appointment_id: paymentModal.id,
         send_email: willEmail,
         email: willEmail ? email : undefined,
+        send_sms: willSms,
+        phone: willSms ? paymentModal.client_phone : undefined,
+        // Checkout flow: paying this link auto-completes the visit server-side.
+        // We do NOT mark it completed here — the status flips to "completed" only
+        // when the customer actually pays (via the webhook / finalize route).
+        complete_on_paid: alsoComplete,
       }),
     });
     const data = await res.json();
@@ -670,22 +686,23 @@ export default function AppointmentsPage() {
       showToast(`Failed: ${data.error}`);
       return;
     }
-    // Reflect the (route-persisted) email locally so the side panel stays fresh.
-    if (willEmail && email !== (paymentModal.client_email ?? "")) {
-      setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, client_email: email } : a));
-      if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, client_email: email } : null);
-    }
-    if (alsoComplete) {
-      // Mark completed; the actual payment will land via the webhook when
-      // the customer pays. Keep payment_status as-is until that happens.
-      await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentModal.id);
-      setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, status: "completed" as AppStatus } : a));
-      if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, status: "completed" as AppStatus } : null);
+    // Reflect the (route-persisted) email + "awaiting payment" state locally so
+    // the side panel stays fresh. The session id drives the awaiting badge and,
+    // crucially, keeps the row open so it auto-completes when the customer pays.
+    {
+      const local: Partial<AppointmentWithDetails> = { stripe_checkout_session_id: "pending" };
+      if (willEmail && email !== (paymentModal.client_email ?? "")) local.client_email = email;
+      setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, ...local } as AppointmentWithDetails : a));
+      if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, ...local } as AppointmentWithDetails : null);
     }
     setSavingPayment("");
-    if (data.emailed) {
+    if (data.emailed || data.texted) {
       setPaymentModal(null);
-      showToast("Payment link emailed to customer");
+      showToast(
+        data.emailed && data.texted ? "Payment link sent · email + text"
+          : data.emailed ? "Payment link emailed to customer"
+          : "Payment link texted to customer",
+      );
     } else {
       // No email — keep the modal open showing the link so it can be copied or
       // opened for the customer. Stripe collects their email on its own page.
@@ -1405,7 +1422,7 @@ export default function AppointmentsPage() {
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Take Payment</h2>
+                <h2 className="text-lg font-bold text-white">Check out</h2>
                 <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">

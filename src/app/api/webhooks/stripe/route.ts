@@ -34,6 +34,8 @@ export async function POST(request: NextRequest) {
         if (session.metadata?.flow === "post_booking_payment" && session.metadata?.appointment_id) {
           const apptId = session.metadata.appointment_id;
           const newPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
+          // Checkout-flow link → paying it finishes the visit (status completed).
+          const completeOnPaid = session.metadata?.complete_on_paid === "1";
 
           // ── Double-payment guard ─────────────────────────────────────────────
           // The appointment was already settled before this online payment landed.
@@ -109,6 +111,8 @@ export async function POST(request: NextRequest) {
               payment_method: "online",
               paid_at: new Date().toISOString(),
               payment_intent_id: newPi,
+              // Checkout-flow link finishes the visit → completed.
+              ...(completeOnPaid ? { status: "completed" } : {}),
             })
             .eq("id", apptId)
             .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
@@ -118,11 +122,14 @@ export async function POST(request: NextRequest) {
           // A pay-in-person booking that's still awaiting approval is now paid —
           // auto-confirm it (status-scoped so a completed/cancelled row is never
           // regressed). Mirrors markAppointmentPaid for the customer-return path.
-          await supabaseAdmin.from("appointments")
-            .update({ status: "confirmed" })
-            .eq("id", session.metadata.appointment_id)
-            .eq("status", "pending")
-            .then(null, () => null);
+          // Skipped for the checkout flow, which already set it to completed above.
+          if (!completeOnPaid) {
+            await supabaseAdmin.from("appointments")
+              .update({ status: "confirmed" })
+              .eq("id", session.metadata.appointment_id)
+              .eq("status", "pending")
+              .then(null, () => null);
+          }
 
           // Only fire notifications + receipt on the real transition (paidAppt is
           // null when the row was already paid, e.g. payment-link-finalize got there

@@ -67,8 +67,9 @@ export async function POST(request: NextRequest) {
   }
 
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
+  const completeOnPaid = session.metadata?.complete_on_paid === "1";
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  await markAppointmentPaid({ appt, shop, baseUrl, paymentIntentId });
+  await markAppointmentPaid({ appt, shop, baseUrl, paymentIntentId, completeOnPaid });
 
   return NextResponse.json({ paid: true, appointmentId: appt.id, summary });
 }

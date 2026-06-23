@@ -19,12 +19,13 @@ import { sendSmsBestEffort } from "@/lib/twilio";
  */
 export async function POST(request: NextRequest) {
   const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const { appointment_id, send_email, send_sms, email, phone } = await request.json() as {
+  const { appointment_id, send_email, send_sms, email, phone, complete_on_paid } = await request.json() as {
     appointment_id: string;
     send_email?: boolean;
     send_sms?: boolean;
     email?: string;   // optional override / fill-in when none on file
     phone?: string;   // optional override / fill-in when none on file
+    complete_on_paid?: boolean; // checkout flow → mark the appointment completed when paid
   };
   if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
 
@@ -95,6 +96,10 @@ export async function POST(request: NextRequest) {
           flow: "post_booking_payment",
           appointment_id: appt.id,
           shop_id: appt.shop_id,
+          // Checkout flow: once this link is paid, flip the appointment to
+          // "completed" (not just paid). Booking-time prepay omits this so it
+          // stays "confirmed" until the barber checks out in person.
+          ...(complete_on_paid ? { complete_on_paid: "1" } : {}),
         },
         success_url: `${BASE_URL}/book/${shop.slug}?paid_appt=${appt.id}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${BASE_URL}/book/${shop.slug}?cancelled=1`,

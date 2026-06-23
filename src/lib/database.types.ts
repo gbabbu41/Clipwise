@@ -144,6 +144,9 @@ export interface Appointment {
   payment_method?: PaymentMethod;
   payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved";
   payment_intent_id?: string;
+  /** Stripe Checkout session for a sent payment/checkout link. Its presence on an
+   *  unpaid row drives the "Awaiting payment" tag (see paymentTag). */
+  stripe_checkout_session_id?: string;
   /** When the payment actually landed (paid / captured). Drives the
    *  "Paid · 10 min ago" relative labels. Set wherever we flip to paid. */
   paid_at?: string;

@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
       const session = await stripe.checkout.sessions.retrieve(sessionId, undefined, acctOpts);
       if (session.payment_status === "paid") {
         const pi = typeof session.payment_intent === "string" ? session.payment_intent : null;
-        const flipped = await markAppointmentPaid({ appt, shop, baseUrl, paymentIntentId: pi });
+        const completeOnPaid = session.metadata?.complete_on_paid === "1";
+        const flipped = await markAppointmentPaid({ appt, shop, baseUrl, paymentIntentId: pi, completeOnPaid });
         if (flipped) updated++;
       }
     } catch { /* skip unresolvable sessions */ }

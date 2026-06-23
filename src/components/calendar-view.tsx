@@ -254,16 +254,32 @@ export function makeApptActions(opts: {
       if (!shop || !accessToken) return;
       setBusy("link");
       const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const willSms = !!appt.client_phone;
       if (willEmail && email !== (appt.client_email ?? "")) patch(appt.id, { client_email: email });
       const res = await fetch("/api/stripe/payment-link", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, send_email: willEmail, email: willEmail ? email : undefined }),
+        // complete_on_paid: this is a checkout link — once the customer pays it,
+        // the appointment auto-flips to completed (status handled server-side).
+        body: JSON.stringify({
+          appointment_id: appt.id,
+          send_email: willEmail,
+          email: willEmail ? email : undefined,
+          send_sms: willSms,
+          phone: willSms ? appt.client_phone : undefined,
+          complete_on_paid: true,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       setBusy("");
       if (!res.ok) { toast(`Failed: ${data.error ?? "try again"}`); return; }
-      if (data.emailed) { toast("Payment link emailed to customer"); }
+      // Reflect that we're now waiting on the customer to pay (keeps the Check out
+      // button visible; tag shows "Awaiting payment" until the webhook flips it).
+      // Placeholder id is replaced by the real one via the realtime subscription.
+      if (!appt.stripe_checkout_session_id) patch(appt.id, { stripe_checkout_session_id: "pending" });
+      if (data.emailed && data.texted) { toast("Payment link sent · email + text"); }
+      else if (data.emailed) { toast("Payment link emailed to customer"); }
+      else if (data.texted) { toast("Payment link texted to customer"); }
       else if (data.url) {
         try { await navigator.clipboard.writeText(data.url); toast("Payment link copied to clipboard"); }
         catch { toast("Payment link ready"); }
@@ -321,13 +337,10 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
     && appt.payment_status !== "paid" && appt.payment_status !== "captured"
     && appt.payment_status !== "refunded" && !heldOrSaved;
 
-  // "Complete" is context-aware: held/saved cards auto-charge; already-paid /
-  // zero-amount complete straight through; otherwise we reveal payment choices.
-  const onComplete = () => {
-    if (heldOrSaved) { actions.captureComplete(appt); return; }
-    if (paid || (appt.total_amount ?? 0) <= 0) { actions.complete(appt); return; }
-    setPayChoice(true);
-  };
+  const amt = Number(appt.total_amount ?? 0);
+  // A checkout link is out and the customer hasn't paid yet — keep the Check out
+  // button but surface that we're waiting (paying the link auto-completes).
+  const awaiting = !paid && !!appt.stripe_checkout_session_id;
 
   return (
     <>
@@ -386,33 +399,61 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
             <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
           )}
 
-          {/* Actions — same set as the Appointments page, kept compact.
-              Hidden entirely in read-only mode (e.g. a barber without
-              manage_appointments) — they get a view-only detail card. */}
+          {/* Actions. The "Check out" button (confirmed appts) opens the checkout
+              sheet — it is NOT the same as the completed status: a prepaid online
+              booking stays "confirmed" until the barber checks it out here.
+              Hidden entirely in read-only mode (barber w/o manage_appointments). */}
           {readOnly ? null : payChoice ? (
             <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
-              <p className="text-xs text-[#777]">How was this paid?</p>
-              <input
-                type="email"
-                value={payEmail}
-                onChange={e => setPayEmail(e.target.value)}
-                placeholder="Customer email (for the link)"
-                className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/50"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.cashComplete(appt)}>
-                  {busy === "cash" ? "…" : "Cash · Complete"}
+              <p className="text-xs text-[#777]">Check out{amt > 0 ? ` · $${amt.toFixed(2)}` : ""}</p>
+              {paid ? (
+                /* Already paid (e.g. prepaid at booking) — just finish the visit. */
+                <Button size="sm" className="w-full" disabled={!!busy} onClick={() => actions.complete(appt)}>
+                  {busy === "complete" ? "Completing…" : "Mark complete · already paid"}
                 </Button>
-                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.sendLink(appt, payEmail.trim())}>
-                  {busy === "link" ? "…" : "Send link"}
-                </Button>
-              </div>
-              <Button size="sm" variant="ghost" className="w-full" disabled={!!busy} onClick={() => actions.complete(appt)}>
-                {busy === "complete" ? "Completing…" : "Skip · Complete unpaid"}
-              </Button>
+              ) : (
+                <>
+                  {/* 1 · Charge a card already on file (held at booking / saved). */}
+                  {heldOrSaved && (
+                    <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => actions.captureComplete(appt)}>
+                      {busy === "capture" ? "Charging…" : `Charge card on file${amt > 0 ? ` · $${amt.toFixed(2)}` : ""}`}
+                    </Button>
+                  )}
+                  {/* 2 · Tap to Pay — native, not shipped yet. */}
+                  <Button size="sm" variant="outline" className="w-full opacity-50 cursor-not-allowed" disabled>
+                    Pay here (Tap) · Coming soon
+                  </Button>
+                  {/* 3 · Send a checkout link by email/text — paying it auto-completes. */}
+                  <input
+                    type="email"
+                    value={payEmail}
+                    onChange={e => setPayEmail(e.target.value)}
+                    placeholder="Customer email (for the link)"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/50"
+                  />
+                  <Button size="sm" variant="outline" className="w-full" disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); }}>
+                    {busy === "link" ? "Sending…" : `Send payment link${appt.client_phone ? " · email/text" : ""}`}
+                  </Button>
+                  {/* 4 · Pay cash + complete.  5 · Complete now, leave unpaid. */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.cashComplete(appt)}>
+                      {busy === "cash" ? "…" : "Pay cash · Complete"}
+                    </Button>
+                    {appt.status !== "completed" && (
+                      <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => actions.complete(appt)}>
+                        {busy === "complete" ? "…" : "Complete unpaid"}
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+              <button className="w-full text-xs text-[#777] hover:text-white pt-1" onClick={() => setPayChoice(false)}>Cancel</button>
             </div>
           ) : (
             <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
+              {awaiting && (
+                <p className="text-xs text-sky-400">Awaiting payment — checkout link sent. Paying it completes the visit.</p>
+              )}
               {(appt.status === "pending" || appt.status === "confirmed") && (
                 <div className="flex gap-2">
                   {appt.status === "pending" && (
@@ -421,8 +462,8 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                     </Button>
                   )}
                   {appt.status === "confirmed" && (
-                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={onComplete}>
-                      {busy === "complete" || busy === "capture" ? "…" : "Complete"}
+                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => setPayChoice(true)}>
+                      Check out
                     </Button>
                   )}
                   <Button size="sm" variant="outline" className="flex-1" disabled={!!busy} onClick={() => actions.reject(appt)}>
@@ -431,11 +472,10 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                 </div>
               )}
               {/* Take Payment — any unpaid appointment with a balance (e.g. a
-                  completed, manually-added booking). Held/saved cards auto-charge
-                  on Complete, so they're excluded here. */}
+                  completed, manually-added booking). Opens the same checkout sheet. */}
               {outstanding && (
                 <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => setPayChoice(true)}>
-                  💳 Take Payment · ${Number(appt.total_amount ?? 0).toFixed(0)}
+                  💳 Take Payment · ${amt.toFixed(0)}
                 </Button>
               )}
             </div>
