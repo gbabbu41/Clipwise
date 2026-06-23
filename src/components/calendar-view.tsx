@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -507,7 +507,11 @@ function AgendaSheet({
   );
 }
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "month" | "week" | "day" }) {
+// A "blocked hours" row (time_off_requests, type blocked_hours). start_time /
+// end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
+type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
+
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "month" | "week" | "day"; canBlock?: boolean }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
   // defaultView overrides both (the barber Calendar tab opens on today).
@@ -533,6 +537,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_ids: [] as string[], time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
+  // Blocked-hours state: fetched blocks + the "Block this time" sheet context.
+  const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [blockCtx, setBlockCtx] = useState<{ barberId: string; barberName: string; date: string } | null>(null);
+  const [blockForm, setBlockForm] = useState({ start: "", end: "", reason: "" });
+  const [blockBusy, setBlockBusy] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
   // Barber-column pagination for the all-barbers day view (arrows / swipe).
@@ -599,13 +608,27 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       q = q.eq("barber_id", barberFilter);
     }
 
-    const [{ data: appts }, { data: bs }] = await Promise.all([
+    // Blocked-hours overlapping the visible range (pending + approved). Scoped
+    // to the one barber in the barber portal; shop-wide otherwise.
+    let blocksQ = supabase
+      .from("time_off_requests")
+      .select("id, barber_id, start_date, start_time, end_time, status, reason")
+      .eq("shop_id", shop.id).eq("type", "blocked_hours")
+      .in("status", ["pending", "approved"])
+      .gte("start_date", formatDateForDb(rangeStart))
+      .lte("start_date", formatDateForDb(rangeEnd));
+    if (scopeId) blocksQ = blocksQ.eq("barber_id", scopeId);
+    else if (barberFilter !== "all") blocksQ = blocksQ.eq("barber_id", barberFilter);
+
+    const [{ data: appts }, { data: bs }, { data: blk }] = await Promise.all([
       q,
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+      blocksQ,
     ]);
 
     setAppointments((appts ?? []) as AppointmentWithDetails[]);
     setBarbers((bs ?? []) as Barber[]);
+    setBlocks((blk ?? []) as BlockRow[]);
     setLoading(false);
   }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
@@ -806,6 +829,56 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!canManage) return; // read-only (e.g. a barber without manage_appointments)
     setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
     setAddCtx({ barberId, barberName, time, boxMinutes });
+  };
+
+  // ── Blocked hours ──────────────────────────────────────────────────────────
+  // Minutes → 24h "HH:MM" (the format time_off_requests + availability use).
+  const minsTo24h = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(Math.round(min) % 60).padStart(2, "0")}`;
+  // Blocks for one barber on one day (sorted), with start/end minutes resolved.
+  const blocksFor = useCallback((barberId: string, dateStr: string) =>
+    blocks
+      .filter(b => b.barber_id === barberId && b.start_date === dateStr && b.start_time && b.end_time)
+      .map(b => ({ ...b, startMin: timeToMinutes(dbTimeToDisplay(b.start_time!)), endMin: timeToMinutes(dbTimeToDisplay(b.end_time!)) }))
+      .sort((x, y) => x.startMin - y.startMin),
+  [blocks]);
+
+  // Open the Block sheet, pre-filled to a tapped slot (display time + minutes).
+  const openBlock = (barberId: string, barberName: string, slot: string, minutes: number) => {
+    if (!canBlock) return;
+    const startMin = timeToMinutes(slot);
+    setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (minutes > 0 ? minutes : 60)), reason: "" });
+    setBlockCtx({ barberId, barberName, date: formatDateForDb(currentDate) });
+  };
+
+  const submitBlock = async () => {
+    if (!shop || !blockCtx || !accessToken) return;
+    if (!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start) return;
+    setBlockBusy(true);
+    const res = await fetch("/api/calendar/block", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create", shop_id: shop.id, barber_id: blockCtx.barberId,
+        date: blockCtx.date, start_time: blockForm.start, end_time: blockForm.end,
+        reason: blockForm.reason || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({ ok: false }));
+    setBlockBusy(false);
+    if (!res.ok || !data.ok) return;
+    setBlockCtx(null);
+    load();
+  };
+
+  const removeBlock = async (b: BlockRow) => {
+    if (!shop || !accessToken) return;
+    if (typeof window !== "undefined" && !window.confirm("Remove this block?")) return;
+    await fetch("/api/calendar/block", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "remove", shop_id: shop.id, request_id: b.id }),
+    }).catch(() => null);
+    load();
   };
 
   // Quick-add an in-person appointment from a "+" empty slot (server-side route
@@ -1055,15 +1128,23 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const startDb = sched?.start ?? "09:00:00";
     const endDb = sched?.end ?? "22:00:00";
     const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
-    const emptySlots = windowEmpties(barber.id, dateStr, { start: startDb, end: endDb });
+    const dayBlocks = blocksFor(barber.id, dateStr);
+    // Drop any free slot that falls inside a block window (so it can't be booked
+    // over, and the grid shows the block instead).
+    const emptySlots = windowEmpties(barber.id, dateStr, { start: startDb, end: endDb })
+      .filter(e => { const s = timeToMinutes(e.slot); return !dayBlocks.some(b => s < b.endMin && s + e.minutes > b.startMin); });
 
-    type Cell = { k: "appt"; a: AppointmentWithDetails } | { k: "empty"; s: string; minutes: number };
+    type Cell =
+      | { k: "appt"; a: AppointmentWithDetails }
+      | { k: "empty"; s: string; minutes: number }
+      | { k: "block"; b: (typeof dayBlocks)[number] };
     const cells: Cell[] = [
       ...emptySlots.map(e => ({ k: "empty", s: e.slot, minutes: e.minutes } as Cell)),
       ...dayAppts.map(a => ({ k: "appt", a } as Cell)),
+      ...dayBlocks.map(b => ({ k: "block", b } as Cell)),
     ];
-    cells.sort((x, y) =>
-      timeToMinutes(x.k === "appt" ? x.a.time_slot : x.s) - timeToMinutes(y.k === "appt" ? y.a.time_slot : y.s));
+    const cellStart = (c: Cell) => c.k === "appt" ? timeToMinutes(c.a.time_slot) : c.k === "empty" ? timeToMinutes(c.s) : c.b.startMin;
+    cells.sort((x, y) => cellStart(x) - cellStart(y));
 
     return (
       <div className="p-4 sm:p-5">
@@ -1072,10 +1153,33 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
-            <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
-              className="rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
-              <span className="text-[10px] text-[#444]">Free</span>
+            <div key={`e${ci}`} className="relative">
+              <button onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
+                className="w-full rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+                <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
+                <span className="text-[10px] text-[#444]">Free</span>
+              </button>
+              {canBlock && (
+                <button type="button" aria-label="Block this time" title="Block this time"
+                  onClick={(e) => { e.stopPropagation(); openBlock(barber.id, barber.name, c.s, c.minutes); }}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#3a3a3a] flex items-center justify-center">
+                  <Ban size={13} />
+                </button>
+              )}
+            </div>
+          ) : c.k === "block" ? (
+            <button key={`b${c.b.id}`} onClick={() => canBlock && removeBlock(c.b)} disabled={!canBlock}
+              style={{ backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+              className={cn("rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-[#3a3a3a] transition-colors",
+                canBlock ? "hover:border-[#4a4a4a]" : "cursor-default")}>
+              <span className="text-xs font-medium text-[#bdbdbd]">{rangeLabel(dbTimeToDisplay(c.b.start_time!), c.b.endMin - c.b.startMin)}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#dcdcdc] flex items-center gap-1"><Ban size={12} /> Blocked</p>
+                {c.b.reason && <p className="text-[11px] text-[#888] truncate">{c.b.reason}</p>}
+              </div>
+              <span className={cn("text-[10px] font-semibold", c.b.status === "pending" ? "text-amber-400" : "text-[#888]")}>
+                {c.b.status === "pending" ? "Pending approval" : canBlock ? "Tap to remove" : "Blocked"}
+              </span>
             </button>
           ) : (
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
@@ -1212,7 +1316,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 // Show "+" boxes across the whole visible grid; the ones outside
                 // the barber's schedule are greyed (still bookable as overtime).
                 const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
-                const empties = windowEmpties(b.id, dateStr, gridWin);
+                const colBlocks = blocksFor(b.id, dateStr);
+                const empties = windowEmpties(b.id, dateStr, gridWin)
+                  .filter(e => { const s = timeToMinutes(e.slot); return !colBlocks.some(bl => s < bl.endMin && s + e.minutes > bl.startMin); });
                 return (
                   <div key={b.id} className="relative">
                     {/* Free slots — quiet dark space (tap to add; no "+" chrome).
@@ -1230,6 +1336,23 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             outside ? "bg-transparent hover:bg-[#141414]" : "bg-[#141414] hover:bg-[#1c1c1c]",
                           )}
                           onClick={() => openAdd(b.id, b.name, slot, minutes)} />
+                      );
+                    })}
+                    {/* Blocked-hours bands — hatched; tap to remove (if allowed) */}
+                    {colBlocks.map(bl => {
+                      const top = (bl.startMin / 60 - winStart) * ROW_PX;
+                      const height = Math.max(16, ((bl.endMin - bl.startMin) / 60) * ROW_PX - 4);
+                      return (
+                        <button key={`blk${bl.id}`}
+                          title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
+                          onClick={() => canBlock && removeBlock(bl)} disabled={!canBlock}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
+                            backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                          className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
+                            bl.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                          <p className="text-[9px] font-semibold text-[#cfcfcf] flex items-center gap-0.5 leading-tight"><Ban size={9} /> Blocked</p>
+                          {bl.reason && height > 34 && <p className="text-[8px] text-[#888] truncate leading-tight">{bl.reason}</p>}
+                        </button>
                       );
                     })}
                     {/* Booked blocks — height ∝ duration; overlaps sit side-by-side */}
@@ -1717,6 +1840,53 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* ── Block-this-time sheet ─────────────────────────────────────────── */}
+      {blockCtx && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/60 z-[70]" onClick={() => !blockBusy && setBlockCtx(null)} />
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 pb-24 lg:pb-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Ban size={17} /> Block time</h3>
+                <button onClick={() => !blockBusy && setBlockCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
+              </div>
+              <p className="text-xs text-[#777]">{blockCtx.barberName} · {friendlyDate(currentDate)}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-[#777]">From</label>
+                  <input type="time" value={blockForm.start} max={blockForm.end || undefined}
+                    onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-[#777]">To</label>
+                  <input type="time" value={blockForm.end} min={blockForm.start || undefined}
+                    onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+              </div>
+              <input type="text" value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
+                placeholder="Reason (optional) — e.g. Lunch"
+                className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
+              <p className="text-[11px] text-[#888] flex items-start gap-1.5">
+                <span className="text-amber-400 mt-0.5">ⓘ</span>
+                {profile?.role === "shop_owner"
+                  ? "Blocks this time immediately."
+                  : "Sends your shop owner a request to approve."}
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => setBlockCtx(null)}>Cancel</Button>
+                <Button className="flex-1" loading={blockBusy}
+                  disabled={!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start}
+                  onClick={submitBlock}>
+                  {profile?.role === "shop_owner" ? "Block" : "Request block"}
+                </Button>
               </div>
             </div>
           </div>

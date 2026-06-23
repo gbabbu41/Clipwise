@@ -206,7 +206,7 @@ export default function BarberOverviewPage() {
       <div className="mb-6">
         <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">My Calendar</h2>
         <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
-          <CalendarView embedded canManage={canManage} forceBarberId={barber?.id} />
+          <CalendarView embedded canManage={canManage} forceBarberId={barber?.id} canBlock={isOwner || barber?.permissions?.block_hours !== false} />
         </div>
       </div>
 

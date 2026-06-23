@@ -655,7 +655,7 @@ export default function DashboardPage() {
               barber columns, tap-to-add), so Home mirrors /dashboard/calendar. */}
           <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
             {calReady
-              ? <CalendarView embedded />
+              ? <CalendarView embedded canBlock />
               : <div className="h-full flex items-center justify-center text-[#777] text-sm">Loading calendar…</div>}
           </div>
 
