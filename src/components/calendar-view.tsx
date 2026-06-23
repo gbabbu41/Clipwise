@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
-  cn, formatDateForDb, friendlyDate, timeAgo,
+  cn, formatDateForDb, friendlyDate, timeAgo, paymentTag,
   occupiedSlots, dbTimeToDisplay, timeToMinutes,
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -1435,7 +1435,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           {height > 26 && (
                             <p className="text-[9px] text-[#bbb] truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
                           )}
-                          {height > 46 && (
+                          {height > 40 && (
+                            <p className="text-[9px] font-semibold truncate leading-tight mt-0.5">
+                              {paymentTag(appt).segments.map((s, i) => (
+                                <Fragment key={i}>
+                                  {i > 0 && <span className="text-[#555]"> · </span>}
+                                  <span className={s.className}>{s.text}</span>
+                                </Fragment>
+                              ))}
+                            </p>
+                          )}
+                          {height > 64 && (
                             <p className="text-[9px] text-[#999] truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
                               {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
