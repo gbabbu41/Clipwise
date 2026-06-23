@@ -106,10 +106,14 @@ export default function BarberPaymentsPage() {
     const gross = inP.reduce((s, t) => s + grossOf(t), 0);
     const tips = inP.reduce((s, t) => s + (t.tip ?? 0), 0);
     const fees = inP.reduce((s, t) => s + feeOf(t), 0);
+    // Cash is collected in hand and kept separate from the card/Stripe balance
+    // (which is what the green headline shows), mirroring the owner Payments page.
     const cash = inP.filter(t => t.payment_method === "cash").reduce((s, t) => s + earnedOf(t), 0);
+    const cardEarned = earned - cash;
     const count = inP.length;
     const m = new Map<string, { order: number; val: number }>();
     inP.forEach(t => {
+      if (t.payment_method === "cash") return;   // chart tracks the card/Stripe net only
       const dt = new Date(t.created_at);
       const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(dt.getTime() / 86400000);
       const label = monthly
@@ -119,7 +123,7 @@ export default function BarberPaymentsPage() {
       cur.val += earnedOf(t); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, val: v.val, order: v.order })).sort((a, b) => a.order - b.order);
-    return { earned, gross, tips, fees, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
+    return { earned, cardEarned, gross, tips, fees, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
   }, [txs, earnedOf, feeOf]);
 
   // Resolve the selected window to a {from, to} range + label + chart bucketing.
@@ -244,9 +248,12 @@ export default function BarberPaymentsPage() {
       <div className="mb-6 rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-[10px] uppercase tracking-wide text-gray-400">You earned · {period.label}</p>
-          {sel.tips > 0 && <span className="text-xs font-semibold text-amber-500">{formatCurrency(sel.tips)} tips</span>}
+          <div className="flex items-baseline gap-2">
+            {sel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(sel.cash)} cash</span>}
+            {sel.tips > 0 && <span className="text-xs font-semibold text-amber-500/70">{formatCurrency(sel.tips)} tips</span>}
+          </div>
         </div>
-        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(sel.earned)}</p>
+        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(sel.cardEarned)}</p>
         <p className="text-xs text-gray-500 mt-1.5">
           From {formatCurrency(sel.gross)} collected{sel.fees > 0 ? ` · ${formatCurrency(sel.fees)} Stripe fees` : ""}
         </p>
