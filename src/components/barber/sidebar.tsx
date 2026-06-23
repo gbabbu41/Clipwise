@@ -148,13 +148,15 @@ export function BarberSidebar() {
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-amber-500 transition-colors relative flex-shrink-0",
+            "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors relative flex-shrink-0",
             notifOpen ? "bg-white/10" : "hover:bg-white/5",
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-[8px] h-[8px] bg-red-500 rounded-full border border-black" />
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-black leading-none">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           )}
         </button>
         {/* Account avatar — hidden on the profile page itself (you're already
