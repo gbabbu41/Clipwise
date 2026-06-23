@@ -1235,11 +1235,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   </span>
                 </span>
               ) : c.a.status === "completed" ? (
-                <span className="text-[10px] font-semibold">
-                  <span className="text-[#888]">Completed</span>
-                  <span className="text-[#555]"> · </span>
-                  <span className="text-amber-400">Unpaid</span>
-                </span>
+                <span className="text-[10px] font-semibold text-[#bbb]">Unpaid</span>
               ) : (
                 <span className="text-[10px] font-semibold text-[#888]">{statusLabel(c.a.status)}</span>
               )}
