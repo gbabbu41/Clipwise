@@ -33,7 +33,7 @@ export function Portal({ children }: { children: ReactNode }) {
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
-const ROW_PX = 56;                     // height of one hour row
+const ROW_PX = 62;                     // height of one hour row (~10% taller)
 const DEFAULT_SCROLL_HOUR = 8;         // where week/day views land on open
 
 // Block length (minutes) for an appointment. Multi-service bookings carry their
@@ -1341,13 +1341,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div className="relative">
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-[#161616] relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
-                {/* half-hour divider line */}
-                <div className="absolute left-14 right-0 border-t border-dashed border-[#141414]" style={{ top: `${ROW_PX / 2}px` }} />
                 <div className="relative text-right pr-2">
                   <span className="text-[10px] text-[#777]">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </span>
-                  <span className="absolute right-2 text-[9px] text-[#444]" style={{ top: `${ROW_PX / 2 - 6}px` }}>:30</span>
                 </div>
                 {cols.map(b => (
                   <div key={b.id} className="border-l border-[#141414]" />
