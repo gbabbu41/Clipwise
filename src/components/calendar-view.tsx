@@ -233,9 +233,14 @@ export function makeApptActions(opts: {
       const { error } = await supabase.from("appointments").update(p).eq("id", appt.id);
       if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
       patch(appt.id, p);
-      // Settled by cash → expire any open payment link so it can't be paid too.
+      // Settled by cash → expire any open payment link so it can't be paid too,
+      // and ledger the cash sale so it shows in the barber Payments view.
       if (accessToken) {
         fetch("/api/stripe/cancel-payment-link", {
+          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => {});
+        fetch("/api/calendar/record-cash", {
           method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ appointment_id: appt.id }),
         }).catch(() => {});
@@ -366,8 +371,13 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
             {paid && (
               <div className="flex justify-between py-1.5 border-t border-[#1e1e1e]/50">
                 <span className="text-[#777]">Payment</span>
-                <span className="text-[#00e5a0] font-medium">
-                  Paid{appt.paid_at ? ` · ${timeAgo(appt.paid_at)}` : ""}
+                <span className="font-medium">
+                  <span className="text-[#00e5a0]">Paid</span>
+                  <span className="text-[#555]"> · </span>
+                  <span className={appt.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
+                    {appt.payment_method === "cash" ? "Cash" : "Card"}
+                  </span>
+                  {appt.paid_at ? <span className="text-[#777]"> · {timeAgo(appt.paid_at)}</span> : null}
                 </span>
               </div>
             )}
@@ -1185,9 +1195,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {(c.a.total_amount ?? 0) > 0 ? ` · $${Number(c.a.total_amount).toFixed(0)}` : ""}
                 </p>
               </div>
-              <span className={cn("text-[10px] font-semibold", (c.a.payment_status === "paid" || c.a.payment_status === "captured") ? "text-[#00e5a0]" : "text-[#888]")}>
-                {c.a.payment_status === "paid" || c.a.payment_status === "captured" ? "Paid" : statusLabel(c.a.status)}
-              </span>
+              {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
+                <span className="text-[10px] font-semibold">
+                  <span className="text-[#00e5a0]">Paid</span>
+                  <span className="text-[#555]"> · </span>
+                  <span className={c.a.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
+                    {c.a.payment_method === "cash" ? "Cash" : "Card"}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-[#888]">{statusLabel(c.a.status)}</span>
+              )}
             </button>
           ))}
           {cells.length === 0 && (
