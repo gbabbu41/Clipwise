@@ -895,8 +895,13 @@ export default function BookingPage() {
     );
   }
 
+  // A payment return (online booking pay, or an owner-sent payment link) must
+  // always show its result — even when online booking is paused — so the customer
+  // sees "Payment received", not the "not accepting bookings" screen.
+  const isPaymentReturn = !!searchParams.get("paid_appt") || searchParams.get("paid") === "1";
+
   // ── Emergency pause: owner flipped the kill switch → stop taking bookings ──
-  if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
+  if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused && !confirmed && !isPaymentReturn) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
@@ -907,6 +912,19 @@ export default function BookingPage() {
           <p className="text-[#777] mt-3">We&apos;ve temporarily paused online booking. Please check back soon{shop.phone ? " or give us a call" : ""}.</p>
           <Badge variant="warning" className="mt-4">Not accepting bookings</Badge>
           {shop.phone && <p className="text-sm text-[#aaa] mt-4">{shop.phone}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  // Finalizing a payment that just came back from Stripe (before `confirmed`
+  // flips) — show a spinner instead of the booking UI / paused screen.
+  if (isPaymentReturn && !confirmed) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#1e1e1e] border-t-white rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#777] text-sm">Confirming your payment…</p>
         </div>
       </div>
     );
