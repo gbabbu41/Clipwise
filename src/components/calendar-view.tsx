@@ -537,9 +537,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_ids: [] as string[], time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
-  // Blocked-hours state: fetched blocks + the "Block this time" sheet context.
+  // Blocked-hours state. The tap modal carries an Appointment/Block toggle
+  // (addMode); blockForm holds the block's time range + reason.
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
-  const [blockCtx, setBlockCtx] = useState<{ barberId: string; barberName: string; date: string } | null>(null);
+  const [addMode, setAddMode] = useState<"appt" | "block">("appt");
   const [blockForm, setBlockForm] = useState({ start: "", end: "", reason: "" });
   const [blockBusy, setBlockBusy] = useState(false);
   const [dateMenu, setDateMenu] = useState(false);
@@ -824,10 +825,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return m < timeToMinutes(dbTimeToDisplay(s.start)) || m >= timeToMinutes(dbTimeToDisplay(s.end));
   };
 
-  // Open the quick-add modal pre-filled for a slot.
+  // Open the tap modal for a slot. Carries both flows: add an appointment
+  // (needs manage_appointments) and block the time (needs block_hours). Opens
+  // as long as the user can do at least one; defaults to whichever they can.
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number) => {
-    if (!canManage) return; // read-only (e.g. a barber without manage_appointments)
+    if (!canManage && !canBlock) return;
     setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
+    const startMin = timeToMinutes(time);
+    setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
+    setAddMode(canManage ? "appt" : "block");
     setAddCtx({ barberId, barberName, time, boxMinutes });
   };
 
@@ -842,31 +848,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .sort((x, y) => x.startMin - y.startMin),
   [blocks]);
 
-  // Open the Block sheet, pre-filled to a tapped slot (display time + minutes).
-  const openBlock = (barberId: string, barberName: string, slot: string, minutes: number) => {
-    if (!canBlock) return;
-    const startMin = timeToMinutes(slot);
-    setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (minutes > 0 ? minutes : 60)), reason: "" });
-    setBlockCtx({ barberId, barberName, date: formatDateForDb(currentDate) });
-  };
-
+  // Submit a block (from the tap modal's Block tab). Uses the addCtx slot.
   const submitBlock = async () => {
-    if (!shop || !blockCtx || !accessToken) return;
+    if (!shop || !addCtx || !accessToken) return;
     if (!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start) return;
     setBlockBusy(true);
     const res = await fetch("/api/calendar/block", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "create", shop_id: shop.id, barber_id: blockCtx.barberId,
-        date: blockCtx.date, start_time: blockForm.start, end_time: blockForm.end,
+        action: "create", shop_id: shop.id, barber_id: addCtx.barberId,
+        date: formatDateForDb(currentDate), start_time: blockForm.start, end_time: blockForm.end,
         reason: blockForm.reason || null,
       }),
     });
     const data = await res.json().catch(() => ({ ok: false }));
     setBlockBusy(false);
     if (!res.ok || !data.ok) return;
-    setBlockCtx(null);
+    setAddCtx(null);
     load();
   };
 
@@ -1153,20 +1152,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
-            <div key={`e${ci}`} className="relative">
-              <button onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
-                className="w-full rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-                <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
-                <span className="text-[10px] text-[#444]">Free</span>
-              </button>
-              {canBlock && (
-                <button type="button" aria-label="Block this time" title="Block this time"
-                  onClick={(e) => { e.stopPropagation(); openBlock(barber.id, barber.name, c.s, c.minutes); }}
-                  className="absolute top-2 right-2 w-6 h-6 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#3a3a3a] flex items-center justify-center">
-                  <Ban size={13} />
-                </button>
-              )}
-            </div>
+            <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
+              className="rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+              <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
+              <span className="text-[10px] text-[#444]">Free</span>
+            </button>
           ) : c.k === "block" ? (
             <button key={`b${c.b.id}`} onClick={() => canBlock && removeBlock(c.b)} disabled={!canBlock}
               style={{ backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
@@ -1808,13 +1798,56 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">New appointment</h3>
-                <button onClick={() => !savingAdd && setAddCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
+                <h3 className="text-lg font-bold text-white">{addMode === "block" ? "Block time" : "New appointment"}</h3>
+                <button onClick={() => !savingAdd && !blockBusy && setAddCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
               </div>
+              {/* Appointment / Block toggle — only when the user can do both */}
+              {canManage && canBlock && (
+                <div className="grid grid-cols-2 gap-1 p-1 bg-[#141414] rounded-xl">
+                  <button type="button" onClick={() => setAddMode("appt")}
+                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors", addMode === "appt" ? "bg-white text-black" : "text-[#888] hover:text-white")}>Appointment</button>
+                  <button type="button" onClick={() => setAddMode("block")}
+                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-[#888] hover:text-white")}><Ban size={14} /> Block</button>
+                </div>
+              )}
               <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#aaa] space-y-0.5">
                 <p><span className="text-[#777]">Barber:</span> {addCtx.barberName}</p>
                 <p><span className="text-[#777]">When:</span> {friendlyDate(currentDate)}</p>
               </div>
+              {addMode === "block" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wide text-[#777]">From</label>
+                      <input type="time" value={blockForm.start} max={blockForm.end || undefined}
+                        onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
+                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wide text-[#777]">To</label>
+                      <input type="time" value={blockForm.end} min={blockForm.start || undefined}
+                        onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
+                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    </div>
+                  </div>
+                  <input type="text" value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
+                    placeholder="Reason (optional) — e.g. Lunch"
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
+                  <p className="text-[11px] text-[#888] flex items-start gap-1.5">
+                    <span className="text-amber-400 mt-0.5">ⓘ</span>
+                    {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => setAddCtx(null)}>Cancel</Button>
+                    <Button className="flex-1" loading={blockBusy}
+                      disabled={!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start}
+                      onClick={submitBlock}>
+                      {profile?.role === "shop_owner" ? "Block" : "Request block"}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+              <>
               <Input label="Client name *" value={addForm.client_name}
                 onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone}
@@ -1871,53 +1904,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
               </div>
-            </div>
-          </div>
-        </Portal>
-      )}
-
-      {/* ── Block-this-time sheet ─────────────────────────────────────────── */}
-      {blockCtx && (
-        <Portal>
-          <div className="fixed inset-0 bg-black/60 z-[70]" onClick={() => !blockBusy && setBlockCtx(null)} />
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 pb-24 lg:pb-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Ban size={17} /> Block time</h3>
-                <button onClick={() => !blockBusy && setBlockCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
-              </div>
-              <p className="text-xs text-[#777]">{blockCtx.barberName} · {friendlyDate(currentDate)}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#777]">From</label>
-                  <input type="time" value={blockForm.start} max={blockForm.end || undefined}
-                    onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#777]">To</label>
-                  <input type="time" value={blockForm.end} min={blockForm.start || undefined}
-                    onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
-                </div>
-              </div>
-              <input type="text" value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
-                placeholder="Reason (optional) — e.g. Lunch"
-                className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
-              <p className="text-[11px] text-[#888] flex items-start gap-1.5">
-                <span className="text-amber-400 mt-0.5">ⓘ</span>
-                {profile?.role === "shop_owner"
-                  ? "Blocks this time immediately."
-                  : "Sends your shop owner a request to approve."}
-              </p>
-              <div className="flex gap-2 pt-1">
-                <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => setBlockCtx(null)}>Cancel</Button>
-                <Button className="flex-1" loading={blockBusy}
-                  disabled={!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start}
-                  onClick={submitBlock}>
-                  {profile?.role === "shop_owner" ? "Block" : "Request block"}
-                </Button>
-              </div>
+              </>
+              )}
             </div>
           </div>
         </Portal>
