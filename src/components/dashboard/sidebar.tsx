@@ -209,13 +209,15 @@ export function Sidebar() {
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-7 h-7 rounded-full flex items-center justify-center text-amber-500 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
+            "w-7 h-7 rounded-full flex items-center justify-center text-white [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
             notifOpen ? "bg-black/20" : "hover:bg-black/10",
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 w-[8px] h-[8px] bg-red-500 rounded-full border border-white" />
+            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white leading-none">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           )}
         </button>
         <Link
