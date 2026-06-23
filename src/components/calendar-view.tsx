@@ -1497,6 +1497,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       </button>
                     );
                   })}
+                  {blocks.filter(b => b.start_date === selectedStr && b.start_time && b.end_time).map(b => {
+                    const sMin = timeToMinutes(dbTimeToDisplay(b.start_time!));
+                    const eMin = timeToMinutes(dbTimeToDisplay(b.end_time!));
+                    const top = (sMin / 60) * ROW_PX;
+                    const height = Math.max(16, ((eMin - sMin) / 60) * ROW_PX - 4);
+                    return (
+                      <button key={`wmb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
+                        onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
+                        style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute",
+                          backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                        className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-2 py-1 text-left", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                        <p className="text-xs font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-1"><Ban size={11} /> Blocked{b.reason ? ` · ${b.reason}` : ""}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {isToday(currentDate) && (() => {
@@ -1589,6 +1604,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           {height > 36 && (
                             <p className="text-[10px] text-[#999] truncate">{appt.time_slot}</p>
                           )}
+                        </button>
+                      );
+                    })}
+                    {blocks.filter(b => b.start_date === dateStr && b.start_time && b.end_time).map(b => {
+                      const sMin = timeToMinutes(dbTimeToDisplay(b.start_time!));
+                      const eMin = timeToMinutes(dbTimeToDisplay(b.end_time!));
+                      const top = (sMin / 60) * ROW_PX;
+                      const height = Math.max(14, ((eMin - sMin) / 60) * ROW_PX - 3);
+                      return (
+                        <button key={`wb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
+                          onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute",
+                            backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                          className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                          <p className="text-[10px] font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-0.5"><Ban size={9} /> Blocked</p>
                         </button>
                       );
                     })}
