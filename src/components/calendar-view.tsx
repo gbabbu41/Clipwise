@@ -375,7 +375,7 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                   <span className="text-[#00e5a0]">Paid</span>
                   <span className="text-[#555]"> · </span>
                   <span className={appt.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
-                    {appt.payment_method === "cash" ? "Cash" : "Card"}
+                    {appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card"}
                   </span>
                   {appt.paid_at ? <span className="text-[#777]"> · {timeAgo(appt.paid_at)}</span> : null}
                 </span>
@@ -1202,7 +1202,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <span className="text-[#00e5a0]">Paid</span>
                   <span className="text-[#555]"> · </span>
                   <span className={c.a.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
-                    {c.a.payment_method === "cash" ? "Cash" : "Card"}
+                    {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
                   </span>
                 </span>
               ) : (
@@ -1396,12 +1396,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          <p className="text-[9px] text-[#999] truncate leading-tight">
-                            {(appt.services as { name: string } | null)?.name ?? "—"}
-                            {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
-                          </p>
-                          {height > 50 && lanes === 1 && (
-                            <p className="text-[9px] text-[#666] truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
+                          {height > 26 && (
+                            <p className="text-[9px] text-[#bbb] truncate leading-tight">{rangeLabel(appt.time_slot, duration)}</p>
+                          )}
+                          {height > 46 && (
+                            <p className="text-[9px] text-[#999] truncate leading-tight">
+                              {(appt.services as { name: string } | null)?.name ?? "—"}
+                              {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
+                            </p>
                           )}
                         </button>
                       );

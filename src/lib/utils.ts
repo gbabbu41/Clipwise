@@ -64,9 +64,10 @@ export function paymentTag(a: {
   const paid = a.payment_status === "paid" || a.payment_status === "captured";
   if (paid) {
     const cash = a.payment_method === "cash";
+    const methodText = cash ? "Cash" : a.payment_method === "online" ? "Online" : "Card";
     return { bg, segments: [
       { text: "Paid", className: GREEN },
-      { text: cash ? "Cash" : "Card", className: cash ? AMBER : GREEN },
+      { text: methodText, className: cash ? AMBER : GREEN },
     ] };
   }
   if (a.payment_status === "refunded") return { bg, segments: [{ text: "Refunded", className: MUTED }] };
