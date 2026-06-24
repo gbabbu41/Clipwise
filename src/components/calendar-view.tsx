@@ -471,9 +471,11 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                   </Button>
                 </div>
               )}
-              {/* Take Payment — any unpaid appointment with a balance (e.g. a
-                  completed, manually-added booking). Opens the same checkout sheet. */}
-              {outstanding && (
+              {/* Take Payment — only when there's no Check out / Approve button
+                  above (e.g. a completed-but-unpaid, manually-added booking).
+                  For pending/confirmed, Check out already takes payment, so this
+                  would be redundant. Opens the same checkout sheet. */}
+              {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
                 <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => setPayChoice(true)}>
                   💳 Take Payment · ${amt.toFixed(0)}
                 </Button>
