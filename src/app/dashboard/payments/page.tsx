@@ -88,6 +88,12 @@ export default function PaymentsPage() {
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid">("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
+  // Per-barber earnings window — mirrors the barber's own earnings page so the
+  // owner can see a single barber's collected revenue for any pay cycle.
+  const [periodKey, setPeriodKey] = useState<"week" | "biweekly" | "month" | "all" | "custom">("week");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
@@ -231,17 +237,15 @@ export default function PaymentsPage() {
   const scopedSettled = feedAll.filter(i => i.settled && (!barberName || i.appt?.barbers?.name === barberName));
   const cardSettled = scopedSettled.filter(i => i.method !== "cash");
   const cashSettled = scopedSettled.filter(i => i.method === "cash");
-  // Net collected all-time for the current scope (drives the per-barber hero).
-  const scopeNetAll = cardSettled.reduce((s, i) => s + netOf(i), 0);
-  const scopeCashAll = cashSettled.reduce((s, i) => s + i.amount, 0);
   // Payouts settle to the shop's connected account (shop-level, not per barber yet).
   // Hero = Stripe's Total balance: everything not yet in the bank — funds still
   // settling (available + pending) plus payouts already on the way (in-transit).
   const payout = (stripeNet?.available ?? 0) + (stripeNet?.pending ?? 0) + (stripeNet?.inTransit ?? 0);
 
-  const startOf = (kind: "today" | "week" | "month") => {
+  const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
     if (kind === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    else if (kind === "biweekly") d.setDate(d.getDate() - 13);   // trailing 14 days
     else if (kind === "month") d.setDate(1);
     return d.getTime();
   };
@@ -268,6 +272,49 @@ export default function PaymentsPage() {
     { key: "month", label: "This month", from: startOf("month"), monthly: false },
     { key: "all", label: "All time", from: 0, monthly: true },
   ].map(p => ({ ...p, net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
+
+  // ── Per-barber window (collected revenue) — same presets + Custom range as the
+  // barber's own earnings page, so a single barber's pay-cycle is easy to read.
+  const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  const ownerPeriod = (() => {
+    const now = Date.now();
+    if (periodKey === "all") return { from: 0, to: Infinity, label: "All time", monthly: true };
+    if (periodKey === "custom") {
+      const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
+      const to = customTo ? new Date(customTo + "T23:59:59.999").getTime() : now;
+      const label = (customFrom || customTo)
+        ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}`
+        : "Custom range";
+      return { from, to, label, monthly: (to - from) > 62 * 86400000 };
+    }
+    const label = periodKey === "week" ? "This week" : periodKey === "biweekly" ? "Last 14 days" : "This month";
+    return { from: startOf(periodKey), to: now, label, monthly: false };
+  })();
+  const scopeSel = (() => {
+    const within = (i: FeedItem) => i.ts >= ownerPeriod.from && i.ts <= ownerPeriod.to;
+    const cardIn = cardSettled.filter(within);
+    const cashIn = cashSettled.filter(within);
+    const net = cardIn.reduce((s, i) => s + netOf(i), 0);
+    const cash = cashIn.reduce((s, i) => s + i.amount, 0);
+    const gross = cardIn.reduce((s, i) => s + i.amount, 0);
+    const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
+    const count = cardIn.length + cashIn.length;
+    const m = new Map<string, { order: number; net: number }>();
+    cardIn.forEach(i => {
+      const dt = new Date(i.ts);
+      const order = ownerPeriod.monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
+      const label = ownerPeriod.monthly
+        ? dt.toLocaleDateString("en-CA", { month: "short" })
+        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+      const cur = m.get(label) ?? { order, net: 0 };
+      cur.net += netOf(i); m.set(label, cur);
+    });
+    const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
+    return { net, cash, gross, fees, count, data, avg: count ? (gross + cash) / count : 0 };
+  })();
+  const ownerPresets: ["week" | "biweekly" | "month" | "all" | "custom", string][] = [
+    ["week", "This week"], ["biweekly", "Last 14 days"], ["month", "This month"], ["all", "All time"], ["custom", "Custom"],
+  ];
 
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
@@ -426,106 +473,145 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      {/* ── Payout card carousel ────────────────────────────────────────────── */}
+      {/* ── Earnings: per-barber period filter, or the shop payout carousel ──── */}
       <div className="mb-4">
-        <div ref={netRef}
-          onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-
-          {/* Slide 1 — shop payout (All barbers) OR a barber's net earned */}
-          {barberName ? (
-            <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400">{barberFirst} · Net earned</p>
-              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(scopeNetAll)}</p>
-              <p className="text-xs text-gray-500 mt-1.5">
-                Collected all-time{scopeCashAll > 0 ? ` · +${formatCurrency(scopeCashAll)} cash` : ""}
-              </p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
-                <div>
-                  <p className="text-gray-400">Net today</p>
-                  <p className="font-semibold text-emerald-600">
-                    {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400">Paid out</p>
-                  <p className="font-medium text-gray-700">Shop account</p>
-                </div>
+        {barberName ? (
+          <>
+            {/* Period filter — presets + a Custom from→to range (matches the
+                barber's own earnings page, so any pay cycle is easy to read). */}
+            <div className="mb-3">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {ownerPresets.map(([k, lbl]) => (
+                  <button key={k} type="button" onClick={() => setPeriodKey(k)}
+                    className={cn("px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors",
+                      periodKey === k ? "bg-white text-black border-white" : "bg-[#141414] text-[#aaa] border-[#1e1e1e] hover:text-white")}>
+                    {lbl}
+                  </button>
+                ))}
               </div>
-            </div>
-          ) : (
-            <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400">Stripe balance</p>
-              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
-              {stripeNet?.nextPayoutDate ? (
-                <div className="text-xs text-gray-500 mt-1.5 leading-snug">
-                  <span>Next payout{stripeNet.nextPayoutAmount != null ? `: ${formatCurrency(stripeNet.nextPayoutAmount)}` : ""}</span>
-                  <span className="block text-gray-400">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
+              {periodKey === "custom" && (
+                <div className="flex items-center gap-2 mt-2.5">
+                  <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
+                    className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                  <span className="text-[#777] text-xs">to</span>
+                  <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
+                    className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
-              ) : (
-                <p className="text-xs text-gray-500 mt-1.5">No payout scheduled yet</p>
               )}
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
-                <div>
-                  <p className="text-gray-400">Net today</p>
-                  <p className="font-semibold text-emerald-600">
-                    {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400">Last payout</p>
-                  <p className="font-medium text-gray-700">
-                    {stripeNet?.lastPayout
-                      ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-                      : "—"}
-                  </p>
-                </div>
-              </div>
             </div>
-          )}
 
-          {/* Slides 2-4 — Net by period */}
-          {netPeriods.map(p => (
-            <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-              <div className="flex items-baseline justify-between">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">Net · {p.label}</p>
-                {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
+            {/* Net collected by the selected barber for the chosen window */}
+            <div className="rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">{barberFirst} · Net collected · {ownerPeriod.label}</p>
+                {scopeSel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(scopeSel.cash)} cash</span>}
               </div>
-              <p className="text-3xl sm:text-4xl font-extrabold text-emerald-600 mt-1.5">{formatCurrency(p.net)}</p>
-              <div className="flex-1 min-h-[72px] mt-3 -mx-1">
-                {p.data.length > 0 ? (
+              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(scopeSel.net)}</p>
+              <p className="text-xs text-gray-500 mt-1.5">
+                From {formatCurrency(scopeSel.gross)} collected{scopeSel.fees > 0 ? ` · ${formatCurrency(scopeSel.fees)} Stripe fees` : ""}
+              </p>
+              <div className="flex-1 min-h-[80px] mt-3 -mx-1">
+                {scopeSel.data.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+                    <BarChart data={scopeSel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                       <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
                       <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
                     </BarChart>
                   </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>}
+                ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No earnings in this period</div>}
+              </div>
+              <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
+                <div><p className="text-gray-400">Services</p><p className="font-semibold text-gray-800">{scopeSel.count}</p></div>
+                <div><p className="text-gray-400">Avg ticket</p><p className="font-semibold text-gray-800">{formatCurrency(scopeSel.avg)}</p></div>
+                <div className="text-right"><p className="text-gray-400">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(scopeSel.gross + scopeSel.cash)}</p></div>
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Dots (left) + Stripe button (right) */}
-        <div className="flex items-center justify-between mt-2.5 px-0.5">
-          <div className="flex gap-1.5">
-            {Array.from({ length: 1 + netPeriods.length }).map((_, i) => (
-              <button key={i} type="button" aria-label={`Slide ${i + 1}`}
-                onClick={() => { const el = netRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
-                className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-            ))}
-          </div>
-          <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
-            {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-          </button>
-        </div>
+            <div className="flex items-center justify-between mt-2 px-0.5">
+              <p className="text-[11px] text-[#666] leading-snug flex-1 pr-2">
+                {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
+              </p>
+              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
+                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div ref={netRef}
+              onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+              className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
-        {barberName && (
-          <p className="text-[11px] text-[#666] mt-2 px-0.5 leading-snug">
-            Showing {barberFirst}&apos;s collected earnings. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
-          </p>
+              {/* Slide 1 — shop Stripe balance / payout */}
+              <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">Stripe balance</p>
+                <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+                {stripeNet?.nextPayoutDate ? (
+                  <div className="text-xs text-gray-500 mt-1.5 leading-snug">
+                    <span>Next payout{stripeNet.nextPayoutAmount != null ? `: ${formatCurrency(stripeNet.nextPayoutAmount)}` : ""}</span>
+                    <span className="block text-gray-400">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1.5">No payout scheduled yet</p>
+                )}
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-400">Net today</p>
+                    <p className="font-semibold text-emerald-600">
+                      {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-gray-400">Last payout</p>
+                    <p className="font-medium text-gray-700">
+                      {stripeNet?.lastPayout
+                        ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Slides 2-4 — Net by period */}
+              {netPeriods.map(p => (
+                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">Net · {p.label}</p>
+                    {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
+                  </div>
+                  <p className="text-3xl sm:text-4xl font-extrabold text-emerald-600 mt-1.5">{formatCurrency(p.net)}</p>
+                  <div className="flex-1 min-h-[72px] mt-3 -mx-1">
+                    {p.data.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
+                          <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Dots (left) + Stripe button (right) */}
+            <div className="flex items-center justify-between mt-2.5 px-0.5">
+              <div className="flex gap-1.5">
+                {Array.from({ length: 1 + netPeriods.length }).map((_, i) => (
+                  <button key={i} type="button" aria-label={`Slide ${i + 1}`}
+                    onClick={() => { const el = netRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
+                    className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
+                ))}
+              </div>
+              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
+                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
+              </button>
+            </div>
+          </>
         )}
       </div>
 
