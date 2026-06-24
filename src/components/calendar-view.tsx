@@ -387,7 +387,7 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                 <span className="font-medium">
                   <span className="text-[#00e5a0]">Paid</span>
                   <span className="text-[#555]"> · </span>
-                  <span className={appt.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
+                  <span className={appt.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
                     {appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card"}
                   </span>
                   {appt.paid_at ? <span className="text-[#777]"> · {timeAgo(appt.paid_at)}</span> : null}
@@ -1270,7 +1270,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <span className="text-[10px] font-semibold">
                   <span className="text-[#00e5a0]">Paid</span>
                   <span className="text-[#555]"> · </span>
-                  <span className={c.a.payment_method === "cash" ? "text-amber-400" : "text-[#00e5a0]"}>
+                  <span className={c.a.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
                     {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
                   </span>
                 </span>

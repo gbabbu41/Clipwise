@@ -44,8 +44,8 @@ export function getStatusColor(status: string): string {
  * Payment-state tag for an appointment — returns coloured text segments for a
  * small, clean pill used on the dashboards' Today's Schedule. Colours match
  * the Payments page, and the pill is two-toned: "Paid" is always green, while
- * the method word carries its own colour (Cash → amber, Card → green).
- *  • Paid · Card → green · green   • Paid · Cash → green · amber (cash colour)
+ * the method word is neutral grey for Cash and green for Card/Online.
+ *  • Paid · Card → green · green   • Paid · Cash → green · neutral grey
  *  • Awaiting payment (a checkout link was emailed/texted) → sky
  *  • Completed but never paid → neutral grey "Unpaid"
  *  • A plain upcoming appointment (not checked out yet) → NO tag (empty)
@@ -58,7 +58,7 @@ export function paymentTag(a: {
   stripe_checkout_session_id?: string | null;
 }): { bg: string; segments: { text: string; className: string }[] } {
   const GREEN = "text-[#00e5a0]";
-  const AMBER = "text-amber-400";
+  const NEUTRAL = "text-[#bbb]"; // matches the time-window text
   const SKY = "text-sky-400";
   const MUTED = "text-[#888]";
   const bg = "bg-white/[0.06]";
@@ -66,9 +66,11 @@ export function paymentTag(a: {
   if (paid) {
     const cash = a.payment_method === "cash";
     const methodText = cash ? "Cash" : a.payment_method === "online" ? "Online" : "Card";
+    // "Paid" stays green; the method word is neutral grey for Cash (quiet,
+    // matching the time text) and green for Card/Online.
     return { bg, segments: [
       { text: "Paid", className: GREEN },
-      { text: methodText, className: cash ? AMBER : GREEN },
+      { text: methodText, className: cash ? NEUTRAL : GREEN },
     ] };
   }
   if (a.payment_status === "refunded") return { bg, segments: [{ text: "Refunded", className: MUTED }] };
