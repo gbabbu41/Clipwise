@@ -15,6 +15,8 @@ export function PaymentTag({
   className?: string;
 }) {
   const tag = paymentTag(appt);
+  // Nothing to show (a plain upcoming appointment) → render no pill at all.
+  if (tag.segments.length === 0) return null;
   return (
     <span className={cn(
       "inline-flex items-center gap-1 text-[10px] leading-none px-1.5 py-0.5 rounded-md font-semibold whitespace-nowrap",

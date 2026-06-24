@@ -47,7 +47,8 @@ export function getStatusColor(status: string): string {
  * the method word carries its own colour (Cash → amber, Card → green).
  *  • Paid · Card → green · green   • Paid · Cash → green · amber (cash colour)
  *  • Awaiting payment (a checkout link was emailed/texted) → sky
- *  • Unpaid (payment due, no link sent) → amber
+ *  • Completed but never paid → neutral grey "Unpaid"
+ *  • A plain upcoming appointment (not checked out yet) → NO tag (empty)
  *  • Refunded / cancelled / no-show → muted grey
  */
 export function paymentTag(a: {
@@ -79,7 +80,9 @@ export function paymentTag(a: {
   // Unpaid: a sent checkout link means we're waiting on the customer;
   // otherwise the payment is simply still due.
   if (a.stripe_checkout_session_id) return { bg, segments: [{ text: "Awaiting payment", className: SKY }] };
-  return { bg, segments: [{ text: "Unpaid", className: AMBER }] };
+  // A plain upcoming appointment (confirmed/pending, no link, not checked out)
+  // is NOT "unpaid" yet — payment only matters at check-out. Show no tag.
+  return { bg, segments: [] };
 }
 
 export function getTagColor(tag: string): string {
