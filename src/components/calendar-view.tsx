@@ -1926,12 +1926,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       <div className="border-b border-[#1a1a1a]">
         {view === "day" && (
           <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-2.5">
-            <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
-              aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
-              {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
-            </button>
+            {/* Barber filter (phone) — roomy top row */}
+            {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+              <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
+                className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
+                {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
             {canManage && (
               <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
                 className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
@@ -1953,12 +1954,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Phone day view: pick which barber's column shows */}
-            {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
-              <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
-                className="max-w-[8.5rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-white">
-                {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+            {/* Day view: timeline ⇄ box (card) layout toggle */}
+            {view === "day" && (
+              <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
+                aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+                title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+                className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+                {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
+              </button>
             )}
             {/* Big-screen day: page barber columns when there are a lot */}
             {dayPagerVisible && (
