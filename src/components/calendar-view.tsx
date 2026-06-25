@@ -582,11 +582,11 @@ function AgendaSheet({
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "month" | "week" | "day"; canBlock?: boolean }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean }) {
   const { shop, profile, accessToken, user } = useAuth();
-  // Embedded (dashboard) defaults to month; the standalone Calendar tab to day.
-  // defaultView overrides both (the barber Calendar tab opens on today).
-  const [view, setView] = useState<"month" | "week" | "day">(defaultView ?? (embedded ? "month" : "day"));
+  // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
+  // back arrow walks up a level (Day → Month → Year). No manual view switcher.
+  const [view, setView] = useState<"year" | "month" | "day">(defaultView ?? "day");
   // Barber portal (forceBarberId) isolates the calendar to that one barber —
   // even for an owner who also cuts: no other-barber chrome (selector/pager).
   const isolated = !!forceBarberId;
@@ -657,16 +657,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     setLoading(true);
 
     let rangeStart: Date, rangeEnd: Date;
-    if (view === "month") {
+    if (view === "year") {
+      rangeStart = new Date(currentDate.getFullYear(), 0, 1);
+      rangeEnd = new Date(currentDate.getFullYear(), 11, 31);
+    } else if (view === "month") {
       const monthStart = startOfMonth(currentDate);
       rangeStart = addDays(monthStart, -monthStart.getDay()); // back to Sunday
       rangeEnd = addDays(rangeStart, 41);                     // 6 weeks
-    } else if (view === "week") {
-      rangeStart = startOfWeek(currentDate);
-      rangeEnd = addDays(rangeStart, 6);
     } else {
-      rangeStart = currentDate;
-      rangeEnd = currentDate;
+      // Day view: load the surrounding weeks so the week strip has dots and
+      // swiping to nearby days shows data instantly (a refetch follows).
+      rangeStart = addDays(startOfWeek(currentDate), -7);
+      rangeEnd = addDays(startOfWeek(currentDate), 13);
     }
 
     let q = supabase
@@ -782,7 +784,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // start at the top of their visible window (no midnight scroll-past).
   useEffect(() => {
     if (!scrollRef.current) return;
-    if (view === "week" || view === "day") scrollRef.current.scrollTop = 0;
+    if (view === "day") scrollRef.current.scrollTop = 0;
   }, [view]);
 
   // Measure the day-columns area so we can page however many barber columns fit.
@@ -1081,54 +1083,111 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   }, [addCtx, currentDate, bookedSlotsFor]);
 
   const titleText = useMemo(() => {
-    const monthFmt = isMobile ? "short" : "long";
-    if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: monthFmt, year: "numeric" });
-    if (view === "week") {
-      const ws = startOfWeek(currentDate);
-      const we = addDays(ws, 6);
-      const sameMonth = ws.getMonth() === we.getMonth();
-      if (isMobile) {
-        return sameMonth
-          ? `${ws.toLocaleDateString("en-CA", { month: "short" })} ${ws.getDate()}–${we.getDate()}`
-          : `${ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" })} – ${we.toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
-      }
-      return sameMonth
-        ? `${ws.toLocaleDateString("en-CA", { month: "long" })} ${ws.getDate()}–${we.getDate()}, ${we.getFullYear()}`
-        : `${ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" })} – ${we.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}`;
-    }
+    if (view === "year") return String(currentDate.getFullYear());
+    if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long", year: "numeric" });
     return isMobile
-      ? currentDate.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })
+      ? currentDate.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })
       : currentDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   }, [view, currentDate, isMobile]);
 
-  // Contextual options for the single date dropdown — day/week/month aware.
-  const dateOptions = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const opts: { label: string; sub?: string; date: Date }[] = [];
-    if (view === "day") {
-      for (let off = -1; off <= 13; off++) {
-        const d = addDays(today, off);
-        opts.push({ label: friendlyDate(d), sub: d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), date: d });
-      }
-    } else if (view === "week") {
-      const ws0 = startOfWeek(today);
-      for (let off = -1; off <= 5; off++) {
-        const ws = addDays(ws0, off * 7);
-        const label = off === 0 ? "This week" : off === 1 ? "Next week" : off === -1 ? "Last week"
-          : `Week of ${ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
-        opts.push({ label, sub: ws.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), date: ws });
-      }
-    } else {
-      const ms0 = startOfMonth(today);
-      for (let off = -1; off <= 6; off++) {
-        const d = addMonths(ms0, off);
-        const label = off === 0 ? "This month" : off === 1 ? "Next month" : off === -1 ? "Last month"
-          : d.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
-        opts.push({ label, sub: d.toLocaleDateString("en-CA", { year: "numeric" }), date: d });
-      }
-    }
-    return opts;
-  }, [view]);
+  // Parent level the back arrow walks up to (null at the top = Year).
+  const backLabel = view === "day"
+    ? currentDate.toLocaleDateString("en-CA", { month: "long" })
+    : view === "month"
+      ? String(currentDate.getFullYear())
+      : null;
+
+  // ── WEEK STRIP (sits atop the Day view) ─────────────────────────────────────
+  // The 7 days of the current week as tappable chips with appt dots — tap or
+  // swipe to change the day, exactly like Apple's day-view header.
+  const renderWeekStrip = () => {
+    const weekStart = startOfWeek(currentDate);
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const selectedStr = formatDateForDb(currentDate);
+    return (
+      <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0">
+        {weekDays.map(day => {
+          const dateStr = formatDateForDb(day);
+          const isSel = dateStr === selectedStr;
+          const today = isToday(day);
+          const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
+          return (
+            <button key={dateStr} onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
+              className="py-1.5 text-center hover:bg-[#141414] transition-colors">
+              <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-amber-400" : "text-[#666]")}>
+                {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
+              </p>
+              <p className={cn(
+                "text-sm font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors",
+                isSel ? "bg-amber-500 text-white" : today ? "text-amber-400" : "text-white",
+              )}>
+                {day.getDate()}
+              </p>
+              <div className="flex justify-center gap-0.5 mt-0.5 h-1">
+                {count > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                {count > 3 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                {count > 6 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── YEAR VIEW ───────────────────────────────────────────────────────────────
+  // 12 mini-months; tap one to drop into that Month. Days with appointments are
+  // brightened, today is the amber pill — the same language as Apple's year grid.
+  const renderYearView = () => {
+    const year = currentDate.getFullYear();
+    const todayStr = formatDateForDb(new Date());
+    const apptDays = new Set(
+      appointments.filter(a => a.status !== "cancelled" && a.date.startsWith(`${year}-`)).map(a => a.date),
+    );
+    return (
+      <div className="overflow-auto h-full px-4 py-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-6">
+          {Array.from({ length: 12 }, (_, m) => {
+            const first = new Date(year, m, 1);
+            const gridStart = addDays(first, -first.getDay());
+            const monthEnd = new Date(year, m + 1, 0);
+            const weeks = Math.ceil((monthEnd.getDate() + first.getDay()) / 7);
+            const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i));
+            return (
+              <button key={m} onClick={() => openMonth(first)}
+                className="text-left rounded-xl p-1.5 hover:bg-[#0f0f0f] transition-colors">
+                <p className="text-sm font-bold text-amber-400 mb-1 px-0.5">
+                  {first.toLocaleDateString("en-CA", { month: "long" })}
+                </p>
+                <div className="grid grid-cols-7 gap-y-0.5">
+                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                    <span key={`h${i}`} className="text-[8px] text-[#555] text-center">{d}</span>
+                  ))}
+                  {cells.map((d, i) => {
+                    const inMonth = d.getMonth() === m;
+                    const ds = formatDateForDb(d);
+                    const isTodayCell = ds === todayStr;
+                    const has = apptDays.has(ds);
+                    return (
+                      <span key={`d${i}`} className={cn(
+                        "text-[9px] leading-[15px] h-[15px] w-[15px] mx-auto text-center rounded-full",
+                        !inMonth ? "text-transparent"
+                          : isTodayCell ? "bg-amber-500 text-white font-bold"
+                          : has ? "text-white font-semibold"
+                          : "text-[#777]",
+                      )}>
+                        {d.getDate()}
+                      </span>
+                    );
+                  })}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // ── MONTH VIEW ─────────────────────────────────────────────────────────────
   const renderMonthView = () => {
@@ -1315,28 +1374,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const renderDayView = () => {
     const dateStr = formatDateForDb(currentDate);
     const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
-    const activeBarberId = forceBarberId ?? (barberFilter !== "all" ? barberFilter : (myBarberId ?? barbers[0]?.id ?? null));
 
-    // A single barber selected (avatar row), a barber-role user, or a forced
-    // barber (barber portal) → clean card grid for that one barber.
-    if (forceBarberId || barberFilter !== "all" || profile?.role === "barber") {
-      const activeBarber = barbers.find(b => b.id === activeBarberId);
-      return (
-        <div className="overflow-auto h-full">
-          {activeBarber
-            ? renderBarberGrid(activeBarber)
-            : <p className="text-center text-sm text-[#666] py-12">No barbers yet.</p>}
-        </div>
-      );
-    }
-
-    // All barbers → per-barber columns (vertical lists), bounded to working
-    // hours. Paginated: show as many columns as fit; arrows / swipe load more.
+    // Columns: barber portal / a picked barber / phone → a single column (the
+    // header dropdown chooses which); big-screen all-barbers → every scheduled
+    // barber (paged if there are a lot). Both render the same vertical timeline.
+    const single = !!forceBarberId || barberFilter !== "all" || profile?.role === "barber" || isMobile;
+    const soloBarber = barbers.find(b => b.id === dayBarberId) ?? null;
     const allCols = dayAllCols;
-    const perPage = dayPerPage;
-    const pages = dayPages;
-    const page = dayPage;
-    const cols = allCols.slice(page * perPage, page * perPage + perPage);
+    const cols: Barber[] = single
+      ? (soloBarber ? [soloBarber] : [])
+      : allCols.slice(dayPage * dayPerPage, dayPage * dayPerPage + dayPerPage);
 
     // Working window from ALL barbers + bookings, so the time rail stays put
     // when you page between barber sets.
@@ -1357,7 +1404,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
-        {unscheduledCount > 0 && (
+        {renderWeekStrip()}
+        {!single && unscheduledCount > 0 && (
           <button type="button" onClick={() => setShowUnscheduled(v => !v)}
             className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#1e1e1e] text-[#999] hover:text-white transition-colors flex-shrink-0">
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
@@ -1365,6 +1413,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         )}
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
+            {!single && (
             <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
@@ -1389,6 +1438,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 );
               })}
             </div>
+            )}
 
           <div className="relative">
             {hours.map(hour => (
@@ -1804,24 +1854,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     : (colWrapW > 0 ? Math.max(1, Math.floor((colWrapW - 56) / 150)) : 6);
   const dayPages = Math.max(1, Math.ceil(dayAllCols.length / dayPerPage));
   const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
-  const dayPagerVisible = !isolated && view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
+  // Big-screen-only barber pager (phone uses the header dropdown instead).
+  const dayPagerVisible = !isolated && !isMobile && view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
+  // The single barber a phone / filtered day view shows (header dropdown value).
+  const dayBarberId = forceBarberId ?? (barberFilter !== "all" ? barberFilter : (myBarberId ?? scheduledBarbers[0]?.id ?? orderedBarbers[0]?.id ?? null));
 
-  // ── Navigation: move by the view's natural unit (month / week / day). Mobile
-  // "week" is a single-day timeline, so it steps a day at a time. ─────────────
+  // ── Navigation: within-level (swipe / arrows) moves by the view's unit;
+  // drilling down / the back arrow walk the Year ⇄ Month ⇄ Day hierarchy. ─────
   const goPeriod = (dir: number) => {
     setNavDir(dir);
-    if (view === "month") setCurrentDate(d => addMonths(d, dir));
-    else if (view === "week" && !isMobile) setCurrentDate(d => addDays(d, dir * 7));
+    if (view === "year") setCurrentDate(d => addMonths(d, dir * 12));
+    else if (view === "month") setCurrentDate(d => addMonths(d, dir));
     else setCurrentDate(d => addDays(d, dir));
   };
-  // Drill from month / week into the vertical day view (Apple-style zoom-in).
+  const openMonth = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("month"); };
   const openDay = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("day"); };
-  const switchView = (v: "month" | "week" | "day") => { setNavDir(0); setView(v); };
+  // Back arrow → up one level (Day → Month → Year).
+  const goBack = () => {
+    setNavDir(0);
+    if (view === "day") setView("month");
+    else if (view === "month") setView("year");
+  };
   // Key that re-triggers the transition whenever the visible period changes.
-  const periodKey = view === "month"
-    ? `m${currentDate.getFullYear()}-${currentDate.getMonth()}`
-    : (view === "week" && !isMobile)
-      ? `w${formatDateForDb(startOfWeek(currentDate))}`
+  const periodKey = view === "year"
+    ? `y${currentDate.getFullYear()}`
+    : view === "month"
+      ? `m${currentDate.getFullYear()}-${currentDate.getMonth()}`
       : `d${formatDateForDb(currentDate)}`;
   const transitionKey = `${view}:${periodKey}`;
 
@@ -1841,82 +1899,47 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   return (
     <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
-      {/* Header bar — date (left) + barber pager (center, day view) + view (right), one row */}
+      {/* Header — back arrow (up a level) + title (left) · barber + Today (right) */}
       <div className="px-4 sm:px-6 py-2 border-b border-[#1a1a1a] flex items-center justify-between gap-3">
-        {/* Prev/next period arrows + date dropdown */}
-        <div className="flex items-center gap-0.5 min-w-0">
-          <button onClick={() => goPeriod(-1)} aria-label="Previous"
-            className="p-1 -ml-1 rounded text-[#888] hover:text-white hover:bg-[#141414] flex-shrink-0">
-            <ChevronLeft size={18} />
-          </button>
-          <div className="relative">
-          <button onClick={() => { setDateMenu(o => !o); setViewMenu(false); }}
-            className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-white hover:text-[#aaa] transition-colors">
-            {titleText}
-            <ChevronDown size={16} className="text-[#666]" />
-          </button>
-          {loading && <span className="text-xs text-[#666] ml-2 animate-pulse">Loading…</span>}
-          {dateMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setDateMenu(false)} />
-              <div className="absolute left-0 mt-2 z-50 w-56 max-h-80 overflow-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
-                {dateOptions.map((o, i) => {
-                  const active = formatDateForDb(o.date) === formatDateForDb(currentDate);
-                  return (
-                    <button key={i} onClick={() => { setCurrentDate(o.date); setDateMenu(false); }}
-                      className={cn("w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-[#141414]", active && "bg-[#141414]")}>
-                      <span className={cn("font-medium", active ? "text-[#00e5a0]" : "text-white")}>{o.label}</span>
-                      {o.sub && <span className="text-[#666] text-xs">{o.sub}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {backLabel && (
+            <button onClick={goBack} aria-label={`Back to ${backLabel}`}
+              className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-white transition-colors flex-shrink-0 -ml-1">
+              <ChevronLeft size={18} /> {backLabel}
+            </button>
           )}
-          </div>
-          <button onClick={() => goPeriod(1)} aria-label="Next"
-            className="p-1 rounded text-[#888] hover:text-white hover:bg-[#141414] flex-shrink-0">
-            <ChevronRight size={18} />
-          </button>
+          <h2 className="text-base sm:text-lg font-bold text-white truncate">{titleText}</h2>
+          {loading && <span className="text-xs text-[#666] animate-pulse flex-shrink-0">…</span>}
         </div>
 
-        {/* Barber pager (day · all-barbers view) — arrows only, no count label */}
-        {dayPagerVisible && (
-          <div className="flex items-center gap-0.5 text-xs text-[#888]">
-            <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
-              className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
-            <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
-              className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
-          </div>
-        )}
-
-        {/* View button (one button → month / week / day) */}
-        <div className="relative">
-          <button onClick={() => { setViewMenu(o => !o); setDateMenu(false); }}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-xl hover:bg-[#1a1a1a] transition-colors capitalize">
-            {view}
-            <ChevronDown size={14} className="text-[#666]" />
-          </button>
-          {viewMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
-              <div className="absolute right-0 mt-2 z-50 w-32 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
-                {(["day", "week", "month"] as const).map(v => (
-                  <button key={v} onClick={() => { switchView(v); setViewMenu(false); }}
-                    className={cn("w-full text-left px-4 py-2 text-sm capitalize hover:bg-[#141414]", view === v ? "text-white font-semibold" : "text-[#888]")}>
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Phone day view: pick which barber's column shows */}
+          {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+            <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
+              className="max-w-[8.5rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-white">
+              {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           )}
+          {/* Big-screen day: page barber columns when there are a lot */}
+          {dayPagerVisible && (
+            <div className="flex items-center gap-0.5 text-[#888]">
+              <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
+                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+              <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
+                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+            </div>
+          )}
+          <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
+            className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+            Today
+          </button>
         </div>
       </div>
 
       {/* Barber selector row — profile-pic chips incl. an "All barbers" chip.
-          Hidden in the all-barbers DAY view, where the column headers double as
-          the selector (no duplicate row). Shown everywhere else. */}
-      {!isolated && profile?.role !== "barber" && barbers.length > 0 && !(view === "day" && barberFilter === "all") && (
+          Shown on the month/year overviews to filter; the day view has its own
+          selection (columns on desktop, a dropdown on phone). */}
+      {!isolated && profile?.role !== "barber" && barbers.length > 0 && view !== "day" && (
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
@@ -1955,7 +1978,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               className="h-full w-full"
               style={{ willChange: "transform, opacity" }}
             >
-              {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
+              {view === "year" ? renderYearView() : view === "month" ? renderMonthView() : renderDayView()}
             </motion.div>
           </AnimatePresence>
         </MotionConfig>
