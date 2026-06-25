@@ -1906,6 +1906,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : `d${formatDateForDb(currentDate)}`;
   const transitionKey = `${view}:${periodKey}`;
 
+  // "Today" only matters once you've navigated away from the current period —
+  // hidden otherwise so the header stays uncluttered.
+  const todayNow = new Date();
+  const onToday = view === "day"
+    ? formatDateForDb(currentDate) === formatDateForDb(todayNow)
+    : view === "month"
+      ? (currentDate.getFullYear() === todayNow.getFullYear() && currentDate.getMonth() === todayNow.getMonth())
+      : currentDate.getFullYear() === todayNow.getFullYear();
+
   // Calendar-wide horizontal swipe → previous/next period. Vertical drags fall
   // through to the timeline's normal scroll (we only act on mostly-horizontal).
   const onSwipeStart = (e: React.TouchEvent) => {
@@ -1988,10 +1997,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <Plus size={16} />
             </button>
           )}
-          <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-            className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
-            Today
-          </button>
+          {!onToday && (
+            <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
+              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              Today
+            </button>
+          )}
         </div>
       </div>
 
