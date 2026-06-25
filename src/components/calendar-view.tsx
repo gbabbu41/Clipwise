@@ -1097,39 +1097,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       ? String(currentDate.getFullYear())
       : null;
 
-  // ── Day-view barber chips — reuses the BarberAvatar profile chips (instead of
-  // a plain dropdown) so you pick whose column shows by tapping a face. ────────
-  const renderDayBarberChips = () => {
-    if (forceBarberId || profile?.role === "barber" || barbers.length < 2) return null;
-    const effectiveId = barberFilter !== "all" ? barberFilter : dayBarberId;
-    return (
-      <div className="flex gap-2 overflow-x-auto px-4 sm:px-6 py-1.5 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-shrink-0">
-        {/* "All barbers" → the multi-column view (desktop only; a phone shows one). */}
-        {!isMobile && (
-          <button onClick={() => setBarberFilter("all")}
-            className={cn("flex flex-col items-center gap-0.5 flex-shrink-0 w-11 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-            <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
-              <Users size={14} />
-            </span>
-            <span className={cn("text-[9px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All</span>
-          </button>
-        )}
-        {orderedBarbers.map((b) => {
-          const active = barberFilter === b.id || (barberFilter === "all" && b.id === effectiveId);
-          return (
-            <button key={b.id} onClick={() => setBarberFilter(b.id)}
-              className={cn("flex flex-col items-center gap-0.5 flex-shrink-0 w-11 transition-opacity", active ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-              <span className={cn("rounded-full", active && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
-                <BarberAvatar b={b} i={barbers.indexOf(b)} sm />
-              </span>
-              <span className={cn("text-[9px] truncate w-full text-center", active ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name.split(" ")[0]}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
-
   // ── WEEK STRIP (sits atop the Day view) ─────────────────────────────────────
   const renderWeekStrip = () => {
     const weekStart = startOfWeek(currentDate);
@@ -1435,7 +1402,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
-        {single && renderDayBarberChips()}
         {renderWeekStrip()}
         {!single && unscheduledCount > 0 && (
           <button type="button" onClick={() => setShowUnscheduled(v => !v)}
@@ -1945,6 +1911,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Phone day view: pick which barber's column shows */}
+          {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+            <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
+              className="max-w-[8.5rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-white">
+              {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
           {/* Big-screen day: page barber columns when there are a lot */}
           {dayPagerVisible && (
             <div className="flex items-center gap-0.5 text-[#888]">
