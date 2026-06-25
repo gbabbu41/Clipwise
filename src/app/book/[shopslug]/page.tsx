@@ -1228,8 +1228,6 @@ export default function BookingPage() {
           };
 
           const ROW_PX = 64;
-          const startHour = 0, endHour = 24;
-          const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
           const blockSlotSet = new Set(slotGridForBlock.map(s => s.slot));
           const todayStr = formatDateForDb(new Date());
@@ -1239,6 +1237,12 @@ export default function BookingPage() {
             const past = isTodaySelected && isSlotInPast(slot);
             return !past && blockSlotSet.has(slot);
           });
+
+          // Bound the timeline to the actual available slots, not 12 AM→12 AM.
+          const slotHrs = bookableSlots.map(({ slot }) => parseHour(slot));
+          const startHour = slotHrs.length ? Math.floor(Math.min(...slotHrs)) : 8;
+          const endHour = slotHrs.length ? Math.min(24, Math.ceil(Math.max(...slotHrs)) + 1) : 20;
+          const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
           return (
             <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px" }}>

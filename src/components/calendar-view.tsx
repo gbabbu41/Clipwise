@@ -32,9 +32,18 @@ export function Portal({ children }: { children: ReactNode }) {
 }
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
-const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
 const ROW_PX = 62;                     // height of one hour row (~10% taller)
-const DEFAULT_SCROLL_HOUR = 8;         // where week/day views land on open
+
+// Bound a timeline to business hours (+ any early/late bookings) instead of
+// rendering a full 12 AM→12 AM day. Never starts later than 8 AM or ends before
+// 8 PM, and always widens to cover the day's earliest/latest events.
+function hourWindow(starts: number[], ends: number[]): { winStart: number; winEnd: number; hours: number[] } {
+  const winStart = Math.min(8, Math.max(0, starts.length ? Math.floor(Math.min(...starts)) : 8));
+  const winEnd = Math.min(24, Math.max(20, ends.length ? Math.ceil(Math.max(...ends)) : 20));
+  const hours: number[] = [];
+  for (let h = winStart; h < winEnd; h++) hours.push(h);
+  return { winStart, winEnd, hours };
+}
 
 // Block length (minutes) for an appointment. Multi-service bookings carry their
 // combined length on the row (duration_minutes); single-service rows fall back
@@ -756,12 +765,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => { supabase.removeChannel(ch); };
   }, [shop]);
 
-  // Week view starts at 8 AM; the day view is now bounded to working hours so
-  // it starts at the top.
+  // Both the week and day grids are now bounded to business hours, so they
+  // start at the top of their visible window (no midnight scroll-past).
   useEffect(() => {
     if (!scrollRef.current) return;
-    if (view === "week") scrollRef.current.scrollTop = DEFAULT_SCROLL_HOUR * ROW_PX;
-    else if (view === "day") scrollRef.current.scrollTop = 0;
+    if (view === "week" || view === "day") scrollRef.current.scrollTop = 0;
   }, [view]);
 
   // Measure the day-columns area so we can page however many barber columns fit.
@@ -1526,6 +1534,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (isMobile) {
       const selectedStr = formatDateForDb(currentDate);
       const dayAppts = appointments.filter(a => a.date === selectedStr && a.status !== "cancelled");
+      // Visible hour window — start at business hours, not 12 AM.
+      const mwStarts: number[] = [], mwEnds: number[] = [];
+      dayAppts.forEach(a => { const s = parseTime(a.time_slot); mwStarts.push(s); mwEnds.push(s + apptDuration(a) / 60); });
+      blocks.filter(b => b.start_date === selectedStr && b.start_time && b.end_time).forEach(b => {
+        mwStarts.push(timeToMinutes(dbTimeToDisplay(b.start_time!)) / 60);
+        mwEnds.push(timeToMinutes(dbTimeToDisplay(b.end_time!)) / 60);
+      });
+      const { winStart, hours } = hourWindow(mwStarts, mwEnds);
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
@@ -1559,7 +1575,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {/* Single-day timeline for the selected day */}
           <div ref={scrollRef} className="overflow-auto flex-1">
             <div className="relative">
-              {HOURS_24.map(hour => (
+              {hours.map(hour => (
                 <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
                   <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -1573,7 +1589,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {dayAppts.map(appt => {
                     const startH = parseTime(appt.time_slot);
                     const duration = apptDuration(appt);
-                    const top = startH * ROW_PX;
+                    const top = (startH - winStart) * ROW_PX;
                     const height = Math.max(36, (duration / 60) * ROW_PX - 4);
                     const barber = barbers.find(b => b.id === appt.barber_id);
                     const dimmed = isDimmed(appt.status);
@@ -1600,7 +1616,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {blocks.filter(b => b.start_date === selectedStr && b.start_time && b.end_time).map(b => {
                     const sMin = timeToMinutes(dbTimeToDisplay(b.start_time!));
                     const eMin = timeToMinutes(dbTimeToDisplay(b.end_time!));
-                    const top = (sMin / 60) * ROW_PX;
+                    const top = (sMin / 60 - winStart) * ROW_PX;
                     const height = Math.max(16, ((eMin - sMin) / 60) * ROW_PX - 4);
                     return (
                       <button key={`wmb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
@@ -1618,7 +1634,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {isToday(currentDate) && (() => {
                 const now = new Date();
                 const currentH = now.getHours() + now.getMinutes() / 60;
-                const top = currentH * ROW_PX;
+                const top = (currentH - winStart) * ROW_PX;
                 return (
                   <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                     <div className="flex items-center">
@@ -1635,6 +1651,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         </div>
       );
     }
+
+    // Visible hour window across the whole week — start at business hours.
+    const weekStrs = new Set(weekDays.map(formatDateForDb));
+    const weekAppts = appointments.filter(a => weekStrs.has(a.date) && a.status !== "cancelled");
+    const wwStarts: number[] = [], wwEnds: number[] = [];
+    weekAppts.forEach(a => { const s = parseTime(a.time_slot); wwStarts.push(s); wwEnds.push(s + apptDuration(a) / 60); });
+    blocks.filter(b => weekStrs.has(b.start_date) && b.start_time && b.end_time).forEach(b => {
+      wwStarts.push(timeToMinutes(dbTimeToDisplay(b.start_time!)) / 60);
+      wwEnds.push(timeToMinutes(dbTimeToDisplay(b.end_time!)) / 60);
+    });
+    const { winStart, hours } = hourWindow(wwStarts, wwEnds);
 
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
@@ -1666,7 +1693,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           </div>
 
           <div className="relative">
-            {HOURS_24.map(hour => (
+            {hours.map(hour => (
               <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
                 <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -1687,7 +1714,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {dayAppts.map(appt => {
                       const startH = parseTime(appt.time_slot);
                       const duration = apptDuration(appt);
-                      const top = startH * ROW_PX;
+                      const top = (startH - winStart) * ROW_PX;
                       const height = Math.max(22, (duration / 60) * ROW_PX - 3);
                       const dimmed = appt.status === "cancelled" || appt.status === "no-show";
                       return (
@@ -1711,7 +1738,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {blocks.filter(b => b.start_date === dateStr && b.start_time && b.end_time).map(b => {
                       const sMin = timeToMinutes(dbTimeToDisplay(b.start_time!));
                       const eMin = timeToMinutes(dbTimeToDisplay(b.end_time!));
-                      const top = (sMin / 60) * ROW_PX;
+                      const top = (sMin / 60 - winStart) * ROW_PX;
                       const height = Math.max(14, ((eMin - sMin) / 60) * ROW_PX - 3);
                       return (
                         <button key={`wb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
@@ -1732,7 +1759,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             {weekDays.some(d => isToday(d)) && (() => {
               const now = new Date();
               const currentH = now.getHours() + now.getMinutes() / 60;
-              const top = currentH * ROW_PX;
+              const top = (currentH - winStart) * ROW_PX;
               return (
                 <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                   <div className="flex items-center">
