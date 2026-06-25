@@ -1925,17 +1925,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       {/* Header — a top action row (day view) above the back-arrow + title row */}
       <div className="border-b border-[#1a1a1a]">
         {view === "day" && (
-          <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-2.5">
-            {/* Barber filter (phone) — roomy top row */}
-            {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
-              <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
-                className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
-                {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            )}
+          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 pt-2.5">
+            {/* Barber filter (phone) — left side, roomy top row */}
+            <div className="min-w-0">
+              {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+                <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
+                  className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
+                  {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              )}
+            </div>
             {canManage && (
               <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
-                className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+                className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
                 <Plus size={16} />
               </button>
             )}
