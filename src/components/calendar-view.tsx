@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
@@ -599,6 +599,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Direction of the last navigation, fed to the view-transition variants:
   // +1 next, -1 previous, 0 = zoom/cross-fade (drill into a day / switch view).
   const [navDir, setNavDir] = useState(0);
+  // Day view layout: the vertical timeline, or the card/"box" grid of slots.
+  const [dayLayout, setDayLayout] = useState<"timeline" | "grid">("timeline");
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
@@ -1383,6 +1385,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       ? (soloBarber ? [soloBarber] : [])
       : allCols.slice(dayPage * dayPerPage, dayPage * dayPerPage + dayPerPage);
 
+    // "Box" layout — the card grid of slots for the active barber (reuses the
+    // existing renderBarberGrid). Toggled from the header.
+    if (dayLayout === "grid") {
+      return (
+        <div className="flex flex-col h-full">
+          {renderWeekStrip()}
+          <div className="overflow-auto flex-1">
+            {soloBarber
+              ? renderBarberGrid(soloBarber)
+              : <p className="text-center text-sm text-[#666] py-12">No barbers yet.</p>}
+          </div>
+        </div>
+      );
+    }
+
     // Working window from ALL barbers + bookings, so the time rail stays put
     // when you page between barber sets.
     const starts: number[] = [], ends: number[] = [];
@@ -1873,6 +1890,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (view === "day") setView("month");
     else if (view === "month") setView("year");
   };
+  // Header "+" → reuse the slot add-appointment modal, seeded with the day's
+  // current barber and a full-day time picker (no slot tap needed).
+  const openAddGeneral = () => {
+    const bId = dayBarberId ?? orderedBarbers[0]?.id;
+    if (!bId) return;
+    const bName = barbers.find(b => b.id === bId)?.name ?? "";
+    openAdd(bId, bName, "9:00 AM", 13 * 60);
+  };
   // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
     ? `y${currentDate.getFullYear()}`
@@ -1926,6 +1951,22 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
                 className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
             </div>
+          )}
+          {/* Day view: toggle timeline ⇄ box (card) layout */}
+          {view === "day" && (
+            <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
+              aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+              title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              {dayLayout === "timeline" ? <LayoutGrid size={15} /> : <Clock size={15} />}
+            </button>
+          )}
+          {/* Day view: add an appointment (reuses the slot add modal) */}
+          {view === "day" && canManage && (
+            <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
+              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              <Plus size={15} />
+            </button>
           )}
           <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
             className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
