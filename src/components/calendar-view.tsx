@@ -1922,66 +1922,76 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   return (
     <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
-      {/* Header — controls grouped on the top row (right); the date is the sole
-          hero on the row below (left), so the two never fight for focus. */}
-      <div className="border-b border-[#1a1a1a]">
-        {view === "day" && (
-          <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-2.5">
-            {/* Barber filter (phone) */}
-            {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
-              <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
-                className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
-                {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            )}
-            {/* Big-screen day: page barber columns when there are a lot */}
-            {dayPagerVisible && (
-              <div className="flex items-center gap-0.5 text-[#888]">
-                <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
-                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
-                <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
-                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
-              </div>
-            )}
-            {/* Timeline ⇄ box (card) layout toggle */}
+      {/* Header — one row: date hero (left) · controls (right). The barber
+          filter is a compact avatar+caret so it all fits on a single line. */}
+      <div className="border-b border-[#1a1a1a] px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {backLabel && (
+            <button onClick={goBack} aria-label={`Back to ${backLabel}`}
+              className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-white transition-colors flex-shrink-0 -ml-1">
+              <ChevronLeft size={18} /> {backLabel}
+            </button>
+          )}
+          <h2 className="text-base sm:text-lg font-bold text-white truncate">{titleText}</h2>
+          {loading && <span className="text-xs text-[#666] animate-pulse flex-shrink-0">…</span>}
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Day · phone: barber filter as an avatar + caret (tap → menu) */}
+          {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+            <div className="relative">
+              <button onClick={() => setViewMenu(o => !o)} aria-label="Choose barber"
+                className="flex items-center gap-0.5 rounded-full border border-[#1e1e1e] bg-[#141414] p-0.5 pr-1 hover:border-[#333] transition-colors">
+                {(() => { const db = barbers.find(b => b.id === dayBarberId); return db
+                  ? <BarberAvatar b={db} i={barbers.indexOf(db)} sm />
+                  : <span className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center text-[#aaa]"><Users size={14} /></span>; })()}
+                <ChevronDown size={13} className="text-[#888]" />
+              </button>
+              {viewMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
+                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
+                    {orderedBarbers.map(b => (
+                      <button key={b.id} onClick={() => { setBarberFilter(b.id); setViewMenu(false); }}
+                        className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#141414]", dayBarberId === b.id ? "text-white font-semibold" : "text-[#aaa]")}>
+                        <BarberAvatar b={b} i={barbers.indexOf(b)} sm />
+                        <span className="truncate">{b.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {/* Big-screen day: page barber columns when there are a lot */}
+          {dayPagerVisible && (
+            <div className="flex items-center gap-0.5 text-[#888]">
+              <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
+                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+              <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
+                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+            </div>
+          )}
+          {/* Day: timeline ⇄ box (card) layout toggle */}
+          {view === "day" && (
             <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
               aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
               title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
+              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
               {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
             </button>
-            {/* Add an appointment */}
-            {canManage && (
-              <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
-                className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
-                <Plus size={16} />
-              </button>
-            )}
-            <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
-              Today
-            </button>
-          </div>
-        )}
-        <div className="px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {backLabel && (
-              <button onClick={goBack} aria-label={`Back to ${backLabel}`}
-                className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-white transition-colors flex-shrink-0 -ml-1">
-                <ChevronLeft size={18} /> {backLabel}
-              </button>
-            )}
-            <h2 className="text-base sm:text-lg font-bold text-white truncate">{titleText}</h2>
-            {loading && <span className="text-xs text-[#666] animate-pulse flex-shrink-0">…</span>}
-          </div>
-
-          {/* Month / Year: Today lives here (day view keeps it in the top row) */}
-          {view !== "day" && (
-            <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-              className="flex-shrink-0 px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
-              Today
+          )}
+          {/* Day: add an appointment */}
+          {view === "day" && canManage && (
+            <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
+              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              <Plus size={16} />
             </button>
           )}
+          <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
+            className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+            Today
+          </button>
         </div>
       </div>
 
