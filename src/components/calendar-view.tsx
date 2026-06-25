@@ -1103,26 +1103,26 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (forceBarberId || profile?.role === "barber" || barbers.length < 2) return null;
     const effectiveId = barberFilter !== "all" ? barberFilter : dayBarberId;
     return (
-      <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-2 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-shrink-0">
+      <div className="flex gap-2 overflow-x-auto px-4 sm:px-6 py-1.5 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-shrink-0">
         {/* "All barbers" → the multi-column view (desktop only; a phone shows one). */}
         {!isMobile && (
           <button onClick={() => setBarberFilter("all")}
-            className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
-              <Users size={18} />
+            className={cn("flex flex-col items-center gap-0.5 flex-shrink-0 w-11 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
+            <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
+              <Users size={14} />
             </span>
-            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All</span>
+            <span className={cn("text-[9px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All</span>
           </button>
         )}
         {orderedBarbers.map((b) => {
           const active = barberFilter === b.id || (barberFilter === "all" && b.id === effectiveId);
           return (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
-              className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-14 transition-opacity", active ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-              <span className={cn("rounded-full", active && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
-                <BarberAvatar b={b} i={barbers.indexOf(b)} />
+              className={cn("flex flex-col items-center gap-0.5 flex-shrink-0 w-11 transition-opacity", active ? "opacity-100" : "opacity-60 hover:opacity-100")}>
+              <span className={cn("rounded-full", active && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
+                <BarberAvatar b={b} i={barbers.indexOf(b)} sm />
               </span>
-              <span className={cn("text-[10px] truncate w-full text-center", active ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name.split(" ")[0]}</span>
+              <span className={cn("text-[9px] truncate w-full text-center", active ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name.split(" ")[0]}</span>
             </button>
           );
         })}
