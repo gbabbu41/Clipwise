@@ -367,6 +367,8 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
   const barber = barbers.find(b => b.id === appt.barber_id);
   const [payChoice, setPayChoice] = useState(false);
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
+  // The email field only appears after tapping "Send payment link".
+  const [showEmail, setShowEmail] = useState(false);
   const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
@@ -450,21 +452,28 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                     <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
                   <DAction tone="muted" icon="💳" label="Pay here (Tap) · Coming soon" />
-                  <input
-                    type="email"
-                    value={payEmail}
-                    onChange={e => setPayEmail(e.target.value)}
-                    placeholder="Customer email (for the link)"
-                    className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#333]"
-                  />
-                  <DAction icon="↗" label={busy === "link" ? "Sending…" : `Send payment link${appt.client_phone ? " · email/text" : ""}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); }} />
+                  {!showEmail ? (
+                    <DAction icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
+                  ) : (
+                    <>
+                      <input
+                        type="email"
+                        value={payEmail}
+                        onChange={e => setPayEmail(e.target.value)}
+                        placeholder="Customer email (for the link)"
+                        autoFocus
+                        className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#333]"
+                      />
+                      <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
+                    </>
+                  )}
                   <DAction icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
                   {appt.status !== "completed" && (
                     <DAction icon="○" label={busy === "complete" ? "Completing…" : "Complete · leave unpaid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
                   )}
                 </>
               )}
-              <button className="text-xs text-[#777] hover:text-white pt-1 pb-0.5" onClick={() => setPayChoice(false)}>Cancel</button>
+              <button className="text-xs text-[#777] hover:text-white pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
             </div>
           ) : (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
@@ -472,10 +481,10 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                 <DAction tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
               )}
               {appt.status === "confirmed" && (
-                <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => setPayChoice(true)} />
+                <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <DAction tone="primary" icon="💳" label={`Take Payment · $${amt.toFixed(0)}`} disabled={!!busy} onClick={() => setPayChoice(true)} />
+                <DAction tone="primary" icon="💳" label={`Take Payment · $${amt.toFixed(0)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {(appt.status === "pending" || appt.status === "confirmed") && (
                 <DAction tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
@@ -595,6 +604,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
+  const [addShown, setAddShown] = useState(false); // drives the add sheet slide-up
+  useEffect(() => {
+    if (!addCtx) { setAddShown(false); return; }
+    const t = setTimeout(() => setAddShown(true), 10);
+    return () => clearTimeout(t);
+  }, [addCtx]);
+  const closeAdd = () => { setAddShown(false); setTimeout(() => setAddCtx(null), 260); };
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_ids: [] as string[], time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   // Blocked-hours state. The tap modal carries an Appointment/Block toggle
@@ -2062,12 +2078,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           client + service. */}
       {addCtx && (
         <Portal>
-          <div className="fixed inset-0 bg-black/60 z-[70]" onClick={() => !savingAdd && setAddCtx(null)} />
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
+          <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", addShown ? "opacity-100" : "opacity-0")} onClick={() => !savingAdd && !blockBusy && closeAdd()} />
+          <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+            <div className={cn(
+              "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
+              "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-3 space-y-3",
+              "transition-transform duration-300 ease-out", addShown ? "translate-y-0" : "translate-y-full",
+            )}>
+              <div className="mx-auto w-9 h-1 rounded-full bg-[#2a2a2a] mb-1" />
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">{addMode === "block" ? "Block time" : "New appointment"}</h3>
-                <button onClick={() => !savingAdd && !blockBusy && setAddCtx(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
+                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-[#777] hover:text-white"><X size={18} /></button>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
               {canManage && canBlock && (
@@ -2106,7 +2127,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
                   </p>
                   <div className="flex gap-2 pt-1">
-                    <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => setAddCtx(null)}>Cancel</Button>
+                    <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => closeAdd()}>Cancel</Button>
                     <Button className="flex-1" loading={blockBusy}
                       disabled={!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start}
                       onClick={submitBlock}>
@@ -2169,7 +2190,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </p>
               )}
               <div className="flex gap-2 pt-1">
-                <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => setAddCtx(null)}>Cancel</Button>
+                <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => closeAdd()}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
               </div>
               </>
