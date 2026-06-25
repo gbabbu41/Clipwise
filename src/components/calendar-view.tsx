@@ -1922,25 +1922,45 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   return (
     <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
-      {/* Header — a top action row (day view) above the back-arrow + title row */}
+      {/* Header — controls grouped on the top row (right); the date is the sole
+          hero on the row below (left), so the two never fight for focus. */}
       <div className="border-b border-[#1a1a1a]">
         {view === "day" && (
-          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 pt-2.5">
-            {/* Barber filter (phone) — left side, roomy top row */}
-            <div className="min-w-0">
-              {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
-                <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
-                  className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
-                  {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              )}
-            </div>
+          <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-2.5">
+            {/* Barber filter (phone) */}
+            {isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+              <select value={dayBarberId ?? ""} onChange={e => setBarberFilter(e.target.value)} aria-label="Choose barber"
+                className="max-w-[9rem] truncate bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-white">
+                {orderedBarbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
+            {/* Big-screen day: page barber columns when there are a lot */}
+            {dayPagerVisible && (
+              <div className="flex items-center gap-0.5 text-[#888]">
+                <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
+                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+                <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
+                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+              </div>
+            )}
+            {/* Timeline ⇄ box (card) layout toggle */}
+            <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
+              aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+              title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
+              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
+              {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
+            </button>
+            {/* Add an appointment */}
             {canManage && (
               <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
                 className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
                 <Plus size={16} />
               </button>
             )}
+            <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
+              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0">
+              Today
+            </button>
           </div>
         )}
         <div className="px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
@@ -1955,30 +1975,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             {loading && <span className="text-xs text-[#666] animate-pulse flex-shrink-0">…</span>}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Day view: timeline ⇄ box (card) layout toggle */}
-            {view === "day" && (
-              <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
-                aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-                title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-                className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
-                {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
-              </button>
-            )}
-            {/* Big-screen day: page barber columns when there are a lot */}
-            {dayPagerVisible && (
-              <div className="flex items-center gap-0.5 text-[#888]">
-                <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
-                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
-                <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
-                  className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
-              </div>
-            )}
+          {/* Month / Year: Today lives here (day view keeps it in the top row) */}
+          {view !== "day" && (
             <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="flex-shrink-0 px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
               Today
             </button>
-          </div>
+          )}
         </div>
       </div>
 
