@@ -182,6 +182,19 @@ const STATUS_CHIP_DARK: Record<string, string> = {
 const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-[#1a1a1a] text-white border-l-[3px] border-[#00e5a0]";
 const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
 
+// Appointment "box" style — #141414 surface + a 3px left accent, coloured by
+// payment/status like the demo: held/saved → blue, pending → yellow, no-show →
+// red, cancelled → muted, everything else (confirmed/paid/completed) → green.
+const apptBlock = (a: { status?: string | null; payment_status?: string | null }) => {
+  const held = a.payment_status === "held" || a.payment_status === "saved";
+  const border = a.status === "cancelled" ? "border-[#444]"
+    : a.status === "no-show" ? "border-[#ff6b6b]"
+    : held ? "border-[#4a9eff]"
+    : a.status === "pending" ? "border-[#f5c542]"
+    : "border-[#00e5a0]";
+  return cn("bg-[#141414] border-l-[3px] text-white", border);
+};
+
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
 // page so Approve / Complete / Reject behave identically from either surface.
 export type ApptActions = {
@@ -1334,7 +1347,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
               className={cn(
                 "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:brightness-125",
-                statusBlockDark(c.a.status), isDimmed(c.a.status) && "opacity-60 line-through",
+                apptBlock(c.a), isDimmed(c.a.status) && "opacity-60 line-through",
                 flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
               <span className="text-xs font-medium text-[#999]">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
@@ -1531,8 +1544,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             position: "absolute",
                           }}
                           className={cn(
-                            "rounded-r-lg rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
-                            statusBlockDark(appt.status),
+                            "rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
+                            apptBlock(appt),
                             dimmed && "opacity-60 line-through",
                             flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10",
                           )}
