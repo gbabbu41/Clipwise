@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -33,6 +34,15 @@ export function Portal({ children }: { children: ReactNode }) {
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 const ROW_PX = 62;                     // height of one hour row (~10% taller)
+
+// Apple-style view transitions. dir > 0 = forward (next), dir < 0 = back, dir 0
+// = a zoom/cross-fade (used when drilling month→day or switching view type).
+const calVariants = {
+  enter: (dir: number) => (dir === 0 ? { opacity: 0, scale: 0.97 } : { opacity: 0, x: dir > 0 ? 30 : -30 }),
+  center: { opacity: 1, x: 0, scale: 1 },
+  exit:  (dir: number) => (dir === 0 ? { opacity: 0, scale: 1.03 } : { opacity: 0, x: dir > 0 ? -30 : 30 }),
+};
+const calTransition = { duration: 0.22, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
 
 // Bound a timeline to business hours (+ any early/late bookings) instead of
 // rendering a full 12 AM→12 AM day. Never starts later than 8 AM or ends before
@@ -586,7 +596,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
-  const [agendaDate, setAgendaDate] = useState<Date | null>(null);
+  // Direction of the last navigation, fed to the view-transition variants:
+  // +1 next, -1 previous, 0 = zoom/cross-fade (drill into a day / switch view).
+  const [navDir, setNavDir] = useState(0);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
@@ -614,7 +626,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [colPage, setColPage] = useState(0);
   const [colWrapW, setColWrapW] = useState(0);
   const colWrapRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
+  // Swipe origin for the calendar-wide gesture (next/prev period).
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1153,7 +1166,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             return (
               <button
                 key={dayStr}
-                onClick={() => setAgendaDate(day)}
+                onClick={() => openDay(day)}
                 className={cn(
                   "border-r border-b border-[#161616] p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors",
                   embedded ? "min-h-[58px] sm:min-h-[88px]" : "min-h-[96px] sm:min-h-[132px]",
@@ -1342,9 +1355,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const hours: number[] = [];
     for (let h = winStart; h < winEnd; h++) hours.push(h);
 
-    const goPrev = () => setColPage(p => Math.max(0, p - 1));
-    const goNext = () => setColPage(p => Math.min(pages - 1, p + 1));
-
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
         {unscheduledCount > 0 && (
@@ -1353,15 +1363,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
           </button>
         )}
-        <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1"
-          onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
-          onTouchEnd={e => {
-            if (touchStartX.current == null) return;
-            const dx = e.changedTouches[0].clientX - touchStartX.current;
-            touchStartX.current = null;
-            if (Math.abs(dx) < 50) return;
-            if (dx < 0) goNext(); else goPrev();
-          }}>
+        <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
@@ -1552,7 +1554,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const today = isToday(day);
               const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
               return (
-                <button key={dateStr} onClick={() => setCurrentDate(day)}
+                <button key={dateStr} onClick={() => { setNavDir(formatDateForDb(day) >= formatDateForDb(currentDate) ? 1 : -1); setCurrentDate(day); }}
                   className="py-2 text-center hover:bg-[#141414] transition-colors">
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
@@ -1673,7 +1675,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
               const today = isToday(day);
               return (
-                <button key={dateStr} onClick={() => setAgendaDate(day)}
+                <button key={dateStr} onClick={() => openDay(day)}
                   className={cn("py-2 text-center border-l border-[#161616] hover:bg-[#141414] transition-colors", today && "bg-amber-500/10")}>
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
@@ -1803,12 +1805,51 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const dayPages = Math.max(1, Math.ceil(dayAllCols.length / dayPerPage));
   const dayPage = Math.max(0, Math.min(colPage, dayPages - 1));
   const dayPagerVisible = !isolated && view === "day" && barberFilter === "all" && profile?.role !== "barber" && dayPages > 1;
+
+  // ── Navigation: move by the view's natural unit (month / week / day). Mobile
+  // "week" is a single-day timeline, so it steps a day at a time. ─────────────
+  const goPeriod = (dir: number) => {
+    setNavDir(dir);
+    if (view === "month") setCurrentDate(d => addMonths(d, dir));
+    else if (view === "week" && !isMobile) setCurrentDate(d => addDays(d, dir * 7));
+    else setCurrentDate(d => addDays(d, dir));
+  };
+  // Drill from month / week into the vertical day view (Apple-style zoom-in).
+  const openDay = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("day"); };
+  const switchView = (v: "month" | "week" | "day") => { setNavDir(0); setView(v); };
+  // Key that re-triggers the transition whenever the visible period changes.
+  const periodKey = view === "month"
+    ? `m${currentDate.getFullYear()}-${currentDate.getMonth()}`
+    : (view === "week" && !isMobile)
+      ? `w${formatDateForDb(startOfWeek(currentDate))}`
+      : `d${formatDateForDb(currentDate)}`;
+  const transitionKey = `${view}:${periodKey}`;
+
+  // Calendar-wide horizontal swipe → previous/next period. Vertical drags fall
+  // through to the timeline's normal scroll (we only act on mostly-horizontal).
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    swipeRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s = swipeRef.current; swipeRef.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) goPeriod(dx < 0 ? 1 : -1);
+  };
+
   return (
     <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
       {/* Header bar — date (left) + barber pager (center, day view) + view (right), one row */}
       <div className="px-4 sm:px-6 py-2 border-b border-[#1a1a1a] flex items-center justify-between gap-3">
-        {/* Date dropdown */}
-        <div className="relative">
+        {/* Prev/next period arrows + date dropdown */}
+        <div className="flex items-center gap-0.5 min-w-0">
+          <button onClick={() => goPeriod(-1)} aria-label="Previous"
+            className="p-1 -ml-1 rounded text-[#888] hover:text-white hover:bg-[#141414] flex-shrink-0">
+            <ChevronLeft size={18} />
+          </button>
+          <div className="relative">
           <button onClick={() => { setDateMenu(o => !o); setViewMenu(false); }}
             className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-white hover:text-[#aaa] transition-colors">
             {titleText}
@@ -1832,6 +1873,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
             </>
           )}
+          </div>
+          <button onClick={() => goPeriod(1)} aria-label="Next"
+            className="p-1 rounded text-[#888] hover:text-white hover:bg-[#141414] flex-shrink-0">
+            <ChevronRight size={18} />
+          </button>
         </div>
 
         {/* Barber pager (day · all-barbers view) — arrows only, no count label */}
@@ -1856,7 +1902,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
               <div className="absolute right-0 mt-2 z-50 w-32 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
                 {(["day", "week", "month"] as const).map(v => (
-                  <button key={v} onClick={() => { setView(v); setViewMenu(false); }}
+                  <button key={v} onClick={() => { switchView(v); setViewMenu(false); }}
                     className={cn("w-full text-left px-4 py-2 text-sm capitalize hover:bg-[#141414]", view === v ? "text-white font-semibold" : "text-[#888]")}>
                     {v}
                   </button>
@@ -1891,8 +1937,28 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         </div>
       )}
 
-      <div className={cn("flex-1 bg-[#0a0a0a]", embedded ? "overflow-y-auto" : "overflow-hidden")}>
-        {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
+      <div
+        className={cn("relative flex-1 bg-[#0a0a0a]", embedded ? "overflow-y-auto" : "overflow-hidden")}
+        onTouchStart={onSwipeStart}
+        onTouchEnd={onSwipeEnd}
+      >
+        <MotionConfig reducedMotion="user">
+          <AnimatePresence mode="popLayout" custom={navDir} initial={false}>
+            <motion.div
+              key={transitionKey}
+              custom={navDir}
+              variants={calVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={calTransition}
+              className="h-full w-full"
+              style={{ willChange: "transform, opacity" }}
+            >
+              {view === "month" ? renderMonthView() : view === "week" ? renderWeekView() : renderDayView()}
+            </motion.div>
+          </AnimatePresence>
+        </MotionConfig>
       </div>
 
       {selectedAppt && (
@@ -1914,22 +1980,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <span className="text-white">✓</span>{toast}
             <button onClick={() => setToast("")} className="text-[#777] hover:text-white ml-2">✕</button>
           </div>
-        </Portal>
-      )}
-      {agendaDate && (
-        <Portal>
-          <AgendaSheet
-            date={agendaDate}
-            appts={appointments.filter(a => a.date === formatDateForDb(agendaDate) && a.status !== "cancelled")}
-            barbers={barbers}
-            onClose={() => setAgendaDate(null)}
-            onOpenAppt={(a) => { setAgendaDate(null); setSelectedAppt(a); }}
-            onDrillToDay={() => {
-              setCurrentDate(agendaDate);
-              setView("day");
-              setAgendaDate(null);
-            }}
-          />
         </Portal>
       )}
 
