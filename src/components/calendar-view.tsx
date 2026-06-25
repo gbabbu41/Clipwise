@@ -335,7 +335,27 @@ export function makeApptActions(opts: {
   };
 }
 
-// ── Appointment detail modal (DARK overlay — intentional over the light canvas) ─
+// One stacked action row in the appointment drawer (the demo's ".daction" look).
+function DAction({ icon, label, onClick, disabled, tone = "default" }: {
+  icon: string; label: string; onClick?: () => void; disabled?: boolean;
+  tone?: "default" | "primary" | "danger" | "muted";
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || tone === "muted"}
+      className={cn(
+        "flex items-center gap-3 w-full px-3.5 py-3 rounded-xl border text-sm font-medium text-left transition-colors disabled:opacity-50",
+        tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
+          : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
+          : tone === "muted" ? "bg-[#1a1a1a] border-[#222] text-[#666] cursor-not-allowed"
+          : "bg-[#1a1a1a] border-[#222] text-[#f0f0f0] hover:bg-[#1e1e1e]",
+      )}>
+      <span className="text-base leading-none flex-shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+// ── Appointment detail — a bottom sheet / drawer that slides up on tap ──────────
 export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = false }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
@@ -361,143 +381,104 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
   // button but surface that we're waiting (paying the link auto-completes).
   const awaiting = !paid && !!appt.stripe_checkout_session_id;
 
+  // Slide the drawer up on mount; on close, slide down then unmount.
+  const [shown, setShown] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
+  const close = () => { setShown(false); setTimeout(onClose, 280); };
+
+  // Header bits — one meta line + a single status/payment badge (demo look).
+  const serviceName = (appt.services as { name: string } | null)?.name ?? "—";
+  const methodWord = appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card";
+  const badge = paid
+    ? { text: `Paid · ${methodWord}`, cls: "bg-[#00e5a0]/10 text-[#00e5a0]" }
+    : heldOrSaved
+      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      : awaiting
+        ? { text: "Awaiting payment", cls: "bg-sky-400/10 text-sky-400" }
+        : appt.status === "pending"
+          ? { text: "Pending confirmation", cls: "bg-[#f5c542]/10 text-[#f5c542]" }
+          : appt.status === "completed"
+            ? { text: "Completed · Unpaid", cls: "bg-white/5 text-[#bbb]" }
+            : appt.status === "cancelled"
+              ? { text: "Cancelled", cls: "bg-white/5 text-[#888]" }
+              : appt.status === "no-show"
+                ? { text: "No-show", cls: "bg-white/5 text-[#888]" }
+                : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
+  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amt > 0 ? `$${amt.toFixed(0)}` : null].filter(Boolean).join(" · ");
+
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-[70]" onClick={onClose} />
-      <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 pb-24 lg:pb-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-        <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">{appt.client_name}</h3>
-            <button onClick={onClose} className="text-[#777] hover:text-white"><X size={18} /></button>
+      <div
+        className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", shown ? "opacity-100" : "opacity-0")}
+        onClick={close}
+      />
+      <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+        <div
+          className={cn(
+            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
+            "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[88vh] overflow-y-auto overscroll-contain",
+            "transition-transform duration-300 ease-out", shown ? "translate-y-0" : "translate-y-full",
+          )}
+        >
+          {/* Grab handle */}
+          <div className="mx-auto w-9 h-1 rounded-full bg-[#2a2a2a] mt-3 mb-3" />
+
+          {/* Header — name · meta line · single status/payment badge */}
+          <div className="px-[18px] pb-3.5 border-b border-[#1a1a1a]">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-base font-bold text-white truncate">{appt.client_name}</h3>
+              <button onClick={close} className="text-[#777] hover:text-white flex-shrink-0 -mr-1"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-[#777] mt-1 truncate">{metaLine}</p>
+            <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
-          <Badge variant={
-            appt.status === "confirmed" ? "success" :
-            appt.status === "completed" ? "info" :
-            appt.status === "cancelled" ? "danger" : "warning"
-          } className="capitalize">{appt.status}</Badge>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
-              <span className="text-[#777]">Service</span>
-              <span className="text-white">{(appt.services as { name: string } | null)?.name ?? "—"}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
-              <span className="text-[#777]">Barber</span>
-              <span className="text-white">{barber?.name ?? "Any"}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
-              <span className="text-[#777]">Time</span>
-              <span className="text-white">{appt.time_slot}{duration ? ` · ${duration} min` : ""}</span>
-            </div>
-            <div className="flex justify-between gap-3 py-1.5 border-b border-[#1e1e1e]/50">
-              <span className="text-[#777] flex-shrink-0">Email</span>
-              <span className="text-white truncate text-right">{appt.client_email || "—"}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-b border-[#1e1e1e]/50">
-              <span className="text-[#777]">Phone</span>
-              <span className="text-white">{appt.client_phone || "—"}</span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-[#777]">Total</span>
-              <span className="text-white font-semibold">${Number(appt.total_amount).toFixed(2)}</span>
-            </div>
-            {paid && (
-              <div className="flex justify-between py-1.5 border-t border-[#1e1e1e]/50">
-                <span className="text-[#777]">Payment</span>
-                <span className="font-medium">
-                  <span className="text-[#00e5a0]">Paid</span>
-                  <span className="text-[#555]"> · </span>
-                  <span className={appt.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
-                    {appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card"}
-                  </span>
-                  {appt.paid_at ? <span className="text-[#777]"> · {timeAgo(appt.paid_at)}</span> : null}
-                </span>
-              </div>
-            )}
-          </div>
+
           {appt.notes && (
-            <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#777]">{appt.notes}</div>
+            <div className="mx-[18px] mt-3 bg-[#1a1a1a] rounded-xl p-3 text-xs text-[#888]">{appt.notes}</div>
           )}
 
-          {/* Actions. The "Check out" button (confirmed appts) opens the checkout
-              sheet — it is NOT the same as the completed status: a prepaid online
-              booking stays "confirmed" until the barber checks it out here.
-              Hidden entirely in read-only mode (barber w/o manage_appointments). */}
-          {readOnly ? null : payChoice ? (
-            <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
-              <p className="text-xs text-[#777]">Check out{amt > 0 ? ` · $${amt.toFixed(2)}` : ""}</p>
+          {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
+          {readOnly ? (
+            <p className="px-[18px] pt-4 text-center text-xs text-[#666]">View only</p>
+          ) : payChoice ? (
+            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
               {paid ? (
-                /* Already paid (e.g. prepaid at booking) — just finish the visit. */
-                <Button size="sm" className="w-full" disabled={!!busy} onClick={() => actions.complete(appt)}>
-                  {busy === "complete" ? "Completing…" : "Mark complete · already paid"}
-                </Button>
+                <DAction tone="primary" icon="✓" label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
               ) : (
                 <>
-                  {/* 1 · Charge a card already on file (held at booking / saved). */}
                   {heldOrSaved && (
-                    <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => actions.captureComplete(appt)}>
-                      {busy === "capture" ? "Charging…" : `Charge card on file${amt > 0 ? ` · $${amt.toFixed(2)}` : ""}`}
-                    </Button>
+                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
-                  {/* 2 · Tap to Pay — native, not shipped yet. */}
-                  <Button size="sm" variant="outline" className="w-full opacity-50 cursor-not-allowed" disabled>
-                    Pay here (Tap) · Coming soon
-                  </Button>
-                  {/* 3 · Send a checkout link by email/text — paying it auto-completes. */}
+                  <DAction tone="muted" icon="💳" label="Pay here (Tap) · Coming soon" />
                   <input
                     type="email"
                     value={payEmail}
                     onChange={e => setPayEmail(e.target.value)}
                     placeholder="Customer email (for the link)"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gold/50"
+                    className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#333]"
                   />
-                  <Button size="sm" variant="outline" className="w-full" disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); }}>
-                    {busy === "link" ? "Sending…" : `Send payment link${appt.client_phone ? " · email/text" : ""}`}
-                  </Button>
-                  {/* 4 · Pay cash + complete.  5 · Complete now, leave unpaid. */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => actions.cashComplete(appt)}>
-                      {busy === "cash" ? "…" : "Pay cash · Complete"}
-                    </Button>
-                    {appt.status !== "completed" && (
-                      <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => actions.complete(appt)}>
-                        {busy === "complete" ? "…" : "Complete unpaid"}
-                      </Button>
-                    )}
-                  </div>
+                  <DAction icon="↗" label={busy === "link" ? "Sending…" : `Send payment link${appt.client_phone ? " · email/text" : ""}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); }} />
+                  <DAction icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
+                  {appt.status !== "completed" && (
+                    <DAction icon="○" label={busy === "complete" ? "Completing…" : "Complete · leave unpaid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
+                  )}
                 </>
               )}
-              <button className="w-full text-xs text-[#777] hover:text-white pt-1" onClick={() => setPayChoice(false)}>Cancel</button>
+              <button className="text-xs text-[#777] hover:text-white pt-1 pb-0.5" onClick={() => setPayChoice(false)}>Cancel</button>
             </div>
           ) : (
-            <div className="space-y-2 pt-1 border-t border-[#1e1e1e]">
-              {awaiting && (
-                <p className="text-xs text-sky-400">Awaiting payment — checkout link sent. Paying it completes the visit.</p>
+            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+              {appt.status === "pending" && (
+                <DAction tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
+              )}
+              {appt.status === "confirmed" && (
+                <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => setPayChoice(true)} />
+              )}
+              {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
+                <DAction tone="primary" icon="💳" label={`Take Payment · $${amt.toFixed(0)}`} disabled={!!busy} onClick={() => setPayChoice(true)} />
               )}
               {(appt.status === "pending" || appt.status === "confirmed") && (
-                <div className="flex gap-2">
-                  {appt.status === "pending" && (
-                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => actions.approve(appt)}>
-                      {busy === "approve" ? "…" : "Approve"}
-                    </Button>
-                  )}
-                  {appt.status === "confirmed" && (
-                    <Button size="sm" className="flex-1" disabled={!!busy} onClick={() => setPayChoice(true)}>
-                      Check out
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" className="flex-1" disabled={!!busy} onClick={() => actions.reject(appt)}>
-                    {busy === "reject" ? "…" : "Reject"}
-                  </Button>
-                </div>
-              )}
-              {/* Take Payment — only when there's no Check out / Approve button
-                  above (e.g. a completed-but-unpaid, manually-added booking).
-                  For pending/confirmed, Check out already takes payment, so this
-                  would be redundant. Opens the same checkout sheet. */}
-              {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <Button size="sm" className="w-full bg-[#00e5a0] hover:bg-[#00cf90] text-black" disabled={!!busy} onClick={() => setPayChoice(true)}>
-                  💳 Take Payment · ${amt.toFixed(0)}
-                </Button>
+                <DAction tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
               )}
             </div>
           )}
