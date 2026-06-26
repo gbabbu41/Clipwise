@@ -198,7 +198,23 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     }).catch(() => {});
   };
 
-  if (loading) return <div className="py-16 text-center text-[#777] text-sm">Loading schedule…</div>;
+  if (loading) return (
+    <div className="space-y-4 animate-pulse">
+      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+        <div className="h-4 w-36 bg-[#1a1a1a] rounded" />
+        <div className="mt-4 divide-y divide-[#161616]">
+          {[0, 1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="flex items-center gap-3 py-2.5">
+              <div className="w-9 h-3 bg-[#1a1a1a] rounded flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-[#1a1a1a] flex-shrink-0" />
+              <div className="h-3 bg-[#1a1a1a] rounded" style={{ width: `${50 + (i % 3) * 14}%` }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 h-20" />
+    </div>
+  );
 
   const dm = dayModal !== null ? days[dayModal] : null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -14,6 +14,15 @@ export default function SchedulePage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Warm a barber's /api/schedule (serverless lambda + DB) so opening/switching
+  // to them lands instantly. Deduped; best-effort.
+  const warmed = useRef<Set<string>>(new Set());
+  const warm = useCallback((id: string) => {
+    if (!accessToken || warmed.current.has(id)) return;
+    warmed.current.add(id);
+    fetch(`/api/schedule?barber_id=${id}`, { headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => {});
+  }, [accessToken]);
+
   const loadBarbers = useCallback(() => {
     if (!shop) return;
     // select("*") so the optional bookings_paused column is included without
@@ -23,8 +32,11 @@ export default function SchedulePage() {
         const list = (data ?? []) as Barber[];
         setBarbers(list);
         setSelected(prev => prev ?? list[0]?.id ?? null);
+        // Warm every barber's schedule shortly after load so switching is snappy
+        // (covers phones too, where there's no hover to prefetch on).
+        setTimeout(() => list.forEach(b => warm(b.id)), 600);
       });
-  }, [shop]);
+  }, [shop, warm]);
   useEffect(() => { loadBarbers(); }, [loadBarbers]);
 
   const current = barbers.find(b => b.id === selected);
@@ -43,7 +55,7 @@ export default function SchedulePage() {
           {/* Barber picker first */}
           <div className="flex gap-2 overflow-x-auto pb-1 mb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {barbers.map(b => (
-              <button key={b.id} onClick={() => setSelected(b.id)}
+              <button key={b.id} onClick={() => setSelected(b.id)} onPointerEnter={() => warm(b.id)}
                 className={cn("flex-shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors",
                   selected === b.id ? "bg-white text-black border-white" : "border-[#1e1e1e] bg-[#0c0c0c] text-[#aaa] hover:text-white")}>
                 {b.name}

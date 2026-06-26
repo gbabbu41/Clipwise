@@ -10,10 +10,12 @@ type BreakIn = { day_of_week: number; start_time: string; end_time: string; labe
 // Authorize: the caller must be the shop owner OR the barber themselves.
 async function authorize(token: string | undefined, barberId: string) {
   if (!token) return { error: "Unauthorized", status: 401 as const };
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+  // getUser and the barber lookup don't depend on each other — run them together.
+  const [{ data: { user } }, { data: barber }] = await Promise.all([
+    supabaseAdmin.auth.getUser(token),
+    supabaseAdmin.from("barbers").select("id, shop_id, user_id, name, email").eq("id", barberId).maybeSingle(),
+  ]);
   if (!user) return { error: "Unauthorized", status: 401 as const };
-  const { data: barber } = await supabaseAdmin
-    .from("barbers").select("id, shop_id, user_id, name, email").eq("id", barberId).maybeSingle();
   if (!barber) return { error: "Barber not found", status: 404 as const };
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, owner_id, name").eq("id", barber.shop_id).maybeSingle();
@@ -27,16 +29,21 @@ export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   const barberId = request.nextUrl.searchParams.get("barber_id") ?? "";
   if (!barberId) return NextResponse.json({ error: "Missing barber_id" }, { status: 400 });
-  const auth = await authorize(token, barberId);
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ data: slots }, { data: breaks }, { data: timeOff }] = await Promise.all([
+  // Fire the data queries immediately (they only need barberId) and run the
+  // auth check concurrently — overlapping instead of waterfalling. Data is only
+  // returned after auth passes, so nothing leaks on a failed check.
+  const dataP = Promise.all([
     supabaseAdmin.from("time_slots").select("day_of_week, start_time, end_time, is_available").eq("barber_id", barberId),
     supabaseAdmin.from("barber_breaks").select("day_of_week, start_time, end_time, label").eq("barber_id", barberId),
     supabaseAdmin.from("time_off_requests").select("id, type, start_date, end_date, reason, status")
       .eq("barber_id", barberId).gte("end_date", today).order("start_date"),
   ]);
+  const auth = await authorize(token, barberId);
+  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const [{ data: slots }, { data: breaks }, { data: timeOff }] = await dataP;
   return NextResponse.json({ slots: slots ?? [], breaks: breaks ?? [], timeOff: timeOff ?? [] });
 }
 
