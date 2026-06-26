@@ -631,7 +631,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // the quick-add modal, and the "+" empty-slot add context/form.
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
   const [services, setServices] = useState<ServiceLite[]>([]);
-  const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number } | null>(null);
+  const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number; general?: boolean } | null>(null);
   const [addShown, setAddShown] = useState(false); // drives the add sheet slide-up
   const addDragControls = useDragControls();
   useEffect(() => {
@@ -961,13 +961,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Open the tap modal for a slot. Carries both flows: add an appointment
   // (needs manage_appointments) and block the time (needs block_hours). Opens
   // as long as the user can do at least one; defaults to whichever they can.
-  const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number) => {
+  const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false) => {
     if (!canManage && !canBlock) return;
     setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
     const startMin = timeToMinutes(time);
     setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
     setAddMode(canManage ? "appt" : "block");
-    setAddCtx({ barberId, barberName, time, boxMinutes });
+    setAddCtx({ barberId, barberName, time, boxMinutes, general });
   };
 
   // ── Blocked hours ──────────────────────────────────────────────────────────
@@ -1065,14 +1065,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // (open-ended if none after it). Drives the service/time fit checks.
   const addWindow = useMemo(() => {
     if (!addCtx) return null;
-    const boxStart = timeToMinutes(addCtx.time);
+    // Runway from the SELECTED start (not the seeded box) to the next booking.
+    const boxStart = timeToMinutes(addForm.time || addCtx.time);
     const dateStr = formatDateForDb(currentDate);
     const nexts = appointments
       .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !isDimmed(a.status))
       .map(a => timeToMinutes(a.time_slot))
       .filter(m => m > boxStart);
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
-  }, [addCtx, appointments, currentDate]);
+  }, [addCtx, appointments, currentDate, addForm.time]);
 
   // Combined totals — sum over the chosen rows (counts duplicates, ignores "").
   const svcById = useCallback((id: string) => services.find(s => s.id === id), [services]);
@@ -1098,23 +1099,40 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const addServiceRow = () => setAddForm(p => ({ ...p, service_ids: [...p.service_ids, ""] }));
   const removeServiceRow = (idx: number) => reflowTime(addForm.service_ids.filter((_, i) => i !== idx));
 
+  // Only genuinely-AVAILABLE start times: inside the barber's working hours for
+  // the day, not already booked, not in a blocked range, and not in the past
+  // (today). The header "+" (general) lists the whole working window; a tapped
+  // empty box also keeps that exact slot selectable even if it's overtime.
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
-    const booked = bookedSlotsFor(addCtx.barberId, formatDateForDb(currentDate), ADD_STEP);
-    const startM = timeToMinutes(addCtx.time);
-    const endM = startM + (addCtx.boxMinutes ?? 60);
-    // Build the picker straight from the tapped box: the exact start, then every
-    // 15-min mark inside that box (11 AM box → 11:00 / 11:15 / 11:30 / 11:45),
-    // never spilling into the next box. Skip marks that are already booked; past
-    // times are fine (the owner may log a walk-in after the fact).
-    const opts: string[] = [addCtx.time];
-    for (let m = Math.ceil(startM / ADD_STEP) * ADD_STEP; m < endM; m += ADD_STEP) {
-      if (m === startM) continue;
+    const dateStr = formatDateForDb(currentDate);
+    const sched = schedules.get(addCtx.barberId);
+    const startMin = sched ? Math.round(hourOfDb(sched.start) * 60) : 9 * 60;
+    const endMin = sched ? Math.round(hourOfDb(sched.end) * 60) : 18 * 60;
+    const booked = bookedSlotsFor(addCtx.barberId, dateStr, ADD_STEP);
+    const blocksM = blocksFor(addCtx.barberId, dateStr);
+    const isToday = dateStr === formatDateForDb(new Date());
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const opts: string[] = [];
+    for (let m = startMin; m < endMin; m += ADD_STEP) {
+      if (isToday && m < nowMin) continue;
       const slot = minsToSlot(m);
-      if (!booked.has(slot)) opts.push(slot);
+      if (booked.has(slot)) continue;
+      if (blocksM.some(bl => m >= bl.startMin && m < bl.endMin)) continue;
+      opts.push(slot);
     }
+    // A deliberately-tapped empty box stays pickable even if it's outside hours.
+    if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)) opts.unshift(addCtx.time);
     return opts;
-  }, [addCtx, currentDate, bookedSlotsFor]);
+  }, [addCtx, currentDate, schedules, bookedSlotsFor, blocksFor]);
+
+  // Keep the selected time valid — default to the first available slot when the
+  // seeded time isn't bookable (e.g. the header "+" landed before opening hours).
+  useEffect(() => {
+    if (!addCtx) return;
+    setAddForm(f => (addTimeOptions.length && !addTimeOptions.includes(f.time) ? { ...f, time: addTimeOptions[0] } : f));
+  }, [addCtx, addTimeOptions]);
 
   const titleText = useMemo(() => {
     if (view === "year") return String(currentDate.getFullYear());
@@ -1928,7 +1946,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const bId = dayBarberId ?? orderedBarbers[0]?.id;
     if (!bId) return;
     const bName = barbers.find(b => b.id === bId)?.name ?? "";
-    openAdd(bId, bName, "9:00 AM", 13 * 60);
+    openAdd(bId, bName, "9:00 AM", 13 * 60, true);
   };
   // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
@@ -2225,8 +2243,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <p className="text-xs text-[#aaa] mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
                 )}
               </div>
-              <Select label="Time" value={addForm.time}
+              <Select label="Available time" value={addForm.time}
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
+                {addTimeOptions.length === 0 && <option value="">No open times this day</option>}
                 {addTimeOptions.map(t => {
                   const tooLong = !!addWindow && addTotalDuration > 0 && timeToMinutes(t) + addTotalDuration > addWindow.freeUntil;
                   return <option key={t} value={t} disabled={tooLong}>{t}{tooLong ? " — won't fit" : ""}</option>;
