@@ -70,6 +70,7 @@ function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barb
   const first = barberName.split(" ")[0] || "this barber";
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [err, setErr] = useState("");
 
   const setPaused = async (next: boolean) => {
     if (busy) return;
@@ -77,13 +78,28 @@ function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barb
     const { error } = await supabase.from("barbers").update({ bookings_paused: next }).eq("id", barberId);
     setBusy(false);
     setConfirm(false);
-    if (!error) onChanged();
+    if (error) {
+      // Surface the real reason instead of failing silently — most likely the
+      // phase15 `bookings_paused` column hasn't been added yet.
+      const msg = /bookings_paused/.test(error.message)
+        ? "Run the phase15 migration first (barbers.bookings_paused column is missing)."
+        : (error.message || "Couldn't update — try again.");
+      setErr(msg);
+      setTimeout(() => setErr(""), 6000);
+      return;
+    }
+    onChanged();
   };
 
   const onClick = () => { if (paused) setPaused(false); else setConfirm(true); };
 
   return (
     <>
+      {err && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] max-w-[90vw] bg-red-900/90 border border-red-500/40 text-red-100 text-xs font-medium rounded-xl px-4 py-2.5 shadow-xl">
+          {err}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         {/* Status badge — reads booking_settings.bookings_paused, the SAME flag
             the customer booking page + in-person/Stripe checkout routes check
