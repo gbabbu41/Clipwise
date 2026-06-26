@@ -501,7 +501,7 @@ export default function PaymentsPage() {
             </div>
 
             {/* Net collected by the selected barber for the chosen window */}
-            <div className="rounded-2xl bg-[#141414] border border-[#1e1e1e] px-4 py-5 flex flex-col">
+            <div className="rounded-2xl bg-[#0b0f0d] border border-[#00e5a024] px-4 py-5 flex flex-col shadow-[0_0_0_1px_#00e5a00a,inset_0_1px_0_#00e5a00f]">
               <div className="flex items-baseline justify-between gap-2">
                 <p className="text-[10px] uppercase tracking-wide text-[#888]">{barberFirst} · Net collected · {ownerPeriod.label}</p>
                 {scopeSel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(scopeSel.cash)} cash</span>}
@@ -545,7 +545,7 @@ export default function PaymentsPage() {
               className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
               {/* Slide 1 — shop Stripe balance / payout */}
-              <div className="min-w-full snap-center rounded-2xl bg-[#141414] border border-[#1e1e1e] px-4 py-5 flex flex-col">
+              <div className="min-w-full snap-center rounded-2xl bg-[#0b0f0d] border border-[#00e5a024] px-4 py-5 flex flex-col shadow-[0_0_0_1px_#00e5a00a,inset_0_1px_0_#00e5a00f]">
                 <p className="text-[10px] uppercase tracking-wide text-[#888]">Stripe balance</p>
                 <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
                 {stripeNet?.nextPayoutDate ? (
@@ -576,7 +576,7 @@ export default function PaymentsPage() {
 
               {/* Slides 2-4 — Net by period */}
               {netPeriods.map(p => (
-                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-[#141414] border border-[#1e1e1e] px-4 py-5 flex flex-col">
+                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-[#0b0f0d] border border-[#00e5a024] px-4 py-5 flex flex-col shadow-[0_0_0_1px_#00e5a00a,inset_0_1px_0_#00e5a00f]">
                   <div className="flex items-baseline justify-between">
                     <p className="text-[10px] uppercase tracking-wide text-[#888]">Net · {p.label}</p>
                     {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
