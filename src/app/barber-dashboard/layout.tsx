@@ -6,6 +6,15 @@ import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
+import { SwipeNavigator } from "@/components/swipe-navigator";
+
+// Order mirrors the barber bottom nav so a swipe slides between tabs.
+const BARBER_SWIPE_ORDER = [
+  "/barber-dashboard",
+  "/barber-dashboard/calendar",
+  "/barber-dashboard/schedule",
+  "/barber-dashboard/earnings",
+];
 
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
@@ -80,7 +89,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
               pt-14 reserves the mobile top-bar height. */}
           <main className="lg:ml-64 pt-14 lg:pt-0 pb-24 lg:pb-0">
-            {children}
+            <SwipeNavigator order={BARBER_SWIPE_ORDER}>{children}</SwipeNavigator>
           </main>
           <BarberMobileNav />
         </div>

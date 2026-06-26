@@ -1980,7 +1980,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
+    // data-no-swipe: the calendar owns horizontal gestures (day/month/year
+    // swipe), so the app-level page swipe-navigator must not fire inside it.
+    <div data-no-swipe className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
       {/* Header — one row: date hero (left) · controls (right). The barber
           filter is a compact avatar+caret so it all fits on a single line. */}
       <div className="border-b border-[#1a1a1a] px-4 sm:px-6 py-2 flex items-center justify-between gap-3">

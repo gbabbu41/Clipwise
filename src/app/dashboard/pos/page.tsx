@@ -526,7 +526,9 @@ export default function POSPage() {
   // side-by-side on tablet+. h-screen on desktop only — on mobile the
   // page can scroll naturally so the bottom nav stays clear.
   return (
-    <div className="bg-[#0a0a0a]">
+    // data-no-swipe: POS is a money workflow — never let an accidental page
+    // swipe navigate away mid-sale and drop the in-progress cart.
+    <div data-no-swipe className="bg-[#0a0a0a]">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart

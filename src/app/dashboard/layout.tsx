@@ -5,7 +5,17 @@ import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
+import { SwipeNavigator } from "@/components/swipe-navigator";
 import { useAuth } from "@/lib/auth-context";
+
+// Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
+const OWNER_SWIPE_ORDER = [
+  "/dashboard",
+  "/dashboard/schedule",
+  "/dashboard/calendar",
+  "/dashboard/pos",
+  "/dashboard/payments",
+];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, shop, loading, refreshShop } = useAuth();
@@ -76,7 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           spacer matches its canvas; everything else uses the default dark surface. */}
       <main className={`lg:ml-64 pt-[calc(2.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
         <StripeWarningBanner />
-        {children}
+        <SwipeNavigator order={OWNER_SWIPE_ORDER}>{children}</SwipeNavigator>
       </main>
       <MobileNav />
     </div>
