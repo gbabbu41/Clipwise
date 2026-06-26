@@ -2062,7 +2062,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         onTouchEnd={onSwipeEnd}
       >
         <MotionConfig reducedMotion="user">
-          <AnimatePresence mode="popLayout" custom={navDir} initial={false}>
+          <AnimatePresence mode="wait" custom={navDir} initial={false}>
             <motion.div
               key={transitionKey}
               custom={navDir}
@@ -2072,7 +2072,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               exit="exit"
               transition={calTransition}
               className="h-full w-full"
-              style={{ willChange: "transform, opacity" }}
             >
               {view === "year" ? renderYearView() : view === "month" ? renderMonthView() : renderDayView()}
             </motion.div>
