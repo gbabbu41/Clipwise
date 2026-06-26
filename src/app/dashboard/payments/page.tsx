@@ -501,13 +501,13 @@ export default function PaymentsPage() {
             </div>
 
             {/* Net collected by the selected barber for the chosen window */}
-            <div className="rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+            <div className="rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] px-4 py-5 flex flex-col">
               <div className="flex items-baseline justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">{barberFirst} · Net collected · {ownerPeriod.label}</p>
+                <p className="text-[10px] uppercase tracking-wide text-[#888]">{barberFirst} · Net collected · {ownerPeriod.label}</p>
                 {scopeSel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(scopeSel.cash)} cash</span>}
               </div>
-              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(scopeSel.net)}</p>
-              <p className="text-xs text-gray-500 mt-1.5">
+              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(scopeSel.net)}</p>
+              <p className="text-xs text-[#888] mt-1.5">
                 From {formatCurrency(scopeSel.gross)} collected{scopeSel.fees > 0 ? ` · ${formatCurrency(scopeSel.fees)} Stripe fees` : ""}
               </p>
               <div className="flex-1 min-h-[80px] mt-3 -mx-1">
@@ -516,15 +516,15 @@ export default function PaymentsPage() {
                     <BarChart data={scopeSel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                       <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #2a2a2a", background: "#0c0c0c", color: "#fff", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "rgba(255,255,255,0.08)" }} />
                     </BarChart>
                   </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No earnings in this period</div>}
+                ) : <div className="h-full flex items-center justify-center text-xs text-[#555]">No earnings in this period</div>}
               </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
-                <div><p className="text-gray-400">Services</p><p className="font-semibold text-gray-800">{scopeSel.count}</p></div>
-                <div><p className="text-gray-400">Avg ticket</p><p className="font-semibold text-gray-800">{formatCurrency(scopeSel.avg)}</p></div>
-                <div className="text-right"><p className="text-gray-400">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(scopeSel.gross + scopeSel.cash)}</p></div>
+              <div className="mt-2 pt-2 border-t border-[#2a2a2a] grid grid-cols-3 gap-2 text-xs">
+                <div><p className="text-[#888]">Services</p><p className="font-semibold text-white">{scopeSel.count}</p></div>
+                <div><p className="text-[#888]">Avg ticket</p><p className="font-semibold text-white">{formatCurrency(scopeSel.avg)}</p></div>
+                <div className="text-right"><p className="text-[#888]">Collected</p><p className="font-semibold text-[#ccc]">{formatCurrency(scopeSel.gross + scopeSel.cash)}</p></div>
               </div>
             </div>
 
@@ -545,27 +545,27 @@ export default function PaymentsPage() {
               className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
               {/* Slide 1 — shop Stripe balance / payout */}
-              <div className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">Stripe balance</p>
-                <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{formatCurrency(payout)}</p>
+              <div className="min-w-full snap-center rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] px-4 py-5 flex flex-col">
+                <p className="text-[10px] uppercase tracking-wide text-[#888]">Stripe balance</p>
+                <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-[#00e5a0]">{formatCurrency(payout)}</p>
                 {stripeNet?.nextPayoutDate ? (
-                  <div className="text-xs text-gray-500 mt-1.5 leading-snug">
+                  <div className="text-xs text-[#888] mt-1.5 leading-snug">
                     <span>Next payout{stripeNet.nextPayoutAmount != null ? `: ${formatCurrency(stripeNet.nextPayoutAmount)}` : ""}</span>
-                    <span className="block text-gray-400">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
+                    <span className="block text-[#888]">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500 mt-1.5">No payout scheduled yet</p>
+                  <p className="text-xs text-[#888] mt-1.5">No payout scheduled yet</p>
                 )}
-                <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-between gap-3 text-xs">
+                <div className="mt-3 pt-3 border-t border-[#2a2a2a] flex items-end justify-between gap-3 text-xs">
                   <div>
-                    <p className="text-gray-400">Net today</p>
-                    <p className="font-semibold text-emerald-600">
+                    <p className="text-[#888]">Net today</p>
+                    <p className="font-semibold text-[#00e5a0]">
                       {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-500"> + {formatCurrency(todayCash)} cash</span>}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-gray-400">Last payout</p>
-                    <p className="font-medium text-gray-700">
+                    <p className="text-[#888]">Last payout</p>
+                    <p className="font-medium text-[#ccc]">
                       {stripeNet?.lastPayout
                         ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
                         : "—"}
@@ -576,22 +576,22 @@ export default function PaymentsPage() {
 
               {/* Slides 2-4 — Net by period */}
               {netPeriods.map(p => (
-                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] px-4 py-5 flex flex-col">
                   <div className="flex items-baseline justify-between">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-400">Net · {p.label}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-[#888]">Net · {p.label}</p>
                     {p.cash > 0 && <span className="text-xs font-semibold text-amber-500">+ {formatCurrency(p.cash)} cash</span>}
                   </div>
-                  <p className="text-3xl sm:text-4xl font-extrabold text-emerald-600 mt-1.5">{formatCurrency(p.net)}</p>
+                  <p className="text-3xl sm:text-4xl font-extrabold text-[#00e5a0] mt-1.5">{formatCurrency(p.net)}</p>
                   <div className="flex-1 min-h-[72px] mt-3 -mx-1">
                     {p.data.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                           <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                           <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #2a2a2a", background: "#0c0c0c", color: "#fff", fontSize: 12, padding: "5px 9px" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "rgba(255,255,255,0.08)" }} />
                         </BarChart>
                       </ResponsiveContainer>
-                    ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No data yet</div>}
+                    ) : <div className="h-full flex items-center justify-center text-xs text-[#555]">No data yet</div>}
                   </div>
                 </div>
               ))}

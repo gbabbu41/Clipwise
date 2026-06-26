@@ -31,7 +31,7 @@ type PeriodKey = "week" | "biweekly" | "month" | "all" | "custom";
 
 // Tooltip rides the top strip and never captures touches (see stats carousel).
 const tip = {
-  contentStyle: { borderRadius: 10, border: "1px solid #eee", fontSize: 11, padding: "4px 8px" },
+  contentStyle: { borderRadius: 10, border: "1px solid #2a2a2a", background: "#0c0c0c", color: "#fff", fontSize: 11, padding: "4px 8px" },
   wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
   position: { y: 0 },
   allowEscapeViewBox: { x: true, y: true },
@@ -245,16 +245,16 @@ export default function BarberPaymentsPage() {
       </div>
 
       {/* ── Earnings card for the selected window ────────────────────────────── */}
-      <div className="mb-6 rounded-2xl bg-white px-4 py-5 shadow-sm flex flex-col">
+      <div className="mb-6 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] px-4 py-5 flex flex-col">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400">You earned · {period.label}</p>
+          <p className="text-[10px] uppercase tracking-wide text-[#888]">You earned · {period.label}</p>
           <div className="flex items-baseline gap-2">
             {sel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(sel.cash)} cash</span>}
             {sel.tips > 0 && <span className="text-xs font-semibold text-amber-500/70">{formatCurrency(sel.tips)} tips</span>}
           </div>
         </div>
-        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-emerald-600">{loading ? "—" : formatCurrency(sel.cardEarned)}</p>
-        <p className="text-xs text-gray-500 mt-1.5">
+        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-[#00e5a0]">{loading ? "—" : formatCurrency(sel.cardEarned)}</p>
+        <p className="text-xs text-[#888] mt-1.5">
           From {formatCurrency(sel.gross)} collected{sel.fees > 0 ? ` · ${formatCurrency(sel.fees)} Stripe fees` : ""}
         </p>
         <div className="flex-1 min-h-[80px] mt-3 -mx-1">
@@ -263,15 +263,15 @@ export default function BarberPaymentsPage() {
               <BarChart data={sel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                 <Bar dataKey="val" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-                <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "#f3f4f6" }} />
+                <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "rgba(255,255,255,0.08)" }} />
               </BarChart>
             </ResponsiveContainer>
-          ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">No earnings in this period</div>}
+          ) : <div className="h-full flex items-center justify-center text-xs text-[#555]">No earnings in this period</div>}
         </div>
-        <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
-          <div><p className="text-gray-400">Services</p><p className="font-semibold text-gray-800">{sel.count}</p></div>
-          <div><p className="text-gray-400">Avg ticket</p><p className="font-semibold text-gray-800">{formatCurrency(sel.avg)}</p></div>
-          <div className="text-right"><p className="text-gray-400">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-gray-700">{isOwner ? formatCurrency(sel.gross) : formatCurrency(sel.shopCut)}</p></div>
+        <div className="mt-2 pt-2 border-t border-[#2a2a2a] grid grid-cols-3 gap-2 text-xs">
+          <div><p className="text-[#888]">Services</p><p className="font-semibold text-white">{sel.count}</p></div>
+          <div><p className="text-[#888]">Avg ticket</p><p className="font-semibold text-white">{formatCurrency(sel.avg)}</p></div>
+          <div className="text-right"><p className="text-[#888]">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-[#ccc]">{isOwner ? formatCurrency(sel.gross) : formatCurrency(sel.shopCut)}</p></div>
         </div>
       </div>
 
