@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
@@ -11,16 +12,27 @@ import {
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 
-// Notification visual config — one clean type-icon (no raw emoji), tinted chip.
+// Notification visual config — one clean type-icon (no raw emoji), readable on
+// the dark sheet. Booking is neutral (no loud green); brighter text overall.
 const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
-  booking:      { Icon: Calendar,     cls: "bg-emerald-500/15 text-emerald-400" },
-  cancellation: { Icon: CalendarX2,   cls: "bg-rose-500/15 text-rose-400" },
-  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
-  review:       { Icon: Star,         cls: "bg-yellow-500/15 text-yellow-400" },
-  inventory:    { Icon: Package,      cls: "bg-sky-500/15 text-sky-400" },
-  system:       { Icon: Info,         cls: "bg-white/10 text-[#aaa]" },
+  booking:      { Icon: Calendar,     cls: "bg-white/10 text-[#e5e5e5]" },
+  cancellation: { Icon: CalendarX2,   cls: "bg-rose-500/15 text-rose-300" },
+  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-300" },
+  review:       { Icon: Star,         cls: "bg-yellow-500/15 text-yellow-300" },
+  inventory:    { Icon: Package,      cls: "bg-sky-500/15 text-sky-300" },
+  system:       { Icon: Info,         cls: "bg-white/10 text-[#cfcfcf]" },
 };
 const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
+// Tap a notification → jump straight to where you act on it.
+const NOTIF_LINK: Record<string, string> = {
+  booking:      "/dashboard/pending",
+  cancellation: "/dashboard/appointments",
+  "no-show":    "/dashboard/appointments",
+  review:       "/dashboard/reviews",
+  inventory:    "/dashboard/services",
+  system:       "/dashboard/notifications",
+};
+const notifLink = (type: string) => NOTIF_LINK[type] ?? "/dashboard/notifications";
 // Strip any leading emoji/symbols the stored title carries (e.g. "✅ Paid") so
 // the row shows a single, consistent icon instead of two.
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
@@ -147,6 +159,7 @@ export function Sidebar() {
   // Notification quick-view popover (mobile top-bar bell). State + a
   // refresh effect to grab the last 5 notifications when opened.
   const [notifOpen, setNotifOpen] = useState(false);
+  const notifDrag = useDragControls();
   const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
   useEffect(() => {
     if (!notifOpen || !user) return;
@@ -229,44 +242,62 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Notification quick-view popover — slides down under the top bar
-          when the bell is on. Tap outside (or the bell again) to close. */}
-      {notifOpen && (
-        <>
-          <div className="lg:hidden fixed inset-0 z-[70]" onClick={() => setNotifOpen(false)} />
-          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-[80] max-h-[calc(100dvh-3.5rem-5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
-            <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
-              <p className="text-sm font-bold text-white">Notifications</p>
-              <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
-            </div>
-            {recentNotifs.length === 0 ? (
-              <div className="px-4 py-6 text-center text-[#777] text-sm">Nothing here yet</div>
-            ) : (
-              <div className="divide-y divide-[#1e1e1e]">
-                {recentNotifs.map(n => {
-                  const { Icon, cls } = notifIcon(n.type);
-                  return (
-                    <Link key={n.id} href="/dashboard/notifications" onClick={() => setNotifOpen(false)}
-                      className={cn("flex gap-3 px-4 py-3 transition-colors", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.035] hover:bg-white/[0.06]")}>
-                      <span className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
-                        <Icon size={15} />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className={cn("text-sm truncate", n.is_read ? "font-medium text-[#9a9a9a]" : "font-semibold text-white")}>{cleanNotifTitle(n.title)}</p>
-                          <span className="text-[11px] text-[#666] flex-shrink-0">{timeAgo(n.created_at)}</span>
-                        </div>
-                        <p className="text-xs text-[#777] line-clamp-2 mt-0.5">{n.message}</p>
-                      </div>
-                      {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
-                    </Link>
-                  );
-                })}
+      {/* Notification sheet — slides up from the bottom (matches the app's other
+          sheets). Drag the handle down or tap outside to close. */}
+      <AnimatePresence>
+        {notifOpen && (
+          <>
+            <motion.div
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
+              onClick={() => setNotifOpen(false)}
+            />
+            <motion.div
+              className="lg:hidden fixed inset-x-0 bottom-0 z-[80] bg-[#0c0c0c] border-t border-[#1e1e1e] rounded-t-2xl shadow-2xl flex flex-col max-h-[82vh] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+              drag="y" dragListener={false} dragControls={notifDrag}
+              dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_, info) => { if (info.offset.y > 110 || info.velocity.y > 600) setNotifOpen(false); }}
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            >
+              {/* Drag handle */}
+              <div onPointerDown={(e) => notifDrag.start(e)} onClick={() => setNotifOpen(false)}
+                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none flex-shrink-0">
+                <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
-            )}
-          </div>
-        </>
-      )}
+              <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
+                <p className="text-base font-bold text-white">Notifications</p>
+                <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-amber-400 hover:underline">See all</Link>
+              </div>
+              {recentNotifs.length === 0 ? (
+                <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
+              ) : (
+                <div className="overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
+                  {recentNotifs.map(n => {
+                    const { Icon, cls } = notifIcon(n.type);
+                    return (
+                      <Link key={n.id} href={notifLink(n.type)} onClick={() => setNotifOpen(false)}
+                        className={cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]")}>
+                        <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                          <Icon size={16} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#cdcdcd]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
+                            <span className="text-[11px] text-[#888] flex-shrink-0">{timeAgo(n.created_at)}</span>
+                          </div>
+                          <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                        </div>
+                        {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (
