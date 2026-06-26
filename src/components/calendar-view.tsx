@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig, useDragControls } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
@@ -21,6 +21,10 @@ import {
 import type { AppointmentWithDetails, Barber, Shop } from "@/lib/database.types";
 
 type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
+
+// useLayoutEffect on the client (no pre-paint flash), useEffect on the server
+// (avoids React's SSR warning). Picked once per environment so hook order is stable.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // Overlays (modals / side sheet) render through the document body so their
 // position:fixed always resolves to the viewport — when this calendar is
@@ -657,6 +661,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The day-view date rail (horizontally scrollable, browse without selecting).
+  const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -824,6 +830,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     setColWrapW(el.getBoundingClientRect().width);
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
+
+  // Keep the selected day centered in the date rail. The rail is rebuilt
+  // centered on currentDate, so we just scroll its selected button to the
+  // middle (no smooth-scroll, no page scroll — adjust scrollLeft directly).
+  // Layout effect → centered before paint, so entering day view shows no jump.
+  useIsoLayoutEffect(() => {
+    if (view !== "day") return;
+    const el = stripRef.current;
+    if (!el) return;
+    const sel = el.querySelector<HTMLElement>('[data-sel="1"]');
+    if (!sel) return;
+    el.scrollLeft = sel.offsetLeft - (el.clientWidth - sel.clientWidth) / 2;
+  }, [view, currentDate]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -1150,20 +1169,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : null;
 
   // ── WEEK STRIP (sits atop the Day view) ─────────────────────────────────────
+  // Independent, horizontally-scrollable date rail. Swiping it browses days
+  // WITHOUT switching the selected day — only a tap selects (and loads that
+  // day's schedule below). It renders a wide window centered on the selected
+  // day and is auto-centered by an effect; touch events stopPropagation so the
+  // calendar-wide period swipe never fires from a rail scroll.
+  const STRIP_RANGE = 28; // days rendered each side of the selected day
   const renderWeekStrip = () => {
-    const weekStart = startOfWeek(currentDate);
-    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const selectedStr = formatDateForDb(currentDate);
+    const days = Array.from({ length: STRIP_RANGE * 2 + 1 }, (_, i) => addDays(currentDate, i - STRIP_RANGE));
     return (
-      <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0">
-        {weekDays.map(day => {
+      <div
+        ref={stripRef}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+        className="flex overflow-x-auto overscroll-x-contain border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {days.map(day => {
           const dateStr = formatDateForDb(day);
           const isSel = dateStr === selectedStr;
           const today = isToday(day);
           const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
           return (
-            <button key={dateStr} onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
-              className="py-1.5 text-center hover:bg-[#141414] transition-colors">
+            <button key={dateStr} data-sel={isSel ? "1" : undefined}
+              onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
+              className="flex-shrink-0 basis-[14.2857%] min-w-[3rem] py-1.5 text-center hover:bg-[#141414] transition-colors">
               <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-amber-400" : "text-[#666]")}>
                 {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
               </p>
