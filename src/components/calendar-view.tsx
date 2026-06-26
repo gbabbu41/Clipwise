@@ -1030,6 +1030,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       showToast("Not enough time before the next appointment — shorten the service or start earlier");
       return;
     }
+    // Don't let it land on a blocked range for this barber.
+    const startMin = timeToMinutes(time);
+    if (blocksFor(addCtx.barberId, formatDateForDb(currentDate)).some(bl => startMin < bl.endMin && startMin + duration > bl.startMin)) {
+      showToast("That time is blocked — unblock it or pick another time.");
+      return;
+    }
     const outside = isOutsideSchedule(addCtx.barberId, time);
     setSavingAdd(true);
     const res = await fetch("/api/book/in-person", {

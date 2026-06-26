@@ -769,6 +769,27 @@ export default function AppointmentsPage() {
         showToast(`That barber is already booked on ${prettyDate(clash.date)} at ${clash.time_slot}`);
         return;
       }
+      // Don't book over a block / time-off for that barber.
+      const dur = svc?.duration_minutes ?? 30;
+      const sMin = timeToMinutes(addForm.time_slot);
+      const eMin = sMin + dur;
+      const mins24 = (t: string) => { const [hh, mm] = t.split(":").map(Number); return (hh || 0) * 60 + (mm || 0); };
+      const dates = rows.map(r => r.date);
+      const { data: offs } = await supabase
+        .from("time_off_requests")
+        .select("type, start_time, end_time, start_date, end_date, barber_id")
+        .eq("shop_id", shop.id).eq("status", "approved").eq("barber_id", addForm.barber_id);
+      const blockedHit = (offs ?? []).some(o => {
+        if (!dates.some(dt => dt >= o.start_date && dt <= o.end_date)) return false;
+        if (o.type === "day_off" || o.type === "vacation" || o.type === "sick") return true;
+        if (o.type === "blocked_hours" && o.start_time && o.end_time) return sMin < mins24(o.end_time) && eMin > mins24(o.start_time);
+        return false;
+      });
+      if (blockedHit) {
+        setSavingAdd(false);
+        showToast("That time is blocked for this barber — unblock it or pick another time.");
+        return;
+      }
     }
 
     const { error } = await supabase.from("appointments").insert(rows);
