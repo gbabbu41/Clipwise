@@ -1,30 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ScheduleEditor } from "@/components/schedule-editor";
 import { cn } from "@/lib/utils";
 
-type Barber = { id: string; name: string };
+type Barber = { id: string; name: string; bookings_paused?: boolean };
 
 export default function SchedulePage() {
   const { shop, accessToken } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadBarbers = useCallback(() => {
     if (!shop) return;
-    supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name")
+    // select("*") so the optional bookings_paused column is included without
+    // erroring on shops that haven't run the phase15 migration yet.
+    supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name")
       .then(({ data }) => {
         const list = (data ?? []) as Barber[];
         setBarbers(list);
         setSelected(prev => prev ?? list[0]?.id ?? null);
       });
   }, [shop]);
-
-  const paused = !!(shop?.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused;
+  useEffect(() => { loadBarbers(); }, [loadBarbers]);
 
   const current = barbers.find(b => b.id === selected);
 
@@ -50,7 +51,7 @@ export default function SchedulePage() {
             ))}
           </div>
 
-          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner isPaused={paused} headerAction={<PauseBookingsToggle />} />}
+          {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner isPaused={!!current.bookings_paused} headerAction={<PauseBookingsToggle barberId={current.id} barberName={current.name} paused={!!current.bookings_paused} onChanged={loadBarbers} />} />}
 
           {/* Shop-wide setting at the bottom */}
           <div className="mt-4 pt-4 border-t border-[#161616]">
@@ -62,22 +63,21 @@ export default function SchedulePage() {
   );
 }
 
-// Emergency kill switch in the Weekly Schedule header — turning ON requires a
+// Per-barber pause switch in the Weekly Schedule header — pausing ONE barber's
+// online bookings (the rest of the shop stays bookable). Turning ON asks for a
 // confirmation; turning OFF (resume) is immediate.
-function PauseBookingsToggle() {
-  const { shop, refreshShop } = useAuth();
-  const paused = !!(shop?.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused;
+function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barberId: string; barberName: string; paused: boolean; onChanged: () => void }) {
+  const first = barberName.split(" ")[0] || "this barber";
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
 
   const setPaused = async (next: boolean) => {
-    if (!shop || busy) return;
+    if (busy) return;
     setBusy(true);
-    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), bookings_paused: next };
-    const { error } = await supabase.from("shops").update({ booking_settings: merged }).eq("id", shop.id);
-    if (!error) await refreshShop();
+    const { error } = await supabase.from("barbers").update({ bookings_paused: next }).eq("id", barberId);
     setBusy(false);
     setConfirm(false);
+    if (!error) onChanged();
   };
 
   const onClick = () => { if (paused) setPaused(false); else setConfirm(true); };
@@ -110,9 +110,9 @@ function PauseBookingsToggle() {
             <div className="bg-black shadow-sm border border-amber-500/40 rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
-                <h2 className="text-base font-bold text-white">Pause all bookings?</h2>
+                <h2 className="text-base font-bold text-white">Pause {first}&apos;s bookings?</h2>
               </div>
-              <p className="text-sm text-[#aaa]">Customers won&apos;t be able to book online until you turn this back on. Your existing appointments stay.</p>
+              <p className="text-sm text-[#aaa]">Customers won&apos;t be able to book <span className="text-white">{first}</span> online until you turn this back on. Other barbers stay bookable, and existing appointments are kept.</p>
               <div className="flex gap-2">
                 <button onClick={() => setConfirm(false)} className="flex-1 rounded-xl border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
                 <button onClick={() => setPaused(true)} disabled={busy} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400 disabled:opacity-50">{busy ? "Pausing…" : "Pause bookings"}</button>

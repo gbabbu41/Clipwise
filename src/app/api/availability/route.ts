@@ -33,8 +33,16 @@ export async function POST(request: NextRequest) {
   // Active barbers (optionally just the one the customer picked).
   let barbersQ = supabaseAdmin.from("barbers").select("id, name").eq("shop_id", shop_id).eq("is_active", true);
   if (barber_id) barbersQ = barbersQ.eq("id", barber_id);
-  const { data: barbers } = await barbersQ.order("name");
-  const barberIds = (barbers ?? []).map(b => b.id as string);
+  const { data: allBarbers } = await barbersQ.order("name");
+
+  // Drop barbers who've paused their own online bookings. Done as a separate,
+  // error-tolerant query so a shop that hasn't run the phase15 migration yet
+  // (no bookings_paused column) still returns availability normally.
+  const pausedRes = await supabaseAdmin.from("barbers").select("id").eq("shop_id", shop_id).eq("bookings_paused", true);
+  const pausedIds = new Set((pausedRes.error ? [] : (pausedRes.data ?? [])).map(b => b.id as string));
+  const barbers = (allBarbers ?? []).filter(b => !pausedIds.has(b.id as string));
+
+  const barberIds = barbers.map(b => b.id as string);
   if (barberIds.length === 0) return NextResponse.json({ barbers: [] });
 
   // Working hours for the weekday + active appointments + approved time-off.
