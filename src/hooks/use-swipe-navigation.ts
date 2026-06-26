@@ -113,14 +113,16 @@ export function useSwipeNavigation(
 
   const setStyle = (
     x: number,
-    opts: { transition?: string; scale?: number; opacity?: number } = {},
+    opts: { transition?: string; scale?: number; opacity?: number; shadow?: boolean } = {},
   ) => {
     const el = elRef.current;
     if (!el) return;
-    const { transition = "", scale = 1, opacity = 1 } = opts;
+    const { transition = "", scale = 1, opacity = 1, shadow = false } = opts;
     el.style.transition = transition;
     el.style.transform = `translate3d(${x}px,0,0) scale(${scale})`;
     el.style.opacity = String(opacity);
+    // Subtle depth between the moving page and the surface behind it.
+    el.style.boxShadow = shadow ? "0 0 32px rgba(0,0,0,0.5)" : "";
     el.style.willChange = "transform";
   };
 
@@ -132,6 +134,7 @@ export function useSwipeNavigation(
     el.style.transition = "";
     el.style.transform = "";
     el.style.opacity = "";
+    el.style.boxShadow = "";
     el.style.willChange = "";
   };
 
@@ -174,13 +177,20 @@ export function useSwipeNavigation(
     while (el && el !== document.body && el !== document.documentElement) {
       if (el.dataset && el.dataset.noSwipe !== undefined) return true;
       const tag = el.tagName;
+      const role = el.getAttribute?.("role");
       if (
         tag === "INPUT" ||
         tag === "TEXTAREA" ||
         tag === "SELECT" ||
         tag === "BUTTON" ||
+        // Interactive canvases / embeds (maps, charts, video players, iframes)
+        // own their own pointer gestures — never navigate over them.
+        tag === "CANVAS" ||
+        tag === "IFRAME" ||
+        tag === "VIDEO" ||
         (el as HTMLElement).isContentEditable ||
-        el.getAttribute?.("role") === "slider"
+        role === "slider" ||
+        role === "application"
       ) {
         return true;
       }
@@ -212,6 +222,7 @@ export function useSwipeNavigation(
       transition: `transform ${duration}ms ${SPRING}, opacity ${duration}ms linear`,
       scale: 0.98,
       opacity: 0.4,
+      shadow: true,
     });
     window.setTimeout(() => router.push(target), duration);
   };
@@ -220,7 +231,7 @@ export function useSwipeNavigation(
   const cancel = () => {
     const { duration } = cfgRef.current;
     const ms = Math.round(duration * 0.7);
-    setStyle(0, { transition: `transform ${ms}ms ${SPRING}, opacity ${ms}ms linear`, scale: 1, opacity: 1 });
+    setStyle(0, { transition: `transform ${ms}ms ${SPRING}, opacity ${ms}ms linear`, scale: 1, opacity: 1, shadow: true });
     window.setTimeout(clearStyle, ms);
   };
 
@@ -241,13 +252,14 @@ export function useSwipeNavigation(
     const W = widthOf();
     const fromX = dir === "next" ? W : -W; // incoming from the opposite edge
     // Place instantly off-screen, then spring to rest on the next frame.
-    setStyle(fromX, { transition: "none", scale: 0.98, opacity: 0.4 });
+    setStyle(fromX, { transition: "none", scale: 0.98, opacity: 0.4, shadow: true });
     const r1 = requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         setStyle(0, {
           transition: `transform ${duration}ms ${SPRING}, opacity ${duration}ms linear`,
           scale: 1,
           opacity: 1,
+          shadow: true,
         });
         window.setTimeout(clearStyle, duration);
       }),
@@ -328,7 +340,7 @@ export function useSwipeNavigation(
       if (prefersReducedMotion()) return; // detect only, no visual transform
       const x2 = target ? dx : damp(dx); // resist at the ends of the list
       if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setStyle(x2, { scale: 1, opacity: 1 }));
+      raf = requestAnimationFrame(() => setStyle(x2, { scale: 1, opacity: 1, shadow: true }));
     };
 
     const endGesture = (x: number, t: number) => {

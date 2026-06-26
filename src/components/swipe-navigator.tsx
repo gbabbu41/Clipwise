@@ -26,8 +26,16 @@
  * text selection and horizontal scroll regions. Touch + keyboard are on.
  */
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useSwipeNavigation, type SwipeNavConfig } from "@/hooks/use-swipe-navigation";
+
+/** Human-readable page name from a route, for screen-reader announcements. */
+function labelFor(pathname: string): string {
+  const seg = pathname.split("/").filter(Boolean).pop() || "";
+  if (!seg || seg === "dashboard" || seg === "barber-dashboard") return "Home";
+  return seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function SwipeNavigator({
   order,
@@ -36,11 +44,24 @@ export function SwipeNavigator({
 }: { children: React.ReactNode } & Omit<SwipeNavConfig, "order"> & { order: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useSwipeNavigation(ref, { order, ...config });
+
+  // Accessibility: the App Router doesn't announce client-side route changes to
+  // assistive tech. A polite live region speaks the new page name on every
+  // navigation (swipe, keyboard, or link) without stealing focus.
+  const pathname = usePathname();
+  const liveRef = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (liveRef.current) liveRef.current.textContent = `${labelFor(pathname)} page`;
+  }, [pathname]);
+
   return (
     <div className="cw-swipe-clip overflow-x-clip">
       <div ref={ref} className="cw-swipe-root">
         {children}
       </div>
+      <div ref={liveRef} aria-live="polite" role="status" className="sr-only" />
     </div>
   );
 }
