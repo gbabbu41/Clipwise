@@ -245,7 +245,7 @@ export default function BarberPaymentsPage() {
       </div>
 
       {/* ── Earnings card for the selected window ────────────────────────────── */}
-      <div className="mb-6 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] px-4 py-5 flex flex-col">
+      <div className="mb-6 rounded-2xl bg-[#141414] border border-[#1e1e1e] px-4 py-5 flex flex-col">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-[10px] uppercase tracking-wide text-[#888]">You earned · {period.label}</p>
           <div className="flex items-baseline gap-2">
