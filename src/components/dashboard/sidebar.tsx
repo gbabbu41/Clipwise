@@ -272,7 +272,7 @@ export function Sidebar() {
               {recentNotifs.length === 0 ? (
                 <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
               ) : (
-                <div className="overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
                   {recentNotifs.map(n => {
                     const { Icon, cls } = notifIcon(n.type);
                     return (

@@ -31,7 +31,7 @@ type PeriodKey = "week" | "biweekly" | "month" | "all" | "custom";
 
 // Tooltip rides the top strip and never captures touches (see stats carousel).
 const tip = {
-  contentStyle: { borderRadius: 10, border: "1px solid #2a2a2a", background: "#0c0c0c", color: "#fff", fontSize: 11, padding: "4px 8px" },
+  contentStyle: { borderRadius: 10, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" },
   wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
   position: { y: 0 },
   allowEscapeViewBox: { x: true, y: true },
@@ -245,16 +245,16 @@ export default function BarberPaymentsPage() {
       </div>
 
       {/* ── Earnings card for the selected window ────────────────────────────── */}
-      <div className="mb-6 rounded-2xl bg-[#0b0f0d] border border-[#00e5a024] px-4 py-5 flex flex-col shadow-[0_0_0_1px_#00e5a00a,inset_0_1px_0_#00e5a00f]">
+      <div className="mb-6 rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-wide text-[#888]">You earned · {period.label}</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">You earned · {period.label}</p>
           <div className="flex items-baseline gap-2">
-            {sel.cash > 0 && <span className="text-xs font-semibold text-amber-500">+{formatCurrency(sel.cash)} cash</span>}
-            {sel.tips > 0 && <span className="text-xs font-semibold text-amber-500/70">{formatCurrency(sel.tips)} tips</span>}
+            {sel.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(sel.cash)} cash</span>}
+            {sel.tips > 0 && <span className="text-xs font-semibold text-amber-600/70">{formatCurrency(sel.tips)} tips</span>}
           </div>
         </div>
-        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-[#00e5a0]">{loading ? "—" : formatCurrency(sel.cardEarned)}</p>
-        <p className="text-xs text-[#888] mt-1.5">
+        <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{loading ? "—" : formatCurrency(sel.cardEarned)}</p>
+        <p className="text-xs text-gray-500 mt-1.5">
           From {formatCurrency(sel.gross)} collected{sel.fees > 0 ? ` · ${formatCurrency(sel.fees)} Stripe fees` : ""}
         </p>
         <div className="flex-1 min-h-[80px] mt-3 -mx-1">
@@ -263,15 +263,15 @@ export default function BarberPaymentsPage() {
               <BarChart data={sel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
                 <Bar dataKey="val" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-                <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "rgba(255,255,255,0.08)" }} />
+                <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "#f3f4f6" }} />
               </BarChart>
             </ResponsiveContainer>
-          ) : <div className="h-full flex items-center justify-center text-xs text-[#555]">No earnings in this period</div>}
+          ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
         </div>
-        <div className="mt-2 pt-2 border-t border-[#2a2a2a] grid grid-cols-3 gap-2 text-xs">
-          <div><p className="text-[#888]">Services</p><p className="font-semibold text-white">{sel.count}</p></div>
-          <div><p className="text-[#888]">Avg ticket</p><p className="font-semibold text-white">{formatCurrency(sel.avg)}</p></div>
-          <div className="text-right"><p className="text-[#888]">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-[#ccc]">{isOwner ? formatCurrency(sel.gross) : formatCurrency(sel.shopCut)}</p></div>
+        <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
+          <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{sel.count}</p></div>
+          <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(sel.avg)}</p></div>
+          <div className="text-right"><p className="text-gray-500">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-gray-700">{isOwner ? formatCurrency(sel.gross) : formatCurrency(sel.shopCut)}</p></div>
         </div>
       </div>
 

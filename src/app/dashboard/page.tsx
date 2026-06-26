@@ -65,10 +65,6 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   return (
     <Card
       className={cn(
-        // Subtle green-tinted lift — sits a tier above the page's standard
-        // #0c0c0c cards and matches the carousel above so the carousel + KPI
-        // grid read as one on-brand block.
-        "!bg-[#0b0f0d] !border-[#00e5a024]",
         prominent ? "p-5 sm:p-6" : "p-4",
       )}
     >
