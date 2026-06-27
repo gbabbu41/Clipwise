@@ -123,7 +123,9 @@ export default function BarberOverviewPage() {
       {/* Header — muted greeting + clock chip + desktop bell + avatar */}
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white tracking-tight truncate">My Day</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight truncate">
+            {barber?.name ? `Hi, ${barber.name.split(" ")[0]}` : "Hi"}
+          </h1>
           <p className="text-[#777] text-sm mt-1">{dayLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
