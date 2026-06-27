@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -51,6 +53,11 @@ export function BarberSidebar() {
   // Notifications (scoped to THIS barber's auth id) — mirrors the owner sidebar.
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Bottom-sheet notifications (mirrors the owner portal) with pull-down dismiss.
+  const notifSheetRef = useRef<HTMLDivElement | null>(null);
+  const { dragY: notifDragY, dragging: notifDragging } = useSheetDrag(
+    notifSheetRef, () => setNotifOpen(false), { enabled: notifOpen },
+  );
   const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
 
   useEffect(() => {
@@ -172,43 +179,66 @@ export function BarberSidebar() {
         )}
       </div>
 
-      {/* Notification quick-view popover — slides down under the top bar. */}
-      {notifOpen && (
-        <>
-          <div className="lg:hidden fixed inset-0 z-[70]" onClick={() => setNotifOpen(false)} />
-          <div className="lg:hidden fixed top-[calc(3.5rem+env(safe-area-inset-top))] right-3 left-3 z-[80] max-h-[calc(100dvh-3.5rem-5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl shadow-2xl animate-fade-in">
-            <div className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between">
-              <p className="text-sm font-bold text-white">Notifications</p>
-              <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-amber-400 hover:underline">See all</Link>
-            </div>
-            {recentNotifs.length === 0 ? (
-              <div className="px-4 py-6 text-center text-[#777] text-sm">Nothing here yet</div>
-            ) : (
-              <div className="divide-y divide-[#1e1e1e]">
-                {recentNotifs.map(n => {
-                  const { Icon, cls } = notifIcon(n.type);
-                  return (
-                    <Link key={n.id} href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)}
-                      className={cn("flex gap-3 px-4 py-3 transition-colors", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.035] hover:bg-white/[0.06]")}>
-                      <span className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
-                        <Icon size={15} />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className={cn("text-sm truncate", n.is_read ? "font-medium text-[#9a9a9a]" : "font-semibold text-white")}>{cleanNotifTitle(n.title)}</p>
-                          <span className="text-[11px] text-[#666] flex-shrink-0">{timeAgo(n.created_at)}</span>
-                        </div>
-                        <p className="text-xs text-[#777] line-clamp-2 mt-0.5">{n.message}</p>
-                      </div>
-                      {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
-                    </Link>
-                  );
-                })}
+      {/* Notification sheet — slides up from the bottom (mirrors the owner
+          portal). Pull down anywhere to dismiss, or tap the handle. */}
+      <AnimatePresence>
+        {notifOpen && (
+          <>
+            <motion.div
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
+              onClick={() => setNotifOpen(false)}
+            />
+            <motion.div
+              className="lg:hidden fixed inset-x-0 bottom-0 z-[80]"
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <div
+                ref={notifSheetRef}
+                className="bg-[#0c0c0c] border-t border-[#1e1e1e] rounded-t-2xl shadow-2xl flex flex-col max-h-[82vh] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+                style={{
+                  transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
+                  transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
+                }}
+              >
+                <div onClick={() => setNotifOpen(false)} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0">
+                  <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+                </div>
+                <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
+                  <p className="text-base font-bold text-white">Notifications</p>
+                  <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-amber-400 hover:underline">See all</Link>
+                </div>
+                {recentNotifs.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
+                    {recentNotifs.map(n => {
+                      const { Icon, cls } = notifIcon(n.type);
+                      return (
+                        <Link key={n.id} href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)}
+                          className={cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]")}>
+                          <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                            <Icon size={16} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#cdcdcd]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
+                              <span className="text-[11px] text-[#888] flex-shrink-0">{timeAgo(n.created_at)}</span>
+                            </div>
+                            <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                          </div>
+                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </>
-      )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {mobileOpen && (
         <div

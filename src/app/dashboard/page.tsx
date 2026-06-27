@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, CreditCard,
@@ -11,6 +11,7 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
@@ -164,6 +165,8 @@ export default function DashboardPage() {
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showAddWalkin, setShowAddWalkin] = useState(false);
+  const walkinSheetRef = useRef<HTMLDivElement | null>(null);
+  const walkinDrag = useSheetDrag(walkinSheetRef, () => setShowAddWalkin(false), { enabled: showAddWalkin });
   // Defer mounting the heavy embedded calendar until after the dashboard paints,
   // so a slow calendar load never holds up the rest of the home.
   const [calReady, setCalReady] = useState(false);
@@ -834,8 +837,14 @@ export default function DashboardPage() {
 
       {/* Add Walk-in Modal */}
       {showAddWalkin && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-          <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl w-full max-w-md p-6 animate-slide-up">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 [&>*]:my-auto">
+          <div ref={walkinSheetRef}
+            style={{ transform: walkinDrag.dragY ? `translate3d(0,${walkinDrag.dragY}px,0)` : undefined, transition: walkinDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+            className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl w-full max-w-md p-6 max-h-[88vh] overflow-y-auto overscroll-contain animate-slide-up">
+            {/* Grab handle (mobile) — pull down to dismiss */}
+            <div onClick={() => setShowAddWalkin(false)} className="sm:hidden flex justify-center -mt-2 mb-2 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+            </div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Add Walk-in Client</h2>
               <button onClick={() => setShowAddWalkin(false)} className="text-[#777] hover:text-white"><X size={20} /></button>
