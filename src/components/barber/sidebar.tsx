@@ -7,6 +7,7 @@ import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, 
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
+import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -46,8 +47,10 @@ const navItems: NavItem[] = [
 
 export function BarberSidebar() {
   const pathname = usePathname();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, accessToken } = useAuth();
   const { barber, shop, shops, setActiveShop } = useBarber();
+  const slotInterval = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes ?? 30;
+  const [assignReq, setAssignReq] = useState<WaitlistRequest | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Notifications (scoped to THIS barber's auth id) — mirrors the owner sidebar.
@@ -58,7 +61,21 @@ export function BarberSidebar() {
   const { dragY: notifDragY, dragging: notifDragging } = useSheetDrag(
     notifSheetRef, () => setNotifOpen(false), { enabled: notifOpen },
   );
-  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
+  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; entity_type?: string | null; entity_id?: string | null }[]>([]);
+  // Open the assign sheet for a waitlist notification (barber can't read the
+  // row directly — RLS is owner-only — so fetch it via the authorized route).
+  const openAssign = async (entityId: string) => {
+    if (!accessToken) return;
+    const r = await fetch("/api/waitlist/get", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ id: entityId }),
+    });
+    const d = await r.json().catch(() => null);
+    if (r.ok && d?.request && d.request.status !== "converted") {
+      setAssignReq(d.request as WaitlistRequest);
+      setNotifOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -78,7 +95,7 @@ export function BarberSidebar() {
   useEffect(() => {
     if (!notifOpen || !user) return;
     supabase
-      .from("notifications").select("id, title, message, type, is_read, created_at")
+      .from("notifications").select("*")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(15)
       .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
   }, [notifOpen, user, unreadCount]);
@@ -215,9 +232,9 @@ export function BarberSidebar() {
                   <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
                     {recentNotifs.map(n => {
                       const { Icon, cls } = notifIcon(n.type);
-                      return (
-                        <Link key={n.id} href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)}
-                          className={cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]")}>
+                      const isWaitlist = n.entity_type === "waitlist" && !!n.entity_id;
+                      const body = (
+                        <>
                           <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
                             <Icon size={16} />
                           </span>
@@ -227,9 +244,18 @@ export function BarberSidebar() {
                               <span className="text-[11px] text-[#888] flex-shrink-0">{timeAgo(n.created_at)}</span>
                             </div>
                             <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                            {isWaitlist && (
+                              <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-semibold text-amber-300">Accept &amp; assign ›</span>
+                            )}
                           </div>
                           {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
-                        </Link>
+                        </>
+                      );
+                      const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]");
+                      return isWaitlist ? (
+                        <button key={n.id} type="button" onClick={() => openAssign(n.entity_id!)} className={rowCls}>{body}</button>
+                      ) : (
+                        <Link key={n.id} href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className={rowCls}>{body}</Link>
                       );
                     })}
                   </div>
@@ -239,6 +265,16 @@ export function BarberSidebar() {
           </>
         )}
       </AnimatePresence>
+
+      {assignReq && (
+        <WaitlistAssignSheet
+          request={assignReq}
+          slotInterval={slotInterval}
+          accessToken={accessToken}
+          onClose={() => setAssignReq(null)}
+          onDone={() => setAssignReq(null)}
+        />
+      )}
 
       {mobileOpen && (
         <div
