@@ -66,7 +66,11 @@ export function useSheetDrag(
       startT = e.timeStamp;
       mode = "";
       const tgt = e.target as HTMLElement;
-      if (tgt.closest?.("input, textarea, select, [role='slider'], [data-no-sheet-drag]")) { mode = "scroll"; return; }
+      // Only block drags that start on elements where a vertical drag has its own
+      // meaning (textarea internal scroll, sliders) or that explicitly opt out.
+      // Plain inputs/selects are fine: a TAP still focuses/opens them (no move),
+      // only a deliberate downward DRAG dismisses — so form sheets drag too.
+      if (tgt.closest?.("textarea, [role='slider'], [data-no-sheet-drag]")) { mode = "scroll"; return; }
       scroller = findScroller(e.target);
     };
 
