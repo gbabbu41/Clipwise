@@ -79,7 +79,7 @@ export function BarberSidebar() {
     if (!notifOpen || !user) return;
     supabase
       .from("notifications").select("id, title, message, type, is_read, created_at")
-      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(5)
+      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(15)
       .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
   }, [notifOpen, user, unreadCount]);
 
