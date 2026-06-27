@@ -4,6 +4,7 @@ import { Fingerprint, LogIn, LogOut, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatDateForDb } from "@/lib/utils";
+import { isBiometricAvailable, verifyBiometric } from "@/lib/biometric";
 
 type Barber = { id: string; name: string };
 type Hours = { id: string; barber_id: string; date: string; clock_in: string; clock_out: string | null; hours_worked: number | null };
@@ -24,6 +25,26 @@ export default function CheckInPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2500); };
+
+  // Biometric gate (native app only). On web `bioAvailable` stays false → the
+  // buttons clock directly. `bioRequired` is the owner's per-device toggle.
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioRequired, setBioRequired] = useState(true);
+  useEffect(() => {
+    isBiometricAvailable().then(setBioAvailable);
+    try { const v = localStorage.getItem("cw_checkin_biometric"); if (v !== null) setBioRequired(v === "1"); } catch { /* ignore */ }
+  }, []);
+  const setBioRequiredPersist = (on: boolean) => {
+    setBioRequired(on);
+    try { localStorage.setItem("cw_checkin_biometric", on ? "1" : "0"); } catch { /* ignore */ }
+  };
+  // Confirm with Face ID / fingerprint when enabled; on web this is a no-op pass.
+  const confirmBiometric = async (reason: string) => {
+    if (!bioAvailable || !bioRequired) return true;
+    const ok = await verifyBiometric(reason);
+    if (!ok) showToast("Biometric check failed");
+    return ok;
+  };
 
   const todayStr = formatDateForDb(new Date());
 
@@ -50,6 +71,7 @@ export default function CheckInPage() {
 
   const clockIn = async (barberId: string) => {
     if (!shop?.id || busy) return;
+    if (!(await confirmBiometric(`Confirm clock-in for ${nameOf(barberId)}`))) return;
     setBusy(barberId);
     const now = new Date();
     await supabase.from("staff_hours").insert({ barber_id: barberId, shop_id: shop.id, date: formatDateForDb(now), clock_in: now.toTimeString().slice(0, 5) });
@@ -59,6 +81,7 @@ export default function CheckInPage() {
   };
   const clockOut = async (row: Hours) => {
     if (busy) return;
+    if (!(await confirmBiometric(`Confirm clock-out for ${nameOf(row.barber_id)}`))) return;
     setBusy(row.barber_id);
     const now = new Date();
     const outStr = now.toTimeString().slice(0, 5);
@@ -83,10 +106,18 @@ export default function CheckInPage() {
         <p className="text-sm text-[#777] mt-0.5">Clock your team in and out, and review their history.</p>
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3">
-        <Fingerprint size={18} className="text-[#00e5a0] flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-[#999]">Face ID / fingerprint check-in is coming on the ClipWise app. On the web you can clock staff in and out manually here.</p>
-      </div>
+      {bioAvailable ? (
+        <label className="flex items-center gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 cursor-pointer">
+          <Fingerprint size={18} className="text-[#00e5a0] flex-shrink-0" />
+          <span className="flex-1 text-xs text-[#ccc]">Require Face ID / fingerprint to clock staff in and out on this device.</span>
+          <input type="checkbox" checked={bioRequired} onChange={e => setBioRequiredPersist(e.target.checked)} className="form-check-input" />
+        </label>
+      ) : (
+        <div className="flex items-start gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3">
+          <Fingerprint size={18} className="text-[#00e5a0] flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-[#999]">Face ID / fingerprint check-in works on the ClipWise app. On the web you clock staff in and out manually here.</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-[#0c0c0c] border border-[#1e1e1e] animate-pulse" />)}</div>

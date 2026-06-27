@@ -94,3 +94,17 @@ Note: device biometrics identify the *device owner*, not arbitrary people — so
 "register each barber's face" means per-barber enrolled credentials on the shop
 device, verified at check-in. True multi-person face recognition would need a
 cloud vision service (out of scope).
+
+### Status — scaffolded (2026-06)
+DONE (web-safe, already in the repo):
+- Deps: `@aparajita/capacitor-biometric-auth@^9` (Capacitor 6 line) + `@capacitor/app@^6`.
+- `src/lib/biometric.ts` — `isBiometricAvailable()` + `verifyBiometric(reason)`,
+  both no-op/false off native so the web build + browser fall back to manual.
+- `/dashboard/check-in` gates clock-in/out behind `verifyBiometric` when a
+  sensor is present, with an owner "Require Face ID / fingerprint" toggle
+  (persisted per device). Web is unchanged (manual buttons).
+
+REMAINING for the native app:
+- `npx cap sync` after building the web bundle.
+- iOS: add `NSFaceIDUsageDescription` to Info.plist (e.g. "Confirm staff check-in").
+- Test on a real device (simulator Face ID works too).
