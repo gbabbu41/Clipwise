@@ -496,39 +496,35 @@ export default function PaymentsPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
-        {barbers.length > 0 && (
-          <div className="relative mt-1.5">
-            <button onClick={() => setShowBarberPicker(v => !v)}
-              className="flex items-center gap-1 text-sm font-medium text-[#aaa] hover:text-white transition-colors">
-              {selectedBarberLabel}
-              <ChevronDown size={14} className="text-[#666]" />
-            </button>
-            {showBarberPicker && (
-              <>
-                <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
-                <div className="absolute top-full left-0 z-[60] mt-1.5 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl overflow-hidden shadow-xl min-w-[150px]">
-                  {["all", ...barbers.map(b => b.id)].map(id => (
-                    <button key={id} onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}
-                      className={cn("w-full text-left px-4 py-2.5 text-sm hover:bg-[#141414] transition-colors",
-                        selectedBarber === id ? "text-white font-medium" : "text-[#aaa]")}>
-                      {id === "all" ? "All barbers" : barbers.find(b => b.id === id)?.name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Earnings: per-barber period filter, or the shop payout carousel ──── */}
-      <div className="mb-4">
-        {barberName ? (
-          <>
-            {/* Small, right-aligned period dropdown. "Default" = swipeable
-                week/month/all; any other value shows a single static card.
-                Custom range opens a popup so date inputs don't break the layout. */}
-            <div className="mb-3 flex items-center justify-end gap-2">
+        {/* Barber selector (left) + per-barber period selector (right) share one
+            row, so the period control sits with its context instead of floating. */}
+        <div className="mt-1.5 flex items-center justify-between gap-3 min-h-[30px]">
+          {barbers.length > 0 ? (
+            <div className="relative">
+              <button onClick={() => setShowBarberPicker(v => !v)}
+                className="flex items-center gap-1 text-sm font-medium text-[#aaa] hover:text-white transition-colors">
+                {selectedBarberLabel}
+                <ChevronDown size={14} className="text-[#666]" />
+              </button>
+              {showBarberPicker && (
+                <>
+                  <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
+                  <div className="absolute top-full left-0 z-[60] mt-1.5 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl overflow-hidden shadow-xl min-w-[150px]">
+                    {["all", ...barbers.map(b => b.id)].map(id => (
+                      <button key={id} onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}
+                        className={cn("w-full text-left px-4 py-2.5 text-sm hover:bg-[#141414] transition-colors",
+                          selectedBarber === id ? "text-white font-medium" : "text-[#aaa]")}>
+                        {id === "all" ? "All barbers" : barbers.find(b => b.id === id)?.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : <span />}
+          {/* Per-barber period selector — Default = swipe; others = single card. */}
+          {barberName && (
+            <div className="flex items-center gap-2 flex-shrink-0">
               {ownerExtra === "custom" && (
                 <button type="button" onClick={() => setShowCustomModal(true)}
                   className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
@@ -542,7 +538,14 @@ export default function PaymentsPage() {
                 <option value="custom">Custom range…</option>
               </select>
             </div>
+          )}
+        </div>
+      </div>
 
+      {/* ── Earnings: per-barber period filter, or the shop payout carousel ──── */}
+      <div className="mb-4">
+        {barberName ? (
+          <>
             {ownerExtra === "" ? (
               <>
                 {/* Default → swipeable carousel: This week → This month → All time */}
