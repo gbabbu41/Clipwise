@@ -7,6 +7,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,11 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
   const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
+  // Pull-down-to-dismiss for the mobile bottom sheets (scroll-aware).
+  const cartSheetRef = useRef<HTMLDivElement | null>(null);
+  const cartDrag = useSheetDrag(cartSheetRef, () => setCartOpen(false), { enabled: cartOpen });
+  const pickerSheetRef = useRef<HTMLDivElement | null>(null);
+  const pickerDrag = useSheetDrag(pickerSheetRef, () => setPickerOpen(false), { enabled: pickerOpen });
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState("");
   const [lastCharge, setLastCharge] = useState<{ total: number; subtotal: number; method: PM; items: CartItem[]; tip: number; discount: number; summaryLabel?: string } | null>(null);
@@ -694,7 +700,12 @@ export default function POSPage() {
       {cartOpen && (
         <>
           <div className="lg:hidden fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
-          <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
+          <div ref={cartSheetRef}
+            style={{ transform: cartDrag.dragY ? `translate3d(0,${cartDrag.dragY}px,0)` : undefined, transition: cartDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+            className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
+            <div onClick={() => setCartOpen(false)} className="shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+            </div>
             <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
               <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
               <button onClick={() => setCartOpen(false)} className="text-[#555] hover:text-white"><X size={20} /></button>
@@ -710,7 +721,12 @@ export default function POSPage() {
           their saved contact, or add a new customer. */}
       {pickerOpen && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center sm:p-4 bg-black/70" onClick={() => setPickerOpen(false)}>
-          <div className="w-full sm:max-w-md max-h-[88vh] flex flex-col bg-[#0c0c0c] border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+          <div ref={pickerSheetRef}
+            style={{ transform: pickerDrag.dragY ? `translate3d(0,${pickerDrag.dragY}px,0)` : undefined, transition: pickerDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+            className="w-full sm:max-w-md max-h-[88vh] flex flex-col bg-[#0c0c0c] border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div onClick={() => setPickerOpen(false)} className="sm:hidden shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+            </div>
             <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
               <h3 className="text-sm font-bold text-white">Select customer</h3>
               <button onClick={() => setPickerOpen(false)} className="text-[#777] hover:text-white"><X size={18} /></button>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, prettyDate, timeAgo, timeToMinutes } from "@/lib/utils";
 import { formatPhone, validatePrice } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 import type { Service } from "@/lib/database.types";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
@@ -164,6 +165,11 @@ export default function AppointmentsPage() {
   const [selectedApt, setSelectedApt] = useState<AppointmentWithDetails | null>(null);
   const [notes, setNotes] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  // Pull-down-to-dismiss for the detail panel + add modal (scroll-aware).
+  const detailSheetRef = useRef<HTMLDivElement | null>(null);
+  const detailDrag = useSheetDrag(detailSheetRef, () => setSelectedApt(null), { enabled: !!selectedApt });
+  const addSheetRef = useRef<HTMLDivElement | null>(null);
+  const addDrag = useSheetDrag(addSheetRef, () => setShowAddModal(false), { enabled: showAddModal });
   const [toast, setToast] = useState("");
   const [savingStatus, setSavingStatus] = useState("");
   const [rejectModal, setRejectModal] = useState<{ appt: AppointmentWithDetails; reason: string } | null>(null);
@@ -1193,7 +1199,13 @@ export default function AppointmentsPage() {
       {selectedApt && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedApt(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
+          <div ref={detailSheetRef}
+            style={{ transform: detailDrag.dragY ? `translate3d(0,${detailDrag.dragY}px,0)` : undefined, transition: detailDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+            className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
+            {/* Grab handle (mobile) — pull down anywhere to dismiss */}
+            <div onClick={() => setSelectedApt(null)} className="sm:hidden flex justify-center -mt-2 mb-1 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+            </div>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Appointment Details</h2>
               <button onClick={() => setSelectedApt(null)} className="text-[#777] hover:text-white text-xl">✕</button>
@@ -1517,8 +1529,14 @@ export default function AppointmentsPage() {
       {showAddModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 [&>*]:my-auto">
+            <div ref={addSheetRef}
+              style={{ transform: addDrag.dragY ? `translate3d(0,${addDrag.dragY}px,0)` : undefined, transition: addDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+              className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[88vh] overflow-y-auto overscroll-contain">
+              {/* Grab handle (mobile) — pull down to dismiss */}
+              <div onClick={() => setShowAddModal(false)} className="sm:hidden flex justify-center -mt-2 -mb-1 cursor-grab active:cursor-grabbing">
+                <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+              </div>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Appointment</h2>
                 <button onClick={() => setShowAddModal(false)} className="text-[#777] hover:text-white">✕</button>
