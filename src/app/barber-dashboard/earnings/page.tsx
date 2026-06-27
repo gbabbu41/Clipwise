@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { CreditCard, Banknote, DollarSign } from "lucide-react";
+import { CreditCard, Banknote, DollarSign, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -203,6 +203,19 @@ export default function BarberPaymentsPage() {
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
+  // Dismissed outstanding rows — hidden from the list, remembered per device so
+  // they don't reappear (uncollectable no-shows/freebies the barber clears out).
+  const [dismissedOut, setDismissedOut] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try { const raw = localStorage.getItem("cw_dismissed_outstanding"); if (raw) setDismissedOut(new Set(JSON.parse(raw))); } catch { /* ignore */ }
+  }, []);
+  const dismissOutstanding = useCallback((id: string) => {
+    setDismissedOut(prev => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("cw_dismissed_outstanding", JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
   const [detailBusy, setDetailBusy] = useState("");
   const [toast, setToast] = useState("");
@@ -254,7 +267,8 @@ export default function BarberPaymentsPage() {
     () => makeApptActions({ shop: shop ?? null, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => { setSelectedAppt(null); loadUnpaid(); } }),
     [shop, accessToken, patchAppt, showToast, loadUnpaid],
   );
-  const outstandingTotal = unpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const visibleUnpaid = unpaid.filter(a => !dismissedOut.has(a.id));
+  const outstandingTotal = visibleUnpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);
 
   // Transactions within the active window (newest first).
   const inWindow = (t: Tx) => { const ms = new Date(t.created_at).getTime(); return ms >= activePeriod.from && ms <= activePeriod.to; };
@@ -316,31 +330,40 @@ export default function BarberPaymentsPage() {
       )}
 
       {/* ── Outstanding — unpaid appointments you can still collect on ──────── */}
-      {unpaid.length > 0 && (
+      {visibleUnpaid.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-white">Outstanding · {formatCurrency(outstandingTotal)}</h2>
-            <span className="text-xs text-[#777]">{unpaid.length} unpaid</span>
+            <span className="text-xs text-[#777]">{visibleUnpaid.length} unpaid</span>
           </div>
           <div className="space-y-2">
-            {unpaid.map(a => (
-              <button key={a.id} onClick={() => canManage && setSelectedAppt(a)} disabled={!canManage}
-                className={cn("w-full text-left rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3 transition-colors",
-                  canManage ? "hover:border-[#2a2a2a]" : "cursor-default")}>
-                <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center flex-shrink-0">
-                  <CreditCard size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{a.client_name}</p>
-                  <p className="text-xs text-[#777] truncate">
-                    {(a.services as { name: string } | null)?.name ?? "Service"} · {a.date}{a.time_slot ? ` · ${a.time_slot}` : ""}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
-                  <p className="text-[11px] text-amber-400">{canManage ? "Take payment ›" : "Unpaid"}</p>
-                </div>
-              </button>
+            {visibleUnpaid.map(a => (
+              <div key={a.id}
+                className={cn("rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3 transition-colors",
+                  canManage ? "hover:border-[#2a2a2a]" : "")}>
+                <button type="button" onClick={() => canManage && setSelectedAppt(a)} disabled={!canManage}
+                  className={cn("flex-1 min-w-0 flex items-center gap-3 text-left", canManage ? "" : "cursor-default")}>
+                  <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center flex-shrink-0">
+                    <CreditCard size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{a.client_name}</p>
+                    <p className="text-xs text-[#777] truncate">
+                      {(a.services as { name: string } | null)?.name ?? "Service"} · {a.date}{a.time_slot ? ` · ${a.time_slot}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
+                    <p className="text-[11px] text-amber-400">{canManage ? "Take payment ›" : "Unpaid"}</p>
+                  </div>
+                </button>
+                {/* Dismiss — clears an uncollectable item from the list */}
+                <button type="button" onClick={() => { dismissOutstanding(a.id); showToast("Dismissed"); }}
+                  aria-label="Dismiss" title="Dismiss"
+                  className="p-1.5 -mr-1 rounded-lg text-[#666] hover:text-white hover:bg-white/5 flex-shrink-0 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
             ))}
           </div>
           {!canManage && (
