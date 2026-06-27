@@ -1,12 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Calendar, LogIn, LogOut } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency, formatDateForDb, friendlyDate, timeToMinutes } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import type { AppointmentWithDetails } from "@/lib/database.types";
@@ -29,8 +28,6 @@ export default function BarberOverviewPage() {
 
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [clockedIn, setClockedIn] = useState<{ id: string; clock_in: string } | null>(null);
-  const [clockLoading, setClockLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
   const [detailBusy, setDetailBusy] = useState("");
@@ -41,40 +38,8 @@ export default function BarberOverviewPage() {
   const todayStr = formatDateForDb(today);
   const dayLabel = friendlyDate(today);
 
-  // Check if already clocked in today
-  useEffect(() => {
-    if (!barber?.id || !shop?.id) return;
-    supabase.from("staff_hours").select("id, clock_in")
-      .eq("barber_id", barber.id).eq("date", todayStr).is("clock_out", null).maybeSingle()
-      .then(({ data }) => { if (data) setClockedIn({ id: data.id, clock_in: data.clock_in }); });
-  }, [barber?.id, shop?.id, todayStr]);
-
-  const handleClockIn = async () => {
-    if (!barber?.id || !shop?.id) return;
-    setClockLoading(true);
-    const now = new Date();
-    const { data } = await supabase.from("staff_hours").insert({
-      barber_id: barber.id,
-      shop_id: shop.id,
-      date: formatDateForDb(now),
-      clock_in: now.toTimeString().slice(0, 5),
-    }).select("id, clock_in").single();
-    if (data) { setClockedIn({ id: data.id, clock_in: data.clock_in }); showToast("Clocked in!"); }
-    setClockLoading(false);
-  };
-
-  const handleClockOut = async () => {
-    if (!clockedIn) return;
-    setClockLoading(true);
-    const now = new Date();
-    const outStr = now.toTimeString().slice(0, 5);
-    const [inH, inM] = clockedIn.clock_in.split(":").map(Number);
-    const hours = Math.round(((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60 * 100) / 100;
-    await supabase.from("staff_hours").update({ clock_out: outStr, hours_worked: hours }).eq("id", clockedIn.id);
-    setClockedIn(null);
-    showToast(`Clocked out · ${hours}h worked today`);
-    setClockLoading(false);
-  };
+  // Clock-in/out moved to the shop's check-in station (owner side) — barbers no
+  // longer self-clock from their phone. (Biometric check-in lands there next.)
 
   // Today's appointments for THIS barber, in the full shape the shared
   // appointment modal needs (services + barber relations, payment fields).
@@ -129,21 +94,6 @@ export default function BarberOverviewPage() {
           <p className="text-[#777] text-sm mt-1">{dayLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-          {clockedIn && (
-            <span className="text-xs text-emerald-400 font-medium hidden sm:flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Clocked in {clockedIn.clock_in}
-            </span>
-          )}
-          {clockedIn ? (
-            <Button variant="danger" size="sm" loading={clockLoading} onClick={handleClockOut}>
-              <LogOut size={14} /> Clock Out
-            </Button>
-          ) : (
-            <Button size="sm" loading={clockLoading} onClick={handleClockIn}>
-              <LogIn size={14} /> Clock In
-            </Button>
-          )}
           {/* Desktop bell + avatar — shown only at lg+ where the mobile top
               bar (which carries its own avatar) is hidden, so they never double. */}
           <Link

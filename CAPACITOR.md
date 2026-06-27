@@ -68,3 +68,29 @@ Payments realtime feed, and receipts all stay identical.
 Apple accepts web-wrapped apps when they add real native value — Tap to Pay
 qualifies. Add proper icons/splash, a privacy policy, and the NFC/payments
 usage strings before submitting.
+
+## Biometric check-in (Face ID / fingerprint) — native plan
+Goal: barbers clock in/out on the SHOP device via biometrics, with the owner
+registering each barber. Web can't do biometrics, so this is Capacitor-only.
+
+Where it plugs in: `src/app/dashboard/check-in/page.tsx` already is the shop-side
+check-in station (clock any barber in/out + history, writing to `staff_hours`).
+The Clock-in / Clock-out buttons are the hook points — wrap them with a native
+verify step on Capacitor; keep the plain buttons as the web fallback.
+
+Steps:
+1. Plugin: `@aparajita/capacitor-biometric-auth` (or `@capgo/capacitor-native-biometric`).
+   `npm i` then `npx cap sync`. iOS: add `NSFaceIDUsageDescription` to Info.plist.
+2. A small wrapper `src/lib/biometric.ts`:
+   - `isBiometricAvailable()` → false on web (so the page falls back to manual).
+   - `enrollBarber(barberId)` → store a credential keyed to the barber (Keychain/
+     Keystore via the plugin's `setCredentials`, or a per-barber secret).
+   - `verifyBarber(barberId)` → prompt Face ID/fingerprint; resolve true/false.
+3. Registration UI: on the check-in page (native only), an "Enroll" action per
+   barber that the owner runs once on the shop device.
+4. Gate clock-in/out: on native, call `verifyBarber` before the existing
+   `clockIn`/`clockOut`; on web, run them directly (current behavior).
+Note: device biometrics identify the *device owner*, not arbitrary people — so
+"register each barber's face" means per-barber enrolled credentials on the shop
+device, verified at check-in. True multi-person face recognition would need a
+cloud vision service (out of scope).
