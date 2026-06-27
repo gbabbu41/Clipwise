@@ -12,16 +12,18 @@ import {
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 
-// Tap a notification → jump straight to where you act on it.
-const NOTIF_LINK: Record<string, string> = {
-  booking:      "/dashboard/pending",
-  cancellation: "/dashboard/appointments",
-  "no-show":    "/dashboard/appointments",
-  review:       "/dashboard/reviews",
-  inventory:    "/dashboard/services",
-  system:       "/dashboard/notifications",
+// Tap a notification → jump to the page where you act on it, routed by what the
+// notification is actually about (NOT "/dashboard/pending" — that's the shop's
+// own approval page, which bounces an approved owner back to /dashboard).
+const notifHref = (n: { title: string; message: string; type: string }) => {
+  const s = `${n.title} ${n.message}`.toLowerCase();
+  if (/payment|charged|collected|refund|card.?hold|authoriz|\bpaid\b|failed/.test(s)) return "/dashboard/payments";
+  if (/block|hours|time.?off|vacation|day off/.test(s)) return "/dashboard/calendar";
+  if (n.type === "review" || /review/.test(s)) return "/dashboard/reviews";
+  if (n.type === "inventory" || /inventory|stock/.test(s)) return "/dashboard/inventory";
+  if (n.type === "booking" || n.type === "cancellation" || n.type === "no-show" || /book(ed|ing)|appointment/.test(s)) return "/dashboard/appointments";
+  return "/dashboard/notifications";
 };
-const notifLink = (type: string) => NOTIF_LINK[type] ?? "/dashboard/notifications";
 // Strip any leading emoji/symbols the stored title carries (e.g. "✅ Paid") so
 // the row shows a single, consistent icon instead of two.
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
@@ -450,7 +452,7 @@ export function Sidebar() {
                         return inlineAppt ? (
                           <div key={n.id} style={{ borderLeftColor: c.accent }} className={cls}>{body}</div>
                         ) : (
-                          <Link key={n.id} href={notifLink(n.type)} onClick={() => setNotifOpen(false)}
+                          <Link key={n.id} href={notifHref(n)} onClick={() => setNotifOpen(false)}
                             style={{ borderLeftColor: c.accent }}
                             className={cn(cls, "active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "hover:bg-white/[0.07]")}>
                             {body}
