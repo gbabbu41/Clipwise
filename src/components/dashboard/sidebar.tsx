@@ -17,6 +17,7 @@ import { cn, timeAgo } from "@/lib/utils";
 // own approval page, which bounces an approved owner back to /dashboard).
 const notifHref = (n: { title: string; message: string; type: string }) => {
   const s = `${n.title} ${n.message}`.toLowerCase();
+  if (/waitlist|waiting for a spot/.test(s)) return "/dashboard/waitlist-requests";
   if (/payment|charged|collected|refund|card.?hold|authoriz|\bpaid\b|failed/.test(s)) return "/dashboard/payments";
   if (/block|hours|time.?off|vacation|day off/.test(s)) return "/dashboard/calendar";
   if (n.type === "review" || /review/.test(s)) return "/dashboard/reviews";

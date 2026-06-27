@@ -1,0 +1,156 @@
+"use client";
+
+/**
+ * WaitlistAssignSheet — accept a smart-waitlist request and put it on the
+ * calendar. Shows the waiter's desired day's OPEN slots for the chosen barber
+ * (computed from /api/availability exactly like the public booking page), with
+ * a barber picker when they asked for "any". Booking a slot calls
+ * /api/waitlist/accept (books a confirmed appointment + marks the row
+ * converted). Bottom sheet with pull-down-to-dismiss.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import {
+  cn, prettyDate, getSlotsInRange, generate24hSlots,
+  timeToMinutes, dbTimeToDisplay, occupiedSlots,
+} from "@/lib/utils";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
+
+type AvailBarber = {
+  id: string; name: string;
+  start_time: string | null; end_time: string | null; fullDayOff: boolean;
+  busy: { time_slot: string; duration: number }[];
+  blocked: { start_time: string; end_time: string }[];
+};
+
+export interface WaitlistRequest {
+  id: string;
+  shop_id: string;
+  barber_id: string | null;
+  service_id: string | null;
+  client_name: string;
+  desired_date: string;
+}
+
+export function WaitlistAssignSheet({
+  request, slotInterval = 30, accessToken, onClose, onDone,
+}: {
+  request: WaitlistRequest;
+  slotInterval?: number;
+  accessToken: string | null;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const [shown, setShown] = useState(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const close = () => { setShown(false); setTimeout(onClose, 280); };
+  const { dragY, dragging } = useSheetDrag(sheetRef, close);
+
+  const [loading, setLoading] = useState(true);
+  const [barbers, setBarbers] = useState<AvailBarber[]>([]);
+  const [barberId, setBarberId] = useState<string | null>(request.barber_id);
+  const [slot, setSlot] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/availability", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: request.shop_id, date: request.desired_date, barber_id: request.barber_id ?? null }),
+        });
+        const d = r.ok ? await r.json() : { barbers: [] };
+        if (!alive) return;
+        const list = (d.barbers ?? []) as AvailBarber[];
+        setBarbers(list);
+        setBarberId(prev => prev ?? list[0]?.id ?? null);
+      } finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [request.shop_id, request.desired_date, request.barber_id]);
+
+  const active = barbers.find(b => b.id === barberId) ?? null;
+  const openSlots = (() => {
+    if (!active || active.fullDayOff || !active.start_time || !active.end_time) return [];
+    const blocked = new Set<string>();
+    for (const o of active.blocked) {
+      const bs = timeToMinutes(dbTimeToDisplay(o.start_time));
+      const be = timeToMinutes(dbTimeToDisplay(o.end_time));
+      for (const s of generate24hSlots(slotInterval)) { const m = timeToMinutes(s); if (m >= bs && m < be) blocked.add(s); }
+    }
+    const booked = [...active.busy.flatMap(a => occupiedSlots(a.time_slot, a.duration, slotInterval)), ...Array.from(blocked)];
+    return getSlotsInRange(active.start_time, active.end_time, new Date(request.desired_date + "T00:00:00"), booked, slotInterval)
+      .filter(s => s.available).map(s => s.slot);
+  })();
+
+  const book = async () => {
+    if (!barberId || !slot || busy) return;
+    setBusy(true); setErr("");
+    const r = await fetch("/api/waitlist/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      body: JSON.stringify({ waitlist_id: request.id, barber_id: barberId, time_slot: slot, service_id: request.service_id }),
+    });
+    const d = await r.json().catch(() => ({ error: "Network error" }));
+    setBusy(false);
+    if (!r.ok || d.error) { setErr(d.error || "Couldn't book that slot."); return; }
+    onDone("Booked · waitlist cleared");
+    close();
+  };
+
+  return (
+    <>
+      <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", shown ? "opacity-100" : "opacity-0")} onClick={close} />
+      <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+        <div ref={sheetRef}
+          style={{ transform: shown ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)", transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
+          className="pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[85vh] overflow-y-auto overscroll-contain">
+          <div onClick={close} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
+            <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
+          </div>
+          <div className="px-5 pb-4">
+            <h3 className="text-base font-bold text-white">Assign {request.client_name}</h3>
+            <p className="text-xs text-[#888] mt-0.5">{prettyDate(request.desired_date)} · pick an open slot</p>
+
+            {!request.barber_id && barbers.length > 1 && (
+              <select value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
+                className="mt-3 w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
+
+            <div className="mt-3">
+              {loading ? (
+                <p className="text-sm text-[#777] py-6 text-center">Loading open slots…</p>
+              ) : openSlots.length === 0 ? (
+                <p className="text-sm text-[#777] py-6 text-center">No open slots that day. Free up time or pick another barber.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {openSlots.map(s => (
+                    <button key={s} type="button" onClick={() => setSlot(s)}
+                      className={cn("py-2.5 rounded-lg text-sm font-medium border transition-colors",
+                        slot === s ? "bg-white text-black border-white" : "bg-[#141414] text-[#ccc] border-[#1e1e1e] hover:border-[#2a2a2a]")}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {err && <p className="text-xs text-rose-400 mt-3">{err}</p>}
+
+            <button type="button" disabled={!slot || busy} onClick={book}
+              className="mt-4 w-full rounded-xl bg-[#00e5a0] text-black text-sm font-bold py-3 disabled:opacity-40 transition-opacity">
+              {busy ? "Booking…" : slot ? `Book ${slot}` : "Pick a slot"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

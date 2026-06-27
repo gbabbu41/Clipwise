@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (existing) return NextResponse.json({ ok: true, deduped: true });
 
-    const { error } = await supabaseAdmin.from("appointment_waitlist").insert({
+    const { data: wl, error } = await supabaseAdmin.from("appointment_waitlist").insert({
       shop_id: shopId,
       barber_id: b.barber_id || null,
       service_id: b.service_id || null,
@@ -59,8 +59,37 @@ export async function POST(request: NextRequest) {
       client_phone: b.client_phone?.trim() || null,
       desired_date: b.desired_date,
       status: "waiting",
-    });
+    }).select("id").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Inform the shop owner AND the relevant barber(s) in-app so they can accept
+    // and assign a slot. Requested barber → just them; "any" → all active barbers.
+    try {
+      const [{ data: shopRow }, barbersRes] = await Promise.all([
+        supabaseAdmin.from("shops").select("owner_id").eq("id", shopId).maybeSingle(),
+        (b.barber_id
+          ? supabaseAdmin.from("barbers").select("user_id").eq("id", b.barber_id)
+          : supabaseAdmin.from("barbers").select("user_id").eq("shop_id", shopId).eq("is_active", true)),
+      ]);
+      const recipients = new Set<string>();
+      if (shopRow?.owner_id) recipients.add(shopRow.owner_id);
+      (barbersRes.data ?? []).forEach((x: { user_id: string | null }) => { if (x.user_id) recipients.add(x.user_id); });
+      if (recipients.size > 0) {
+        const niceDate = new Date(`${b.desired_date}T12:00:00`).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
+        const base = Array.from(recipients).map(uid => ({
+          user_id: uid,
+          title: "Waitlist request",
+          message: `${b.client_name!.trim()} is waiting for a spot on ${niceDate}`,
+          type: "booking",
+          is_read: false,
+        }));
+        const withEntity = base.map(r => ({ ...r, entity_type: "waitlist", entity_id: wl!.id }));
+        const ins = await supabaseAdmin.from("notifications").insert(withEntity);
+        if (ins.error && /entity_(type|id)/.test(ins.error.message)) {
+          await supabaseAdmin.from("notifications").insert(base);
+        }
+      }
+    } catch { /* notifications are best-effort */ }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

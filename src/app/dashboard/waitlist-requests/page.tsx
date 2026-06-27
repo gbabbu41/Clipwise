@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
 import type { AppointmentWaitlistEntry, Barber, Service } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -30,7 +31,9 @@ function niceDate(d: string) {
 }
 
 export default function WaitlistRequestsPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
+  const slotInterval = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes ?? 30;
+  const [assignReq, setAssignReq] = useState<WaitlistRequest | null>(null);
   const [entries, setEntries] = useState<AppointmentWaitlistEntry[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -74,11 +77,6 @@ export default function WaitlistRequestsPage() {
     showToast("Removed from waitlist");
   };
 
-  const markBooked = async (id: string) => {
-    await supabase.from("appointment_waitlist").update({ status: "converted" }).eq("id", id);
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, status: "converted" } : e));
-    showToast("Marked as booked");
-  };
 
   // Manually nudge everyone still waiting for a given day (email + SMS).
   const notifyDay = async (date: string) => {
@@ -191,7 +189,8 @@ export default function WaitlistRequestsPage() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
-                          <button onClick={() => markBooked(e.id)} className="btn btn-success btn-sm">Booked</button>
+                          <button onClick={() => setAssignReq({ id: e.id, shop_id: e.shop_id, barber_id: e.barber_id ?? null, service_id: e.service_id ?? null, client_name: e.client_name, desired_date: e.desired_date })}
+                            className="btn btn-success btn-sm whitespace-nowrap">Accept &amp; assign</button>
                           <button onClick={() => removeEntry(e.id)} className="text-xs text-[#777] hover:text-red-400 transition-colors flex items-center gap-1 justify-center py-1">
                             <X size={12} /> Remove
                           </button>
@@ -204,6 +203,16 @@ export default function WaitlistRequestsPage() {
             );
           })}
         </div>
+      )}
+
+      {assignReq && (
+        <WaitlistAssignSheet
+          request={assignReq}
+          slotInterval={slotInterval}
+          accessToken={accessToken}
+          onClose={() => setAssignReq(null)}
+          onDone={(msg) => { showToast(msg); load(); }}
+        />
       )}
     </div>
   );
