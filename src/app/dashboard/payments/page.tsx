@@ -98,6 +98,7 @@ export default function PaymentsPage() {
   const ownerRef = useRef<HTMLDivElement>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [showCustomModal, setShowCustomModal] = useState(false); // custom-range date picker popup
   // When a dropdown override is (de)selected, the slide list changes — snap back
   // to the first slide so the override (or This week) is what's shown.
   useEffect(() => { const el = ownerRef.current; if (el) el.scrollTo({ left: 0 }); setOwnerSlide(0); }, [ownerExtra]);
@@ -325,14 +326,43 @@ export default function PaymentsPage() {
     }
     return null;
   })();
-  // Carousel slides for the per-barber view: the optional override first (so it's
-  // shown on top), then the three swipeable windows. Swiping reaches week/month/all.
-  const ownerSlides = [
-    ...(ownerExtraPeriod ? [{ label: ownerExtraPeriod.label, scope: computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) }] : []),
+  // Default view = swipeable carousel of the three main windows. A dropdown
+  // override (last 14 / last week / custom) replaces it with a single static card.
+  const baseSlides = [
     { label: "This week", scope: computeScope(startOf("week"), nowTs, false) },
     { label: "This month", scope: computeScope(startOf("month"), nowTs, false) },
     { label: "All time", scope: computeScope(0, Infinity, true) },
   ];
+  const overrideScope = ownerExtraPeriod ? computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) : null;
+  // One earnings card — reused by the carousel slides and the override view.
+  const barberCard = (label: string, sc: ReturnType<typeof computeScope>) => (
+    <div className="rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst} · Net collected · {label}</p>
+        {sc.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(sc.cash)} cash</span>}
+      </div>
+      <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(sc.net)}</p>
+      <p className="text-xs text-gray-500 mt-1.5">
+        From {formatCurrency(sc.gross)} collected{sc.fees > 0 ? ` · ${formatCurrency(sc.fees)} Stripe fees` : ""}
+      </p>
+      <div className="flex-1 min-h-[80px] mt-3 -mx-1">
+        {sc.data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={sc.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
+              <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
+      </div>
+      <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
+        <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{sc.count}</p></div>
+        <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(sc.avg)}</p></div>
+        <div className="text-right"><p className="text-gray-500">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(sc.gross + sc.cash)}</p></div>
+      </div>
+    </div>
+  );
 
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
@@ -495,76 +525,60 @@ export default function PaymentsPage() {
       <div className="mb-4">
         {barberName ? (
           <>
-            {/* Extra-window dropdown — last 14 days / last week / custom range.
-                Picking one overrides the shown card; the three main windows live
-                in the swipeable carousel below and a swipe always returns to them. */}
-            <div className="mb-3 flex items-center gap-2 flex-wrap">
-              <select value={ownerExtra} onChange={e => setOwnerExtra(e.target.value as typeof ownerExtra)}
-                className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]">
-                <option value="">This week · month · all (swipe)</option>
+            {/* Small, right-aligned period dropdown. "Default" = swipeable
+                week/month/all; any other value shows a single static card.
+                Custom range opens a popup so date inputs don't break the layout. */}
+            <div className="mb-3 flex items-center justify-end gap-2">
+              {ownerExtra === "custom" && (
+                <button type="button" onClick={() => setShowCustomModal(true)}
+                  className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
+              )}
+              <select value={ownerExtra}
+                onChange={e => { const v = e.target.value as typeof ownerExtra; setOwnerExtra(v); if (v === "custom") setShowCustomModal(true); }}
+                className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                <option value="">Default</option>
                 <option value="biweekly">Last 14 days</option>
                 <option value="lastweek">Last week</option>
                 <option value="custom">Custom range…</option>
               </select>
-              {ownerExtra === "custom" && (
-                <>
-                  <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
-                    className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
-                  <span className="text-[#777] text-xs">to</span>
-                  <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
-                    className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
-                </>
-              )}
             </div>
 
-            {/* Swipeable carousel — [override?] This week → This month → All time */}
-            <div ref={ownerRef}
-              onScroll={() => { const el = ownerRef.current; if (el) setOwnerSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-              className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {ownerSlides.map((s, i) => (
-                <div key={`${s.label}-${i}`} className="min-w-full snap-center rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst} · Net collected · {s.label}</p>
-                    {s.scope.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(s.scope.cash)} cash</span>}
-                  </div>
-                  <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(s.scope.net)}</p>
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    From {formatCurrency(s.scope.gross)} collected{s.scope.fees > 0 ? ` · ${formatCurrency(s.scope.fees)} Stripe fees` : ""}
-                  </p>
-                  <div className="flex-1 min-h-[80px] mt-3 -mx-1">
-                    {s.scope.data.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={s.scope.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-                          <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
-                    <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{s.scope.count}</p></div>
-                    <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(s.scope.avg)}</p></div>
-                    <div className="text-right"><p className="text-gray-500">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(s.scope.gross + s.scope.cash)}</p></div>
-                  </div>
+            {ownerExtra === "" ? (
+              <>
+                {/* Default → swipeable carousel: This week → This month → All time */}
+                <div ref={ownerRef}
+                  onScroll={() => { const el = ownerRef.current; if (el) setOwnerSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+                  className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {baseSlides.map((s, i) => (
+                    <div key={`${s.label}-${i}`} className="min-w-full snap-center">{barberCard(s.label, s.scope)}</div>
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            {/* Dots (left) + Stripe link (right) */}
-            <div className="flex items-center justify-between mt-2.5 px-0.5">
-              <div className="flex gap-1.5">
-                {ownerSlides.map((_, i) => (
-                  <button key={i} type="button" aria-label={`Slide ${i + 1}`}
-                    onClick={() => { const el = ownerRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
-                    className={cn("h-1.5 rounded-full transition-all", i === ownerSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-                ))}
-              </div>
-              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
-                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-              </button>
-            </div>
+                <div className="flex items-center justify-between mt-2.5 px-0.5">
+                  <div className="flex gap-1.5">
+                    {baseSlides.map((_, i) => (
+                      <button key={i} type="button" aria-label={`Slide ${i + 1}`}
+                        onClick={() => { const el = ownerRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
+                        className={cn("h-1.5 rounded-full transition-all", i === ownerSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
+                    ))}
+                  </div>
+                  <button onClick={openStripeDashboard} disabled={busy === "stripe"}
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
+                    {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Override → single static card for the chosen window (no swipe) */}
+                {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", overrideScope)}
+                <div className="flex items-center justify-end mt-2.5 px-0.5">
+                  <button onClick={openStripeDashboard} disabled={busy === "stripe"}
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
+                    {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
+                  </button>
+                </div>
+              </>
+            )}
             <p className="text-[11px] text-[#666] leading-snug mt-2 px-0.5">
               {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
             </p>
@@ -802,6 +816,38 @@ export default function PaymentsPage() {
           </>
         );
       })()}
+
+      {/* ── Custom date-range popup (per-barber earnings) ────────────────────── */}
+      {showCustomModal && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Custom range</h2>
+                <button onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-[#888] mb-1">From</label>
+                  <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#888] mb-1">To</label>
+                  <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className="btn btn-outline-secondary w-full"
+                  onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }}>Cancel</button>
+                <button type="button" className="btn btn-primary w-full" onClick={() => setShowCustomModal(false)}>Apply</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Send-link modal ──────────────────────────────────────────────────── */}
       {linkModal && (
