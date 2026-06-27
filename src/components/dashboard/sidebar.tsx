@@ -89,6 +89,7 @@ import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { sendApprovalNotifications, sendRejectionEmail, notifyFreedSlot } from "@/lib/appointment-actions";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 
 interface NavItem {
@@ -210,28 +211,14 @@ export function Sidebar() {
   // refresh effect to grab the last 5 notifications when opened.
   const [notifOpen, setNotifOpen] = useState(false);
   // Manual drag-to-dismiss for the notification sheet. We intentionally avoid
-  // framer's drag="y" here: it forces touch-action on the sheet, which blocks
-  // native vertical scrolling of the notification list inside it. Pointer-based
-  // dragging on the handle keeps the list fully scrollable.
-  const [notifDragY, setNotifDragY] = useState(0);
-  const [notifDragging, setNotifDragging] = useState(false);
-  const notifDragStart = useRef(0);
-  const onNotifHandleDown = (e: React.PointerEvent) => {
-    notifDragStart.current = e.clientY;
-    setNotifDragging(true);
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  };
-  const onNotifHandleMove = (e: React.PointerEvent) => {
-    if (!notifDragging) return;
-    setNotifDragY(Math.max(0, e.clientY - notifDragStart.current));
-  };
-  const onNotifHandleUp = (e: React.PointerEvent) => {
-    setNotifDragging(false);
-    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    // Pulled down far enough → dismiss. A near-tap on the handle also dismisses.
-    if (notifDragY > 100 || notifDragY < 8) setNotifOpen(false);
-    setNotifDragY(0);
-  };
+  // framer's drag="y" forced a touch-action that blocked the list from
+  // scrolling, so we drive the drag ourselves. useSheetDrag lets you pull the
+  // sheet down from anywhere — but only once the list is scrolled to the top,
+  // so scrolling still works (scroll-aware overscroll-to-dismiss).
+  const notifSheetRef = useRef<HTMLDivElement | null>(null);
+  const { dragY: notifDragY, dragging: notifDragging } = useSheetDrag(
+    notifSheetRef, () => setNotifOpen(false), { enabled: notifOpen },
+  );
   const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; entity_type?: string | null; entity_id?: string | null }[]>([]);
   useEffect(() => {
     if (!notifOpen || !user) return;
@@ -368,22 +355,19 @@ export function Sidebar() {
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
             >
-              {/* Inner: the sheet card. Manual pointer-drag on the handle
-                  translates this; the list below keeps native vertical scroll. */}
+              {/* Inner: the sheet card. useSheetDrag lets you pull it down from
+                  anywhere (once the list is at the top); the list scrolls otherwise. */}
               <div
+                ref={notifSheetRef}
                 className="bg-[#0c0c0c] border-t border-[#1e1e1e] rounded-t-2xl shadow-2xl flex flex-col max-h-[82vh] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
                 }}
               >
-                {/* Drag handle — pull down or tap to dismiss */}
-                <div
-                  onPointerDown={onNotifHandleDown}
-                  onPointerMove={onNotifHandleMove}
-                  onPointerUp={onNotifHandleUp}
-                  onPointerCancel={onNotifHandleUp}
-                  className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none flex-shrink-0">
+                {/* Drag handle — pull down anywhere to dismiss, or tap the handle */}
+                <div onClick={() => setNotifOpen(false)}
+                  className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0">
                   <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">

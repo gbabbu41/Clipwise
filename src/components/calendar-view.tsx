@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, MotionConfig, useDragControls } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import {
   sendApprovalNotifications,
   runCompletionEffects,
@@ -401,7 +402,8 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
   const [shown, setShown] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
   const close = () => { setShown(false); setTimeout(onClose, 280); };
-  const dragControls = useDragControls();
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
   // Header bits — one meta line + a single status/payment badge (demo look).
   const serviceName = (appt.services as { name: string } | null)?.name ?? "—";
@@ -430,27 +432,19 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
         onClick={close}
       />
       <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
-        <motion.div
-          drag="y"
-          dragListener={false}
-          dragControls={dragControls}
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={{ top: 0, bottom: 0.6 }}
-          onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 600) close(); }}
-          initial={{ y: "100%" }}
-          animate={{ y: shown ? 0 : "100%" }}
-          transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+        <div
+          ref={sheetRef}
+          style={{
+            transform: shown ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)",
+            transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
+          }}
           className={cn(
             "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
             "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[88vh] overflow-y-auto overscroll-contain",
           )}
         >
-          {/* Grab handle — drag down to dismiss, or tap to close */}
-          <div
-            onPointerDown={(e) => dragControls.start(e)}
-            onClick={close}
-            className="flex justify-center pt-3 pb-3 cursor-grab active:cursor-grabbing touch-none"
-          >
+          {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
+          <div onClick={close} className="flex justify-center pt-3 pb-3 cursor-grab active:cursor-grabbing">
             <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
           </div>
 
@@ -520,7 +514,7 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
               )}
             </div>
           )}
-        </motion.div>
+        </div>
       </div>
     </>
   );
@@ -634,7 +628,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number; general?: boolean } | null>(null);
   const [addShown, setAddShown] = useState(false); // drives the add sheet slide-up
-  const addDragControls = useDragControls();
+  const addSheetRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!addCtx) { setAddShown(false); return; }
     const t = setTimeout(() => setAddShown(true), 10);
@@ -649,6 +643,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [addMode, setAddMode] = useState<"appt" | "block">("appt");
   const [blockForm, setBlockForm] = useState({ start: "", end: "", reason: "" });
   const [blockBusy, setBlockBusy] = useState(false);
+  // Drag-to-dismiss for the add sheet (disabled mid-save).
+  const { dragY: addDragY, dragging: addDragging } = useSheetDrag(
+    addSheetRef, () => closeAdd(), { enabled: !!addCtx && !savingAdd && !blockBusy },
+  );
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
   // Barber-column pagination for the all-barbers day view (arrows / swipe).
@@ -2166,25 +2164,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <Portal>
           <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", addShown ? "opacity-100" : "opacity-0")} onClick={() => !savingAdd && !blockBusy && closeAdd()} />
           <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
-            <motion.div
-              drag="y"
-              dragListener={false}
-              dragControls={addDragControls}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.6 }}
-              onDragEnd={(_, info) => { if (!savingAdd && !blockBusy && (info.offset.y > 120 || info.velocity.y > 600)) closeAdd(); }}
-              initial={{ y: "100%" }}
-              animate={{ y: addShown ? 0 : "100%" }}
-              transition={{ type: "tween", duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
+            <div
+              ref={addSheetRef}
+              style={{
+                transform: addShown ? `translate3d(0,${addDragY}px,0)` : "translate3d(0,100%,0)",
+                transition: addDragging ? "none" : "transform 0.26s cubic-bezier(.32,.72,0,1)",
+              }}
               className={cn(
                 "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
                 "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
               )}>
-              {/* Grab handle — drag down to dismiss, or tap to close */}
+              {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
               <div
-                onPointerDown={(e) => { if (!savingAdd && !blockBusy) addDragControls.start(e); }}
                 onClick={() => !savingAdd && !blockBusy && closeAdd()}
-                className="flex justify-center pt-3 pb-2 -mx-6 cursor-grab active:cursor-grabbing touch-none"
+                className="flex justify-center pt-3 pb-2 -mx-6 cursor-grab active:cursor-grabbing"
               >
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
@@ -2298,7 +2291,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
               </>
               )}
-            </motion.div>
+            </div>
           </div>
         </Portal>
       )}
