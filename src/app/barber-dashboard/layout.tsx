@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
@@ -59,6 +59,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
 export default function BarberDashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
@@ -87,8 +88,9 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
           <BarberSidebar />
           {/* Matches the shop portal: docked sidebar at lg+, drawer + bottom nav
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
-              pt-14 reserves the mobile top-bar height. */}
-          <main className="lg:ml-64 pt-14 lg:pt-0 pb-24 lg:pb-0">
+              pt-14 reserves the mobile top-bar height. The full-bleed calendar
+              pins its own #0a0a0a, so the top spacer matches its canvas there. */}
+          <main className={`lg:ml-64 pt-14 lg:pt-0 pb-24 lg:pb-0 ${pathname === "/barber-dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
             <SwipeNavigator order={BARBER_SWIPE_ORDER}>{children}</SwipeNavigator>
           </main>
           <BarberMobileNav />
