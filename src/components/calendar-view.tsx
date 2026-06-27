@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig, useDragControls } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
@@ -22,9 +22,6 @@ import type { AppointmentWithDetails, Barber, Shop } from "@/lib/database.types"
 
 type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
 
-// useLayoutEffect on the client (no pre-paint flash), useEffect on the server
-// (avoids React's SSR warning). Picked once per environment so hook order is stable.
-const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // Overlays (modals / side sheet) render through the document body so their
 // position:fixed always resolves to the viewport — when this calendar is
@@ -662,7 +659,23 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // The day-view date rail (horizontally scrollable, browse without selecting).
-  const stripRef = useRef<HTMLDivElement>(null);
+  // Centering runs via a callback ref (not a state-keyed effect): with
+  // AnimatePresence mode="wait" the new day's rail mounts AFTER the exit
+  // animation, decoupled from the currentDate change — so a state effect would
+  // fire before the new node exists. The callback fires exactly when the fresh
+  // node attaches, which is the reliable moment to scroll the selected day to
+  // the middle. Free-swipe browsing keeps the same node, so scroll is preserved.
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const setStripRef = useCallback((node: HTMLDivElement | null) => {
+    stripRef.current = node;
+    if (!node) return;
+    const center = () => {
+      const sel = node.querySelector<HTMLElement>('[data-sel="1"]');
+      if (sel) node.scrollLeft = Math.max(0, sel.offsetLeft - (node.clientWidth - sel.offsetWidth) / 2);
+    };
+    center();                     // immediate (forces reflow → correct metrics)
+    requestAnimationFrame(center); // re-center after the entry animation settles
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -831,18 +844,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
 
-  // Keep the selected day centered in the date rail. The rail is rebuilt
-  // centered on currentDate, so we just scroll its selected button to the
-  // middle (no smooth-scroll, no page scroll — adjust scrollLeft directly).
-  // Layout effect → centered before paint, so entering day view shows no jump.
-  useIsoLayoutEffect(() => {
-    if (view !== "day") return;
-    const el = stripRef.current;
-    if (!el) return;
-    const sel = el.querySelector<HTMLElement>('[data-sel="1"]');
-    if (!sel) return;
-    el.scrollLeft = sel.offsetLeft - (el.clientWidth - sel.clientWidth) / 2;
-  }, [view, currentDate]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -1180,7 +1181,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const days = Array.from({ length: STRIP_RANGE * 2 + 1 }, (_, i) => addDays(currentDate, i - STRIP_RANGE));
     return (
       <div
-        ref={stripRef}
+        ref={setStripRef}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
