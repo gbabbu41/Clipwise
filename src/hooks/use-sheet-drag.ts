@@ -35,82 +35,98 @@ export function useSheetDrag(
   dismissRef.current = onDismiss;
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el || !enabled || typeof window === "undefined") return;
+    if (!enabled || typeof window === "undefined") return;
 
-    let startY = 0;
-    let startT = 0;
-    let mode: "" | "drag" | "scroll" = "";
-    let scroller: HTMLElement | null = null;
+    // Attach the touch listeners to a mounted element; returns a cleanup.
+    const bind = (el: HTMLElement) => {
+      let startY = 0;
+      let startT = 0;
+      let mode: "" | "drag" | "scroll" = "";
+      let scroller: HTMLElement | null = null;
 
-    // Nearest vertically-scrollable element between the touch target and the
-    // sheet (falling back to the sheet itself if it's the scroller).
-    const findScroller = (target: EventTarget | null): HTMLElement | null => {
-      let n = target as HTMLElement | null;
-      const stop = el.parentElement;
-      while (n && n !== stop) {
-        const oy = getComputedStyle(n).overflowY;
-        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1) return n;
-        if (n === el) break;
-        n = n.parentElement;
-      }
-      const oy = getComputedStyle(el).overflowY;
-      if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) return el;
-      return null;
+      // Nearest vertically-scrollable element between the touch target and the
+      // sheet (falling back to the sheet itself if it's the scroller).
+      const findScroller = (target: EventTarget | null): HTMLElement | null => {
+        let n = target as HTMLElement | null;
+        const stop = el.parentElement;
+        while (n && n !== stop) {
+          const oy = getComputedStyle(n).overflowY;
+          if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1) return n;
+          if (n === el) break;
+          n = n.parentElement;
+        }
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) return el;
+        return null;
+      };
+
+      const onStart = (e: TouchEvent) => {
+        if (e.touches.length !== 1) { mode = "scroll"; return; }
+        const t = e.touches[0];
+        startY = t.clientY;
+        startT = e.timeStamp;
+        mode = "";
+        const tgt = e.target as HTMLElement;
+        // Only block drags that start on elements where a vertical drag has its own
+        // meaning (textarea internal scroll, sliders) or that explicitly opt out.
+        // Plain inputs/selects are fine: a TAP still focuses/opens them (no move),
+        // only a deliberate downward DRAG dismisses — so form sheets drag too.
+        if (tgt.closest?.("textarea, [role='slider'], [data-no-sheet-drag]")) { mode = "scroll"; return; }
+        scroller = findScroller(e.target);
+      };
+
+      const onMove = (e: TouchEvent) => {
+        if (mode === "scroll") return;
+        const dy = e.touches[0].clientY - startY;
+        if (mode === "") {
+          const atTop = !scroller || scroller.scrollTop <= 0;
+          if (dy > 4 && atTop) mode = "drag";          // overscroll at top → drag sheet
+          else if (Math.abs(dy) > 4) { mode = "scroll"; return; } // let content scroll
+          else return;                                  // not enough movement yet
+        }
+        if (mode === "drag") {
+          if (e.cancelable) e.preventDefault();         // take over from native scroll
+          setDragging(true);
+          setDragY(Math.max(0, dy));
+        }
+      };
+
+      const onEnd = (e: TouchEvent) => {
+        if (mode === "drag") {
+          const dy = Math.max(0, (e.changedTouches[0]?.clientY ?? startY) - startY);
+          const vel = dy / Math.max(1, e.timeStamp - startT);
+          if (dy > threshold || vel > 0.5) { setDragging(false); setDragY(0); dismissRef.current(); return; }
+        }
+        setDragging(false);
+        setDragY(0);
+        mode = "";
+      };
+
+      el.addEventListener("touchstart", onStart, { passive: true });
+      el.addEventListener("touchmove", onMove, { passive: false });
+      el.addEventListener("touchend", onEnd, { passive: true });
+      el.addEventListener("touchcancel", onEnd, { passive: true });
+      return () => {
+        el.removeEventListener("touchstart", onStart);
+        el.removeEventListener("touchmove", onMove);
+        el.removeEventListener("touchend", onEnd);
+        el.removeEventListener("touchcancel", onEnd);
+      };
     };
 
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) { mode = "scroll"; return; }
-      const t = e.touches[0];
-      startY = t.clientY;
-      startT = e.timeStamp;
-      mode = "";
-      const tgt = e.target as HTMLElement;
-      // Only block drags that start on elements where a vertical drag has its own
-      // meaning (textarea internal scroll, sliders) or that explicitly opt out.
-      // Plain inputs/selects are fine: a TAP still focuses/opens them (no move),
-      // only a deliberate downward DRAG dismisses — so form sheets drag too.
-      if (tgt.closest?.("textarea, [role='slider'], [data-no-sheet-drag]")) { mode = "scroll"; return; }
-      scroller = findScroller(e.target);
+    // The element may mount a tick later than this effect (e.g. sheets rendered
+    // through a deferred Portal). Poll a few frames for ref.current, then bind.
+    let raf = 0;
+    let cleanup: (() => void) | null = null;
+    let tries = 0;
+    const tryBind = () => {
+      const el = ref.current as HTMLElement | null;
+      if (el) { cleanup = bind(el); return; }
+      if (tries++ < 60) raf = requestAnimationFrame(tryBind);
     };
+    tryBind();
 
-    const onMove = (e: TouchEvent) => {
-      if (mode === "scroll") return;
-      const dy = e.touches[0].clientY - startY;
-      if (mode === "") {
-        const atTop = !scroller || scroller.scrollTop <= 0;
-        if (dy > 4 && atTop) mode = "drag";          // overscroll at top → drag sheet
-        else if (Math.abs(dy) > 4) { mode = "scroll"; return; } // let content scroll
-        else return;                                  // not enough movement yet
-      }
-      if (mode === "drag") {
-        if (e.cancelable) e.preventDefault();         // take over from native scroll
-        setDragging(true);
-        setDragY(Math.max(0, dy));
-      }
-    };
-
-    const onEnd = (e: TouchEvent) => {
-      if (mode === "drag") {
-        const dy = Math.max(0, (e.changedTouches[0]?.clientY ?? startY) - startY);
-        const vel = dy / Math.max(1, e.timeStamp - startT);
-        if (dy > threshold || vel > 0.5) { setDragging(false); setDragY(0); dismissRef.current(); return; }
-      }
-      setDragging(false);
-      setDragY(0);
-      mode = "";
-    };
-
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("touchend", onEnd, { passive: true });
-    el.addEventListener("touchcancel", onEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
-    };
+    return () => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup(); };
   }, [ref, enabled, threshold]);
 
   return { dragY, dragging };
