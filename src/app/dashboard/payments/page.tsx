@@ -90,9 +90,17 @@ export default function PaymentsPage() {
 
   // Per-barber earnings window — mirrors the barber's own earnings page so the
   // owner can see a single barber's collected revenue for any pay cycle.
-  const [periodKey, setPeriodKey] = useState<"week" | "biweekly" | "month" | "all" | "custom">("week");
+  // Per-barber view: swipeable carousel (this week → this month → all time) +
+  // a dropdown for extra windows (last 14 days / last week / custom) that
+  // override the shown card. ownerExtra "" = pure swipe.
+  const [ownerExtra, setOwnerExtra] = useState<"" | "biweekly" | "lastweek" | "custom">("");
+  const [ownerSlide, setOwnerSlide] = useState(0);
+  const ownerRef = useRef<HTMLDivElement>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  // When a dropdown override is (de)selected, the slide list changes — snap back
+  // to the first slide so the override (or This week) is what's shown.
+  useEffect(() => { const el = ownerRef.current; if (el) el.scrollTo({ left: 0 }); setOwnerSlide(0); }, [ownerExtra]);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -276,22 +284,9 @@ export default function PaymentsPage() {
   // ── Per-barber window (collected revenue) — same presets + Custom range as the
   // barber's own earnings page, so a single barber's pay-cycle is easy to read.
   const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-  const ownerPeriod = (() => {
-    const now = Date.now();
-    if (periodKey === "all") return { from: 0, to: Infinity, label: "All time", monthly: true };
-    if (periodKey === "custom") {
-      const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
-      const to = customTo ? new Date(customTo + "T23:59:59.999").getTime() : now;
-      const label = (customFrom || customTo)
-        ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}`
-        : "Custom range";
-      return { from, to, label, monthly: (to - from) > 62 * 86400000 };
-    }
-    const label = periodKey === "week" ? "This week" : periodKey === "biweekly" ? "Last 14 days" : "This month";
-    return { from: startOf(periodKey), to: now, label, monthly: false };
-  })();
-  const scopeSel = (() => {
-    const within = (i: FeedItem) => i.ts >= ownerPeriod.from && i.ts <= ownerPeriod.to;
+  // Per-barber scope for an arbitrary window — net collected, breakdown chart, totals.
+  const computeScope = (from: number, to: number, monthly: boolean) => {
+    const within = (i: FeedItem) => i.ts >= from && i.ts <= to;
     const cardIn = cardSettled.filter(within);
     const cashIn = cashSettled.filter(within);
     const net = cardIn.reduce((s, i) => s + netOf(i), 0);
@@ -302,8 +297,8 @@ export default function PaymentsPage() {
     const m = new Map<string, { order: number; net: number }>();
     cardIn.forEach(i => {
       const dt = new Date(i.ts);
-      const order = ownerPeriod.monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
-      const label = ownerPeriod.monthly
+      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
+      const label = monthly
         ? dt.toLocaleDateString("en-CA", { month: "short" })
         : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const cur = m.get(label) ?? { order, net: 0 };
@@ -311,9 +306,32 @@ export default function PaymentsPage() {
     });
     const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
     return { net, cash, gross, fees, count, data, avg: count ? (gross + cash) / count : 0 };
+  };
+  // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
+  const nowTs = Date.now();
+  const ownerExtraPeriod = (() => {
+    if (ownerExtra === "biweekly") return { label: "Last 14 days", from: startOf("biweekly"), to: nowTs, monthly: false };
+    if (ownerExtra === "lastweek") {
+      const thisWeek = startOf("week");
+      return { label: "Last week", from: thisWeek - 7 * 86400000, to: thisWeek - 1, monthly: false }; // previous calendar week
+    }
+    if (ownerExtra === "custom") {
+      const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
+      const to = customTo ? new Date(customTo + "T23:59:59.999").getTime() : nowTs;
+      const label = (customFrom || customTo)
+        ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}`
+        : "Custom range";
+      return { from, to, label, monthly: (to - from) > 62 * 86400000 };
+    }
+    return null;
   })();
-  const ownerPresets: ["week" | "biweekly" | "month" | "all" | "custom", string][] = [
-    ["week", "This week"], ["biweekly", "Last 14 days"], ["month", "This month"], ["all", "All time"], ["custom", "Custom"],
+  // Carousel slides for the per-barber view: the optional override first (so it's
+  // shown on top), then the three swipeable windows. Swiping reaches week/month/all.
+  const ownerSlides = [
+    ...(ownerExtraPeriod ? [{ label: ownerExtraPeriod.label, scope: computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) }] : []),
+    { label: "This week", scope: computeScope(startOf("week"), nowTs, false) },
+    { label: "This month", scope: computeScope(startOf("month"), nowTs, false) },
+    { label: "All time", scope: computeScope(0, Infinity, true) },
   ];
 
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
@@ -477,66 +495,79 @@ export default function PaymentsPage() {
       <div className="mb-4">
         {barberName ? (
           <>
-            {/* Period filter — presets + a Custom from→to range (matches the
-                barber's own earnings page, so any pay cycle is easy to read). */}
-            <div className="mb-3">
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                {ownerPresets.map(([k, lbl]) => (
-                  <button key={k} type="button" onClick={() => setPeriodKey(k)}
-                    className={cn("px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors",
-                      periodKey === k ? "bg-white text-black border-white" : "bg-[#141414] text-[#aaa] border-[#1e1e1e] hover:text-white")}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-              {periodKey === "custom" && (
-                <div className="flex items-center gap-2 mt-2.5">
+            {/* Extra-window dropdown — last 14 days / last week / custom range.
+                Picking one overrides the shown card; the three main windows live
+                in the swipeable carousel below and a swipe always returns to them. */}
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <select value={ownerExtra} onChange={e => setOwnerExtra(e.target.value as typeof ownerExtra)}
+                className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                <option value="">This week · month · all (swipe)</option>
+                <option value="biweekly">Last 14 days</option>
+                <option value="lastweek">Last week</option>
+                <option value="custom">Custom range…</option>
+              </select>
+              {ownerExtra === "custom" && (
+                <>
                   <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
                     className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                   <span className="text-[#777] text-xs">to</span>
                   <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
                     className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-white [color-scheme:dark]" />
-                </div>
+                </>
               )}
             </div>
 
-            {/* Net collected by the selected barber for the chosen window */}
-            <div className="rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst} · Net collected · {ownerPeriod.label}</p>
-                {scopeSel.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(scopeSel.cash)} cash</span>}
-              </div>
-              <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(scopeSel.net)}</p>
-              <p className="text-xs text-gray-500 mt-1.5">
-                From {formatCurrency(scopeSel.gross)} collected{scopeSel.fees > 0 ? ` · ${formatCurrency(scopeSel.fees)} Stripe fees` : ""}
-              </p>
-              <div className="flex-1 min-h-[80px] mt-3 -mx-1">
-                {scopeSel.data.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scopeSel.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-                      <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
-                <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{scopeSel.count}</p></div>
-                <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(scopeSel.avg)}</p></div>
-                <div className="text-right"><p className="text-gray-500">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(scopeSel.gross + scopeSel.cash)}</p></div>
-              </div>
+            {/* Swipeable carousel — [override?] This week → This month → All time */}
+            <div ref={ownerRef}
+              onScroll={() => { const el = ownerRef.current; if (el) setOwnerSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+              className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {ownerSlides.map((s, i) => (
+                <div key={`${s.label}-${i}`} className="min-w-full snap-center rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst} · Net collected · {s.label}</p>
+                    {s.scope.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(s.scope.cash)} cash</span>}
+                  </div>
+                  <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(s.scope.net)}</p>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    From {formatCurrency(s.scope.gross)} collected{s.scope.fees > 0 ? ` · ${formatCurrency(s.scope.fees)} Stripe fees` : ""}
+                  </p>
+                  <div className="flex-1 min-h-[80px] mt-3 -mx-1">
+                    {s.scope.data.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={s.scope.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
+                          <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
+                    <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{s.scope.count}</p></div>
+                    <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(s.scope.avg)}</p></div>
+                    <div className="text-right"><p className="text-gray-500">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(s.scope.gross + s.scope.cash)}</p></div>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div className="flex items-center justify-between mt-2 px-0.5">
-              <p className="text-[11px] text-[#666] leading-snug flex-1 pr-2">
-                {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
-              </p>
+            {/* Dots (left) + Stripe link (right) */}
+            <div className="flex items-center justify-between mt-2.5 px-0.5">
+              <div className="flex gap-1.5">
+                {ownerSlides.map((_, i) => (
+                  <button key={i} type="button" aria-label={`Slide ${i + 1}`}
+                    onClick={() => { const el = ownerRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
+                    className={cn("h-1.5 rounded-full transition-all", i === ownerSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
+                ))}
+              </div>
               <button onClick={openStripeDashboard} disabled={busy === "stripe"}
                 className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
                 {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
               </button>
             </div>
+            <p className="text-[11px] text-[#666] leading-snug mt-2 px-0.5">
+              {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
+            </p>
           </>
         ) : (
           <>
