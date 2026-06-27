@@ -99,9 +99,13 @@ export default function PaymentsPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [showCustomModal, setShowCustomModal] = useState(false); // custom-range date picker popup
-  // When a dropdown override is (de)selected, the slide list changes — snap back
-  // to the first slide so the override (or This week) is what's shown.
-  useEffect(() => { const el = ownerRef.current; if (el) el.scrollTo({ left: 0 }); setOwnerSlide(0); }, [ownerExtra]);
+  // When a dropdown override is (de)selected, the visible card/carousel swaps —
+  // snap both carousels back to the first slide so the right card is shown.
+  useEffect(() => {
+    const oe = ownerRef.current; if (oe) oe.scrollTo({ left: 0 });
+    const ne = netRef.current; if (ne) ne.scrollTo({ left: 0 });
+    setOwnerSlide(0); setNetSlide(0);
+  }, [ownerExtra]);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -258,6 +262,16 @@ export default function PaymentsPage() {
     else if (kind === "month") d.setDate(1);
     return d.getTime();
   };
+  // Small "Jul 23 – Jul 29" caption so each period card shows its actual dates.
+  const fmtDay = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  const rangeFor = (key: "week" | "month" | "all" | "biweekly" | "lastweek") => {
+    const ws = startOf("week");
+    if (key === "week") return `${fmtDay(ws)} – ${fmtDay(ws + 6 * 86400000)}`;
+    if (key === "biweekly") return `${fmtDay(startOf("biweekly"))} – ${fmtDay(Date.now())}`;
+    if (key === "lastweek") return `${fmtDay(ws - 7 * 86400000)} – ${fmtDay(ws - 86400000)}`;
+    if (key === "month") { const d = new Date(); return `${fmtDay(startOf("month"))} – ${fmtDay(new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime())}`; }
+    return ""; // all time — no fixed range
+  };
   const sumNet = (from: number) => cardSettled.filter(i => i.ts >= from).reduce((s, i) => s + netOf(i), 0);
   const sumCash = (from: number) => cashSettled.filter(i => i.ts >= from).reduce((s, i) => s + i.amount, 0);
   const todayNet = sumNet(startOf("today"));
@@ -280,7 +294,7 @@ export default function PaymentsPage() {
     { key: "week", label: "This week", from: startOf("week"), monthly: false },
     { key: "month", label: "This month", from: startOf("month"), monthly: false },
     { key: "all", label: "All time", from: 0, monthly: true },
-  ].map(p => ({ ...p, net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
+  ].map(p => ({ ...p, range: rangeFor(p.key as "week" | "month" | "all"), net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
 
   // ── Per-barber window (collected revenue) — same presets + Custom range as the
   // barber's own earnings page, so a single barber's pay-cycle is easy to read.
@@ -311,10 +325,10 @@ export default function PaymentsPage() {
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
   const ownerExtraPeriod = (() => {
-    if (ownerExtra === "biweekly") return { label: "Last 14 days", from: startOf("biweekly"), to: nowTs, monthly: false };
+    if (ownerExtra === "biweekly") return { label: "Last 14 days", range: rangeFor("biweekly"), from: startOf("biweekly"), to: nowTs, monthly: false };
     if (ownerExtra === "lastweek") {
       const thisWeek = startOf("week");
-      return { label: "Last week", from: thisWeek - 7 * 86400000, to: thisWeek - 1, monthly: false }; // previous calendar week
+      return { label: "Last week", range: rangeFor("lastweek"), from: thisWeek - 7 * 86400000, to: thisWeek - 1, monthly: false }; // previous calendar week
     }
     if (ownerExtra === "custom") {
       const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
@@ -322,26 +336,27 @@ export default function PaymentsPage() {
       const label = (customFrom || customTo)
         ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}`
         : "Custom range";
-      return { from, to, label, monthly: (to - from) > 62 * 86400000 };
+      return { from, to, label, range: "", monthly: (to - from) > 62 * 86400000 }; // label already shows the range
     }
     return null;
   })();
   // Default view = swipeable carousel of the three main windows. A dropdown
   // override (last 14 / last week / custom) replaces it with a single static card.
   const baseSlides = [
-    { label: "This week", scope: computeScope(startOf("week"), nowTs, false) },
-    { label: "This month", scope: computeScope(startOf("month"), nowTs, false) },
-    { label: "All time", scope: computeScope(0, Infinity, true) },
+    { label: "This week", range: rangeFor("week"), scope: computeScope(startOf("week"), nowTs, false) },
+    { label: "This month", range: rangeFor("month"), scope: computeScope(startOf("month"), nowTs, false) },
+    { label: "All time", range: "", scope: computeScope(0, Infinity, true) },
   ];
   const overrideScope = ownerExtraPeriod ? computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) : null;
   // One earnings card — reused by the carousel slides and the override view.
-  const barberCard = (label: string, sc: ReturnType<typeof computeScope>) => (
+  const barberCard = (label: string, range: string, sc: ReturnType<typeof computeScope>) => (
     <div className="rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst} · Net collected · {label}</p>
+        <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst ? `${barberFirst} · ` : ""}Net collected · {label}</p>
         {sc.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(sc.cash)} cash</span>}
       </div>
       <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(sc.net)}</p>
+      {range && <p className="text-[10px] text-gray-400 mt-0.5">{range}</p>}
       <p className="text-xs text-gray-500 mt-1.5">
         From {formatCurrency(sc.gross)} collected{sc.fees > 0 ? ` · ${formatCurrency(sc.fees)} Stripe fees` : ""}
       </p>
@@ -522,23 +537,21 @@ export default function PaymentsPage() {
               )}
             </div>
           ) : <span />}
-          {/* Per-barber period selector — Default = swipe; others = single card. */}
-          {barberName && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {ownerExtra === "custom" && (
-                <button type="button" onClick={() => setShowCustomModal(true)}
-                  className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
-              )}
-              <select value={ownerExtra}
-                onChange={e => { const v = e.target.value as typeof ownerExtra; setOwnerExtra(v); if (v === "custom") setShowCustomModal(true); }}
-                className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-white [color-scheme:dark]">
-                <option value="">Default</option>
-                <option value="biweekly">Last 14 days</option>
-                <option value="lastweek">Last week</option>
-                <option value="custom">Custom range…</option>
-              </select>
-            </div>
-          )}
+          {/* Period selector (both views) — Default = swipe; others = single card. */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {ownerExtra === "custom" && (
+              <button type="button" onClick={() => setShowCustomModal(true)}
+                className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
+            )}
+            <select value={ownerExtra}
+              onChange={e => { const v = e.target.value as typeof ownerExtra; setOwnerExtra(v); if (v === "custom") setShowCustomModal(true); }}
+              className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-white [color-scheme:dark]">
+              <option value="">Default</option>
+              <option value="biweekly">Last 14 days</option>
+              <option value="lastweek">Last week</option>
+              <option value="custom">Custom range…</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -553,7 +566,7 @@ export default function PaymentsPage() {
                   onScroll={() => { const el = ownerRef.current; if (el) setOwnerSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
                   className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {baseSlides.map((s, i) => (
-                    <div key={`${s.label}-${i}`} className="min-w-full snap-center">{barberCard(s.label, s.scope)}</div>
+                    <div key={`${s.label}-${i}`} className="min-w-full snap-center">{barberCard(s.label, s.range, s.scope)}</div>
                   ))}
                 </div>
                 <div className="flex items-center justify-between mt-2.5 px-0.5">
@@ -573,7 +586,7 @@ export default function PaymentsPage() {
             ) : (
               <>
                 {/* Override → single static card for the chosen window (no swipe) */}
-                {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", overrideScope)}
+                {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", ownerExtraPeriod?.range ?? "", overrideScope)}
                 <div className="flex items-center justify-end mt-2.5 px-0.5">
                   <button onClick={openStripeDashboard} disabled={busy === "stripe"}
                     className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
@@ -586,7 +599,7 @@ export default function PaymentsPage() {
               {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
             </p>
           </>
-        ) : (
+        ) : ownerExtra === "" ? (
           <>
             <div ref={netRef}
               onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
@@ -630,6 +643,7 @@ export default function PaymentsPage() {
                     {p.cash > 0 && <span className="text-xs font-semibold text-amber-600">+ {formatCurrency(p.cash)} cash</span>}
                   </div>
                   <p className="text-3xl sm:text-4xl font-extrabold text-gray-900 mt-1.5">{formatCurrency(p.net)}</p>
+                  {p.range && <p className="text-[10px] text-gray-400 mt-0.5">{p.range}</p>}
                   <div className="flex-1 min-h-[72px] mt-3 -mx-1">
                     {p.data.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -654,6 +668,17 @@ export default function PaymentsPage() {
                     className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
                 ))}
               </div>
+              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
+                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* All-barbers override → single shop-wide card for the chosen window */}
+            {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", ownerExtraPeriod?.range ?? "", overrideScope)}
+            <div className="flex items-center justify-end mt-2.5 px-0.5">
               <button onClick={openStripeDashboard} disabled={busy === "stripe"}
                 className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
                 {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
