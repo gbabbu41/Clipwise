@@ -178,13 +178,22 @@ export async function POST(request: NextRequest) {
         : isHold ? `New Booking · card held · ${amountStr}`
         : `New Paid Booking · ${amountStr}`;
       const bookingVerb = isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
-      supabaseAdmin.from("notifications").insert({
+      const notifBase = {
         user_id: shopRow.owner_id,
         title: bookingTitle,
         message: `${m.client_name} booked ${bookingVerb} for ${friendly} at ${m.time_slot}`,
         type: "booking",
         is_read: false,
-      }).then(null, () => null);
+      };
+      // Attach the appointment so the owner can act inline; fall back without the
+      // entity columns if the phase16 migration hasn't been run yet.
+      supabaseAdmin.from("notifications")
+        .insert({ ...notifBase, entity_type: "appointment", entity_id: appt.id })
+        .then(({ error }) => {
+          if (error && /entity_(type|id)/.test(error.message)) {
+            return supabaseAdmin.from("notifications").insert(notifBase).then(null, () => null);
+          }
+        }, () => null);
     }
 
     // Barber in-app notification + SMS to owner & barber (server-side helper).

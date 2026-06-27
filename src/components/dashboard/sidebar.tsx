@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, Receipt,
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
-  Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw,
+  Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
@@ -86,6 +86,8 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
+import { sendApprovalNotifications, sendRejectionEmail, notifyFreedSlot } from "@/lib/appointment-actions";
+import type { AppointmentWithDetails } from "@/lib/database.types";
 
 interface NavItem {
   href: string;
@@ -228,17 +230,54 @@ export function Sidebar() {
     if (notifDragY > 100 || notifDragY < 8) setNotifOpen(false);
     setNotifDragY(0);
   };
-  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string }[]>([]);
+  const [recentNotifs, setRecentNotifs] = useState<{ id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; entity_type?: string | null; entity_id?: string | null }[]>([]);
   useEffect(() => {
     if (!notifOpen || !user) return;
+    // select("*") so entity_type/entity_id come through once phase16 is run, and
+    // the query doesn't error on shops that haven't run it yet.
     supabase
       .from("notifications")
-      .select("id, title, message, type, is_read, created_at")
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(15)
       .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
   }, [notifOpen, user, unreadCount]);
+
+  // ── Inline Approve / Decline for booking notifications ────────────────────
+  // Reuses the same client-side flow the calendar uses (status update + the
+  // shared side-effect helpers). `shop` comes from useAuth above.
+  const [notifActing, setNotifActing] = useState<string | null>(null);
+  const dismissNotif = (id: string) => {
+    setRecentNotifs(prev => prev.filter(x => x.id !== id));
+    supabase.from("notifications").update({ is_read: true }).eq("id", id).then(null, () => null);
+    setUnreadCount(c => Math.max(0, c - 1));
+  };
+  const actOnBooking = async (
+    n: (typeof recentNotifs)[number],
+    decision: "approve" | "decline",
+  ) => {
+    if (!shop || !n.entity_id || notifActing) return;
+    setNotifActing(n.id);
+    const { data: appt } = await supabase
+      .from("appointments").select("*, services(name), barbers(name)")
+      .eq("id", n.entity_id).maybeSingle();
+    if (!appt) { setNotifActing(null); dismissNotif(n.id); return; } // booking gone
+    if (appt.status !== "pending") { setNotifActing(null); dismissNotif(n.id); return; } // already handled
+    const a = appt as unknown as AppointmentWithDetails;
+    if (decision === "approve") {
+      const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", a.id);
+      if (error) { setNotifActing(null); return; }
+      sendApprovalNotifications(a, shop);
+    } else {
+      const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", a.id);
+      if (error) { setNotifActing(null); return; }
+      sendRejectionEmail(a, shop, "");
+      notifyFreedSlot(a, shop, "Cancelled");
+    }
+    setNotifActing(null);
+    dismissNotif(n.id);
+  };
 
   // Detect whether this owner is also linked as a barber → show role-switch link
   useEffect(() => {
@@ -362,21 +401,39 @@ export function Sidebar() {
                       const earlier = rest.filter(n => !isToday(n.created_at));
                       const card = (n: (typeof recentNotifs)[number]) => {
                         const c = classifyNotif(n);
-                        return (
-                          <Link key={n.id} href={notifLink(n.type)} onClick={() => setNotifOpen(false)}
-                            style={{ borderLeftColor: c.accent }}
-                            className={cn("block rounded-xl border border-[#1e1e1e] border-l-[3px] mb-2 px-3 py-3 transition-colors active:bg-white/[0.06]",
-                              n.is_read ? "bg-[#0e0e0e] hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]")}>
-                            <div className="flex gap-3">
-                              <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
-                                <c.Icon size={16} />
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
-                                  <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
-                                </div>
-                                <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                        // Inline actions only when we have a linked appointment (phase16).
+                        const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
+                        const acting = notifActing === n.id;
+                        const cls = cn("block rounded-xl border border-[#1e1e1e] border-l-[3px] mb-2 px-3 py-3 transition-colors",
+                          n.is_read ? "bg-[#0e0e0e]" : "bg-white/[0.04]");
+                        const body = (
+                          <div className="flex gap-3">
+                            <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+                              <c.Icon size={16} />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
+                                <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
+                              </div>
+                              <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                              {inlineAppt ? (
+                                <>
+                                  <div className="flex items-center gap-2 mt-2.5">
+                                    <button type="button" disabled={acting}
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "approve"); }}
+                                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-semibold py-1.5 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors">
+                                      <Check size={13} /> {acting ? "Working…" : "Approve"}
+                                    </button>
+                                    <button type="button" disabled={acting}
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "decline"); }}
+                                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 text-xs font-semibold py-1.5 hover:bg-rose-500/25 disabled:opacity-50 transition-colors">
+                                      <X size={13} /> Decline
+                                    </button>
+                                  </div>
+                                  <span className="block text-[11px] text-[#777] mt-1.5">{timeAgo(n.created_at)}</span>
+                                </>
+                              ) : (
                                 <div className="flex items-center justify-between mt-1.5">
                                   <span className="text-[11px] text-[#777]">{timeAgo(n.created_at)}</span>
                                   {c.actionable && (
@@ -385,9 +442,18 @@ export function Sidebar() {
                                     </span>
                                   )}
                                 </div>
-                              </div>
-                              {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1" />}
+                              )}
                             </div>
+                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1" />}
+                          </div>
+                        );
+                        return inlineAppt ? (
+                          <div key={n.id} style={{ borderLeftColor: c.accent }} className={cls}>{body}</div>
+                        ) : (
+                          <Link key={n.id} href={notifLink(n.type)} onClick={() => setNotifOpen(false)}
+                            style={{ borderLeftColor: c.accent }}
+                            className={cn(cls, "active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "hover:bg-white/[0.07]")}>
+                            {body}
                           </Link>
                         );
                       };

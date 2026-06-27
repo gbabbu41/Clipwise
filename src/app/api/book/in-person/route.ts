@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, findAvailableBarber, UNIQUE_VIOLATION } from "@/lib/booking-conflict";
-import { timeToMinutes } from "@/lib/utils";
+import { timeToMinutes, prettyDate } from "@/lib/utils";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, status, booking_settings").eq("id", b.shop_id).maybeSingle();
+    .from("shops").select("id, status, booking_settings, owner_id").eq("id", b.shop_id).maybeSingle();
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
   }
@@ -129,6 +129,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't create the booking. Please try again." }, { status: 500 });
+  }
+
+  // A pending booking needs the owner's approval — notify them, linked to the
+  // appointment so they can Approve/Decline straight from the notification.
+  // (Auto-confirmed / owner-added bookings skip this; barber notify happens via
+  // the existing realtime listener.) Falls back without entity columns if the
+  // phase16 migration hasn't been run yet.
+  if (inserted.data.status === "pending" && shop.owner_id) {
+    const svc = b.service_names || "an appointment";
+    const notifBase = {
+      user_id: shop.owner_id,
+      title: "New Booking Request",
+      message: `${b.client_name} requested ${svc} for ${prettyDate(b.date)} at ${b.time_slot}`,
+      type: "booking",
+      is_read: false,
+    };
+    const r = await supabaseAdmin.from("notifications")
+      .insert({ ...notifBase, entity_type: "appointment", entity_id: inserted.data.id });
+    if (r.error && /entity_(type|id)/.test(r.error.message)) {
+      await supabaseAdmin.from("notifications").insert(notifBase);
+    }
   }
 
   return NextResponse.json({
