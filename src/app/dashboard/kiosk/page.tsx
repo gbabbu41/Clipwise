@@ -45,6 +45,7 @@ export default function KioskPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [data, setData] = useState<WalkInData>({ service: null, barber: null, name: "", phone: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [queuePosition, setQueuePosition] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -66,6 +67,7 @@ export default function KioskPage() {
       const t = setTimeout(() => {
         setStep("welcome");
         setData({ service: null, barber: null, name: "", phone: "" });
+        setSubmitError("");
       }, 8000);
       return () => clearTimeout(t);
     }
@@ -79,6 +81,7 @@ export default function KioskPage() {
   const addToWaitlist = async () => {
     if (!data.name.trim()) return;
     setSubmitting(true);
+    setSubmitError("");
 
     const { data: countData } = await supabase
       .from("waitlist")
@@ -87,19 +90,27 @@ export default function KioskPage() {
       .in("status", ["waiting", "called"]);
 
     const position = (countData as unknown as { count?: number })?.count ?? 0;
-    setQueuePosition(position + 1);
 
-    await supabase.from("waitlist").insert({
+    // NOTE: the column is `service_id` (uuid FK), not `service_name`. Inserting
+    // the wrong column previously made PostgREST reject the whole row — so kiosk
+    // walk-ins silently never reached the queue. Surface real errors now instead
+    // of swallowing them, so a failure shows up rather than a false "You're in!".
+    const { error } = await supabase.from("waitlist").insert({
       shop_id: shop!.id,
       client_name: data.name.trim(),
       client_phone: data.phone.trim() || null,
       barber_id: data.barber?.id ?? null,
-      service_name: data.service?.name ?? null,
+      service_id: data.service?.id ?? null,
       status: "waiting",
       added_at: new Date().toISOString(),
-    }).then(null, () => null);
+    });
 
     setSubmitting(false);
+    if (error) {
+      setSubmitError("Couldn't join the waitlist. Please tell the front desk.");
+      return;
+    }
+    setQueuePosition(position + 1);
     setStep("done");
   };
 
@@ -345,6 +356,9 @@ export default function KioskPage() {
               >
                 {submitting ? "Adding to waitlist…" : "✓ Join Waitlist"}
               </Button>
+              {submitError && (
+                <p className="text-center text-sm text-rose-400">{submitError}</p>
+              )}
             </div>
           )}
 
