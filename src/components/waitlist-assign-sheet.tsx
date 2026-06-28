@@ -15,7 +15,7 @@
  * Bottom sheet on phones, centred modal on tablet/desktop.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cn, prettyDate, getSlotsInRange, generate24hSlots,
   timeToMinutes, dbTimeToDisplay, occupiedSlots, formatCurrency,
@@ -71,6 +71,21 @@ export function WaitlistAssignSheet({
 
   useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
 
+  // Open slots for any barber on the desired day — pure, so we can use it both to
+  // render the grid AND to choose a sensible default barber (one that's free).
+  const slotsFor = useMemo(() => (b: AvailBarber | null): string[] => {
+    if (!b || b.fullDayOff || !b.start_time || !b.end_time) return [];
+    const blocked = new Set<string>();
+    for (const o of b.blocked) {
+      const bs = timeToMinutes(dbTimeToDisplay(o.start_time));
+      const be = timeToMinutes(dbTimeToDisplay(o.end_time));
+      for (const s of generate24hSlots(slotInterval)) { const m = timeToMinutes(s); if (m >= bs && m < be) blocked.add(s); }
+    }
+    const booked = [...b.busy.flatMap(a => occupiedSlots(a.time_slot, a.duration, slotInterval)), ...Array.from(blocked)];
+    return getSlotsInRange(b.start_time, b.end_time, new Date(request.desired_date + "T00:00:00"), booked, slotInterval)
+      .filter(s => s.available).map(s => s.slot);
+  }, [slotInterval, request.desired_date]);
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -87,25 +102,24 @@ export function WaitlistAssignSheet({
         if (!alive) return;
         const list = (d.barbers ?? []) as AvailBarber[];
         setBarbers(list);
-        setBarberId(prev => prev ?? list[0]?.id ?? null);
+        // Default selection: keep a valid current pick; otherwise prefer the
+        // customer's chosen barber, then the first barber that actually has open
+        // slots, then just the first — so the sheet doesn't open on "no time".
+        setBarberId(prev => {
+          if (prev && list.some(b => b.id === prev)) return prev;
+          const preferred = request.barber_id ? list.find(b => b.id === request.barber_id) : null;
+          const withSlots = list.find(b => slotsFor(b).length > 0);
+          return preferred?.id ?? withSlots?.id ?? list[0]?.id ?? null;
+        });
       } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, [request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch]);
+  }, [request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch, slotsFor]);
 
-  const active = barbers.find(b => b.id === barberId) ?? null;
-  const openSlots = (() => {
-    if (!active || active.fullDayOff || !active.start_time || !active.end_time) return [];
-    const blocked = new Set<string>();
-    for (const o of active.blocked) {
-      const bs = timeToMinutes(dbTimeToDisplay(o.start_time));
-      const be = timeToMinutes(dbTimeToDisplay(o.end_time));
-      for (const s of generate24hSlots(slotInterval)) { const m = timeToMinutes(s); if (m >= bs && m < be) blocked.add(s); }
-    }
-    const booked = [...active.busy.flatMap(a => occupiedSlots(a.time_slot, a.duration, slotInterval)), ...Array.from(blocked)];
-    return getSlotsInRange(active.start_time, active.end_time, new Date(request.desired_date + "T00:00:00"), booked, slotInterval)
-      .filter(s => s.available).map(s => s.slot);
-  })();
+  const active = useMemo(() => barbers.find(b => b.id === barberId) ?? null, [barbers, barberId]);
+  const openSlots = useMemo(() => slotsFor(active), [slotsFor, active]);
+  // Drop a chosen slot if it's no longer offered (e.g. after switching barber).
+  useEffect(() => { setSlot(s => (s && openSlots.includes(s) ? s : null)); }, [openSlots]);
 
   const book = async () => {
     if (!barberId || !slot || busy) return;

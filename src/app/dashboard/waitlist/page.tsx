@@ -1,14 +1,20 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { Users, Plus, Clock, Phone, Scissors, Check, X, Bell, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Users, Plus, Clock, Phone, Scissors, Check, X, Bell, RefreshCw, CreditCard } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { WaitlistAssignSheet } from "@/components/waitlist-assign-sheet";
-import type { WaitlistEntry, Barber, Service } from "@/lib/database.types";
+import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import type { WaitlistEntry, Barber, Service, AppointmentWithDetails } from "@/lib/database.types";
+
+// Walk-in appointments are tagged with this note when seated from the queue, so
+// we can match a queue row back to its appointment (for the time + checkout).
+const WALKIN_NOTE = "Walk-in from waitlist";
+type LinkedAppt = { id: string; time_slot: string; status: string };
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -37,7 +43,7 @@ type BlankEntry = { client_name: string; client_phone: string; barber_id: string
 const BLANK: BlankEntry = { client_name: "", client_phone: "", barber_id: "", service_id: "" };
 
 export default function WaitlistPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -57,20 +63,36 @@ export default function WaitlistPage() {
     return () => clearInterval(t);
   }, []);
 
+  // Today's walk-in appointments, keyed "clientName|barberId" → so a "called"
+  // queue row can show the assigned time and open the right appointment for
+  // checkout (survives page refresh, unlike the in-memory link map).
+  const [walkinAppts, setWalkinAppts] = useState<Record<string, LinkedAppt>>({});
+
   const load = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
-    const [{ data: wData }, { data: bData }, { data: sData }] = await Promise.all([
+    const [{ data: wData }, { data: bData }, { data: sData }, { data: aData }] = await Promise.all([
       supabase.from("waitlist").select("*").eq("shop_id", shop.id).gte("added_at", today).order("added_at"),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+      supabase.from("appointments").select("id, client_name, barber_id, time_slot, status, notes, created_at")
+        .eq("shop_id", shop.id).eq("date", today).order("created_at", { ascending: false }),
     ]);
     setEntries((wData ?? []) as WaitlistEntry[]);
     setBarbers((bData ?? []) as Barber[]);
     setServices((sData ?? []) as Service[]);
+    const map: Record<string, LinkedAppt> = {};
+    (aData ?? []).forEach((a) => {
+      if (!(a.notes as string | null)?.includes(WALKIN_NOTE)) return;
+      const key = `${a.client_name}|${a.barber_id}`;
+      if (!map[key]) map[key] = { id: a.id as string, time_slot: a.time_slot as string, status: a.status as string };
+    });
+    setWalkinAppts(map);
     setLoading(false);
   }, [shop]);
+
+  const linkFor = useCallback((e: WaitlistEntry): LinkedAppt | null => walkinAppts[`${e.client_name}|${e.barber_id}`] ?? null, [walkinAppts]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -122,20 +144,45 @@ export default function WaitlistPage() {
   const [seatEntry, setSeatEntry] = useState<WaitlistEntry | null>(null);
   const slotInterval = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes ?? 30;
 
-  // Map waitlist row id → linked appointment id. Set on Confirm so the
-  // waitlist row stays visible with Complete / Reject buttons pointing at
-  // the right appointment. Lost on refresh; that's fine — on refresh the
-  // waitlist row goes back to "called" and you can re-link by name.
-  const [linkedAppts, setLinkedAppts] = useState<Record<string, string>>({});
-
   // Confirmation overlay shown after successful seat-confirm. Slides in,
   // auto-dismisses after 2.5s.
   const [confirmedNotice, setConfirmedNotice] = useState<{ name: string; barber: string } | null>(null);
 
+  // Text + email the customer when they're called/seated (best-effort). Phone is
+  // always on the queue row; email only once captured (added with the column).
+  const notifyWalkinCalled = (entry: WaitlistEntry, barberId: string, slot: string, serviceId: string | null) => {
+    if (!shop) return;
+    const barberName = barbers.find(b => b.id === barberId)?.name ?? "your barber";
+    const email = (entry as { client_email?: string | null }).client_email ?? null;
+    if (entry.client_phone) {
+      fetch("/api/twilio/send-sms", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: entry.client_phone, shopName: shop.name, body: `You're up at ${shop.name}! ${barberName} can see you at ${slot}. See you soon.` }),
+      }).catch(() => null);
+    }
+    if (email) {
+      const svc = services.find(s => s.id === serviceId);
+      fetch("/api/send-email", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "booking_confirmation",
+          data: {
+            clientName: entry.client_name, clientEmail: email,
+            shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+            barberName, serviceName: svc?.name ?? "Walk-in",
+            date: new Date().toISOString().slice(0, 10), time: slot,
+            total: `$${Number(svc?.price ?? 0).toFixed(2)}`, paymentNote: "Pay in person at the shop",
+            bookingId: "", appointmentId: "",
+          },
+        }),
+      }).catch(() => null);
+    }
+  };
+
   // Book the walk-in into the barber + slot chosen in the assign sheet. Creates
-  // a confirmed appointment for today and flips the queue row to `called`,
-  // remembering the linked appointment id for the Complete / Reject buttons.
-  // Returns an error string (shown in the sheet) or null on success.
+  // a confirmed appointment for today, flips the queue row to `called`, and
+  // texts/emails the customer that they're up. Returns an error string (shown
+  // in the sheet) or null on success.
   const seatWalkin = async ({ barberId, slot, serviceId }: { barberId: string; slot: string; serviceId: string | null }): Promise<string | null> => {
     if (!seatEntry || !shop) return "Something went wrong — try again.";
     const svc = services.find(s => s.id === serviceId);
@@ -149,11 +196,12 @@ export default function WaitlistPage() {
       service_id: serviceId,
       client_name: seatEntry.client_name,
       client_phone: seatEntry.client_phone ?? null,
+      client_email: (seatEntry as { client_email?: string | null }).client_email ?? null,
       date: today,
       time_slot: slot,
       status: "confirmed",
       total_amount: price,
-      notes: `Walk-in from waitlist`,
+      notes: WALKIN_NOTE,
     });
     if (apptErr) {
       return (apptErr as { code?: string }).code === "23505"
@@ -165,157 +213,59 @@ export default function WaitlistPage() {
       barber_id: barberId,
       service_id: serviceId,
     }).eq("id", seatEntry.id);
+    notifyWalkinCalled(seatEntry, barberId, slot, serviceId);
     setEntries(prev => prev.map(e => e.id === seatEntry.id
       ? ({ ...e, status: "called", barber_id: barberId, service_id: serviceId } as WaitlistEntry)
       : e
     ));
-    setLinkedAppts(prev => ({ ...prev, [seatEntry.id]: apptId }));
     const barberName = barbers.find(b => b.id === barberId)?.name ?? "barber";
     setConfirmedNotice({ name: seatEntry.client_name, barber: barberName });
     setTimeout(() => setConfirmedNotice(null), 2800);
     return null;
   };
 
-  // Find the appointment row backing a waitlist entry. Uses the in-memory
-  // linkedAppts map first (fast path right after Confirm); falls back to a
-  // DB lookup by name + barber + today (handles page refresh).
-  const apptIdFor = async (entry: WaitlistEntry): Promise<string | null> => {
-    const cached = linkedAppts[entry.id];
-    if (cached) return cached;
-    if (!shop) return null;
-    const today = new Date().toISOString().slice(0, 10);
+  // ── Checkout — opens the SAME appointment detail / "Check out" banner used
+  // across the app, instead of a one-off payment modal here. ────────────────
+  const [checkoutAppt, setCheckoutAppt] = useState<AppointmentWithDetails | null>(null);
+  const [checkoutEntryId, setCheckoutEntryId] = useState<string | null>(null);
+  const [detailBusy, setDetailBusy] = useState("");
+
+  const openCheckout = async (entry: WaitlistEntry) => {
+    if (!shop) return;
+    const link = linkFor(entry);
+    if (!link) { showToast("Couldn't find the appointment — open Appointments to finish."); return; }
     const { data } = await supabase
       .from("appointments")
-      .select("id")
-      .eq("shop_id", shop.id)
-      .eq("date", today)
-      .eq("client_name", entry.client_name)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return data?.id ?? null;
+      .select("*, services(name, duration_minutes), barbers(name)")
+      .eq("id", link.id).maybeSingle();
+    if (!data) { showToast("Appointment not found"); return; }
+    setCheckoutEntryId(entry.id);
+    setCheckoutAppt(data as AppointmentWithDetails);
   };
 
-  // Payment modal — same flow as the appointments page. Opens when the
-  // owner clicks Complete on an unpaid walk-in with a positive total.
-  type PayCtx = {
-    waitlistId: string;
-    appointmentId: string;
-    clientName: string;
-    clientEmail: string | null;
-    totalAmount: number;
-  };
-  const [paymentCtx, setPaymentCtx] = useState<PayCtx | null>(null);
-  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
-  // Optional email the owner can type at payment time for a walk-in that has
-  // none on file, plus the generated link to show/copy when no email is sent.
-  const [payEmail, setPayEmail] = useState("");
-  const [payLink, setPayLink] = useState("");
-  const { accessToken } = useAuth();
-
-  const completeFromWaitlist = async (entry: WaitlistEntry) => {
-    const apptId = await apptIdFor(entry);
-    if (!apptId || !shop) { showToast("Couldn't find the appointment — open Appointments to finish."); return; }
-    // Look up the full appointment so we know whether it's paid + the
-    // amount + client email (for the Send Payment Link option).
-    const { data: appt } = await supabase
-      .from("appointments")
-      .select("id, total_amount, payment_status, client_name, client_email")
-      .eq("id", apptId)
-      .maybeSingle();
-    if (!appt) { showToast("Appointment not found"); return; }
-    // Already paid OR zero-amount? skip the modal and complete directly.
-    if (appt.payment_status === "paid" || !appt.total_amount) {
-      await supabase.from("appointments").update({ status: "completed" }).eq("id", apptId);
-      await supabase.from("waitlist").update({ status: "served" }).eq("id", entry.id);
-      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "served" } : e));
-      showToast(`${entry.client_name} completed`);
-      return;
+  // Keep the open detail card in sync, and mirror a terminal status back onto
+  // the queue row (completed → served, cancelled → removed).
+  const patchCheckout = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
+    setCheckoutAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
+    if (!checkoutEntryId) return;
+    if (p.status === "completed" || p.status === "cancelled") {
+      const next = p.status === "completed" ? "served" : "removed";
+      supabase.from("waitlist").update({ status: next }).eq("id", checkoutEntryId).then(null, () => null);
+      setEntries(prev => prev.map(e => e.id === checkoutEntryId ? ({ ...e, status: next } as WaitlistEntry) : e));
     }
-    // Otherwise pop the same Cash / Send Link / Skip flow as appointments.
-    setPayEmail(appt.client_email ?? "");
-    setPayLink("");
-    setPaymentCtx({
-      waitlistId: entry.id,
-      appointmentId: apptId,
-      clientName: appt.client_name,
-      clientEmail: appt.client_email ?? null,
-      totalAmount: appt.total_amount,
-    });
-  };
+  }, [checkoutEntryId]);
 
-  const finishCompletion = async (waitlistId: string) => {
-    await supabase.from("waitlist").update({ status: "served" }).eq("id", waitlistId);
-    setEntries(prev => prev.map(e => e.id === waitlistId ? { ...e, status: "served" } : e));
-  };
-
-  const payCashAndComplete = async () => {
-    if (!paymentCtx) return;
-    setSavingPayment("cash");
-    await supabase.from("appointments").update({
-      status: "completed",
-      payment_status: "paid",
-      payment_method: "cash",
-    }).eq("id", paymentCtx.appointmentId);
-    await finishCompletion(paymentCtx.waitlistId);
-    setSavingPayment("");
-    setPaymentCtx(null);
-    showToast(`${paymentCtx.clientName} · Cash paid · Completed`);
-  };
-
-  const sendLinkAndComplete = async () => {
-    if (!paymentCtx || !accessToken) return;
-    setSavingPayment("link");
-    // If the owner typed an email (walk-in had none on file), save it to the
-    // appointment first so the link gets emailed AND a receipt can be sent.
-    const email = payEmail.trim();
-    const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (willEmail && email !== (paymentCtx.clientEmail ?? "")) {
-      await supabase.from("appointments").update({ client_email: email }).eq("id", paymentCtx.appointmentId);
-    }
-    const res = await fetch("/api/stripe/payment-link", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: paymentCtx.appointmentId, send_email: willEmail }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setSavingPayment("");
-      showToast(`Failed: ${data.error}`);
-      return;
-    }
-    // Service is done — complete + clear the queue regardless of how they pay
-    // (the charge lands later via the Stripe webhook when the customer pays).
-    await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentCtx.appointmentId);
-    await finishCompletion(paymentCtx.waitlistId);
-    setSavingPayment("");
-    if (data.emailed) {
-      setPaymentCtx(null);
-      showToast("Payment link emailed · Completed");
-    } else {
-      // No email — keep the modal open showing the link so the owner can hand
-      // it to the (present) walk-in to pay on the spot. Stripe collects the
-      // customer's email on its own checkout page.
-      setPayLink(data.url ?? "");
-      showToast("Link ready · Completed");
-    }
-  };
-
-  const skipAndComplete = async () => {
-    if (!paymentCtx) return;
-    setSavingPayment("skip");
-    await supabase.from("appointments").update({ status: "completed" }).eq("id", paymentCtx.appointmentId);
-    await finishCompletion(paymentCtx.waitlistId);
-    setSavingPayment("");
-    setPaymentCtx(null);
-    showToast(`${paymentCtx.clientName} · Completed unpaid`);
-  };
+  const apptActions = useMemo(
+    () => makeApptActions({
+      shop: shop ?? null, accessToken, patch: patchCheckout, setBusy: setDetailBusy,
+      toast: showToast, onDone: () => { setCheckoutAppt(null); setCheckoutEntryId(null); load(); },
+    }),
+    [shop, accessToken, patchCheckout, load],
+  );
 
   const rejectFromWaitlist = async (entry: WaitlistEntry) => {
-    const apptId = await apptIdFor(entry);
-    if (apptId) {
-      await supabase.from("appointments").update({ status: "cancelled" }).eq("id", apptId);
-    }
+    const link = linkFor(entry);
+    if (link) await supabase.from("appointments").update({ status: "cancelled" }).eq("id", link.id);
     await supabase.from("waitlist").update({ status: "removed" }).eq("id", entry.id);
     setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: "removed" } : e));
     showToast(`${entry.client_name} rejected`);
@@ -422,6 +372,7 @@ export default function WaitlistPage() {
               {active.map((entry, idx) => {
                 const barber = barbers.find(b => b.id === entry.barber_id);
                 const service = services.find(s => s.id === entry.service_id);
+                const link = linkFor(entry);
                 const mins = Math.floor((Date.now() - new Date(entry.added_at).getTime()) / 60000);
                 const isLong = mins > 30;
                 return (
@@ -455,9 +406,16 @@ export default function WaitlistPage() {
                             {isLong && " — Long wait"}
                           </span>
                         </div>
-                        <Badge variant={STATUS_CONFIG[entry.status].variant} className="text-xs mt-1.5">
-                          {STATUS_CONFIG[entry.status].label}
-                        </Badge>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Badge variant={STATUS_CONFIG[entry.status].variant} className="text-xs">
+                            {STATUS_CONFIG[entry.status].label}
+                          </Badge>
+                          {entry.status === "called" && (
+                            <span className="text-xs text-emerald-400 font-medium">
+                              {barber ? `With ${barber.name}` : "Assigned"}{link?.time_slot ? ` · ${link.time_slot}` : ""}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -475,9 +433,9 @@ export default function WaitlistPage() {
                       {entry.status === "called" && (
                         <>
                           <button type="button"
-                            onClick={() => completeFromWaitlist(entry)}
+                            onClick={() => openCheckout(entry)}
                             className="btn btn-blue btn-sm">
-                            <Check size={13} /> Complete
+                            <CreditCard size={13} /> Checkout
                           </button>
                           <button type="button"
                             onClick={() => rejectFromWaitlist(entry)}
@@ -597,73 +555,18 @@ export default function WaitlistPage() {
         </>
       )}
 
-      {/* Payment modal — mirrors the appointments-page flow. Opens on
-          Complete when the underlying appointment is still unpaid. */}
-      {paymentCtx && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentCtx(null)} />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Take Payment</h2>
-                <button onClick={() => savingPayment === "" && setPaymentCtx(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
-              </div>
-              <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentCtx.clientName}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="text-white font-bold">{formatCurrency(paymentCtx.totalAmount)}</span></div>
-              </div>
-
-              {payLink ? (
-                /* Link generated without an email — show it so the owner can
-                   hand it to the walk-in (who's standing right there). */
-                <div className="space-y-3">
-                  <p className="text-sm text-white font-medium">Payment link ready</p>
-                  <p className="text-xs text-[#777]">Have the customer scan/open this to pay. They&apos;ll enter their email on the secure Stripe page.</p>
-                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" className="btn btn-blue w-full"
-                      onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
-                      Copy link
-                    </button>
-                    <a href={payLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">
-                      Open to pay
-                    </a>
-                  </div>
-                  <button type="button" className="btn btn-outline-secondary w-full" onClick={() => setPaymentCtx(null)}>
-                    Done
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={payCashAndComplete}>
-                    {savingPayment === "cash" ? "Saving…" : "💵 Cash · Paid in shop"}
-                  </button>
-
-                  {/* Optional email — type one to email the link, or leave blank
-                      to just generate a link to hand over on the spot. */}
-                  <input
-                    type="email"
-                    value={payEmail}
-                    onChange={e => setPayEmail(e.target.value)}
-                    placeholder="Email (optional — to send the link)"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white"
-                  />
-                  <button type="button" className="btn btn-blue w-full" disabled={savingPayment !== ""} onClick={sendLinkAndComplete}>
-                    {savingPayment === "link"
-                      ? "Working…"
-                      : payEmail.trim()
-                        ? "📧 Email online payment link"
-                        : "💳 Create online payment link"}
-                  </button>
-
-                  <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={skipAndComplete}>
-                    {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
+      {/* Checkout — the universal appointment detail / "Check out" banner used
+          everywhere else. Completing/charging here flips the queue row to served. */}
+      {checkoutAppt && (
+        <Portal>
+          <ApptDetail
+            appt={checkoutAppt}
+            barbers={barbers}
+            onClose={() => { setCheckoutAppt(null); setCheckoutEntryId(null); }}
+            actions={apptActions}
+            busy={detailBusy}
+          />
+        </Portal>
       )}
 
       {/* Big toast — confirms the walk-in moved to /dashboard/appointments.
