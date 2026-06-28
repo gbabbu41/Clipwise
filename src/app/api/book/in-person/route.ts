@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { barberHasConflict, findAvailableBarber, UNIQUE_VIOLATION } from "@/lib/booking-conflict";
+import { barberHasConflict, findAvailableBarber, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 
 /**
@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (inserted.error) {
-    // The DB unique index rejected an exact (barber, date, slot) race.
-    if ((inserted.error as { code?: string }).code === UNIQUE_VIOLATION) {
+    // The DB rejected a double-book (exact-slot unique index OR the overlap guard).
+    if (isDoubleBookError(inserted.error)) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't create the booking. Please try again." }, { status: 500 });

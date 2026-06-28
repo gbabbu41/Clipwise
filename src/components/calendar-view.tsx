@@ -319,7 +319,17 @@ export function makeApptActions(opts: {
         if (!error) delete clean.duration_minutes;
       }
       setBusy("");
-      if (error) { toast(`Update failed: ${error.message}`); return; }
+      if (error) {
+        // The DB overlap guard (phase18) is the authoritative backstop — show a
+        // clear message rather than a raw error if it (or the unique index) fires.
+        const dbCode = (error as { code?: string }).code;
+        if (dbCode === "P0001" || dbCode === "23505" || /OVERLAP/i.test(error.message)) {
+          toast("That overlaps another booking for this barber — pick another time or shorten the service.");
+        } else {
+          toast(`Update failed: ${error.message}`);
+        }
+        return;
+      }
       patch(appt.id, clean as Partial<AppointmentWithDetails>);
       toast("Appointment updated");
     },

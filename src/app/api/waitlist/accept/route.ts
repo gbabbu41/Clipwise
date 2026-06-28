@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { barberHasConflict, UNIQUE_VIOLATION } from "@/lib/booking-conflict";
+import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 
 /**
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     inserted = await supabaseAdmin.from("appointments").insert(baseRow).select("id").single();
   }
   if (inserted.error) {
-    if ((inserted.error as { code?: string }).code === UNIQUE_VIOLATION) {
+    if (isDoubleBookError(inserted.error)) {
       return NextResponse.json({ error: "That slot was just taken — pick another." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't book the appointment. Try again." }, { status: 500 });

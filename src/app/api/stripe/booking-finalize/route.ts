@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { UNIQUE_VIOLATION, barberHasConflict } from "@/lib/booking-conflict";
+import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 
@@ -120,12 +120,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       // Slot was taken in the race window between checkout and this finalize
-      // (the DB unique index rejected it). The customer already paid/authorized,
-      // so undo the money so they aren't charged for a slot they didn't get:
+      // (the DB rejected it — exact-slot index OR the overlap guard). The
+      // customer already paid/authorized, so undo the money so they aren't
+      // charged for a slot they didn't get:
       //  · held (manual capture)  → cancel the authorization
       //  · paid                   → refund
       //  · saved (setup mode)     → nothing was charged
-      if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
+      if (isDoubleBookError(error)) {
         try {
           if (isHold && paymentIntentId) {
             await stripe.paymentIntents.cancel(paymentIntentId, undefined, acctOpts);

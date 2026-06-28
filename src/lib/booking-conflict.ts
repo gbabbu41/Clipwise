@@ -4,6 +4,13 @@ import { timeToMinutes } from "@/lib/utils";
 /** Postgres unique-violation error code — raised by the double-booking index. */
 export const UNIQUE_VIOLATION = "23505";
 
+/** True when an insert/update was rejected by the DB overlap guard (phase18
+ *  trigger) OR the exact-slot unique index — i.e. it would double-book a barber. */
+export function isDoubleBookError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return err.code === UNIQUE_VIOLATION || err.code === "P0001" || /OVERLAP/i.test(err.message ?? "");
+}
+
 const SLOT_MIN = 30;
 
 type ApptRow = {
