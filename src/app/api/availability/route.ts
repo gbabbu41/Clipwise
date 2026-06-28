@@ -50,14 +50,14 @@ export async function POST(request: NextRequest) {
   const apptWithDur = await supabaseAdmin
     .from("appointments")
     .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
-    .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed"]);
+    .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
   let apptRows: { barber_id: string; time_slot: string; duration_minutes?: number | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[];
   if (apptWithDur.error) {
     if (apptWithDur.error.message?.includes("duration_minutes")) {
       const fallback = await supabaseAdmin
         .from("appointments")
         .select("barber_id, time_slot, services(duration_minutes)")
-        .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed"]);
+        .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
       apptRows = (fallback.data ?? []) as typeof apptRows;
     } else {
       return NextResponse.json({ error: "Failed to load appointments" }, { status: 500 });

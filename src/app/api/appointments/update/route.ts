@@ -72,8 +72,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Conflict guard — only for active bookings with a concrete barber + time.
-  if (newBarber && newDate && newSlot && appt.status !== "cancelled" && appt.status !== "completed" && appt.status !== "no-show") {
+  // Only conflict-check when the actual time window moves (barber / day / start /
+  // duration). A name-or-payment-only edit can't introduce an overlap, and
+  // shouldn't be blocked by a pre-existing one. We don't guard a freed row
+  // (cancelled / no-show), but a completed one still holds its slot.
+  const curDur = appt.duration_minutes && appt.duration_minutes > 0 ? appt.duration_minutes : null;
+  const windowChanged =
+    newBarber !== appt.barber_id ||
+    newDate !== appt.date ||
+    newSlot !== appt.time_slot ||
+    (("duration_minutes" in fields || fields.service_id !== undefined) && newDur !== curDur);
+  const freed = appt.status === "cancelled" || appt.status === "no-show";
+  if (windowChanged && !freed && newBarber && newDate && newSlot) {
     const startMin = timeToMinutes(newSlot);
     const endMin = startMin + (newDur > 0 ? newDur : 30);
     if (await barberHasConflict(newBarber, newDate, startMin, endMin, appointment_id)) {

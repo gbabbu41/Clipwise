@@ -33,12 +33,23 @@ declare
   new_dur int;
   new_end int;
 begin
-  -- Only active bookings hold a chair.
-  if NEW.status is null or NEW.status not in ('pending', 'confirmed') then
+  -- A cancelled / no-show row frees its slot — never guard it.
+  if NEW.status is null or NEW.status in ('cancelled', 'no-show') then
     return NEW;
   end if;
   -- Can't range-check an unassigned ("any") barber.
   if NEW.barber_id is null then
+    return NEW;
+  end if;
+  -- On UPDATE, only check when the time window actually MOVES. A status/payment/
+  -- name change can't create an overlap and shouldn't be blocked by a pre-existing
+  -- one (e.g. completing one of two legacy-overlapping rows).
+  if TG_OP = 'UPDATE'
+     and OLD.barber_id is not distinct from NEW.barber_id
+     and OLD.date is not distinct from NEW.date
+     and OLD.time_slot is not distinct from NEW.time_slot
+     and (to_jsonb(OLD) ->> 'duration_minutes') is not distinct from (to_jsonb(NEW) ->> 'duration_minutes')
+  then
     return NEW;
   end if;
 
@@ -61,7 +72,7 @@ begin
     where a.id <> NEW.id
       and a.barber_id = NEW.barber_id
       and a.date = NEW.date
-      and a.status in ('pending', 'confirmed')
+      and a.status not in ('cancelled', 'no-show')
       and public.clipwise_slot_minutes(a.time_slot) is not null
       and new_start < public.clipwise_slot_minutes(a.time_slot)
                       + coalesce(nullif(to_jsonb(a) ->> 'duration_minutes', '')::int,

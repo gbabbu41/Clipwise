@@ -13,6 +13,12 @@ export function isDoubleBookError(err: { code?: string; message?: string } | nul
 
 const SLOT_MIN = 30;
 
+// Statuses that actually HOLD a chair. A completed appointment still occupied
+// its time, so it blocks an overlap too — only cancelled / no-show free the slot
+// (matching the calendar's isDimmed() occupancy). Keep this in sync with the
+// phase18 DB trigger and /api/availability.
+const OCCUPYING_STATUSES = ["pending", "confirmed", "completed"];
+
 type ApptRow = {
   time_slot: string;
   duration_minutes?: number | null;
@@ -40,14 +46,14 @@ async function barberIntervals(barber_id: string, date: string, excludeId?: stri
     .select("id, time_slot, duration_minutes, services(duration_minutes)")
     .eq("barber_id", barber_id)
     .eq("date", date)
-    .in("status", ["pending", "confirmed"]);
+    .in("status", OCCUPYING_STATUSES);
   if (withDur.error) {
     const fallback = await supabaseAdmin
       .from("appointments")
       .select("id, time_slot, services(duration_minutes)")
       .eq("barber_id", barber_id)
       .eq("date", date)
-      .in("status", ["pending", "confirmed"]);
+      .in("status", OCCUPYING_STATUSES);
     rows = (fallback.data ?? []) as (ApptRow & { id: string })[];
   } else {
     rows = (withDur.data ?? []) as (ApptRow & { id: string })[];
@@ -103,13 +109,13 @@ export async function findAvailableBarber(
   const withDur = await supabaseAdmin
     .from("appointments")
     .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
-    .in("barber_id", ordered).eq("date", date).in("status", ["pending", "confirmed"]);
+    .in("barber_id", ordered).eq("date", date).in("status", OCCUPYING_STATUSES);
   let allRows: RowWithBarber[];
   if (withDur.error) {
     const fallback = await supabaseAdmin
       .from("appointments")
       .select("barber_id, time_slot, services(duration_minutes)")
-      .in("barber_id", ordered).eq("date", date).in("status", ["pending", "confirmed"]);
+      .in("barber_id", ordered).eq("date", date).in("status", OCCUPYING_STATUSES);
     allRows = (fallback.data ?? []) as RowWithBarber[];
   } else {
     allRows = (withDur.data ?? []) as RowWithBarber[];
