@@ -1500,7 +1500,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
         {renderWeekStrip()}
-        {!single && unscheduledCount > 0 && (
+        {/* Only when some barbers ARE scheduled (so the off ones are actually
+            hidden). If nobody's scheduled we already show everyone as a
+            fallback, so there's nothing to reveal — no button. */}
+        {!single && scheduledBarbers.length > 0 && unscheduledCount > 0 && (
           <button type="button" onClick={() => setShowUnscheduled(v => !v)}
             className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#1e1e1e] text-[#999] hover:text-white transition-colors flex-shrink-0">
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}

@@ -1,38 +1,37 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Package, Info, Bell } from "lucide-react";
+import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Info, Bell, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, friendlyDate } from "@/lib/utils";
 
-// One clean type-icon per notification (no raw emoji), with a tinted chip.
-const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
-  booking:      { Icon: Calendar,      cls: "bg-emerald-500/15 text-emerald-400" },
-  cancellation: { Icon: CalendarX2,    cls: "bg-rose-500/15 text-rose-400" },
-  "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
-  review:       { Icon: Star,          cls: "bg-yellow-500/15 text-yellow-400" },
-  inventory:    { Icon: Package,       cls: "bg-sky-500/15 text-sky-400" },
-  system:       { Icon: Info,          cls: "bg-white/10 text-[#aaa]" },
+// Rich classification (mirrors the notification sheet): coloured badge + icon
+// chip + left accent inferred from the type and a few title/message keywords.
+const classify = (n: { title: string; message: string; type: string }) => {
+  const s = `${n.title} ${n.message}`.toLowerCase();
+  const k = (Icon: typeof Bell, chip: string, badge: string, badgeCls: string, accent: string, actionable = false) =>
+    ({ Icon, chip, badge, badgeCls, accent, actionable });
+  if (/waitlist|waiting for a spot/.test(s)) return k(BellRing, "bg-amber-500/15 text-amber-300", "Waitlist", "bg-amber-500/15 text-amber-300", "#f59e0b", true);
+  if (n.type === "cancellation" || /cancel(led|lation)?/.test(s)) return k(CalendarX2, "bg-rose-500/15 text-rose-300", "Cancelled", "bg-rose-500/15 text-rose-300", "#f43f5e");
+  if (/payment failed|\bfailed\b|declined/.test(s)) return k(AlertTriangle, "bg-rose-500/15 text-rose-300", "Failed", "bg-rose-500/15 text-rose-300", "#f43f5e");
+  if (n.type === "no-show" || /no.?show/.test(s)) return k(AlertTriangle, "bg-rose-500/15 text-rose-300", "No-show", "bg-rose-500/15 text-rose-300", "#f43f5e");
+  if (/refund/.test(s)) return k(RefreshCcw, "bg-amber-500/15 text-amber-300", "Refund", "bg-amber-500/15 text-amber-300", "#f59e0b");
+  if (/authoriz|card.?hold|on hold/.test(s)) return k(CreditCard, "bg-sky-500/15 text-sky-300", "Card hold", "bg-sky-500/15 text-sky-300", "#38bdf8");
+  if (/payment|charged|collected|received|\bpaid\b/.test(s)) return k(Banknote, "bg-emerald-500/15 text-emerald-300", "Payment", "bg-emerald-500/15 text-emerald-300", "#10b981");
+  if (/block|hours|time.?off|vacation|day off/.test(s)) { const act = /request/.test(s); return k(Clock, act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "Request" : "Schedule", act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "#f59e0b" : "#38bdf8", act); }
+  if (n.type === "review" || /review|\bstar\b/.test(s)) return k(Star, "bg-yellow-500/15 text-yellow-300", "Review", "bg-yellow-500/15 text-yellow-300", "#eab308");
+  if (/approved|confirmed/.test(s)) return k(CheckCircle2, "bg-emerald-500/15 text-emerald-300", "Confirmed", "bg-emerald-500/15 text-emerald-300", "#10b981");
+  if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) { const p = /pending|approval|request|awaiting/.test(s) || n.type === "booking"; return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "#3a3a3a", p); }
+  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "#3a3a3a");
 };
-const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
-// Drop any leading emoji/symbol the stored title carries so the row shows a
-// single, consistent icon (e.g. "✅ Paid" → "Paid").
+const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
+// Drop any leading emoji/symbol the stored title carries (e.g. "✅ Paid" → "Paid").
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import type { Notification } from "@/lib/database.types";
-
-// Type → accent color used for the avatar tile + left border on unread rows.
-const TYPE_ACCENT: Record<string, { bg: string; border: string; text: string }> = {
-  booking:      { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400" },
-  cancellation: { bg: "bg-red-500/10",     border: "border-red-500/40",     text: "text-red-400" },
-  "no-show":    { bg: "bg-amber-500/10",   border: "border-amber-500/40",   text: "text-amber-400" },
-  review:       { bg: "bg-white/10",       border: "border-white/40",       text: "text-white" },
-  inventory:    { bg: "bg-blue-500/10",    border: "border-blue-500/40",    text: "text-blue-400" },
-  system:       { bg: "bg-[#141414]",      border: "border-[#1e1e1e]",      text: "text-[#777]" },
-};
 
 type NotificationType = "booking" | "cancellation" | "no-show" | "review" | "inventory";
 
@@ -197,65 +196,59 @@ export default function NotificationsPage() {
               </div>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {filtered.map(notif => {
-                const accent = TYPE_ACCENT[notif.type] ?? TYPE_ACCENT.system;
+            (() => {
+              // Group like the mobile sheet: unread actionable → Action required,
+              // then by day.
+              const action = filtered.filter(n => !n.is_read && classify(n).actionable);
+              const ids = new Set(action.map(n => n.id));
+              const rest = filtered.filter(n => !ids.has(n.id));
+              const today = rest.filter(n => isToday(n.created_at));
+              const earlier = rest.filter(n => !isToday(n.created_at));
+              const card = (notif: Notification) => {
+                const c = classify(notif);
                 return (
-                  <div
-                    key={notif.id}
-                    onClick={() => !notif.is_read && markRead(notif.id)}
-                    className={cn(
-                      "group relative flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer",
-                      notif.is_read
-                        ? "bg-[#0c0c0c] border-[#1e1e1e] hover:bg-[#141414]"
-                        : "bg-[#141414] border-[#2a2a2a] hover:border-white/30"
-                    )}
-                  >
-                    {/* Type icon — clean tinted chip, one icon per type. */}
-                    {(() => { const { Icon, cls } = notifIcon(notif.type); return (
-                      <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
-                        <Icon size={16} />
+                  <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
+                    style={{ borderLeftColor: c.accent }}
+                    className={cn("group relative flex items-start gap-3 p-4 rounded-2xl border border-l-[3px] transition-all cursor-pointer",
+                      notif.is_read ? "bg-[#0c0c0c] border-[#1e1e1e] hover:bg-[#141414]" : "bg-white/[0.04] border-[#2a2a2a] hover:border-white/30")}>
+                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+                      <c.Icon size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-6">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("text-sm leading-tight truncate", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-white")}>{cleanNotifTitle(notif.title)}</p>
+                        <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
                       </div>
-                    ); })()}
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2">
-                        {/* Title (top header — 'New Paid Booking · $35')
-                            stays solid white regardless of read state. */}
-                        <p className="text-sm font-semibold leading-tight flex-1 min-w-0 truncate text-white">
-                          {cleanNotifTitle(notif.title)}
-                        </p>
-                        {!notif.is_read && (
-                          <span className="w-2 h-2 rounded-full bg-white flex-shrink-0 mt-1.5" />
-                        )}
-                      </div>
-                      <p className="text-sm text-[#777] mt-1 leading-relaxed">{humanizeMessage(notif.message)}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={cn(
-                          "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                          accent.bg, accent.border, accent.text,
-                        )}>
-                          {notif.type}
-                        </span>
+                      <p className="text-sm text-[#aaa] mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
+                      <div className="flex items-center justify-between mt-1.5">
                         <span className="text-xs text-[#777]">{notifTime(notif.created_at)}</span>
+                        {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
                       </div>
                     </div>
-
-                    {/* Dismiss — appears on hover, click-stop so it doesn't
-                        also mark the row as read on the way out. */}
-                    <button
-                      type="button"
-                      aria-label="Dismiss notification"
+                    {!notif.is_read && <span className="absolute top-3.5 right-9 w-2 h-2 rounded-full bg-amber-400" />}
+                    <button type="button" aria-label="Dismiss notification"
                       onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#0c0c0c] border border-[#1e1e1e] flex items-center justify-center text-[#777] hover:text-white hover:border-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#0c0c0c] border border-[#1e1e1e] flex items-center justify-center text-[#777] hover:text-white hover:border-white opacity-0 group-hover:opacity-100 transition-opacity">
                       <X size={13} />
                     </button>
                   </div>
                 );
-              })}
-            </div>
+              };
+              const section = (label: string, items: Notification[], labelCls = "text-[#777]") =>
+                items.length > 0 ? (
+                  <div key={label} className="space-y-2">
+                    <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
+                    {items.map(card)}
+                  </div>
+                ) : null;
+              return (
+                <div className="space-y-4">
+                  {section("Action required", action, "text-amber-400")}
+                  {section("Today", today)}
+                  {section("Earlier", earlier)}
+                </div>
+              );
+            })()
           )}
         </div>
 
