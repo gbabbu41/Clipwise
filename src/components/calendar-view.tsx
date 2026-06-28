@@ -1237,18 +1237,31 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const isToday = dateStr === formatDateForDb(new Date());
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
+    // Start times of the day's other bookings → so a slot whose chosen service
+    // would overrun into the next appointment is DROPPED from the list entirely
+    // (not just shown disabled "won't fit").
+    const bookingStarts = appointments
+      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !isDimmed(a.status))
+      .map(a => timeToMinutes(a.time_slot));
+    const nextBookingAfter = (m: number) => {
+      const after = bookingStarts.filter(s => s > m);
+      return after.length ? Math.min(...after) : 24 * 60;
+    };
     const opts: string[] = [];
     for (let m = startMin; m < endMin; m += ADD_STEP) {
       if (isToday && m < nowMin) continue;
       const slot = minsToSlot(m);
       if (booked.has(slot)) continue;
       if (blocksM.some(bl => m >= bl.startMin && m < bl.endMin)) continue;
+      // Once a service is chosen, hide starts where it won't fit before the next booking.
+      if (addTotalDuration > 0 && m + addTotalDuration > nextBookingAfter(m)) continue;
       opts.push(slot);
     }
-    // A deliberately-tapped empty box stays pickable even if it's outside hours.
+    // A deliberately-tapped empty box stays pickable even if it's outside hours
+    // (the save guard still blocks an actual overrun there).
     if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)) opts.unshift(addCtx.time);
     return opts;
-  }, [addCtx, currentDate, schedules, bookedSlotsFor, blocksFor]);
+  }, [addCtx, currentDate, schedules, bookedSlotsFor, blocksFor, appointments, addTotalDuration]);
 
   // Keep the selected time valid — default to the first available slot when the
   // seeded time isn't bookable (e.g. the header "+" landed before opening hours).
@@ -2381,10 +2394,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <Select label="Available time" value={addForm.time}
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
                 {addTimeOptions.length === 0 && <option value="">No open times this day</option>}
-                {addTimeOptions.map(t => {
-                  const tooLong = !!addWindow && addTotalDuration > 0 && timeToMinutes(t) + addTotalDuration > addWindow.freeUntil;
-                  return <option key={t} value={t} disabled={tooLong}>{t}{tooLong ? " — won't fit" : ""}</option>;
-                })}
+                {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
               </Select>
               {isOutsideSchedule(addCtx.barberId, addForm.time) && (
                 <p className="text-xs text-amber-400">
