@@ -1143,6 +1143,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const EMPTY_STEP = 30;   // base granularity for detecting free time
   const ADD_STEP = 15;
 
+  // Shortest bookable service — a free gap smaller than this can't fit ANY
+  // appointment, so we don't draw it as an empty "+" slot (those slivers just
+  // chop the day up). Falls back to 30 min when no services are loaded.
+  const minServiceMin = useMemo(() => {
+    const ds = services.map(s => s.duration_minutes).filter((d): d is number => !!d && d > 0);
+    return ds.length ? Math.min(...ds) : EMPTY_STEP;
+  }, [services]);
+
   // Display-slots a barber's live appointments cover on the given day, at the
   // requested step. Cancelled/no-show are ignored so their times read as free.
   const bookedSlotsFor = useCallback((barberId: string, dateStr: string, step: number = EMPTY_STEP) => {
@@ -1176,6 +1184,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .sort((x, y) => x[0] - y[0]);
     const out: { slot: string; minutes: number }[] = [];
     const tile = (from: number, to: number) => {
+      // Skip the whole gap if even the shortest service can't fit in it.
+      if (to - from < minServiceMin) return;
       let c = from;
       while (c < to - 0.5) {
         const boundary = c % 60 === 0 ? c + 60 : Math.ceil(c / 60) * 60;
@@ -1192,7 +1202,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     }
     if (cursor < endMins) tile(cursor, endMins);
     return out;
-  }, [appointments]);
+  }, [appointments, minServiceMin]);
 
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
