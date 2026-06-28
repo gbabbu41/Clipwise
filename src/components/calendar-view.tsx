@@ -218,6 +218,10 @@ export type ApptEditFields = {
   date?: string;          // YYYY-MM-DD
   time_slot?: string;     // display, e.g. "9:00 AM"
   barber_id?: string | null;
+  service_id?: string | null;       // primary service of the (possibly combined) booking
+  total_amount?: number;            // combined price
+  duration_minutes?: number;        // combined block length
+  notes?: string | null;            // carries "Services: A + B" for multi-service
 };
 export type ApptActions = {
   approve: (a: AppointmentWithDetails) => void;
@@ -265,7 +269,14 @@ export function makeApptActions(opts: {
       });
       if (Object.keys(clean).length === 0) { toast("No changes"); return; }
       setBusy("edit");
-      const { error } = await supabase.from("appointments").update(clean).eq("id", appt.id);
+      let { error } = await supabase.from("appointments").update(clean).eq("id", appt.id);
+      // duration_minutes may not exist yet (pre-phase14) — retry without it.
+      if (error && /duration_minutes/.test(error.message) && "duration_minutes" in clean) {
+        const { duration_minutes: _omit, ...rest } = clean;
+        void _omit;
+        ({ error } = await supabase.from("appointments").update(rest).eq("id", appt.id));
+        if (!error) delete clean.duration_minutes;
+      }
       setBusy("");
       if (error) { toast(`Update failed: ${error.message}`); return; }
       patch(appt.id, clean as Partial<AppointmentWithDetails>);
@@ -411,9 +422,12 @@ function DAction({ icon, label, onClick, disabled, tone = "default" }: {
 }
 
 // ── Appointment detail — a bottom sheet / drawer that slides up on tap ──────────
-export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = false }: {
+export function ApptDetail({ appt, barbers, services, onClose, actions, busy, readOnly = false }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
+  // Optional — when given, the edit form lets you change / add services, and the
+  // time list only offers slots where the combined duration actually fits.
+  services?: { id: string; name: string; price: number; duration_minutes: number }[];
   onClose: () => void;
   actions: ApptActions;
   busy: string;
@@ -425,10 +439,11 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
   // The email field only appears after tapping "Send payment link".
   const [showEmail, setShowEmail] = useState(false);
 
-  // Inline edit — change the time / day / client info / barber before checking
-  // out (e.g. customer wants a different slot, or it's a different person now).
-  // Time is picked from the 15-min slot grid (snapped on open), never free-form.
+  // Inline edit — change the time / day / client info / barber / service(s)
+  // before checking out. Time comes from the 15-min slot grid (never free-form);
+  // when `services` is supplied, the grid is filtered to slots that fit.
   const [editMode, setEditMode] = useState(false);
+  const svcById = useCallback((id: string) => services?.find(s => s.id === id), [services]);
   const makeEditForm = () => ({
     client_name: appt.client_name ?? "",
     client_phone: appt.client_phone ?? "",
@@ -436,19 +451,96 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
     date: appt.date ?? "",
     time: snapToSlot(appt.time_slot ?? "12:00 AM"),
     barber_id: appt.barber_id ?? "",
+    service_ids: appt.service_id ? [appt.service_id] : [] as string[],
   });
   const [editForm, setEditForm] = useState(makeEditForm);
   const openEdit = () => { setEditForm(makeEditForm()); setEditMode(true); };
+
+  const editTotalDuration = editForm.service_ids.reduce((n, id) => n + (svcById(id)?.duration_minutes || 0), 0);
+  const editTotalPrice = editForm.service_ids.reduce((n, id) => n + Number(svcById(id)?.price || 0), 0);
+
+  // Availability for the chosen barber + day (only while editing services), so we
+  // can offer just the start times where the combined service block fits.
+  type EditAvail = { start_time: string | null; end_time: string | null; fullDayOff: boolean; busy: { time_slot: string; duration: number }[]; blocked: { start_time: string; end_time: string }[] };
+  const [editAvail, setEditAvail] = useState<EditAvail | null>(null);
+  useEffect(() => {
+    if (!editMode || !services || !editForm.barber_id || !editForm.date) { setEditAvail(null); return; }
+    let alive = true;
+    fetch("/api/availability", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: appt.shop_id, date: editForm.date, barber_id: editForm.barber_id }),
+    }).then(r => (r.ok ? r.json() : { barbers: [] }))
+      .then(d => { if (alive) setEditAvail(((d.barbers ?? [])[0] as EditAvail) ?? null); })
+      .catch(() => { if (alive) setEditAvail(null); });
+    return () => { alive = false; };
+  }, [editMode, services, editForm.barber_id, editForm.date, appt.shop_id]);
+
+  const minToDisplay = (m: number) => dbTimeToDisplay(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  // Keep the appointment's own slot pickable (don't let it block itself) when the
+  // barber + day are unchanged.
+  const ownSlot = (appt.date === editForm.date && appt.barber_id === editForm.barber_id) ? appt.time_slot : null;
+  const editSlots = useMemo<string[]>(() => {
+    if (!services || !editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return EDIT_TIME_SLOTS;
+    const startMin = timeToMinutes(dbTimeToDisplay(editAvail.start_time));
+    const endMin = timeToMinutes(dbTimeToDisplay(editAvail.end_time));
+    const otherBusy = editAvail.busy.filter(x => !(ownSlot && x.time_slot === ownSlot));
+    const occupied = new Set<string>(otherBusy.flatMap(a => occupiedSlots(a.time_slot, a.duration, 15)));
+    for (const o of editAvail.blocked) {
+      const bs = timeToMinutes(dbTimeToDisplay(o.start_time)), be = timeToMinutes(dbTimeToDisplay(o.end_time));
+      for (const s of generate24hSlots(15)) { const m = timeToMinutes(s); if (m >= bs && m < be) occupied.add(s); }
+    }
+    const starts = otherBusy.map(a => timeToMinutes(a.time_slot));
+    const nextAfter = (m: number) => { const after = starts.filter(s => s > m); return after.length ? Math.min(...after) : 24 * 60; };
+    const dur = editTotalDuration > 0 ? editTotalDuration : 15;
+    const isToday = editForm.date === formatDateForDb(new Date());
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const opts: string[] = [];
+    for (let m = startMin; m + dur <= endMin; m += 15) {
+      const slot = minToDisplay(m);
+      if (isToday && m < nowMin) continue;
+      if (occupied.has(slot)) continue;
+      if (m + dur > nextAfter(m)) continue;
+      opts.push(slot);
+    }
+    if (ownSlot && !opts.includes(ownSlot)) opts.unshift(ownSlot);
+    return opts;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, editAvail, editTotalDuration, editForm.date, ownSlot]);
+
+  // If the chosen time stops fitting (e.g. a longer service was added), snap it
+  // to the first slot that does.
+  useEffect(() => {
+    if (!editMode || !services) return;
+    if (editSlots.length && !editSlots.includes(editForm.time)) setEditForm(f => ({ ...f, time: editSlots[0] }));
+  }, [editMode, services, editSlots, editForm.time]);
+
+  const setServiceAt = (idx: number, id: string) => setEditForm(f => { const next = [...f.service_ids]; if (idx >= next.length) next.push(id); else next[idx] = id; return { ...f, service_ids: next }; });
+  const addServiceRow = () => setEditForm(f => ({ ...f, service_ids: [...f.service_ids, ""] }));
+  const removeServiceRow = (idx: number) => setEditForm(f => ({ ...f, service_ids: f.service_ids.filter((_, i) => i !== idx) }));
+
   const saveEdit = () => {
     if (!editForm.client_name.trim() || !editForm.date || !editForm.time) return;
-    actions.edit(appt, {
+    const fields: ApptEditFields = {
       client_name: editForm.client_name.trim(),
       client_phone: editForm.client_phone.trim() || null,
       client_email: editForm.client_email.trim() || null,
       date: editForm.date,
       time_slot: editForm.time,
       barber_id: editForm.barber_id || null,
-    });
+    };
+    const ids = editForm.service_ids.filter(Boolean);
+    if (services && ids.length > 0) {
+      const svcs = ids.map(id => svcById(id)).filter(Boolean) as { name: string; price: number; duration_minutes: number }[];
+      fields.service_id = ids[0];
+      fields.total_amount = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
+      fields.duration_minutes = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
+      // Record the combined list in notes — but don't clobber a non-service note.
+      const existing = (appt.notes ?? "").trim();
+      if (ids.length > 1 && (!existing || /^services:/i.test(existing))) {
+        fields.notes = `Services: ${svcs.map(s => s.name).join(" + ")}`;
+      }
+    }
+    actions.edit(appt, fields);
     setEditMode(false);
   };
   const duration = apptDuration(appt);
@@ -550,7 +642,8 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                   <select value={editForm.time}
                     onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
                     className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
-                    {EDIT_TIME_SLOTS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {editSlots.length === 0 && <option value="">No open times</option>}
+                    {editSlots.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
@@ -559,6 +652,33 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                 <option value="">Any barber</option>
                 {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </Select>
+              {services && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Service(s)</label>
+                  {(editForm.service_ids.length ? editForm.service_ids : [""]).map((sid, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <select value={sid} onChange={e => setServiceAt(idx, e.target.value)}
+                        className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                        <option value="">Select a service</option>
+                        {services.map(s => <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>)}
+                      </select>
+                      {(editForm.service_ids.length > 1 || !!sid) && (
+                        <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
+                          className="w-9 h-9 flex-shrink-0 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white hover:border-white flex items-center justify-center">
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={addServiceRow}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300">
+                    <Plus size={15} /> Add another service
+                  </button>
+                  {editForm.service_ids.filter(Boolean).length > 0 && (
+                    <p className="text-xs text-[#aaa]">Total: {editTotalDuration} min · ${editTotalPrice.toFixed(0)}</p>
+                  )}
+                </div>
+              )}
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setEditMode(false)}
                   className="flex-1 py-2.5 rounded-xl border border-[#222] bg-[#1a1a1a] text-sm font-medium text-[#ccc] hover:bg-[#1e1e1e] transition-colors">Cancel</button>
@@ -2266,6 +2386,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <ApptDetail
             appt={selectedAppt}
             barbers={barbers}
+            services={services}
             onClose={() => setSelectedAppt(null)}
             actions={apptActions}
             busy={actionBusy}

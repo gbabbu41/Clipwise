@@ -540,6 +540,7 @@ export default function WaitlistPage() {
           <ApptDetail
             appt={checkoutAppt}
             barbers={barbers}
+            services={services}
             onClose={() => { setCheckoutAppt(null); setCheckoutEntryId(null); }}
             actions={apptActions}
             busy={detailBusy}
