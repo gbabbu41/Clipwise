@@ -239,6 +239,8 @@ export function Sidebar() {
   // Reuses the same client-side flow the calendar uses (status update + the
   // shared side-effect helpers). `shop` comes from useAuth above.
   const [notifActing, setNotifActing] = useState<string | null>(null);
+  const [notifToast, setNotifToast] = useState("");
+  const showNotifToast = (m: string) => { setNotifToast(m); setTimeout(() => setNotifToast(""), 2800); };
   const dismissNotif = (id: string) => {
     setRecentNotifs(prev => prev.filter(x => x.id !== id));
     // DELETE (not just mark read): the recent-notifs query re-fetches whenever
@@ -256,18 +258,21 @@ export function Sidebar() {
     const { data: appt } = await supabase
       .from("appointments").select("*, services(name), barbers(name)")
       .eq("id", n.entity_id).maybeSingle();
-    if (!appt) { setNotifActing(null); dismissNotif(n.id); return; } // booking gone
-    if (appt.status !== "pending") { setNotifActing(null); dismissNotif(n.id); return; } // already handled
+    if (!appt) { setNotifActing(null); dismissNotif(n.id); showNotifToast("That booking is no longer available"); return; } // booking gone
+    if (appt.status !== "pending") { setNotifActing(null); dismissNotif(n.id); showNotifToast("Already handled"); return; } // already handled
     const a = appt as unknown as AppointmentWithDetails;
+    const who = a.client_name ? ` for ${a.client_name}` : "";
     if (decision === "approve") {
       const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", a.id);
-      if (error) { setNotifActing(null); return; }
+      if (error) { setNotifActing(null); showNotifToast("Couldn't approve — please try again"); return; }
       sendApprovalNotifications(a, shop);
+      showNotifToast(`Booking approved${who} ✓`);
     } else {
       const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", a.id);
-      if (error) { setNotifActing(null); return; }
+      if (error) { setNotifActing(null); showNotifToast("Couldn't decline — please try again"); return; }
       sendRejectionEmail(a, shop, "");
       notifyFreedSlot(a, shop, "Cancelled");
+      showNotifToast(`Booking declined${who}`);
     }
     setNotifActing(null);
     dismissNotif(n.id);
@@ -470,6 +475,13 @@ export function Sidebar() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Confirmation toast for inline Approve/Decline (sits above the sheet). */}
+      {notifToast && (
+        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl whitespace-nowrap">
+          {notifToast}
+        </div>
+      )}
 
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (

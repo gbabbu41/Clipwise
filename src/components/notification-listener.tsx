@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Bell, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { isNotifSoundOn } from "@/lib/notif-sound";
@@ -11,6 +11,27 @@ interface Popup { id: string; title: string; message: string; type: string }
 const ICON: Record<string, string> = {
   booking: "🎉", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
 };
+
+// Tap a pop-up → land on the page where you can actually act on it, routed by
+// what it's about AND which portal we're in. Owners approve bookings on the
+// Appointments page; barbers approve from their Calendar. The old behaviour
+// always pushed "/dashboard/notifications" — a dead end (no inline approve) and
+// the wrong portal for barbers, which is why "Approve" felt like it went nowhere.
+function popupHref(n: Popup, isBarber: boolean): string {
+  const s = `${n.title} ${n.message}`.toLowerCase();
+  if (isBarber) {
+    if (/payment|charged|collected|refund|card.?hold|authoriz|\bpaid\b|failed/.test(s)) return "/barber-dashboard/earnings";
+    if (n.type === "booking" || n.type === "cancellation" || n.type === "no-show" || /book(ed|ing)|appointment|waitlist/.test(s)) return "/barber-dashboard/calendar";
+    return "/barber-dashboard/notifications";
+  }
+  if (/waitlist|waiting for a spot/.test(s)) return "/dashboard/waitlist-requests";
+  if (/payment|charged|collected|refund|card.?hold|authoriz|\bpaid\b|failed/.test(s)) return "/dashboard/payments";
+  if (/block|hours|time.?off|vacation|day off/.test(s)) return "/dashboard/calendar";
+  if (n.type === "review" || /review/.test(s)) return "/dashboard/reviews";
+  if (n.type === "inventory" || /inventory|stock/.test(s)) return "/dashboard/inventory";
+  if (n.type === "booking" || n.type === "cancellation" || n.type === "no-show" || /book(ed|ing)|appointment/.test(s)) return "/dashboard/appointments";
+  return "/dashboard/notifications";
+}
 
 /**
  * Live in-portal notification pop-ups with a chime. Subscribes to new rows in
@@ -24,6 +45,8 @@ const ICON: Record<string, string> = {
 export function NotificationListener() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const isBarber = !!pathname?.startsWith("/barber-dashboard");
   const [popups, setPopups] = useState<Popup[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -98,7 +121,7 @@ export function NotificationListener() {
         <button
           key={p.id}
           type="button"
-          onClick={() => { dismiss(p.id); router.push("/dashboard/notifications"); }}
+          onClick={() => { dismiss(p.id); router.push(popupHref(p, isBarber)); }}
           className="pointer-events-auto text-left flex items-start gap-3 bg-[#0c0c0c] border border-gold/40 rounded-2xl p-4 shadow-2xl animate-slide-up ring-1 ring-gold/10 hover:border-gold transition-colors"
         >
           <span className="text-xl leading-none mt-0.5">{ICON[p.type] ?? "🔔"}</span>
