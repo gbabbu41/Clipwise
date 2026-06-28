@@ -199,6 +199,14 @@ const apptBlock = (a: { status?: string | null; payment_status?: string | null }
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
 // page so Approve / Complete / Reject behave identically from either surface.
+export type ApptEditFields = {
+  client_name?: string;
+  client_phone?: string | null;
+  client_email?: string | null;
+  date?: string;          // YYYY-MM-DD
+  time_slot?: string;     // display, e.g. "9:00 AM"
+  barber_id?: string | null;
+};
 export type ApptActions = {
   approve: (a: AppointmentWithDetails) => void;
   complete: (a: AppointmentWithDetails) => void;        // paid / zero-amount / skip-unpaid
@@ -206,6 +214,7 @@ export type ApptActions = {
   cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
   sendLink: (a: AppointmentWithDetails, email: string) => void;
   reject: (a: AppointmentWithDetails) => void;
+  edit: (a: AppointmentWithDetails, fields: ApptEditFields) => void; // change time/day/client/barber
 };
 
 // Shared factory for the appointment actions (Approve / Complete / Charge / cash /
@@ -230,6 +239,25 @@ export function makeApptActions(opts: {
       patch(appt.id, { status: "confirmed" });
       sendApprovalNotifications(appt, shop);
       toast("Approved · Customer notified");
+    },
+    edit: async (appt, fields) => {
+      if (!shop) return;
+      // Only send columns that actually changed (and exist on the row).
+      const clean: Record<string, unknown> = {};
+      const current = appt as unknown as Record<string, unknown>;
+      (Object.keys(fields) as (keyof ApptEditFields)[]).forEach((k) => {
+        const v = fields[k];
+        if (v !== undefined && v !== current[k]) {
+          clean[k] = v === "" ? null : v;
+        }
+      });
+      if (Object.keys(clean).length === 0) { toast("No changes"); return; }
+      setBusy("edit");
+      const { error } = await supabase.from("appointments").update(clean).eq("id", appt.id);
+      setBusy("");
+      if (error) { toast(`Update failed: ${error.message}`); return; }
+      patch(appt.id, clean as Partial<AppointmentWithDetails>);
+      toast("Appointment updated");
     },
     complete: async (appt) => {
       if (!shop) return;
@@ -384,6 +412,42 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
   // The email field only appears after tapping "Send payment link".
   const [showEmail, setShowEmail] = useState(false);
+
+  // Inline edit — change the time / day / client info / barber before checking
+  // out (e.g. customer wants a different slot, or it's a different person now).
+  const toTimeInput = (slot: string) => { const m = timeToMinutes(slot); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    client_name: appt.client_name ?? "",
+    client_phone: appt.client_phone ?? "",
+    client_email: appt.client_email ?? "",
+    date: appt.date ?? "",
+    time: toTimeInput(appt.time_slot ?? "12:00 AM"),
+    barber_id: appt.barber_id ?? "",
+  });
+  const openEdit = () => {
+    setEditForm({
+      client_name: appt.client_name ?? "",
+      client_phone: appt.client_phone ?? "",
+      client_email: appt.client_email ?? "",
+      date: appt.date ?? "",
+      time: toTimeInput(appt.time_slot ?? "12:00 AM"),
+      barber_id: appt.barber_id ?? "",
+    });
+    setEditMode(true);
+  };
+  const saveEdit = () => {
+    if (!editForm.client_name.trim() || !editForm.date || !editForm.time) return;
+    actions.edit(appt, {
+      client_name: editForm.client_name.trim(),
+      client_phone: editForm.client_phone.trim() || null,
+      client_email: editForm.client_email.trim() || null,
+      date: editForm.date,
+      time_slot: dbTimeToDisplay(editForm.time),
+      barber_id: editForm.barber_id || null,
+    });
+    setEditMode(false);
+  };
   const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
@@ -431,7 +495,7 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
         className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", shown ? "opacity-100" : "opacity-0")}
         onClick={close}
       />
-      <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+      <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
         <div
           ref={sheetRef}
           style={{
@@ -439,8 +503,8 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
             transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
           }}
           className={cn(
-            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
-            "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[88vh] overflow-y-auto overscroll-contain",
+            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+            "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[88vh] overflow-y-auto overscroll-contain",
           )}
         >
           {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
@@ -463,7 +527,44 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
           )}
 
           {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
-          {readOnly ? (
+          {editMode ? (
+            <div className="px-[18px] pt-3.5 flex flex-col gap-3">
+              <Input label="Client name *" value={editForm.client_name}
+                onChange={e => setEditForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Client name" />
+              <Input label="Phone" value={editForm.client_phone}
+                onChange={e => setEditForm(f => ({ ...f, client_phone: e.target.value }))} placeholder="506-555-0000" />
+              <Input label="Email" type="email" value={editForm.client_email}
+                onChange={e => setEditForm(f => ({ ...f, client_email: e.target.value }))} placeholder="name@email.com" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Day</label>
+                  <input type="date" value={editForm.date}
+                    onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Time</label>
+                  <input type="time" value={editForm.time}
+                    onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                </div>
+              </div>
+              <Select label="Barber" value={editForm.barber_id}
+                onChange={e => setEditForm(f => ({ ...f, barber_id: e.target.value }))}>
+                <option value="">Any barber</option>
+                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </Select>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setEditMode(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[#222] bg-[#1a1a1a] text-sm font-medium text-[#ccc] hover:bg-[#1e1e1e] transition-colors">Cancel</button>
+                <button type="button" disabled={!!busy || !editForm.client_name.trim() || !editForm.date || !editForm.time}
+                  onClick={saveEdit}
+                  className="flex-1 py-2.5 rounded-xl bg-[#00e5a0] text-black text-sm font-bold disabled:opacity-40 transition-opacity">
+                  {busy === "edit" ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </div>
+          ) : readOnly ? (
             <p className="px-[18px] pt-4 text-center text-xs text-[#666]">View only</p>
           ) : payChoice ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
@@ -500,6 +601,10 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
             </div>
           ) : (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+              {/* Edit — change the time / day / client / barber before checkout. */}
+              {appt.status !== "completed" && appt.status !== "cancelled" && (
+                <DAction icon="✏️" label="Edit details" disabled={!!busy} onClick={openEdit} />
+              )}
               {appt.status === "pending" && (
                 <DAction tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
               )}
@@ -2166,7 +2271,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       {addCtx && (
         <Portal>
           <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", addShown ? "opacity-100" : "opacity-0")} onClick={() => !savingAdd && !blockBusy && closeAdd()} />
-          <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+          <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
             <div
               ref={addSheetRef}
               style={{
@@ -2174,8 +2279,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 transition: addDragging ? "none" : "transform 0.26s cubic-bezier(.32,.72,0,1)",
               }}
               className={cn(
-                "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl",
-                "pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
+                "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+                "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
               )}>
               {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
               <div

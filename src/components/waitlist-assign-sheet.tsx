@@ -106,10 +106,10 @@ export function WaitlistAssignSheet({
   return (
     <>
       <div className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] transition-opacity duration-300", shown ? "opacity-100" : "opacity-0")} onClick={close} />
-      <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center pointer-events-none">
+      <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
         <div ref={sheetRef}
           style={{ transform: shown ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)", transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-          className="pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border-x border-[#1e1e1e] rounded-t-2xl shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[85vh] overflow-y-auto overscroll-contain">
+          className="pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[85vh] overflow-y-auto overscroll-contain">
           <div onClick={close} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
             <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
           </div>

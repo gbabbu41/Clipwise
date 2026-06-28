@@ -207,13 +207,13 @@ export function BarberSidebar() {
               onClick={() => setNotifOpen(false)}
             />
             <motion.div
-              className="lg:hidden fixed inset-x-0 bottom-0 z-[80]"
+              className="lg:hidden fixed inset-x-0 bottom-0 sm:inset-0 z-[80] sm:flex sm:items-center sm:justify-center sm:p-4"
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
             >
               <div
                 ref={notifSheetRef}
-                className="bg-[#0c0c0c] border-t border-[#1e1e1e] rounded-t-2xl shadow-2xl flex flex-col max-h-[82vh] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+                className="bg-[#0c0c0c] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
