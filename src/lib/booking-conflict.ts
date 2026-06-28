@@ -33,29 +33,31 @@ function durationOf(r: ApptRow): number {
  *  (pre-phase14): on that error it retries without it and falls back to the
  *  linked service's duration. Critically, this means a missing migration can
  *  never silently disable conflict detection. */
-async function barberIntervals(barber_id: string, date: string): Promise<[number, number][]> {
-  let rows: ApptRow[];
+async function barberIntervals(barber_id: string, date: string, excludeId?: string | null): Promise<[number, number][]> {
+  let rows: (ApptRow & { id: string })[];
   const withDur = await supabaseAdmin
     .from("appointments")
-    .select("time_slot, duration_minutes, services(duration_minutes)")
+    .select("id, time_slot, duration_minutes, services(duration_minutes)")
     .eq("barber_id", barber_id)
     .eq("date", date)
     .in("status", ["pending", "confirmed"]);
   if (withDur.error) {
     const fallback = await supabaseAdmin
       .from("appointments")
-      .select("time_slot, services(duration_minutes)")
+      .select("id, time_slot, services(duration_minutes)")
       .eq("barber_id", barber_id)
       .eq("date", date)
       .in("status", ["pending", "confirmed"]);
-    rows = (fallback.data ?? []) as ApptRow[];
+    rows = (fallback.data ?? []) as (ApptRow & { id: string })[];
   } else {
-    rows = (withDur.data ?? []) as ApptRow[];
+    rows = (withDur.data ?? []) as (ApptRow & { id: string })[];
   }
-  return rows.map((r) => {
-    const start = timeToMinutes(r.time_slot);
-    return [start, start + durationOf(r)] as [number, number];
-  });
+  return rows
+    .filter((r) => !excludeId || r.id !== excludeId)   // ignore the appointment being edited
+    .map((r) => {
+      const start = timeToMinutes(r.time_slot);
+      return [start, start + durationOf(r)] as [number, number];
+    });
 }
 
 /**
@@ -69,9 +71,10 @@ export async function barberHasConflict(
   date: string,
   startMin: number,
   endMin: number,
+  excludeId?: string | null,   // appointment to ignore (e.g. the one being edited)
 ): Promise<boolean> {
   if (!barber_id) return false;
-  const intervals = await barberIntervals(barber_id, date);
+  const intervals = await barberIntervals(barber_id, date, excludeId);
   return intervals.some(([s, e]) => startMin < e && s < endMin);
 }
 

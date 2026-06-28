@@ -259,8 +259,8 @@ export function makeApptActions(opts: {
       toast("Approved · Customer notified");
     },
     edit: async (appt, fields) => {
-      if (!shop) return;
-      // Only send columns that actually changed (and exist on the row).
+      if (!shop || !accessToken) return;
+      // Only send columns that actually changed.
       const clean: Record<string, unknown> = {};
       const current = appt as unknown as Record<string, unknown>;
       (Object.keys(fields) as (keyof ApptEditFields)[]).forEach((k) => {
@@ -271,65 +271,17 @@ export function makeApptActions(opts: {
       });
       if (Object.keys(clean).length === 0) { toast("No changes"); return; }
       setBusy("edit");
-
-      // Conflict guard — never let an edit overlap another booking for the same
-      // barber. The DB unique index only blocks an identical START slot, so a
-      // longer service that runs into the next appointment would otherwise save.
-      const newBarber = (fields.barber_id !== undefined ? fields.barber_id : appt.barber_id) || null;
-      const newDate = fields.date ?? appt.date;
-      const newSlot = fields.time_slot ?? appt.time_slot;
-      const newDur = (fields.duration_minutes && fields.duration_minutes > 0) ? fields.duration_minutes : apptDuration(appt);
-      if (newBarber && newDate && newSlot) {
-        const startMin = timeToMinutes(newSlot);
-        const endMin = startMin + (newDur > 0 ? newDur : 30);
-        type ClashRow = { id: string; time_slot: string; duration_minutes?: number | null; services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null };
-        let rows: ClashRow[] = [];
-        const r1 = await supabase
-          .from("appointments")
-          .select("id, time_slot, duration_minutes, services(duration_minutes)")
-          .eq("barber_id", newBarber).eq("date", newDate).in("status", ["pending", "confirmed"]);
-        if (r1.error && /duration_minutes/.test(r1.error.message)) {
-          const r2 = await supabase
-            .from("appointments")
-            .select("id, time_slot, services(duration_minutes)")
-            .eq("barber_id", newBarber).eq("date", newDate).in("status", ["pending", "confirmed"]);
-          rows = (r2.data ?? []) as ClashRow[];
-        } else {
-          rows = (r1.data ?? []) as ClashRow[];
-        }
-        const clash = rows.some((o) => {
-          if (o.id === appt.id) return false; // ignore the appointment being edited
-          const os = timeToMinutes(o.time_slot);
-          const svc = o.services;
-          const sd = Array.isArray(svc) ? svc[0]?.duration_minutes : svc?.duration_minutes;
-          const od = (o.duration_minutes ?? 0) > 0 ? (o.duration_minutes as number) : (sd ?? 30);
-          return startMin < os + od && endMin > os;
-        });
-        if (clash) {
-          setBusy("");
-          toast("That overlaps another booking for this barber — pick another time or shorten the service.");
-          return;
-        }
-      }
-
-      let { error } = await supabase.from("appointments").update(clean).eq("id", appt.id);
-      // duration_minutes may not exist yet (pre-phase14) — retry without it.
-      if (error && /duration_minutes/.test(error.message) && "duration_minutes" in clean) {
-        const { duration_minutes: _omit, ...rest } = clean;
-        void _omit;
-        ({ error } = await supabase.from("appointments").update(rest).eq("id", appt.id));
-        if (!error) delete clean.duration_minutes;
-      }
+      // Save THROUGH the server route: it runs the authoritative double-booking
+      // check (service role, sees every booking, can't be skipped) before writing.
+      const res = await fetch("/api/appointments/update", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, fields: clean }),
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({ error: "Network error" })) : { error: "Network error" };
       setBusy("");
-      if (error) {
-        // The DB overlap guard (phase18) is the authoritative backstop — show a
-        // clear message rather than a raw error if it (or the unique index) fires.
-        const dbCode = (error as { code?: string }).code;
-        if (dbCode === "P0001" || dbCode === "23505" || /OVERLAP/i.test(error.message)) {
-          toast("That overlaps another booking for this barber — pick another time or shorten the service.");
-        } else {
-          toast(`Update failed: ${error.message}`);
-        }
+      if (!res || !res.ok || data.error) {
+        toast(data.error || "Update failed — please try again.");
         return;
       }
       patch(appt.id, clean as Partial<AppointmentWithDetails>);

@@ -46,8 +46,10 @@ begin
   if new_start is null then
     return NEW; -- unparseable time — don't block, let other guards handle it
   end if;
+  -- Read duration_minutes via to_jsonb so this works even if the phase14 column
+  -- isn't present yet (then it's simply absent → null → fall back to service).
   new_dur := coalesce(
-    NEW.duration_minutes,
+    nullif(to_jsonb(NEW) ->> 'duration_minutes', '')::int,
     (select duration_minutes from public.services where id = NEW.service_id),
     30
   );
@@ -62,7 +64,7 @@ begin
       and a.status in ('pending', 'confirmed')
       and public.clipwise_slot_minutes(a.time_slot) is not null
       and new_start < public.clipwise_slot_minutes(a.time_slot)
-                      + coalesce(a.duration_minutes,
+                      + coalesce(nullif(to_jsonb(a) ->> 'duration_minutes', '')::int,
                                  (select duration_minutes from public.services where id = a.service_id),
                                  30)
       and new_end > public.clipwise_slot_minutes(a.time_slot)
