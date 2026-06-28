@@ -79,7 +79,6 @@ export default function WaitlistPage() {
       supabase.from("appointments").select("id, client_name, barber_id, time_slot, status, notes, created_at")
         .eq("shop_id", shop.id).eq("date", today).order("created_at", { ascending: false }),
     ]);
-    setEntries((wData ?? []) as WaitlistEntry[]);
     setBarbers((bData ?? []) as Barber[]);
     setServices((sData ?? []) as Service[]);
     const map: Record<string, LinkedAppt> = {};
@@ -89,6 +88,22 @@ export default function WaitlistPage() {
       if (!map[key]) map[key] = { id: a.id as string, time_slot: a.time_slot as string, status: a.status as string };
     });
     setWalkinAppts(map);
+
+    // Self-heal: if a "called" row's appointment was completed / cancelled
+    // elsewhere (e.g. the barber's calendar), reflect that here so it leaves the
+    // active queue instead of keeping a dead Checkout button.
+    const wEntries = (wData ?? []) as WaitlistEntry[];
+    const fixes: { id: string; status: WaitlistEntry["status"] }[] = [];
+    const reconciled = wEntries.map((e) => {
+      if (e.status !== "called") return e;
+      const appt = map[`${e.client_name}|${e.barber_id}`];
+      if (!appt) return e;
+      if (appt.status === "completed") { fixes.push({ id: e.id, status: "served" }); return { ...e, status: "served" } as WaitlistEntry; }
+      if (appt.status === "cancelled" || appt.status === "no-show") { fixes.push({ id: e.id, status: "removed" }); return { ...e, status: "removed" } as WaitlistEntry; }
+      return e;
+    });
+    setEntries(reconciled);
+    fixes.forEach(f => supabase.from("waitlist").update({ status: f.status }).eq("id", f.id).then(null, () => null));
     setLoading(false);
   }, [shop]);
 
@@ -96,12 +111,14 @@ export default function WaitlistPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Real-time updates
+  // Real-time updates — react to queue changes AND to appointment changes (so a
+  // walk-in completed/cancelled from the barber's calendar leaves the queue here).
   useEffect(() => {
     if (!shop) return;
     const channel = supabase
       .channel(`waitlist:${shop.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "waitlist", filter: `shop_id=eq.${shop.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [shop, load]);
