@@ -269,6 +269,47 @@ export function makeApptActions(opts: {
       });
       if (Object.keys(clean).length === 0) { toast("No changes"); return; }
       setBusy("edit");
+
+      // Conflict guard — never let an edit overlap another booking for the same
+      // barber. The DB unique index only blocks an identical START slot, so a
+      // longer service that runs into the next appointment would otherwise save.
+      const newBarber = (fields.barber_id !== undefined ? fields.barber_id : appt.barber_id) || null;
+      const newDate = fields.date ?? appt.date;
+      const newSlot = fields.time_slot ?? appt.time_slot;
+      const newDur = (fields.duration_minutes && fields.duration_minutes > 0) ? fields.duration_minutes : apptDuration(appt);
+      if (newBarber && newDate && newSlot) {
+        const startMin = timeToMinutes(newSlot);
+        const endMin = startMin + (newDur > 0 ? newDur : 30);
+        type ClashRow = { id: string; time_slot: string; duration_minutes?: number | null; services?: { duration_minutes?: number } | { duration_minutes?: number }[] | null };
+        let rows: ClashRow[] = [];
+        const r1 = await supabase
+          .from("appointments")
+          .select("id, time_slot, duration_minutes, services(duration_minutes)")
+          .eq("barber_id", newBarber).eq("date", newDate).in("status", ["pending", "confirmed"]);
+        if (r1.error && /duration_minutes/.test(r1.error.message)) {
+          const r2 = await supabase
+            .from("appointments")
+            .select("id, time_slot, services(duration_minutes)")
+            .eq("barber_id", newBarber).eq("date", newDate).in("status", ["pending", "confirmed"]);
+          rows = (r2.data ?? []) as ClashRow[];
+        } else {
+          rows = (r1.data ?? []) as ClashRow[];
+        }
+        const clash = rows.some((o) => {
+          if (o.id === appt.id) return false; // ignore the appointment being edited
+          const os = timeToMinutes(o.time_slot);
+          const svc = o.services;
+          const sd = Array.isArray(svc) ? svc[0]?.duration_minutes : svc?.duration_minutes;
+          const od = (o.duration_minutes ?? 0) > 0 ? (o.duration_minutes as number) : (sd ?? 30);
+          return startMin < os + od && endMin > os;
+        });
+        if (clash) {
+          setBusy("");
+          toast("That overlaps another booking for this barber — pick another time or shorten the service.");
+          return;
+        }
+      }
+
       let { error } = await supabase.from("appointments").update(clean).eq("id", appt.id);
       // duration_minutes may not exist yet (pre-phase14) — retry without it.
       if (error && /duration_minutes/.test(error.message) && "duration_minutes" in clean) {
@@ -479,8 +520,14 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   // Keep the appointment's own slot pickable (don't let it block itself) when the
   // barber + day are unchanged.
   const ownSlot = (appt.date === editForm.date && appt.barber_id === editForm.barber_id) ? appt.time_slot : null;
+  const curSnapped = snapToSlot(appt.time_slot ?? "12:00 AM");
   const editSlots = useMemo<string[]>(() => {
-    if (!services || !editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return EDIT_TIME_SLOTS;
+    // Without a services list we don't fit-check — offer the whole 15-min grid.
+    if (!services) return EDIT_TIME_SLOTS;
+    // Services known but availability not loaded / no schedule for the day: only
+    // keep the current time selectable (never offer an unvalidated slot). The
+    // save-time conflict guard is the final backstop either way.
+    if (!editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return [curSnapped];
     const startMin = timeToMinutes(dbTimeToDisplay(editAvail.start_time));
     const endMin = timeToMinutes(dbTimeToDisplay(editAvail.end_time));
     const otherBusy = editAvail.busy.filter(x => !(ownSlot && x.time_slot === ownSlot));
@@ -502,10 +549,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
       if (m + dur > nextAfter(m)) continue;
       opts.push(slot);
     }
-    if (ownSlot && !opts.includes(ownSlot)) opts.unshift(ownSlot);
+    if (!opts.includes(curSnapped)) opts.unshift(curSnapped);
     return opts;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services, editAvail, editTotalDuration, editForm.date, ownSlot]);
+  }, [services, editAvail, editTotalDuration, editForm.date, ownSlot, curSnapped]);
 
   // If the chosen time stops fitting (e.g. a longer service was added), snap it
   // to the first slot that does.
