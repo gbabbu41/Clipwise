@@ -1,20 +1,27 @@
 "use client";
 
 /**
- * WaitlistAssignSheet — accept a smart-waitlist request and put it on the
- * calendar. Shows the waiter's desired day's OPEN slots for the chosen barber
- * (computed from /api/availability exactly like the public booking page), with
- * a barber picker when they asked for "any". Booking a slot calls
- * /api/waitlist/accept (books a confirmed appointment + marks the row
- * converted). Bottom sheet with pull-down-to-dismiss.
+ * WaitlistAssignSheet — assign a waitlist entry to a barber + open slot.
+ *
+ * Used by BOTH waitlists so the flow is identical:
+ *  · Online "smart" waitlist (Waitlist Requests) — books via /api/waitlist/accept
+ *    (the default), marking the appointment_waitlist row converted.
+ *  · Walk-in / kiosk queue — pass `onBook` to do the walk-in booking instead,
+ *    plus `services` to show a service picker and `allowBarberSwitch` so the
+ *    shop can reassign to whichever barber is actually free today.
+ *
+ * Open slots come from /api/availability (same source as the public booking
+ * page) so only genuinely-free times show — and past times drop off for today.
+ * Bottom sheet on phones, centred modal on tablet/desktop.
  */
 
 import { useEffect, useRef, useState } from "react";
 import {
   cn, prettyDate, getSlotsInRange, generate24hSlots,
-  timeToMinutes, dbTimeToDisplay, occupiedSlots,
+  timeToMinutes, dbTimeToDisplay, occupiedSlots, formatCurrency,
 } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
+import type { Service } from "@/lib/database.types";
 
 type AvailBarber = {
   id: string; name: string;
@@ -33,13 +40,20 @@ export interface WaitlistRequest {
 }
 
 export function WaitlistAssignSheet({
-  request, slotInterval = 30, accessToken, onClose, onDone,
+  request, slotInterval = 30, accessToken, services, allowBarberSwitch = false,
+  onClose, onDone, onBook,
 }: {
   request: WaitlistRequest;
   slotInterval?: number;
   accessToken: string | null;
+  /** When provided, shows a service picker (walk-in needs one for price/time). */
+  services?: Service[];
+  /** Always show the barber dropdown so the shop can reassign by availability. */
+  allowBarberSwitch?: boolean;
   onClose: () => void;
   onDone: (msg: string) => void;
+  /** Custom booking (walk-in). Return an error string, or null on success. */
+  onBook?: (args: { barberId: string; slot: string; serviceId: string | null }) => Promise<string | null>;
 }) {
   const [shown, setShown] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -49,9 +63,11 @@ export function WaitlistAssignSheet({
   const [loading, setLoading] = useState(true);
   const [barbers, setBarbers] = useState<AvailBarber[]>([]);
   const [barberId, setBarberId] = useState<string | null>(request.barber_id);
+  const [serviceId, setServiceId] = useState<string | null>(request.service_id ?? services?.[0]?.id ?? null);
   const [slot, setSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const showSwitch = allowBarberSwitch || !request.barber_id;
 
   useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
 
@@ -60,9 +76,12 @@ export function WaitlistAssignSheet({
     (async () => {
       setLoading(true);
       try {
+        // When the shop may reassign, fetch every barber's availability so the
+        // dropdown can offer whoever's free — not just the customer's pick.
+        const fetchBarber = allowBarberSwitch ? null : (request.barber_id ?? null);
         const r = await fetch("/api/availability", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop_id: request.shop_id, date: request.desired_date, barber_id: request.barber_id ?? null }),
+          body: JSON.stringify({ shop_id: request.shop_id, date: request.desired_date, barber_id: fetchBarber }),
         });
         const d = r.ok ? await r.json() : { barbers: [] };
         if (!alive) return;
@@ -72,7 +91,7 @@ export function WaitlistAssignSheet({
       } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, [request.shop_id, request.desired_date, request.barber_id]);
+  }, [request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch]);
 
   const active = barbers.find(b => b.id === barberId) ?? null;
   const openSlots = (() => {
@@ -90,11 +109,20 @@ export function WaitlistAssignSheet({
 
   const book = async () => {
     if (!barberId || !slot || busy) return;
+    if (services && services.length > 0 && !serviceId) { setErr("Pick a service."); return; }
     setBusy(true); setErr("");
+    if (onBook) {
+      const error = await onBook({ barberId, slot, serviceId });
+      setBusy(false);
+      if (error) { setErr(error); return; }
+      onDone("Assigned · added to the schedule");
+      close();
+      return;
+    }
     const r = await fetch("/api/waitlist/accept", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-      body: JSON.stringify({ waitlist_id: request.id, barber_id: barberId, time_slot: slot, service_id: request.service_id }),
+      body: JSON.stringify({ waitlist_id: request.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
     });
     const d = await r.json().catch(() => ({ error: "Network error" }));
     setBusy(false);
@@ -115,20 +143,35 @@ export function WaitlistAssignSheet({
           </div>
           <div className="px-5 pb-4">
             <h3 className="text-base font-bold text-white">Assign {request.client_name}</h3>
-            <p className="text-xs text-[#888] mt-0.5">{prettyDate(request.desired_date)} · pick an open slot</p>
+            <p className="text-xs text-[#888] mt-0.5">{prettyDate(request.desired_date)} · pick a barber &amp; open slot</p>
 
-            {!request.barber_id && barbers.length > 1 && (
-              <select value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
-                className="mt-3 w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
-                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+            {showSwitch && barbers.length > 1 && (
+              <div className="mt-3">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Barber</label>
+                <select value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                  {barbers.map(b => <option key={b.id} value={b.id}>{b.name}{b.fullDayOff ? " — off today" : ""}</option>)}
+                </select>
+              </div>
+            )}
+
+            {services && services.length > 0 && (
+              <div className="mt-3">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Service</label>
+                <select value={serviceId ?? ""} onChange={e => setServiceId(e.target.value || null)}
+                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                  <option value="">Select a service</option>
+                  {services.map(s => <option key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</option>)}
+                </select>
+              </div>
             )}
 
             <div className="mt-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Open slots</label>
               {loading ? (
                 <p className="text-sm text-[#777] py-6 text-center">Loading open slots…</p>
               ) : openSlots.length === 0 ? (
-                <p className="text-sm text-[#777] py-6 text-center">No open slots that day. Free up time or pick another barber.</p>
+                <p className="text-sm text-[#777] py-6 text-center">No open slots{allowBarberSwitch ? " left today" : " that day"}. Pick another barber or free up time.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {openSlots.map(s => (

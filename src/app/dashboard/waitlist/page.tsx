@@ -3,22 +3,12 @@ import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, Clock, Phone, Scissors, Check, X, Bell, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, displayTimeToDb, dbTimeToDisplay } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { WaitlistAssignSheet } from "@/components/waitlist-assign-sheet";
 import type { WaitlistEntry, Barber, Service } from "@/lib/database.types";
-
-// Round the current clock to the next 30-min slot in display format
-// ("9:00 AM" / "9:30 AM"). Walk-in appointments aren't pre-booked, so
-// we just need a sensible slot to insert the row into.
-function nextHalfHourSlot(): string {
-  const d = new Date();
-  if (d.getMinutes() >= 30) { d.setHours(d.getHours() + 1); d.setMinutes(0); }
-  else d.setMinutes(30);
-  const hh = d.getHours().toString().padStart(2, "0");
-  return dbTimeToDisplay(`${hh}:${d.getMinutes().toString().padStart(2, "0")}:00`);
-}
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -126,38 +116,11 @@ export default function WaitlistPage() {
   // as "confirmed" (so it shows up on /dashboard/appointments and the
   // barber's schedule with the regular Complete / Reject action buttons),
   // and removes the row from the active queue.
+  // "Call" opens the shared assign sheet (same one the online waitlist uses):
+  // it lists today's OPEN slots for the customer's chosen barber, lets the shop
+  // switch to whichever barber is free, and books the chosen slot.
   const [seatEntry, setSeatEntry] = useState<WaitlistEntry | null>(null);
-  const [seatBarberId, setSeatBarberId] = useState("");
-  const [seatServiceId, setSeatServiceId] = useState("");
-  const [seatSaving, setSeatSaving] = useState(false);
-
-  // Surface barbers who don't currently have an in-progress appt — a soft
-  // hint, not a hard constraint. The owner can still pick a busy one if
-  // they're queuing the next chair-time.
-  const [busyBarberIds, setBusyBarberIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!shop) return;
-    const today = new Date().toISOString().slice(0, 10);
-    supabase
-      .from("appointments")
-      .select("barber_id, status")
-      .eq("shop_id", shop.id)
-      .eq("date", today)
-      .in("status", ["confirmed", "pending"])
-      .then(({ data }) => {
-        const ids = new Set<string>();
-        (data ?? []).forEach(a => { if (a.barber_id) ids.add(a.barber_id as string); });
-        setBusyBarberIds(ids);
-      });
-  }, [shop, entries]);
-
-  const openSeatModal = (entry: WaitlistEntry) => {
-    setSeatEntry(entry);
-    // Preselect: barber on the row, else first idle, else first barber.
-    const idleBarber = barbers.find(b => !busyBarberIds.has(b.id));
-    setSeatBarberId(entry.barber_id ?? idleBarber?.id ?? barbers[0]?.id ?? "");
-    setSeatServiceId(entry.service_id ?? services[0]?.id ?? "");
-  };
+  const slotInterval = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes ?? 30;
 
   // Map waitlist row id → linked appointment id. Set on Confirm so the
   // waitlist row stays visible with Complete / Reject buttons pointing at
@@ -169,19 +132,21 @@ export default function WaitlistPage() {
   // auto-dismisses after 2.5s.
   const [confirmedNotice, setConfirmedNotice] = useState<{ name: string; barber: string } | null>(null);
 
-  const confirmSeat = async () => {
-    if (!seatEntry || !shop || !seatBarberId || !seatServiceId) return;
-    const svc = services.find(s => s.id === seatServiceId);
+  // Book the walk-in into the barber + slot chosen in the assign sheet. Creates
+  // a confirmed appointment for today and flips the queue row to `called`,
+  // remembering the linked appointment id for the Complete / Reject buttons.
+  // Returns an error string (shown in the sheet) or null on success.
+  const seatWalkin = async ({ barberId, slot, serviceId }: { barberId: string; slot: string; serviceId: string | null }): Promise<string | null> => {
+    if (!seatEntry || !shop) return "Something went wrong — try again.";
+    const svc = services.find(s => s.id === serviceId);
     const price = svc?.price ?? 0;
-    setSeatSaving(true);
     const today = new Date().toISOString().slice(0, 10);
-    const slot = nextHalfHourSlot();
     const apptId = crypto.randomUUID();
     const { error: apptErr } = await supabase.from("appointments").insert({
       id: apptId,
       shop_id: shop.id,
-      barber_id: seatBarberId,
-      service_id: seatServiceId,
+      barber_id: barberId,
+      service_id: serviceId,
       client_name: seatEntry.client_name,
       client_phone: seatEntry.client_phone ?? null,
       date: today,
@@ -191,28 +156,24 @@ export default function WaitlistPage() {
       notes: `Walk-in from waitlist`,
     });
     if (apptErr) {
-      setSeatSaving(false);
-      const taken = (apptErr as { code?: string }).code === "23505";
-      showToast(taken ? "That barber already has a booking in this slot — pick another barber." : `Failed: ${apptErr.message}`);
-      return;
+      return (apptErr as { code?: string }).code === "23505"
+        ? "That barber already has a booking in this slot — pick another time."
+        : apptErr.message;
     }
-    // Flip waitlist row to `called` (in-service) and remember the linked
-    // appointment id so the row's Complete / Reject buttons can act on it.
     await supabase.from("waitlist").update({
       status: "called",
-      barber_id: seatBarberId,
-      service_id: seatServiceId,
+      barber_id: barberId,
+      service_id: serviceId,
     }).eq("id", seatEntry.id);
     setEntries(prev => prev.map(e => e.id === seatEntry.id
-      ? { ...e, status: "called", barber_id: seatBarberId, service_id: seatServiceId }
+      ? ({ ...e, status: "called", barber_id: barberId, service_id: serviceId } as WaitlistEntry)
       : e
     ));
     setLinkedAppts(prev => ({ ...prev, [seatEntry.id]: apptId }));
-    setSeatSaving(false);
-    const barberName = barbers.find(b => b.id === seatBarberId)?.name ?? "barber";
+    const barberName = barbers.find(b => b.id === barberId)?.name ?? "barber";
     setConfirmedNotice({ name: seatEntry.client_name, barber: barberName });
     setTimeout(() => setConfirmedNotice(null), 2800);
-    setSeatEntry(null);
+    return null;
   };
 
   // Find the appointment row backing a waitlist entry. Uses the in-memory
@@ -360,9 +321,6 @@ export default function WaitlistPage() {
     showToast(`${entry.client_name} rejected`);
   };
 
-  // Imports kept available for the helpers above:
-  void displayTimeToDb;
-
   const active = entries.filter(e => e.status === "waiting" || e.status === "called");
   const history = entries.filter(e => e.status === "served" || e.status === "removed");
   const avgWait = active.length > 1
@@ -509,7 +467,7 @@ export default function WaitlistPage() {
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
                       {entry.status === "waiting" && (
                         <button type="button"
-                          onClick={() => openSeatModal(entry)}
+                          onClick={() => setSeatEntry(entry)}
                           className="btn btn-success btn-sm">
                           <Bell size={13} /> Call
                         </button>
@@ -724,94 +682,26 @@ export default function WaitlistPage() {
         </div>
       )}
 
-      {/* Call modal — pick a barber + service, confirm, done. The walk-in
-          becomes an appointment on /dashboard/appointments and the barber
-          gets the regular Complete / Reject controls there. */}
-      {seatEntry && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => !seatSaving && setSeatEntry(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Confirm {seatEntry.client_name}</h2>
-                <button onClick={() => !seatSaving && setSeatEntry(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
-              </div>
-
-              {/* Barber picker — idle barbers shown first, busy ones tagged */}
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Barber</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {barbers
-                    .slice()
-                    .sort((a, b) => {
-                      const ba = busyBarberIds.has(a.id) ? 1 : 0;
-                      const bb = busyBarberIds.has(b.id) ? 1 : 0;
-                      return ba - bb;
-                    })
-                    .map(b => {
-                      const isBusy = busyBarberIds.has(b.id);
-                      const selected = seatBarberId === b.id;
-                      return (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setSeatBarberId(b.id)}
-                          className={cn(
-                            "p-3 rounded-xl border text-left transition-colors",
-                            selected ? "bg-white text-black border-white" : "bg-[#141414] border-[#1e1e1e] hover:border-white"
-                          )}
-                        >
-                          <p className="text-sm font-semibold truncate">{b.name}</p>
-                          <p className={cn("text-[10px] mt-0.5", selected ? "text-black/60" : isBusy ? "text-amber-400" : "text-emerald-400")}>
-                            {isBusy ? "Busy now" : "Available"}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  {barbers.length === 0 && (
-                    <p className="col-span-2 text-sm text-[#777]">No active barbers — add one from Staff.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Service picker */}
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-2">Service</label>
-                <select
-                  value={seatServiceId}
-                  onChange={e => setSeatServiceId(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white"
-                >
-                  <option value="">Select a service</option>
-                  {services.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</option>
-                  ))}
-                </select>
-              </div>
-
-              <p className="text-xs text-[#777]">
-                Confirming creates an appointment for the barber on today&apos;s
-                schedule. They&apos;ll see <span className="text-white">Complete</span> and
-                <span className="text-white"> Reject</span> on their row, and you can take payment
-                from the appointment side panel any time.
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button type="button"
-                  className="btn btn-outline-secondary flex-1"
-                  onClick={() => setSeatEntry(null)}>
-                  Cancel
-                </button>
-                <button type="button"
-                  className="btn btn-success flex-1"
-                  disabled={!seatBarberId || !seatServiceId || seatSaving}
-                  onClick={confirmSeat}>
-                  {seatSaving ? "Saving…" : "Confirm Walk-In"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
+      {/* Call → shared assign sheet: today's open slots for the chosen barber,
+          switchable to whoever's free, then books + flips the row to called. */}
+      {seatEntry && shop && (
+        <WaitlistAssignSheet
+          request={{
+            id: seatEntry.id,
+            shop_id: shop.id,
+            barber_id: seatEntry.barber_id ?? null,
+            service_id: seatEntry.service_id ?? null,
+            client_name: seatEntry.client_name,
+            desired_date: new Date().toISOString().slice(0, 10),
+          }}
+          services={services}
+          allowBarberSwitch
+          slotInterval={slotInterval}
+          accessToken={accessToken}
+          onBook={seatWalkin}
+          onClose={() => setSeatEntry(null)}
+          onDone={() => load()}
+        />
       )}
     </div>
   );
