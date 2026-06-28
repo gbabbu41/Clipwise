@@ -241,7 +241,10 @@ export function Sidebar() {
   const [notifActing, setNotifActing] = useState<string | null>(null);
   const dismissNotif = (id: string) => {
     setRecentNotifs(prev => prev.filter(x => x.id !== id));
-    supabase.from("notifications").update({ is_read: true }).eq("id", id).then(null, () => null);
+    // DELETE (not just mark read): the recent-notifs query re-fetches whenever
+    // unreadCount changes and pulls read rows too, so a marked-read notification
+    // would reappear right after Approve/Decline. Removing it makes it stick.
+    supabase.from("notifications").delete().eq("id", id).then(null, () => null);
     setUnreadCount(c => Math.max(0, c - 1));
   };
   const actOnBooking = async (

@@ -71,11 +71,18 @@ export async function POST(request: NextRequest) {
     if (notify_owner && shop.owner_id) notifyUserIds.add(shop.owner_id);
     if (barberUserId) notifyUserIds.add(barberUserId);
     if (notifyUserIds.size > 0) {
-      await supabaseAdmin.from("notifications").insert(
-        Array.from(notifyUserIds).map(uid => ({
-          user_id: uid, title, message, type: "booking", is_read: false,
-        })),
-      ).then(null, () => null);
+      // Entity-link each notification to the appointment so the bell/sheet can
+      // render inline Approve/Decline buttons (phase16 columns). If those
+      // columns don't exist yet, retry the plain insert so the notif still lands.
+      const base = Array.from(notifyUserIds).map(uid => ({
+        user_id: uid, title, message, type: "booking", is_read: false,
+      }));
+      const ins = await supabaseAdmin.from("notifications").insert(
+        base.map(r => ({ ...r, entity_type: "appointment", entity_id: appointment_id })),
+      );
+      if (ins.error && /entity_(type|id)/.test(ins.error.message)) {
+        await supabaseAdmin.from("notifications").insert(base).then(null, () => null);
+      }
     }
 
     // SMS — best-effort, never throws.
