@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
@@ -36,6 +36,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/barber-dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/barber-dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/barber-dashboard/waitlist", label: "Walk-Ins", icon: ListOrdered, permKey: "manage_appointments" },
   // Schedule = working hours (read-only unless edit_schedule is granted).
   { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock },
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
