@@ -39,8 +39,8 @@ const STATUS_CONFIG: Record<WaitlistEntry["status"], { label: string; variant: S
   removed: { label: "Removed", variant: "danger" },
 };
 
-type BlankEntry = { client_name: string; client_phone: string; barber_id: string; service_id: string };
-const BLANK: BlankEntry = { client_name: "", client_phone: "", barber_id: "", service_id: "" };
+type BlankEntry = { client_name: string; client_phone: string; client_email: string; barber_id: string; service_id: string };
+const BLANK: BlankEntry = { client_name: "", client_phone: "", client_email: "", barber_id: "", service_id: "" };
 
 export default function WaitlistPage() {
   const { shop, accessToken } = useAuth();
@@ -109,7 +109,7 @@ export default function WaitlistPage() {
   const addEntry = async () => {
     if (!shop || !form.client_name.trim()) return;
     setSaving(true);
-    await supabase.from("waitlist").insert({
+    const row = {
       shop_id: shop.id,
       client_name: form.client_name.trim(),
       client_phone: form.client_phone.trim() || null,
@@ -117,8 +117,14 @@ export default function WaitlistPage() {
       service_id: form.service_id || null,
       added_at: new Date().toISOString(),
       status: "waiting",
-    });
+    };
+    // Include email; retry without it if the column isn't present yet (pre-phase17).
+    let { error } = await supabase.from("waitlist").insert({ ...row, client_email: form.client_email.trim() || null });
+    if (error && /client_email/.test(error.message)) {
+      ({ error } = await supabase.from("waitlist").insert(row));
+    }
     setSaving(false);
+    if (error) { showToast("Couldn't add — please try again"); return; }
     setShowAdd(false);
     setForm(BLANK);
     showToast(`${form.client_name} added to waitlist`);
@@ -148,76 +154,19 @@ export default function WaitlistPage() {
   // auto-dismisses after 2.5s.
   const [confirmedNotice, setConfirmedNotice] = useState<{ name: string; barber: string } | null>(null);
 
-  // Text + email the customer when they're called/seated (best-effort). Phone is
-  // always on the queue row; email only once captured (added with the column).
-  const notifyWalkinCalled = (entry: WaitlistEntry, barberId: string, slot: string, serviceId: string | null) => {
-    if (!shop) return;
-    const barberName = barbers.find(b => b.id === barberId)?.name ?? "your barber";
-    const email = (entry as { client_email?: string | null }).client_email ?? null;
-    if (entry.client_phone) {
-      fetch("/api/twilio/send-sms", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: entry.client_phone, shopName: shop.name, body: `You're up at ${shop.name}! ${barberName} can see you at ${slot}. See you soon.` }),
-      }).catch(() => null);
-    }
-    if (email) {
-      const svc = services.find(s => s.id === serviceId);
-      fetch("/api/send-email", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "booking_confirmation",
-          data: {
-            clientName: entry.client_name, clientEmail: email,
-            shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-            barberName, serviceName: svc?.name ?? "Walk-in",
-            date: new Date().toISOString().slice(0, 10), time: slot,
-            total: `$${Number(svc?.price ?? 0).toFixed(2)}`, paymentNote: "Pay in person at the shop",
-            bookingId: "", appointmentId: "",
-          },
-        }),
-      }).catch(() => null);
-    }
-  };
-
-  // Book the walk-in into the barber + slot chosen in the assign sheet. Creates
-  // a confirmed appointment for today, flips the queue row to `called`, and
-  // texts/emails the customer that they're up. Returns an error string (shown
-  // in the sheet) or null on success.
+  // Book the walk-in into the barber + slot chosen in the assign sheet. Goes
+  // through /api/waitlist/seat (service-role) so booking, the queue flip, and the
+  // customer text/email all happen in one place — shared with the barber portal.
+  // Returns an error string (shown in the sheet) or null on success.
   const seatWalkin = async ({ barberId, slot, serviceId }: { barberId: string; slot: string; serviceId: string | null }): Promise<string | null> => {
-    if (!seatEntry || !shop) return "Something went wrong — try again.";
-    const svc = services.find(s => s.id === serviceId);
-    const price = svc?.price ?? 0;
-    const today = new Date().toISOString().slice(0, 10);
-    const apptId = crypto.randomUUID();
-    const { error: apptErr } = await supabase.from("appointments").insert({
-      id: apptId,
-      shop_id: shop.id,
-      barber_id: barberId,
-      service_id: serviceId,
-      client_name: seatEntry.client_name,
-      client_phone: seatEntry.client_phone ?? null,
-      client_email: (seatEntry as { client_email?: string | null }).client_email ?? null,
-      date: today,
-      time_slot: slot,
-      status: "confirmed",
-      total_amount: price,
-      notes: WALKIN_NOTE,
+    if (!seatEntry || !shop || !accessToken) return "Something went wrong — try again.";
+    const r = await fetch("/api/waitlist/seat", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ waitlist_id: seatEntry.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
     });
-    if (apptErr) {
-      return (apptErr as { code?: string }).code === "23505"
-        ? "That barber already has a booking in this slot — pick another time."
-        : apptErr.message;
-    }
-    await supabase.from("waitlist").update({
-      status: "called",
-      barber_id: barberId,
-      service_id: serviceId,
-    }).eq("id", seatEntry.id);
-    notifyWalkinCalled(seatEntry, barberId, slot, serviceId);
-    setEntries(prev => prev.map(e => e.id === seatEntry.id
-      ? ({ ...e, status: "called", barber_id: barberId, service_id: serviceId } as WaitlistEntry)
-      : e
-    ));
+    const d = await r.json().catch(() => ({ error: "Network error" }));
+    if (!r.ok || d.error) return d.error || "Couldn't seat that walk-in.";
     const barberName = barbers.find(b => b.id === barberId)?.name ?? "barber";
     setConfirmedNotice({ name: seatEntry.client_name, barber: barberName });
     setTimeout(() => setConfirmedNotice(null), 2800);
@@ -515,15 +464,27 @@ export default function WaitlistPage() {
                     className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-[#777]">Phone (optional)</label>
-                  <input
-                    value={form.client_phone}
-                    onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
-                    placeholder="(416) 555-0123"
-                    type="tel"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-[#777]">Phone (optional)</label>
+                    <input
+                      value={form.client_phone}
+                      onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
+                      placeholder="(416) 555-0123"
+                      type="tel"
+                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-[#777]">Email (optional)</label>
+                    <input
+                      value={form.client_email}
+                      onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
+                      placeholder="you@email.com"
+                      type="email"
+                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">

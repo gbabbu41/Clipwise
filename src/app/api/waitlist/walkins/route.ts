@@ -31,9 +31,11 @@ export async function POST(request: NextRequest) {
   if (!isOwner && !myBarberId) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
 
   const today = new Date().toISOString().slice(0, 10);
+  // Select * so client_email comes through once phase17 is run, without erroring
+  // on shops that haven't run it yet.
   const { data: entries } = await supabaseAdmin
     .from("waitlist")
-    .select("id, shop_id, barber_id, service_id, client_name, client_phone, added_at, status")
+    .select("*")
     .eq("shop_id", shop_id)
     .gte("added_at", today)
     .order("added_at");

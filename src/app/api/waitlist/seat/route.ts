@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, UNIQUE_VIOLATION } from "@/lib/booking-conflict";
-import { timeToMinutes } from "@/lib/utils";
+import { timeToMinutes, prettyDate } from "@/lib/utils";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 /**
  * Seat a WALK-IN queue entry (the `waitlist` table) onto today's schedule.
@@ -28,19 +29,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
+  // select * so client_email comes through once phase17 is run (no error before).
   const { data: wl } = await supabaseAdmin
     .from("waitlist")
-    .select("id, shop_id, client_name, client_phone, service_id, status")
+    .select("*")
     .eq("id", b.waitlist_id).maybeSingle();
   if (!wl) return NextResponse.json({ error: "Walk-in not found" }, { status: 404 });
   if (wl.status === "served" || wl.status === "removed") {
     return NextResponse.json({ error: "That walk-in is already finished" }, { status: 409 });
   }
+  const clientEmail = (wl as { client_email?: string | null }).client_email ?? null;
 
   // Authorize: shop owner OR an active barber of this shop. A barber may only
   // seat to themselves (the owner/front desk can assign to anyone).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, owner_id").eq("id", wl.shop_id).maybeSingle();
+    .from("shops").select("id, owner_id, name, slug, email").eq("id", wl.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
   const isOwner = shop.owner_id === user.id;
   let callerBarberId: string | null = null;
@@ -54,12 +57,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "You can only seat a walk-in to yourself." }, { status: 403 });
   }
 
-  // Resolve service → duration + price.
+  // Resolve service → duration + price + name.
   const serviceId = b.service_id || wl.service_id || null;
   let duration = 0;
   let amount = 0;
+  let serviceName = "";
   if (serviceId) {
-    const { data: svc } = await supabaseAdmin.from("services").select("duration_minutes, price").eq("id", serviceId).maybeSingle();
+    const { data: svc } = await supabaseAdmin.from("services").select("name, duration_minutes, price").eq("id", serviceId).maybeSingle();
+    serviceName = svc?.name ?? "";
     duration = svc?.duration_minutes ?? 30;
     amount = svc?.price ?? 0;
   }
@@ -79,6 +84,7 @@ export async function POST(request: NextRequest) {
     service_id: serviceId,
     client_name: wl.client_name,
     client_phone: wl.client_phone ?? null,
+    client_email: clientEmail,
     date: today,
     time_slot: b.time_slot,
     status: "confirmed",
@@ -100,6 +106,28 @@ export async function POST(request: NextRequest) {
   await supabaseAdmin.from("waitlist")
     .update({ status: "called", barber_id: b.barber_id, service_id: serviceId })
     .eq("id", wl.id);
+
+  // Tell the customer they're up — text + email, both best-effort.
+  const { data: barberRow } = await supabaseAdmin.from("barbers").select("name").eq("id", b.barber_id).maybeSingle();
+  const barberName = barberRow?.name ?? "your barber";
+  await sendSmsBestEffort(wl.client_phone ?? null, `You're up at ${shop.name}! ${barberName} can see you at ${b.time_slot}. See you soon.`, shop.name);
+  if (clientEmail) {
+    const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || "";
+    fetch(`${origin}/api/send-email`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "booking_confirmation",
+        data: {
+          clientName: wl.client_name, clientEmail,
+          shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+          barberName, serviceName: serviceName || "Walk-in",
+          date: prettyDate(today), time: b.time_slot,
+          total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
+          bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
+        },
+      }),
+    }).catch(() => null);
+  }
 
   return NextResponse.json({ ok: true, appointment_id: inserted.data.id });
 }

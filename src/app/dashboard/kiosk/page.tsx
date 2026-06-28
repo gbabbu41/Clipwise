@@ -14,7 +14,10 @@ interface WalkInData {
   barber: Barber | null;
   name: string;
   phone: string;
+  email: string;
 }
+
+type ClientMatch = { id: string; name: string; email: string | null; phone: string | null };
 
 function KioskButton({ children, onClick, className, disabled }: {
   children: React.ReactNode;
@@ -43,7 +46,9 @@ export default function KioskPage() {
   const [step, setStep] = useState<KioskStep>("welcome");
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [data, setData] = useState<WalkInData>({ service: null, barber: null, name: "", phone: "" });
+  const [data, setData] = useState<WalkInData>({ service: null, barber: null, name: "", phone: "", email: "" });
+  const [matches, setMatches] = useState<ClientMatch[]>([]);
+  const [pickedClient, setPickedClient] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [queuePosition, setQueuePosition] = useState(0);
@@ -66,7 +71,9 @@ export default function KioskPage() {
     if (step === "done") {
       const t = setTimeout(() => {
         setStep("welcome");
-        setData({ service: null, barber: null, name: "", phone: "" });
+        setData({ service: null, barber: null, name: "", phone: "", email: "" });
+        setMatches([]);
+        setPickedClient(false);
         setSubmitError("");
       }, 8000);
       return () => clearTimeout(t);
@@ -76,6 +83,25 @@ export default function KioskPage() {
   const enterFullscreen = () => {
     document.documentElement.requestFullscreen?.().catch(() => null);
     setIsFullscreen(true);
+  };
+
+  // Suggest existing clients as the customer types their name, so a returning
+  // customer can pick their contact (fills phone + email) instead of retyping.
+  const searchContacts = async (q: string) => {
+    if (!shop || q.trim().length < 2) { setMatches([]); return; }
+    const { data: rows } = await supabase
+      .from("clients")
+      .select("id, name, email, phone")
+      .eq("shop_id", shop.id)
+      .ilike("name", `%${q.trim()}%`)
+      .order("name")
+      .limit(5);
+    setMatches((rows ?? []) as ClientMatch[]);
+  };
+  const pickContact = (c: ClientMatch) => {
+    setData(d => ({ ...d, name: c.name, phone: c.phone ?? "", email: c.email ?? "" }));
+    setMatches([]);
+    setPickedClient(true);
   };
 
   const addToWaitlist = async () => {
@@ -95,7 +121,7 @@ export default function KioskPage() {
     // the wrong column previously made PostgREST reject the whole row — so kiosk
     // walk-ins silently never reached the queue. Surface real errors now instead
     // of swallowing them, so a failure shows up rather than a false "You're in!".
-    const { error } = await supabase.from("waitlist").insert({
+    const row = {
       shop_id: shop!.id,
       client_name: data.name.trim(),
       client_phone: data.phone.trim() || null,
@@ -103,7 +129,12 @@ export default function KioskPage() {
       service_id: data.service?.id ?? null,
       status: "waiting",
       added_at: new Date().toISOString(),
-    });
+    };
+    // Include email; if the column isn't there yet (pre-phase17), retry without.
+    let { error } = await supabase.from("waitlist").insert({ ...row, client_email: data.email.trim() || null });
+    if (error && /client_email/.test(error.message)) {
+      ({ error } = await supabase.from("waitlist").insert(row));
+    }
 
     setSubmitting(false);
     if (error) {
@@ -280,17 +311,30 @@ export default function KioskPage() {
               </div>
 
               <div className="space-y-4">
-                <div>
+                <div className="relative">
                   <label className="text-sm font-medium text-[#777] block mb-2">Your Name *</label>
                   <input
                     type="text"
                     value={data.name}
-                    onChange={e => setData(d => ({ ...d, name: e.target.value }))}
-                    placeholder="First name is fine"
+                    onChange={e => { const v = e.target.value; setData(d => ({ ...d, name: v })); setPickedClient(false); searchContacts(v); }}
+                    placeholder="Start typing — we'll find you"
                     className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                     autoComplete="off"
                     autoCorrect="off"
                   />
+                  {/* Existing-customer suggestions — tap to fill phone + email. */}
+                  {matches.length > 0 && !pickedClient && (
+                    <div className="absolute z-20 left-0 right-0 mt-2 rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] shadow-2xl overflow-hidden">
+                      {matches.map(c => (
+                        <button key={c.id} type="button" onClick={() => pickContact(c)}
+                          className="w-full text-left px-5 py-3 hover:bg-[#141414] border-b border-[#1a1a1a] last:border-0">
+                          <p className="text-white font-medium">{c.name}</p>
+                          <p className="text-xs text-[#777]">{[c.phone, c.email].filter(Boolean).join(" · ") || "No contact on file"}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {pickedClient && <p className="text-xs text-emerald-400 mt-1.5">✓ Existing customer — contact filled in</p>}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-[#777] block mb-2">Phone (optional — for text when ready)</label>
@@ -299,6 +343,17 @@ export default function KioskPage() {
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
+                    className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#777] focus:outline-none focus:border-black"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-[#777] block mb-2">Email (optional — for a confirmation)</label>
+                  <input
+                    type="email"
+                    value={data.email}
+                    onChange={e => setData(d => ({ ...d, email: e.target.value }))}
+                    placeholder="e.g. you@email.com"
                     className="w-full rounded-2xl border-2 border-[#1e1e1e] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#777] focus:outline-none focus:border-black"
                     autoComplete="off"
                   />
@@ -337,6 +392,12 @@ export default function KioskPage() {
                   <div className="flex justify-between items-center py-2 border-b border-[#1e1e1e]">
                     <span className="text-[#777]">Phone</span>
                     <span className="text-white">{data.phone}</span>
+                  </div>
+                )}
+                {data.email && (
+                  <div className="flex justify-between items-center py-2 border-b border-[#1e1e1e]">
+                    <span className="text-[#777]">Email</span>
+                    <span className="text-white">{data.email}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-b border-[#1e1e1e]">
