@@ -7,8 +7,20 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo, paymentTag,
-  occupiedSlots, dbTimeToDisplay, timeToMinutes,
+  occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
 } from "@/lib/utils";
+
+// 15-minute slot grid (display strings) for the appointment-edit time picker —
+// keeps edited times on the slot windows instead of a free-form "5:03 PM".
+const EDIT_TIME_SLOTS = generate24hSlots(15);
+// Round any time to the nearest 15-min slot (so an off-grid booking snaps onto
+// the grid), returned as a display string that matches EDIT_TIME_SLOTS.
+function snapToSlot(slot: string): string {
+  const snapped = Math.min(Math.round(timeToMinutes(slot) / 15) * 15, 23 * 60 + 45);
+  const hh = String(Math.floor(snapped / 60)).padStart(2, "0");
+  const mm = String(snapped % 60).padStart(2, "0");
+  return dbTimeToDisplay(`${hh}:${mm}`);
+}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -415,27 +427,18 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
 
   // Inline edit — change the time / day / client info / barber before checking
   // out (e.g. customer wants a different slot, or it's a different person now).
-  const toTimeInput = (slot: string) => { const m = timeToMinutes(slot); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+  // Time is picked from the 15-min slot grid (snapped on open), never free-form.
   const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const makeEditForm = () => ({
     client_name: appt.client_name ?? "",
     client_phone: appt.client_phone ?? "",
     client_email: appt.client_email ?? "",
     date: appt.date ?? "",
-    time: toTimeInput(appt.time_slot ?? "12:00 AM"),
+    time: snapToSlot(appt.time_slot ?? "12:00 AM"),
     barber_id: appt.barber_id ?? "",
   });
-  const openEdit = () => {
-    setEditForm({
-      client_name: appt.client_name ?? "",
-      client_phone: appt.client_phone ?? "",
-      client_email: appt.client_email ?? "",
-      date: appt.date ?? "",
-      time: toTimeInput(appt.time_slot ?? "12:00 AM"),
-      barber_id: appt.barber_id ?? "",
-    });
-    setEditMode(true);
-  };
+  const [editForm, setEditForm] = useState(makeEditForm);
+  const openEdit = () => { setEditForm(makeEditForm()); setEditMode(true); };
   const saveEdit = () => {
     if (!editForm.client_name.trim() || !editForm.date || !editForm.time) return;
     actions.edit(appt, {
@@ -443,7 +446,7 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
       client_phone: editForm.client_phone.trim() || null,
       client_email: editForm.client_email.trim() || null,
       date: editForm.date,
-      time_slot: dbTimeToDisplay(editForm.time),
+      time_slot: editForm.time,
       barber_id: editForm.barber_id || null,
     });
     setEditMode(false);
@@ -544,9 +547,11 @@ export function ApptDetail({ appt, barbers, onClose, actions, busy, readOnly = f
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase tracking-wide text-[#777]">Time</label>
-                  <input type="time" value={editForm.time}
+                  <select value={editForm.time}
                     onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                    {EDIT_TIME_SLOTS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
               </div>
               <Select label="Barber" value={editForm.barber_id}
