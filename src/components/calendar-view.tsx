@@ -1132,41 +1132,40 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     dbTimeToDisplay(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}:00`);
 
   // Free time in a barber's window as bookable "+" boxes. We subtract the real
-  // booked intervals (active appts) and tile each free GAP on the hour: a fully
-  // free hour → one 60-min box, but a gap that starts mid-hour (right after a
-  // 10/20-min appointment) gets a box anchored at the EXACT end time — so staff
-  // can book any available time and nothing slips through a fixed grid. Does NOT
-  // drop past times (the owner still wants to see/log into empty boxes).
+  // booked intervals (active appts) AND blocked-hours, then emit ONE clean block
+  // per contiguous free gap — no hour-by-hour chopping. Tapping a block opens the
+  // add sheet where you pick the exact time + service, so any time is still
+  // bookable. Gaps shorter than the shortest service are dropped (can't fit
+  // anything). Does NOT drop past times (the owner still logs into empty boxes).
   const windowEmpties = useCallback((barberId: string, dateStr: string, win: { start: string; end: string }) => {
     const startMins = timeToMinutes(dbTimeToDisplay(win.start));
     const endMins = timeToMinutes(dbTimeToDisplay(win.end));
     if (Number.isNaN(startMins) || Number.isNaN(endMins) || endMins <= startMins) return [] as { slot: string; minutes: number }[];
-    const intervals = appointments
+    // Occupied = active appointments + blocked-hours for this barber/day, clipped
+    // to the window and merged so adjacent/overlapping ones don't split a gap.
+    const apptIntervals = appointments
       .filter(a => a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status))
-      .map(a => { const s = timeToMinutes(a.time_slot); return [s, s + apptDuration(a)] as [number, number]; })
+      .map(a => { const s = timeToMinutes(a.time_slot); return [s, s + apptDuration(a)] as [number, number]; });
+    const blockIntervals = blocks
+      .filter(b => b.barber_id === barberId && b.start_date === dateStr && b.start_time && b.end_time)
+      .map(b => [timeToMinutes(dbTimeToDisplay(b.start_time!)), timeToMinutes(dbTimeToDisplay(b.end_time!))] as [number, number]);
+    const occupied = [...apptIntervals, ...blockIntervals]
       .filter(([s, e]) => e > startMins && s < endMins)
       .sort((x, y) => x[0] - y[0]);
     const out: { slot: string; minutes: number }[] = [];
-    const tile = (from: number, to: number) => {
-      // Skip the whole gap if even the shortest service can't fit in it.
-      if (to - from < minServiceMin) return;
-      let c = from;
-      while (c < to - 0.5) {
-        const boundary = c % 60 === 0 ? c + 60 : Math.ceil(c / 60) * 60;
-        const end = Math.min(boundary, to);
-        out.push({ slot: minsToSlot(c), minutes: Math.round(end - c) });
-        c = end;
-      }
+    // One block per free gap (drop gaps too small for the shortest service).
+    const emit = (from: number, to: number) => {
+      if (to - from >= minServiceMin) out.push({ slot: minsToSlot(from), minutes: Math.round(to - from) });
     };
     let cursor = startMins;
-    for (const [s, e] of intervals) {
+    for (const [s, e] of occupied) {
       const gapStart = Math.max(s, startMins);
-      if (gapStart > cursor) tile(cursor, gapStart);
+      if (gapStart > cursor) emit(cursor, gapStart);
       cursor = Math.max(cursor, Math.min(e, endMins));
     }
-    if (cursor < endMins) tile(cursor, endMins);
+    if (cursor < endMins) emit(cursor, endMins);
     return out;
-  }, [appointments, minServiceMin]);
+  }, [appointments, blocks, minServiceMin]);
 
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
