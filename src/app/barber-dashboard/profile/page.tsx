@@ -1,16 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, User } from "lucide-react";
+import { Save, User, Camera } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { NotifSoundToggle } from "@/components/notif-sound-toggle";
+import { AvatarImage } from "@/components/ui/avatar-image";
+import { uploadBarberPhoto } from "@/lib/upload-barber-photo";
 
 export default function BarberProfilePage() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { barber, shop } = useBarber();
   const [form, setForm] = useState({ name: "", email: "", bio: "" });
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -18,8 +22,23 @@ export default function BarberProfilePage() {
   useEffect(() => {
     if (barber) {
       setForm({ name: barber.name ?? "", email: barber.email ?? "", bio: barber.bio ?? "" });
+      setPhoto(barber.photo ?? null);
     }
   }, [barber]);
+
+  async function handlePhoto(file: File) {
+    if (!barber) return;
+    setUploadingPhoto(true);
+    setError("");
+    try {
+      const url = await uploadBarberPhoto(file, barber.id, accessToken);
+      setPhoto(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -48,11 +67,22 @@ export default function BarberProfilePage() {
       </div>
 
       <div className="bg-surface border border-border rounded-2xl p-6">
-        {/* Avatar */}
+        {/* Avatar — tap to upload your photo (shown to clients on booking). */}
         <div className="flex items-center gap-5 mb-8 pb-8 border-b border-border">
-          <div className="w-20 h-20 rounded-full bg-gold/20 border-2 border-gold/30 flex items-center justify-center text-gold font-bold text-3xl">
-            {initial}
-          </div>
+          <label className={cn("relative w-20 h-20 rounded-full cursor-pointer group flex-shrink-0", uploadingPhoto && "pointer-events-none opacity-70")}>
+            <AvatarImage src={photo} alt={form.name} className="w-20 h-20 rounded-full object-cover border-2 border-gold/30"
+              fallback={
+                <div className="w-20 h-20 rounded-full bg-gold/20 border-2 border-gold/30 flex items-center justify-center text-gold font-bold text-3xl">
+                  {initial}
+                </div>
+              } />
+            <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera size={20} className="text-white" />
+            </span>
+            {uploadingPhoto && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-white font-medium">Uploading…</span>}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhoto(f); }} />
+          </label>
           <div>
             <p className="font-semibold text-white text-lg">{form.name || "Your Name"}</p>
             <p className="text-sm text-[#777]">{shop?.name ?? "Barber"}</p>
