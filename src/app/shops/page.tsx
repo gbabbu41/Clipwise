@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MapPin, Star, Search, Scissors, ArrowRight, Users } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -168,13 +169,12 @@ export default function ShopsPage() {
               <Link key={shop.id} href={`/shops/${shop.slug}`}
                 className="group bg-surface border border-border rounded-2xl p-6 hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200 block">
                 <div className="flex items-start gap-4 mb-4">
-                  {shop.logo ? (
-                    <img src={shop.logo} alt={shop.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl bg-gold/20 border border-gold/30 flex items-center justify-center flex-shrink-0">
-                      <Scissors size={22} className="text-gold" />
-                    </div>
-                  )}
+                  <AvatarImage src={shop.logo} alt={shop.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                    fallback={
+                      <div className="w-14 h-14 rounded-xl bg-gold/20 border border-gold/30 flex items-center justify-center flex-shrink-0">
+                        <Scissors size={22} className="text-gold" />
+                      </div>
+                    } />
                   <div className="flex-1 min-w-0">
                     <h2 className="text-white font-bold text-lg group-hover:text-gold transition-colors truncate">{shop.name}</h2>
                     <div className="flex items-center gap-1 text-[#777] text-sm mt-0.5">

@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
   const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+  // The path is stable (logo.<ext>, upsert) so add a version param to bust the
+  // browser/CDN cache when the logo is replaced.
+  const url = `${publicUrl}?v=${Date.now()}`;
 
-  await supabaseAdmin.from("shops").update({ logo: publicUrl }).eq("id", shopId);
+  await supabaseAdmin.from("shops").update({ logo: url }).eq("id", shopId);
 
-  return NextResponse.json({ url: publicUrl });
+  return NextResponse.json({ url });
 }

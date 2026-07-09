@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
@@ -1041,9 +1042,8 @@ export default function BookingPage() {
         <div className="max-w-2xl mx-auto px-4 py-5">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-black/10 border border-black flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {shop.logo
-                ? <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover" />
-                : <Logo size="sm" showText={false} />}
+              <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
+                fallback={<Logo size="sm" showText={false} />} />
             </div>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-white">{shop.name}</h1>

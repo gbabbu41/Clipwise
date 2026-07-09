@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Phone, Star, Scissors, Clock, ChevronRight, Mail, Users, MessageSquare, Globe } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -109,13 +110,12 @@ export default function ShopProfilePage() {
           <div className="flex items-start gap-5">
             {/* Logo/Avatar */}
             <div className="flex-shrink-0">
-              {shop.logo ? (
-                <img src={shop.logo} alt={shop.name} className="w-20 h-20 rounded-2xl object-cover border border-border" />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-gold/20 border border-gold/30 flex items-center justify-center">
-                  <Scissors size={32} className="text-gold" />
-                </div>
-              )}
+              <AvatarImage src={shop.logo} alt={shop.name} className="w-20 h-20 rounded-2xl object-cover border border-border"
+                fallback={
+                  <div className="w-20 h-20 rounded-2xl bg-gold/20 border border-gold/30 flex items-center justify-center">
+                    <Scissors size={32} className="text-gold" />
+                  </div>
+                } />
             </div>
 
             <div className="flex-1 min-w-0">
