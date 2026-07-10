@@ -5,8 +5,9 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatDateForDb } from "@/lib/utils";
 import { isBiometricAvailable, verifyBiometric } from "@/lib/biometric";
+import { AvatarImage } from "@/components/ui/avatar-image";
 
-type Barber = { id: string; name: string };
+type Barber = { id: string; name: string; photo?: string | null };
 type Hours = { id: string; barber_id: string; date: string; clock_in: string; clock_out: string | null; hours_worked: number | null };
 
 /**
@@ -52,7 +53,7 @@ export default function CheckInPage() {
     if (!shop?.id) { setLoading(false); return; }
     setLoading(true);
     const [{ data: b }, { data: open }, { data: hist }] = await Promise.all([
-      supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+      supabase.from("barbers").select("id, name, photo").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("staff_hours").select("id, barber_id, date, clock_in, clock_out, hours_worked")
         .eq("shop_id", shop.id).eq("date", todayStr).is("clock_out", null),
       supabase.from("staff_hours").select("id, barber_id, date, clock_in, clock_out, hours_worked")
@@ -129,7 +130,9 @@ export default function CheckInPage() {
             const open = openByBarber[b.id];
             return (
               <div key={b.id} className="flex items-center gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3">
-                <div className="w-10 h-10 rounded-full bg-[#141414] text-white font-bold flex items-center justify-center flex-shrink-0">{b.name.charAt(0).toUpperCase()}</div>
+                <div className="w-10 h-10 rounded-full bg-[#141414] text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <AvatarImage src={b.photo} alt={b.name} className="w-full h-full object-cover" fallback={<>{b.name.charAt(0).toUpperCase()}</>} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{b.name}</p>
                   <p className={cn("text-xs mt-0.5", open ? "text-emerald-400" : "text-[#777]")}>

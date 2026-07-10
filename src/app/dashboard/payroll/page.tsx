@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DollarSign, Download, Calendar, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -246,8 +247,8 @@ export default function PayrollPage() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     {/* Barber info */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold">
-                        {p.barber.name[0]}
+                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold overflow-hidden">
+                        <AvatarImage src={p.barber.photo} alt={p.barber.name} className="w-full h-full object-cover" fallback={<>{p.barber.name[0]}</>} />
                       </div>
                       <div>
                         <h3 className="text-white font-semibold">{p.barber.name}</h3>

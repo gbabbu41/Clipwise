@@ -8,6 +8,7 @@ import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, 
 import { cn, timeAgo } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -190,9 +191,9 @@ export function BarberSidebar() {
           <Link
             href="/barber-dashboard/profile"
             aria-label="Account"
-            className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0"
+            className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 overflow-hidden"
           >
-            {initial}
+            <AvatarImage src={barber?.photo} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </Link>
         )}
       </div>
@@ -353,8 +354,8 @@ export function BarberSidebar() {
 
       <div className="px-3 py-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-white border border-white flex items-center justify-center text-black font-semibold text-sm">
-            {initial}
+          <div className="w-8 h-8 rounded-full bg-white border border-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
+            <AvatarImage src={barber?.photo} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Scissors, User, CheckCircle2, ArrowLeft, Monitor } from "lucide-react";
@@ -281,8 +282,8 @@ export default function KioskPage() {
                     className={data.barber?.id === barber.id ? "border-black bg-black/5" : ""}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-black shadow-sm border border-[#1e1e1e] flex items-center justify-center text-xl font-bold text-white">
-                        {barber.name.charAt(0)}
+                      <div className="w-12 h-12 rounded-2xl bg-black shadow-sm border border-[#1e1e1e] flex items-center justify-center text-xl font-bold text-white overflow-hidden">
+                        <AvatarImage src={barber.photo} alt={barber.name} className="w-full h-full object-cover" fallback={<>{barber.name.charAt(0)}</>} />
                       </div>
                       <div>
                         <p className="text-white font-semibold text-lg">{barber.name}</p>

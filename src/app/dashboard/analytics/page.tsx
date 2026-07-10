@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -422,8 +423,8 @@ export default function AnalyticsPage() {
                       <tr key={b.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/20">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-white text-xs font-bold">
-                              {b.name[0]}
+                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                              <AvatarImage src={b.photo} alt={b.name} className="w-full h-full object-cover" fallback={<>{b.name[0]}</>} />
                             </div>
                             <span className="text-sm text-white font-medium">{b.name}</span>
                           </div>

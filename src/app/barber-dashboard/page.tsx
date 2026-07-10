@@ -8,6 +8,7 @@ import { cn, formatCurrency, formatDateForDb, friendlyDate, timeToMinutes } from
 import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -99,9 +100,10 @@ export default function BarberOverviewPage() {
           <Link
             href="/barber-dashboard/profile"
             aria-label="Account"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1 overflow-hidden"
           >
-            {(barber?.name ?? "U").charAt(0).toUpperCase()}
+            <AvatarImage src={barber?.photo} alt={barber?.name ?? "Account"} className="w-full h-full object-cover"
+              fallback={<>{(barber?.name ?? "U").charAt(0).toUpperCase()}</>} />
           </Link>
         </div>
       </div>
