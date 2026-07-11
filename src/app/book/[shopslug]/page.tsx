@@ -146,6 +146,13 @@ export default function BookingPage() {
   // ── Availability state ─────────────────────────────────────────────────────
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotGrid, setSlotGrid] = useState<SlotAvailability[]>([]);
+  // Which date the current slotGrid was loaded for — lets the auto-advance
+  // effect below know the grid reflects the *current* selectedDate (not a
+  // stale previous day) before deciding whether to skip to the next day.
+  const [slotsForDate, setSlotsForDate] = useState<string | null>(null);
+  // Tracks the "jump to the first day with real openings" auto-navigation so
+  // manual day/week taps can cancel it and it can't loop forever.
+  const autoAdvanceRef = useRef<{ active: boolean; tries: number }>({ active: false, tries: 0 });
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [barberWorkDays, setBarberWorkDays] = useState<Set<number>>(new Set());
@@ -338,7 +345,7 @@ export default function BookingPage() {
 
     const interval = slotIntervalOf(shop);
     const barberList = await fetchAvailability(date);
-    if (barberList.length === 0) { setSlotGrid([]); setSlotsLoading(false); return; }
+    if (barberList.length === 0) { setSlotGrid([]); setSlotsForDate(formatDateForDb(date)); setSlotsLoading(false); return; }
 
     const slotMap: Record<string, { available: boolean; barberIds: string[] }> = {};
     for (const b of barberList) {
@@ -360,6 +367,7 @@ export default function BookingPage() {
         .sort(([a], [b]) => timeToMinutes(a) - timeToMinutes(b)) // chronological — string sort would put 9 AM after 12 PM
         .map(([slot, v]) => ({ slot, ...v }))
     );
+    setSlotsForDate(formatDateForDb(date));
     setSlotsLoading(false);
   }, [shop, fetchAvailability]);
 
@@ -371,10 +379,11 @@ export default function BookingPage() {
     const interval = slotIntervalOf(shop);
     const list = await fetchAvailability(date, barberId);
     const b = list[0];
-    if (!b || b.fullDayOff || !b.start_time || !b.end_time) { setSlotGrid([]); setSlotsLoading(false); return; }
+    if (!b || b.fullDayOff || !b.start_time || !b.end_time) { setSlotGrid([]); setSlotsForDate(formatDateForDb(date)); setSlotsLoading(false); return; }
     const bookedSlots = bookedSlotsFor(b, interval);
     const slots = getSlotsInRange(b.start_time, b.end_time, date, bookedSlots, interval);
     setSlotGrid(slots.map(({ slot, available }) => ({ slot, available, barberIds: available ? [barberId] : [] })));
+    setSlotsForDate(formatDateForDb(date));
     setSlotsLoading(false);
   }, [shop, fetchAvailability]);
 
@@ -385,27 +394,84 @@ export default function BookingPage() {
     else if (flow === "barber-first" && selectedBarber) loadBarberFirstSlots(selectedBarber, selectedDate);
   }, [selectedDate, flow, selectedBarber, loadTimeFirstSlots, loadBarberFirstSlots]);
 
-  // Auto-select the nearest bookable day when the customer reaches the "When"
-  // step without a day chosen. It used to open on an empty "Pick a day" void;
-  // now it lands on the first day that actually has availability so the
-  // timeline is populated immediately. Scans ~60 days forward; if none qualify
-  // it falls back to today so we still render a real day (with its empty/
-  // waitlist state) rather than a blank screen. Gated on barbers + schedules
-  // being loaded so the availability check isn't run against empty data.
+  // How many bookable start-times a slot grid has for a given date — mirrors
+  // the render's `bookableSlots` (drops past times on today; requires the full
+  // multi-slot block to fit for multi-service). Used by the auto-advance effect
+  // to decide if a day is worth landing on. Kept self-contained (reads state
+  // directly) so it can run before the render-body derivations.
+  const bookableCountFor = useCallback((grid: SlotAvailability[], dateStr: string | null): number => {
+    if (!shop || grid.length === 0) return 0;
+    const interval = slotIntervalOf(shop);
+    const picked = selectedServices.map(id => services.find(s => s.id === id)).filter(Boolean) as Service[];
+    const dur = picked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0);
+    const need = Math.max(1, Math.ceil((dur || interval) / interval));
+    const isToday = dateStr === formatDateForDb(new Date());
+    let count = 0;
+    for (let i = 0; i < grid.length; i++) {
+      const s = grid[i];
+      if (!s.available) continue;
+      if (isToday && isSlotInPast(s.slot)) continue;
+      if (need > 1) {
+        let intersection = new Set(s.barberIds);
+        let fits = true;
+        for (let j = 1; j < need; j++) {
+          const next = grid[i + j];
+          if (!next || !next.available) { fits = false; break; }
+          intersection = new Set(Array.from(intersection).filter(id => next.barberIds.includes(id)));
+          if (intersection.size === 0) { fits = false; break; }
+        }
+        if (!fits) continue;
+      }
+      count++;
+    }
+    return count;
+  }, [shop, selectedServices, services]);
+
+  // Find the next day (from `after`, exclusive-optional) on which the relevant
+  // barber is actually scheduled and not on full-day time-off. Returns null if
+  // none within `span` days. Shared by the initial pick + the auto-advance.
+  const nextScheduledDay = useCallback((after: Date, inclusive: boolean, span = 60): Date | null => {
+    const base = new Date(after); base.setHours(0, 0, 0, 0);
+    const specificBarber =
+      flow === "barber-first" && selectedBarber && selectedBarber !== "any" ? selectedBarber : null;
+    for (let i = inclusive ? 0 : 1; i <= span; i++) {
+      const d = new Date(base); d.setDate(base.getDate() + i);
+      const ok = specificBarber ? isBarberAvailableOnDate(specificBarber, d) : isShopAvailableOnDate(d);
+      if (ok) return d;
+    }
+    return null;
+  }, [flow, selectedBarber, isShopAvailableOnDate, isBarberAvailableOnDate]);
+
+  // Auto-select the nearest day when the customer reaches the "When" step
+  // without a day chosen. It used to open on an empty "Pick a day" void. It
+  // seeds with the first *scheduled* day; the auto-advance effect below then
+  // hops forward to the first day with *real openings* once slots load (a
+  // scheduled day can still be fully booked or, for today, all in the past).
+  // Falls back to today so we always render a real day, never a blank screen.
   useEffect(() => {
     const whenStep = flow === "time-first" ? 1 : 2;
     if (step !== whenStep || selectedDate) return;
     if (barbers.length === 0 || Object.keys(barberDows).length === 0) return;
     const base = new Date(); base.setHours(0, 0, 0, 0);
-    const specificBarber =
-      flow === "barber-first" && selectedBarber && selectedBarber !== "any" ? selectedBarber : null;
-    for (let i = 0; i < 60; i++) {
-      const d = new Date(base); d.setDate(base.getDate() + i);
-      const ok = specificBarber ? isBarberAvailableOnDate(specificBarber, d) : isShopAvailableOnDate(d);
-      if (ok) { setSelectedDate(d); return; }
-    }
-    setSelectedDate(base); // nothing bookable in range — still show a real day
-  }, [step, flow, selectedDate, selectedBarber, barbers, barberDows, barberTimeOff, isShopAvailableOnDate, isBarberAvailableOnDate]);
+    autoAdvanceRef.current = { active: true, tries: 0 };
+    setSelectedDate(nextScheduledDay(base, true) ?? base);
+  }, [step, flow, selectedDate, barbers, barberDows, nextScheduledDay]);
+
+  // Auto-advance: once the seeded/selected day's slots have loaded, if it has
+  // NO bookable openings, hop to the next scheduled day and try again — so the
+  // customer lands on a day they can actually book rather than a dead-empty
+  // timeline. Bounded by `tries` and cancelled by any manual day/week tap.
+  useEffect(() => {
+    if (!autoAdvanceRef.current.active || !selectedDate) return;
+    const selStr = formatDateForDb(selectedDate);
+    if (slotsLoading || slotsForDate !== selStr) return; // wait for THIS day's slots
+    if (bookableCountFor(slotGrid, selStr) > 0) { autoAdvanceRef.current.active = false; return; } // landed on a good day
+    if (autoAdvanceRef.current.tries >= 20) { autoAdvanceRef.current.active = false; return; } // give up → empty state shows
+    const next = nextScheduledDay(selectedDate, false);
+    if (!next) { autoAdvanceRef.current.active = false; return; } // no scheduled days ahead
+    autoAdvanceRef.current.tries += 1;
+    setSelectedDate(next);
+  }, [selectedDate, slotsLoading, slotsForDate, slotGrid, bookableCountFor, nextScheduledDay]);
 
   // Refs hold the latest selection so the realtime callback below always
   // sees the customer's *current* picks without having to re-subscribe every
@@ -1226,21 +1292,22 @@ export default function BookingPage() {
 
         {/* When Step — Apple-style: week strip + day timeline of available slots */}
         {step === whenStepIndex && (() => {
-          // Compute the visible week from selectedDate (or today's week if none picked)
+          // Rolling 7-day strip that ALWAYS starts at today (not a Sun-anchored
+          // week). Paged in 7-day blocks from today, so the first cell is always
+          // today and a past day can never appear — no blank leading cells when
+          // it's late in the week. `pageIndex` is derived from selectedDate.
+          const DAY_MS = 86400000;
           const anchor = selectedDate ?? today;
-          const weekStart = new Date(anchor);
-          weekStart.setDate(anchor.getDate() - anchor.getDay());
-          weekStart.setHours(0, 0, 0, 0);
+          const anchorMid = new Date(anchor); anchorMid.setHours(0, 0, 0, 0);
+          const daysFromToday = Math.max(0, Math.round((anchorMid.getTime() - today.getTime()) / DAY_MS));
+          const pageIndex = Math.floor(daysFromToday / 7);
+          const weekStart = new Date(today); weekStart.setDate(today.getDate() + pageIndex * 7);
           const weekDays = Array.from({ length: 7 }, (_, i) => {
             const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
           });
-          // Customers can only look forward: the "Previous week" arrow is
-          // disabled once the visible week is the current week, so they can't
-          // scroll back into past days.
-          const todayWeekStart = new Date(today);
-          todayWeekStart.setDate(today.getDate() - today.getDay());
-          todayWeekStart.setHours(0, 0, 0, 0);
-          const canGoPrev = weekStart > todayWeekStart;
+          // Customers can only look forward: "Previous week" is disabled on the
+          // first page (which begins at today).
+          const canGoPrev = pageIndex > 0;
 
           const formatHourLabel = (h: number) => {
             if (h === 0) return "12 AM";
@@ -1281,7 +1348,7 @@ export default function BookingPage() {
                 <button
                   aria-label="Previous week"
                   disabled={!canGoPrev}
-                  onClick={() => { if (!canGoPrev) return; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
+                  onClick={() => { if (!canGoPrev) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
                   className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
                     canGoPrev ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#555] cursor-not-allowed",
@@ -1291,7 +1358,7 @@ export default function BookingPage() {
                 </button>
                 <button
                   aria-label="Next week"
-                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
+                  onClick={() => { autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
                   className="w-9 h-9 rounded-full bg-[#141414] hover:bg-[#141414]/80 flex items-center justify-center text-white transition-colors"
                 >
                   <ChevronRight size={18} />
@@ -1303,20 +1370,16 @@ export default function BookingPage() {
                 {weekDays.map((day) => {
                   const dayStr = formatDateForDb(day);
                   const isSelectedDay = dayStr === dateStr;
-                  const isPast = isDateInPast(day);
-                  // Past days are hidden entirely (blank cell) so the customer
-                  // never sees or scrolls to a day they can't book.
-                  if (isPast) return <div key={dayStr} aria-hidden className="py-1.5" />;
-                  // Date-aware availability: also disables days where every
-                  // barber who'd normally work that weekday has an approved
-                  // full-day time-off covering this specific date.
+                  // The rolling strip starts at today, so no day here is ever in
+                  // the past. Disable only days where the relevant barber isn't
+                  // scheduled or is on approved full-day time-off.
                   const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && !isBarberAvailableOnDate(selectedBarber, day);
                   const isShopClosed = flow !== "barber-first" && !isShopAvailableOnDate(day);
-                  const disabled = isPast || !!isBarberOff || isShopClosed;
+                  const disabled = !!isBarberOff || isShopClosed;
                   const isTodayDay = dayStr === todayStr;
                   return (
                     <button key={dayStr} disabled={disabled}
-                      onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
+                      onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
                       className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
                     >
                       <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-[#555]" : "text-[#777]")}>
@@ -1373,10 +1436,12 @@ export default function BookingPage() {
                     )}
                   </div>
                 )}
-                {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && servicesPicked.length > 1 && (
+                {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && (
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
-                      {flow === "barber-first" ? "This barber doesn't have" : "No barber has"} {totalDuration} min open on this day
+                      {servicesPicked.length > 1
+                        ? `${flow === "barber-first" ? "This barber doesn't have" : "No barber has"} ${totalDuration} min open on this day`
+                        : "No more openings on this day"}
                     </p>
                     <p className="text-xs text-[#777] mt-1">Try another day.</p>
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
