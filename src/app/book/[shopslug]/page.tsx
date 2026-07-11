@@ -1230,9 +1230,17 @@ export default function BookingPage() {
           const anchor = selectedDate ?? today;
           const weekStart = new Date(anchor);
           weekStart.setDate(anchor.getDate() - anchor.getDay());
+          weekStart.setHours(0, 0, 0, 0);
           const weekDays = Array.from({ length: 7 }, (_, i) => {
             const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
           });
+          // Customers can only look forward: the "Previous week" arrow is
+          // disabled once the visible week is the current week, so they can't
+          // scroll back into past days.
+          const todayWeekStart = new Date(today);
+          todayWeekStart.setDate(today.getDate() - today.getDay());
+          todayWeekStart.setHours(0, 0, 0, 0);
+          const canGoPrev = weekStart > todayWeekStart;
 
           const formatHourLabel = (h: number) => {
             if (h === 0) return "12 AM";
@@ -1267,13 +1275,17 @@ export default function BookingPage() {
           const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
           return (
-            <div className="flex flex-col -mx-4 sm:mx-auto sm:max-w-md animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px", maxHeight: "620px" }}>
+            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px" }}>
               {/* Header row: back / next week arrows (icon-only) */}
               <div className="flex items-center justify-between px-4 pb-2">
                 <button
                   aria-label="Previous week"
-                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-[#141414] hover:bg-[#141414]/80 flex items-center justify-center text-white transition-colors"
+                  disabled={!canGoPrev}
+                  onClick={() => { if (!canGoPrev) return; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
+                  className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
+                    canGoPrev ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#555] cursor-not-allowed",
+                  )}
                 >
                   <ChevronLeft size={18} />
                 </button>
@@ -1292,6 +1304,9 @@ export default function BookingPage() {
                   const dayStr = formatDateForDb(day);
                   const isSelectedDay = dayStr === dateStr;
                   const isPast = isDateInPast(day);
+                  // Past days are hidden entirely (blank cell) so the customer
+                  // never sees or scrolls to a day they can't book.
+                  if (isPast) return <div key={dayStr} aria-hidden className="py-1.5" />;
                   // Date-aware availability: also disables days where every
                   // barber who'd normally work that weekday has an approved
                   // full-day time-off covering this specific date.
