@@ -15,6 +15,7 @@ import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -162,6 +163,7 @@ export default function DashboardPage() {
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showAddWalkin, setShowAddWalkin] = useState(false);
@@ -193,6 +195,13 @@ export default function DashboardPage() {
     if (!profile || profile.role !== "barber" || !shop) return;
     supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
       .then(({ data }) => { if (data) setMyBarberId(data.id); });
+  }, [profile, shop]);
+
+  // The owner's own barber photo → shown on the owner-portal account avatar.
+  useEffect(() => {
+    if (!profile || !shop) { setOwnerPhoto(null); return; }
+    supabase.from("barbers").select("photo").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => setOwnerPhoto((data as { photo?: string | null } | null)?.photo ?? null));
   }, [profile, shop]);
 
   // ── Load clock-in status for barbers ────────────────────────────────────────
@@ -486,9 +495,10 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Account"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           >
-            {(profile?.name ?? "U").charAt(0).toUpperCase()}
+            <AvatarImage src={ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
+              fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
           </Link>
         </div>
       </div>

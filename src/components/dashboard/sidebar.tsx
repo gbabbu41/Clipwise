@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
+import { AvatarImage } from "@/components/ui/avatar-image";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
 // notification is actually about (NOT "/dashboard/pending" — that's the shop's
@@ -171,6 +172,7 @@ export function Sidebar() {
   const { user, profile, shop, shops, setActiveShop, signOut } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
+  const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Auto-close the mobile drawer whenever the route changes (i.e. the user
@@ -278,11 +280,12 @@ export function Sidebar() {
     dismissNotif(n.id);
   };
 
-  // Detect whether this owner is also linked as a barber → show role-switch link
+  // Detect whether this owner is also linked as a barber → show role-switch link,
+  // and grab their barber photo so the owner-portal avatar shows their picture.
   useEffect(() => {
-    if (!user || !shop || profile?.role !== "shop_owner") { setIsAlsoBarber(false); return; }
-    supabase.from("barbers").select("id").eq("user_id", user.id).eq("shop_id", shop.id).maybeSingle()
-      .then(({ data }) => setIsAlsoBarber(!!data));
+    if (!user || !shop || profile?.role !== "shop_owner") { setIsAlsoBarber(false); setOwnerPhoto(null); return; }
+    supabase.from("barbers").select("id, photo").eq("user_id", user.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => { setIsAlsoBarber(!!data); setOwnerPhoto((data as { photo?: string | null } | null)?.photo ?? null); });
   }, [user, shop, profile]);
 
   useEffect(() => {
@@ -342,9 +345,9 @@ export function Sidebar() {
         <Link
           href="/dashboard/settings"
           aria-label="Account"
-          className="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
+          className="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity overflow-hidden"
         >
-          {initial}
+          <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
         </Link>
       </div>
 
@@ -589,8 +592,8 @@ export function Sidebar() {
       {/* User */}
       <div className="px-3 py-4 border-t border-[#1e1e1e]">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-white font-semibold text-sm">
-            {initial}
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
+            <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>
