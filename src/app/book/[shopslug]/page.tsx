@@ -6,7 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate, prettyDateWithContext } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -384,6 +384,28 @@ export default function BookingPage() {
     if (flow === "time-first") loadTimeFirstSlots(selectedDate);
     else if (flow === "barber-first" && selectedBarber) loadBarberFirstSlots(selectedBarber, selectedDate);
   }, [selectedDate, flow, selectedBarber, loadTimeFirstSlots, loadBarberFirstSlots]);
+
+  // Auto-select the nearest bookable day when the customer reaches the "When"
+  // step without a day chosen. It used to open on an empty "Pick a day" void;
+  // now it lands on the first day that actually has availability so the
+  // timeline is populated immediately. Scans ~60 days forward; if none qualify
+  // it falls back to today so we still render a real day (with its empty/
+  // waitlist state) rather than a blank screen. Gated on barbers + schedules
+  // being loaded so the availability check isn't run against empty data.
+  useEffect(() => {
+    const whenStep = flow === "time-first" ? 1 : 2;
+    if (step !== whenStep || selectedDate) return;
+    if (barbers.length === 0 || Object.keys(barberDows).length === 0) return;
+    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const specificBarber =
+      flow === "barber-first" && selectedBarber && selectedBarber !== "any" ? selectedBarber : null;
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(base); d.setDate(base.getDate() + i);
+      const ok = specificBarber ? isBarberAvailableOnDate(specificBarber, d) : isShopAvailableOnDate(d);
+      if (ok) { setSelectedDate(d); return; }
+    }
+    setSelectedDate(base); // nothing bookable in range — still show a real day
+  }, [step, flow, selectedDate, selectedBarber, barbers, barberDows, barberTimeOff, isShopAvailableOnDate, isBarberAvailableOnDate]);
 
   // Refs hold the latest selection so the realtime callback below always
   // sees the customer's *current* picks without having to re-subscribe every
@@ -1245,7 +1267,7 @@ export default function BookingPage() {
           const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
           return (
-            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px" }}>
+            <div className="flex flex-col -mx-4 sm:mx-auto sm:max-w-md animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px", maxHeight: "620px" }}>
               {/* Header row: back / next week arrows (icon-only) */}
               <div className="flex items-center justify-between px-4 pb-2">
                 <button
@@ -1300,10 +1322,8 @@ export default function BookingPage() {
 
               {/* Date title row (center) */}
               <div className="px-4 py-2 border-t border-[#1e1e1e]/40 text-center">
-                <p className="text-sm font-medium text-white">
-                  {selectedDate
-                    ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
-                    : "Pick a day"}
+                <p className="text-sm font-semibold text-white">
+                  {selectedDate ? prettyDateWithContext(formatDateForDb(selectedDate)) : "Pick a day"}
                 </p>
               </div>
 
