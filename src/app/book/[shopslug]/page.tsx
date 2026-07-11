@@ -154,7 +154,6 @@ export default function BookingPage() {
   // manual day/week taps can cancel it and it can't loop forever.
   const autoAdvanceRef = useRef<{ active: boolean; tries: number }>({ active: false, tries: 0 });
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
   const [barberWorkDays, setBarberWorkDays] = useState<Set<number>>(new Set());
   const [shopWorkDays, setShopWorkDays] = useState<Set<number>>(new Set());
   // Per-barber day-of-week + approved full-day time-off, so the date strip
@@ -515,19 +514,6 @@ export default function BookingPage() {
     return () => { supabase.removeChannel(channel); };
   }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays, loadBarberTimeOff]);
 
-
-  // ── Auto-scroll the When-step timeline to 9 AM on open ─────────────────────
-  // Open the 0–24h timeline scrolled to the EARLIEST available slot (falling
-  // back to the earliest slot) so the first bookable time is visible right away
-  // — even if a barber starts before 9 AM.
-  useEffect(() => {
-    if (slotGrid.length === 0) return;
-    if (!timelineRef.current) return;
-    const ROW_PX = 64;
-    const firstAvail = slotGrid.find(s => s.available) ?? slotGrid[0];
-    const hour = timeToMinutes(firstAvail.slot) / 60;
-    timelineRef.current.scrollTop = Math.max(0, hour * ROW_PX - 16);
-  }, [slotGrid]);
 
   // ── Apply promo code ───────────────────────────────────────────────────────
   const applyPromo = async () => {
@@ -1309,12 +1295,8 @@ export default function BookingPage() {
           // first page (which begins at today).
           const canGoPrev = pageIndex > 0;
 
-          const formatHourLabel = (h: number) => {
-            if (h === 0) return "12 AM";
-            if (h === 12) return "Noon";
-            if (h < 12) return `${h} AM`;
-            return `${h - 12} PM`;
-          };
+          // Hour-of-day (0–24, fractional) for a "9:15 AM" style slot — used to
+          // bucket slots into Morning / Afternoon / Evening for the chip grid.
           const parseHour = (slotStr: string) => {
             const [time, period] = slotStr.split(" ");
             const [h, m] = time.split(":").map(Number);
@@ -1323,8 +1305,6 @@ export default function BookingPage() {
             if (period === "AM" && h === 12) hour = 0;
             return hour + m / 60;
           };
-
-          const ROW_PX = 64;
 
           const blockSlotSet = new Set(slotGridForBlock.map(s => s.slot));
           const todayStr = formatDateForDb(new Date());
@@ -1335,14 +1315,20 @@ export default function BookingPage() {
             return !past && blockSlotSet.has(slot);
           });
 
-          // Bound the timeline to the actual available slots, not 12 AM→12 AM.
-          const slotHrs = bookableSlots.map(({ slot }) => parseHour(slot));
-          const startHour = slotHrs.length ? Math.floor(Math.min(...slotHrs)) : 8;
-          const endHour = slotHrs.length ? Math.min(24, Math.ceil(Math.max(...slotHrs)) + 1) : 20;
-          const hoursToShow = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+          // Group bookable slots into parts of the day so a 15-min-granularity
+          // shop with 40+ openings stays scannable.
+          const slotGroups = [
+            { label: "Morning", slots: [] as typeof bookableSlots },
+            { label: "Afternoon", slots: [] as typeof bookableSlots },
+            { label: "Evening", slots: [] as typeof bookableSlots },
+          ];
+          for (const s of bookableSlots) {
+            const h = parseHour(s.slot);
+            (h < 12 ? slotGroups[0] : h < 17 ? slotGroups[1] : slotGroups[2]).slots.push(s);
+          }
 
           return (
-            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ height: "calc(100dvh - 280px)", minHeight: "500px" }}>
+            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ maxHeight: "calc(100dvh - 210px)" }}>
               {/* Header row: back / next week arrows (icon-only) */}
               <div className="flex items-center justify-between px-4 pb-2">
                 <button
@@ -1405,8 +1391,8 @@ export default function BookingPage() {
                 </p>
               </div>
 
-              {/* Timeline */}
-              <div ref={timelineRef} className="flex-1 overflow-y-auto border-t border-[#1e1e1e]/40">
+              {/* Slot list */}
+              <div className="flex-1 overflow-y-auto border-t border-[#1e1e1e]/40">
                 {!selectedDate && (
                   <div className="py-16 text-center text-[#777] text-sm">Tap a day above to see openings.</div>
                 )}
@@ -1459,53 +1445,42 @@ export default function BookingPage() {
                   </div>
                 )}
                 {selectedDate && !slotsLoading && bookableSlots.length > 0 && (
-                  <div className="relative" style={{ height: `${(endHour - startHour) * ROW_PX + 24}px` }}>
-                    {/* Hour lines */}
-                    {hoursToShow.map((h, i) => (
-                      <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: `${i * ROW_PX}px` }}>
-                        <div className="w-14 pl-3 pr-2 text-[10px] text-[#777] pt-0">
-                          {formatHourLabel(h)}
+                  <div className="px-3 py-3 space-y-5">
+                    {slotGroups.filter(g => g.slots.length > 0).map((g) => (
+                      <div key={g.label}>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#777] px-1 mb-2">{g.label}</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {g.slots.map(({ slot, barberIds }) => {
+                            const isSelectedSlot = selectedTime === slot;
+                            return (
+                              <button key={slot}
+                                onClick={() => {
+                                  if (barberIds.length === 1) {
+                                    setSelectedTime(slot);
+                                    setSelectedBarber(barberIds[0]);
+                                  } else {
+                                    setExpandedSlot(slot);
+                                  }
+                                }}
+                                className={cn(
+                                  "rounded-xl border py-2.5 px-1 flex flex-col items-center justify-center transition-all",
+                                  isSelectedSlot
+                                    ? "bg-black border-black text-white ring-2 ring-black/30"
+                                    : "bg-sky-500/10 border-sky-400/40 hover:bg-sky-500/20 text-white",
+                                )}
+                              >
+                                <span className="text-sm font-semibold leading-none">{slot}</span>
+                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-white/80" : "text-sky-300/80")}>
+                                  {barberIds.length === 1
+                                    ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
+                                    : `${barberIds.length} free`}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="flex-1 h-px bg-border/30 mt-1.5" />
                       </div>
                     ))}
-
-                    {/* Slot chips — fixed-height pills, one per available start time. Barber
-                        identity is revealed on tap (popup) or shown on the selected chip only. */}
-                    {bookableSlots.map(({ slot, barberIds }) => {
-                      const slotHour = parseHour(slot);
-                      if (slotHour < startHour || slotHour >= endHour) return null;
-                      const top = (slotHour - startHour) * ROW_PX;
-                      const isSelectedSlot = selectedTime === slot;
-                      return (
-                        <button key={slot}
-                          onClick={() => {
-                            if (barberIds.length === 1) {
-                              setSelectedTime(slot);
-                              setSelectedBarber(barberIds[0]);
-                            } else {
-                              setExpandedSlot(slot);
-                            }
-                          }}
-                          style={{ top: `${top + 4}px`, height: "26px", left: "60px", right: "12px", position: "absolute" }}
-                          className={cn(
-                            "rounded-md text-left pl-2.5 pr-2 flex items-center justify-between overflow-hidden transition-all border-l-2",
-                            isSelectedSlot
-                              ? "bg-black/15 border-black ring-1 ring-black/20"
-                              : "bg-sky-500/15 hover:bg-sky-500/25 border-sky-400",
-                          )}
-                        >
-                          <span className={cn("text-xs font-semibold leading-none", isSelectedSlot ? "text-white" : "text-sky-200")}>
-                            {slot}
-                          </span>
-                          <span className={cn("text-[10px] leading-none ml-2 truncate", isSelectedSlot ? "text-white/80" : "text-sky-300/70")}>
-                            {barberIds.length === 1
-                              ? `with ${barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"}`
-                              : `${barberIds.length} barbers free`}
-                          </span>
-                        </button>
-                      );
-                    })}
                   </div>
                 )}
               </div>
