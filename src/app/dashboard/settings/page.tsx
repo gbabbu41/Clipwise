@@ -63,6 +63,11 @@ export default function SettingsPage() {
   const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
   const [tab, setTab] = useState("profile");
 
+  // Free (Starter) shops can't charge online, so pay-in-person is their ONLY
+  // possible payment method — the toggle is locked ON for them (turning it off
+  // would leave customers with no way to pay, bricking the booking page).
+  const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
+
   // Account/password state
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -206,7 +211,7 @@ export default function SettingsPage() {
       youtube: profile.youtube || null,
       website: profile.website || null,
       google_place_id: profile.google_place_id || null,
-      allow_pay_in_person: profile.allow_pay_in_person,
+      allow_pay_in_person: isFreePlan ? true : profile.allow_pay_in_person,
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
@@ -221,7 +226,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from("shops").update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       booking_settings: booking as any,
-      allow_pay_in_person: profile.allow_pay_in_person,
+      allow_pay_in_person: isFreePlan ? true : profile.allow_pay_in_person,
     }).eq("id", shop.id);
     if (error) {
       // Surface the real failure — silently "saving locally" hid settings (like
@@ -445,19 +450,19 @@ export default function SettingsPage() {
             )}
             <div className={cn(
               "flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]",
-              !profile.allow_pay_in_person && "opacity-50"
+              !(isFreePlan || profile.allow_pay_in_person) && "opacity-50"
             )}>
               <div className="pr-4">
                 <p className="text-sm font-medium text-white">Auto-Confirm In-Person Bookings</p>
                 <p className="text-xs text-[#777]">
-                  {profile.allow_pay_in_person
+                  {(isFreePlan || profile.allow_pay_in_person)
                     ? "When on, pay-in-person bookings are confirmed automatically — no manual approval needed. Online (prepaid) bookings always confirm on payment."
                     : "Only applies when “Allow pay-in-person” is on. Online bookings already confirm automatically when paid."}
                 </p>
               </div>
               <Toggle
-                value={profile.allow_pay_in_person && booking.auto_confirm}
-                disabled={!profile.allow_pay_in_person}
+                value={(isFreePlan || profile.allow_pay_in_person) && booking.auto_confirm}
+                disabled={!(isFreePlan || profile.allow_pay_in_person)}
                 onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
 
@@ -471,9 +476,15 @@ export default function SettingsPage() {
               <div className="pr-4">
                 <p className="text-sm font-medium text-white">Allow pay-in-person</p>
                 <p className="text-xs text-[#777]">Customers can choose to pay at the shop instead of online. Bookings made this way are marked Cash · Unpaid until you collect.</p>
+                {isFreePlan && (
+                  <p className="text-xs text-gold mt-1">
+                    On the free plan this is your only payment method, so it stays on. Upgrade to Pro to accept online payments and require prepayment.
+                  </p>
+                )}
               </div>
               <Toggle
-                value={profile.allow_pay_in_person}
+                value={isFreePlan ? true : profile.allow_pay_in_person}
+                disabled={isFreePlan}
                 onChange={() => setProfile(p => ({ ...p, allow_pay_in_person: !p.allow_pay_in_person }))}
               />
             </div>
