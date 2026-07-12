@@ -144,3 +144,29 @@ export function effectivePlan(plan: string | undefined, subscriptionStatus: stri
   if (subscriptionStatus === "active") return plan;
   return "starter"; // expired/cancelled/past_due → downgrade
 }
+
+// ── No-show fee ──────────────────────────────────────────────────────────────
+// The no-show fee is a PERCENTAGE of the booked total, capped at 80%. A barber
+// who wants the full amount just completes the appointment instead — so the
+// no-show charge is intentionally a partial one. Fees are never auto-charged;
+// a barber (or the owner) triggers them manually after the grace window.
+export const NO_SHOW_MAX_PCT = 80;
+export const NO_SHOW_DEFAULT_PCT = 50;
+// Minutes past the appointment start before the "charge no-show" option appears.
+export const NO_SHOW_GRACE_MINUTES = 15;
+
+/** Clamp a configured no-show percentage into the allowed 0–80 range. */
+export function clampNoShowPct(pct: number | undefined | null): number {
+  return Math.min(Math.max(Math.round(pct ?? NO_SHOW_DEFAULT_PCT), 0), NO_SHOW_MAX_PCT);
+}
+
+/** Dollar no-show fee for a booked total at the configured percentage (0–80),
+ *  rounded to cents. */
+export function noShowFeeDollars(total: number, pct: number | undefined | null): number {
+  return Math.round((total ?? 0) * clampNoShowPct(pct)) / 100;
+}
+
+/** Cent-precise no-show fee for Stripe, from a total already in cents. */
+export function noShowFeeCents(totalCents: number, pct: number | undefined | null): number {
+  return Math.round((totalCents ?? 0) * clampNoShowPct(pct) / 100);
+}

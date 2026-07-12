@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDate } from "@/lib/utils";
+import { noShowFeeCents, NO_SHOW_MAX_PCT } from "@/lib/validation";
 
 /**
  * Capture a previously-authorized (held) PaymentIntent for an appointment.
@@ -77,17 +78,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, alreadyCaptured: true });
   }
 
-  // No-show fee: use the explicit amount if given, else the shop's configured
-  // flat fee (booking_settings.no_show_fee_amount, in $), else the full hold.
-  let feeCents = amount_cents && amount_cents > 0 ? amount_cents : 0;
-  if (reason === "no_show" && !feeCents) {
-    const bs = shop.booking_settings as { no_show_fee_amount?: number } | null;
-    const feeDollars = bs?.no_show_fee_amount ?? 0;
-    if (feeDollars > 0) feeCents = Math.min(Math.round(feeDollars * 100), Math.round((appt.total_amount ?? 0) * 100));
+  // No-show fee: a PERCENTAGE of the booked total (booking_settings
+  // .no_show_fee_percent), always capped at 80% — the full amount is only ever
+  // collected by completing the appointment instead. A "completed" capture
+  // leaves feeCents = 0 and captures the whole hold.
+  const totalCents = Math.round((appt.total_amount ?? 0) * 100);
+  let feeCents = 0;
+  if (reason === "no_show") {
+    const bs = shop.booking_settings as { no_show_fee_percent?: number } | null;
+    const capCents = noShowFeeCents(totalCents, NO_SHOW_MAX_PCT);
+    const configuredCents = noShowFeeCents(totalCents, bs?.no_show_fee_percent);
+    feeCents = Math.min(amount_cents && amount_cents > 0 ? amount_cents : configuredCents, capCents);
   }
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
   const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
+
+  // No-show with a 0% fee (or a $0 booking): collect nothing. Release any held
+  // authorization so the customer isn't left with a lingering hold, then settle.
+  if (reason === "no_show" && feeCents <= 0) {
+    if (!isSaved && appt.payment_intent_id) {
+      await stripe.paymentIntents.cancel(appt.payment_intent_id, {}, opts).then(null, () => null);
+    }
+    await supabaseAdmin.from("appointments")
+      .update({ payment_status: null }).eq("id", appointment_id).then(null, () => null);
+    return NextResponse.json({ ok: true, amount: 0 });
+  }
 
   try {
     let pi: { amount_received?: number | null; id?: string };

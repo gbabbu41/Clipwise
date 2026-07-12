@@ -104,8 +104,10 @@ export default function ServicesPage() {
       category: newSvc.category,
       description: newSvc.description,
       is_active: newSvc.is_active,
-      deposit_required: newSvc.deposit_required,
-      deposit_amount: newSvc.deposit_required ? Number(newSvc.deposit_amount) : 0,
+      // Deposits are retired — no-show protection replaces them. Any service
+      // saved/edited clears its legacy deposit flag.
+      deposit_required: false,
+      deposit_amount: 0,
     };
     if (editService) {
       const { error } = await supabase.from("services").update(payload).eq("id", editService.id);
@@ -253,11 +255,6 @@ export default function ServicesPage() {
                         </div>
                       </div>
                       <p className="text-xs text-[#777] mb-2">{svc.description}</p>
-                      {svc.deposit_required && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-black/10 border border-black text-white rounded-full px-2 py-0.5 mb-3">
-                          💳 ${svc.deposit_amount} deposit required
-                        </span>
-                      )}
                       <div className="flex items-center justify-between">
                         <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
                         <div className="flex gap-2">
@@ -368,13 +365,6 @@ export default function ServicesPage() {
                   <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
                   <span className="text-sm text-[#777]">Active</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Switch checked={!!newSvc.deposit_required} onChange={v => setNewSvc(p => ({ ...p, deposit_required: v }))} />
-                  <span className="text-sm text-[#777]">Require deposit</span>
-                </div>
-                {newSvc.deposit_required && (
-                  <Input label="Deposit Amount ($)" type="number" value={newSvc.deposit_amount} onChange={e => setNewSvc(p => ({ ...p, deposit_amount: e.target.value }))} placeholder="e.g. 20" />
-                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowServiceModal(false)}>Cancel</Button>

@@ -7,7 +7,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate, prettyDateWithContext } from "@/lib/utils";
-import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
+import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, noShowFeeDollars } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
 
@@ -599,16 +599,10 @@ export default function BookingPage() {
       }
     }
 
-    // Online-payment branch — triggered either by an explicit customer
-    // choice ("pay online now" → charge the full total) or by the legacy
-    // deposit-required path ("just the deposit upfront"). The API falls
-    // back to the platform's Stripe account when the shop hasn't done
+    // Online-payment branch — the customer chose "pay online now". The API
+    // falls back to the platform's Stripe account when the shop hasn't done
     // Connect, so no `stripe_connected` precondition is needed here.
     //
-    // `in_person` always wins over `deposit_required` — when the customer
-    // explicitly picks pay-in-person, we skip Stripe entirely even if the
-    // service was tagged with a deposit requirement.
-    const depositAmount = (shopCanCharge && service?.deposit_required) ? (service.deposit_amount ?? 0) : 0;
     // No-show protection options for "pay online":
     //   ≤7 days out  → AUTHORIZE the full amount (card held, not charged),
     //                  captured later on completion / no-show.
@@ -622,14 +616,10 @@ export default function BookingPage() {
       showToast("Please accept the no-show policy to continue.", false);
       return;
     }
-    // Amount to send: holds authorize the full total; saved cards charge $0
-    // now (setup mode ignores it); the legacy deposit path charges the deposit.
-    const chargeAmount =
-      payMethodChoice === "in_person" ? 0 :
-      useHold                         ? total :
-      useSaveCard                     ? 0 :
-                                        depositAmount;
-    // Route to Stripe whenever paying online (hold or save) or a deposit is due.
+    // Amount to send: holds authorize the full total; saved cards + in-person +
+    // free bookings charge nothing now.
+    const chargeAmount = useHold ? total : 0;
+    // Route to Stripe whenever paying online (hold or save).
     if (payMethodChoice === "online" || chargeAmount > 0) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
@@ -834,10 +824,12 @@ export default function BookingPage() {
   const canPayInPersonNow = total > 0 && allowInPerson;
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
-  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_amount?: number } | null;
+  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
   const noShowProtection = !!bookingSettings?.no_show_protection;
-  const noShowFee = bookingSettings?.no_show_fee_amount ?? 0; // 0 = full service price
-  const noShowFeeLabel = noShowFee > 0 ? formatCurrency(noShowFee) : "the full service price";
+  // The fee is a % of the booked total (capped at 80%) — show the customer the
+  // real dollar amount for THIS booking so the policy is concrete.
+  const noShowFeeAmount = noShowFeeDollars(total, bookingSettings?.no_show_fee_percent);
+  const noShowFeeLabel = formatCurrency(noShowFeeAmount);
   // Days until the appointment — drives hold (≤7d) vs save-card (>7d).
   const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
   const willSaveCard = daysOut > 7; // beyond the ~7-day card-hold window
@@ -1606,10 +1598,6 @@ export default function BookingPage() {
 
         {/* Confirm Step */}
         {step === confirmStepIndex && (() => {
-          const depositTotal = shopCanCharge ? servicesPicked.reduce(
-            (sum, s) => sum + (s.deposit_required ? (s.deposit_amount ?? 0) : 0),
-            0
-          ) : 0;
           return (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Review your booking</h2>
@@ -1647,19 +1635,11 @@ export default function BookingPage() {
                   <span className="text-white">Total</span>
                   <span className="text-white text-lg">{formatCurrency(total)}</span>
                 </div>
-                {depositTotal > 0 && (
-                  <div className="flex justify-between text-sm pt-1">
-                    <span className="text-white">Deposit due now</span>
-                    <span className="text-white font-semibold">{formatCurrency(depositTotal)}</span>
-                  </div>
-                )}
               </div>
             </div>
-            {depositTotal > 0
-              ? <p className="text-xs text-white/70 text-center">💳 A ${depositTotal} deposit is required to secure this booking · Balance paid at the shop</p>
-              : canPayInPersonNow
-                ? <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
-                : <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
+            {canPayInPersonNow
+              ? <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
+              : <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
             }
 
             {/* No-show policy heads-up — always shown when this shop has no-show

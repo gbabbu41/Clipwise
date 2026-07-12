@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan } from "@/lib/validation";
+import { effectivePlan, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -24,17 +24,15 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 type BookingSettings = {
   advance_days: number;
   cancellation_hours: number;
-  deposit: boolean;
-  deposit_amount: number;
   no_show_protection: boolean;
-  no_show_fee_amount: number; // $ to charge for a no-show; 0 = full service price
+  no_show_fee_percent: number; // % of the booked total to charge a no-show (0–80)
   auto_confirm: boolean;
   slot_interval_minutes: number; // booking-window granularity: 15 or 30
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
-  advance_days: 30, cancellation_hours: 24, deposit: false,
-  deposit_amount: 10, no_show_protection: true, no_show_fee_amount: 0, auto_confirm: false,
+  advance_days: 30, cancellation_hours: 24,
+  no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, auto_confirm: false,
   slot_interval_minutes: 30,
 };
 
@@ -425,27 +423,17 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
               <div>
-                <p className="text-sm font-medium text-white">Deposit Requirement</p>
-                <p className="text-xs text-[#777]">Require deposit at booking</p>
-              </div>
-              <Toggle value={booking.deposit} onChange={() => setBooking(p => ({ ...p, deposit: !p.deposit }))} />
-            </div>
-            {booking.deposit && (
-              <Input label="Deposit Amount ($)" type="number" value={String(booking.deposit_amount)}
-                onChange={e => setBooking(p => ({ ...p, deposit_amount: Number(e.target.value) }))} />
-            )}
-            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-              <div>
                 <p className="text-sm font-medium text-white">No-Show Protection</p>
-                <p className="text-xs text-[#777]">Auto-charge the card if a client doesn&apos;t show (≈2h after their time). Bookings within 7 days hold the card; further out, the card is saved on file and charged then.</p>
+                <p className="text-xs text-[#777]">Hold (or save, for bookings 7+ days out) the client&apos;s card at booking. If they don&apos;t show, you or the barber charge the no-show fee — it&apos;s never charged automatically.</p>
               </div>
               <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
             </div>
             {booking.no_show_protection && (
               <div>
-                <Input label="No-Show Fee ($) — 0 = full service price" type="number" value={String(booking.no_show_fee_amount ?? 0)}
-                  onChange={e => setBooking(p => ({ ...p, no_show_fee_amount: Number(e.target.value) }))} />
-                <p className="text-xs text-[#777] mt-1">Charged from the card held (or saved) at booking. Leave 0 to charge the full amount.</p>
+                <Input label={`No-Show Fee (% of the booking · max ${NO_SHOW_MAX_PCT}%)`} type="number" min={0} max={NO_SHOW_MAX_PCT}
+                  value={String(booking.no_show_fee_percent ?? NO_SHOW_DEFAULT_PCT)}
+                  onChange={e => setBooking(p => ({ ...p, no_show_fee_percent: clampNoShowPct(Number(e.target.value)) }))} />
+                <p className="text-xs text-[#777] mt-1">Charged from the card held (or saved) at booking. Capped at {NO_SHOW_MAX_PCT}% — to collect the full price, complete the appointment instead.</p>
               </div>
             )}
             <div className={cn(

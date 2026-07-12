@@ -52,7 +52,8 @@ export interface Shop {
    *  Stored as a JSON blob; only the fields read at runtime are typed here. */
   booking_settings?: {
     no_show_protection?: boolean;
-    no_show_fee_amount?: number;
+    no_show_fee_percent?: number; // % of the booked total to charge a no-show (0–80)
+    no_show_fee_amount?: number;  // legacy (flat $) — no longer written; kept for old blobs
     [key: string]: unknown;
   };
   created_at: string;

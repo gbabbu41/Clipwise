@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         line_items: [{
           price_data: {
             currency: "cad",
-            product_data: { name: booking.hold ? `${booking.service_name} — hold (charged after visit)` : `${booking.service_name} — deposit` },
+            product_data: { name: booking.hold ? `${booking.service_name} — hold (charged after visit)` : booking.service_name },
             unit_amount: Math.round(booking.amount * 100),
           },
           quantity: 1,

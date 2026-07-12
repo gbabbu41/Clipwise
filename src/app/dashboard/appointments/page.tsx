@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, prettyDate, timeAgo, timeToMinutes } from "@/lib/utils";
-import { formatPhone, validatePrice } from "@/lib/validation";
+import { formatPhone, validatePrice, noShowFeeDollars, NO_SHOW_GRACE_MINUTES } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -607,13 +607,22 @@ export default function AppointmentsPage() {
   };
 
   // What the card will actually be charged for a no-show — mirrors the server:
-  // the shop's configured flat fee (capped at the service total), or the full
-  // total when no fee is set (0 = full service price). Keeps the button labels
-  // and confirm honest instead of always showing the full price.
+  // the shop's configured percentage of the booked total, capped at 80%. Keeps
+  // the button labels and confirm honest.
   const noShowFeeFor = (appt: AppointmentWithDetails) => {
-    const total = appt.total_amount ?? 0;
-    const fee = shop?.booking_settings?.no_show_fee_amount ?? 0;
-    return fee > 0 ? Math.min(fee, total) : total;
+    return noShowFeeDollars(appt.total_amount ?? 0, shop?.booking_settings?.no_show_fee_percent);
+  };
+
+  // A no-show can only be marked/charged once the appointment start time has
+  // passed by the grace window — you can't no-show a slot that hasn't happened.
+  const isNoShowReady = (appt: AppointmentWithDetails) => {
+    const m = (appt.time_slot ?? "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!appt.date || !m) return false;
+    let h = Number(m[1]) % 12;
+    if (/pm/i.test(m[3])) h += 12;
+    const start = new Date(`${appt.date}T${String(h).padStart(2, "0")}:${m[2]}:00`);
+    if (isNaN(start.getTime())) return false;
+    return Date.now() >= start.getTime() + NO_SHOW_GRACE_MINUTES * 60000;
   };
 
   // Charge-only path (appointment is already a no-show — this is the manual /
@@ -1276,7 +1285,7 @@ export default function AppointmentsPage() {
                       <button type="button" className="btn btn-soft-danger" disabled={savingStatus === selectedApt.id}
                         onClick={() => setRejectModal({ appt: selectedApt, reason: "" })}>Reject</button>
                     )}
-                    {rejectable && (
+                    {rejectable && isNoShowReady(selectedApt) && (
                       <button type="button" className="btn btn-soft-warning col-span-2" disabled={savingStatus === selectedApt.id}
                         onClick={() => handleStatusChange(selectedApt, "no-show")}>
                         Mark as No-Show{(selectedApt.payment_status === "held" || selectedApt.payment_status === "saved") ? ` · charges ${formatCurrency(noShowFeeFor(selectedApt))}` : ""}
