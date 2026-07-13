@@ -44,16 +44,17 @@ const igHandle = (u: string) =>
 // A Google Maps DIRECTIONS link to the shop. Prefer the saved place_id for an
 // exact pin; otherwise use the street address ONLY (never the shop name, which
 // makes Maps do a fuzzy business search). Name is a last resort if no address.
-const directionsUrl = (shop: { name?: string | null; address?: string | null; city?: string | null; province?: string | null; google_place_id?: string | null }) => {
+const directionsUrl = (shop: { name?: string | null; address?: string | null; city?: string | null; province?: string | null; postal_code?: string | null; google_place_id?: string | null }) => {
   // Canadian unit-civic addresses like "106-630 Salisbury Rd" confuse Google's
   // geocoder (it reads "106-630" as a civic number and lands nearby). Drop a
   // leading unit prefix ("106-", "#106-", "Unit 106, ") so the query is the
-  // plain street number. The saved place_id, when present, overrides all this.
+  // plain street number, and include the postal code, which pins the exact
+  // block far more reliably than a street number alone.
   const street = (shop.address ?? "")
     .replace(/^\s*(?:unit|apt|apartment|suite|ste|#)\.?\s*\d+\s*[-,]\s*/i, "")
     .replace(/^\s*\d+\s*-\s*(?=\d)/, "")
     .trim();
-  const address = [street, shop.city, shop.province].filter(Boolean).join(", ");
+  const address = [street, shop.city, shop.province, shop.postal_code].filter(Boolean).join(", ");
   const dest = encodeURIComponent(address || shop.name || "");
   const base = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
   return shop.google_place_id ? `${base}&destination_place_id=${shop.google_place_id}` : base;
