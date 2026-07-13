@@ -41,12 +41,14 @@ const igHandle = (u: string) =>
     .replace(/^@/, "")
     .replace(/[/?#].*$/, "")
     .trim();
-// A Google Maps link for the shop, preferring a saved place_id for an exact pin.
-const mapsUrl = (shop: { name?: string | null; address?: string | null; city?: string | null; province?: string | null; google_place_id?: string | null }) => {
-  const q = encodeURIComponent([shop.name, shop.address, shop.city, shop.province].filter(Boolean).join(", "));
-  return shop.google_place_id
-    ? `https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=${shop.google_place_id}`
-    : `https://www.google.com/maps/search/?api=1&query=${q}`;
+// A Google Maps DIRECTIONS link to the shop. Prefer the saved place_id for an
+// exact pin; otherwise use the street address ONLY (never the shop name, which
+// makes Maps do a fuzzy business search). Name is a last resort if no address.
+const directionsUrl = (shop: { name?: string | null; address?: string | null; city?: string | null; province?: string | null; google_place_id?: string | null }) => {
+  const address = [shop.address, shop.city, shop.province].filter(Boolean).join(", ");
+  const dest = encodeURIComponent(address || shop.name || "");
+  const base = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+  return shop.google_place_id ? `${base}&destination_place_id=${shop.google_place_id}` : base;
 };
 const shopInitials = (name: string | null | undefined) =>
   (name ?? "").split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "CW";
@@ -1210,7 +1212,7 @@ export default function BookingPage() {
           })()}
           {/* Directions */}
           {(shop.address || shop.city) && (
-            <a href={mapsUrl(shop)} target="_blank" rel="noopener noreferrer"
+            <a href={directionsUrl(shop)} target="_blank" rel="noopener noreferrer"
                className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#141414] border border-[#242424] text-white text-sm font-semibold hover:bg-[#1a1a1a] active:opacity-70 transition-all">
               <span className="text-base leading-none">🧭</span> Get directions
             </a>
