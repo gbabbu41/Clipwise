@@ -1388,9 +1388,12 @@ export default function BookingPage() {
                         {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                       </span>
                       <span className={cn(
-                        "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center",
-                        isSelectedDay ? "bg-black text-white font-semibold" :
-                        isTodayDay && !disabled ? "text-white" :
+                        "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center transition-colors",
+                        // Selected day: solid WHITE pill (visible on the black
+                        // page — a black pill was invisible before). Today (when
+                        // not selected) gets a subtle ring so it's identifiable.
+                        isSelectedDay ? "bg-white text-black font-bold" :
+                        isTodayDay && !disabled ? "text-white ring-1 ring-white/40" :
                         disabled ? "text-[#555]" : "text-white",
                       )}>
                         {day.getDate()}
