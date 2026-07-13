@@ -41,3 +41,27 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ url });
 }
+
+// Remove the shop logo — clears shops.logo and deletes the stored file(s).
+export async function DELETE(req: NextRequest) {
+  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const shopId = new URL(req.url).searchParams.get("shopId");
+  if (!shopId) return NextResponse.json({ error: "Missing shopId" }, { status: 400 });
+
+  const { data: shop } = await supabaseAdmin.from("shops").select("id, owner_id").eq("id", shopId).single();
+  if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Best-effort: remove any stored logo files under this shop's folder.
+  const { data: files } = await supabaseAdmin.storage.from(BUCKET).list(shopId);
+  if (files?.length) {
+    await supabaseAdmin.storage.from(BUCKET).remove(files.map((f) => `${shopId}/${f.name}`)).catch(() => {});
+  }
+  await supabaseAdmin.from("shops").update({ logo: null }).eq("id", shopId);
+
+  return NextResponse.json({ ok: true });
+}

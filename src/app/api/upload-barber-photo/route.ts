@@ -51,3 +51,35 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ url });
 }
+
+// Remove a barber's photo — clears barbers.photo and deletes the stored file.
+// Authorized for the barber themselves OR the shop owner (same as upload).
+export async function DELETE(req: NextRequest) {
+  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const barberId = new URL(req.url).searchParams.get("barberId");
+  if (!barberId) return NextResponse.json({ error: "Missing barberId" }, { status: 400 });
+
+  const { data: barber } = await supabaseAdmin
+    .from("barbers").select("id, shop_id, user_id").eq("id", barberId).single();
+  if (!barber) return NextResponse.json({ error: "Barber not found" }, { status: 404 });
+
+  let allowed = barber.user_id === user.id;
+  if (!allowed) {
+    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", barber.shop_id).single();
+    allowed = shop?.owner_id === user.id;
+  }
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Photo path is `${barberId}.<ext>` at the bucket root; remove() ignores
+  // paths that don't exist, so clearing all candidate extensions is safe.
+  await supabaseAdmin.storage.from(BUCKET)
+    .remove(["jpg", "jpeg", "png", "webp"].map((e) => `${barberId}.${e}`)).catch(() => {});
+  await supabaseAdmin.from("barbers").update({ photo: null }).eq("id", barberId);
+
+  return NextResponse.json({ ok: true });
+}

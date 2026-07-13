@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { NotifSoundToggle } from "@/components/notif-sound-toggle";
 import { AvatarImage } from "@/components/ui/avatar-image";
-import { uploadBarberPhoto } from "@/lib/upload-barber-photo";
+import { uploadBarberPhoto, removeBarberPhoto } from "@/lib/upload-barber-photo";
 
 export default function BarberProfilePage() {
   const { user, accessToken } = useAuth();
@@ -35,6 +35,20 @@ export default function BarberProfilePage() {
       setPhoto(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!barber) return;
+    setUploadingPhoto(true);
+    setError("");
+    try {
+      await removeBarberPhoto(barber.id, accessToken);
+      setPhoto(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remove failed");
     } finally {
       setUploadingPhoto(false);
     }
@@ -89,6 +103,12 @@ export default function BarberProfilePage() {
             {barber?.rating ? (
               <p className="text-sm text-amber-400 mt-0.5">★ {barber.rating.toFixed(1)} · {barber.total_reviews} reviews</p>
             ) : null}
+            {photo && !uploadingPhoto && (
+              <button type="button" onClick={handleRemovePhoto}
+                className="text-xs text-red-400 hover:text-red-300 mt-1.5">
+                Remove photo
+              </button>
+            )}
           </div>
         </div>
 

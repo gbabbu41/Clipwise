@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Trash2, Copy, Check, Shield, X, Camera } from "lucide-react";
 import { AvatarImage } from "@/components/ui/avatar-image";
-import { uploadBarberPhoto } from "@/lib/upload-barber-photo";
+import { uploadBarberPhoto, removeBarberPhoto } from "@/lib/upload-barber-photo";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 import { getPlanLimit, validateEmail } from "@/lib/validation";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -157,6 +157,19 @@ export default function StaffPage() {
       showToast("Photo updated");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setPhotoBusyId(null);
+    }
+  };
+  const removePhoto = async (barberId: string) => {
+    if (!accessToken) return;
+    setPhotoBusyId(barberId);
+    try {
+      await removeBarberPhoto(barberId, accessToken);
+      setBarbers(prev => prev.map(b => b.id === barberId ? { ...b, photo: undefined } : b));
+      showToast("Photo removed");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Remove failed");
     } finally {
       setPhotoBusyId(null);
     }
@@ -603,17 +616,25 @@ export default function StaffPage() {
               {/* Card Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <label className={cn("relative w-12 h-12 rounded-full cursor-pointer group flex-shrink-0", photoBusyId === barber.id && "pointer-events-none opacity-70")}
-                    title="Upload photo">
-                    <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#1e1e1e]"
-                      fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{barber.name[0]}</div>} />
-                    <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Camera size={14} className="text-white" />
-                    </span>
-                    {photoBusyId === barber.id && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[8px] text-white">…</span>}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(barber.id, f); }} />
-                  </label>
+                  <div className="relative flex-shrink-0">
+                    <label className={cn("relative w-12 h-12 rounded-full cursor-pointer group block", photoBusyId === barber.id && "pointer-events-none opacity-70")}
+                      title="Upload photo">
+                      <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#1e1e1e]"
+                        fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{barber.name[0]}</div>} />
+                      <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera size={14} className="text-white" />
+                      </span>
+                      {photoBusyId === barber.id && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[8px] text-white">…</span>}
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(barber.id, f); }} />
+                    </label>
+                    {barber.photo && photoBusyId !== barber.id && (
+                      <button type="button" onClick={() => removePhoto(barber.id)} title="Remove photo"
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center border-2 border-black hover:bg-red-600 transition-colors">
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
                   <div>
                     <h3 className="text-white font-semibold">{barber.name}</h3>
                     {barber.email && <p className="text-xs text-[#777]">{barber.email}</p>}

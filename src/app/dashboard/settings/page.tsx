@@ -131,6 +131,25 @@ export default function SettingsPage() {
     }
   };
 
+  const removeLogo = async () => {
+    if (!shop) return;
+    setLogoUploading(true);
+    try {
+      const res = await fetch(`/api/upload-logo?shopId=${encodeURIComponent(shop.id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as { error?: string }).error ?? "Remove failed"); }
+      setLogoPreview(null);
+      await refreshShop();
+      showToast("Logo removed");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   useEffect(() => {
     if (shop?.logo) setLogoPreview(shop.logo);
   }, [shop?.logo]);
@@ -315,13 +334,21 @@ export default function SettingsPage() {
                     : <span className="text-3xl">💈</span>}
                 </div>
                 <div>
-                  <label className={cn("cursor-pointer", logoUploading && "pointer-events-none opacity-60")}>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#1e1e1e] text-sm text-white hover:bg-[#141414] transition-colors">
-                      {logoUploading ? "Uploading…" : logoPreview ? "Change Logo" : "Upload Logo"}
-                    </div>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className={cn("cursor-pointer", logoUploading && "pointer-events-none opacity-60")}>
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#1e1e1e] text-sm text-white hover:bg-[#141414] transition-colors">
+                        {logoUploading ? "Uploading…" : logoPreview ? "Change Logo" : "Upload Logo"}
+                      </div>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                    </label>
+                    {logoPreview && !logoUploading && (
+                      <button type="button" onClick={removeLogo}
+                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-red-500/30 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                        Remove
+                      </button>
+                    )}
+                  </div>
                   <p className="text-xs text-[#777] mt-1">PNG, JPG, WebP up to 5MB</p>
                 </div>
               </div>

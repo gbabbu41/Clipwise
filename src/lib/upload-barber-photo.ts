@@ -15,3 +15,15 @@ export async function uploadBarberPhoto(file: File, barberId: string, accessToke
   const { url } = await res.json() as { url: string };
   return url;
 }
+
+/** Remove a barber's photo (clears barbers.photo + deletes the stored file). */
+export async function removeBarberPhoto(barberId: string, accessToken: string | null): Promise<void> {
+  const res = await fetch(`/api/upload-barber-photo?barberId=${encodeURIComponent(barberId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error((j as { error?: string }).error ?? "Remove failed");
+  }
+}
