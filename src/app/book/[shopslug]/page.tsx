@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Star, Clock, MapPin, Phone, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,25 @@ interface Toast { msg: string; ok: boolean }
 function slotIntervalOf(shop: { booking_settings?: unknown } | null | undefined): number {
   const v = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes;
   return v === 15 ? 15 : 30;
+}
+
+// ── Shop-header helpers ──────────────────────────────────────────────────────
+const displayUrl = (u: string) => u.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+const ensureHttp = (u: string) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
+const igHandle = (u: string) => u.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "");
+const shopInitials = (name: string | null | undefined) =>
+  (name ?? "").split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "CW";
+
+// One tappable contact row — icon tile + text + chevron (iOS-list style).
+function ContactRow({ icon, text, href }: { icon: string; text: string; href: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+       className="flex items-center gap-3 py-0.5 active:opacity-60 transition-opacity">
+      <span className="w-11 h-11 rounded-xl bg-[#141414] border border-[#242424] flex items-center justify-center text-lg flex-shrink-0">{icon}</span>
+      <span className="flex-1 text-[15px] text-white/90 truncate">{text}</span>
+      <ChevronRight size={16} className="text-[#555] flex-shrink-0" />
+    </a>
+  );
 }
 
 // One barber's availability, as returned by /api/availability (no customer PII).
@@ -1128,34 +1147,49 @@ export default function BookingPage() {
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header */}
-      <div className="bg-black shadow-sm border-b border-[#1e1e1e]">
-        <div className="max-w-2xl mx-auto px-4 py-5">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-black/10 border border-black flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
-                fallback={<Logo size="sm" showText={false} />} />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-white">{shop.name}</h1>
-              <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#777]">
-                <span className="flex items-center gap-1"><MapPin size={11} /> {shop.city}, {shop.province}</span>
-                <span className="flex items-center gap-1"><Phone size={11} /> {shop.phone}</span>
-              </div>
-            </div>
+      <div className="bg-black border-b border-[#1e1e1e]">
+        <div className="max-w-2xl mx-auto px-5 pt-6 pb-5">
+          {/* Logo */}
+          <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
+            <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
+              fallback={
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700 text-white text-3xl font-black tracking-tight">
+                  {shopInitials(shop.name)}
+                </div>
+              } />
           </div>
+          {/* Name */}
+          <h1 className="text-[28px] leading-tight font-black text-white uppercase tracking-tight mt-5">{shop.name}</h1>
+          {/* Location */}
+          {(shop.city || shop.province) && (
+            <p className="flex items-center gap-2 text-[15px] text-[#8a8a8a] mt-2.5">
+              <span className="text-base leading-none">📍</span>
+              {[shop.city, shop.province].filter(Boolean).join(", ")}
+            </p>
+          )}
+          {/* Contact rows */}
+          {(shop.phone || shop.instagram || shop.website) && (
+            <div className="mt-4 space-y-2">
+              {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
+              {shop.instagram && <ContactRow icon="📷" text={`@${igHandle(shop.instagram)}`} href={`https://instagram.com/${igHandle(shop.instagram)}`} />}
+              {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Flow Toggle */}
-      <div className="bg-black shadow-sm border-b border-[#1e1e1e]">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-1">
+      <div className="bg-black border-b border-[#1e1e1e]">
+        <div className="max-w-2xl mx-auto px-5 py-3 flex gap-2">
           {(["time-first", "barber-first"] as const).map((f) => (
             <button
               key={f}
               onClick={() => switchFlow(f)}
               className={cn(
-                "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all",
-                flow === f ? "bg-gold text-black" : "text-[#777] hover:text-white border border-[#1e1e1e]"
+                "flex-1 py-3 px-3 rounded-full text-sm font-bold transition-all",
+                flow === f
+                  ? "bg-white text-black shadow-[0_2px_12px_rgba(255,255,255,0.12)]"
+                  : "bg-[#141414] text-[#777] border border-[#1e1e1e] hover:text-white"
               )}
             >
               {f === "time-first" ? "Choose Time First" : "Choose Barber First"}
@@ -1165,22 +1199,22 @@ export default function BookingPage() {
       </div>
 
       {/* Progress */}
-      <div className="bg-black shadow-sm border-b border-[#1e1e1e] sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3">
+      <div className="bg-black border-b border-[#1e1e1e] sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-5 py-3.5">
           <div className="flex items-center gap-1">
             {STEPS.map((s, i) => (
-              <div key={s + i} className="flex items-center gap-1 flex-1">
+              <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
                 <div className={cn(
-                  "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
-                  i < step ? "bg-gold text-black" : i === step ? "bg-black/10 text-white border border-black" : "bg-[#141414] text-[#999]"
+                  "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                  i <= step ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#777] border border-[#242424]"
                 )}>
-                  {i < step ? <Check size={11} /> : i + 1}
+                  {i < step ? <Check size={12} /> : i + 1}
                 </div>
-                {i < STEPS.length - 1 && <div className={cn("flex-1 h-px", i < step ? "bg-gold" : "bg-border")} />}
+                {i < STEPS.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < step ? "bg-emerald-400" : "bg-[#242424]")} />}
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#777] mt-1.5">Step {step + 1} of {STEPS.length}: <span className="text-white font-medium">{STEPS[step]}</span></p>
+          <p className="text-xs text-[#777] mt-2">Step {step + 1} of {STEPS.length}: <span className="text-white font-semibold">{STEPS[step]}</span></p>
         </div>
       </div>
 
@@ -1252,7 +1286,7 @@ export default function BookingPage() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-4 py-1.5 rounded-full text-sm font-medium transition-all border", categoryFilter === cat ? "bg-gold text-black border-black" : "border-[#1e1e1e] text-[#777] hover:border-gray-400")}
+                  className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-all border", categoryFilter === cat ? "bg-white text-black border-white" : "bg-[#141414] border-[#1e1e1e] text-[#777] hover:text-white")}
                 >{cat}</button>
               ))}
             </div>
@@ -1268,7 +1302,7 @@ export default function BookingPage() {
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-white/60 bg-white/[0.04]" : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333]")}
                 >
                   <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1282,7 +1316,7 @@ export default function BookingPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-lg font-bold text-white">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className="w-8 h-8 rounded-full bg-gold text-black flex items-center justify-center font-bold hover:bg-gold/90 transition-colors" aria-label="Add service">
+                      className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors" aria-label="Add service">
                       +
                     </button>
                   </div>
