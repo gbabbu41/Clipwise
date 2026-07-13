@@ -30,7 +30,24 @@ function slotIntervalOf(shop: { booking_settings?: unknown } | null | undefined)
 // ── Shop-header helpers ──────────────────────────────────────────────────────
 const displayUrl = (u: string) => u.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
 const ensureHttp = (u: string) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
-const igHandle = (u: string) => u.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "");
+// Pull a clean handle out of whatever the owner typed — a bare handle, an
+// @handle, or a full profile URL (instagram.com/handle). A bare "instagram.com"
+// with no profile yields "" so we can hide the row instead of showing garbage.
+const igHandle = (u: string) =>
+  (u || "").trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/^instagram\.com\/?/i, "")
+    .replace(/^@/, "")
+    .replace(/[/?#].*$/, "")
+    .trim();
+// A Google Maps link for the shop, preferring a saved place_id for an exact pin.
+const mapsUrl = (shop: { name?: string | null; address?: string | null; city?: string | null; province?: string | null; google_place_id?: string | null }) => {
+  const q = encodeURIComponent([shop.name, shop.address, shop.city, shop.province].filter(Boolean).join(", "));
+  return shop.google_place_id
+    ? `https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=${shop.google_place_id}`
+    : `https://www.google.com/maps/search/?api=1&query=${q}`;
+};
 const shopInitials = (name: string | null | undefined) =>
   (name ?? "").split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "CW";
 
@@ -46,14 +63,13 @@ function InstagramIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-// One tappable contact row — icon tile + text + chevron (iOS-list style).
+// One tappable contact row — icon tile + text (iOS-list style, no chevron).
 function ContactRow({ icon, text, href }: { icon: ReactNode; text: string; href: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
        className="flex items-center gap-3 py-0.5 active:opacity-60 transition-opacity">
       <span className="w-11 h-11 rounded-xl bg-[#141414] border border-[#242424] flex items-center justify-center text-lg flex-shrink-0">{icon}</span>
       <span className="flex-1 text-[15px] text-white/90 truncate">{text}</span>
-      <ChevronRight size={16} className="text-[#555] flex-shrink-0" />
     </a>
   );
 }
@@ -1180,12 +1196,24 @@ export default function BookingPage() {
             </p>
           )}
           {/* Contact rows */}
-          {(shop.phone || shop.instagram || shop.website) && (
-            <div className="mt-4 space-y-2">
-              {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
-              {shop.instagram && <ContactRow icon={<InstagramIcon />} text={igHandle(shop.instagram)} href={`https://instagram.com/${igHandle(shop.instagram)}`} />}
-              {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
-            </div>
+          {(() => {
+            const ig = shop.instagram ? igHandle(shop.instagram) : "";
+            const hasContacts = shop.phone || ig || shop.website;
+            if (!hasContacts) return null;
+            return (
+              <div className="mt-4 space-y-2">
+                {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
+                {ig && <ContactRow icon={<InstagramIcon />} text={`@${ig}`} href={`https://instagram.com/${ig}`} />}
+                {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
+              </div>
+            );
+          })()}
+          {/* Directions */}
+          {(shop.address || shop.city) && (
+            <a href={mapsUrl(shop)} target="_blank" rel="noopener noreferrer"
+               className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#141414] border border-[#242424] text-white text-sm font-semibold hover:bg-[#1a1a1a] active:opacity-70 transition-all">
+              <span className="text-base leading-none">🧭</span> Get directions
+            </a>
           )}
         </div>
       </div>
