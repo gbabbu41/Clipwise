@@ -88,7 +88,10 @@ export async function POST(request: NextRequest) {
     const bs = shop.booking_settings as { no_show_fee_percent?: number } | null;
     const capCents = noShowFeeCents(totalCents, NO_SHOW_MAX_PCT);
     const configuredCents = noShowFeeCents(totalCents, bs?.no_show_fee_percent);
-    feeCents = Math.min(amount_cents && amount_cents > 0 ? amount_cents : configuredCents, capCents);
+    // Honor an explicit amount from the barber (including 0 = release the hold);
+    // fall back to the configured fee when none was sent. Always cap at 80%.
+    const requested = typeof amount_cents === "number" ? amount_cents : configuredCents;
+    feeCents = Math.min(Math.max(0, requested), capCents);
   }
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
