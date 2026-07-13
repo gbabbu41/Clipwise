@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -34,8 +34,20 @@ const igHandle = (u: string) => u.replace(/^@/, "").replace(/^https?:\/\/(www\.)
 const shopInitials = (name: string | null | undefined) =>
   (name ?? "").split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "CW";
 
+// Instagram glyph (lucide dropped its brand icons, so inline the outline).
+function InstagramIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/90" aria-hidden>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
+
 // One tappable contact row — icon tile + text + chevron (iOS-list style).
-function ContactRow({ icon, text, href }: { icon: string; text: string; href: string }) {
+function ContactRow({ icon, text, href }: { icon: ReactNode; text: string; href: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
        className="flex items-center gap-3 py-0.5 active:opacity-60 transition-opacity">
@@ -1171,7 +1183,7 @@ export default function BookingPage() {
           {(shop.phone || shop.instagram || shop.website) && (
             <div className="mt-4 space-y-2">
               {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
-              {shop.instagram && <ContactRow icon="📷" text={`@${igHandle(shop.instagram)}`} href={`https://instagram.com/${igHandle(shop.instagram)}`} />}
+              {shop.instagram && <ContactRow icon={<InstagramIcon />} text={igHandle(shop.instagram)} href={`https://instagram.com/${igHandle(shop.instagram)}`} />}
               {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
             </div>
           )}
