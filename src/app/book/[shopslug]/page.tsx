@@ -6,7 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate, prettyDateWithContext } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, noShowFeeDollars } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -1403,10 +1403,20 @@ export default function BookingPage() {
                 })}
               </div>
 
-              {/* Date title row (center) */}
+              {/* Date title row (center) — weekday is always shown, with a
+                  Today/Tomorrow prefix when it applies (e.g. "Tomorrow ·
+                  Monday, July 13"). */}
               <div className="px-4 py-2 border-t border-[#1e1e1e]/40 text-center">
                 <p className="text-sm font-semibold text-white">
-                  {selectedDate ? prettyDateWithContext(formatDateForDb(selectedDate)) : "Pick a day"}
+                  {selectedDate ? (() => {
+                    const weekday = selectedDate.toLocaleDateString("en-CA", { weekday: "long" });
+                    const monthDay = selectedDate.toLocaleDateString("en-CA", { month: "long", day: "numeric" });
+                    const base = new Date(); base.setHours(0, 0, 0, 0);
+                    const sel = new Date(selectedDate); sel.setHours(0, 0, 0, 0);
+                    const diff = Math.round((sel.getTime() - base.getTime()) / 86400000);
+                    const rel = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : null;
+                    return rel ? `${rel} · ${weekday}, ${monthDay}` : `${weekday}, ${monthDay}`;
+                  })() : "Pick a day"}
                 </p>
               </div>
 
