@@ -322,10 +322,10 @@ export default function LoyaltyPage() {
           <Card>
             <CardHeader>
               <CardTitle>Automated Reminders</CardTitle>
-              <Badge variant="outline" className="text-amber-400 border-amber-500/40">Coming soon</Badge>
+              <Badge variant="success">Active</Badge>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-[#777] mb-4">Set your preferences now — automated sending is rolling out soon. Your choices are saved and will apply once it&apos;s live.</p>
+              <p className="text-xs text-[#777] mb-4">Sent automatically once a day. Toggle what you want on — 24h reminders text &amp; email the client, the rest email.</p>
               <div className="space-y-4">
                 {[
                   { key: "appointment_24h" as const, label: "24hr Appointment Reminder", desc: "SMS sent 24hrs before appointment", icon: "⏰" },
