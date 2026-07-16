@@ -50,8 +50,9 @@ type BlankForm = {
   recipient_name: string;
   recipient_email: string;
   note: string;
+  payment_method: "cash" | "card";
 };
-const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_email: "", recipient_name: "", recipient_email: "", note: "" };
+const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_email: "", recipient_name: "", recipient_email: "", note: "", payment_method: "cash" };
 
 export default function GiftCardsPage() {
   const { shop } = useAuth();
@@ -114,8 +115,22 @@ export default function GiftCardsPage() {
       note: form.note.trim() || null,
       is_active: true,
     });
+    if (error) { setSaving(false); showToast("Error issuing gift card"); return; }
+    // Record the sale as revenue so it shows in Payments/reports. Same columns
+    // the POS cash sale uses (no appointment_id). source tags it as a card sale.
+    await supabase.from("transactions").insert({
+      shop_id: shop.id,
+      barber_id: null,
+      client_name: form.purchased_by.trim() || form.recipient_name.trim() || "Gift card",
+      service_name: `Gift Card ${code}`,
+      amount: value,
+      tip: 0,
+      commission_amount: null,
+      payment_method: form.payment_method,
+      type: "product",
+      source: "gift_card_sale",
+    }).then(null, () => null);
     setSaving(false);
-    if (error) { showToast("Error issuing gift card"); return; }
     setShowAdd(false);
     setForm(BLANK);
     showToast(`Gift card issued: ${code}`);
@@ -335,6 +350,20 @@ export default function GiftCardsPage() {
                 </div>
                 <input value={form.initial_value} onChange={e => setForm(p => ({ ...p, initial_value: e.target.value }))} type="number" min="1" placeholder="Custom amount"
                   className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black" />
+              </div>
+
+              {/* How the customer paid — records the sale in your revenue. */}
+              <div>
+                <label className="text-xs text-[#777] block mb-2">Paid by</label>
+                <div className="flex gap-2">
+                  {(["cash", "card"] as const).map(m => (
+                    <button key={m} onClick={() => setForm(p => ({ ...p, payment_method: m }))}
+                      className={cn("flex-1 px-3 py-2 text-sm rounded-lg border font-medium capitalize transition-colors",
+                        form.payment_method === m ? "bg-black/10 border-gray-400 text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+                      {m === "cash" ? "💵 Cash" : "💳 Card"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Recipient */}

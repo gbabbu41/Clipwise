@@ -59,6 +59,8 @@ export default function POSPage() {
   const [customTip, setCustomTip] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
+  const [giftCode, setGiftCode] = useState("");
+  const [giftCard, setGiftCard] = useState<{ id: string; code: string; remaining_value: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
   const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
@@ -266,6 +268,10 @@ export default function POSPage() {
     ? (promoApplied.discount_type === "percent" ? subtotal * promoApplied.discount_value / 100 : promoApplied.discount_value)
     : 0;
   const total = Math.max(0, subtotal + tipAmt - discount);
+  // A gift card is TENDER, not new revenue (its value was booked when it sold),
+  // so it reduces both the amount collected now AND the recorded sale revenue.
+  const giftApplied = giftCard ? Math.min(giftCard.remaining_value, total) : 0;
+  const dueAfterGift = Math.max(0, total - giftApplied);
 
   const applyPromo = () => {
     const found = promoCodes.find(p => p.code === promoCode.toUpperCase() && p.is_active);
@@ -273,17 +279,33 @@ export default function POSPage() {
     else showToast("Invalid or expired promo code");
   };
 
+  const applyGift = async () => {
+    if (!shop || !giftCode.trim()) return;
+    const code = giftCode.trim().toUpperCase().replace(/\s+/g, "");
+    const { data } = await supabase.from("gift_cards")
+      .select("id, code, remaining_value, is_active").eq("shop_id", shop.id).eq("code", code).maybeSingle();
+    if (!data || !data.is_active || (data.remaining_value ?? 0) <= 0) { showToast("Gift card not found or empty"); return; }
+    setGiftCard({ id: data.id, code: data.code, remaining_value: data.remaining_value });
+    showToast(`Gift card applied — ${formatCurrency(data.remaining_value)} available`);
+  };
+
   const charge = async () => {
     if (cart.length === 0) { showToast("Please select a service first"); return; }
-    if (total <= 0) { showToast("Cannot charge $0 — please add items"); return; }
+    if (dueAfterGift <= 0 && !giftCard) { showToast("Cannot charge $0 — please add items"); return; }
     // A customer must be chosen (existing client or a name entered) before charging.
     if (!client.trim()) { showToast("Select or add a customer first"); setPickerOpen(true); return; }
     const tipPct = tipPercent !== null ? tipPercent : customTip ? (Number(customTip) / subtotal) * 100 : 0;
     if (tipPct > 100) { showToast("Tip cannot exceed 100%"); return; }
+    // Gift card + a card/online remainder = a split payment we don't support
+    // yet; take the leftover as cash (or let the gift cover it fully).
+    if (giftCard && dueAfterGift > 0 && paymentMethod !== "cash") {
+      showToast("Take the remaining balance as cash, or remove the gift card.");
+      return;
+    }
     if (paymentMethod === "cash") {
       const cashEl = document.getElementById("cash-input") as HTMLInputElement | null;
       const cashVal = cashEl ? parseFloat(cashEl.value) : NaN;
-      if (!isNaN(cashVal) && cashVal < total) { showToast(`Cash amount ($${cashVal.toFixed(2)}) is less than total ($${total.toFixed(2)})`); return; }
+      if (!isNaN(cashVal) && cashVal < dueAfterGift) { showToast(`Cash amount ($${cashVal.toFixed(2)}) is less than due ($${dueAfterGift.toFixed(2)})`); return; }
     }
     setCharging(true);
 
@@ -300,7 +322,9 @@ export default function POSPage() {
     // ── Card / Online → real payment via hosted Stripe Checkout ──────────────
     // Redirects to Stripe; the transaction is recorded on return in the
     // pos-finalize effect above. Cart/inventory ride along in session metadata.
-    if (paymentMethod === "card" || paymentMethod === "online") {
+    // Skipped when a gift card fully covers the sale (dueAfterGift === 0) — that
+    // is settled client-side just below with no card charge.
+    if ((paymentMethod === "card" || paymentMethod === "online") && dueAfterGift > 0) {
       const products = cart
         .filter(i => i.type === "product" && i.inventoryId)
         .map(i => ({ id: i.inventoryId!, qty: i.qty }));
@@ -331,13 +355,15 @@ export default function POSPage() {
       return;
     }
 
-    // ── Cash → record the sale immediately ───────────────────────────────────
+    // ── Cash (or gift-card-covered) → record the sale immediately ────────────
+    // Revenue recorded = the part NOT covered by the gift card (the gift's value
+    // was already booked as revenue when it was sold), so we never double-count.
     const { data: txData, error: txError } = await supabase.from("transactions").insert({
       shop_id: shop!.id,
       barber_id: barberId || null,
       client_name: client,
-      service_name: serviceName,
-      amount: subtotal,
+      service_name: giftApplied > 0 ? `${serviceName} (gift card ${formatCurrency(giftApplied)})` : serviceName,
+      amount: Math.max(0, subtotal - giftApplied),
       tip: tipAmt,
       commission_amount: commission,
       payment_method: paymentMethod,
@@ -347,6 +373,14 @@ export default function POSPage() {
 
     if (txError) { showToast("Error saving transaction"); setCharging(false); return; }
     if (txData?.id) setLastReceiptId(txData.id);
+
+    // Draw down the gift card balance for the amount it covered.
+    if (giftCard && giftApplied > 0) {
+      const newBal = Math.max(0, giftCard.remaining_value - giftApplied);
+      await supabase.from("gift_cards").update({
+        remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
+      }).eq("id", giftCard.id).then(null, () => null);
+    }
 
     // Decrement inventory for product items, alert on low stock
     for (const item of cart.filter(i => i.type === "product" && i.inventoryId)) {
@@ -367,7 +401,7 @@ export default function POSPage() {
       }
     }
 
-    setLastCharge({ total, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount });
+    setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + giftApplied });
     setCharging(false);
     setSuccess(true);
 
@@ -377,6 +411,7 @@ export default function POSPage() {
 
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
+    setGiftCode(""); setGiftCard(null);
     setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
@@ -496,6 +531,18 @@ export default function POSPage() {
           <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
         </div>
       )}
+      {/* Gift card as tender */}
+      {giftCard ? (
+        <div className="flex items-center justify-between rounded-lg border border-[#00e5a0]/40 bg-[#00e5a0]/10 px-3 py-2">
+          <span className="text-xs text-[#f0f0f0]">🎁 {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
+          <button onClick={() => { setGiftCard(null); setGiftCode(""); }} className="text-[#888] hover:text-white"><X size={14} /></button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" />
+          <Button variant="outline" size="sm" onClick={applyGift}>Apply</Button>
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-[#555] mr-1 shrink-0">Tip</span>
         {[10,15,20].map(t => (
@@ -509,9 +556,10 @@ export default function POSPage() {
       </div>
       {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
       {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+      {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
       <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
-        <span className="text-sm font-bold text-[#f0f0f0]">TOTAL</span>
-        <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(total)}</span>
+        <span className="text-sm font-bold text-[#f0f0f0]">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
+        <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(dueAfterGift)}</span>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {(["card","cash","online"] as PM[]).map(m => (
@@ -523,7 +571,7 @@ export default function POSPage() {
       </div>
       <button type="button" onClick={charge} disabled={charging || cart.length === 0}
         className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
-        {charging ? "Processing…" : `CHARGE ${formatCurrency(total)}`}
+        {charging ? "Processing…" : `CHARGE ${formatCurrency(dueAfterGift)}`}
       </button>
     </div>
   );
