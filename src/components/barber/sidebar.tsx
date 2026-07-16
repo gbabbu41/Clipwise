@@ -291,16 +291,16 @@ export function BarberSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Sidebar wordmark — clean Sora 800 24px white, left-aligned. */}
+      {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-border"
+        className="cw-logo-fade whitespace-nowrap border-b border-border flex items-center justify-center"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
           fontSize: "24px",
           letterSpacing: "1px",
           color: "#ffffff",
-          padding: "20px",
+          height: "64px",
         }}
       >
         CLIPWISE

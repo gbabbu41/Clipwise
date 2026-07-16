@@ -465,7 +465,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-[#777]">Powered by <span className="text-white font-semibold">ClipWise</span></p>
+        <p className="text-xs text-[#777]">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
       </div>
     </div>
   );
