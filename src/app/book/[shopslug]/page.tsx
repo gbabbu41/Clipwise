@@ -1219,13 +1219,22 @@ export default function BookingPage() {
               </div>
             );
           })()}
-          {/* Directions */}
-          {(shop.address || shop.city) && (
-            <a href={directionsUrl(shop)} target="_blank" rel="noopener noreferrer"
-               className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#141414] border border-[#242424] text-white text-sm font-semibold hover:bg-[#1a1a1a] active:opacity-70 transition-all">
-              <span className="text-base leading-none">🧭</span> Get directions
-            </a>
-          )}
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            {/* Directions */}
+            {(shop.address || shop.city) && (
+              <a href={directionsUrl(shop)} target="_blank" rel="noopener noreferrer"
+                 className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#141414] border border-[#242424] text-white text-sm font-semibold hover:bg-[#1a1a1a] active:opacity-70 transition-all">
+                <span className="text-base leading-none">🧭</span> Get directions
+              </a>
+            )}
+            {/* Buy a gift card (only when the shop can actually take payment) */}
+            {shopCanCharge && (
+              <a href={`/gift/${shop.slug}`}
+                 className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#141414] border border-[#242424] text-white text-sm font-semibold hover:bg-[#1a1a1a] active:opacity-70 transition-all">
+                <span className="text-base leading-none">🎁</span> Buy a gift card
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
