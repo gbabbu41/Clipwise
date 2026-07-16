@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, findAvailableBarber, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
+import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
     date: string;                    // YYYY-MM-DD
     time_slot: string;               // "9:00 AM"
     total_amount: number;
+    subtotal?: number;               // pre-discount total (for server-side promo math)
+    promo_code?: string;             // validated + consumed server-side
     pay_in_person?: boolean;         // tag the row as cash/unpaid
     confirmed?: boolean;             // owner-booked → skip the approval queue
     note?: string;                   // extra note (e.g. "outside working hours")
@@ -47,6 +50,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This shop isn't accepting bookings right now." }, { status: 403 });
   }
   const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
+
+  // ── Promo code (server-authoritative) ──────────────────────────────────────
+  // Validate the code, enforce the cap + once-per-customer, and recompute the
+  // discount from the subtotal. The consume happens after the appointment is
+  // created (so a redemption always links to a real booking).
+  let validPromo: PromoRow | null = null;
+  let effectiveTotal = b.total_amount ?? 0;
+  if (b.promo_code) {
+    validPromo = await fetchValidPromo(b.shop_id, b.promo_code);
+    if (!validPromo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
+    const blocked = await promoBlockReason(validPromo, b.client_email, b.client_phone);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+    const sub = Number(b.subtotal ?? b.total_amount ?? 0);
+    effectiveTotal = Math.max(0, sub - promoDiscount(validPromo, sub));
+  }
 
   // Resolve duration → conflict window.
   const startMin = timeToMinutes(b.time_slot);
@@ -106,7 +124,7 @@ export async function POST(request: NextRequest) {
     date: b.date,
     time_slot: b.time_slot,
     status,
-    total_amount: b.total_amount ?? 0,
+    total_amount: effectiveTotal,
     deposit_paid: false,
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
@@ -129,6 +147,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't create the booking. Please try again." }, { status: 500 });
+  }
+
+  // Consume the promo now that the appointment exists (draws down the cap +
+  // records the redemption so this customer can't reuse it). Best-effort.
+  if (validPromo) {
+    await consumePromo(validPromo, b.shop_id, b.client_email ?? null, b.client_phone ?? null, inserted.data.id);
   }
 
   // In-app notifications for the owner + assigned barber are created by

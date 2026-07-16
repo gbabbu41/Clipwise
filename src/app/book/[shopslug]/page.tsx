@@ -578,18 +578,27 @@ export default function BookingPage() {
     if (!promoCode.trim() || !shop) return;
     setPromoLoading(true);
     setPromoError("");
-    const today = formatDateForDb(new Date());
-    const { data } = await supabase
-      .from("promo_codes")
-      .select("*")
-      .eq("code", promoCode.toUpperCase())
-      .eq("shop_id", shop.id)
-      .eq("is_active", true)
-      .or(`expires_at.is.null,expires_at.gte.${today}`)
-      .maybeSingle();
-    if (data) { setPromoApplied(data as PromoCode); }
-    else { setPromoError("Invalid or expired promo code."); setPromoApplied(null); }
-    setPromoLoading(false);
+    // Server validates existence + expiry + usage cap + once-per-customer, and
+    // returns the authoritative discount (the client can't fake a bigger one).
+    try {
+      const res = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shop.id, code: promoCode, email: clientInfo.email, phone: clientInfo.phone, subtotal: totalPrice }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setPromoApplied({ code: data.code, discount_type: data.discount_type, discount_value: data.discount_value } as PromoCode);
+      } else {
+        setPromoError(data.error || "Invalid or expired promo code.");
+        setPromoApplied(null);
+      }
+    } catch {
+      setPromoError("Couldn't validate the code. Please try again.");
+      setPromoApplied(null);
+    } finally {
+      setPromoLoading(false);
+    }
   };
 
   // ── Confirm booking ────────────────────────────────────────────────────────
@@ -698,6 +707,8 @@ export default function BookingPage() {
             time_slot: selectedTime,
             amount: chargeAmount,
             total_amount: total,
+            subtotal: totalPrice,
+            promo_code: promoApplied?.code ?? undefined,
             duration_minutes: servicesPicked.reduce((sum, s) => sum + (s.duration_minutes ?? 30), 0),
             service_names: servicesPicked.length > 1 ? servicesPicked.map(s => s.name).join(" + ") : "",
             hold: useHold,
@@ -751,6 +762,8 @@ export default function BookingPage() {
         date: formatDateForDb(selectedDate),
         time_slot: selectedTime,
         total_amount: total, // combined total (discount already applied)
+        subtotal: totalPrice,
+        promo_code: promoApplied?.code ?? undefined,
         pay_in_person: payMethodChoice === "in_person",
       }),
     }).catch(() => null);

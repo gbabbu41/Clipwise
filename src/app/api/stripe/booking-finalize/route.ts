@@ -5,6 +5,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
+import { fetchValidPromo, consumePromo } from "@/lib/promo";
 
 // Called when the customer returns from a paid booking checkout.
 // Verifies payment on the connected account, then creates the appointment (idempotent).
@@ -142,6 +143,14 @@ export async function POST(request: NextRequest) {
         );
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Consume the promo code now that the appointment exists (draws down the cap
+    // + records the redemption so it can't be reused). Best-effort; the code was
+    // already validated + priced authoritatively in booking-checkout.
+    if (m.promo_code) {
+      const promo = await fetchValidPromo(m.shop_id, m.promo_code);
+      if (promo) await consumePromo(promo, m.shop_id, m.client_email ?? null, m.client_phone ?? null, appt.id);
     }
 
     // Auto-register the customer in the shop's client book, deduped by

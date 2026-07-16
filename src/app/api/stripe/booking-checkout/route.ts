@@ -5,6 +5,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
+import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
     service_names?: string;    // "Haircut + Beard" when multiple services were picked
     hold?: boolean; // when true: authorize (manual capture) instead of charging
     saveCard?: boolean; // when true: save the card (no charge now), charge later on completion/no-show
+    subtotal?: number;  // pre-discount total, for server-side promo math
+    promo_code?: string; // validated + recomputed server-side (never trust the client discount)
   };
 
   const { data: shop } = await supabaseAdmin
@@ -97,6 +100,25 @@ export async function POST(request: NextRequest) {
 
   const acctOpts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
 
+  // ── Promo (server-authoritative) — never trust the client's discounted amount.
+  // Validate the code + enforce cap/once-per-customer BEFORE charging, and
+  // recompute the total from the subtotal. The code is consumed in /booking-
+  // finalize once the appointment exists.
+  let effectiveTotal = booking.total_amount ?? 0;
+  let effectiveAmount = booking.amount ?? 0;
+  let promoCodeForMeta = "";
+  if (booking.promo_code) {
+    const promo = await fetchValidPromo(booking.shop_id, booking.promo_code);
+    if (!promo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
+    const blocked = await promoBlockReason(promo, booking.client_email, booking.client_phone);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+    const sub = Number(booking.subtotal ?? booking.total_amount ?? 0);
+    effectiveTotal = Math.max(0, sub - promoDiscount(promo, sub));
+    // Hold authorizes the full discounted total; save-card charges nothing now.
+    effectiveAmount = booking.saveCard ? 0 : effectiveTotal;
+    promoCodeForMeta = promo.code;
+  }
+
   // Shared booking details — written to the Checkout session metadata so
   // /booking-finalize can create the appointment on return.
   const metadata = {
@@ -108,11 +130,12 @@ export async function POST(request: NextRequest) {
     client_phone: booking.client_phone,
     date: booking.date,
     time_slot: booking.time_slot,
-    total_amount: String(booking.total_amount),
+    total_amount: String(effectiveTotal),
     duration_minutes: String(bookingDuration),
     service_names: booking.service_names ?? "",
     hold: booking.hold ? "1" : "",
     save: booking.saveCard ? "1" : "",
+    promo_code: promoCodeForMeta,
   };
 
   try {
@@ -151,7 +174,7 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: "cad",
             product_data: { name: booking.hold ? `${booking.service_name} — hold (charged after visit)` : booking.service_name },
-            unit_amount: Math.round(booking.amount * 100),
+            unit_amount: Math.round(effectiveAmount * 100),
           },
           quantity: 1,
         }],
