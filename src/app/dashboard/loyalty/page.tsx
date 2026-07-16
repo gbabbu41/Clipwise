@@ -45,16 +45,20 @@ export default function LoyaltyPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  // Load persisted loyalty settings from the shop's booking_settings blob.
+  // Load persisted loyalty settings + reminder prefs from booking_settings.
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ls = (shop as any)?.booking_settings?.loyalty;
+    const bs = (shop as any)?.booking_settings;
+    const ls = bs?.loyalty;
     if (ls) {
       setSettings({
         points_per_visit: ls.points_per_visit ?? 10,
         points_per_dollar: ls.points_per_dollar ?? 1,
         redemption: ls.redemption_rate ?? 5,
       });
+    }
+    if (bs?.reminders) {
+      setReminders(r => ({ ...r, ...bs.reminders }));
     }
   }, [shop]);
 
@@ -165,9 +169,18 @@ export default function LoyaltyPage() {
     else showToast("Error: " + error.message);
   };
 
-  const toggleReminder = (key: keyof typeof reminders) => {
-    setReminders(prev => ({ ...prev, [key]: !prev[key] }));
-    showToast(`Reminder ${reminders[key] ? "disabled" : "enabled"}`);
+  // Persist reminder preferences to booking_settings so the choice sticks (and
+  // is ready for the scheduler). NOTE: automated sending isn't wired yet, so we
+  // save the preference honestly rather than claiming a reminder was "enabled".
+  const toggleReminder = async (key: keyof typeof reminders) => {
+    const next = { ...reminders, [key]: !reminders[key] };
+    setReminders(next);
+    if (!shop) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const current = ((shop as any).booking_settings ?? {}) as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await supabase.from("shops").update({ booking_settings: { ...current, reminders: next } as any }).eq("id", shop.id);
+    showToast("Preference saved");
   };
 
   if (!shop) {
@@ -307,8 +320,12 @@ export default function LoyaltyPage() {
 
           {/* Automated Reminders */}
           <Card>
-            <CardHeader><CardTitle>Automated Reminders</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Automated Reminders</CardTitle>
+              <Badge variant="outline" className="text-amber-400 border-amber-500/40">Coming soon</Badge>
+            </CardHeader>
             <CardContent>
+              <p className="text-xs text-[#777] mb-4">Set your preferences now — automated sending is rolling out soon. Your choices are saved and will apply once it&apos;s live.</p>
               <div className="space-y-4">
                 {[
                   { key: "appointment_24h" as const, label: "24hr Appointment Reminder", desc: "SMS sent 24hrs before appointment", icon: "⏰" },

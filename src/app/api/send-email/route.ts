@@ -844,6 +844,7 @@ export async function POST(req: NextRequest) {
       "no_show_followup", "birthday_wish", "payment_link", "direct_message",
       "barber_invite", "barber_password_reset", "new_booking_barber", "payment_receipt",
       "barber_appointment_change", "waitlist_slot_open", "booking_request_received",
+      "marketing_campaign",
     ];
     const replyTo = customerOrBarberFacing.includes(type)
       ? (data.shopEmail || undefined)

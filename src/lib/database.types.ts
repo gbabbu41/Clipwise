@@ -178,6 +178,7 @@ export interface Client {
   loyalty_points: number;
   tag: "New" | "Returning" | "VIP" | "At Risk";
   birthday?: string;
+  marketing_opt_out?: boolean;
 }
 
 export interface Transaction {

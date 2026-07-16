@@ -20,7 +20,8 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 type Segment = { id: string; label: string; desc: string; filter: (c: Client[]) => Client[] };
 type Template = { id: string; label: string; subject: string; body: string; tag: string };
-type Campaign = { id: string; name: string; segment: string; sentAt: string; recipients: number; opens: number; clicks: number; status: "sent" | "scheduled" | "draft" };
+// A real, persisted campaign row (public.campaigns).
+type Campaign = { id: string; name: string | null; segment: string | null; subject: string | null; recipients: number; status: string; sent_at: string };
 
 const SEGMENTS: Segment[] = [
   { id: "all", label: "All Clients", desc: "Everyone in your client list", filter: c => c },
@@ -76,16 +77,11 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-const MOCK_HISTORY: Campaign[] = [
-  { id: "1", name: "Win-Back — At Risk Clients", segment: "At Risk", sentAt: "2025-05-10", recipients: 34, opens: 18, clicks: 9, status: "sent" },
-  { id: "2", name: "Fill Slow Tuesday", segment: "All Clients", sentAt: "2025-05-15", recipients: 87, opens: 52, clicks: 23, status: "sent" },
-  { id: "3", name: "Holiday Special", segment: "VIP Clients", sentAt: "2025-04-28", recipients: 12, opens: 10, clicks: 7, status: "sent" },
-];
-
 export default function MarketingPage() {
   const { shop } = useAuth();
   const [tab, setTab] = useState<"campaigns" | "create">("campaigns");
   const [clients, setClients] = useState<Client[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [toast, setToast] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -99,14 +95,19 @@ export default function MarketingPage() {
 
   const loadClients = useCallback(async () => {
     if (!shop) return;
-    const { data } = await supabase.from("clients").select("*").eq("shop_id", shop.id);
-    if (data) setClients(data);
+    const [clientRes, campaignRes] = await Promise.all([
+      supabase.from("clients").select("*").eq("shop_id", shop.id),
+      supabase.from("campaigns").select("*").eq("shop_id", shop.id).order("sent_at", { ascending: false }),
+    ]);
+    if (clientRes.data) setClients(clientRes.data);
+    if (campaignRes.data) setCampaigns(campaignRes.data as Campaign[]);
   }, [shop]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
   const recipients = selectedSegment.filter(clients);
-  const recipientsWithEmail = recipients.filter(c => !!c.email);
+  // Only clients with an email who haven't unsubscribed are reachable.
+  const recipientsWithEmail = recipients.filter(c => !!c.email && !c.marketing_opt_out);
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca"}/book/${shop?.slug ?? ""}`;
 
   const applyTemplate = (t: Template) => {
@@ -125,12 +126,14 @@ export default function MarketingPage() {
     if (!subject.trim() || !body.trim()) { showToast("Subject and message are required."); return; }
     setSending(true);
 
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca";
     let sent = 0;
     for (const client of recipientsWithEmail.slice(0, 50)) {
       const personalizedBody = body
         .replace(/{name}/g, client.name ?? "there")
         .replace(/{shop}/g, shop?.name ?? "our shop")
         .replace(/{link}/g, bookingUrl);
+      const unsubscribeUrl = `${origin}/api/unsubscribe?c=${client.id}`;
 
       await fetch("/api/send-email", {
         method: "POST",
@@ -140,11 +143,13 @@ export default function MarketingPage() {
           data: {
             to: client.email,
             subject,
+            shopEmail: shop?.email,
             htmlBody: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
               <h2 style="color:#F5F0E6;margin-bottom:16px;">${shop?.name ?? "Your Barber"}</h2>
               <div style="white-space:pre-line;color:#333;line-height:1.6;">${personalizedBody}</div>
               <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#999;">
                 You're receiving this because you're a client of ${shop?.name ?? "our shop"}.
+                <br><a href="${unsubscribeUrl}" style="color:#999;text-decoration:underline;">Unsubscribe</a> from marketing emails.
               </div>
             </div>`,
           },
@@ -153,14 +158,25 @@ export default function MarketingPage() {
       sent++;
     }
 
+    // Persist the campaign so it shows in history (and the stats are real).
+    if (sent > 0 && shop) {
+      await supabase.from("campaigns").insert({
+        shop_id: shop.id,
+        name: campaignName.trim() || subject.trim(),
+        segment: selectedSegment.label,
+        subject: subject.trim(),
+        recipients: sent,
+        status: "sent",
+      }).then(null, () => null);
+      await loadClients();
+    }
+
     setSending(false);
     showToast(`Campaign sent to ${sent} client${sent !== 1 ? "s" : ""}!`);
     setTab("campaigns");
   };
 
-  const totalSent = MOCK_HISTORY.reduce((s, c) => s + c.recipients, 0);
-  const totalOpens = MOCK_HISTORY.reduce((s, c) => s + c.opens, 0);
-  const avgOpenRate = totalSent ? Math.round((totalOpens / totalSent) * 100) : 0;
+  const totalEmailsSent = campaigns.reduce((s, c) => s + (c.recipients ?? 0), 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -180,9 +196,9 @@ export default function MarketingPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Clients", value: clients.length, icon: Users },
-          { label: "With Email", value: clients.filter(c => !!c.email).length, icon: Mail },
-          { label: "Campaigns Sent", value: MOCK_HISTORY.length, icon: Send },
-          { label: "Avg Open Rate", value: `${avgOpenRate}%`, icon: TrendingUp },
+          { label: "Reachable (email)", value: clients.filter(c => !!c.email && !c.marketing_opt_out).length, icon: Mail },
+          { label: "Campaigns Sent", value: campaigns.length, icon: Send },
+          { label: "Emails Delivered", value: totalEmailsSent, icon: TrendingUp },
         ].map(stat => {
           const Icon = stat.icon;
           return (
@@ -246,35 +262,40 @@ export default function MarketingPage() {
               <CardTitle>Campaign History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#1e1e1e]">
-                      {["Campaign", "Segment", "Sent", "Recipients", "Opens", "Clicks", "Rate", "Status"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MOCK_HISTORY.map(c => (
-                      <tr key={c.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 transition-colors">
-                        <td className="px-3 py-3 text-sm font-medium text-white">{c.name}</td>
-                        <td className="px-3 py-3 text-xs text-[#777]">{c.segment}</td>
-                        <td className="px-3 py-3 text-xs text-[#777]">{c.sentAt}</td>
-                        <td className="px-3 py-3 text-sm text-white">{c.recipients}</td>
-                        <td className="px-3 py-3 text-sm text-white">{c.opens}</td>
-                        <td className="px-3 py-3 text-sm text-white">{c.clicks}</td>
-                        <td className="px-3 py-3 text-sm text-emerald-400">{Math.round((c.opens / c.recipients) * 100)}%</td>
-                        <td className="px-3 py-3">
-                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            <CheckCircle2 size={10} /> Sent
-                          </span>
-                        </td>
+              {campaigns.length === 0 ? (
+                <div className="py-10 text-center">
+                  <Megaphone size={32} className="mx-auto mb-3 text-[#777] opacity-40" />
+                  <p className="text-sm text-white font-medium">No campaigns sent yet</p>
+                  <p className="text-xs text-[#777] mt-1">Your sent campaigns will show up here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#1e1e1e]">
+                        {["Campaign", "Segment", "Sent", "Recipients", "Status"].map(h => (
+                          <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2 whitespace-nowrap">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {campaigns.map(c => (
+                        <tr key={c.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-white">{c.name || c.subject || "Campaign"}</td>
+                          <td className="px-3 py-3 text-xs text-[#777]">{c.segment ?? "—"}</td>
+                          <td className="px-3 py-3 text-xs text-[#777]">{new Date(c.sent_at).toLocaleDateString("en-CA")}</td>
+                          <td className="px-3 py-3 text-sm text-white">{c.recipients}</td>
+                          <td className="px-3 py-3">
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 size={10} /> Sent
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
