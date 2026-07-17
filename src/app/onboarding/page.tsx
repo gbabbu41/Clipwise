@@ -15,10 +15,6 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const TIME_SLOTS = generate24hSlots();
 const SERVICE_CATEGORIES = ["Hair", "Beard", "Packages", "Kids"];
 
-function slugify(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
 type ServiceRow = { name: string; price: string; duration: string; category: string };
 type DayHours = { open: boolean; start: string; end: string };
 
@@ -117,26 +113,24 @@ export default function OnboardingPage() {
     setSaving(true);
     try {
       if (step === 0) {
-        const baseSlug = slugify(shop.name);
-        const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+        // Shop creation is server-side now: the API forces status='pending' /
+        // plan='starter' and only grants a paid plan + auto-approval after
+        // VERIFYING the Stripe subscription belongs to this user. The plan/
+        // status can no longer be set from the browser.
         const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
-        const chosenPlan = planData.plan || "starter";
-        const autoApprove = planData.autoApprove === true;
-        const { data, error: err } = await supabase
-          .from("shops")
-          .insert({
-            ...shop, owner_id: user!.id, slug,
-            status: autoApprove ? "approved" : "pending",
-            subscription_plan: chosenPlan,
-            stripe_subscription_id: planData.subscriptionId ?? null,
-            stripe_customer_id: planData.customerId ?? null,
-            subscription_status: autoApprove ? "active" : "inactive",
-          })
-          .select()
-          .single();
-        if (err) throw err;
-        setCreatedShopId(data.id);
-        setCreatedShopSlug(data.slug);
+        const res = await fetch("/api/shops/create", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: shop.name, address: shop.address, city: shop.city, province: shop.province,
+            postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
+            subscription_id: planData.subscriptionId ?? undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.shop) throw new Error(data.error || "Couldn't create your shop. Please try again.");
+        setCreatedShopId(data.shop.id);
+        setCreatedShopSlug(data.shop.slug);
       }
 
       if (step === 3) {
