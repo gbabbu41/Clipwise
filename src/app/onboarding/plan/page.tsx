@@ -63,9 +63,12 @@ function PlanPageInner() {
     if (status === "success") {
       const sessionId = searchParams.get("session_id");
       const plan = searchParams.get("plan");
-      if (!sessionId || !plan) return;
+      // Wait for the auth token to load — verify-session now requires it.
+      if (!sessionId || !plan || !accessToken) return;
       setStep("verifying");
-      fetch(`/api/stripe/verify-session?session_id=${sessionId}`)
+      fetch(`/api/stripe/verify-session?session_id=${sessionId}`, {
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+      })
         .then(r => r.json())
         .then(({ paid, subscriptionId, customerId }) => {
           if (paid) {
@@ -79,7 +82,7 @@ function PlanPageInner() {
         })
         .catch(() => { setError("Payment verification failed. Please try again."); setStep("pick"); });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, accessToken]);
 
   async function selectPlan(plan: Plan) {
     setError("");

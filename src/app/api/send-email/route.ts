@@ -11,6 +11,19 @@ const PRIVILEGED_EMAIL_TYPES = new Set([
   "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset",
 ]);
 
+// Escape HTML in the free-text fields that originate from untrusted sources
+// (the public booking form: client name/email/phone/notes, shop/owner names).
+// Templates interpolate these raw, so without this a customer could inject
+// markup/links into the owner's or barber's inbox. URLs/links and marketing
+// htmlBody are intentionally NOT in this list.
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+const HTML_FREETEXT_FIELDS = new Set([
+  "clientName", "clientEmail", "clientPhone", "ownerName", "ownerEmail", "ownerPhone",
+  "shopName", "senderName", "barberName", "serviceName", "note", "notes", "message",
+  "reason", "city", "province", "address",
+]);
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "gbabbu41@gmail.com";
@@ -686,6 +699,14 @@ export async function POST(req: NextRequest) {
     // chokepoint covers them all. Idempotent: already-friendly values pass
     // through unchanged (see prettyDate).
     if (data?.date) data.date = prettyDate(data.date);
+
+    // Neutralize HTML in untrusted free-text before it hits any template.
+    // marketing_campaign carries an intentional htmlBody, so it's exempt.
+    if (data && type !== "marketing_campaign") {
+      for (const k of Object.keys(data)) {
+        if (HTML_FREETEXT_FIELDS.has(k) && typeof data[k] === "string") data[k] = escapeHtml(data[k]);
+      }
+    }
 
     let to = "";
     let subject = "";
