@@ -44,7 +44,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState({
     platform_name: "ClipWise",
     support_email: "support@clipwise.com",
-    admin_email: "gbabbu41@gmail.com",
+    admin_email: "admin@clipwise.ca",
     booking_base_url: typeof window !== "undefined" ? `${window.location.origin}/book` : "/book",
   });
 

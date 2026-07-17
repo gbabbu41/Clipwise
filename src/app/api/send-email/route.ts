@@ -26,7 +26,7 @@ const HTML_FREETEXT_FIELDS = new Set([
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "gbabbu41@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@clipwise.ca";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
 // ── Shared email wrapper ──────────────────────────────────────────────────────
