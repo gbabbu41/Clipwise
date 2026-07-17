@@ -1,26 +1,25 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Check, X, Calendar, Clock, User, Scissors, MapPin, Phone, ArrowLeft, RefreshCw } from "lucide-react";
+import { X, Calendar, Clock, User, Scissors, MapPin, Phone, ArrowLeft, RefreshCw } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, formatDateForDb, getSlotsInRange, prettyDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
 
+// Customer "manage my booking" screen. appointments RLS is stakeholder-only, so
+// the anon browser client can't read the row — everything here goes through the
+// service-role /api/my-booking/[id] route (keyed by the unguessable booking
+// UUID in the confirmation email/SMS), which returns display-only fields.
 interface AppointmentDetail {
   id: string;
   client_name: string;
-  client_email: string;
-  client_phone: string;
   date: string;
   time_slot: string;
   status: string;
   total_amount: number;
-  notes?: string | null;
   shop_id: string;
   barber_id: string | null;
-  service_id: string | null;
   barbers?: { id: string; name: string } | null;
   services?: { id: string; name: string; price: number; duration_minutes: number } | null;
   shops?: { id: string; name: string; slug: string; address: string; city: string; province: string; phone: string } | null;
@@ -54,87 +53,81 @@ export default function MyBookingPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [newTime, setNewTime] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
     (async () => {
-      const { data } = await supabase
-        .from("appointments")
-        .select("*, barbers(id, name), services(id, name, price, duration_minutes), shops(id, name, slug, address, city, province, phone)")
-        .eq("id", id)
-        .single();
-      if (!data) { setNotFound(true); setLoading(false); return; }
-      setAppt(data as unknown as AppointmentDetail);
+      try {
+        const res = await fetch(`/api/my-booking/${id}`);
+        if (!res.ok) { setNotFound(true); setLoading(false); return; }
+        const { booking } = await res.json();
+        if (!booking) { setNotFound(true); setLoading(false); return; }
+        setAppt(booking as AppointmentDetail);
+      } catch {
+        setNotFound(true);
+      }
       setLoading(false);
     })();
   }, [id]);
 
   const loadSlots = async (date: Date) => {
-    if (!appt?.barber_id) return;
+    if (!appt) return;
     setSlotsLoading(true);
     setSlots([]);
     setNewTime(null);
-    const dateStr = formatDateForDb(date);
-    const dow = date.getDay();
-    const [{ data: ts }, { data: booked }] = await Promise.all([
-      supabase.from("time_slots").select("*").eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true).single(),
-      supabase.from("appointments").select("time_slot").eq("barber_id", appt.barber_id).eq("date", dateStr).in("status", ["pending", "confirmed"]),
-    ]);
-    if (!ts) { setSlotsLoading(false); return; }
-    const bookedSlots = (booked ?? []).map((a: { time_slot: string }) => a.time_slot).filter(s => s !== appt.time_slot);
-    const rows = getSlotsInRange(ts.start_time, ts.end_time, date, bookedSlots);
-    setSlots(rows);
+    setRescheduleError("");
+    try {
+      const res = await fetch(`/api/my-booking/${appt.id}?slots=${formatDateForDb(date)}`);
+      const { slots: rows } = res.ok ? await res.json() : { slots: [] };
+      setSlots(rows ?? []);
+    } catch {
+      setSlots([]);
+    }
     setSlotsLoading(false);
   };
 
   const cancelBooking = async () => {
     if (!appt) return;
     setCancelling(true);
-    await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
-    setAppt(prev => prev ? { ...prev, status: "cancelled" } : prev);
-    setShowCancelConfirm(false);
-    setView("cancelled");
-    setCancelling(false);
-
-    // Notify the assigned barber their slot is free again (fire-and-forget).
-    fetch("/api/appointments/notify-cancellation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
-    }).catch(() => null);
-
-    // Smart waitlist: ping anyone waiting for this now-free day.
-    fetch("/api/waitlist/slot-opened", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: appt.id }),
-    }).catch(() => null);
-
-    // Notify shop owner
-    if (appt.shops) {
-      const { data: shopRow } = await supabase.from("shops").select("owner_id").eq("id", appt.shop_id).single();
-      if (shopRow?.owner_id) {
-        supabase.from("notifications").insert({
-          user_id: shopRow.owner_id,
-          title: "Appointment Cancelled",
-          message: `${appt.client_name} cancelled their appointment on ${prettyDate(appt.date)} at ${appt.time_slot}`,
-          type: "cancellation",
-          is_read: false,
-        }).then(null, () => null);
+    try {
+      const res = await fetch(`/api/my-booking/${appt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      if (res.ok) {
+        setAppt(prev => prev ? { ...prev, status: "cancelled" } : prev);
+        setShowCancelConfirm(false);
+        setView("cancelled");
       }
-    }
+    } catch { /* keep the confirm dialog open on failure */ }
+    setCancelling(false);
   };
 
   const reschedule = async () => {
     if (!appt || !newDate || !newTime) return;
     setRescheduling(true);
     const newDateStr = formatDateForDb(newDate);
-    await supabase.from("appointments").update({ date: newDateStr, time_slot: newTime, status: "pending" }).eq("id", appt.id);
-    setAppt(prev => prev ? { ...prev, date: newDateStr, time_slot: newTime, status: "pending" } : prev);
-    setView("detail");
-    setNewDate(null);
-    setNewTime(null);
-    setSlots([]);
+    try {
+      const res = await fetch(`/api/my-booking/${appt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reschedule", date: newDateStr, time_slot: newTime }),
+      });
+      if (res.ok) {
+        setAppt(prev => prev ? { ...prev, date: newDateStr, time_slot: newTime, status: "pending" } : prev);
+        setView("detail");
+        setNewDate(null);
+        setNewTime(null);
+        setSlots([]);
+      } else {
+        const { error } = await res.json().catch(() => ({ error: "" }));
+        setRescheduleError(error || "That time is no longer available — please pick another.");
+      }
+    } catch {
+      setRescheduleError("Something went wrong — please try again.");
+    }
     setRescheduling(false);
   };
 
@@ -293,7 +286,7 @@ export default function MyBookingPage() {
 
             {/* Actions */}
             {isUpcoming && isReschedulable && (
-              <Button variant="outline" className="w-full" onClick={() => setView("reschedule")}>
+              <Button variant="outline" className="w-full" onClick={() => { setRescheduleError(""); setView("reschedule"); }}>
                 <RefreshCw size={15} /> Reschedule Appointment
               </Button>
             )}
@@ -333,7 +326,7 @@ export default function MyBookingPage() {
         {view === "reschedule" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <button onClick={() => { setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); }}
+              <button onClick={() => { setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); setRescheduleError(""); }}
                 className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-[#555] hover:text-white transition-colors">
                 <ArrowLeft size={18} />
               </button>
@@ -397,6 +390,10 @@ export default function MyBookingPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {rescheduleError && (
+              <p className="text-sm text-red-400 text-center">{rescheduleError}</p>
             )}
 
             <Button

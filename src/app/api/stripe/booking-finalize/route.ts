@@ -224,9 +224,11 @@ export async function POST(request: NextRequest) {
       const payNote = isSave ? " Card saved — charged after your visit."
         : isHold ? " Card held — charged after your visit."
         : " Paid online.";
+      // Per-booking manage link (view/reschedule/cancel) — same one in the email.
+      const smsBase = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       sendSmsBestEffort(
         m.client_phone,
-        `Your appointment on ${friendly} at ${m.time_slot} is confirmed.${payNote} Booking #${appt.id.slice(0, 8).toUpperCase()}.`,
+        `Your appointment on ${friendly} at ${m.time_slot} is confirmed.${payNote} Booking #${appt.id.slice(0, 8).toUpperCase()}. Manage: ${smsBase}/my-booking/${appt.id}`,
         shopRow?.name,
       );
     }

@@ -797,9 +797,12 @@ export default function BookingPage() {
     if (clientInfo.phone) {
       const dateStr = selectedDate ? prettyDate(formatDateForDb(selectedDate)) : "";
       const ref = newApptId.slice(0, 8).toUpperCase();
+      // Per-booking manage link — the customer's way to view/reschedule/cancel
+      // (their only way when they booked by phone with no email).
+      const manageLink = `${window.location.origin}/my-booking/${newApptId}`;
       const smsBody = inPersonStatus === "pending"
-        ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}.`
-        : `Your appointment on ${dateStr} at ${selectedTime} is confirmed. Pay at the shop. Booking #${ref}.`;
+        ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}. Manage: ${manageLink}`
+        : `Your appointment on ${dateStr} at ${selectedTime} is confirmed. Pay at the shop. Booking #${ref}. Manage: ${manageLink}`;
       fetch("/api/twilio/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
