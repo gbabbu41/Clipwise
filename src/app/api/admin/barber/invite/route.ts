@@ -106,9 +106,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, barber, manual: true });
   }
 
-  const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite`;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const redirectTo = `${baseUrl}/accept-invite`;
 
-  // Try invite link (new user); fall back to magic link (existing user)
+  // New user → an invite link (sets their password + links this barber row).
+  // Existing user → NO login/magic link: that would be a "log in as that
+  // person" link we'd hand to the owner (account takeover). They sign in with
+  // their existing account and accept from their signed-in session instead
+  // (accept-invite verifies the email matches).
   let inviteLink: string | null = null;
   let existingAccount = false;
 
@@ -123,27 +128,18 @@ export async function POST(request: NextRequest) {
 
   if (!inviteError) {
     inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
+    if (!inviteLink) {
+      await supabaseAdmin.from("barbers").delete().eq("id", barber.id);
+      return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
+    }
   } else {
-    // User already exists — generate a magic link instead
+    // generateLink(type:"invite") errors when the email already has an account.
     existingAccount = true;
-    const { data: magicData } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
-    });
-    inviteLink = (magicData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
   }
 
-  if (!inviteLink) {
-    // Clean up the barber record if we couldn't generate a link
-    await supabaseAdmin.from("barbers").delete().eq("id", barber.id);
-    return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
-  }
-
-  // Send branded invite email via Resend — best-effort and time-bounded so a
-  // slow/blocked email provider can never hang the request (the owner also gets
-  // the link back in the UI to copy/paste).
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  // The email CTA: new account → the invite link; existing account → a plain
+  // /login link (safe, non-authenticating) that says "sign in to accept".
+  const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
   const emailCtrl = new AbortController();
   const emailTimeout = setTimeout(() => emailCtrl.abort(), 6000);
   await fetch(`${baseUrl}/api/send-email`, {
@@ -157,14 +153,14 @@ export async function POST(request: NextRequest) {
         barberEmail: email,
         shopName: shop.name,
         shopEmail: shop.email ?? "",
-        inviteLink,
+        inviteLink: emailCtaLink,
         existingAccount: existingAccount ? "true" : "false",
       },
     }),
   }).catch(() => null);
   clearTimeout(emailTimeout);
 
-  // Return the link too — the owner can copy/paste it manually if the
-  // email doesn't arrive (Resend sandbox restrictions, spam filter, etc.)
-  return NextResponse.json({ ok: true, barber, inviteLink, existingAccount });
+  // Only ever return the copy/paste link for a BRAND-NEW account (owner is
+  // provisioning it). Never return a link that logs in as an existing user.
+  return NextResponse.json({ ok: true, barber, inviteLink: existingAccount ? null : inviteLink, existingAccount });
 }

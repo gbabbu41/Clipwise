@@ -47,8 +47,9 @@ export async function POST(request: NextRequest) {
 
   const link = (linkData as { properties?: { action_link?: string } })?.properties?.action_link;
 
-  // Email the reset link to the barber's own login email (best-effort) in
-  // addition to returning it so the owner can still copy/paste it directly.
+  // Email the recovery link to the BARBER's own login email only. It is never
+  // returned to the owner — a recovery link establishes a session on click, so
+  // handing it back would let the owner log in as the barber (account takeover).
   let emailed = false;
   if (link) {
     const { data: shopRow } = await supabaseAdmin
@@ -70,8 +71,9 @@ export async function POST(request: NextRequest) {
         }),
       });
       emailed = res.ok;
-    } catch { /* best-effort — the owner still has the copy/paste link */ }
+    } catch { /* best-effort */ }
   }
 
-  return NextResponse.json({ link, email, name: barber.name, emailed });
+  // Return only whether the email went out — NOT the link itself.
+  return NextResponse.json({ ok: true, email, name: barber.name, emailed });
 }

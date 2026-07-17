@@ -30,31 +30,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite`;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const redirectTo = `${baseUrl}/accept-invite`;
 
+  // New user → invite link. Existing user → NO magic/login link (that would be
+  // a log-in-as-them link handed to the owner); they sign in and accept.
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
     type: "invite",
     email: barber.email,
     options: { redirectTo, data: { invite_barber_id: barber.id, role: "barber" } },
   });
 
-  let inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
-  let existingAccount = false;
-
-  if (inviteError) {
-    // User exists — generate magic link instead
-    existingAccount = true;
-    const { data: magicData } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: barber.email,
-      options: { redirectTo },
-    });
-    inviteLink = (magicData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
+  const inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
+  const existingAccount = !!inviteError;
+  if (!existingAccount && !inviteLink) {
+    return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
   }
 
-  if (!inviteLink) return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
-
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -64,11 +57,12 @@ export async function POST(request: NextRequest) {
         barberName: barber.name, barberEmail: barber.email,
         shopName: shop?.name ?? "your shop",
         shopEmail: shop?.email ?? "",
-        inviteLink,
+        inviteLink: emailCtaLink,
         existingAccount: existingAccount ? "true" : "false",
       },
     }),
-  });
+  }).catch(() => null);
 
-  return NextResponse.json({ ok: true, inviteLink, existingAccount });
+  // Never return a login link for an existing account.
+  return NextResponse.json({ ok: true, inviteLink: existingAccount ? null : inviteLink, existingAccount });
 }

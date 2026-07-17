@@ -137,7 +137,7 @@ export default function StaffPage() {
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
   const [commissions, setCommissions] = useState<Record<string, number>>({});
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
-  const [resetModal, setResetModal] = useState<{ link: string; email: string; name: string } | null>(null);
+  const [resetModal, setResetModal] = useState<{ email: string; name: string; emailed?: boolean } | null>(null);
   const [inviteLinkModal, setInviteLinkModal] = useState<{ link: string; email: string; name: string; existingAccount: boolean } | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -366,6 +366,9 @@ export default function StaffPage() {
         name: addForm.name.trim(),
         existingAccount: !!data.existingAccount,
       });
+    } else if (data.existingAccount) {
+      // Existing account: no login link is issued (security). They sign in and accept.
+      showToast(`${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`);
     }
     loadBarbers();
   };
@@ -1051,14 +1054,15 @@ export default function StaffPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Password Reset Link</h2>
+                <h2 className="text-lg font-bold text-white">Password reset sent</h2>
                 <button onClick={() => setResetModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <p className="text-sm text-[#777]">
-                We emailed this reset link to <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). You can also copy it below to share directly. It expires in 1 hour.
+                {resetModal.emailed
+                  ? <>A password-reset link was emailed to <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.</>
+                  : <>We couldn&apos;t send the email to <span className="text-white font-medium">{resetModal.email}</span> right now. Ask them to use <span className="text-white">Forgot password</span> on the login page instead.</>}
               </p>
-              <ResetLinkCopy link={resetModal.link} />
-              <p className="text-xs text-[#777]">The barber will be prompted to set a new password when they open this link.</p>
+              <p className="text-xs text-[#777]">For their security, the reset link goes only to the barber&apos;s own inbox — it isn&apos;t shown here.</p>
               <Button className="w-full" onClick={() => setResetModal(null)}>Done</Button>
             </div>
           </div>

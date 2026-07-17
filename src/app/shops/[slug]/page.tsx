@@ -56,7 +56,8 @@ export default function ShopProfilePage() {
       setShop(shopData as Shop);
 
       const [{ data: b }, { data: s }, { data: r }] = await Promise.all([
-        supabase.from("barbers").select("*").eq("shop_id", shopData.id).eq("is_active", true).order("name"),
+        // Public shop page — no staff PII / commission / user_id (see booking page).
+        supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true).order("name"),
         supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true).order("category").order("name"),
         supabase.from("reviews").select("*, barbers(name)").eq("shop_id", shopData.id).order("created_at", { ascending: false }).limit(20),
       ]);

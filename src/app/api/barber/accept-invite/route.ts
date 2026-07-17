@@ -9,35 +9,45 @@ export async function POST(request: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { barber_id } = await request.json() as { barber_id?: string };
-
-  let barberId = barber_id;
-
-  // Fallback: find barber by email if no ID in metadata.
-  // Use case-insensitive match — Supabase normalizes auth emails to lowercase
-  // but the barbers table may have been seeded before that normalization.
   const lookupEmail = (user.email ?? "").trim().toLowerCase();
-  if (!barberId && lookupEmail) {
-    const { data: found } = await supabaseAdmin
-      .from("barbers")
-      .select("id, created_at")
-      .ilike("email", lookupEmail)
-      .is("user_id", null)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    barberId = found?.[0]?.id;
+
+  // Resolve the target barber row (by id or by email), then VERIFY it was
+  // invited to THIS user's email before linking. Without this check a client
+  // could pass any unclaimed barber_id (public on the booking page) and hijack
+  // that barber's shop access. Case-insensitive: Supabase lowercases auth
+  // emails, but rows may predate that.
+  let barber: { id: string; email: string | null; user_id: string | null } | null = null;
+  if (barber_id) {
+    const { data } = await supabaseAdmin
+      .from("barbers").select("id, email, user_id").eq("id", barber_id).maybeSingle();
+    barber = data;
+  } else if (lookupEmail) {
+    const { data } = await supabaseAdmin
+      .from("barbers").select("id, email, user_id")
+      .ilike("email", lookupEmail).is("user_id", null)
+      .order("created_at", { ascending: false }).limit(1);
+    barber = data?.[0] ?? null;
   }
 
-  if (!barberId) {
+  if (!barber) {
     return NextResponse.json({
       error: `No pending invite found for ${user.email ?? "this email"}. Ask your shop owner to resend the invite to the exact same email address.`,
     }, { status: 404 });
   }
+  if (barber.user_id) {
+    return NextResponse.json({ error: "This invite has already been accepted." }, { status: 409 });
+  }
+  // The core guard: the caller must own the email the invite was sent to.
+  if (!lookupEmail || (barber.email ?? "").trim().toLowerCase() !== lookupEmail) {
+    return NextResponse.json({ error: "This invite isn't for your account. Ask your shop owner to invite the email you're signed in with." }, { status: 403 });
+  }
 
-  // Link the auth user to the barber record
+  // Link the auth user to the barber record (still gated on user_id null to
+  // backstop a race).
   const { error: linkError } = await supabaseAdmin
     .from("barbers")
     .update({ user_id: user.id })
-    .eq("id", barberId)
+    .eq("id", barber.id)
     .is("user_id", null);
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });

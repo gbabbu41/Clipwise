@@ -238,7 +238,10 @@ export default function BookingPage() {
       setShop(shopData as Shop | null);
       if (shopData && shopData.status === "approved") {
         const [{ data: b }, { data: s }] = await Promise.all([
-          supabase.from("barbers").select("*").eq("shop_id", shopData.id).eq("is_active", true),
+          // Public booking page — never expose staff PII (email/phone),
+          // commission rates, or user_id (the latter was the signal an attacker
+          // used to spot a claimable barber row). Select only display fields.
+          supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true),
           supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
         ]);
         setBarbers((b ?? []) as Barber[]);
