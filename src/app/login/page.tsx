@@ -33,7 +33,13 @@ export default function LoginPage() {
       clearTimeout(timeout);
 
       if (authError) {
-        setError(authError.message);
+        // Generic message so the form can't be used to enumerate which emails
+        // are registered (Supabase otherwise distinguishes bad-password from
+        // unconfirmed etc.). Keep the confirm hint — it's a real UX need.
+        const m = authError.message.toLowerCase();
+        setError(m.includes("confirm")
+          ? "Please confirm your email first — check your inbox for the link."
+          : "Incorrect email or password.");
         setLoading(false);
         return;
       }
@@ -53,6 +59,10 @@ export default function LoginPage() {
         } else {
           router.push("/");
         }
+      } else {
+        // No session came back (edge case) — don't leave the button spinning.
+        setError("Couldn't sign you in. Please try again.");
+        setLoading(false);
       }
     } catch {
       clearTimeout(timeout);

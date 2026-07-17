@@ -15,21 +15,29 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // Gate the form on an actual recovery session — otherwise an already-signed-in
+  // user could change their live password just by opening this public page.
+  const [recovery, setRecovery] = useState<"checking" | "ready" | "invalid">("checking");
 
-  // Supabase sends the recovery token via URL hash; the client picks it up automatically
   useEffect(() => {
+    let settled = false;
+    const markReady = () => { settled = true; setRecovery("ready"); };
+    // The recovery token arrives in the URL hash; Supabase fires PASSWORD_RECOVERY
+    // when it establishes the recovery session. Either signal means we're good.
+    if (typeof window !== "undefined" && /(?:type=recovery|access_token=)/.test(window.location.hash)) markReady();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        // Session is now set — user can update their password
-      }
+      if (event === "PASSWORD_RECOVERY") markReady();
     });
-    return () => subscription.unsubscribe();
+    // No recovery signal shortly after load → invalid/expired link (or a direct
+    // visit by a logged-in user). Don't let them set a password.
+    const t = setTimeout(() => { if (!settled) setRecovery("invalid"); }, 2500);
+    return () => { clearTimeout(t); subscription.unsubscribe(); };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
+    if (recovery !== "ready") { setError("This reset link is invalid or has expired."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (password !== confirm) { setError("Passwords do not match."); return; }
 
@@ -37,7 +45,7 @@ export default function ResetPasswordPage() {
     const { error: err } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
-    if (err) { setError(err.message); return; }
+    if (err) { setError("Couldn't update your password — the link may have expired. Request a new one."); return; }
     setDone(true);
     setTimeout(() => router.push("/login"), 3000);
   };
@@ -59,6 +67,15 @@ export default function ResetPasswordPage() {
               </div>
               <p className="text-white font-semibold">Password updated!</p>
               <p className="text-[#777] text-sm">Redirecting you to sign in…</p>
+            </div>
+          ) : recovery === "invalid" ? (
+            <div className="text-center py-4 space-y-3">
+              <div className="w-14 h-14 bg-red-500/15 rounded-full flex items-center justify-center mx-auto">
+                <AlertCircle size={24} className="text-red-400" />
+              </div>
+              <p className="text-white font-semibold">Invalid or expired link</p>
+              <p className="text-[#777] text-sm">This password-reset link is no longer valid. Request a new one.</p>
+              <Link href="/forgot-password" className="inline-block text-gold hover:underline text-sm">Send a new reset link</Link>
             </div>
           ) : (
             <>

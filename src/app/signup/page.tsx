@@ -44,7 +44,10 @@ export default function SignupPage() {
     const { data, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { name: form.name, phone: form.phone } },
+      // Carry the intended role in metadata so it survives the email-confirmation
+      // path (no session yet → the client-side role update can't run). The
+      // handle_new_user trigger reads raw_user_meta_data.role on account create.
+      options: { data: { name: form.name, phone: form.phone, role: selectedRole || "customer" } },
     });
 
     if (authError) {
@@ -52,17 +55,21 @@ export default function SignupPage() {
         setFieldErrors({ email: "Email already in use." });
         setError("already_registered");
       } else {
-        setError(authError.message);
+        // Don't surface raw provider errors.
+        setError("Couldn't create your account. Please try again.");
       }
       setLoading(false);
       return;
     }
 
     if (data.user && data.session) {
-      await supabase
+      // Happy path (no email confirmation): set the role now. Errors are logged,
+      // not swallowed silently — but the trigger metadata is the real backstop.
+      const { error: roleErr } = await supabase
         .from("users")
         .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
         .eq("id", data.user.id);
+      if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
       router.push(selectedRole === "shop_owner" ? "/onboarding/plan" : "/");
     } else if (data.user && !data.session) {
       setEmailSent(true);

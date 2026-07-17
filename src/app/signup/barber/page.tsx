@@ -38,7 +38,7 @@ export default function BarberSignupPage() {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
-          options: { data: { name: form.name, phone: form.phone } },
+          options: { data: { name: form.name, phone: form.phone, role: "barber" } },
         });
 
         if (authError || !authData?.user) {
@@ -49,11 +49,8 @@ export default function BarberSignupPage() {
             password: form.password,
           });
           if (signInError || !signInData?.user) {
-            throw new Error(
-              authError
-                ? "This email is already registered. Please sign in at /login."
-                : "Signup failed — please try again."
-            );
+            // Generic message — doesn't confirm whether the email exists.
+            throw new Error("Couldn't complete signup. If you already have an account, please sign in instead.");
           }
           userId = signInData.user.id;
         } else {

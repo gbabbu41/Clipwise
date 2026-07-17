@@ -19,8 +19,10 @@ export default function ForgotPasswordPage() {
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    if (err) {
-      setError(err.message);
+    // Always show the same "check your inbox" confirmation — never reveal
+    // whether the email exists (only surface true rate-limit / network errors).
+    if (err && /rate|too many|network|timeout/i.test(err.message)) {
+      setError("Too many attempts — please wait a moment and try again.");
     } else {
       setSent(true);
     }

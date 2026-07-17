@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
 
   // Account/password state
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
@@ -284,13 +285,20 @@ export default function SettingsPage() {
   const TABS = ["profile","account","booking","notifications","subscription","locations","danger"];
 
   const changePassword = async () => {
+    if (!currentPassword) { setToast("Enter your current password."); return; }
     if (newPassword.length < 8) { setToast("Password must be at least 8 characters."); return; }
     if (newPassword !== confirmPassword) { setToast("Passwords do not match."); return; }
+    if (!user?.email) { setToast("Couldn't verify your account. Please sign in again."); return; }
     setSavingPassword(true);
+    // Re-authenticate first — Supabase updateUser() doesn't require the current
+    // password, so verifying it stops a borrowed/hijacked session from silently
+    // changing the password and locking the owner out.
+    const { error: reauthErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+    if (reauthErr) { setSavingPassword(false); setToast("Current password is incorrect."); return; }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSavingPassword(false);
-    if (error) { setToast(`Failed: ${error.message}`); return; }
-    setNewPassword(""); setConfirmPassword("");
+    if (error) { setToast("Couldn't update password. Please try again."); return; }
+    setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
     setToast("Password updated.");
   };
 
@@ -411,6 +419,13 @@ export default function SettingsPage() {
                 <p className="text-xs text-[#777] mt-0.5">Choose a new password (at least 8 characters).</p>
               </div>
               <Input
+                label="Current password"
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <Input
                 label="New password"
                 type="password"
                 value={newPassword}
@@ -424,7 +439,7 @@ export default function SettingsPage() {
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
               />
-              <Button onClick={changePassword} disabled={savingPassword || !newPassword || !confirmPassword}>
+              <Button onClick={changePassword} disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}>
                 {savingPassword ? "Updating…" : "Update password"}
               </Button>
             </div>

@@ -128,10 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // Clear the bearer token immediately too — so no component can read a stale
+    // token in the window between sign-out and the SIGNED_OUT event firing.
+    // (plans is non-sensitive global pricing config; leave it.)
     setUser(null);
     setProfile(null);
     setShop(null);
     setShops([]);
+    setAccessToken(null);
   };
 
   return (
