@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prettyDate } from "@/lib/utils";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
+// Types that carry attacker-controllable content or links (arbitrary HTML,
+// recipient, or a login/invite URL). These are gated: the caller must present a
+// valid Supabase session token OR the internal secret. The rest are fixed
+// transactional templates fired by legitimate public flows and stay open.
+const PRIVILEGED_EMAIL_TYPES = new Set([
+  "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset",
+]);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
@@ -656,6 +665,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
 
+    // Gate the abusable types so /api/send-email can't be used as an open
+    // phishing/spam relay (arbitrary HTML/recipient or a login/invite link).
+    if (PRIVILEGED_EMAIL_TYPES.has(type)) {
+      const internal = req.headers.get("x-internal-secret");
+      const okInternal = !!process.env.CRON_SECRET && internal === process.env.CRON_SECRET;
+      let okUser = false;
+      if (!okInternal) {
+        const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+        if (bearer) {
+          const { data: { user } } = await supabaseAdmin.auth.getUser(bearer);
+          okUser = !!user;
+        }
+      }
+      if (!okInternal && !okUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Normalize raw "YYYY-MM-DD" dates to a human-readable label ("July 14")
     // once, here — every template + subject reads `data.date`, so this single
     // chokepoint covers them all. Idempotent: already-friendly values pass
@@ -845,6 +870,8 @@ export async function POST(req: NextRequest) {
       "barber_invite", "barber_password_reset", "new_booking_barber", "payment_receipt",
       "barber_appointment_change", "waitlist_slot_open", "booking_request_received",
       "marketing_campaign",
+      // Barber-facing — were leaking ADMIN_EMAIL (a personal address) as Reply-To.
+      "time_off_decision", "schedule_updated", "weekly_schedule",
     ];
     const replyTo = customerOrBarberFacing.includes(type)
       ? (data.shopEmail || undefined)

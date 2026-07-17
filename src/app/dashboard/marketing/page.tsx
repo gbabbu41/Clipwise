@@ -78,7 +78,7 @@ const TEMPLATES: Template[] = [
 ];
 
 export default function MarketingPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [tab, setTab] = useState<"campaigns" | "create">("campaigns");
   const [clients, setClients] = useState<Client[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -137,7 +137,7 @@ export default function MarketingPage() {
 
       await fetch("/api/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
         body: JSON.stringify({
           type: "marketing_campaign",
           data: {

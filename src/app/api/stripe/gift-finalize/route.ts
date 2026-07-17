@@ -77,7 +77,8 @@ export async function POST(request: NextRequest) {
 
     const sendMail = async (to: string, subject: string, htmlBody: string) => {
       await fetch(`${baseUrl}/api/send-email`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
         body: JSON.stringify({ type: "marketing_campaign", data: { to, subject, htmlBody, shopEmail: shop!.email } }),
       }).then(null, () => null);
     };

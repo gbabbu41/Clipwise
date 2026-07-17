@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
   const emailTimeout = setTimeout(() => emailCtrl.abort(), 6000);
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
     signal: emailCtrl.signal,
     body: JSON.stringify({
       type: "barber_invite",

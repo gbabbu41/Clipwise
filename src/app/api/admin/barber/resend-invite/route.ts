@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
     body: JSON.stringify({
       type: "barber_invite",
       data: {

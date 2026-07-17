@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     try {
       const res = await fetch(`${baseUrl}/api/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
         body: JSON.stringify({
           type: "barber_password_reset",
           data: {

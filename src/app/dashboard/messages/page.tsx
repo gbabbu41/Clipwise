@@ -27,7 +27,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 export default function MessagesPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [input, setInput] = useState("");
@@ -139,7 +139,7 @@ export default function MessagesPage() {
     if (clientEmail) {
       fetch("/api/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
         body: JSON.stringify({
           type: "direct_message",
           data: {
@@ -281,7 +281,7 @@ export default function MessagesPage() {
       if (composeClient.email) {
         fetch("/api/send-email", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
           body: JSON.stringify({
             type: "direct_message",
             data: {
