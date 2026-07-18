@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { effectivePlan, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
+import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -91,6 +92,7 @@ export default function SettingsPage() {
     instagram: "", tiktok: "", facebook: "", youtube: "", website: "",
     google_place_id: "",
     allow_pay_in_person: true,
+    timezone: DEFAULT_TZ,
   });
 
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
@@ -173,6 +175,7 @@ export default function SettingsPage() {
       website: shop.website ?? "",
       google_place_id: shop.google_place_id ?? "",
       allow_pay_in_person: shop.allow_pay_in_person ?? true,
+      timezone: shop.timezone ?? DEFAULT_TZ,
     });
 
     // Load booking settings + notification templates — try Supabase first, fall back to localStorage
@@ -230,6 +233,7 @@ export default function SettingsPage() {
       website: profile.website || null,
       google_place_id: profile.google_place_id || null,
       allow_pay_in_person: isFreePlan ? true : profile.allow_pay_in_person,
+      timezone: profile.timezone || DEFAULT_TZ,
     }).eq("id", shop.id);
     setSaving(false);
     showToast(error ? "Failed to save profile." : "Profile saved!");
@@ -368,6 +372,17 @@ export default function SettingsPage() {
               <Input label="Province" value={profile.province} onChange={e => setProfile(p => ({ ...p, province: e.target.value }))} />
             </div>
             <Input label="Postal Code" value={profile.postal_code} onChange={e => setProfile(p => ({ ...p, postal_code: e.target.value }))} />
+            <div>
+              <label className="text-sm font-medium text-gray-300">Timezone</label>
+              <select
+                value={profile.timezone}
+                onChange={e => setProfile(p => ({ ...p, timezone: e.target.value }))}
+                className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50"
+              >
+                {CANADA_TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <p className="text-[11px] text-[#777] mt-1">Used for booking times, reminders, and same-day availability.</p>
+            </div>
             <Input label="Phone" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
             <Input label="Email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
             <Textarea label="Description" value={profile.description} onChange={e => setProfile(p => ({ ...p, description: e.target.value }))} rows={3} />

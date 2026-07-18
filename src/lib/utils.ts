@@ -342,11 +342,22 @@ export function getSlotsInRange(
   forDate: Date,
   bookedSlots: string[] = [],
   intervalMin = 30,
+  // Optional explicit "now" for past-slot filtering. The client passes nothing
+  // (uses the browser's local clock, which is the customer's timezone). SERVER
+  // callers must pass the SHOP's local today+minutes — otherwise "past" is
+  // judged in UTC and same-day slots get wrongly hidden. Pass null to skip the
+  // past check entirely.
+  nowOverride?: { todayStr: string; nowMinutes: number } | null,
 ): { slot: string; available: boolean }[] {
   const SLOT_MINUTES = intervalMin > 0 ? intervalMin : 30;
   const startMins = timeToMinutes(dbTimeToDisplay(startTimeDb));
   const endMins = timeToMinutes(dbTimeToDisplay(endTimeDb));
-  const isToday = formatDateForDb(forDate) === formatDateForDb(new Date());
+  const forStr = formatDateForDb(forDate);
+  const isToday = nowOverride === null
+    ? false
+    : nowOverride
+      ? forStr === nowOverride.todayStr
+      : forStr === formatDateForDb(new Date());
   const booked = new Set(bookedSlots);
 
   return generate24hSlots(SLOT_MINUTES)
@@ -358,11 +369,12 @@ export function getSlotsInRange(
       // runs past the barber's stated hours.
       return m >= startMins && m + SLOT_MINUTES <= endMins;
     })
-    .map((slot) => ({
-      slot,
-      available:
-        !booked.has(slot) && !(isToday && isSlotInPast(slot)),
-    }));
+    .map((slot) => {
+      const past = isToday && (nowOverride
+        ? timeToMinutes(slot) <= nowOverride.nowMinutes
+        : isSlotInPast(slot));
+      return { slot, available: !booked.has(slot) && !past };
+    });
 }
 
 // ─── Date Range Utilities ──────────────────────────────────────────────────────

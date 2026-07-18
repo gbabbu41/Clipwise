@@ -42,6 +42,9 @@ export interface Shop {
   subscription_plan: SubscriptionPlan;
   is_active: boolean;
   status: ShopStatus;
+  /** IANA timezone (e.g. "America/Toronto"). Drives server-side same-day slot
+   *  filtering + reminder scheduling in the shop's local time. */
+  timezone?: string;
   rejection_reason?: string;
   notification_templates?: Record<string, { subject: string; body: string }>;
   google_place_id?: string;

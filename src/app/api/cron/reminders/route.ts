@@ -4,6 +4,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
+import { safeTz, todayInTz, shiftYmd } from "@/lib/timezone";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -32,10 +33,6 @@ function authorized(req: NextRequest): boolean {
   return req.headers.get("x-cron-secret") === s || req.headers.get("authorization") === `Bearer ${s}`;
 }
 
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 async function sendEmail(type: string, data: Record<string, unknown>) {
   await fetch(`${BASE_URL}/api/send-email`, {
     method: "POST",
@@ -61,24 +58,27 @@ function computeTag(c: ClientRow, todayMs: number): "New" | "Returning" | "VIP" 
 }
 
 async function run() {
-  const now = new Date();
-  const today = ymd(now);
-  const todayMs = Date.parse(today + "T00:00:00Z");
-  const tomorrow = ymd(new Date(now.getTime() + 86400000));
-  const d30 = ymd(new Date(now.getTime() - 30 * 86400000));
-  const d60 = ymd(new Date(now.getTime() - 60 * 86400000));
-  const todayMMDD = today.slice(5); // "MM-DD"
-
   await ensurePlansHydrated();
 
   const { data: shops } = await supabaseAdmin
     .from("shops")
-    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings");
+    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone");
   if (!shops?.length) return NextResponse.json({ ok: true, shops: 0 });
 
   let emails = 0, texts = 0, retagged = 0, sends = 0;
 
   for (const shop of shops) {
+    // All "which calendar day" math is done in the SHOP's timezone, so a shop
+    // never gets tomorrow's reminders a day early/late regardless of when (in
+    // UTC) the cron fires.
+    const tz = safeTz((shop as { timezone?: string }).timezone ?? null);
+    const today = todayInTz(tz);
+    const todayMs = Date.parse(today + "T00:00:00Z");
+    const tomorrow = shiftYmd(today, 1);
+    const d30 = shiftYmd(today, -30);
+    const d60 = shiftYmd(today, -60);
+    const todayMMDD = today.slice(5); // "MM-DD"
+
     // ── Auto-tagging (all shops) ────────────────────────────────────────────
     const { data: clients } = await supabaseAdmin
       .from("clients").select("*").eq("shop_id", shop.id);

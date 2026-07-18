@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
+import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Reschedule slot list for THIS booking's barber on a given day.
   if (slotsDate) {
     const { data: appt } = await supabaseAdmin
-      .from("appointments").select("barber_id, time_slot").eq("id", id).maybeSingle();
+      .from("appointments").select("barber_id, time_slot, shop_id, shops(timezone)").eq("id", id).maybeSingle();
     if (!appt?.barber_id) return NextResponse.json({ slots: [] });
     const dow = new Date(slotsDate + "T00:00:00").getDay();
     const { data: ts } = await supabaseAdmin
@@ -29,7 +30,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .from("appointments").select("time_slot")
       .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING);
     const bookedSlots = (booked ?? []).map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
-    return NextResponse.json({ slots: getSlotsInRange(ts.start_time, ts.end_time, new Date(slotsDate + "T00:00:00"), bookedSlots) });
+    // Judge "past" in the SHOP's timezone, not the server's UTC — otherwise
+    // same-day morning slots get wrongly hidden (Canada is hours behind UTC).
+    const shopRel = (appt as { shops?: { timezone?: string } | { timezone?: string }[] }).shops;
+    const tz = safeTz((Array.isArray(shopRel) ? shopRel[0]?.timezone : shopRel?.timezone) ?? null);
+    const nowOverride = { todayStr: todayInTz(tz), nowMinutes: nowMinutesInTz(tz) };
+    return NextResponse.json({ slots: getSlotsInRange(ts.start_time, ts.end_time, new Date(slotsDate + "T00:00:00"), bookedSlots, 30, nowOverride) });
   }
 
   // The booking itself — display fields only (never client email/phone).
