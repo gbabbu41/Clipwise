@@ -18,7 +18,7 @@
 // pre-launch/staging DB; the booking-loop step cancels the appointment it makes.
 
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const BASE = (process.env.E2E_BASE_URL || "https://clipwise.ca").replace(/\/$/, "");
@@ -59,7 +59,14 @@ async function login(page, who, expectPathIncludes) {
 
 async function run() {
   log(`\nClipWise E2E → ${BASE}\n${"=".repeat(40)}`);
-  const browser = await chromium.launch({ headless: HEADLESS });
+  // Use the environment's pre-installed Chromium (the npm playwright build may
+  // not match), and route through the egress proxy when one is set. TLS trust is
+  // expected to be wired by the environment — we never disable verification.
+  const launchOpts = { headless: HEADLESS };
+  const exe = process.env.PW_CHROMIUM_PATH || "/opt/pw-browsers/chromium";
+  if (existsSync(exe)) launchOpts.executablePath = exe;
+  if (process.env.HTTPS_PROXY) launchOpts.proxy = { server: process.env.HTTPS_PROXY };
+  const browser = await chromium.launch(launchOpts);
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 
   // ── 0. Public surface loads (no auth needed) ──────────────────────────────
