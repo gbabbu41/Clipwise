@@ -52,7 +52,10 @@ async function login(page, who, expectPathIncludes) {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await page.fill('input[type="email"]', who.email);
   await page.fill('input[type="password"]', who.password);
-  await page.click('button[type="submit"]');
+  // The page has TWO submit buttons: a "Continue with Google" OAuth button that
+  // sits ABOVE the email/password <form>, and the real "Sign In" button inside
+  // it. A bare button[type=submit] would click Google — scope to the form.
+  await page.locator('form button[type="submit"]').click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
   if (expectPathIncludes) need(page.url().includes(expectPathIncludes), `expected to land on ${expectPathIncludes}, got ${page.url()}`);
 }
@@ -62,7 +65,11 @@ async function run() {
   // Use the environment's pre-installed Chromium (the npm playwright build may
   // not match), and route through the egress proxy when one is set. TLS trust is
   // expected to be wired by the environment — we never disable verification.
-  const launchOpts = { headless: HEADLESS };
+  // Force TLS 1.2: Chromium's default TLS 1.3 ClientHello (post-quantum key
+  // share) is reset by the egress proxy on CONNECT tunnels, surfacing as
+  // ERR_CONNECTION_RESET. TLS 1.2 negotiates cleanly and the proxy CA is
+  // already trusted — no certificate verification is disabled.
+  const launchOpts = { headless: HEADLESS, args: ["--ssl-version-max=tls1.2", "--no-sandbox"] };
   const exe = process.env.PW_CHROMIUM_PATH || "/opt/pw-browsers/chromium";
   if (existsSync(exe)) launchOpts.executablePath = exe;
   if (process.env.HTTPS_PROXY) launchOpts.proxy = { server: process.env.HTTPS_PROXY };
