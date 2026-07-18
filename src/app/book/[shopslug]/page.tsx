@@ -1315,22 +1315,22 @@ export default function BookingPage() {
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             <button
               onClick={() => setSelectedBarber("any")}
-              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
+              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#1e1e1e] bg-black hover:border-[#333]")}
             >
               <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-2xl">✨</div>
               <div>
                 <p className="font-semibold text-white">No Preference</p>
                 <p className="text-sm text-[#777]">Next available barber</p>
               </div>
-              {selectedBarber === "any" && <Check size={18} className="ml-auto text-white" />}
+              {selectedBarber === "any" && <Check size={18} className="ml-auto text-gold" />}
             </button>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-black bg-black/5" : "border-[#1e1e1e] bg-black shadow-sm hover:border-gray-400")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#1e1e1e] bg-black hover:border-[#333]")}
               >
                 {b.photo
                   ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-[#1e1e1e]" />
-                  : <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{b.name[0]}</div>
+                  : <div className="w-14 h-14 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold text-xl">{b.name[0]}</div>
                 }
                 <div className="flex-1">
                   <p className="font-semibold text-white">{b.name}</p>
@@ -1339,7 +1339,7 @@ export default function BookingPage() {
                     <Star size={11} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} reviews)
                   </span>
                 </div>
-                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-white" />}
+                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-gold" />}
               </button>
             ))}
           </div>
@@ -1356,16 +1356,16 @@ export default function BookingPage() {
               <div className="bg-black/5 border border-[#1e1e1e] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-black/10 border border-black text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
-                        className="ml-0.5 w-5 h-5 rounded-full bg-black/10 hover:bg-gold/30 flex items-center justify-center" aria-label="Remove">
+                        className="ml-0.5 w-5 h-5 rounded-full bg-white/10 hover:bg-gold/40 flex items-center justify-center" aria-label="Remove">
                         <X size={11} />
                       </button>
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center justify-between text-sm pt-1 border-t border-black/10">
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-[#1e1e1e]">
                   <span className="text-[#777]">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
                   <span className="text-white font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
@@ -1550,7 +1550,7 @@ export default function BookingPage() {
                 )}
                 {selectedDate && slotsLoading && (
                   <div className="py-16 text-center text-[#777] text-sm">
-                    <div className="w-6 h-6 border-2 border-black border-t-gold rounded-full animate-spin mx-auto mb-3" />
+                    <div className="w-6 h-6 border-2 border-[#333] border-t-gold rounded-full animate-spin mx-auto mb-3" />
                     Loading…
                   </div>
                 )}
@@ -1617,12 +1617,12 @@ export default function BookingPage() {
                                 className={cn(
                                   "rounded-xl border py-2.5 px-1 flex flex-col items-center justify-center transition-all",
                                   isSelectedSlot
-                                    ? "bg-black border-black text-white ring-2 ring-black/30"
+                                    ? "bg-gold border-gold text-black font-bold ring-2 ring-gold/40 scale-[1.03]"
                                     : "bg-sky-500/10 border-sky-400/40 hover:bg-sky-500/20 text-white",
                                 )}
                               >
                                 <span className="text-sm font-semibold leading-none">{slot}</span>
-                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-white/80" : "text-sky-300/80")}>
+                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-black/70" : "text-sky-300/80")}>
                                   {barberIds.length === 1
                                     ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
                                     : `${barberIds.length} free`}
@@ -1662,7 +1662,7 @@ export default function BookingPage() {
                             >
                               {b.photo
                                 ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
-                                : <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-white font-bold">{b.name[0]}</div>
+                                : <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold">{b.name[0]}</div>
                               }
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-white">{b.name}</p>
@@ -1699,8 +1699,8 @@ export default function BookingPage() {
                     if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:border-black transition-all",
-                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#1e1e1e] focus:ring-black/20")}
+                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#1e1e1e] focus:ring-gold/30")}
                 />
                 {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
               </div>
@@ -1716,7 +1716,7 @@ export default function BookingPage() {
             <p className="text-[#777] text-sm">Optional — skip if you don&apos;t have one.</p>
             <div className="flex gap-2">
               <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10"
-                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
+                className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest"
               />
               <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
             </div>
@@ -1841,7 +1841,7 @@ export default function BookingPage() {
               type="button"
               disabled={!canNext()}
               onClick={() => setStep(step + 1)}
-              className="rounded-full bg-black text-white px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               Continue <ChevronRight size={16} />
             </button>
@@ -1850,7 +1850,7 @@ export default function BookingPage() {
               type="button"
               disabled={saving}
               onClick={confirmBooking}
-              className="rounded-full bg-black text-white px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               {saving ? (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
