@@ -410,15 +410,15 @@ export default function LandingPage() {
             <p className="text-xs text-[#777] mt-3 leading-relaxed">The premium barbershop management platform. Made in Canada.</p>
           </div>
           {[
-            { title: "Product", links: ["Features", "Pricing", "Changelog", "Roadmap"] },
-            { title: "Company", links: ["About", "Blog", "Careers", "Contact"] },
-            { title: "Legal", links: ["Privacy Policy", "Terms of Service", "Cookie Policy"] },
+            { title: "Product", links: [{ label: "Features", href: "#" }, { label: "Pricing", href: "#" }, { label: "Find a Barber", href: "/shops" }, { label: "Why ClipWise", href: "/why-clipwise" }] },
+            { title: "Company", links: [{ label: "About", href: "#" }, { label: "Contact", href: "mailto:support@clipwise.ca" }] },
+            { title: "Legal", links: [{ label: "Privacy Policy", href: "/privacy" }, { label: "Terms of Service", href: "/terms" }, { label: "Cookie Policy", href: "/cookies" }] },
           ].map((col) => (
             <div key={col.title}>
               <h4 className="text-white font-semibold text-sm mb-3">{col.title}</h4>
               <ul className="space-y-2">
                 {col.links.map((link) => (
-                  <li key={link}><a href="#" className="text-xs text-[#777] hover:text-gold transition-colors">{link}</a></li>
+                  <li key={link.label}><a href={link.href} className="text-xs text-[#777] hover:text-gold transition-colors">{link.label}</a></li>
                 ))}
               </ul>
             </div>
@@ -427,7 +427,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-2">
           <p className="text-xs text-[#777]">© 2026 ClipWise Technologies Inc. All rights reserved.</p>
           <p className="text-xs text-[#777] flex items-center gap-1">
-            <Shield size={12} className="text-gold" /> SOC 2 Compliant · PIPEDA Ready · 🇨🇦 Canadian-Made
+            <Shield size={12} className="text-gold" /> Privacy-first · PIPEDA-aware · 🇨🇦 Canadian-Made
           </p>
         </div>
       </footer>
