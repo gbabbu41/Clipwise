@@ -48,3 +48,6 @@ test-scripts/
 /android/.idea
 /android/captures
 .capacitor*
+
+# E2E run artifacts
+e2e/screenshots/
