@@ -29,6 +29,44 @@ export async function POST(request: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
+        // ── Post-visit tip ─────────────────────────────────────────────────────
+        // A customer left a tip via their tip link. Purely additive: record the
+        // tip transaction + bump the appointment's tip total + notify the shop.
+        if (session.metadata?.flow === "tip" && session.metadata?.appointment_id) {
+          const apptId = session.metadata.appointment_id;
+          const tipDollars = Number(session.metadata.tip_amount ?? 0);
+          const tipPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
+          if (tipDollars > 0 && tipPi) {
+            const { data: dup } = await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", tipPi).limit(1);
+            if ((dup?.length ?? 0) === 0) {
+              await recordOnlinePaymentTx({
+                appointmentId: apptId,
+                shopId: session.metadata.shop_id,
+                barberId: session.metadata.barber_id || null,
+                clientName: session.metadata.client_name || null,
+                serviceName: "Tip",
+                amountDollars: 0,
+                tipDollars,
+                paymentIntentId: tipPi,
+              });
+              const { data: cur } = await supabaseAdmin.from("appointments").select("tip_amount").eq("id", apptId).maybeSingle();
+              if (cur) {
+                await supabaseAdmin.from("appointments")
+                  .update({ tip_amount: Number(cur.tip_amount ?? 0) + tipDollars }).eq("id", apptId).then(null, () => null);
+              }
+              const { data: tipShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", session.metadata.shop_id).maybeSingle();
+              if (tipShop?.owner_id) {
+                supabaseAdmin.from("notifications").insert({
+                  user_id: tipShop.owner_id, title: "Tip received",
+                  message: `${session.metadata.client_name || "A customer"} left a $${tipDollars.toFixed(2)} tip. 🎉`,
+                  type: "system", is_read: false,
+                }).then(null, () => null);
+              }
+            }
+          }
+          break;
+        }
+
         // Post-booking payment link flow — owner sent a payment link for an
         // existing appointment and the customer just paid. Flip the row.
         if (session.metadata?.flow === "post_booking_payment" && session.metadata?.appointment_id) {

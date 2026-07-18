@@ -71,7 +71,7 @@ export default function POSPage() {
   const pickerDrag = useSheetDrag(pickerSheetRef, () => setPickerOpen(false), { enabled: pickerOpen });
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState("");
-  const [lastCharge, setLastCharge] = useState<{ total: number; subtotal: number; method: PM; items: CartItem[]; tip: number; discount: number; summaryLabel?: string } | null>(null);
+  const [lastCharge, setLastCharge] = useState<{ total: number; subtotal: number; method: PM; items: CartItem[]; tip: number; discount: number; tax?: number; summaryLabel?: string } | null>(null);
   const [lastReceiptId, setLastReceiptId] = useState<string | null>(null);
 
   const router = useRouter();
@@ -235,7 +235,7 @@ export default function POSPage() {
         if (res.paid && res.sale) {
           setLastCharge({
             total: res.sale.total, subtotal: res.sale.subtotal, method: "card",
-            items: [], tip: res.sale.tip, discount: res.sale.discount ?? 0,
+            items: [], tip: res.sale.tip, discount: res.sale.discount ?? 0, tax: res.sale.tax ?? 0,
             summaryLabel: res.sale.service_name,
           });
           if (res.transactionId) setLastReceiptId(res.transactionId);
@@ -267,7 +267,14 @@ export default function POSPage() {
   const discount = promoApplied
     ? (promoApplied.discount_type === "percent" ? subtotal * promoApplied.discount_value / 100 : promoApplied.discount_value)
     : 0;
-  const total = Math.max(0, subtotal + tipAmt - discount);
+  // Sales tax (shop config) on the discounted service/product amount; tips aren't taxed.
+  const posTaxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string } | null;
+  const posTaxEnabled = posTaxCfg?.tax_enabled === true;
+  const posTaxRate = posTaxEnabled ? Number(posTaxCfg?.tax_rate ?? 0) : 0;
+  const taxLabel = (posTaxCfg?.tax_label || "Tax").trim();
+  const taxableAmt = Math.max(0, subtotal - discount);
+  const taxAmt = posTaxEnabled ? Math.round(taxableAmt * posTaxRate) / 100 : 0;
+  const total = Math.max(0, taxableAmt + taxAmt + tipAmt);
   // A gift card is TENDER, not new revenue (its value was booked when it sold),
   // so it reduces both the amount collected now AND the recorded sale revenue.
   const giftApplied = giftCard ? Math.min(giftCard.remaining_value, total) : 0;
@@ -340,7 +347,7 @@ export default function POSPage() {
             client_email: custEmail.trim(),
             client_phone: custPhone.trim(),
             service_name: serviceName,
-            subtotal, tip: tipAmt, discount, total,
+            subtotal, tip: tipAmt, discount, total, tax: taxAmt,
             commission_amount: commission,
             type: txType,
             products,
@@ -358,7 +365,7 @@ export default function POSPage() {
     // ── Cash (or gift-card-covered) → record the sale immediately ────────────
     // Revenue recorded = the part NOT covered by the gift card (the gift's value
     // was already booked as revenue when it was sold), so we never double-count.
-    const { data: txData, error: txError } = await supabase.from("transactions").insert({
+    const txBase = {
       shop_id: shop!.id,
       barber_id: barberId || null,
       client_name: client,
@@ -369,7 +376,13 @@ export default function POSPage() {
       payment_method: paymentMethod,
       type: txType,
       source: "pos",
-    }).select("id").single();
+    };
+    // Include tax when the phase30 column exists; fall back so a sale is never lost.
+    let txIns = await supabase.from("transactions").insert({ ...txBase, tax: taxAmt }).select("id").single();
+    if (txIns.error && /tax/.test(txIns.error.message) && /column|does not exist|schema cache/i.test(txIns.error.message)) {
+      txIns = await supabase.from("transactions").insert(txBase).select("id").single();
+    }
+    const { data: txData, error: txError } = txIns;
 
     if (txError) { showToast("Error saving transaction"); setCharging(false); return; }
     if (txData?.id) setLastReceiptId(txData.id);
@@ -401,7 +414,7 @@ export default function POSPage() {
       }
     }
 
-    setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + giftApplied });
+    setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + giftApplied, tax: taxAmt });
     setCharging(false);
     setSuccess(true);
 
@@ -470,6 +483,7 @@ export default function POSPage() {
             <div className="border-t border-[#1e1e1e] pt-3 space-y-1">
               <div className="flex justify-between text-sm"><span className="text-[#777]">Subtotal</span><span className="text-white">{formatCurrency(lastCharge.subtotal)}</span></div>
               <div className="flex justify-between text-sm"><span className="text-[#777]">Tip</span><span className="text-white">{formatCurrency(lastCharge.tip)}</span></div>
+              {(lastCharge.tax ?? 0) > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">{taxLabel}</span><span className="text-white">{formatCurrency(lastCharge.tax ?? 0)}</span></div>}
               {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
               <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(lastCharge.total)}</span></div>
             </div>
@@ -556,6 +570,7 @@ export default function POSPage() {
       </div>
       {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
       {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+      {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">{taxLabel} ({posTaxRate}%)</span><span className="text-[#f0f0f0]">{formatCurrency(taxAmt)}</span></div>}
       {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
       <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
         <span className="text-sm font-bold text-[#f0f0f0]">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>

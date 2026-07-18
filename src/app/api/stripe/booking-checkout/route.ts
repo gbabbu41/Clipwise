@@ -6,6 +6,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
+import { taxCents } from "@/lib/pricing";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     saveCard?: boolean; // when true: save the card (no charge now), charge later on completion/no-show
     subtotal?: number;  // pre-discount total, for server-side promo math
     promo_code?: string; // validated + recomputed server-side (never trust the client discount)
+    tip_amount?: number; // customer-chosen tip in dollars (immediate full payment only)
   };
 
   const { data: shop } = await supabaseAdmin
@@ -105,7 +107,6 @@ export async function POST(request: NextRequest) {
   // recompute the total from the subtotal. The code is consumed in /booking-
   // finalize once the appointment exists.
   let effectiveTotal = booking.total_amount ?? 0;
-  let effectiveAmount = booking.amount ?? 0;
   let promoCodeForMeta = "";
   if (booking.promo_code) {
     const promo = await fetchValidPromo(booking.shop_id, booking.promo_code);
@@ -114,10 +115,28 @@ export async function POST(request: NextRequest) {
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
     const sub = Number(booking.subtotal ?? booking.total_amount ?? 0);
     effectiveTotal = Math.max(0, sub - promoDiscount(promo, sub));
-    // Hold authorizes the full discounted total; save-card charges nothing now.
-    effectiveAmount = booking.saveCard ? 0 : effectiveTotal;
     promoCodeForMeta = promo.code;
   }
+
+  // ── Sales tax + tip (server-authoritative — never trust client amounts) ────
+  // Tax config lives in the shop's booking_settings. Tax applies to the service
+  // amount after discount; tip (immediate full payment only) is added after and
+  // is never taxed. The stored appointment total = service + tax (excl. tip).
+  const bs = (shop.booking_settings ?? {}) as Record<string, unknown>;
+  const taxRatePct = bs.tax_enabled === true ? Number(bs.tax_rate ?? 0) : 0;
+  const tipsEnabled = bs.tips_enabled !== false;
+
+  const serviceNetCents = Math.round(effectiveTotal * 100);      // discounted service total, pre-tax
+  const taxAmtCents = taxCents(serviceNetCents, taxRatePct);
+  const appointmentTotalCents = serviceNetCents + taxAmtCents;   // stored total (excl. tip)
+
+  let tipAmtCents = 0;
+  if (tipsEnabled && !booking.hold && !booking.saveCard) {
+    tipAmtCents = Math.max(0, Math.round(Number(booking.tip_amount ?? 0) * 100));
+    tipAmtCents = Math.min(tipAmtCents, serviceNetCents);        // cap at 100% of service (typo/abuse guard)
+  }
+  // Save-card charges nothing now; hold authorizes service+tax; immediate charges service+tax+tip.
+  const chargeNowCents = booking.saveCard ? 0 : appointmentTotalCents + tipAmtCents;
 
   // Shared booking details — written to the Checkout session metadata so
   // /booking-finalize can create the appointment on return.
@@ -130,7 +149,9 @@ export async function POST(request: NextRequest) {
     client_phone: booking.client_phone,
     date: booking.date,
     time_slot: booking.time_slot,
-    total_amount: String(effectiveTotal),
+    total_amount: String(appointmentTotalCents / 100),
+    tip_amount: String(tipAmtCents / 100),
+    tax_amount: String(taxAmtCents / 100),
     duration_minutes: String(bookingDuration),
     service_names: booking.service_names ?? "",
     hold: booking.hold ? "1" : "",
@@ -173,8 +194,14 @@ export async function POST(request: NextRequest) {
         line_items: [{
           price_data: {
             currency: "cad",
-            product_data: { name: booking.hold ? `${booking.service_name} — hold (charged after visit)` : booking.service_name },
-            unit_amount: Math.round(effectiveAmount * 100),
+            product_data: {
+              name: booking.hold
+                ? `${booking.service_name} — hold (charged after visit)`
+                : (tipAmtCents > 0 || taxAmtCents > 0)
+                  ? `${booking.service_name} (incl. tax${tipAmtCents > 0 ? " + tip" : ""})`
+                  : booking.service_name,
+            },
+            unit_amount: chargeNowCents,
           },
           quantity: 1,
         }],

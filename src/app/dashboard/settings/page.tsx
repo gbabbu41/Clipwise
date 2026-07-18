@@ -6,6 +6,7 @@ import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { effectivePlan, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
+import { taxPresetFor, clampTaxRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -29,12 +30,18 @@ type BookingSettings = {
   no_show_fee_percent: number; // % of the booked total to charge a no-show (0–80)
   auto_confirm: boolean;
   slot_interval_minutes: number; // booking-window granularity: 15 or 30
+  tips_enabled: boolean;          // offer a tip picker at online payment
+  tax_enabled: boolean;           // add sales tax to charges
+  tax_rate: number;               // percent, e.g. 15 for NB HST
+  tax_label: string;              // "HST" / "GST" / "GST+QST"
+  tax_number: string;             // business tax/GST number for receipts (optional)
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
   advance_days: 30, cancellation_hours: 24,
   no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, auto_confirm: false,
   slot_interval_minutes: 30,
+  tips_enabled: true, tax_enabled: false, tax_rate: 0, tax_label: "HST", tax_number: "",
 };
 
 // Plan info — mirrors the pricing shown on the public homepage (src/app/page.tsx).
@@ -530,6 +537,65 @@ export default function SettingsPage() {
                 disabled={isFreePlan}
                 onChange={() => setProfile(p => ({ ...p, allow_pay_in_person: !p.allow_pay_in_person }))}
               />
+            </div>
+
+            {/* ── Tips ─────────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+              <div className="pr-4">
+                <p className="text-sm font-medium text-white">Accept tips online</p>
+                <p className="text-xs text-[#777]">Show a tip picker when a customer pays online, and let you send a tip link after a visit. Tips go straight to your Stripe account.</p>
+              </div>
+              <Toggle value={booking.tips_enabled} onChange={() => setBooking(p => ({ ...p, tips_enabled: !p.tips_enabled }))} />
+            </div>
+
+            {/* ── Sales tax ────────────────────────────────────────────── */}
+            <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="pr-4">
+                  <p className="text-sm font-medium text-white">Charge sales tax</p>
+                  <p className="text-xs text-[#777]">Add tax to online bookings and POS sales. You are responsible for remitting collected tax.</p>
+                </div>
+                <Toggle value={booking.tax_enabled} onChange={() => setBooking(p => ({ ...p, tax_enabled: !p.tax_enabled }))} />
+              </div>
+
+              {booking.tax_enabled && (
+                <div className="space-y-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const preset = taxPresetFor(profile.province);
+                      if (preset) setBooking(p => ({ ...p, tax_rate: preset.rate, tax_label: preset.label }));
+                      else showToast("Set your province in the Profile tab first, then tap this again.");
+                    }}
+                    className="text-xs text-gold hover:underline"
+                  >
+                    Use my province&rsquo;s rate{profile.province ? ` (${profile.province})` : ""} →
+                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Tax rate (%)</label>
+                      <input type="number" min={0} max={30} step="0.001" value={String(booking.tax_rate)}
+                        onChange={e => setBooking(p => ({ ...p, tax_rate: clampTaxRate(Number(e.target.value)) }))}
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Label</label>
+                      <input value={booking.tax_label}
+                        onChange={e => setBooking(p => ({ ...p, tax_label: e.target.value.slice(0, 12) }))}
+                        placeholder="HST"
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Tax / GST number (optional, shown on receipts)</label>
+                    <input value={booking.tax_number}
+                      onChange={e => setBooking(p => ({ ...p, tax_number: e.target.value.slice(0, 40) }))}
+                      placeholder="12345 6789 RT0001"
+                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
+                  </div>
+                  <p className="text-[11px] text-[#777]">Tax applies to the service amount (after any discount). Tips are never taxed. Verify PST applicability for your province &amp; services.</p>
+                </div>
+              )}
             </div>
 
             <Button disabled={saving} onClick={saveBooking}>

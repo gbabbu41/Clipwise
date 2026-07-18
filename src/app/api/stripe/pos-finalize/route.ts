@@ -35,45 +35,37 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabaseAdmin
       .from("transactions").select("id").eq("stripe_session_id", session_id).maybeSingle();
     if (existing) {
-      return NextResponse.json({ paid: true, transactionId: existing.id, sale: { subtotal, tip, discount, total, method: "card", client_name: m.client_name || "Walk-in", service_name: m.service_name || "Sale" } });
+      return NextResponse.json({ paid: true, transactionId: existing.id, sale: { subtotal, tip, discount, total, tax: Number(m.tax ?? 0), method: "card", client_name: m.client_name || "Walk-in", service_name: m.service_name || "Sale" } });
     }
 
-    const { data: tx, error } = await supabaseAdmin.from("transactions").insert({
+    const tax = Number(m.tax ?? 0);
+    const fullRow: Record<string, unknown> = {
       shop_id,
       barber_id: m.barber_id || null,
       client_name: m.client_name || "Walk-in",
       service_name: m.service_name || "Sale",
       amount: subtotal,
       tip,
+      tax,
       commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
       payment_method: "card",
       type: m.type || "service",
       stripe_session_id: session_id,
       payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
       source: "pos",
-    }).select("id").single();
-    // If the payment_intent_id column doesn't exist yet (pre-phase16), retry
-    // without it so the POS sale still records.
-    let txRow = tx;
-    if (error && /payment_intent_id/.test(error.message)) {
-      const retry = await supabaseAdmin.from("transactions").insert({
-        shop_id,
-        barber_id: m.barber_id || null,
-        client_name: m.client_name || "Walk-in",
-        service_name: m.service_name || "Sale",
-        amount: subtotal,
-        tip,
-        commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
-        payment_method: "card",
-        type: m.type || "service",
-        stripe_session_id: session_id,
-        source: "pos",
-      }).select("id").single();
-      txRow = retry.data;
-      if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 500 });
-    } else if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    };
+    // Insert; progressively drop columns that don't exist yet (tax = phase30,
+    // payment_intent_id = phase16) so a POS sale is never lost pre-migration.
+    const attempt = (row: Record<string, unknown>) => supabaseAdmin.from("transactions").insert(row).select("id").single();
+    let ins = await attempt(fullRow);
+    for (let i = 0; i < 2 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
+      const trimmed = { ...fullRow };
+      if (/tax/.test(ins.error.message)) delete trimmed.tax;
+      if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
+      ins = await attempt(trimmed);
     }
+    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+    const txRow = ins.data;
 
     // Decrement inventory for any product items in the sale.
     let products: { id: string; qty: number }[] = [];
@@ -98,7 +90,7 @@ export async function POST(request: NextRequest) {
       paid: true,
       transactionId: txRow!.id,
       sale: {
-        subtotal, tip, discount, total, method: "card",
+        subtotal, tip, discount, total, tax, method: "card",
         client_name: m.client_name || "Walk-in",
         service_name: m.service_name || "Sale",
       },

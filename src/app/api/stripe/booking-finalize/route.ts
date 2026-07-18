@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: appt, error } = await supabaseAdmin.from("appointments").insert({
+    const baseRow = {
       shop_id: m.shop_id,
       barber_id: m.barber_id || null,
       service_id: m.service_id,
@@ -117,7 +117,16 @@ export async function POST(request: NextRequest) {
       payment_intent_id: paymentIntentId,
       stripe_customer_id: savedCustomerId,
       stripe_payment_method_id: savedPaymentMethodId,
-    }).select("id").single();
+    };
+    // Include tip/tax when phase30 columns exist; if they don't yet, fall back
+    // to the base row so a booking is NEVER lost after the customer has paid.
+    let ins = await supabaseAdmin.from("appointments")
+      .insert({ ...baseRow, tip_amount: Number(m.tip_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0) })
+      .select("id").single();
+    if (ins.error && /(tip_amount|tax_amount)/.test(ins.error.message) && /column|does not exist|schema cache/i.test(ins.error.message)) {
+      ins = await supabaseAdmin.from("appointments").insert(baseRow).select("id").single();
+    }
+    const { data: appt, error } = ins;
 
     if (error) {
       // Slot was taken in the race window between checkout and this finalize
@@ -255,13 +264,18 @@ export async function POST(request: NextRequest) {
       // barber portal + analytics count it (held/saved cards charge later via
       // capture-appointment, which writes its own row).
       if (!isSave && !isHold && paymentIntentId) {
+        const taxDollars = Number(m.tax_amount ?? 0);
+        const tipDollars = Number(m.tip_amount ?? 0);
         await recordOnlinePaymentTx({
           appointmentId: appt.id,
           shopId: m.shop_id,
           barberId: m.barber_id || null,
           clientName: m.client_name ?? null,
           serviceName: summaryServiceName,
-          amountDollars: Number(m.total_amount ?? 0),
+          // total_amount already includes tax; record service revenue net of it.
+          amountDollars: Math.max(0, Number(m.total_amount ?? 0) - taxDollars),
+          taxDollars,
+          tipDollars,
           paymentIntentId,
         });
       }

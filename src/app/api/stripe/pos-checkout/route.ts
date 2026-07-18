@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     tip: number;
     discount: number;
     total: number;
+    tax: number;
     commission_amount: number | null;
     type: string;
     products: { id: string; qty: number }[];
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
           tip: String(body.tip),
           discount: String(body.discount ?? 0),
           total: String(body.total),
+          tax: String(body.tax ?? 0),
           commission_amount: body.commission_amount != null ? String(body.commission_amount) : "",
           type: body.type,
           // Compact product list for inventory decrement on finalize.

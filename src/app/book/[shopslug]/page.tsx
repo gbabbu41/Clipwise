@@ -900,6 +900,16 @@ export default function BookingPage() {
   const canPayOnlineNow = total > 0 && shopCanCharge;
   const canPayInPersonNow = total > 0 && allowInPerson;
 
+  // ── Sales tax (from the shop's booking_settings JSON) — display only; the
+  // server recomputes it authoritatively at checkout. Tax applies to the
+  // service amount after any discount. ───────────────────────────────────────
+  const taxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string } | null;
+  const taxEnabled = taxCfg?.tax_enabled === true;
+  const taxRatePct = taxEnabled ? Number(taxCfg?.tax_rate ?? 0) : 0;
+  const taxAmount = taxEnabled ? Math.round(total * taxRatePct) / 100 : 0;
+  const taxLabel = (taxCfg?.tax_label || "Tax").trim();
+  const grandTotal = total + taxAmount;
+
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
   const noShowProtection = !!bookingSettings?.no_show_protection;
@@ -1757,9 +1767,15 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
                   </div>
                 )}
+                {taxEnabled && taxAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#777]">{taxLabel} ({taxRatePct}%)</span>
+                    <span className="text-white">{formatCurrency(taxAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold pt-1 border-t border-[#1e1e1e]/50">
                   <span className="text-white">Total</span>
-                  <span className="text-white text-lg">{formatCurrency(total)}</span>
+                  <span className="text-white text-lg">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -1799,7 +1815,8 @@ export default function BookingPage() {
                 {servicesPicked.length} {servicesPicked.length === 1 ? "service" : "services"} · {totalDuration} min
               </p>
               <p className="text-base font-bold text-white leading-tight mt-0.5">
-                {formatCurrency(total)}
+                {formatCurrency(grandTotal)}
+                {taxEnabled && taxAmount > 0 && <span className="text-[10px] font-normal text-white/50"> incl. {taxLabel}</span>}
               </p>
             </div>
           ) : (

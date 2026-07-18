@@ -48,11 +48,15 @@ export async function recordOnlinePaymentTx(args: {
   barberId: string | null;
   clientName: string | null;
   serviceName: string;
-  amountDollars: number;
+  amountDollars: number;      // service revenue, net of tax + tip
   paymentIntentId: string | null;
+  tipDollars?: number;        // tip collected (0 if none)
+  taxDollars?: number;        // sales tax collected (0 if none)
 }): Promise<void> {
   const { appointmentId, shopId, barberId, clientName, serviceName, amountDollars, paymentIntentId } = args;
-  if (!shopId || amountDollars <= 0) return;
+  const tipDollars = Math.max(0, Number(args.tipDollars ?? 0));
+  const taxDollars = Math.max(0, Number(args.taxDollars ?? 0));
+  if (!shopId || (amountDollars <= 0 && tipDollars <= 0)) return;
   // Dedup: prefer the PaymentIntent as the key (shared across return-route +
   // webhook); fall back to this appointment's existing row. If one is already
   // there, this is a no-op.
@@ -60,19 +64,25 @@ export async function recordOnlinePaymentTx(args: {
     ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", paymentIntentId).limit(1)
     : await supabaseAdmin.from("transactions").select("id").eq("appointment_id", appointmentId).eq("source", "completion").limit(1);
   if ((dupe.data?.length ?? 0) > 0) return;
-  await supabaseAdmin.from("transactions").insert({
+  const base = {
     shop_id: shopId,
     barber_id: barberId || null,
     client_name: clientName || null,
     service_name: serviceName || "Service",
     amount: amountDollars,
-    tip: 0,
+    tip: tipDollars,
     payment_method: "card",
     type: "service",
     appointment_id: appointmentId,
     payment_intent_id: paymentIntentId ?? null,
     source: "completion",
-  }).then(null, () => null);
+  };
+  // `tax` column arrives in phase30 — fall back if it isn't there yet so the
+  // revenue row is never lost.
+  const res = await supabaseAdmin.from("transactions").insert({ ...base, tax: taxDollars });
+  if (res.error && /tax/.test(res.error.message) && /column|does not exist|schema cache/i.test(res.error.message)) {
+    await supabaseAdmin.from("transactions").insert(base).then(null, () => null);
+  }
 }
 
 /**

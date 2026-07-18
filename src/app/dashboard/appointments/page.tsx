@@ -1284,6 +1284,14 @@ export default function AppointmentsPage() {
               <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add notes…" />
               <Button variant="outline" className="w-full" onClick={saveNotes}>Save Notes</Button>
 
+              {/* Post-visit tip link — copy + text to the customer so they can tip online. */}
+              {(shop?.booking_settings as { tips_enabled?: boolean } | null)?.tips_enabled !== false && selectedApt.status !== "cancelled" && (
+                <Button variant="ghost" className="w-full" onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/tip/${selectedApt.id}`);
+                  showToast("Tip link copied — text it to the customer 💜");
+                }}>Copy tip link</Button>
+              )}
+
               {/* Action buttons — only the ones that make sense for the current
                   status. Once an appointment is finalized (completed / cancelled
                   / no-show) the only thing left to do is issue a refund (if it

@@ -1,0 +1,84 @@
+// Pure pricing math for tips + sales tax. Used by the booking page, POS, the
+// tip-link flow, and the server charge routes so every surface agrees on the
+// dollar amounts. No side effects, fully unit-testable.
+
+// Canadian sales-tax presets for personal services (haircuts are taxable).
+// HST provinces are exact; GST-only provinces use the 5% federal baseline —
+// where a province also charges PST on services (varies), the owner edits the
+// rate. `label` is what shows on the receipt.
+export const CANADA_TAX_PRESETS: { province: string; label: string; rate: number; note?: string }[] = [
+  { province: "NB", label: "HST", rate: 15 },
+  { province: "NL", label: "HST", rate: 15 },
+  { province: "NS", label: "HST", rate: 15 },
+  { province: "PE", label: "HST", rate: 15 },
+  { province: "ON", label: "HST", rate: 13 },
+  { province: "QC", label: "GST+QST", rate: 14.975 },
+  { province: "AB", label: "GST", rate: 5 },
+  { province: "BC", label: "GST", rate: 5, note: "PST generally not charged on haircuts — verify for retail products" },
+  { province: "MB", label: "GST", rate: 5, note: "Add PST if you sell taxable products" },
+  { province: "SK", label: "GST", rate: 5, note: "SK PST may apply to some services — verify" },
+  { province: "NT", label: "GST", rate: 5 },
+  { province: "NU", label: "GST", rate: 5 },
+  { province: "YT", label: "GST", rate: 5 },
+];
+
+export function taxPresetFor(province: string | null | undefined) {
+  if (!province) return null;
+  const p = province.trim().toUpperCase();
+  return CANADA_TAX_PRESETS.find(t => t.province === p) ?? null;
+}
+
+/** Clamp a tax rate to a sane range (0–30%). */
+export function clampTaxRate(rate: number): number {
+  if (!Number.isFinite(rate) || rate < 0) return 0;
+  return Math.min(30, Math.round(rate * 1000) / 1000);
+}
+
+/** Tax in cents on a taxable base (already net of any discount). Rounded to the cent. */
+export function taxCents(taxableBaseCents: number, ratePct: number): number {
+  const base = Math.max(0, Math.round(taxableBaseCents));
+  const rate = clampTaxRate(ratePct);
+  if (base === 0 || rate === 0) return 0;
+  return Math.round(base * rate / 100);
+}
+
+/** Tip in cents for a percent of a base amount (rounded to the cent). */
+export function tipCentsForPercent(baseCents: number, pct: number): number {
+  const base = Math.max(0, Math.round(baseCents));
+  if (!Number.isFinite(pct) || pct <= 0) return 0;
+  return Math.round(base * pct / 100);
+}
+
+export interface ChargeBreakdown {
+  subtotalCents: number;
+  discountCents: number;
+  taxableCents: number;   // subtotal − discount (never below 0)
+  taxCents: number;
+  tipCents: number;
+  totalCents: number;     // taxable + tax + tip
+}
+
+/**
+ * The single source of truth for a charge total. Tax applies to the service
+ * amount AFTER discount; tip is added AFTER tax (tips aren't taxed).
+ */
+export function computeCharge(input: {
+  subtotalCents: number;
+  discountCents?: number;
+  taxRatePct?: number;
+  tipCents?: number;
+}): ChargeBreakdown {
+  const subtotalCents = Math.max(0, Math.round(input.subtotalCents || 0));
+  const discountCents = Math.min(subtotalCents, Math.max(0, Math.round(input.discountCents || 0)));
+  const taxableCents = subtotalCents - discountCents;
+  const tax = taxCents(taxableCents, input.taxRatePct || 0);
+  const tip = Math.max(0, Math.round(input.tipCents || 0));
+  return {
+    subtotalCents, discountCents, taxableCents,
+    taxCents: tax, tipCents: tip,
+    totalCents: taxableCents + tax + tip,
+  };
+}
+
+// Standard customer-facing tip choices (percent of the taxable service amount).
+export const TIP_PRESET_PERCENTS = [15, 18, 20];
