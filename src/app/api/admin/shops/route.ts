@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { requireSuperAdmin } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
-async function requireSuperAdmin(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) return null;
-  const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
-  return profile?.role === "super_admin" ? user : null;
-}
+const VALID_STATUS = new Set(["pending", "approved", "rejected", "suspended"]);
 
 export async function GET(req: NextRequest) {
   const admin = await requireSuperAdmin(req);
@@ -30,12 +25,21 @@ export async function PATCH(req: NextRequest) {
 
   const { id, status, rejection_reason } = await req.json();
   if (!id || !status) return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
+  if (!VALID_STATUS.has(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+
+  // Grab the prior status/name so the audit entry is meaningful.
+  const { data: prior } = await supabaseAdmin.from("shops").select("name, status").eq("id", id).maybeSingle();
 
   const update: Record<string, string> = { status };
   if (rejection_reason) update.rejection_reason = rejection_reason;
 
   const { error } = await supabaseAdmin.from("shops").update(update).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction(admin, {
+    action: `shop.${status}`, target_type: "shop", target_id: id, target_label: prior?.name ?? null,
+    meta: { from: prior?.status ?? null, to: status, ...(rejection_reason ? { reason: rejection_reason } : {}) },
+  });
 
   return NextResponse.json({ ok: true });
 }

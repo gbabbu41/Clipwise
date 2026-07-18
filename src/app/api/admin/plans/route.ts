@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { invalidatePlansCache } from "@/lib/plans-server";
 import { ALL_PLAN_FEATURES } from "@/lib/validation";
+import { requireSuperAdmin } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // Admin-only CRUD for the `plans` table (super_admin = gbabbu41). Reads go
 // through the service role and are gated here in code; the DB RLS is a second
 // line of defence. Every write busts the plans cache so prices/feature gates
 // take effect on the next request.
-
-async function requireSuperAdmin(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) return null;
-  const { data: profile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
-  return profile?.role === "super_admin" ? user : null;
-}
 
 // GET — all plans (incl. inactive) for the admin editor.
 export async function GET(req: NextRequest) {
@@ -27,7 +20,8 @@ export async function GET(req: NextRequest) {
 
 // PUT — create or update a plan (upsert by id).
 export async function PUT(req: NextRequest) {
-  if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const admin = await requireSuperAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
 
   const id = String(body.id ?? "").trim().toLowerCase();
@@ -73,12 +67,17 @@ export async function PUT(req: NextRequest) {
   const { data, error } = await supabaseAdmin.from("plans").upsert(row, { onConflict: "id" }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   invalidatePlansCache();
+  await logAdminAction(admin, {
+    action: "plan.update", target_type: "plan", target_id: id, target_label: name,
+    meta: { price_cents, barber_limit, is_active: row.is_active, features },
+  });
   return NextResponse.json({ ok: true, plan: data });
 }
 
 // DELETE ?id=slug — only when no shop is on the plan (else deactivate instead).
 export async function DELETE(req: NextRequest) {
-  if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const admin = await requireSuperAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
@@ -92,5 +91,6 @@ export async function DELETE(req: NextRequest) {
   const { error } = await supabaseAdmin.from("plans").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   invalidatePlansCache();
+  await logAdminAction(admin, { action: "plan.delete", target_type: "plan", target_id: id, target_label: id });
   return NextResponse.json({ ok: true });
 }

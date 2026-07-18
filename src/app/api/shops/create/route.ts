@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 // Server-authoritative shop creation for onboarding.
 //
@@ -54,6 +55,14 @@ export async function POST(request: NextRequest) {
     } catch {
       // Bad/foreign subscription id → treat as unpaid. No error to the client.
     }
+  }
+
+  // Admin lever: when auto-approve is on, a free/unpaid shop skips the review
+  // queue too. Paid+verified shops are already approved above; this only lifts
+  // the still-pending ones. (Plan/subscription remain untouched — free stays free.)
+  if (status === "pending") {
+    const platform = await getPlatformSettings();
+    if (platform.auto_approve_shops) status = "approved";
   }
 
   // Whitelist the fields the client may set — everything privileged is derived

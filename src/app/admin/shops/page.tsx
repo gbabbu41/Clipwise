@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ function Toast({ msg, ok, onClose }: { msg: string; ok: boolean; onClose: () => 
 type StatusFilter = "all" | "pending" | "approved" | "suspended" | "rejected";
 
 export default function AdminShopsPage() {
+  const router = useRouter();
   const { user, loading: authLoading, accessToken } = useAuth();
   const [shops, setShops] = useState<ShopWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,7 +189,7 @@ export default function AdminShopsPage() {
                 </thead>
                 <tbody>
                   {filtered.map(s => (
-                    <tr key={s.id} className="border-b border-border/50 hover:bg-surface-raised/30 transition-colors">
+                    <tr key={s.id} onClick={() => router.push(`/admin/shops/${s.id}`)} className="border-b border-border/50 hover:bg-surface-raised/30 transition-colors cursor-pointer">
                       <td className="px-3 py-3">
                         <p className="text-sm font-medium text-white">{s.name}</p>
                         <p className="text-xs text-[#777]">/book/{s.slug}</p>
@@ -202,7 +204,7 @@ export default function AdminShopsPage() {
                       </td>
                       <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
                       <td className="px-3 py-3 text-xs text-[#777] whitespace-nowrap">{formatDate(s.created_at.slice(0, 10))}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1 flex-wrap">
                           {s.status === "pending" && <>
                             <Button size="sm" loading={savingId === s.id} onClick={() => approveShop(s)}>Approve</Button>

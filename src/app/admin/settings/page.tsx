@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Check, X, Plus, Trash2 } from "lucide-react";
+import { Shield, Check, X, Plus, Trash2, Power, Wrench, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { ALL_PLAN_FEATURES, type PlanFeature } from "@/lib/validation";
@@ -19,6 +19,16 @@ function Toast({ msg, ok, onClose }: { msg: string; ok: boolean; onClose: () => 
       {ok ? <Check size={15} /> : <X size={15} />} {msg}
       <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100">✕</button>
     </div>
+  );
+}
+
+// Inline toggle switch.
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)}
+      className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", checked ? "bg-gold" : "bg-surface-raised border border-border")}>
+      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
+    </button>
   );
 }
 
@@ -38,21 +48,36 @@ const blankPlan = (sort: number): EditablePlan => ({
   badge: null, description: null, is_active: true, sort_order: sort, __isNew: true,
 });
 
+interface PlatformSettings {
+  platform_name: string;
+  support_email: string;
+  signups_enabled: boolean;
+  maintenance_mode: boolean;
+  maintenance_message: string;
+  auto_approve_shops: boolean;
+}
+const DEFAULTS: PlatformSettings = {
+  platform_name: "ClipWise", support_email: "support@clipwise.ca",
+  signups_enabled: true, maintenance_mode: false, maintenance_message: "", auto_approve_shops: false,
+};
+
 export default function AdminSettingsPage() {
-  const { accessToken } = useAuth();
+  const { user, accessToken } = useAuth();
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [settings, setSettings] = useState({
-    platform_name: "ClipWise",
-    support_email: "support@clipwise.com",
-    admin_email: "admin@clipwise.ca",
-    booking_base_url: typeof window !== "undefined" ? `${window.location.origin}/book` : "/book",
-  });
+  const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
+
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULTS);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const [plans, setPlans] = useState<EditablePlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
+  const loadSettings = useCallback(async () => {
+    if (!accessToken) return;
+    const res = await fetch("/api/admin/settings", { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (res.ok) { const { settings: s } = await res.json(); setSettings({ ...DEFAULTS, ...(s ?? {}) }); }
+  }, [accessToken]);
 
   const loadPlans = useCallback(async () => {
     if (!accessToken) return;
@@ -62,19 +87,32 @@ export default function AdminSettingsPage() {
     setLoadingPlans(false);
   }, [accessToken]);
 
-  useEffect(() => { loadPlans(); }, [loadPlans]);
+  useEffect(() => { loadSettings(); loadPlans(); }, [loadSettings, loadPlans]);
 
-  // Mutate a single plan row in local state.
+  const saveSettings = async (patch: Partial<PlatformSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);                    // optimistic
+    setSavingSettings(true);
+    const res = await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken ?? ""}`, "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    setSavingSettings(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error ?? "Failed to save", false); loadSettings(); return; }
+    showToast("Settings saved");
+  };
+
+  // ── Plan editor helpers (unchanged behaviour) ──
   const patch = (idx: number, p: Partial<EditablePlan>) =>
     setPlans(prev => prev.map((row, i) => i === idx ? { ...row, ...p } : row));
-
   const toggleFeature = (idx: number, f: PlanFeature) =>
     setPlans(prev => prev.map((row, i) => {
       if (i !== idx) return row;
       const has = row.features.includes(f);
       return { ...row, features: has ? row.features.filter(x => x !== f) : [...row.features, f] };
     }));
-
   const savePlan = async (idx: number) => {
     const plan = plans[idx];
     if (!plan.id.trim()) { showToast("Plan id is required (e.g. 'premium').", false); return; }
@@ -91,15 +129,13 @@ export default function AdminSettingsPage() {
     showToast(`${plan.name} saved`);
     loadPlans();
   };
-
   const deletePlan = async (idx: number) => {
     const plan = plans[idx];
     if (plan.__isNew) { setPlans(prev => prev.filter((_, i) => i !== idx)); return; }
     if (!confirm(`Delete the "${plan.name}" plan? This can't be undone.`)) return;
     setSavingId(plan.id);
     const res = await fetch(`/api/admin/plans?id=${encodeURIComponent(plan.id)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+      method: "DELETE", headers: { Authorization: `Bearer ${accessToken ?? ""}` },
     });
     setSavingId(null);
     const data = await res.json().catch(() => ({}));
@@ -107,6 +143,12 @@ export default function AdminSettingsPage() {
     showToast(`${plan.name} deleted`);
     loadPlans();
   };
+
+  const CONTROLS: { key: keyof PlatformSettings; icon: React.ElementType; title: string; desc: string; danger?: boolean; invertColor?: boolean }[] = [
+    { key: "signups_enabled", icon: Power, title: "Accept new sign-ups", desc: "When off, the public signup page is paused for new shop owners and customers." },
+    { key: "auto_approve_shops", icon: ShieldCheck, title: "Auto-approve new shops", desc: "Skip the manual review queue — new free shops go live immediately.", invertColor: true },
+    { key: "maintenance_mode", icon: Wrench, title: "Maintenance mode", desc: "Show a maintenance banner across owner & barber dashboards.", danger: true },
+  ];
 
   return (
     <div className="p-4 lg:p-8 space-y-6">
@@ -117,28 +159,63 @@ export default function AdminSettingsPage() {
         <p className="text-sm text-[#777] mt-0.5">Global configuration for ClipWise</p>
       </div>
 
+      {/* Global controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Global Controls</CardTitle>
+          <p className="text-xs text-[#777]">Platform-wide switches — take effect within a minute.</p>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {CONTROLS.map(({ key, icon: Icon, title, desc, danger, invertColor }) => {
+            const on = settings[key] as boolean;
+            return (
+              <div key={key} className="flex items-start justify-between gap-4 py-3 border-b border-border/50 last:border-0">
+                <div className="flex items-start gap-3">
+                  <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0",
+                    on ? (danger ? "bg-red-500/15 text-red-400" : invertColor ? "bg-blue-500/15 text-blue-400" : "bg-emerald-500/15 text-emerald-400") : "bg-surface-raised text-[#777]")}>
+                    <Icon size={15} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{title}</p>
+                    <p className="text-xs text-[#777] mt-0.5 max-w-md">{desc}</p>
+                  </div>
+                </div>
+                <Toggle checked={on} onChange={v => saveSettings({ [key]: v })} />
+              </div>
+            );
+          })}
+          {settings.maintenance_mode && (
+            <div className="pt-3">
+              <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Maintenance banner message</label>
+              <div className="flex gap-2 mt-1.5">
+                <input value={settings.maintenance_message}
+                  onChange={e => setSettings(p => ({ ...p, maintenance_message: e.target.value }))}
+                  placeholder="We're doing scheduled maintenance — some features may be briefly unavailable."
+                  className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
+                <Button size="sm" loading={savingSettings} onClick={() => saveSettings({ maintenance_message: settings.maintenance_message })}>Save</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Admin account */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gold/15 rounded-xl flex items-center justify-center">
-              <Shield size={18} className="text-gold" />
-            </div>
+            <div className="w-9 h-9 bg-gold/15 rounded-xl flex items-center justify-center"><Shield size={18} className="text-gold" /></div>
             <div>
               <CardTitle>Admin Account</CardTitle>
-              <p className="text-xs text-[#777] mt-0.5">Super administrator credentials</p>
+              <p className="text-xs text-[#777] mt-0.5">Super administrator</p>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Admin Email</label>
-            <div className="flex items-center gap-3 mt-1.5">
-              <p className="text-sm text-white font-medium">{settings.admin_email}</p>
-              <Badge variant="gold">Super Admin</Badge>
-            </div>
-            <p className="text-xs text-[#777] mt-1">Admin access is granted to users with the <code className="text-gold">super_admin</code> role in the users table.</p>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-white font-medium">{user?.email ?? "—"}</p>
+            <Badge variant="gold">Super Admin</Badge>
           </div>
+          <p className="text-xs text-[#777] mt-2">Admin access is granted to users with the <code className="text-gold">super_admin</code> role.</p>
         </CardContent>
       </Card>
 
@@ -148,8 +225,7 @@ export default function AdminSettingsPage() {
         <CardContent className="space-y-4">
           <Input label="Platform Name" value={settings.platform_name} onChange={e => setSettings(p => ({ ...p, platform_name: e.target.value }))} />
           <Input label="Support Email" type="email" value={settings.support_email} onChange={e => setSettings(p => ({ ...p, support_email: e.target.value }))} />
-          <Input label="Booking Base URL" value={settings.booking_base_url} onChange={e => setSettings(p => ({ ...p, booking_base_url: e.target.value }))} />
-          <Button onClick={() => showToast("Settings saved!")}>Save Settings</Button>
+          <Button loading={savingSettings} onClick={() => saveSettings({ platform_name: settings.platform_name, support_email: settings.support_email })}>Save Settings</Button>
         </CardContent>
       </Card>
 
@@ -167,9 +243,7 @@ export default function AdminSettingsPage() {
         </p>
 
         {loadingPlans ? (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[0, 1].map(i => <div key={i} className="h-72 bg-surface-raised rounded-2xl animate-pulse" />)}
-          </div>
+          <div className="grid sm:grid-cols-2 gap-4">{[0, 1].map(i => <div key={i} className="h-72 bg-surface-raised rounded-2xl animate-pulse" />)}</div>
         ) : (
           <div className="grid lg:grid-cols-2 gap-4">
             {plans.map((plan, idx) => (
@@ -180,13 +254,10 @@ export default function AdminSettingsPage() {
                     <Input label="Display name" value={plan.name} onChange={e => patch(idx, { name: e.target.value })} placeholder="Premium" />
                     <div>
                       <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Plan id (slug)</label>
-                      <input
-                        value={plan.id}
-                        disabled={!plan.__isNew}
+                      <input value={plan.id} disabled={!plan.__isNew}
                         onChange={e => patch(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
                         placeholder="premium"
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 disabled:opacity-60"
-                      />
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 disabled:opacity-60" />
                       {!plan.__isNew && <p className="text-[10px] text-[#777] mt-1">Slug is fixed once created (shops reference it).</p>}
                     </div>
                   </div>
@@ -254,29 +325,6 @@ export default function AdminSettingsPage() {
           </div>
         )}
       </div>
-
-      {/* Platform health */}
-      <Card>
-        <CardHeader><CardTitle>Platform Health</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[
-              { label: "Supabase Database", status: "Operational" },
-              { label: "Authentication", status: "Operational" },
-              { label: "Booking System", status: "Operational" },
-              { label: "Admin Portal", status: "Operational" },
-            ].map(({ label, status }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                <span className="text-sm text-gray-300">{label}</span>
-                <span className="flex items-center gap-2 text-xs font-medium text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  {status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

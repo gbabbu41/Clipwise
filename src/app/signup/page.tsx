@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, CheckCircle, Store, Calendar } from "lucide-react";
@@ -20,9 +20,18 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [emailSent, setEmailSent] = useState(false);
+  const [signupsPaused, setSignupsPaused] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
 
   const pwStrength = getPasswordStrength(form.password);
+
+  // Admin kill-switch: if new sign-ups are paused platform-wide, block the form.
+  useEffect(() => {
+    fetch("/api/platform/status")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.signups_enabled === false) setSignupsPaused(true); })
+      .catch(() => null);
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +102,24 @@ export default function SignupPage() {
     { role: "shop_owner" as SelectedRole, icon: Store, title: "I own a barbershop", desc: "Set up your shop and start accepting bookings", accent: "border-gold/40 hover:border-gold/70", iconBg: "bg-gold/15", iconColor: "text-gold" },
     { role: "customer" as SelectedRole, icon: Calendar, title: "I'm looking to book", desc: "Find and book appointments at nearby barbershops", accent: "border-border hover:border-gray-500", iconBg: "bg-surface-raised", iconColor: "text-gray-300" },
   ];
+
+  if (signupsPaused) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md text-center">
+          <Link href="/"><Logo size="md" className="justify-center mb-6" /></Link>
+          <div className="bg-surface border border-border rounded-2xl p-8 space-y-3">
+            <div className="w-14 h-14 bg-gold/10 border border-gold/30 rounded-2xl flex items-center justify-center mx-auto">
+              <Store size={26} className="text-gold" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Sign-ups are paused</h1>
+            <p className="text-sm text-[#777]">We&apos;re not accepting new accounts right now. Please check back soon.</p>
+            <Link href="/login" className="block pt-2 text-gold hover:underline text-sm font-medium">Already have an account? Sign in →</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">

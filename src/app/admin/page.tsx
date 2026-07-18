@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Store, DollarSign, Calendar, Clock, TrendingUp, Search, X, Check, Copy, ExternalLink, Users, Shield, Bell } from "lucide-react";
+import { Store, DollarSign, Calendar, Clock, TrendingUp, Search, X, Check, Copy, ExternalLink, Users, Shield, Bell, Download } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { Shop } from "@/lib/database.types";
@@ -85,6 +86,7 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { va
 
 export default function AdminPage() {
   const { accessToken } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<AdminTab>("overview");
   const [shops, setShops] = useState<ShopWithOwner[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -179,6 +181,26 @@ export default function AdminPage() {
   const totalShops = shops.length;
   const activeShops = shops.filter((s) => s.status === "approved").length;
   const pendingShops = shops.filter((s) => s.status === "pending");
+  const suspendedCount = shops.filter((s) => s.status === "suspended").length;
+  const pastDueCount = shops.filter((s) => s.subscription_status === "past_due").length;
+  // Stripe Connect completion among live shops — un-onboarded shops can't take
+  // online payments, so this is a real health metric to watch.
+  const connectDone = shops.filter((s) => s.status === "approved" && (s.stripe_connected === true || s.stripe_connect_status === "active")).length;
+  const connectPct = activeShops > 0 ? Math.round((connectDone / activeShops) * 100) : 0;
+
+  // Export the current shop list to CSV (accounting / spreadsheet handoff).
+  const exportShopsCsv = () => {
+    const rows = [["Shop", "Owner", "Email", "City", "Province", "Plan", "Status", "Subscription", "Joined"]];
+    shops.forEach((s) => rows.push([
+      s.name, s.users?.name ?? "", s.users?.email ?? s.email ?? "", s.city ?? "", s.province ?? "",
+      s.subscription_plan, s.status, s.subscription_status ?? "inactive", s.created_at.slice(0, 10),
+    ]));
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `clipwise-shops-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // New shops per month (last 6)
   const monthLabels: string[] = [];
@@ -255,13 +277,19 @@ export default function AdminPage() {
       {tab === "overview" && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            <KpiCard label="Total Shops" value={String(totalShops)} sub="All time" icon={Store} color="gold" />
-            <KpiCard label="Active Shops" value={String(activeShops)} sub="Approved" icon={Check as React.ElementType} color="green" />
+            <KpiCard label="Your MRR" value={formatCurrency(mrr)} sub="Subscription revenue" icon={DollarSign} color="gold" />
+            <KpiCard label="GMV Processed" value={formatCurrency(platformRevenue)} sub="Money through shops" icon={TrendingUp} color="green" />
+            <KpiCard label="Active Shops" value={String(activeShops)} sub={`${totalShops} total · ${suspendedCount} suspended`} icon={Store} color="blue" />
             <KpiCard label="Pending Approval" value={String(pendingShops.length)} sub="Awaiting review" icon={Clock} color="orange" />
-            <KpiCard label="Total Appointments" value={String(totalAppts)} sub="All shops" icon={Calendar} color="blue" />
-            <KpiCard label="Platform Revenue" value={formatCurrency(platformRevenue)} sub="All transactions" icon={DollarSign} color="gold" />
-            <KpiCard label="Total Users" value={String(totalUsers)} sub="All roles" icon={Users} color="purple" />
+            <KpiCard label="Stripe Connect" value={`${connectPct}%`} sub={`${connectDone}/${activeShops} can take online pay`} icon={Check as React.ElementType} color={connectPct >= 80 ? "green" : "orange"} />
+            <KpiCard label="Total Appointments" value={String(totalAppts)} sub="All shops" icon={Calendar} color="purple" />
           </div>
+          {(pastDueCount > 0 || totalUsers > 0) && (
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="text-[#777]">{totalUsers} total users</span>
+              {pastDueCount > 0 && <span className="text-red-400 font-medium">· {pastDueCount} subscription{pastDueCount === 1 ? "" : "s"} past due</span>}
+            </div>
+          )}
 
           {/* Quick Actions */}
           <Card>
@@ -281,6 +309,9 @@ export default function AdminPage() {
                 </a>
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => setTab("pending")}>
                   <Clock size={14} /> Review Pending ({pendingShops.length})
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2" onClick={exportShopsCsv}>
+                  <Download size={14} /> Export Shops (CSV)
                 </Button>
                 <Button
                   variant="outline"
@@ -355,7 +386,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {shops.slice(0, 10).map((s) => (
-                      <tr key={s.id} className="border-b border-border/50 hover:bg-surface-raised/30">
+                      <tr key={s.id} onClick={() => router.push(`/admin/shops/${s.id}`)} className="border-b border-border/50 hover:bg-surface-raised/30 cursor-pointer">
                         <td className="px-3 py-3 text-sm font-medium text-white">{s.name}</td>
                         <td className="px-3 py-3 text-sm text-gray-300">{s.users?.name ?? "—"}</td>
                         <td className="px-3 py-3 text-sm text-gray-300">{s.city}, {s.province}</td>
@@ -452,7 +483,7 @@ export default function AdminPage() {
                       <tr><td colSpan={7} className="px-3 py-8 text-center text-[#777] text-sm">No shops found</td></tr>
                     )}
                     {filteredShops.map((s) => (
-                      <tr key={s.id} className="border-b border-border/50 hover:bg-surface-raised/30">
+                      <tr key={s.id} onClick={() => router.push(`/admin/shops/${s.id}`)} className="border-b border-border/50 hover:bg-surface-raised/30 cursor-pointer">
                         <td className="px-3 py-3 text-sm font-medium text-white">{s.name}</td>
                         <td className="px-3 py-3 text-sm text-gray-300">{s.users?.name ?? "—"}</td>
                         <td className="px-3 py-3 text-sm text-gray-300">{s.city}, {s.province}</td>
@@ -461,7 +492,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
                         <td className="px-3 py-3 text-xs text-[#777]">{s.created_at.slice(0, 10)}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
                             {s.status === "pending" && (
                               <Button size="sm" loading={savingId === s.id} onClick={() => approveShop(s)}>Approve</Button>
