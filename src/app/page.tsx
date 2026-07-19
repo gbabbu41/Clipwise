@@ -116,19 +116,24 @@ export default function LandingPage() {
       } catch { /* 3D optional — hero still looks good without it */ }
     }
 
-    // ── GSAP: reveals, parallax, pinned tour, scrubbed counters ──────────────
+    // ── GSAP: zoom-in reveals + parallax + scrubbed counters (all screens) ───
     const ctx = gsap.context(() => {
-      if (reduce) { gsap.set(".rv, .rv.stagger>*", { opacity: 1, y: 0 }); return; }
+      if (reduce) { gsap.set(".rv, .rv.stagger>*, .rv-zoom", { opacity: 1, scale: 1, y: 0 }); return; }
 
-      // one-by-one reveals
+      // one-by-one reveals with a subtle zoom-in (scale)
       gsap.utils.toArray<HTMLElement>(".rv").forEach((el) => {
         const kids = el.classList.contains("stagger") ? Array.from(el.children) as HTMLElement[] : [el];
-        gsap.from(kids, { opacity: 0, y: 26, duration: 0.8, ease: "power3.out", stagger: 0.09, scrollTrigger: { trigger: el, start: "top 85%" } });
+        gsap.from(kids, { opacity: 0, y: 28, scale: 0.94, duration: 0.85, ease: "power3.out", stagger: 0.09, scrollTrigger: { trigger: el, start: "top 88%" } });
       });
 
-      // hero depth parallax
-      gsap.to(".stage", { yPercent: -8, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
-      gsap.to(".aurora", { yPercent: 18, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+      // stronger zoom-in for the product-tour rows
+      gsap.utils.toArray<HTMLElement>(".rv-zoom").forEach((el) => {
+        gsap.from(el, { opacity: 0, scale: 0.88, y: 44, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%" } });
+      });
+
+      // hero dashboard: zooms in as you scroll (scrubbed) + depth parallax — universal
+      gsap.to(".stage", { scale: 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+      gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
 
       // scrubbed stat counters
       gsap.utils.toArray<HTMLElement>("[data-count]").forEach((el) => {
@@ -136,19 +141,6 @@ export default function LandingPage() {
         const o = { v: 0 };
         gsap.to(o, { v: to, duration: 1.4, ease: "power2.out", scrollTrigger: { trigger: el, start: "top 90%" }, onUpdate: () => { el.textContent = pre + (dv === 1 ? Math.round(o.v) : (o.v / dv).toFixed(1)) + suf; } });
       });
-
-      // pinned, scrubbed product tour
-      const tour = document.querySelector<HTMLElement>(".tour");
-      if (tour && innerWidth > 860) {
-        const steps = gsap.utils.toArray<HTMLElement>(".tstep");
-        const scenes = gsap.utils.toArray<HTMLElement>(".tscene");
-        const setActive = (i: number) => { steps.forEach((s, k) => s.classList.toggle("on", k === i)); scenes.forEach((s, k) => s.classList.toggle("on", k === i)); };
-        setActive(0);
-        ScrollTrigger.create({
-          trigger: tour, start: "top top", end: "+=220%", pin: ".tour-sticky", scrub: true,
-          onUpdate: (self) => setActive(Math.min(steps.length - 1, Math.floor(self.progress * steps.length * 0.999))),
-        });
-      }
     });
     cleanups.push(() => ctx.revert());
     ScrollTrigger.refresh();
@@ -208,37 +200,41 @@ export default function LandingPage() {
 
       <div className="band"><div className="track">{[...marquee, ...marquee].map((m, i) => <span key={i}>{m}</span>)}</div></div>
 
-      {/* pinned, scroll-scrubbed product tour */}
-      <div className="tour" id="tour">
-        <div className="tour-sticky">
-          <div className="wide tour-grid">
-            <div className="tour-copy">
-              <div className="tstep on"><div className="tnum">01 — Booking</div><h3>Clients book you<br />in seconds.</h3><p>A booking page that&rsquo;s yours alone — no app to download, no marketplace showing your rivals. Real-time availability, 24/7.</p><div className="tprog"><i className="on" /><i /><i /></div></div>
-              <div className="tstep"><div className="tnum">02 — Payments</div><h3>Get paid,<br />tips and all.</h3><p>Card, cash and online payments with sales tax handled for you. Clients tip at checkout or from a post-visit link — 100% yours.</p><div className="tprog"><i /><i className="on" /><i /></div></div>
-              <div className="tstep"><div className="tnum">03 — Grow</div><h3>See everything,<br />grow faster.</h3><p>Revenue, no-shows, barber performance and loyalty — one clean dashboard, updating live as your day unfolds.</p><div className="tprog"><i /><i /><i className="on" /></div></div>
-            </div>
+      {/* product tour — responsive stacked rows, each zooms in on scroll */}
+      <section className="tour" id="tour">
+        <div className="wide">
+          <div className="center rv" style={{ marginBottom: 60 }}><span className="eyebrow">How it works</span><h2 className="display" style={{ marginTop: 12 }}>From booking to paid, beautifully.</h2></div>
+
+          <div className="tpair rv-zoom">
+            <div className="tcopy"><div className="tnum">01 — Booking</div><h3>Clients book you in seconds.</h3><p>A booking page that&rsquo;s yours alone — no app to download, no marketplace showing your rivals. Real-time availability, 24/7.</p></div>
             <div className="tvis">
-              <div className="tscene on">
-                <h5>Booking · Fri, Jul 18</h5>
-                <div className="slotgrid">{["9:00", "9:30 ✓", "10:00", "10:30", "11:00", "Booked"].map((s, i) => <div key={i} className={`slot ${i === 1 ? "sel" : ""} ${s === "Booked" ? "off" : ""}`}>{s}</div>)}</div>
-                <div className="tcard"><div className="row"><span className="mini">M</span><div><div className="tn">Marcus J.</div><div className="tsub">Skin fade + beard · 9:30 AM</div></div><span className="tag" style={{ background: "rgba(55,217,135,.16)", color: "#37d987" }}>Confirmed</span></div></div>
-              </div>
-              <div className="tscene">
-                <h5>Checkout</h5>
-                <div className="tcard"><div className="row"><span>Skin fade + beard</span><b className="mono">$45.00</b></div></div>
-                <div className="tcard"><div className="row"><span>HST (15%)</span><b className="mono">$6.75</b></div></div>
-                <div className="tiprow"><div className="slot">18%</div><div className="slot sel">20% · $9</div><div className="slot">25%</div></div>
-                <div className="tcard sel"><div className="row"><b>Total</b><b className="mono">$60.75</b></div></div>
-              </div>
-              <div className="tscene">
-                <h5>This month</h5>
-                <div className="kpis"><div className="kpi"><div className="l">Revenue</div><div className="v">$9,840</div></div><div className="kpi"><div className="l">No-show rate</div><div className="v">3.1%</div></div></div>
-                <div className="kpi" style={{ marginTop: 10 }}><div className="l">Weekly revenue</div><div className="tbars">{[48, 70, 58, 82, 74, 96, 80].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></div>
-              </div>
+              <h5>Booking · Fri, Jul 18</h5>
+              <div className="slotgrid">{["9:00", "9:30 ✓", "10:00", "10:30", "11:00", "Booked"].map((s, i) => <div key={i} className={`slot ${i === 1 ? "sel" : ""} ${s === "Booked" ? "off" : ""}`}>{s}</div>)}</div>
+              <div className="tcard"><div className="row"><span className="mini">M</span><div><div className="tn">Marcus J.</div><div className="tsub">Skin fade + beard · 9:30 AM</div></div><span className="tag" style={{ background: "rgba(55,217,135,.16)", color: "#37d987" }}>Confirmed</span></div></div>
+            </div>
+          </div>
+
+          <div className="tpair rv-zoom rev">
+            <div className="tcopy"><div className="tnum">02 — Payments</div><h3>Get paid, tips and all.</h3><p>Card, cash and online payments with sales tax handled for you. Clients tip at checkout or from a post-visit link — 100% yours.</p></div>
+            <div className="tvis">
+              <h5>Checkout</h5>
+              <div className="tcard"><div className="row"><span>Skin fade + beard</span><b className="mono">$45.00</b></div></div>
+              <div className="tcard"><div className="row"><span>HST (15%)</span><b className="mono">$6.75</b></div></div>
+              <div className="tiprow"><div className="slot">18%</div><div className="slot sel">20% · $9</div><div className="slot">25%</div></div>
+              <div className="tcard sel"><div className="row"><b>Total</b><b className="mono">$60.75</b></div></div>
+            </div>
+          </div>
+
+          <div className="tpair rv-zoom">
+            <div className="tcopy"><div className="tnum">03 — Grow</div><h3>See everything, grow faster.</h3><p>Revenue, no-shows, barber performance and loyalty — one clean dashboard, updating live as your day unfolds.</p></div>
+            <div className="tvis">
+              <h5>This month</h5>
+              <div className="kpis"><div className="kpi"><div className="l">Revenue</div><div className="v">$9,840</div></div><div className="kpi"><div className="l">No-show rate</div><div className="v">3.1%</div></div></div>
+              <div className="kpi" style={{ marginTop: 10 }}><div className="l">Weekly revenue</div><div className="tbars">{[48, 70, 58, 82, 74, 96, 80].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <section>
         <div className="wrap">
@@ -387,21 +383,15 @@ const CSS = `
   .track{display:flex;gap:42px;width:max-content;animation:marq 30s linear infinite}
   .track span{display:inline-flex;gap:9px;align-items:center;white-space:nowrap;font-size:14px;color:var(--ink2)}
   @keyframes marq{to{transform:translateX(-50%)}}
-  /* ── pinned product tour ── */
-  .tour{position:relative;height:300vh}
-  .tour-sticky{position:sticky;top:0;height:100vh;display:flex;align-items:center;overflow:hidden}
-  .tour-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:48px;align-items:center;width:100%}
-  .tour-copy{position:relative;min-height:250px}
-  .tstep{position:absolute;inset:0;opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s;pointer-events:none}
-  .tstep.on{opacity:1;transform:none}
+  /* ── product tour: responsive stacked rows ── */
+  .tpair{display:grid;grid-template-columns:1fr 1.05fr;gap:48px;align-items:center;margin-bottom:56px}
+  .tpair:last-child{margin-bottom:0}
+  .tpair.rev .tcopy{order:2}
   .tnum{font-family:var(--mono);font-size:13px;color:var(--accent)}
-  .tstep h3{font-size:clamp(28px,3.6vw,44px);font-weight:700;letter-spacing:-.03em;margin:12px 0 14px;line-height:1.06;color:var(--ink)}
-  .tstep p{font-size:17px;color:var(--ink2);max-width:36ch;line-height:1.55}
-  .tprog{display:flex;gap:8px;margin-top:26px}.tprog i{height:3px;width:36px;border-radius:3px;background:var(--line2);transition:background .4s}.tprog i.on{background:var(--accent)}
-  .tvis{position:relative;height:min(66vh,540px);border-radius:22px;border:1px solid var(--line);background:var(--panel);overflow:hidden;box-shadow:0 40px 90px -50px #000}
-  .tscene{position:absolute;inset:0;opacity:0;transform:scale(1.04);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1);padding:26px}
-  .tscene.on{opacity:1;transform:none}
-  .tscene h5{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:14px;font-weight:600}
+  .tcopy h3{font-size:clamp(26px,3.4vw,40px);font-weight:700;letter-spacing:-.03em;margin:12px 0 14px;line-height:1.08;color:var(--ink)}
+  .tcopy p{font-size:17px;color:var(--ink2);max-width:38ch;line-height:1.55}
+  .tvis{border-radius:22px;border:1px solid var(--line);background:var(--panel);overflow:hidden;box-shadow:0 40px 90px -50px #000;padding:26px}
+  .tvis h5{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:14px;font-weight:600}
   .slotgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .slot{border:1px solid var(--line);border-radius:11px;padding:13px 6px;text-align:center;font-weight:650;font-size:14px;color:var(--ink)}
   .slot.sel{background:var(--ink);color:#000;border-color:var(--ink)}.slot.off{color:var(--ink3);font-weight:500}
@@ -416,7 +406,7 @@ const CSS = `
   .kpi{background:var(--raised);border:1px solid var(--line);border-radius:13px;padding:14px}
   .kpi .l{font-size:11px;color:var(--ink3)}.kpi .v{font-size:24px;font-weight:700;font-family:var(--mono);margin-top:6px;color:var(--ink)}
   .tbars{display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:8px}.tbars span{flex:1;background:var(--accent);border-radius:4px 4px 0 0}
-  @media(max-width:860px){.tour{height:auto}.tour-sticky{position:relative;height:auto;padding:70px 0}.tour-grid{grid-template-columns:1fr;gap:28px}.tour-copy{min-height:0}.tstep{position:relative;opacity:1;transform:none;display:none}.tstep.on{display:block}.tvis{height:420px}}
+  @media(max-width:860px){.tpair{grid-template-columns:1fr;gap:22px;margin-bottom:40px}.tpair.rev .tcopy{order:0}}
   section{padding:104px 0}
   section>.wrap,section>.wide,section>.center{width:100%}
   .center{text-align:center;max-width:660px;margin:0 auto 56px}.center .lead{margin-top:16px}
