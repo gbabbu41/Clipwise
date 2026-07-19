@@ -293,7 +293,7 @@ export function BarberSidebar() {
       >
       {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-border flex items-center justify-center"
+        className="cw-grad cw-logo-fade whitespace-nowrap border-b border-border flex items-center justify-center"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,

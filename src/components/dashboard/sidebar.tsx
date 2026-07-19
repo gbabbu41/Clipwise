@@ -505,7 +505,7 @@ export function Sidebar() {
       >
       {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-center"
+        className="cw-grad cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-center"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
