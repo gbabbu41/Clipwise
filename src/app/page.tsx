@@ -141,9 +141,12 @@ export default function LandingPage() {
         gsap.from(el, { opacity: 0, scale: 0.88, y: 44, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%" } });
       });
 
-      // hero dashboard: zooms in as you scroll (scrubbed) + depth parallax — universal.
-      // invalidateOnRefresh keeps it sane when iOS Safari's URL bar resizes the viewport.
-      gsap.to(".stage", { scale: innerWidth < 640 ? 1.03 : 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
+      // dashboard is its own screen below the hero: it zooms in from small+dim to
+      // full as you scroll down onto it (scrubbed). invalidateOnRefresh keeps it
+      // sane when iOS Safari's URL bar resizes the viewport.
+      gsap.fromTo(".stage",
+        { scale: innerWidth < 640 ? 0.9 : 0.82, y: 40, opacity: 0.3 },
+        { scale: 1, y: 0, opacity: 1, ease: "none", scrollTrigger: { trigger: ".showcase", start: "top 88%", end: "top 34%", scrub: true, invalidateOnRefresh: true } });
       gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
 
       // scrubbed stat counters
@@ -194,6 +197,9 @@ export default function LandingPage() {
           <p className="fine">No credit card · 60-second setup · Made in Canada</p>
           <div className="cue" />
         </div>
+      </header>
+
+      <section className="showcase">
         <div className="stage">
           <div className="hcard" id="hcard">
             <div className="hbar"><span className="d" style={{ background: "#ff5f57" }} /><span className="d" style={{ background: "#febc2e" }} /><span className="d" style={{ background: "#28c840" }} /><div className="hu">app.clipwise.ca/dashboard</div></div>
@@ -215,7 +221,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
       <div className="band"><div className="track">{[...marquee, ...marquee].map((m, i) => <span key={i}>{m}</span>)}</div></div>
 
@@ -352,7 +358,7 @@ const CSS = `
   .nav-links{display:flex;gap:30px;font-size:13.5px;color:var(--ink2)}.nav-links a{color:var(--ink2);text-decoration:none}.nav-links a:hover{color:var(--ink)}
   .nav-cta{display:flex;gap:10px;align-items:center}
   @media(max-width:860px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
-  .hero{position:relative;text-align:center;padding:120px 0 0;overflow:hidden;isolation:isolate}
+  .hero{position:relative;text-align:center;padding:80px 0 56px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100vh - 58px);min-height:calc(100svh - 58px);display:flex;flex-direction:column;justify-content:center}
   .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
   .three-host canvas{width:100%!important;height:100%!important;display:block}
   .aurora{position:absolute;inset:-20% -10% 0;z-index:-2;filter:blur(70px);opacity:.6}
@@ -373,8 +379,9 @@ const CSS = `
   .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0}
   .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
   .hero .fine{color:var(--ink3);font-size:13px;margin-top:16px}
-  .stage{position:relative;margin-top:60px;perspective:1600px;will-change:transform}
-  .hcard{width:min(860px,93%);margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden;background:linear-gradient(180deg,#15151b,#0b0b0f);border:1px solid var(--line2);border-bottom:0;box-shadow:0 -30px 120px -30px rgba(110,168,254,.28),0 40px 80px -40px #000;transform:rotateX(11deg);transform-origin:bottom center;animation:float 7s ease-in-out infinite}
+  .showcase{position:relative;padding:8px 0 96px}
+  .stage{position:relative;margin:0 auto;perspective:1600px;will-change:transform,opacity}
+  .hcard{width:min(860px,93%);margin:0 auto;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#15151b,#0b0b0f);border:1px solid var(--line2);box-shadow:0 40px 120px -40px rgba(110,168,254,.3),0 50px 90px -50px #000;transform:rotateX(9deg);transform-origin:center;animation:float 7s ease-in-out infinite}
   @keyframes float{0%,100%{margin-top:0}50%{margin-top:-10px}}
   .hbar{display:flex;align-items:center;gap:7px;padding:12px 15px;border-bottom:1px solid var(--line)}
   .d{width:11px;height:11px;border-radius:50%}
@@ -395,7 +402,7 @@ const CSS = `
   .spark span{flex:1;background:linear-gradient(180deg,var(--accent),rgba(110,168,254,.2));border-radius:4px 4px 0 0;transform-origin:bottom;animation:grow 1s cubic-bezier(.16,1,.3,1) both}
   @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
   @media(max-width:720px){.hbody{grid-template-columns:repeat(2,1fr)}.hrow{grid-template-columns:1fr}}
-  .cue{margin:34px auto 0;width:24px;height:38px;border:1.5px solid var(--line2);border-radius:14px;position:relative}
+  .cue{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);width:24px;height:38px;border:1.5px solid var(--line2);border-radius:14px}
   .cue::after{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);width:3px;height:7px;border-radius:2px;background:var(--ink2);animation:cue 1.7s ease-in-out infinite}
   @keyframes cue{0%{opacity:0;transform:translate(-50%,0)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,12px)}}
   .band{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);padding:16px 0;margin-top:64px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
@@ -480,7 +487,7 @@ const CSS = `
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
     .lead{font-size:15.5px}
-    .hero{padding:80px 0 0}
+    .hero{padding:72px 0 40px}
     .three-host{opacity:.34}
     .aurora{opacity:.42;filter:blur(56px)}
     .grain{opacity:.18}
@@ -491,8 +498,9 @@ const CSS = `
     .hero-cta .btn{flex:1;min-width:0;justify-content:center;padding:13px 14px;font-size:15px}
     .fine{margin-top:14px}
     .cue{display:none}
-    .stage{margin-top:40px}
-    .hcard{width:94%;border-radius:16px 16px 0 0;transform:rotateX(6deg)}
+    .showcase{padding:4px 0 60px}
+    .stage{margin:0 auto}
+    .hcard{width:94%;border-radius:14px;transform:rotateX(6deg)}
     .hbar{padding:10px 12px}
     .hbody{padding:13px;gap:9px}
     .hs{padding:12px;border-radius:11px}.hs .l{font-size:10.5px}.hs .v{font-size:21px;margin-top:5px}
