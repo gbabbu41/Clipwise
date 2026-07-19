@@ -192,6 +192,9 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
+        // Pre-fill the Stripe Checkout email from what the customer already typed
+        // at booking, so they don't re-enter it on the payment page.
+        customer_email: booking.client_email || undefined,
         // hold = authorize only (no-show protection); captured later on
         // completion / no-show. Otherwise charge immediately as before.
         ...(booking.hold ? { payment_intent_data: { capture_method: "manual" as const } } : {}),
