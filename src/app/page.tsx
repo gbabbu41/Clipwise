@@ -525,7 +525,7 @@ const CSS = `
     .band{margin-top:44px;padding:13px 0}.track{gap:30px}.track span{font-size:13px}
     .three-cards .cell{padding:28px 22px}.three-cards .big{font-size:clamp(40px,13vw,56px)}
     .fc{padding:24px 22px}
-    .price{gap:12px}.pc{padding:24px}.pr .amt{font-size:40px}
+    .price{gap:11px;max-width:340px}.pc{padding:18px 18px 20px;border-radius:18px}.pc h3{font-size:17px}.badge{margin-bottom:10px;padding:4px 10px}.pr{margin:9px 0 16px}.pr .amt{font-size:32px}.pl{gap:8px;margin-bottom:18px}.pl div{font-size:13px}.pc .btn{padding:11px 18px;font-size:14px}
     .tour .center{margin-bottom:34px}
     .tpair{gap:18px;margin-bottom:34px}
     .tcopy h3{font-size:clamp(23px,7vw,30px)}.tcopy p{font-size:15px}
