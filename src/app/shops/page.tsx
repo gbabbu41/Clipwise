@@ -166,7 +166,7 @@ export default function ShopsPage() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map(shop => (
-              <Link key={shop.id} href={`/shops/${shop.slug}`}
+              <Link key={shop.id} href={`/book/${shop.slug}`}
                 className="group bg-surface border border-border rounded-2xl p-6 hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200 block">
                 <div className="flex items-start gap-4 mb-4">
                   <AvatarImage src={shop.logo} alt={shop.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
