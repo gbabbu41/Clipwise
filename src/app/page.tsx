@@ -80,15 +80,16 @@ export default function LandingPage() {
     if (!reduce && threeRef.current) {
       try {
         const host = threeRef.current;
+        const small = innerWidth < 640;
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, host.clientWidth / host.clientHeight, 0.1, 100);
-        camera.position.z = 5.2;
+        camera.position.z = small ? 6.4 : 5.2;   // pull back on phones so the knot doesn't crowd the text
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+        renderer.setPixelRatio(Math.min(small ? 1.5 : 2, devicePixelRatio));  // lighter on mobile GPUs
         renderer.setSize(host.clientWidth, host.clientHeight);
         host.appendChild(renderer.domElement);
 
-        const geo = new THREE.TorusKnotGeometry(1.35, 0.42, 180, 32);
+        const geo = new THREE.TorusKnotGeometry(1.35, 0.42, small ? 120 : 180, small ? 18 : 32);
         const mat = new THREE.MeshStandardMaterial({ color: 0x0c0c12, metalness: 0.9, roughness: 0.28, emissive: 0x0a1e44, emissiveIntensity: 0.5 });
         const knot = new THREE.Mesh(geo, mat);
         scene.add(knot);
@@ -132,7 +133,7 @@ export default function LandingPage() {
       });
 
       // hero dashboard: zooms in as you scroll (scrubbed) + depth parallax — universal
-      gsap.to(".stage", { scale: 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+      gsap.to(".stage", { scale: innerWidth < 640 ? 1.03 : 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
       gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
 
       // scrubbed stat counters
@@ -454,4 +455,41 @@ const CSS = `
   footer a{display:block;padding:4px 0;color:var(--ink2);text-decoration:none}footer a:hover{color:var(--ink)}
   .fb{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:34px;padding-top:22px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}
   @media(max-width:860px){.fg{grid-template-columns:1fr 1fr}}
+  /* ── phone polish (most visitors) ── */
+  @media(max-width:640px){
+    .wrap,.wide{padding:0 18px}
+    section{padding:60px 0}
+    .center{margin:0 auto 34px}
+    h2.display{font-size:clamp(25px,7.4vw,34px)}
+    .lead{font-size:15.5px}
+    .hero{padding:88px 0 0}
+    .three-host{opacity:.5}
+    .kicker{font-size:11.5px;padding:6px 12px}
+    .hero h1{font-size:clamp(32px,10vw,44px);letter-spacing:-.03em;margin-top:20px;line-height:1.02}
+    .hero .lead{margin-top:18px;font-size:16px}
+    .hero-cta{margin-top:24px;gap:10px;width:100%}
+    .hero-cta .btn{flex:1;min-width:0;justify-content:center;padding:13px 14px;font-size:15px}
+    .fine{margin-top:14px}
+    .cue{display:none}
+    .stage{margin-top:40px}
+    .hcard{width:94%;border-radius:16px 16px 0 0;transform:rotateX(6deg)}
+    .hbar{padding:10px 12px}
+    .hbody{padding:13px;gap:9px}
+    .hs{padding:12px;border-radius:11px}.hs .l{font-size:10.5px}.hs .v{font-size:21px;margin-top:5px}
+    .hp{padding:13px}
+    .band{margin-top:44px;padding:13px 0}.track{gap:30px}.track span{font-size:13px}
+    .three-cards .cell{padding:28px 22px}.three-cards .big{font-size:clamp(40px,13vw,56px)}
+    .fc{padding:24px 22px}
+    .price{gap:12px}.pc{padding:24px}.pr .amt{font-size:40px}
+    .tour .center{margin-bottom:34px}
+    .tpair{gap:18px;margin-bottom:34px}
+    .tcopy h3{font-size:clamp(23px,7vw,30px)}.tcopy p{font-size:15px}
+    .tvis{padding:18px}
+    .slot{padding:11px 4px;font-size:13px}
+    .tc{padding:22px}.tc p{font-size:14.5px}
+    summary{font-size:15.5px;padding:18px 2px}.ans{font-size:14.5px}
+    .final .lead{font-size:16px}
+    footer{padding:40px 0 34px}.fg{gap:22px}
+    .fb{flex-direction:column;gap:6px}
+  }
 `;
