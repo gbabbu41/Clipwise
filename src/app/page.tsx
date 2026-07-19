@@ -25,17 +25,20 @@ const plans = [
   { n: "Pro", p: "$23", per: "/mo", pop: true, yes: ["Up to 4 barbers", "Online booking + payments", "Tips & tax", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start Pro" },
   { n: "Premium", p: "$49", per: "/mo", pop: false, yes: ["Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll"], no: [], cta: "Start Premium" },
 ];
+// Comparison claims cross-checked against Squire's & Booksy's own current
+// materials (2026): $0 fees / no marketplace / free plan / Canadian are the
+// verifiable differentiators. POS, tips/tax, loyalty & inventory are marked at
+// honest parity (competitors have them — Squire gates loyalty/inventory behind
+// a higher tier). See the dated disclaimer under the table.
 const rows: [string, string | boolean, string | boolean, string | boolean][] = [
-  ["Client-side booking fees", "$0 — ever", "$1–5 / booking", "30% Boost"],
-  ["Marketplace exposure to rivals", true, false, false],
-  ["Book without app download", true, false, false],
-  ["Public transparent pricing", true, false, true],
-  ["Built-in POS", true, true, false],
-  ["Tips & sales tax", true, true, false],
-  ["Loyalty program", true, false, true],
-  ["Inventory management", true, false, false],
-  ["Commission tracking", true, false, false],
-  ["Starting price", "Free", "No public pricing", "$29.99/mo + fees"],
+  ["Client booking fees", "$0 — ever", "$0.99 + fees", "Up to 30% (Boost)"],
+  ["No competitor marketplace", true, false, false],
+  ["Free forever plan", true, false, false],
+  ["Built-in POS", true, true, true],
+  ["Tips & sales tax handled", true, true, true],
+  ["Loyalty & inventory", true, "Higher tier", true],
+  ["Canadian-made", true, false, false],
+  ["Starting price", "Free", "From $30/mo", "$29.99/mo + fees"],
 ];
 const faqs = [
   ["Is there really a free plan?", "Yes — Starter is free forever, no credit card. Pro and Premium are billed monthly with no contracts."],
@@ -311,7 +314,9 @@ export default function LandingPage() {
         <div className="wrap"><div className="tablewrap rv"><table>
           <thead><tr><th>Feature</th><th className="us">ClipWise</th><th>Squire</th><th>Booksy</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="us">{cell(r[1])}</td><td>{cell(r[2])}</td><td>{cell(r[3])}</td></tr>)}</tbody>
-        </table></div></div>
+        </table></div>
+          <p className="disclaimer">Comparison based on publicly available information as of July 2026. Squire™ and Booksy™ are trademarks of their respective owners; ClipWise is not affiliated with or endorsed by them.</p>
+        </div>
       </section>
 
       <section id="faq">
@@ -468,6 +473,7 @@ const CSS = `
   th:first-child,td:first-child{text-align:left;color:var(--ink2)}
   thead th{font-weight:600;color:var(--ink3);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}thead th.us{color:var(--ink);font-size:15px;text-transform:none}
   tbody tr:last-child td{border-bottom:0}tbody tr:nth-child(even){background:rgba(255,255,255,.015)}td.us{color:var(--accent);font-weight:650}
+  .disclaimer{max-width:64ch;margin:16px auto 0;text-align:center;font-size:12px;line-height:1.55;color:var(--ink3)}
   .tg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   .tc{border:1px solid var(--line);border-radius:18px;padding:26px;background:var(--panel)}
   .stars{letter-spacing:2px;font-size:14px;margin-bottom:14px;color:#ffd166}.tc p{font-size:15px;line-height:1.6;margin-bottom:20px;color:#d9d9de}
