@@ -373,7 +373,7 @@ const CSS = `
   .nav-links{display:flex;gap:30px;font-size:13.5px;color:var(--ink2)}.nav-links a{color:var(--ink2);text-decoration:none}.nav-links a:hover{color:var(--ink)}
   .nav-cta{display:flex;gap:10px;align-items:center}
   @media(max-width:860px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
-  .hero{position:relative;text-align:center;padding:80px 0 56px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100svh - 58px);min-height:var(--hero-h,calc(100svh - 58px));display:flex;flex-direction:column;justify-content:center}
+  .hero{position:relative;text-align:center;padding:56px 0 92px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100svh - 58px);min-height:var(--hero-h,calc(100svh - 58px));display:flex;flex-direction:column;justify-content:center}
   .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
   .three-host canvas{width:100%!important;height:100%!important;display:block}
   .aurora{position:absolute;inset:-20% -10% 0;z-index:-2;filter:blur(70px);opacity:.6}
@@ -502,7 +502,7 @@ const CSS = `
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
     .lead{font-size:15.5px}
-    .hero{padding:72px 0 40px}
+    .hero{padding:40px 0 66px}
     .three-host{opacity:.34}
     .aurora{opacity:.42;filter:blur(56px)}
     .grain{opacity:.18}
@@ -512,7 +512,7 @@ const CSS = `
     .hero-cta{margin-top:24px;gap:10px;width:100%}
     .hero-cta .btn{flex:1;min-width:0;justify-content:center;padding:13px 14px;font-size:15px}
     .fine{margin-top:14px}
-    .cue{display:none}
+    .cue{bottom:16px}
     .showcase{padding:4px 0 60px}
     .stage{margin:0 auto}
     .hcard{width:94%;border-radius:14px;transform:rotateX(6deg)}
