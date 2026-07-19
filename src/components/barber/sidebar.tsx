@@ -298,7 +298,7 @@ export function BarberSidebar() {
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
           fontSize: "24px",
-          letterSpacing: "1px",
+          letterSpacing: "-0.02em",
           color: "#ffffff",
           height: "64px",
         }}
