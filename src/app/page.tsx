@@ -532,7 +532,7 @@ const CSS = `
     .tvis{padding:18px}
     .slot{padding:11px 4px;font-size:13px}
     .tc{padding:22px}.tc p{font-size:14.5px}
-    summary{font-size:15.5px;padding:18px 2px}.ans{font-size:14.5px}
+    .faq{margin:0 18px}summary{font-size:15px;padding:16px 0;gap:12px;overflow-wrap:anywhere}summary .p{font-size:20px}.ans{font-size:14px;padding:0 0 18px}
     .final .lead{font-size:16px}
     footer{padding:40px 0 34px}.fg{gap:22px}
     .fb{flex-direction:column;gap:6px}
