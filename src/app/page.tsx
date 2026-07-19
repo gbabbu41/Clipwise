@@ -1,12 +1,16 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
+import * as THREE from "three";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Lenis from "lenis";
 
-// ── New animated landing page (dark, minimal, motion-first). Styles are injected
-// as one global block so the design matches the standalone preview exactly; the
-// motion (reveal, count-up, pointer tilt, magnetic buttons) runs in the effect
-// below and degrades gracefully — nothing is hidden if JS never runs.
+// Animated landing page: Lenis momentum scroll + GSAP ScrollTrigger (pinned,
+// scrubbed product tour, parallax depth, scrub counters) + a Three.js 3D object
+// in the hero. All motion is client-side and guarded so a failure never blanks
+// the page; content is visible without JS.
 
 const features = [
   { t: "Smart booking", d: "24/7 online booking with real-time availability. Clients book from their phone — no app needed.", i: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' },
@@ -16,13 +20,11 @@ const features = [
   { t: "Loyalty & gift cards", d: "Reward regulars with points, sell and redeem gift cards, run promos in seconds.", i: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 12h20M12 7V21"/>' },
   { t: "Inventory, waitlist & kiosk", d: "Track stock, run a live walk-in queue, offer tablet self check-in.", i: '<path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 12h8"/>' },
 ];
-
 const plans = [
   { n: "Starter", p: "Free", per: "forever", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
   { n: "Pro", p: "$23", per: "/mo", pop: true, yes: ["Up to 4 barbers", "Online booking + payments", "Tips & tax", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start Pro" },
   { n: "Premium", p: "$49", per: "/mo", pop: false, yes: ["Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll"], no: [], cta: "Start Premium" },
 ];
-
 const rows: [string, string | boolean, string | boolean, string | boolean][] = [
   ["Client-side booking fees", "$0 — ever", "$1–5 / booking", "30% Boost"],
   ["Marketplace exposure to rivals", true, false, false],
@@ -35,13 +37,11 @@ const rows: [string, string | boolean, string | boolean, string | boolean][] = [
   ["Commission tracking", true, false, false],
   ["Starting price", "Free", "No public pricing", "$29.99/mo + fees"],
 ];
-
 const testimonials = [
   { n: "Marcus J.", s: "Marcus’s Fades — Halifax", t: "Online booking alone saved me hours on the phone. My no-show rate dropped from 25% to under 5%." },
   { n: "Darius K.", s: "King Cutz — Toronto", t: "POS and booking in one app is a game-changer. I used to juggle Booksy and Square. Now it’s all ClipWise." },
   { n: "Trevor M.", s: "Fresh Fades — Moncton", t: "My clients love the loyalty points. Revenue is up 30% since switching. Worth every dollar." },
 ];
-
 const faqs = [
   ["Is there really a free plan?", "Yes — Starter is free forever, no credit card. Pro and Premium are billed monthly with no contracts."],
   ["Do my clients need an app?", "No. They book from your link in any browser — no app, no account."],
@@ -49,51 +49,111 @@ const faqs = [
   ["Can I import my clients?", "Yes — by CSV, or we’ll help you migrate from Booksy, Squire, or another platform."],
   ["Is my data safe?", "All data is encrypted in transit and at rest, with per-shop access controls. Built PIPEDA-aware for Canadian businesses."],
 ];
-
 const marquee = ["$0 client booking fees", "0% commission", "100% of tips kept", "Built-in POS", "Tips & tax handled", "No competitor marketplace", "🇨🇦 Canadian-made"];
 
-const Ico = ({ d }: { d: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={22} height={22} dangerouslySetInnerHTML={{ __html: d }} />
-);
+const Ico = ({ d }: { d: string }) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={22} height={22} dangerouslySetInnerHTML={{ __html: d }} />);
 const Check = ({ c }: { c: string }) => (<svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.4} width={16} height={16}><path d="M20 6 9 17l-5-5" /></svg>);
 const Ex = ({ c }: { c: string }) => (<svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.4} width={16} height={16}><path d="M18 6 6 18M6 6l12 12" /></svg>);
 const cell = (v: string | boolean) => typeof v === "boolean" ? (v ? <Check c="#37d987" /> : <Ex c="#4a4a52" />) : <span>{v}</span>;
 
 export default function LandingPage() {
+  const threeRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add("js");
     const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+    document.documentElement.classList.add("js");
+    const cleanups: (() => void)[] = [];
 
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
-    document.querySelectorAll(".rv").forEach((el) => io.observe(el));
-
-    const up = (el: HTMLElement) => {
-      const tg = +(el.dataset.count || 0), pre = el.dataset.prefix || "", suf = el.dataset.suffix || "", dv = +(el.dataset.div || 1);
-      if (reduce) return;
-      const t0 = performance.now(), d = 1400; el.textContent = pre + "0" + suf;
-      const s = (t: number) => { const p = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - p, 3), v = tg * e / dv; el.textContent = pre + (dv === 1 ? Math.round(v) : v.toFixed(1)) + suf; if (p < 1) requestAnimationFrame(s); };
-      requestAnimationFrame(s);
-    };
-    const hcard = document.getElementById("hcard");
-    let countObs: IntersectionObserver | null = null;
-    if (hcard) { countObs = new IntersectionObserver((es, o) => es.forEach((e) => { if (e.isIntersecting) { e.target.querySelectorAll<HTMLElement>("[data-count]").forEach(up); o.unobserve(e.target); } }), { threshold: 0.4 }); countObs.observe(hcard); }
-
-    let onMove: ((e: PointerEvent) => void) | null = null;
-    const fine = matchMedia("(pointer:fine)").matches;
-    if (!reduce && hcard && fine) {
-      onMove = (e) => { const px = e.clientX / innerWidth - 0.5, py = e.clientY / innerHeight - 0.5; hcard.style.setProperty("--rx", (11 + py * 3).toFixed(2) + "deg"); hcard.style.setProperty("--ry", (px * 5).toFixed(2) + "deg"); };
-      addEventListener("pointermove", onMove, { passive: true });
+    // ── Lenis momentum scroll (paired with GSAP) ─────────────────────────────
+    let lenis: Lenis | null = null;
+    gsap.registerPlugin(ScrollTrigger);
+    if (!reduce) {
+      lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+      lenis.on("scroll", ScrollTrigger.update);
+      const raf = (t: number) => lenis!.raf(t * 1000);
+      gsap.ticker.add(raf);
+      gsap.ticker.lagSmoothing(0);
+      cleanups.push(() => { gsap.ticker.remove(raf); lenis!.destroy(); });
     }
-    const magCleanup: (() => void)[] = [];
-    if (!reduce && fine) document.querySelectorAll<HTMLElement>(".mag").forEach((b) => {
-      const mv = (e: PointerEvent) => { const r = b.getBoundingClientRect(); b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * 0.2}px,${(e.clientY - r.top - r.height / 2) * 0.3}px)`; };
-      const lv = () => { b.style.transform = ""; };
-      b.addEventListener("pointermove", mv); b.addEventListener("pointerleave", lv);
-      magCleanup.push(() => { b.removeEventListener("pointermove", mv); b.removeEventListener("pointerleave", lv); });
-    });
 
-    return () => { io.disconnect(); countObs?.disconnect(); if (onMove) removeEventListener("pointermove", onMove); magCleanup.forEach((f) => f()); root.classList.remove("js"); };
+    // ── Three.js hero object: slowly rotating wireframe knot, mouse-reactive ──
+    if (!reduce && threeRef.current) {
+      try {
+        const host = threeRef.current;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, host.clientWidth / host.clientHeight, 0.1, 100);
+        camera.position.z = 5.2;
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+        renderer.setSize(host.clientWidth, host.clientHeight);
+        host.appendChild(renderer.domElement);
+
+        const geo = new THREE.TorusKnotGeometry(1.35, 0.42, 180, 32);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x0c0c12, metalness: 0.9, roughness: 0.28, emissive: 0x0a1e44, emissiveIntensity: 0.5 });
+        const knot = new THREE.Mesh(geo, mat);
+        scene.add(knot);
+        const wire = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: 0x6ea8fe, transparent: true, opacity: 0.16 }));
+        knot.add(wire);
+        scene.add(new THREE.AmbientLight(0x404060, 1.1));
+        const p1 = new THREE.PointLight(0x6ea8fe, 60, 30); p1.position.set(4, 3, 5); scene.add(p1);
+        const p2 = new THREE.PointLight(0xb78bff, 40, 30); p2.position.set(-5, -2, 3); scene.add(p2);
+
+        let mx = 0, my = 0, raf = 0;
+        const onMove = (e: PointerEvent) => { mx = e.clientX / innerWidth - 0.5; my = e.clientY / innerHeight - 0.5; };
+        addEventListener("pointermove", onMove, { passive: true });
+        const clock = new THREE.Clock();
+        const loop = () => {
+          const t = clock.getElapsedTime();
+          knot.rotation.x = t * 0.16 + my * 0.5;
+          knot.rotation.y = t * 0.22 + mx * 0.6;
+          renderer.render(scene, camera);
+          raf = requestAnimationFrame(loop);
+        };
+        loop();
+        const onResize = () => { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); };
+        addEventListener("resize", onResize);
+        cleanups.push(() => { cancelAnimationFrame(raf); removeEventListener("pointermove", onMove); removeEventListener("resize", onResize); renderer.dispose(); geo.dispose(); mat.dispose(); host.removeChild(renderer.domElement); });
+      } catch { /* 3D optional — hero still looks good without it */ }
+    }
+
+    // ── GSAP: reveals, parallax, pinned tour, scrubbed counters ──────────────
+    const ctx = gsap.context(() => {
+      if (reduce) { gsap.set(".rv, .rv.stagger>*", { opacity: 1, y: 0 }); return; }
+
+      // one-by-one reveals
+      gsap.utils.toArray<HTMLElement>(".rv").forEach((el) => {
+        const kids = el.classList.contains("stagger") ? Array.from(el.children) as HTMLElement[] : [el];
+        gsap.from(kids, { opacity: 0, y: 26, duration: 0.8, ease: "power3.out", stagger: 0.09, scrollTrigger: { trigger: el, start: "top 85%" } });
+      });
+
+      // hero depth parallax
+      gsap.to(".stage", { yPercent: -8, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+      gsap.to(".aurora", { yPercent: 18, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+
+      // scrubbed stat counters
+      gsap.utils.toArray<HTMLElement>("[data-count]").forEach((el) => {
+        const to = +(el.dataset.count || 0), dv = +(el.dataset.div || 1), pre = el.dataset.prefix || "", suf = el.dataset.suffix || "";
+        const o = { v: 0 };
+        gsap.to(o, { v: to, duration: 1.4, ease: "power2.out", scrollTrigger: { trigger: el, start: "top 90%" }, onUpdate: () => { el.textContent = pre + (dv === 1 ? Math.round(o.v) : (o.v / dv).toFixed(1)) + suf; } });
+      });
+
+      // pinned, scrubbed product tour
+      const tour = document.querySelector<HTMLElement>(".tour");
+      if (tour && innerWidth > 860) {
+        const steps = gsap.utils.toArray<HTMLElement>(".tstep");
+        const scenes = gsap.utils.toArray<HTMLElement>(".tscene");
+        const setActive = (i: number) => { steps.forEach((s, k) => s.classList.toggle("on", k === i)); scenes.forEach((s, k) => s.classList.toggle("on", k === i)); };
+        setActive(0);
+        ScrollTrigger.create({
+          trigger: tour, start: "top top", end: "+=220%", pin: ".tour-sticky", scrub: true,
+          onUpdate: (self) => setActive(Math.min(steps.length - 1, Math.floor(self.progress * steps.length * 0.999))),
+        });
+      }
+    });
+    cleanups.push(() => ctx.revert());
+    ScrollTrigger.refresh();
+
+    return () => { cleanups.forEach((f) => { try { f(); } catch { /* noop */ } }); document.documentElement.classList.remove("js"); };
   }, []);
 
   return (
@@ -103,19 +163,14 @@ export default function LandingPage() {
       <nav>
         <div className="wide nav-in">
           <Link href="/"><Logo size="sm" className="text-white" /></Link>
-          <div className="nav-links">
-            <a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#compare">Compare</a><a href="#faq">FAQ</a>
-            <Link href="/shops">Find a Barber</Link>
-          </div>
-          <div className="nav-cta">
-            <Link className="btn btn-ghost btn-sm" href="/login">Log in</Link>
-            <Link className="btn btn-primary btn-sm mag" href="/signup">Get Started</Link>
-          </div>
+          <div className="nav-links"><a href="#features">Features</a><a href="#tour">Product</a><a href="#pricing">Pricing</a><a href="#compare">Compare</a><Link href="/shops">Find a Barber</Link></div>
+          <div className="nav-cta"><Link className="btn btn-ghost btn-sm" href="/login">Log in</Link><Link className="btn btn-primary btn-sm mag" href="/signup">Get Started</Link></div>
         </div>
       </nav>
 
       <header className="hero">
         <div className="aurora"><b className="a1" /><b className="a2" /><b className="a3" /></div>
+        <div className="three-host" ref={threeRef} aria-hidden="true" />
         <div className="grain" />
         <div className="wrap">
           <span className="kicker">✦ Canada&rsquo;s <b>barber-first</b> platform</span>
@@ -123,7 +178,7 @@ export default function LandingPage() {
           <p className="lead">Booking, payments, tips, analytics and loyalty — one calm, powerful platform. Zero client booking fees. Zero commission. Ever.</p>
           <div className="hero-cta">
             <Link className="btn btn-primary mag" href="/signup">Get started free</Link>
-            <a className="btn btn-ghost arrow" href="#features">Take the tour <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+            <a className="btn btn-ghost arrow" href="#tour">Take the tour <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
           </div>
           <p className="fine">No credit card · 60-second setup · Made in Canada</p>
           <div className="cue" />
@@ -153,10 +208,42 @@ export default function LandingPage() {
 
       <div className="band"><div className="track">{[...marquee, ...marquee].map((m, i) => <span key={i}>{m}</span>)}</div></div>
 
+      {/* pinned, scroll-scrubbed product tour */}
+      <div className="tour" id="tour">
+        <div className="tour-sticky">
+          <div className="wide tour-grid">
+            <div className="tour-copy">
+              <div className="tstep on"><div className="tnum">01 — Booking</div><h3>Clients book you<br />in seconds.</h3><p>A booking page that&rsquo;s yours alone — no app to download, no marketplace showing your rivals. Real-time availability, 24/7.</p><div className="tprog"><i className="on" /><i /><i /></div></div>
+              <div className="tstep"><div className="tnum">02 — Payments</div><h3>Get paid,<br />tips and all.</h3><p>Card, cash and online payments with sales tax handled for you. Clients tip at checkout or from a post-visit link — 100% yours.</p><div className="tprog"><i /><i className="on" /><i /></div></div>
+              <div className="tstep"><div className="tnum">03 — Grow</div><h3>See everything,<br />grow faster.</h3><p>Revenue, no-shows, barber performance and loyalty — one clean dashboard, updating live as your day unfolds.</p><div className="tprog"><i /><i /><i className="on" /></div></div>
+            </div>
+            <div className="tvis">
+              <div className="tscene on">
+                <h5>Booking · Fri, Jul 18</h5>
+                <div className="slotgrid">{["9:00", "9:30 ✓", "10:00", "10:30", "11:00", "Booked"].map((s, i) => <div key={i} className={`slot ${i === 1 ? "sel" : ""} ${s === "Booked" ? "off" : ""}`}>{s}</div>)}</div>
+                <div className="tcard"><div className="row"><span className="mini">M</span><div><div className="tn">Marcus J.</div><div className="tsub">Skin fade + beard · 9:30 AM</div></div><span className="tag" style={{ background: "rgba(55,217,135,.16)", color: "#37d987" }}>Confirmed</span></div></div>
+              </div>
+              <div className="tscene">
+                <h5>Checkout</h5>
+                <div className="tcard"><div className="row"><span>Skin fade + beard</span><b className="mono">$45.00</b></div></div>
+                <div className="tcard"><div className="row"><span>HST (15%)</span><b className="mono">$6.75</b></div></div>
+                <div className="tiprow"><div className="slot">18%</div><div className="slot sel">20% · $9</div><div className="slot">25%</div></div>
+                <div className="tcard sel"><div className="row"><b>Total</b><b className="mono">$60.75</b></div></div>
+              </div>
+              <div className="tscene">
+                <h5>This month</h5>
+                <div className="kpis"><div className="kpi"><div className="l">Revenue</div><div className="v">$9,840</div></div><div className="kpi"><div className="l">No-show rate</div><div className="v">3.1%</div></div></div>
+                <div className="kpi" style={{ marginTop: 10 }}><div className="l">Weekly revenue</div><div className="tbars">{[48, 70, 58, 82, 74, 96, 80].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section>
         <div className="wrap">
           <div className="center rv"><h2 className="display">Built around your business — not ours.</h2></div>
-          <div className="three rv stagger">
+          <div className="three-cards rv stagger">
             <div className="cell"><div className="big">$0</div><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book. Squire adds $1–5 per booking; we add nothing.</p></div>
             <div className="cell"><div className="big">0%</div><h3>Commission</h3><p>Every client you bring in stays 100% yours. No 30% cut on your own followers, ever.</p></div>
             <div className="cell"><div className="big">100%</div><h3>Of every tip</h3><p>Tips go straight to your Stripe account — collected online or from a post-visit link.</p></div>
@@ -228,24 +315,21 @@ export default function LandingPage() {
 }
 
 const CSS = `
-  .lp-scope{}
   :root{--bg:#08080a;--bg2:#0e0e12;--panel:#131318;--raised:#17171d;--line:#24242c;--line2:#31313a;--ink:#f6f6f8;--ink2:#a6a6b0;--ink3:#74747e;--accent:#6ea8fe;--good:#37d987;--sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
-  html{scroll-behavior:smooth;overflow-x:hidden}
+  html{overflow-x:hidden}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;letter-spacing:-.012em;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100vw}
   body img,body svg,body table{max-width:100%}
   body ::selection{background:var(--ink);color:#000}
   nav :focus-visible,header :focus-visible,section :focus-visible,footer :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
   .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
   .wide{max-width:1240px;margin:0 auto;padding:0 24px}
-  .display{font-weight:700;letter-spacing:-.035em;line-height:1.05;text-wrap:balance;color:var(--ink)}
+  .display{font-weight:700;letter-spacing:-.035em;line-height:1.05;color:var(--ink)}
   h2.display{font-size:clamp(30px,4.7vw,54px)}
   .eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
   .lead{color:var(--ink2);font-size:clamp(17px,2vw,21px);line-height:1.5;font-weight:400}
   .btn{position:relative;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:16px;padding:14px 26px;border-radius:980px;cursor:pointer;border:1px solid transparent;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .2s,border-color .2s,box-shadow .3s;text-decoration:none}
-  .btn-primary{background:var(--ink);color:#000}
-  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px -14px rgba(255,255,255,.5)}
-  .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink);border-color:var(--line2);backdrop-filter:blur(6px)}
-  .btn-ghost:hover{border-color:var(--ink);background:rgba(255,255,255,.1)}
+  .btn-primary{background:var(--ink);color:#000}.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px -14px rgba(255,255,255,.5)}
+  .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink);border-color:var(--line2);backdrop-filter:blur(6px)}.btn-ghost:hover{border-color:var(--ink);background:rgba(255,255,255,.1)}
   .btn-sm{padding:9px 17px;font-size:14px}
   .arrow svg{width:16px;height:16px;transition:transform .25s}.arrow:hover svg{transform:translateX(4px)}
   nav{position:sticky;top:0;z-index:70;background:rgba(8,8,10,.66);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
@@ -254,30 +338,28 @@ const CSS = `
   .nav-cta{display:flex;gap:10px;align-items:center}
   @media(max-width:860px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
   .hero{position:relative;text-align:center;padding:120px 0 0;overflow:hidden;isolation:isolate}
-  .aurora{position:absolute;inset:-20% -10% 0;z-index:-1;filter:blur(60px);opacity:.7}
-  .aurora b{position:absolute;border-radius:50%;mix-blend-mode:screen;will-change:transform}
+  .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
+  .three-host canvas{width:100%!important;height:100%!important;display:block}
+  .aurora{position:absolute;inset:-20% -10% 0;z-index:-2;filter:blur(70px);opacity:.6}
+  .aurora b{position:absolute;border-radius:50%;mix-blend-mode:screen}
   .a1{width:52vw;height:52vw;left:8%;top:-6%;background:radial-gradient(circle,rgba(110,168,254,.55),transparent 60%);animation:drift1 16s ease-in-out infinite}
   .a2{width:46vw;height:46vw;right:4%;top:2%;background:radial-gradient(circle,rgba(183,139,255,.45),transparent 60%);animation:drift2 20s ease-in-out infinite}
   .a3{width:40vw;height:40vw;left:34%;top:20%;background:radial-gradient(circle,rgba(55,217,135,.28),transparent 60%);animation:drift3 24s ease-in-out infinite}
   @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(6%,8%) scale(1.15)}}
   @keyframes drift2{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(-8%,6%) scale(.9)}}
   @keyframes drift3{0%,100%{transform:translate(0,0)}50%{transform:translate(4%,-8%) scale(1.1)}}
-  .hero::after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 70% at 50% 0,transparent 30%,var(--bg) 82%)}
-  .grain{position:absolute;inset:0;z-index:-1;opacity:.35;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:3px 3px}
-  .kicker{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);background:rgba(255,255,255,.05);border:1px solid var(--line2);padding:7px 15px;border-radius:980px;backdrop-filter:blur(8px);opacity:0;animation:fadeUp .7s .05s cubic-bezier(.16,1,.3,1) forwards}
+  .hero::after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 70% at 50% 0,transparent 34%,var(--bg) 84%);pointer-events:none}
+  .grain{position:absolute;inset:0;z-index:-1;opacity:.3;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:3px 3px;pointer-events:none}
+  .kicker{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);background:rgba(255,255,255,.05);border:1px solid var(--line2);padding:7px 15px;border-radius:980px;backdrop-filter:blur(8px)}
   .kicker b{color:var(--ink);font-weight:600}
   .hero h1{font-weight:700;letter-spacing:-.05em;line-height:.99;font-size:clamp(40px,8.2vw,98px);margin:26px auto 0;max-width:15ch;overflow-wrap:break-word;color:var(--ink)}
-  .hero h1 .ln{display:block}
-  .hero h1 .ln>span{display:inline-block;opacity:0;transform:translateY(26px);animation:fadeUp .9s cubic-bezier(.16,1,.3,1) forwards}
-  .hero h1 .ln:nth-child(1)>span{animation-delay:.12s}
-  .hero h1 .ln:nth-child(2)>span{animation-delay:.26s}
+  .hero h1 .ln{display:block}.hero h1 .ln>span{display:inline-block}
   .hero h1 .grad{background:linear-gradient(100deg,#fff,#a9c6ff 55%,#c9b3ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
-  .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0;opacity:0;animation:fadeUp .8s .5s cubic-bezier(.16,1,.3,1) forwards}
-  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px;opacity:0;animation:fadeUp .8s .62s cubic-bezier(.16,1,.3,1) forwards}
-  .hero .fine{color:var(--ink3);font-size:13px;margin-top:16px;opacity:0;animation:fadeUp .8s .74s forwards}
-  .stage{position:relative;margin-top:60px;perspective:1600px;opacity:0;animation:fadeUp 1s .8s cubic-bezier(.16,1,.3,1) forwards}
-  .hcard{width:min(860px,93%);margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden;background:linear-gradient(180deg,#15151b,#0b0b0f);border:1px solid var(--line2);border-bottom:0;box-shadow:0 -30px 120px -30px rgba(110,168,254,.28),0 40px 80px -40px #000;transform:rotateX(var(--rx,11deg)) rotateY(var(--ry,0deg));transform-origin:bottom center;transition:transform .2s ease-out;animation:float 7s ease-in-out infinite}
+  .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0}
+  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .hero .fine{color:var(--ink3);font-size:13px;margin-top:16px}
+  .stage{position:relative;margin-top:60px;perspective:1600px;will-change:transform}
+  .hcard{width:min(860px,93%);margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden;background:linear-gradient(180deg,#15151b,#0b0b0f);border:1px solid var(--line2);border-bottom:0;box-shadow:0 -30px 120px -30px rgba(110,168,254,.28),0 40px 80px -40px #000;transform:rotateX(11deg);transform-origin:bottom center;animation:float 7s ease-in-out infinite}
   @keyframes float{0%,100%{margin-top:0}50%{margin-top:-10px}}
   .hbar{display:flex;align-items:center;gap:7px;padding:12px 15px;border-bottom:1px solid var(--line)}
   .d{width:11px;height:11px;border-radius:50%}
@@ -305,39 +387,63 @@ const CSS = `
   .track{display:flex;gap:42px;width:max-content;animation:marq 30s linear infinite}
   .track span{display:inline-flex;gap:9px;align-items:center;white-space:nowrap;font-size:14px;color:var(--ink2)}
   @keyframes marq{to{transform:translateX(-50%)}}
+  /* ── pinned product tour ── */
+  .tour{position:relative;height:300vh}
+  .tour-sticky{position:sticky;top:0;height:100vh;display:flex;align-items:center;overflow:hidden}
+  .tour-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:48px;align-items:center;width:100%}
+  .tour-copy{position:relative;min-height:250px}
+  .tstep{position:absolute;inset:0;opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s;pointer-events:none}
+  .tstep.on{opacity:1;transform:none}
+  .tnum{font-family:var(--mono);font-size:13px;color:var(--accent)}
+  .tstep h3{font-size:clamp(28px,3.6vw,44px);font-weight:700;letter-spacing:-.03em;margin:12px 0 14px;line-height:1.06;color:var(--ink)}
+  .tstep p{font-size:17px;color:var(--ink2);max-width:36ch;line-height:1.55}
+  .tprog{display:flex;gap:8px;margin-top:26px}.tprog i{height:3px;width:36px;border-radius:3px;background:var(--line2);transition:background .4s}.tprog i.on{background:var(--accent)}
+  .tvis{position:relative;height:min(66vh,540px);border-radius:22px;border:1px solid var(--line);background:var(--panel);overflow:hidden;box-shadow:0 40px 90px -50px #000}
+  .tscene{position:absolute;inset:0;opacity:0;transform:scale(1.04);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1);padding:26px}
+  .tscene.on{opacity:1;transform:none}
+  .tscene h5{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:14px;font-weight:600}
+  .slotgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .slot{border:1px solid var(--line);border-radius:11px;padding:13px 6px;text-align:center;font-weight:650;font-size:14px;color:var(--ink)}
+  .slot.sel{background:var(--ink);color:#000;border-color:var(--ink)}.slot.off{color:var(--ink3);font-weight:500}
+  .tiprow{display:flex;gap:8px;margin:10px 0}
+  .tcard{background:var(--raised);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:10px}
+  .tcard.sel{background:var(--ink);color:#000;border-color:var(--ink)}
+  .row{display:flex;align-items:center;gap:10px}.mono{margin-left:auto;font-family:var(--mono)}
+  .mini{width:30px;height:30px;border-radius:50%;background:var(--raised);border:1px solid var(--line2);display:grid;place-items:center;font-size:12px;font-weight:650}
+  .tag{margin-left:auto;font-size:11px;font-weight:650;padding:3px 9px;border-radius:7px}
+  .tn{font-weight:600;font-size:14px}.tsub{font-size:12px;color:var(--ink3)}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{background:var(--raised);border:1px solid var(--line);border-radius:13px;padding:14px}
+  .kpi .l{font-size:11px;color:var(--ink3)}.kpi .v{font-size:24px;font-weight:700;font-family:var(--mono);margin-top:6px;color:var(--ink)}
+  .tbars{display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:8px}.tbars span{flex:1;background:var(--accent);border-radius:4px 4px 0 0}
+  @media(max-width:860px){.tour{height:auto}.tour-sticky{position:relative;height:auto;padding:70px 0}.tour-grid{grid-template-columns:1fr;gap:28px}.tour-copy{min-height:0}.tstep{position:relative;opacity:1;transform:none;display:none}.tstep.on{display:block}.tvis{height:420px}}
   section{padding:104px 0}
   section>.wrap,section>.wide,section>.center{width:100%}
   .center{text-align:center;max-width:660px;margin:0 auto 56px}.center .lead{margin-top:16px}
   @media(max-width:860px){section{padding:76px 0}}
-  .three{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--panel)}
-  .three .cell{padding:44px 28px}
-  .three .cell:not(:last-child){border-right:1px solid var(--line)}
-  .three .big{font-size:clamp(44px,6vw,68px);font-weight:700;letter-spacing:-.05em;background:linear-gradient(120deg,#fff,#a9c6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .three h3{font-size:17px;font-weight:650;margin:8px 0 8px;color:var(--ink)}.three p{font-size:14.5px;color:var(--ink2);line-height:1.55}
-  @media(max-width:860px){.three{grid-template-columns:1fr}.three .cell:not(:last-child){border-right:0;border-bottom:1px solid var(--line)}}
+  .three-cards{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--panel)}
+  .three-cards .cell{padding:44px 28px}.three-cards .cell:not(:last-child){border-right:1px solid var(--line)}
+  .three-cards .big{font-size:clamp(44px,6vw,68px);font-weight:700;letter-spacing:-.05em;background:linear-gradient(120deg,#fff,#a9c6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .three-cards h3{font-size:17px;font-weight:650;margin:8px 0 8px;color:var(--ink)}.three-cards p{font-size:14.5px;color:var(--ink2);line-height:1.55}
+  @media(max-width:860px){.three-cards{grid-template-columns:1fr}.three-cards .cell:not(:last-child){border-right:0;border-bottom:1px solid var(--line)}}
   .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:22px;overflow:hidden}
-  .fc{background:var(--panel);padding:32px 28px;transition:background .3s}
-  .fc:hover{background:var(--raised)}
+  .fc{background:var(--panel);padding:32px 28px;transition:background .3s}.fc:hover{background:var(--raised)}
   .fi{width:40px;height:40px;display:grid;place-items:center;color:var(--accent);margin-bottom:18px;background:rgba(110,168,254,.1);border:1px solid rgba(110,168,254,.2);border-radius:11px}
   .fc h3{font-size:17px;font-weight:650;margin-bottom:8px;color:var(--ink)}.fc p{font-size:14px;color:var(--ink2);line-height:1.6}
   @media(max-width:860px){.feat{grid-template-columns:1fr}}
   .price{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
   .pc{border:1px solid var(--line);border-radius:22px;padding:30px;background:var(--panel);display:flex;flex-direction:column;transition:transform .25s,border-color .25s}
-  .pc:hover{transform:translateY(-6px);border-color:var(--line2)}
-  .pc.pop{border-color:var(--accent);background:linear-gradient(180deg,rgba(110,168,254,.08),var(--panel))}
+  .pc:hover{transform:translateY(-6px);border-color:var(--line2)}.pc.pop{border-color:var(--accent);background:linear-gradient(180deg,rgba(110,168,254,.08),var(--panel))}
   .badge{align-self:flex-start;font-size:11px;font-weight:650;padding:5px 12px;border-radius:980px;background:var(--accent);color:#00122e;margin-bottom:14px}
-  .pc h3{font-size:20px;font-weight:650;color:var(--ink)}.pr{margin:14px 0 22px;display:flex;align-items:baseline;gap:5px}
-  .pr .amt{font-size:46px;font-weight:700;letter-spacing:-.04em;color:var(--ink)}.pr .per{font-size:14px;color:var(--ink3)}
-  .pl{display:flex;flex-direction:column;gap:12px;flex:1;margin-bottom:24px}
-  .pl div{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink2)}.pl svg{flex:none;margin-top:2px}.pl .no{color:var(--ink3)}
+  .pc h3{font-size:20px;font-weight:650;color:var(--ink)}.pr{margin:14px 0 22px;display:flex;align-items:baseline;gap:5px}.pr .amt{font-size:46px;font-weight:700;letter-spacing:-.04em;color:var(--ink)}.pr .per{font-size:14px;color:var(--ink3)}
+  .pl{display:flex;flex-direction:column;gap:12px;flex:1;margin-bottom:24px}.pl div{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink2)}.pl svg{flex:none;margin-top:2px}.pl .no{color:var(--ink3)}
   @media(max-width:860px){.price{grid-template-columns:1fr;max-width:420px}}
   .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:18px;background:var(--panel);max-width:100%}
   table{width:100%;border-collapse:collapse}
   th,td{padding:15px 18px;text-align:center;font-size:14px;border-bottom:1px solid var(--line);color:var(--ink2)}
   @media(max-width:620px){th,td{padding:12px 9px;font-size:12px}thead th.us{font-size:13px}}
   th:first-child,td:first-child{text-align:left;color:var(--ink2)}
-  thead th{font-weight:600;color:var(--ink3);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
-  thead th.us{color:var(--ink);font-size:15px;text-transform:none}
+  thead th{font-weight:600;color:var(--ink3);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}thead th.us{color:var(--ink);font-size:15px;text-transform:none}
   tbody tr:last-child td{border-bottom:0}tbody tr:nth-child(even){background:rgba(255,255,255,.015)}td.us{color:var(--accent);font-weight:650}
   .tg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   .tc{border:1px solid var(--line);border-radius:18px;padding:26px;background:var(--panel)}
@@ -358,14 +464,4 @@ const CSS = `
   footer a{display:block;padding:4px 0;color:var(--ink2);text-decoration:none}footer a:hover{color:var(--ink)}
   .fb{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:34px;padding-top:22px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}
   @media(max-width:860px){.fg{grid-template-columns:1fr 1fr}}
-  .js .rv{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
-  .js .rv.in{opacity:1;transform:none}
-  .js .rv.stagger>*{opacity:0;transform:translateY(22px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
-  .js .rv.stagger.in>*{opacity:1;transform:none}
-  .rv.stagger.in>*:nth-child(2){transition-delay:.09s}
-  .rv.stagger.in>*:nth-child(3){transition-delay:.18s}
-  .rv.stagger.in>*:nth-child(4){transition-delay:.27s}
-  .rv.stagger.in>*:nth-child(5){transition-delay:.36s}
-  .rv.stagger.in>*:nth-child(6){transition-delay:.45s}
-  @media(prefers-reduced-motion:reduce){.hero *,.aurora b,.track,.spark span,.cue::after{animation-duration:.001s!important;animation-iteration-count:1!important}.js .rv{opacity:1;transform:none}.hero h1 .ln>span{opacity:1;transform:none}}
 `;
