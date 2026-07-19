@@ -391,8 +391,8 @@ const CSS = `
   .hero h1{font-weight:700;letter-spacing:-.05em;line-height:.99;font-size:clamp(40px,8.2vw,98px);margin:26px auto 0;max-width:15ch;overflow-wrap:break-word;color:var(--ink)}
   .hero h1 .ln{display:block}.hero h1 .ln>span{display:inline-block}
   .hero h1 .grad{background:linear-gradient(100deg,#fff,#a9c6ff 55%,#c9b3ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-  /* logo gradient trial — 'accent tail': CLIP stays white, WISE picks up blue→lilac so it reads as a logo first. -webkit-text-fill-color beats the logo's hardcoded white. */
-  .cw-grad{background:linear-gradient(90deg,#fff 0%,#fff 46%,#a9c6ff 64%,#c9b3ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  /* logo gradient trial — 'silver/chrome': white edges, brushed-metal sheen through the middle. -webkit-text-fill-color beats the logo's hardcoded white. */
+  .cw-grad{background:linear-gradient(100deg,#fff 4%,#b6bcc8 50%,#fff 96%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
   .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0}
   .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
   .hero .fine{color:var(--ink3);font-size:13px;margin-top:16px}
