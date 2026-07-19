@@ -461,7 +461,7 @@ const CSS = `
   .fc{background:var(--panel);padding:32px 28px;transition:background .3s}.fc:hover{background:var(--raised)}
   .fc .fi{transition:transform .3s cubic-bezier(.2,.8,.2,1),background .3s,border-color .3s}
   .fc:hover .fi{transform:scale(1.08) rotate(-3deg);background:rgba(110,168,254,.16);border-color:rgba(110,168,254,.42)}
-  .fi{width:40px;height:40px;display:grid;place-items:center;color:var(--accent);margin-bottom:18px;background:rgba(110,168,254,.1);border:1px solid rgba(110,168,254,.2);border-radius:11px}
+  .fi{width:40px;height:40px;display:grid;place-items:center;color:var(--accent);margin-bottom:18px;background:linear-gradient(135deg,rgba(110,168,254,.24),rgba(183,139,255,.12));border:1px solid rgba(110,168,254,.28);border-radius:11px}
   .fc h3{font-size:17px;font-weight:650;margin-bottom:8px;color:var(--ink)}.fc p{font-size:14px;color:var(--ink2);line-height:1.6}
   @media(max-width:860px){.feat{grid-template-columns:1fr}}
   .price{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
@@ -541,4 +541,12 @@ const CSS = `
     footer{padding:40px 0 34px}.fg{gap:22px}
     .fb{flex-direction:column;gap:6px}
   }
+  /* premium touch polish — felt on phones (no hover needed) */
+  .btn{touch-action:manipulation}
+  .btn:active{transform:scale(.96)}
+  .pc:active{transform:translateY(-2px) scale(.995)}
+  .fc:active{background:var(--raised)}
+  .cell:active,.tvis:active{border-color:var(--line2)}
+  .hero-cta .btn-primary{box-shadow:0 12px 44px -12px rgba(110,168,254,.5)}
+  details[open] summary{color:var(--accent)}
 `;
