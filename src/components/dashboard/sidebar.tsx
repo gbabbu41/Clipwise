@@ -503,9 +503,11 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
+      {/* Sidebar wordmark + shop plan badge — a compact centred row so the
+          wordmark doesn't float with dead space on both sides. cw-grad is on the
+          wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-grad cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-center"
+        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-center gap-2.5"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
@@ -515,7 +517,12 @@ export function Sidebar() {
           height: "64px",
         }}
       >
-        CLIPWISE
+        <span className="cw-grad">CLIPWISE</span>
+        {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-black text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 shadow-[0_2px_10px_rgba(245,158,11,0.45)] ring-1 ring-amber-200/40">
+            <Star size={10} className="fill-black" /> {shop.subscription_plan}
+          </span>
+        )}
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
