@@ -72,6 +72,17 @@ export default function LandingPage() {
     document.documentElement.classList.add("js");
     const cleanups: (() => void)[] = [];
 
+    // Size the hero to one REAL viewport. CSS viewport units (svh/vh) are
+    // unreliable in in-app browsers (the Google app's, etc.) — they under-report
+    // and leave the hero short, so the dashboard peeks and its scroll-trigger
+    // fires on load. Measured innerHeight is reliable everywhere; use it so the
+    // hero truly fills the screen and the dashboard stays below the fold.
+    const NAV_H = 58;
+    const setHeroH = () => document.documentElement.style.setProperty("--hero-h", `${Math.max(480, innerHeight - NAV_H)}px`);
+    setHeroH();
+    addEventListener("orientationchange", setHeroH);
+    cleanups.push(() => removeEventListener("orientationchange", setHeroH));
+
     // ── Lenis momentum scroll — desktop pointer only, paired with GSAP ────────
     let lenis: Lenis | null = null;
     gsap.registerPlugin(ScrollTrigger);
@@ -362,7 +373,7 @@ const CSS = `
   .nav-links{display:flex;gap:30px;font-size:13.5px;color:var(--ink2)}.nav-links a{color:var(--ink2);text-decoration:none}.nav-links a:hover{color:var(--ink)}
   .nav-cta{display:flex;gap:10px;align-items:center}
   @media(max-width:860px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
-  .hero{position:relative;text-align:center;padding:80px 0 56px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100vh - 58px);min-height:calc(100svh - 58px);display:flex;flex-direction:column;justify-content:center}
+  .hero{position:relative;text-align:center;padding:80px 0 56px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100svh - 58px);min-height:var(--hero-h,calc(100svh - 58px));display:flex;flex-direction:column;justify-content:center}
   .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
   .three-host canvas{width:100%!important;height:100%!important;display:block}
   .aurora{position:absolute;inset:-20% -10% 0;z-index:-2;filter:blur(70px);opacity:.6}
