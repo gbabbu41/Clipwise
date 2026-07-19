@@ -191,7 +191,7 @@ export default function LandingPage() {
 
       <nav>
         <div className="wide nav-in">
-          <Link href="/"><Logo size="sm" className="text-white" /></Link>
+          <Link href="/"><Logo size="sm" className="cw-grad" /></Link>
           <div className="nav-links"><a href="#features">Features</a><a href="#tour">Product</a><a href="#pricing">Pricing</a><a href="#compare">Compare</a><Link href="/shops">Find a Barber</Link></div>
           <div className="nav-cta"><Link className="btn btn-ghost btn-sm" href="/login">Log in</Link><Link className="btn btn-primary btn-sm mag" href="/signup">Get Started</Link></div>
         </div>
@@ -338,7 +338,7 @@ export default function LandingPage() {
       <footer>
         <div className="wide">
           <div className="fg">
-            <div><Logo size="sm" className="text-white" /><p style={{ marginTop: 12, maxWidth: "32ch" }}>The premium barbershop management platform. Made in Canada.</p></div>
+            <div><Logo size="sm" className="cw-grad-shine" /><p style={{ marginTop: 12, maxWidth: "32ch" }}>The premium barbershop management platform. Made in Canada.</p></div>
             <div><h5>Product</h5><a href="#features">Features</a><a href="#pricing">Pricing</a><Link href="/shops">Find a Barber</Link></div>
             <div><h5>Company</h5><Link href="/why-clipwise">Why ClipWise</Link><a href="mailto:support@clipwise.ca">Contact</a></div>
             <div><h5>Legal</h5><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link></div>
@@ -391,6 +391,10 @@ const CSS = `
   .hero h1{font-weight:700;letter-spacing:-.05em;line-height:.99;font-size:clamp(40px,8.2vw,98px);margin:26px auto 0;max-width:15ch;overflow-wrap:break-word;color:var(--ink)}
   .hero h1 .ln{display:block}.hero h1 .ln>span{display:inline-block}
   .hero h1 .grad{background:linear-gradient(100deg,#fff,#a9c6ff 55%,#c9b3ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  /* logo gradient trial — static (nav) + animated shimmer (footer). -webkit-text-fill-color beats the logo's hardcoded white. */
+  .cw-grad{background:linear-gradient(100deg,#fff,#a9c6ff 55%,#c9b3ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .cw-grad-shine{background:linear-gradient(100deg,#fff 18%,#a9c6ff 40%,#c9b3ff 55%,#fff 78%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:cwshine 5.5s ease-in-out infinite}
+  @keyframes cwshine{0%{background-position:120% 0}100%{background-position:-40% 0}}
   .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0}
   .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
   .hero .fine{color:var(--ink3);font-size:13px;margin-top:16px}
