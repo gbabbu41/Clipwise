@@ -496,7 +496,7 @@ const CSS = `
   /* ── phone polish (most visitors) ── */
   @media(max-width:640px){
     .wrap,.wide{padding:0 18px}
-    .nav-in{gap:8px}.nav-cta{gap:7px}.nav-cta .btn-sm{padding:8px 13px;font-size:13px}
+    .nav-cta .btn-primary{display:none}
     section{padding:60px 0}
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
