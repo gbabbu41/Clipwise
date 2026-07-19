@@ -136,17 +136,21 @@ export default function LandingPage() {
         gsap.from(kids, { opacity: 0, y: 28, scale: 0.94, duration: 0.85, ease: "power3.out", stagger: 0.09, scrollTrigger: { trigger: el, start: "top 88%" } });
       });
 
-      // stronger zoom-in for the product-tour rows
+      // product-tour rows: same pop language — rise + zoom with a slight overshoot
       gsap.utils.toArray<HTMLElement>(".rv-zoom").forEach((el) => {
-        gsap.from(el, { opacity: 0, scale: 0.88, y: 44, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%" } });
+        gsap.from(el, { opacity: 0, scale: 0.85, y: 54, duration: 1, ease: "back.out(1.2)", scrollTrigger: { trigger: el, start: "top 84%" } });
       });
 
-      // dashboard is its own screen below the hero: it zooms in from small+dim to
-      // full as you scroll down onto it (scrubbed). invalidateOnRefresh keeps it
-      // sane when iOS Safari's URL bar resizes the viewport.
-      gsap.fromTo(".stage",
-        { scale: innerWidth < 640 ? 0.9 : 0.82, y: 40, opacity: 0.3 },
-        { scale: 1, y: 0, opacity: 1, ease: "none", scrollTrigger: { trigger: ".showcase", start: "top 88%", end: "top 34%", scrub: true, invalidateOnRefresh: true } });
+      // dashboard is its own screen below the hero. It's FULLY hidden until you
+      // scroll to it (opacity 0 → no sliver peeks at the bottom of the hero, in
+      // any browser), then POPS in: rises up + zooms from small to full with a
+      // slight overshoot so it snaps toward you. Replays if you scroll back up.
+      const small = innerWidth < 640;
+      gsap.from(".stage", {
+        opacity: 0, scale: small ? 0.74 : 0.6, y: small ? 80 : 120,
+        duration: 1.1, ease: "back.out(1.4)",
+        scrollTrigger: { trigger: ".showcase", start: "top 82%", toggleActions: "play none none reverse" },
+      });
       gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
 
       // scrubbed stat counters
