@@ -37,11 +37,6 @@ const rows: [string, string | boolean, string | boolean, string | boolean][] = [
   ["Commission tracking", true, false, false],
   ["Starting price", "Free", "No public pricing", "$29.99/mo + fees"],
 ];
-const testimonials = [
-  { n: "Marcus J.", s: "Marcus’s Fades — Halifax", t: "Online booking alone saved me hours on the phone. My no-show rate dropped from 25% to under 5%." },
-  { n: "Darius K.", s: "King Cutz — Toronto", t: "POS and booking in one app is a game-changer. I used to juggle Booksy and Square. Now it’s all ClipWise." },
-  { n: "Trevor M.", s: "Fresh Fades — Moncton", t: "My clients love the loyalty points. Revenue is up 30% since switching. Worth every dollar." },
-];
 const faqs = [
   ["Is there really a free plan?", "Yes — Starter is free forever, no credit card. Pro and Premium are billed monthly with no contracts."],
   ["Do my clients need an app?", "No. They book from your link in any browser — no app, no account."],
@@ -317,13 +312,6 @@ export default function LandingPage() {
           <thead><tr><th>Feature</th><th className="us">ClipWise</th><th>Squire</th><th>Booksy</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="us">{cell(r[1])}</td><td>{cell(r[2])}</td><td>{cell(r[3])}</td></tr>)}</tbody>
         </table></div></div>
-      </section>
-
-      <section>
-        <div className="center rv"><span className="eyebrow">Proof</span><h2 className="display" style={{ marginTop: 12 }}>Loved by barbers across Canada</h2></div>
-        <div className="wide"><div className="tg rv stagger">
-          {testimonials.map((t) => <div className="tc" key={t.n}><div className="stars">★★★★★</div><p>&ldquo;{t.t}&rdquo;</p><div className="who"><span className="av">{t.n[0]}</span><div><div className="n">{t.n}</div><div className="s">{t.s}</div></div></div></div>)}
-        </div></div>
       </section>
 
       <section id="faq">
