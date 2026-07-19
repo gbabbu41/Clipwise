@@ -260,6 +260,7 @@ export default function LandingPage() {
               <h5>Checkout</h5>
               <div className="tcard"><div className="row"><span>Skin fade + beard</span><b className="mono">$45.00</b></div></div>
               <div className="tcard"><div className="row"><span>HST (15%)</span><b className="mono">$6.75</b></div></div>
+              <div className="tiplbl">Add a tip</div>
               <div className="tiprow"><div className="slot">18%</div><div className="slot sel">20% · $9</div><div className="slot">25%</div></div>
               <div className="tcard sel"><div className="row"><b>Total</b><b className="mono">$60.75</b></div></div>
             </div>
@@ -438,7 +439,8 @@ const CSS = `
   .slotgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .slot{border:1px solid var(--line);border-radius:11px;padding:13px 6px;text-align:center;font-weight:650;font-size:14px;color:var(--ink)}
   .slot.sel{background:var(--ink);color:#000;border-color:var(--ink)}.slot.off{color:var(--ink3);font-weight:500}
-  .tiprow{display:flex;gap:8px;margin:10px 0}
+  .tiplbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;margin:14px 0 0}
+  .tiprow{display:flex;gap:8px;margin:8px 0 0}
   .tcard{background:var(--raised);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:10px}
   .tcard.sel{background:var(--ink);color:#000;border-color:var(--ink)}
   .row{display:flex;align-items:center;gap:10px}.mono{margin-left:auto;font-family:var(--mono)}
