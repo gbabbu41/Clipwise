@@ -38,7 +38,7 @@ type BookingSettings = {
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
-  advance_days: 30, cancellation_hours: 24,
+  advance_days: 15, cancellation_hours: 24,
   no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, auto_confirm: false,
   slot_interval_minutes: 30,
   tips_enabled: true, tax_enabled: false, tax_rate: 0, tax_label: "HST", tax_number: "",
@@ -475,9 +475,9 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>Booking Settings</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div>
-              <Input label="Advance Booking Limit (days)" type="number" value={String(booking.advance_days)}
-                onChange={e => setBooking(p => ({ ...p, advance_days: Number(e.target.value) }))} />
-              <p className="text-xs text-[#777] mt-1">How far in advance clients can book</p>
+              <Input label="Advance Booking Limit (days)" type="number" min={1} max={60} value={String(booking.advance_days)}
+                onChange={e => setBooking(p => ({ ...p, advance_days: Math.min(60, Math.max(1, Number(e.target.value) || 1)) }))} />
+              <p className="text-xs text-[#777] mt-1">How far in advance clients can book (max 60 days)</p>
             </div>
             <div>
               <Input label="Cancellation Notice Required (hours)" type="number" value={String(booking.cancellation_hours)}

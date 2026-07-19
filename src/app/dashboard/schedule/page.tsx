@@ -156,7 +156,7 @@ function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barb
 // Surface + edit the customer booking window (shops.booking_settings.advance_days).
 function BookingWindowCard() {
   const { shop, refreshShop } = useAuth();
-  const current = Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 30);
+  const current = Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15);
   const [days, setDays] = useState(current);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -181,8 +181,8 @@ function BookingWindowCard() {
       </div>
       <p className="text-xs text-[#666] mt-1">How far ahead customers can book online.</p>
       <div className="mt-3 flex items-center gap-2">
-        <input type="number" min={1} max={365} value={days}
-          onChange={e => setDays(Math.max(1, Math.min(365, Number(e.target.value) || 0)))}
+        <input type="number" min={1} max={60} value={days}
+          onChange={e => setDays(Math.max(1, Math.min(60, Number(e.target.value) || 0)))}
           className="w-20 rounded-lg bg-[#141414] border border-[#1e1e1e] text-white text-sm px-3 py-2 focus:outline-none focus:border-white" />
         <span className="text-sm text-[#aaa]">days in advance</span>
         <button onClick={save} disabled={!dirty || saving}

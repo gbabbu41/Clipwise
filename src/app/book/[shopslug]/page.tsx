@@ -943,7 +943,7 @@ export default function BookingPage() {
   // days ahead — this was hardcoded to 180 and ignored the setting, letting
   // customers book far beyond the shop's window.
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const advanceDays = Math.min(365, Math.max(1, Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 30)));
+  const advanceDays = Math.min(60, Math.max(1, Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
   const calendarDays = Array.from({ length: advanceDays + 1 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
     .filter(d => isWithin6Months(d));
 
