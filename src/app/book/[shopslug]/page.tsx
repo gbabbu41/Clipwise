@@ -938,9 +938,13 @@ export default function BookingPage() {
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category)))];
   const filteredServices = services.filter((s) => s.is_active && (categoryFilter === "All" || s.category === categoryFilter));
 
-  // Calendar: 6 months from today (was 21 days)
+  // Calendar window = the shop's "Advance Booking Limit" (booking_settings
+  // .advance_days, default 30). Customers can book from today up to that many
+  // days ahead — this was hardcoded to 180 and ignored the setting, letting
+  // customers book far beyond the shop's window.
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const calendarDays = Array.from({ length: 180 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
+  const advanceDays = Math.min(365, Math.max(1, Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 30)));
+  const calendarDays = Array.from({ length: advanceDays + 1 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
     .filter(d => isWithin6Months(d));
 
   // Multi-service: slots are `bookingInterval` min apart. We need enough
