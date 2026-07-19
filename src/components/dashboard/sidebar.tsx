@@ -519,8 +519,8 @@ export function Sidebar() {
       >
         <span className="cw-grad">CLIPWISE</span>
         {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-black text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 shadow-[0_2px_10px_rgba(245,158,11,0.45)] ring-1 ring-amber-200/40">
-            <Star size={10} className="fill-black" /> {shop.subscription_plan}
+          <span className="inline-flex items-center rounded-full bg-white/[0.06] border border-white/10 text-[#a9c6ff] text-[10px] font-bold uppercase tracking-[0.09em] px-2 py-0.5">
+            {shop.subscription_plan}
           </span>
         )}
       </div>
