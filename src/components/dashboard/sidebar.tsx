@@ -511,7 +511,7 @@ export function Sidebar() {
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
-          fontSize: "28px",
+          fontSize: "26px",
           letterSpacing: "-0.02em",
           color: "#ffffff",
           height: "64px",
