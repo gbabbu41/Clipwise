@@ -61,14 +61,23 @@ export default function LandingPage() {
 
   useEffect(() => {
     const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+    // Touch/phone: skip momentum-scroll hijacking entirely. Lenis on mobile
+    // fights native scroll and (with scroll-restoration) is what made the page
+    // "bounce" to a lower section on load. Native touch scroll is smoother here.
+    const isTouch = matchMedia("(pointer:coarse)").matches || innerWidth < 900;
+    // Always start at the very top — stop the browser restoring a prior scroll
+    // position on refresh (the on-load "jump down" on phones).
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
     document.documentElement.classList.add("js");
     const cleanups: (() => void)[] = [];
 
-    // ── Lenis momentum scroll (paired with GSAP) ─────────────────────────────
+    // ── Lenis momentum scroll — desktop pointer only, paired with GSAP ────────
     let lenis: Lenis | null = null;
     gsap.registerPlugin(ScrollTrigger);
-    if (!reduce) {
+    if (!reduce && !isTouch) {
       lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+      lenis.scrollTo(0, { immediate: true });          // never inherit a restored offset
       lenis.on("scroll", ScrollTrigger.update);
       const raf = (t: number) => lenis!.raf(t * 1000);
       gsap.ticker.add(raf);
@@ -132,9 +141,10 @@ export default function LandingPage() {
         gsap.from(el, { opacity: 0, scale: 0.88, y: 44, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%" } });
       });
 
-      // hero dashboard: zooms in as you scroll (scrubbed) + depth parallax — universal
-      gsap.to(".stage", { scale: innerWidth < 640 ? 1.03 : 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
-      gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+      // hero dashboard: zooms in as you scroll (scrubbed) + depth parallax — universal.
+      // invalidateOnRefresh keeps it sane when iOS Safari's URL bar resizes the viewport.
+      gsap.to(".stage", { scale: innerWidth < 640 ? 1.03 : 1.07, yPercent: -6, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
+      gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
 
       // scrubbed stat counters
       gsap.utils.toArray<HTMLElement>("[data-count]").forEach((el) => {
@@ -144,7 +154,15 @@ export default function LandingPage() {
       });
     });
     cleanups.push(() => ctx.revert());
-    ScrollTrigger.refresh();
+
+    // Refresh AFTER layout settles — running it synchronously (before fonts,
+    // the 3D canvas and hydration finish) computes wrong trigger positions and
+    // can shove the scroll down. Two rAFs → post-paint; also re-run on full load.
+    let raf1 = 0, raf2 = 0;
+    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => { window.scrollTo(0, 0); ScrollTrigger.refresh(); }); });
+    const onLoad = () => ScrollTrigger.refresh();
+    addEventListener("load", onLoad);
+    cleanups.push(() => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); removeEventListener("load", onLoad); });
 
     return () => { cleanups.forEach((f) => { try { f(); } catch { /* noop */ } }); document.documentElement.classList.remove("js"); };
   }, []);
@@ -462,8 +480,10 @@ const CSS = `
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
     .lead{font-size:15.5px}
-    .hero{padding:88px 0 0}
-    .three-host{opacity:.5}
+    .hero{padding:80px 0 0}
+    .three-host{opacity:.34}
+    .aurora{opacity:.42;filter:blur(56px)}
+    .grain{opacity:.18}
     .kicker{font-size:11.5px;padding:6px 12px}
     .hero h1{font-size:clamp(32px,10vw,44px);letter-spacing:-.03em;margin-top:20px;line-height:1.02}
     .hero .lead{margin-top:18px;font-size:16px}
