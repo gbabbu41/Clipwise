@@ -366,7 +366,7 @@ const CSS = `
   .nav-in{height:58px;display:flex;align-items:center;justify-content:space-between}
   .nav-links{display:flex;gap:30px;font-size:13.5px;color:var(--ink2)}.nav-links a{color:var(--ink2);text-decoration:none}.nav-links a:hover{color:var(--ink)}
   .nav-cta{display:flex;gap:10px;align-items:center}
-  @media(max-width:860px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
+  @media(max-width:860px){.nav-links{display:none}}
   .hero{position:relative;text-align:center;padding:56px 0 92px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100svh - 58px);min-height:var(--hero-h,calc(100svh - 58px));display:flex;flex-direction:column;justify-content:center}
   .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
   .three-host canvas{width:100%!important;height:100%!important;display:block}
@@ -496,6 +496,7 @@ const CSS = `
   /* ── phone polish (most visitors) ── */
   @media(max-width:640px){
     .wrap,.wide{padding:0 18px}
+    .nav-in{gap:8px}.nav-cta{gap:7px}.nav-cta .btn-sm{padding:8px 13px;font-size:13px}
     section{padding:60px 0}
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
