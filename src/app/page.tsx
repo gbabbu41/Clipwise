@@ -136,9 +136,9 @@ export default function LandingPage() {
         gsap.from(kids, { opacity: 0, y: 28, scale: 0.94, duration: 0.85, ease: "power3.out", stagger: 0.09, scrollTrigger: { trigger: el, start: "top 88%" } });
       });
 
-      // product-tour rows: same pop language — rise + zoom with a slight overshoot
+      // product-tour rows: same gentle rise + zoom
       gsap.utils.toArray<HTMLElement>(".rv-zoom").forEach((el) => {
-        gsap.from(el, { opacity: 0, scale: 0.85, y: 54, duration: 1, ease: "back.out(1.2)", scrollTrigger: { trigger: el, start: "top 84%" } });
+        gsap.from(el, { opacity: 0, scale: 0.9, y: 44, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 84%" } });
       });
 
       // dashboard is its own screen below the hero. It's FULLY hidden until you
@@ -147,8 +147,8 @@ export default function LandingPage() {
       // slight overshoot so it snaps toward you. Replays if you scroll back up.
       const small = innerWidth < 640;
       gsap.from(".stage", {
-        opacity: 0, scale: small ? 0.74 : 0.6, y: small ? 80 : 120,
-        duration: 1.1, ease: "back.out(1.4)",
+        opacity: 0, scale: small ? 0.92 : 0.86, y: small ? 42 : 56,
+        duration: 1.1, ease: "power3.out",
         scrollTrigger: { trigger: ".showcase", start: "top 82%", toggleActions: "play none none reverse" },
       });
       gsap.to(".aurora", { yPercent: 16, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true, invalidateOnRefresh: true } });
