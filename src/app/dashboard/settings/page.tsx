@@ -57,7 +57,7 @@ const PLAN_INFO: PlanInfo[] = [
     features: ["Up to 4 barbers", "Online booking + payments", "Advanced analytics", "SMS reminders", "Stripe Connect payouts"],
   },
   {
-    key: "premium", name: "Premium", priceLabel: "$49", priceSuffix: "/month",
+    key: "premium", name: "Premium", priceLabel: "$79", priceSuffix: "/month",
     features: ["Up to 9 barbers", "Everything in Pro", "Full POS via Stripe Terminal", "Inventory management", "Staff management", "Full analytics & reports", "Dedicated support"],
   },
 ];

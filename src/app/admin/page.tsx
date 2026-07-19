@@ -96,7 +96,7 @@ export default function AdminPage() {
   const [platformRevenue, setPlatformRevenue] = useState(0);
   const [totalAppts, setTotalAppts] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [planPrices, setPlanPrices] = useState<Record<string, number>>({ starter: 0, pro: 23, premium: 49, business: 199 });
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>({ starter: 0, pro: 23, premium: 79, business: 199 });
   const [rejectModal, setRejectModal] = useState<ShopWithOwner | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);

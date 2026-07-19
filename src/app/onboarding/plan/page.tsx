@@ -40,8 +40,8 @@ const FALLBACK_PLANS: PlanRow[] = [
     highlights: ["1 barber", "Online booking page", "Appointment management", "SMS reminders", "Basic analytics"] },
   { id: "pro", name: "Pro", price_cents: 2300, barber_limit: 4, features: ["payments", "loyalty"], badge: "Most Popular", description: null, is_active: true, sort_order: 1,
     highlights: ["Up to 4 barbers", "Online booking + customer payments", "Loyalty program", "Advanced analytics", "Stripe Connect for payouts", "Instant approval"] },
-  { id: "premium", name: "Premium", price_cents: 4900, barber_limit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"], badge: "Full Suite", description: null, is_active: true, sort_order: 2,
-    highlights: ["Up to 9 barbers", "Everything in Pro", "Full POS", "Inventory management", "Staff management & payroll", "Full analytics & reports", "Dedicated support"] },
+  { id: "premium", name: "Premium", price_cents: 7900, barber_limit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], badge: "Full Suite", description: null, is_active: true, sort_order: 2,
+    highlights: ["Up to 9 barbers", "Everything in Pro", "Full POS", "Inventory management", "Staff management & payroll", "Multiple locations", "Full analytics & reports", "Dedicated support"] },
 ];
 
 function PlanPageInner() {
