@@ -31,7 +31,7 @@ const plans = [
 // honest parity (competitors have them — Squire gates loyalty/inventory behind
 // a higher tier). See the dated disclaimer under the table.
 const rows: [string, string | boolean, string | boolean, string | boolean][] = [
-  ["Client booking fees", "$0 — ever", "$0.99 + fees", "Up to 30% (Boost)"],
+  ["Client booking fees", "$0", "$0.99 + fees", "Up to 30% (Boost)"],
   ["No competitor marketplace", true, false, false],
   ["Free forever plan", true, false, false],
   ["Built-in POS", true, true, true],
