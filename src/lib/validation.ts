@@ -103,9 +103,9 @@ export function time24ToMinutes(t: string): number {
 // Until hydrated (or if a fetch fails) we fall back to these defaults, which
 // mirror the historical hardcoded tiers — so gating is always safe, never open.
 
-export type PlanFeature = "payments" | "loyalty" | "pos" | "inventory" | "staff_portal" | "commission";
+export type PlanFeature = "payments" | "loyalty" | "pos" | "inventory" | "staff_portal" | "commission" | "multi_location";
 
-export const ALL_PLAN_FEATURES: PlanFeature[] = ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"];
+export const ALL_PLAN_FEATURES: PlanFeature[] = ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"];
 
 export interface PlanConfigEntry {
   barberLimit: number; // Infinity = unlimited
@@ -115,8 +115,8 @@ export interface PlanConfigEntry {
 const DEFAULT_PLAN_CONFIG: Record<string, PlanConfigEntry> = {
   starter: { barberLimit: 1, features: [] },
   pro: { barberLimit: 4, features: ["payments", "loyalty"] },
-  premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"] },
-  business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission"] },
+  premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"] },
+  business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"] },
 };
 
 let planConfig: Record<string, PlanConfigEntry> = { ...DEFAULT_PLAN_CONFIG };

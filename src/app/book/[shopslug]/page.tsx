@@ -172,6 +172,7 @@ export default function BookingPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [paidThankYou, setPaidThankYou] = useState(false); // post-booking payment-link return
   const [bookingPending, setBookingPending] = useState(false); // in-person booking awaiting shop approval
+  const [freshStart, setFreshStart] = useState(false); // "Book another" clicked → ignore the paid=1 URL so it doesn't re-show the payment spinner
   const [bookingId, setBookingId] = useState<string | null>(null);
   // Booking summary returned by /booking-finalize after the Stripe round-trip —
   // the in-memory selections are wiped by the redirect, so the success screen
@@ -1090,7 +1091,7 @@ export default function BookingPage() {
   // A payment return (online booking pay, or an owner-sent payment link) must
   // always show its result — even when online booking is paused — so the customer
   // sees "Payment received", not the "not accepting bookings" screen.
-  const isPaymentReturn = !!searchParams.get("paid_appt") || searchParams.get("paid") === "1";
+  const isPaymentReturn = (!!searchParams.get("paid_appt") || searchParams.get("paid") === "1") && !freshStart;
 
   // ── Emergency pause: owner flipped the kill switch → stop taking bookings ──
   if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused && !confirmed && !isPaymentReturn) {
@@ -1189,7 +1190,7 @@ export default function BookingPage() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>

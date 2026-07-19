@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
+import { effectivePlan, planHasFeature, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,8 @@ export default function SettingsPage() {
   // possible payment method — the toggle is locked ON for them (turning it off
   // would leave customers with no way to pay, bricking the booking page).
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
+  // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
+  const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
 
   // Account/password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -269,6 +271,7 @@ export default function SettingsPage() {
 
   const addLocation = async () => {
     if (!newLocation.name.trim() || !authProfile) return;
+    if (!canMultiLocation) { showToast("Multiple locations are available on the Premium plan."); setShowAddLocation(false); return; }
     setAddingLocation(true);
     const slug = newLocation.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
     const { error } = await supabase.from("shops").insert({
@@ -701,9 +704,15 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm text-[#777]">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
             </div>
-            <Button size="sm" onClick={() => setShowAddLocation(true)}>
-              <Plus size={14} /> Add Location
-            </Button>
+            {canMultiLocation ? (
+              <Button size="sm" onClick={() => setShowAddLocation(true)}>
+                <Plus size={14} /> Add Location
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => setTab("subscription")}>
+                <Plus size={14} /> Add Location · Premium
+              </Button>
+            )}
           </div>
           <div className="space-y-3">
             {shops.map(s => (

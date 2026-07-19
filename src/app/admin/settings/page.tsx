@@ -39,6 +39,7 @@ const FEATURE_LABELS: Record<PlanFeature, string> = {
   inventory: "Inventory",
   staff_portal: "Staff portal",
   commission: "Commission & payroll",
+  multi_location: "Multiple locations",
 };
 
 type EditablePlan = PlanRow & { __isNew?: boolean };
