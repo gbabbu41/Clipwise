@@ -95,8 +95,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (appt.barber_id && await barberHasConflict(appt.barber_id, body.date, startMin, startMin + duration, appt.id)) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
-    await supabaseAdmin.from("appointments").update({ date: body.date, time_slot: body.time_slot, status: "pending" }).eq("id", id);
-    return NextResponse.json({ ok: true, date: body.date, time_slot: body.time_slot, status: "pending" });
+    // Preserve the booking's state — a confirmed (card-held) booking stays
+    // confirmed after a reschedule, so it does NOT go back to the owner as a new
+    // request to approve. The card hold / payment_intent is untouched and still
+    // applies to the new time. Only a still-pending booking stays pending.
+    await supabaseAdmin.from("appointments").update({ date: body.date, time_slot: body.time_slot }).eq("id", id);
+    // Informational notice to owner + barber that the time moved (NOT a re-approval).
+    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
+    let barberUserId: string | null = null;
+    if (appt.barber_id) {
+      const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
+      barberUserId = (b as { user_id?: string } | null)?.user_id ?? null;
+    }
+    const msg = `${appt.client_name} rescheduled to ${body.date} at ${body.time_slot} (was ${appt.date} at ${appt.time_slot})`;
+    const targets = Array.from(new Set([shopRow?.owner_id, barberUserId].filter(Boolean))) as string[];
+    for (const uid of targets) {
+      supabaseAdmin.from("notifications").insert({
+        user_id: uid, title: "Appointment Rescheduled", message: msg, type: "booking", is_read: false,
+      }).then(null, () => null);
+    }
+    return NextResponse.json({ ok: true, date: body.date, time_slot: body.time_slot, status: appt.status });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

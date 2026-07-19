@@ -130,12 +130,16 @@ export async function POST(request: NextRequest) {
   const taxAmtCents = taxCents(serviceNetCents, taxRatePct);
   const appointmentTotalCents = serviceNetCents + taxAmtCents;   // stored total (excl. tip)
 
+  // Tip applies to any online path now: a HOLD authorizes service+tax+tip (so it
+  // captures on completion), a SAVED card stores the tip and charges it at
+  // completion, an immediate charge takes it now. Stored in metadata →
+  // booking-finalize writes appointments.tip_amount → capture-appointment uses it.
   let tipAmtCents = 0;
-  if (tipsEnabled && !booking.hold && !booking.saveCard) {
+  if (tipsEnabled) {
     tipAmtCents = Math.max(0, Math.round(Number(booking.tip_amount ?? 0) * 100));
     tipAmtCents = Math.min(tipAmtCents, serviceNetCents);        // cap at 100% of service (typo/abuse guard)
   }
-  // Save-card charges nothing now; hold authorizes service+tax; immediate charges service+tax+tip.
+  // Save-card charges nothing now; hold authorizes service+tax+tip; immediate charges service+tax+tip.
   const chargeNowCents = booking.saveCard ? 0 : appointmentTotalCents + tipAmtCents;
 
   // Shared booking details — written to the Checkout session metadata so

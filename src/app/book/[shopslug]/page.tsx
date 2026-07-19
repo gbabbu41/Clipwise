@@ -187,6 +187,9 @@ export default function BookingPage() {
    *  and in-person (`shop.allow_pay_in_person`) are options *and* there is
    *  money to take. Otherwise we route silently down the only viable path. */
   const [payMethodChoice, setPayMethodChoice] = useState<"online" | "in_person" | null>(null);
+  // Optional tip the customer adds at booking (online payment only). Percent of
+  // the discounted service subtotal; charged with the card on completion.
+  const [tipPercent, setTipPercent] = useState(0);
   const [showPayChoiceModal, setShowPayChoiceModal] = useState(false);
   /** The customer's acceptance of the no-show charge disclaimer. Required
    *  before any card is taken (held ≤7 days, or saved >7 days) when the shop
@@ -716,6 +719,7 @@ export default function BookingPage() {
             service_names: servicesPicked.length > 1 ? servicesPicked.map(s => s.name).join(" + ") : "",
             hold: useHold,
             saveCard: useSaveCard,
+            tip_amount: tipAmount, // optional tip; server caps + only applies online
           }),
         });
         const pay = await res.json();
@@ -909,6 +913,12 @@ export default function BookingPage() {
   const taxAmount = taxEnabled ? Math.round(total * taxRatePct) / 100 : 0;
   const taxLabel = (taxCfg?.tax_label || "Tax").trim();
   const grandTotal = total + taxAmount;
+
+  // ── Optional tip (online payment only) — presets off the discounted service
+  // subtotal (pre-tax). Server recomputes authoritatively at checkout. ────────
+  const tipsEnabledShop = ((shop?.booking_settings ?? {}) as { tips_enabled?: boolean }).tips_enabled !== false;
+  const tipAmount = tipPercent > 0 ? Math.round(total * tipPercent) / 100 : 0;
+  const grandTotalWithTip = grandTotal + tipAmount;
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
@@ -1779,6 +1789,30 @@ export default function BookingPage() {
                 </div>
               </div>
             </div>
+            {/* Optional tip — online payment only. Charged with the card after the visit. */}
+            {canPayOnlineNow && tipsEnabledShop && (
+              <div className="bg-black border border-[#1e1e1e] rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-white">Add a tip</span>
+                  <span className="text-xs text-[#777]">Optional · online payment</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[0, 15, 18, 20].map((p) => (
+                    <button key={p} type="button" onClick={() => setTipPercent(p)}
+                      className={cn("py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95",
+                        tipPercent === p ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      {p === 0 ? "No tip" : `${p}%`}
+                    </button>
+                  ))}
+                </div>
+                {tipAmount > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[#1e1e1e] space-y-1">
+                    <div className="flex justify-between text-sm"><span className="text-[#777]">Tip</span><span className="text-white">{formatCurrency(tipAmount)}</span></div>
+                    <div className="flex justify-between text-sm font-bold"><span className="text-white">Total with tip</span><span className="text-white">{formatCurrency(grandTotalWithTip)}</span></div>
+                  </div>
+                )}
+              </div>
+            )}
             {canPayInPersonNow
               ? <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
               : <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>

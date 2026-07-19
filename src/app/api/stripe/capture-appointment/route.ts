@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt, error: apptErr } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, total_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, total_amount, tip_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .eq("id", appointment_id).maybeSingle();
   if (apptErr || !appt) {
     console.warn("[capture-appointment] appointment NOT FOUND", { appointment_id, apptErr: apptErr?.message });
@@ -113,10 +113,10 @@ export async function POST(request: NextRequest) {
     if (isSaved) {
       // Saved card (>7-day booking): nothing is held, so create + confirm a
       // fresh PaymentIntent off-session against the stored card. For a no-show
-      // charge the fee; for completion charge the full total.
+      // charge the fee; for completion charge the full total + any up-front tip.
       const chargeCents = feeCents > 0
         ? feeCents
-        : Math.round((appt.total_amount ?? 0) * 100);
+        : Math.round(((appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) * 100);
       if (chargeCents <= 0) {
         // Nothing to charge (e.g. $0 service) — just mark it settled. paid_at
         // is best-effort so a lagging migration can't fail the request.
@@ -166,13 +166,16 @@ export async function POST(request: NextRequest) {
     // Record a transaction row so the charge shows up in Payments / revenue /
     // analytics (appointment payment_status alone isn't in the transactions
     // ledger). Fire-and-forget — never block the charge on bookkeeping.
+    // Split the tip out of the captured amount for the ledger (completion only;
+    // no tip is ever collected on a no-show fee).
+    const tipDollars = reason === "no_show" ? 0 : Math.min(Math.max(0, Number(appt.tip_amount ?? 0)), amountReceived / 100);
     await supabaseAdmin.from("transactions").insert({
       shop_id: appt.shop_id,
       barber_id: appt.barber_id || null,
       client_name: appt.client_name || null,
       service_name: reason === "no_show" ? `No-show fee — ${svc?.name ?? "appointment"}` : (svc?.name ?? "Service"),
-      amount: amountReceived / 100,
-      tip: 0,
+      amount: amountReceived / 100 - tipDollars,
+      tip: tipDollars,
       payment_method: "card",
       type: "service",
       appointment_id,
@@ -204,6 +207,14 @@ export async function POST(request: NextRequest) {
       sendSmsBestEffort(
         appt.client_phone,
         `You missed your appointment on ${prettyDate(appt.date)}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
+        shop.name,
+      );
+    } else if (Number(appt.tip_amount ?? 0) <= 0) {
+      // Post-visit tip nudge — only when the customer didn't already tip at
+      // booking, so we never double-ask. Best-effort SMS with the tip link.
+      sendSmsBestEffort(
+        appt.client_phone,
+        `Thanks for visiting ${shop.name}! If you'd like to leave a tip for your barber, tap here: ${baseUrl}/tip/${appointment_id}`,
         shop.name,
       );
     }
