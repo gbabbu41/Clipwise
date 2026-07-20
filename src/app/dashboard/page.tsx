@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
-  Calendar, DollarSign, Users, Star, Plus, X,
+  Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
   ChevronRight, AlertCircle, TrendingUp, UserX, Bell,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -123,6 +123,8 @@ function currentWeekDays(): Date[] {
 }
 // Hour-gutter label for the week grid ("9a" / "12p" / "5p").
 const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
+// "Jul 20" pill label for a YYYY-MM-DD date (vs the raw ISO string).
+const pillDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 
 const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
@@ -513,28 +515,31 @@ export default function DashboardPage() {
 
       {/* Date Filter — shown on every viewport. */}
       <div className="flex flex-wrap gap-2 mb-6 items-center relative">
-        <select
-          value={dateFilter}
-          onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
-          className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-black"
-        >
-          {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
-            // "Custom Range" was dual date inputs — replaced by the
-            // clickable calendar pill below for a single picked date.
-            .filter(([k]) => k !== "custom")
-            .map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <div className="relative">
+          <select
+            value={dateFilter}
+            onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
+            className="appearance-none bg-[#141414] border border-[#1e1e1e] rounded-xl pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-white/40"
+          >
+            {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
+              // "Custom Range" was dual date inputs — replaced by the
+              // clickable calendar pill below for a single picked date.
+              .filter(([k]) => k !== "custom")
+              .map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <ChevronDown size={15} className="text-[#777] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
         {/* Clickable date pill — opens a calendar popover. Collapses to a
             single date when start === end (Today, Yesterday, a picked day);
-            shows the range with an em-dash otherwise. */}
+            shows the range with an em-dash otherwise. Formatted "Jul 20". */}
         <button
           type="button"
           onClick={() => setShowDatePicker(s => !s)}
-          className="text-xs text-[#777] ml-1 px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-gray-400 hover:text-white transition-colors"
+          className="text-xs text-[#777] px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-white/40 hover:text-white transition-colors"
         >
           {filterDateRange[0] === filterDateRange[1]
-            ? filterDateRange[0]
-            : `${filterDateRange[0]} — ${filterDateRange[1]}`}
+            ? pillDate(filterDateRange[0])
+            : `${pillDate(filterDateRange[0])} — ${pillDate(filterDateRange[1])}`}
         </button>
         {showDatePicker && (
           <>
