@@ -61,7 +61,7 @@ export function StatsCarousel({
   const goTo = (i: number) => { const el = ref.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-[#666]">No data yet</div>;
-  const card = "bg-[#141414] border border-[#1e1e1e] rounded-2xl p-4 h-full flex flex-col";
+  const card = "bg-[#141414] border border-[#1e1e1e] rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
   // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
   // — so tapping a bar shows its value without the popup covering / blocking the
   // neighbouring bars. Shared by every chart so the behaviour is global.
@@ -77,10 +77,10 @@ export function StatsCarousel({
     // 1 — Revenue (area)
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Revenue · Today</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · Today</p>
         <span className="text-[11px] text-[#555] whitespace-nowrap">‹ swipe ›</span>
       </div>
-      <p className="text-4xl font-extrabold text-white font-mono tracking-tight mt-1 leading-none">{formatCurrency(revenue)}</p>
+      <p className="text-[34px] font-bold text-white font-mono tracking-[-0.02em] mt-1.5 leading-none">{formatCurrency(revenue)}</p>
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
@@ -107,8 +107,8 @@ export function StatsCarousel({
 
     // 2 — Bookings (bars)
     <div key="bk" className={card}>
-      <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Bookings</p>
-      <p className="text-4xl font-extrabold text-white font-mono tracking-tight mt-1 leading-none">{totalBookings}</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Bookings</p>
+      <p className="text-[34px] font-bold text-white font-mono tracking-[-0.02em] mt-1.5 leading-none">{totalBookings}</p>
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `${completed.length} completed` : "No bookings yet"}
       </p>
@@ -127,7 +127,7 @@ export function StatsCarousel({
 
     // 3 — Top barbers (horizontal bars)
     <div key="tb" className={card}>
-      <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Top barbers · revenue</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Top barbers · revenue</p>
       <div className="flex-1 min-h-[112px] mt-2">
         {revenueByBarber.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -144,7 +144,7 @@ export function StatsCarousel({
 
     // 4 — Status mix (donut)
     <div key="st" className={card}>
-      <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Booking status</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Booking status</p>
       <div className="flex-1 min-h-[112px] mt-2 flex items-center">
         {statusMix.length > 0 ? (
           <>
@@ -174,7 +174,7 @@ export function StatsCarousel({
   ];
 
   return (
-    <div>
+    <div className="mb-3">
       <div ref={ref} onScroll={onScroll}
         className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {slides.map((s, i) => (
@@ -184,7 +184,7 @@ export function StatsCarousel({
       <div className="flex justify-center gap-1.5 mt-2">
         {slides.map((_, i) => (
           <button key={i} type="button" onClick={() => goTo(i)} aria-label={`Slide ${i + 1}`}
-            className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-5 bg-accent" : "w-1.5 bg-[#2a2a2a]")} />
+            className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-4 bg-accent" : "w-1.5 bg-[#262626]")} />
         ))}
       </div>
     </div>

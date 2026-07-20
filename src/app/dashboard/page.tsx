@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
-  ChevronRight, AlertCircle, TrendingUp, UserX, Bell,
+  ChevronRight, AlertCircle, TrendingUp, UserX, Bell, Banknote,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -475,73 +475,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Header — greeting on the left, control cluster on the right:
-          plan pill + bell + avatar. Bell + avatar are mobile-hidden because
-          the mobile top bar (sidebar component) already shows them; on
-          desktop they belong here so they're never hidden when the screen
-          is maxed. */}
-      <div className="flex items-start justify-between gap-3 mb-6">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-2xl font-bold text-white uppercase tracking-wide truncate">{shop?.name ?? "Dashboard"}</h1>
-            {/* Plan badge moved to the sidebar wordmark (next to CLIPWISE). */}
-          </div>
-          <p className="text-sm text-[#777] mt-0.5 truncate">
+      {/* Header — shop title + bell + profile on one row (preview layout). */}
+      <div className="cwd-hdr">
+        <div className="min-w-0">
+          <h1 className="truncate">{shop?.name ?? "Dashboard"}</h1>
+          <p className="cwd-sub truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-          {/* Desktop-only bell + avatar — only at lg+, where the floating
-              chrome pill is hidden (tablets/phones get it from the chrome). */}
-          <Link
-            href="/dashboard/notifications"
-            aria-label="Notifications"
-            className="inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
-          >
-            <Bell size={15} />
-            {notifications.filter(n => !n.is_read).length > 0 && (
-              <span className="absolute top-1 right-1 w-[7px] h-[7px] bg-white rounded-full border-2 border-black" />
-            )}
+        <div className="cwd-cluster">
+          <Link href="/dashboard/notifications" aria-label="Notifications" className="cwd-icobtn">
+            <Bell size={17} />
+            {notifications.filter(n => !n.is_read).length > 0 && <span className="cwd-dot" />}
           </Link>
-          <Link
-            href="/dashboard/settings"
-            aria-label="Account"
-            className="inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
-          >
+          <Link href="/dashboard/settings" aria-label="Account" className="cwd-avatar">
             <AvatarImage src={ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
               fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
           </Link>
         </div>
       </div>
 
-      {/* Date Filter — shown on every viewport. */}
-      <div className="flex flex-wrap gap-2 mb-6 items-center relative">
+      {/* Date filter — compact dropdown (sizes to the selected label) + pill */}
+      <div className="cwd-filter">
         <div className="relative">
-          {/* Compact custom dropdown — sizes to the SELECTED label (a native
-              <select> stretches to its widest option, e.g. "Last 6 Months"). */}
-          <button
-            type="button"
-            onClick={() => setFilterMenuOpen(o => !o)}
-            className="inline-flex items-center gap-1.5 bg-[#141414] border border-[#1e1e1e] rounded-xl pl-3 pr-2 py-2 text-sm text-white hover:border-white/40 transition-colors"
-          >
+          <button type="button" onClick={() => setFilterMenuOpen(o => !o)} className="cwd-select">
             {DATE_FILTER_LABELS[dateFilter]}
-            <ChevronDown size={15} className="text-[#777]" />
+            <ChevronDown size={15} className="text-[#5a5a5a]" />
           </button>
           {filterMenuOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
-              <div className="absolute left-0 top-full mt-1.5 z-40 min-w-[160px] bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 shadow-2xl">
+              <div className="cwd-menu">
                 {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
-                  // "Custom Range" is set via the date pill, not this menu.
                   .filter(([k]) => k !== "custom")
                   .map(([k, v]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}
-                      className={cn("w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                        dateFilter === k ? "bg-accent-muted text-accent-soft" : "text-[#ccc] hover:bg-white/5")}
-                    >
+                    <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
+                      onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
                       {v}
                     </button>
                   ))}
@@ -549,14 +518,7 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-        {/* Clickable date pill — opens a calendar popover. Collapses to a
-            single date when start === end (Today, Yesterday, a picked day);
-            shows the range with an em-dash otherwise. Formatted "Jul 20". */}
-        <button
-          type="button"
-          onClick={() => setShowDatePicker(s => !s)}
-          className="text-xs text-[#777] px-3 py-1.5 rounded-full bg-[#141414] border border-[#1e1e1e] hover:border-white/40 hover:text-white transition-colors"
-        >
+        <button type="button" onClick={() => setShowDatePicker(s => !s)} className="cwd-pill">
           {filterDateRange[0] === filterDateRange[1]
             ? pillDate(filterDateRange[0])
             : `${pillDate(filterDateRange[0])} — ${pillDate(filterDateRange[1])}`}
@@ -582,167 +544,102 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Stats */}
+      {/* Hero + KPIs + Quick actions */}
       {loadingAppts ? (
-        <div className="mb-6 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
-          </div>
-        </div>
-      ) : (
-        (() => {
-          const newClients = appointments.filter((a) => {
-            const s = filterDateRange[0]; const e = filterDateRange[1];
-            return a.created_at.slice(0, 10) >= s && a.created_at.slice(0, 10) <= e;
-          }).length;
-          const hasAppts = appointments.length > 0;
-          const hasCompleted = completed.length > 0;
-          return (
-            <div className="mb-6 space-y-3">
-              {/* Swipeable premium stats carousel — revenue, bookings, top
-                  barbers, status mix. Replaces the single static hero. */}
-              <StatsCarousel
-                revenue={revenue}
-                chartData={chartData}
-                appointments={appointments}
-                completed={completed}
-                barbers={barbers}
-              />
+        <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
+      ) : (() => {
+        const newClients = appointments.filter((a) => {
+          const s = filterDateRange[0]; const e = filterDateRange[1];
+          return a.created_at.slice(0, 10) >= s && a.created_at.slice(0, 10) <= e;
+        }).length;
+        const hasAppts = appointments.length > 0;
+        const hasCompleted = completed.length > 0;
+        return (
+          <>
+            {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
+            <StatsCarousel revenue={revenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} />
 
-              {/* Stats grid — sits directly under the revenue hero so all
-                  the KPIs form a single visual block. 2x2 on mobile, 4-up
-                  on tablet+. */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard
-                  label="New Clients"
-                  value={String(newClients)}
-                  sub={newClients > 0 ? "↑ This period" : "No new clients yet"}
-                  icon={Users} color="blue"
-                  tone={newClients > 0 ? "up" : "muted"}
-                  cta={newClients === 0 ? { text: "Share booking link", href: "/dashboard/share" } : undefined}
-                />
-                <StatCard
-                  label="Avg Ticket"
-                  value={formatCurrency(avgTicket)}
-                  sub={hasCompleted ? "↑ Per completed visit" : "Complete a booking first"}
-                  icon={TrendingUp} color="purple"
-                  tone={hasCompleted ? "up" : "muted"}
-                />
-                <StatCard
-                  label="No-Show Rate"
-                  value={hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}
-                  sub={hasAppts
-                    ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "↑ All shows kept")
-                    : "No data yet"}
-                  icon={UserX} color="orange"
-                  tone={hasAppts ? (noShows > 0 ? "down" : "up") : "muted"}
-                />
-                <StatCard
-                  label="Avg Rating"
-                  value={avgRating != null ? `${avgRating}★` : "—"}
-                  sub={totalReviews > 0
-                    ? `↑ ${totalReviews} review${totalReviews !== 1 ? "s" : ""}`
-                    : "No reviews yet"}
-                  icon={Star} color="purple"
-                  tone={totalReviews > 0 ? "up" : "muted"}
-                  cta={totalReviews === 0 ? { text: "Invite reviews", href: "/dashboard/reviews" } : undefined}
-                />
+            <div className="cwd-kpis">
+              <div className="cwd-kpi">
+                <div className="cwd-klbl">New Clients</div>
+                <div className="cwd-kval cwd-mono">{newClients}</div>
+                <div className={cn("cwd-ksub", newClients > 0 && "up")}>{newClients > 0 ? "↑ This period" : "No new clients yet"}</div>
               </div>
-
-              {/* Quick Actions — sits one step BELOW the stats grid so the
-                  KPIs are read first, actions taken second. Single row of
-                  4 dark squares on every viewport. */}
-              <div className="pt-2">
-                <div className="cw-row-hdr">
-                  <div className="cw-row-title">Quick Actions</div>
-                </div>
-                <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                  <button type="button" onClick={() => setShowAddWalkin(true)} className="cw-qa">
-                    <div className="cw-qa-icon">➕</div>
-                    <div className="cw-qa-label">Walk In</div>
-                  </button>
-                  <Link href="/dashboard/pos" className="cw-qa">
-                    <div className="cw-qa-icon">💳</div>
-                    <div className="cw-qa-label">POS</div>
-                  </Link>
-                  <Link href="/dashboard/appointments" className="cw-qa">
-                    <div className="cw-qa-icon">📅</div>
-                    <div className="cw-qa-label">Appointments</div>
-                  </Link>
-                  <Link href="/dashboard/analytics" className="cw-qa">
-                    <div className="cw-qa-icon">📊</div>
-                    <div className="cw-qa-label">Reports</div>
-                  </Link>
-                </div>
+              <div className="cwd-kpi">
+                <div className="cwd-klbl">Avg Ticket</div>
+                <div className="cwd-kval cwd-mono">{formatCurrency(avgTicket)}</div>
+                <div className={cn("cwd-ksub", hasCompleted && "up")}>{hasCompleted ? "↑ Per completed visit" : "Complete a booking first"}</div>
+              </div>
+              <div className="cwd-kpi">
+                <div className="cwd-klbl">No-Show Rate</div>
+                <div className="cwd-kval cwd-mono">{hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}</div>
+                <div className={cn("cwd-ksub", hasAppts && (noShows > 0 ? "down" : "up"))}>{hasAppts ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "↑ All shows kept") : "No data yet"}</div>
+              </div>
+              <div className="cwd-kpi">
+                <div className="cwd-klbl">Avg Rating</div>
+                <div className="cwd-kval cwd-mono">{avgRating != null ? `${avgRating}★` : "—"}</div>
+                <div className={cn("cwd-ksub", totalReviews > 0 && "up")}>{totalReviews > 0 ? `↑ ${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"}</div>
               </div>
             </div>
-          );
-        })()
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left / main column */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Compact week calendar — the week at a glance; tap to open the
-              full Calendar tab (day/week/month, tap-to-book). */}
+            <div className="cwd-qahdr">Quick Actions</div>
+            <div className="cwd-qa">
+              <button type="button" onClick={() => setShowAddWalkin(true)}><span className="cwd-qic">➕</span><span className="cwd-qlb">Walk In</span></button>
+              <Link href="/dashboard/pos"><span className="cwd-qic">💳</span><span className="cwd-qlb">POS</span></Link>
+              <Link href="/dashboard/appointments"><span className="cwd-qic">📅</span><span className="cwd-qlb">Appointments</span></Link>
+              <Link href="/dashboard/analytics"><span className="cwd-qic">📊</span><span className="cwd-qlb">Reports</span></Link>
+            </div>
+          </>
+        );
+      })()}
+
+      <div className="cwd-body">
+        <div className="cwd-col">
+          {/* Compact week calendar — tap to open the full Calendar tab */}
           {(() => {
             const weekDays = currentWeekDays();
             const todayKey = formatDateForDb(new Date());
-            const hrs = weekAppts
-              .map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; })
-              .filter(h => h >= 0);
+            const hrs = weekAppts.map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; }).filter(h => h >= 0);
             const minH = hrs.length ? Math.min(...hrs) : 9;
             const maxH = hrs.length ? Math.max(...hrs) : 17;
             const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
             const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
             return (
-              <Link href="/dashboard/calendar" className="block bg-[#141414] border border-[#1e1e1e] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
-                <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1e1e1e]">
-                  <p className="text-sm font-bold text-white">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
-                  <div className="flex bg-[#0e0e0e] border border-[#1e1e1e] rounded-lg overflow-hidden text-[11px]">
-                    <span className="px-2.5 py-1 text-[#777]">Day</span>
-                    <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
-                    <span className="px-2.5 py-1 text-[#777]">Month</span>
-                  </div>
+              <Link href="/dashboard/calendar" className="cwd-cal">
+                <div className="cwd-caltop">
+                  <span className="cwd-calm">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</span>
+                  <div className="cwd-seg"><span>Day</span><span className="on">Week</span><span>Month</span></div>
                 </div>
-                <div className="overflow-x-auto">
-                  <div className="min-w-[620px]">
-                    <div className="grid" style={cols}>
-                      <div className="border-b border-[#1e1e1e]" />
-                      {weekDays.map(d => {
-                        const isToday = formatDateForDb(d) === todayKey;
-                        return (
-                          <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#1e1e1e]">
-                            <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-[#666]")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
-                            <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-white font-bold" : "text-white")}>{d.getDate()}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                <div className="cwd-calscroll">
+                  <div className="cwd-calgrid" style={cols}>
+                    <div style={{ borderBottom: "1px solid #1e1e1e" }} />
+                    {weekDays.map(d => {
+                      const isToday = formatDateForDb(d) === todayKey;
+                      return (
+                        <div key={formatDateForDb(d)} className={cn("cwd-hd", isToday && "today")}>
+                          <div className="cwd-hdw">{d.toLocaleDateString("en-CA", { weekday: "short" })}</div>
+                          <div className="cwd-hdn">{d.getDate()}</div>
+                        </div>
+                      );
+                    })}
                     {calHours.map(h => (
-                      <div key={h} className="grid" style={cols}>
-                        <div className="text-[9.5px] text-[#555] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
+                      <Fragment key={h}>
+                        <div className="cwd-tcell">{hourLabel(h)}</div>
                         {weekDays.map(d => {
                           const dk = formatDateForDb(d);
                           const isToday = dk === todayKey;
                           const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
                           return (
-                            <div key={dk} className={cn("border-r border-b border-[#151515] min-h-[34px] p-0.5 space-y-0.5", isToday && "bg-accent-muted")}>
-                              {evs.map(a => {
-                                const pend = a.status === "pending";
-                                return (
-                                  <div key={a.id} className={cn("rounded text-[9.5px] px-1.5 py-0.5 leading-tight truncate border-l-2", pend ? "border-amber-500 bg-amber-500/[0.12] text-amber-200" : "border-[#00e5a0] bg-emerald-500/[0.12] text-emerald-100")}>
-                                    {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
-                                  </div>
-                                );
-                              })}
+                            <div key={dk} className={cn("cwd-cell", isToday && "todaycol")}>
+                              {evs.map(a => (
+                                <div key={a.id} className={cn("cwd-ev", a.status === "pending" && "pend")}>
+                                  {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
+                                </div>
+                              ))}
                             </div>
                           );
                         })}
-                      </div>
+                      </Fragment>
                     ))}
                   </div>
                 </div>
@@ -750,14 +647,13 @@ export default function DashboardPage() {
             );
           })()}
 
-          {/* Today's / Selected Schedule — same bone tint as the calendar
-              above, so the two cards read as a connected unit. */}
-          <Card className="!bg-[#141414]">
-            <CardHeader>
-              <CardTitle>{selectedCalDate ? `Appointments — ${friendlyDate(selectedCalDate)}` : "Today's Schedule"}</CardTitle>
-              <Link href="/dashboard/appointments" className="text-xs text-accent-soft hover:underline">View all</Link>
-            </CardHeader>
-            <CardContent>
+          {/* Today's Schedule */}
+          <div className="cwd-card tint">
+            <div className="cwd-cardh">
+              <span className="cwd-ct">{selectedCalDate ? `Appointments — ${friendlyDate(selectedCalDate)}` : "Today's Schedule"}</span>
+              <Link href="/dashboard/appointments" className="cwd-ca">View all</Link>
+            </div>
+            <div className="cwd-cardb">
               {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
@@ -769,111 +665,79 @@ export default function DashboardPage() {
                 [...displayAppts]
                   .sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""))
                   .map((apt) => {
-                  const dimmed = apt.status === "cancelled" || apt.status === "no-show";
-                  const mins = apptMins(apt);
-                  const [hh, mer] = (apt.time_slot ?? "").split(" ");
-                  return (
-                    <button key={apt.id} onClick={() => setSelectedAppt(apt)}
-                      className="w-full text-left flex items-center gap-3 py-3 border-b border-[#1e1e1e] last:border-0 hover:bg-white/[0.02] transition-colors">
-                      <div className="text-center min-w-[52px]">
-                        <p className="text-xs text-white font-medium">{hh}</p>
-                        <p className="text-[10px] text-[#777]">{mer}</p>
-                      </div>
-                      <div className="w-px h-10 bg-[#1e1e1e]" />
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
-                        <p className="text-xs text-[#777] truncate">
-                          {apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
-                        <PaymentTag appt={apt} />
-                      </div>
-                    </button>
-                  );
-                })
+                    const dimmed = apt.status === "cancelled" || apt.status === "no-show";
+                    const mins = apptMins(apt);
+                    const [hh, mer] = (apt.time_slot ?? "").split(" ");
+                    return (
+                      <button key={apt.id} onClick={() => setSelectedAppt(apt)} className="cwd-sch">
+                        <div className="cwd-tm"><div className="cwd-th">{hh}</div><div className="cwd-tp">{mer}</div></div>
+                        <div className="cwd-sep" />
+                        <div className="cwd-who">
+                          <div className={cn("cwd-wn", dimmed && "line-through opacity-60")}>{apt.client_name}</div>
+                          <div className="cwd-ws">{apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}</div>
+                        </div>
+                        <div className="cwd-rt">
+                          <div className="cwd-amt cwd-mono">{formatCurrency(apt.total_amount)}</div>
+                          <PaymentTag appt={apt} />
+                        </div>
+                      </button>
+                    );
+                  })
               )}
-            </CardContent>
-          </Card>
-
+            </div>
+          </div>
         </div>
 
         {/* Right column */}
-        <div className="space-y-4">
-          {/* Clock In/Out — barbers only */}
-          {profile?.role === "barber" && (
-            <Card className={clockedIn ? "border-emerald-500/30" : ""}>
-              <CardHeader>
-                <CardTitle>Time Clock</CardTitle>
-                {clockedIn && <span className="text-xs text-emerald-400 font-medium">● Clocked in {clockedIn.clock_in}</span>}
-              </CardHeader>
-              <CardContent>
-                {clockedIn ? (
-                  <Button variant="danger" className="w-full" loading={clockLoading} onClick={handleClockOut}>
-                    Clock Out
-                  </Button>
-                ) : (
-                  <Button className="w-full" loading={clockLoading} onClick={handleClockIn}>
-                    Clock In
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
+        <div className="cwd-col">
           {/* Staff Status */}
-          <Card>
-            <CardHeader><CardTitle>Staff Status</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+          <div className="cwd-card">
+            <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
+            <div className="cwd-cardb">
               {barbers.length === 0 ? (
                 <p className="text-sm text-[#777] text-center py-4">No active staff</p>
               ) : barbers.map((b) => (
-                <div key={b.id} className="flex items-center gap-3">
-                  <div className="relative">
-                    {b.photo
-                      ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-[#1e1e1e]" />
-                      : <div className="w-9 h-9 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-white font-bold text-sm">{b.name[0]}</div>
-                    }
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-surface rounded-full" />
+                <div key={b.id} className="cwd-staff">
+                  <div className="cwd-sav">
+                    {b.photo ? <img src={b.photo} alt={b.name} className="w-full h-full object-cover" /> : b.name[0]}
+                    <i />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{b.name}</p>
-                    <p className="text-xs text-[#777]">
-                      {todayAppts.filter((a) => a.barber_id === b.id).length} appts today
-                    </p>
+                  <div className="cwd-snm">
+                    <div className="cwd-sn">{b.name}</div>
+                    <div className="cwd-sp">{todayAppts.filter((a) => a.barber_id === b.id).length} appts today</div>
                   </div>
-                  <span className="text-xs text-emerald-400 font-medium">Active</span>
+                  <span className="cwd-sst">Active</span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Alerts</CardTitle>
-              <Link href="/dashboard/notifications" className="text-xs text-accent-soft hover:underline">
-                See all ({notifications.filter((n) => !n.is_read).length})
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          {/* Recent Alerts */}
+          <div className="cwd-card">
+            <div className="cwd-cardh">
+              <span className="cwd-ct">Recent Alerts</span>
+              <Link href="/dashboard/notifications" className="cwd-ca">See all ({notifications.filter((n) => !n.is_read).length})</Link>
+            </div>
+            <div className="cwd-cardb" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {notifications.length === 0 ? (
                 <p className="text-sm text-[#777] text-center py-4">No notifications</p>
-              ) : notifications.map((n) => (
-                <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-accent-muted border border-accent/30")}>
-                  <div className={cn("mt-0.5 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs",
-                    n.type === "booking" ? "bg-amber-500/15 text-amber-400" : n.type === "no-show" ? "bg-rose-500/15 text-rose-400" : n.type === "review" ? "bg-yellow-500/15 text-yellow-300" : "bg-rose-500/15 text-rose-400")}>
-                    {n.type === "booking" ? <Calendar size={12} /> : n.type === "review" ? <Star size={12} /> : <AlertCircle size={12} />}
+              ) : notifications.map((n) => {
+                const kind = n.type === "no-show" ? "warn" : n.type === "review" ? "rev" : /payment|paid|charged|collected|refund/i.test(`${n.title} ${n.message}`) ? "pay" : "book";
+                return (
+                  <div key={n.id} className={cn("cwd-alert", !n.is_read && "unread")}>
+                    <div className={cn("cwd-aic", kind)}>
+                      {kind === "pay" ? <Banknote size={13} /> : kind === "rev" ? <Star size={13} /> : kind === "warn" ? <AlertCircle size={13} /> : <Calendar size={13} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="cwd-at">{n.title}</div>
+                      <div className="cwd-am line-clamp-2">{n.message}</div>
+                    </div>
+                    {!n.is_read && <span className="cwd-udot" />}
                   </div>
-                  <div>
-                    <p className="text-xs font-medium text-white">{n.title}</p>
-                    <p className="text-xs text-[#777] leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
