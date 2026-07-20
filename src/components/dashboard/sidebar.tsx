@@ -507,7 +507,7 @@ export function Sidebar() {
           wordmark doesn't float with dead space on both sides. cw-grad is on the
           wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-center gap-2.5"
+        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-start gap-2.5 pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
