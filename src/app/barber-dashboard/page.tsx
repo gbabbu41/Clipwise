@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, formatDateForDb, friendlyDate, timeToMinutes } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
@@ -17,6 +17,15 @@ const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
     ? a.duration_minutes
     : ((a.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30);
+
+// The 7 days (Sun→Sat) of the current week + the hour-gutter label — the same
+// compact week calendar the owner dashboard uses.
+function currentWeekDays(): Date[] {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const start = new Date(t); start.setDate(t.getDate() - t.getDay());
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+}
+const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
 
 export default function BarberOverviewPage() {
   const { accessToken, profile } = useAuth();
@@ -37,7 +46,6 @@ export default function BarberOverviewPage() {
 
   const today = new Date();
   const todayStr = formatDateForDb(today);
-  const dayLabel = friendlyDate(today);
 
   // Clock-in/out moved to the shop's check-in station (owner side) — barbers no
   // longer self-clock from their phone. (Biometric check-in lands there next.)
@@ -55,6 +63,23 @@ export default function BarberOverviewPage() {
     setLoading(false);
   }, [shop?.id, barber?.id, todayStr]);
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
+
+  // The whole current week's appointments (this barber) — for the compact
+  // week calendar, independent of the "today" schedule below.
+  const [weekAppts, setWeekAppts] = useState<AppointmentWithDetails[]>([]);
+  useEffect(() => {
+    if (!shop?.id || !barber?.id) return;
+    const days = currentWeekDays();
+    (async () => {
+      const { data } = await supabase
+        .from("appointments")
+        .select("*, services(name, duration_minutes), barbers(name)")
+        .eq("shop_id", shop.id).eq("barber_id", barber.id)
+        .gte("date", formatDateForDb(days[0])).lte("date", formatDateForDb(days[6]))
+        .order("time_slot");
+      setWeekAppts((data ?? []) as AppointmentWithDetails[]);
+    })();
+  }, [shop?.id, barber?.id]);
 
   const upcoming = appointments.filter(a => a.status !== "completed" && a.status !== "cancelled" && a.status !== "no-show");
   const completed = appointments.filter(a => a.status === "completed");
@@ -86,21 +111,31 @@ export default function BarberOverviewPage() {
         </div>
       )}
 
-      {/* Header — muted greeting + clock chip + desktop bell + avatar */}
+      {/* Header — greeting + context line + desktop bell + avatar (matches the
+          owner dashboard). */}
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-white tracking-tight truncate">
             {barber?.name ? `Hi, ${barber.name.split(" ")[0]}` : "Hi"}
           </h1>
-          <p className="text-[#777] text-sm mt-1">{dayLabel}</p>
+          <p className="text-[#777] text-sm mt-1 truncate">
+            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {appointments.length} appointment{appointments.length !== 1 ? "s" : ""} today
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-          {/* Desktop bell + avatar — shown only at lg+ where the mobile top
-              bar (which carries its own avatar) is hidden, so they never double. */}
+          {/* Desktop bell + avatar — only at lg+ where the mobile top bar
+              (which carries its own avatar) is hidden, so they never double. */}
+          <Link
+            href="/barber-dashboard/notifications"
+            aria-label="Notifications"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors"
+          >
+            <Bell size={15} />
+          </Link>
           <Link
             href="/barber-dashboard/profile"
             aria-label="Account"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity ml-1 overflow-hidden"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           >
             <AvatarImage src={barber?.photo} alt={barber?.name ?? "Account"} className="w-full h-full object-cover"
               fallback={<>{(barber?.name ?? "U").charAt(0).toUpperCase()}</>} />
@@ -155,13 +190,70 @@ export default function BarberOverviewPage() {
         })()}
       </div>
 
-      {/* Calendar — the same embedded calendar as the owner portal, scoped to
-          you. Read-only unless the owner granted "manage appointments". */}
+      {/* Compact week calendar — the week at a glance, scoped to you; tap to
+          open the full Calendar tab. Same block as the owner dashboard. */}
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-[#777] uppercase tracking-wider mb-3">My Calendar</h2>
-        <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
-          <CalendarView embedded canManage={canManage} forceBarberId={barber?.id} canBlock={isOwner || barber?.permissions?.block_hours !== false} />
-        </div>
+        {(() => {
+          const weekDays = currentWeekDays();
+          const todayKey = formatDateForDb(new Date());
+          const hrs = weekAppts
+            .map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; })
+            .filter(h => h >= 0);
+          const minH = hrs.length ? Math.min(...hrs) : 9;
+          const maxH = hrs.length ? Math.max(...hrs) : 17;
+          const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
+          const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
+          return (
+            <Link href="/barber-dashboard/calendar" className="block bg-[#141414] border border-[#1e1e1e] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
+              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1e1e1e]">
+                <p className="text-sm font-bold text-white">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
+                <div className="flex bg-[#0e0e0e] border border-[#1e1e1e] rounded-lg overflow-hidden text-[11px]">
+                  <span className="px-2.5 py-1 text-[#777]">Day</span>
+                  <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
+                  <span className="px-2.5 py-1 text-[#777]">Month</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[620px]">
+                  <div className="grid" style={cols}>
+                    <div className="border-b border-[#1e1e1e]" />
+                    {weekDays.map(d => {
+                      const isToday = formatDateForDb(d) === todayKey;
+                      return (
+                        <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#1e1e1e]">
+                          <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-[#666]")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
+                          <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-white font-bold" : "text-white")}>{d.getDate()}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {calHours.map(h => (
+                    <div key={h} className="grid" style={cols}>
+                      <div className="text-[9.5px] text-[#555] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
+                      {weekDays.map(d => {
+                        const dk = formatDateForDb(d);
+                        const isToday = dk === todayKey;
+                        const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
+                        return (
+                          <div key={dk} className={cn("border-r border-b border-[#151515] min-h-[34px] p-0.5 space-y-0.5", isToday && "bg-accent-muted")}>
+                            {evs.map(a => {
+                              const pend = a.status === "pending";
+                              return (
+                                <div key={a.id} className={cn("rounded text-[9.5px] px-1.5 py-0.5 leading-tight truncate border-l-2", pend ? "border-amber-500 bg-amber-500/[0.12] text-amber-200" : "border-[#00e5a0] bg-emerald-500/[0.12] text-emerald-100")}>
+                                  {((a.services as { name?: string } | null)?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Link>
+          );
+        })()}
       </div>
 
       {/* Today's Schedule — exact replica of the owner dashboard's card
