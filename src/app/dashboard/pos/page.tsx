@@ -778,9 +778,11 @@ export default function POSPage() {
               </span>
               <ChevronDown size={14} className="text-[#555] shrink-0" />
             </button>
-            <button type="button" onClick={charge} disabled={charging}
-              className="shrink-0 flex items-center gap-1.5 rounded-[10px] bg-[#00e5a0] text-black font-bold text-sm px-5 py-2.5 active:scale-95 transition-transform disabled:opacity-60">
-              {charging ? "…" : "Charge"}<span aria-hidden>→</span>
+            {/* Checkout opens the summary drawer to review, pick tender + tip,
+                then charge — no more one-tap charging straight from the grid. */}
+            <button type="button" onClick={() => setCartOpen(true)}
+              className="shrink-0 flex items-center gap-1.5 rounded-[10px] bg-[#00e5a0] text-black font-bold text-sm px-5 py-2.5 active:scale-95 transition-transform">
+              Checkout<span aria-hidden>→</span>
             </button>
           </div>
         </div>
