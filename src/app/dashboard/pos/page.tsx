@@ -506,18 +506,18 @@ export default function POSPage() {
   }, {} as Record<string, Service[]>);
 
   // Products grouped into category sub-sections (falls back to "Products" when
-  // an item has no category), filtered by the product search box.
-  const inventoryByCategory = useMemo(() => {
-    const q = productSearch.trim().toLowerCase();
-    const items = q
-      ? inventory.filter(i => i.name.toLowerCase().includes(q) || (i.category?.toLowerCase().includes(q) ?? false))
-      : inventory;
-    return items.reduce((acc, i) => {
-      const cat = i.category?.trim() || "Products";
-      (acc[cat] ||= []).push(i);
-      return acc;
-    }, {} as Record<string, InventoryItem[]>);
-  }, [inventory, productSearch]);
+  // an item has no category), filtered by the product search box. Plain compute
+  // (NOT useMemo) — this lives after the early returns above, where adding a
+  // hook would break the Rules of Hooks and crash the success screen.
+  const productQuery = productSearch.trim().toLowerCase();
+  const filteredInventory = productQuery
+    ? inventory.filter(i => i.name.toLowerCase().includes(productQuery) || (i.category?.toLowerCase().includes(productQuery) ?? false))
+    : inventory;
+  const inventoryByCategory = filteredInventory.reduce((acc, i) => {
+    const cat = i.category?.trim() || "Products";
+    (acc[cat] ||= []).push(i);
+    return acc;
+  }, {} as Record<string, InventoryItem[]>);
 
   const itemCount = cart.reduce((n, i) => n + i.qty, 0);
 
