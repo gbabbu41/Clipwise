@@ -1026,8 +1026,11 @@ textarea:focus-visible {
 .cwd-staff { display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid #1a1a1a; }
 .cwd-staff:last-child { border-bottom:0; padding-bottom:2px; }
 .cwd-staff:first-child { padding-top:2px; }
-.cwd-sav { width:38px; height:38px; border-radius:999px; background:rgba(110,168,254,.12); border:1px solid rgba(110,168,254,.22); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#a9c6ff; position:relative; flex-shrink:0; overflow:hidden; }
-.cwd-sav i { position:absolute; bottom:0; right:0; width:11px; height:11px; border-radius:999px; background:#00e5a0; border:2px solid #0c0c0c; }
+.cwd-sav { width:38px; height:38px; border-radius:999px; background:rgba(110,168,254,.12); border:1px solid rgba(110,168,254,.22); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#a9c6ff; position:relative; flex-shrink:0; }
+.cwd-sav img { width:100%; height:100%; border-radius:999px; object-fit:cover; }
+/* Online badge — sits at 4–5 o'clock on the circle edge. Not clipped (the
+   avatar no longer uses overflow:hidden; the photo is rounded on its own). */
+.cwd-sav i { position:absolute; bottom:1px; right:1px; width:10px; height:10px; border-radius:999px; background:#00e5a0; border:2px solid #0c0c0c; box-shadow:0 0 0 1px #0c0c0c; }
 .cwd-snm { flex:1; min-width:0; }
 .cwd-sn { font-size:13px; font-weight:600; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cwd-sp { font-size:11px; color:#8a8a8a; margin-top:1px; }

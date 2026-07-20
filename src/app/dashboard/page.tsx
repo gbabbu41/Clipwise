@@ -484,7 +484,19 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="cwd-cluster">
-          <Link href="/dashboard/notifications" aria-label="Notifications" className="cwd-icobtn">
+          {/* On mobile the bell opens the notification popover (same as every
+              other page); on desktop it navigates to the notifications page. */}
+          <Link
+            href="/dashboard/notifications"
+            aria-label="Notifications"
+            className="cwd-icobtn"
+            onClick={(e) => {
+              if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                e.preventDefault();
+                window.dispatchEvent(new Event("cw-open-notifs"));
+              }
+            }}
+          >
             <Bell size={17} />
             {notifications.filter(n => !n.is_read).length > 0 && <span className="cwd-dot" />}
           </Link>

@@ -203,11 +203,17 @@ export function Sidebar() {
   useEffect(() => {
     const open = () => setMobileOpen(true);
     const toggle = () => setMobileOpen(prev => !prev);
+    // The dashboard header's inline bell opens the SAME notification popover as
+    // the floating bell (which is hidden there), so the bell behaves the same
+    // everywhere instead of navigating.
+    const openNotifs = () => setNotifOpen(true);
     window.addEventListener("cw-open-sidebar", open);
     window.addEventListener("cw-toggle-sidebar", toggle);
+    window.addEventListener("cw-open-notifs", openNotifs);
     return () => {
       window.removeEventListener("cw-open-sidebar", open);
       window.removeEventListener("cw-toggle-sidebar", toggle);
+      window.removeEventListener("cw-open-notifs", openNotifs);
     };
   }, []);
 
