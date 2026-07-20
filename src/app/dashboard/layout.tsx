@@ -8,6 +8,7 @@ import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { SwipeNavigator } from "@/components/swipe-navigator";
 import { useAuth } from "@/lib/auth-context";
+import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 
 // Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
 const OWNER_SWIPE_ORDER = [
@@ -85,7 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own #0a0a0a so the
           spacer matches its canvas; everything else uses the default dark surface. */}
-      <main className={`lg:ml-64 ${pathname === "/dashboard" ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
+      <main className={`lg:ml-64 ${INLINE_HEADER_PAGES.includes(pathname) ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
         <MaintenanceBanner />
         <StripeWarningBanner />
         <SwipeNavigator order={OWNER_SWIPE_ORDER}>{children}</SwipeNavigator>

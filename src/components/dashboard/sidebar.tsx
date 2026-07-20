@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
+import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
@@ -330,9 +331,9 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
-      {/* Hidden on the dashboard home — there the page header carries the
-          bell + profile inline beside the shop title (matches the preview). */}
-      {pathname !== "/dashboard" && (
+      {/* Hidden on pages that carry the bell + profile inline in their own
+          header (dashboard home, schedule, …) — see INLINE_HEADER_PAGES. */}
+      {!INLINE_HEADER_PAGES.includes(pathname) && (
       <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-2">
         <button
           type="button"

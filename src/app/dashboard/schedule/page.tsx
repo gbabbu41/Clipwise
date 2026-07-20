@@ -5,6 +5,7 @@ import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ScheduleEditor } from "@/components/schedule-editor";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import { cn } from "@/lib/utils";
 
 type Barber = { id: string; name: string; bookings_paused?: boolean };
@@ -43,10 +44,7 @@ export default function SchedulePage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Schedule</h1>
-        <p className="text-sm text-[#777] mt-0.5">Set working hours, breaks &amp; lunch — each barber gets emailed their schedule.</p>
-      </div>
+      <DashboardHeader title="Schedule" subtitle="Set working hours, breaks & lunch — each barber gets emailed their schedule." />
 
       {barbers.length === 0 ? (
         <p className="text-sm text-[#777] py-12 text-center">No barbers yet. Add staff first.</p>
