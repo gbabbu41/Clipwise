@@ -141,6 +141,7 @@ export default function DashboardPage() {
   // Date-range pill next to the dropdown is clickable — opens a calendar
   // popover for picking a single specific date.
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
 
   // ── Calendar state ──────────────────────────────────────────────────────────
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -480,7 +481,7 @@ export default function DashboardPage() {
           desktop they belong here so they're never hidden when the screen
           is maxed. */}
       <div className="flex items-start justify-between gap-3 mb-6">
-        <div className="flex-1 min-w-0 pr-20 lg:pr-0">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-2xl font-bold text-white uppercase tracking-wide truncate">{shop?.name ?? "Dashboard"}</h1>
             {/* Plan badge moved to the sidebar wordmark (next to CLIPWISE). */}
@@ -495,7 +496,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
+            className="inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
           >
             <Bell size={15} />
             {notifications.filter(n => !n.is_read).length > 0 && (
@@ -505,7 +506,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Account"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
+            className="inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           >
             <AvatarImage src={ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
               fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
@@ -516,18 +517,37 @@ export default function DashboardPage() {
       {/* Date Filter — shown on every viewport. */}
       <div className="flex flex-wrap gap-2 mb-6 items-center relative">
         <div className="relative">
-          <select
-            value={dateFilter}
-            onChange={(e) => { setDateFilter(e.target.value as DateFilterKey); setSelectedCalDate(null); }}
-            className="appearance-none bg-[#141414] border border-[#1e1e1e] rounded-xl pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-white/40"
+          {/* Compact custom dropdown — sizes to the SELECTED label (a native
+              <select> stretches to its widest option, e.g. "Last 6 Months"). */}
+          <button
+            type="button"
+            onClick={() => setFilterMenuOpen(o => !o)}
+            className="inline-flex items-center gap-1.5 bg-[#141414] border border-[#1e1e1e] rounded-xl pl-3 pr-2 py-2 text-sm text-white hover:border-white/40 transition-colors"
           >
-            {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
-              // "Custom Range" was dual date inputs — replaced by the
-              // clickable calendar pill below for a single picked date.
-              .filter(([k]) => k !== "custom")
-              .map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <ChevronDown size={15} className="text-[#777] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {DATE_FILTER_LABELS[dateFilter]}
+            <ChevronDown size={15} className="text-[#777]" />
+          </button>
+          {filterMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
+              <div className="absolute left-0 top-full mt-1.5 z-40 min-w-[160px] bg-[#141414] border border-[#1e1e1e] rounded-xl p-1 shadow-2xl">
+                {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
+                  // "Custom Range" is set via the date pill, not this menu.
+                  .filter(([k]) => k !== "custom")
+                  .map(([k, v]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}
+                      className={cn("w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                        dateFilter === k ? "bg-accent-muted text-accent-soft" : "text-[#ccc] hover:bg-white/5")}
+                    >
+                      {v}
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
         </div>
         {/* Clickable date pill — opens a calendar popover. Collapses to a
             single date when start === end (Today, Yesterday, a picked day);

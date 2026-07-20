@@ -324,6 +324,9 @@ export function Sidebar() {
       {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
           top-right and always visible. The old full-width bar + "ClipWise"
           wordmark are gone; page content scrolls under the blur. */}
+      {/* Hidden on the dashboard home — there the page header carries the
+          bell + profile inline beside the shop title (matches the preview). */}
+      {pathname !== "/dashboard" && (
       <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-2">
         <button
           type="button"
@@ -350,6 +353,7 @@ export function Sidebar() {
           <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
         </Link>
       </div>
+      )}
 
       {/* Notification sheet — slides up from the bottom (matches the app's other
           sheets). Drag the handle down or tap outside to close. */}
