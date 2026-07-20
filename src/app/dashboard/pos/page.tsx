@@ -371,63 +371,48 @@ export default function POSPage() {
       return;
     }
 
-    // ── Cash (or gift-card-covered) → record the sale immediately ────────────
-    // Revenue recorded = the part NOT covered by the gift card (the gift's value
-    // was already booked as revenue when it was sold), so we never double-count.
-    const txBase = {
-      shop_id: shop!.id,
-      barber_id: barberId || null,
-      client_name: client,
-      service_name: giftApplied > 0 ? `${serviceName} (gift card ${formatCurrency(giftApplied)})` : serviceName,
-      amount: Math.max(0, subtotal - giftApplied),
-      tip: tipAmt,
-      commission_amount: commission,
-      payment_method: paymentMethod,
-      type: txType,
-      source: "pos",
-    };
-    // Include tax when the phase30 column exists; fall back so a sale is never lost.
-    let txIns = await supabase.from("transactions").insert({ ...txBase, tax: taxAmt }).select("id").single();
-    if (txIns.error && /tax/.test(txIns.error.message) && /column|does not exist|schema cache/i.test(txIns.error.message)) {
-      txIns = await supabase.from("transactions").insert(txBase).select("id").single();
-    }
-    const { data: txData, error: txError } = txIns;
-
-    if (txError) { showToast("Error saving transaction"); setCharging(false); return; }
-    if (txData?.id) setLastReceiptId(txData.id);
-
-    // Draw down the gift card balance for the amount it covered.
-    if (giftCard && giftApplied > 0) {
-      const newBal = Math.max(0, giftCard.remaining_value - giftApplied);
-      await supabase.from("gift_cards").update({
-        remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
-      }).eq("id", giftCard.id).then(null, () => null);
-    }
-
-    // Decrement inventory for product items, alert on low stock
-    for (const item of cart.filter(i => i.type === "product" && i.inventoryId)) {
-      const inv = inventory.find(i => i.id === item.inventoryId);
-      if (inv) {
-        const newQty = Math.max(0, inv.quantity - item.qty);
-        await supabase.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
-        // Create low-stock notification if below threshold
-        if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold) {
-          supabase.from("notifications").insert({
-            user_id: shop!.owner_id,
-            title: "Low Stock Alert",
-            message: `${inv.name} is running low — only ${newQty} units remaining.`,
-            type: "inventory",
-            is_read: false,
-          }).then(null, () => null);
-        }
-      }
+    // ── Cash (or gift-card-covered) → record the sale server-side ────────────
+    // Runs through /api/pos/cash-sale (service role) so it isn't blocked by
+    // transactions RLS (there is no owner INSERT policy — client-side inserts
+    // errored, which is why cash failed where card worked) and survives columns
+    // prod may not have yet. The route also draws down inventory + the gift card
+    // so we never double-count. Revenue recorded = the part NOT covered by the
+    // gift card (the gift's value was booked as revenue when it was sold).
+    const products = cart
+      .filter(i => i.type === "product" && i.inventoryId)
+      .map(i => ({ id: i.inventoryId!, qty: i.qty }));
+    try {
+      const res = await fetch("/api/pos/cash-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop_id: shop!.id,
+          owner_id: shop!.owner_id,
+          barber_id: barberId || null,
+          client_name: client,
+          service_name: giftApplied > 0 ? `${serviceName} (gift card ${formatCurrency(giftApplied)})` : serviceName,
+          amount: Math.max(0, subtotal - giftApplied),
+          tip: tipAmt,
+          tax: taxAmt,
+          commission_amount: commission,
+          payment_method: paymentMethod,
+          type: txType,
+          products,
+          gift_card: giftCard ? { id: giftCard.id, remaining_value: giftCard.remaining_value, applied: giftApplied } : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Error saving transaction"); setCharging(false); return; }
+      if (data.transactionId) setLastReceiptId(data.transactionId);
+    } catch {
+      showToast("Error saving transaction"); setCharging(false); return;
     }
 
     setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + giftApplied, tax: taxAmt });
     setCharging(false);
     setSuccess(true);
 
-    // Reload recent transactions
+    // Refresh services/inventory/clients after the sale.
     loadData();
   };
 
