@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, ResponsiveContainer, Tooltip,
 } from "recharts";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -81,31 +81,18 @@ export function StatsCarousel({
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
-      <div className="flex-1 min-h-[96px] mt-2 -mx-1">
-        {chartData.length > 1 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="cwRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6ea8fe" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#6ea8fe" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
-              <Area type="monotone" dataKey="revenue" stroke="#6ea8fe" strokeWidth={2.5} fill="url(#cwRev)" dot={{ r: 2, fill: "#6ea8fe", strokeWidth: 0 }} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : chartData.length === 1 ? (
-          // One day (e.g. "Today") can't draw an area — show a single clean bar.
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
-              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <Bar dataKey="revenue" fill="#6ea8fe" radius={[4, 4, 0, 0]} maxBarSize={44} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : <Empty />}
+      <div className="flex-1 min-h-[96px] mt-3 flex items-end justify-center gap-1.5">
+        {chartData.length > 0 ? (() => {
+          const max = Math.max(...chartData.map(d => d.revenue), 1);
+          const peak = chartData.reduce((mi, d, i, arr) => (d.revenue > arr[mi].revenue ? i : mi), 0);
+          return chartData.map((d, i) => (
+            <span key={i} title={`${d.day}: ${formatCurrency(d.revenue)}`}
+              style={{ height: `${Math.max(6, (d.revenue / max) * 100)}%` }}
+              className={cn("flex-1 max-w-[34px] rounded-t min-h-[6px]", i === peak
+                ? "bg-gradient-to-t from-[#a9c6ff] to-white"
+                : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
+          ));
+        })() : <Empty />}
       </div>
     </div>,
 

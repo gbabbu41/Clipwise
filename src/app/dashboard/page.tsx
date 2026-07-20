@@ -8,7 +8,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { CalendarView, ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
@@ -114,6 +114,16 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   );
 }
 
+// The 7 days (Sun→Sat) of the current calendar week — powers the compact week
+// calendar on the dashboard home.
+function currentWeekDays(): Date[] {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const start = new Date(t); start.setDate(t.getDate() - t.getDay());
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+}
+// Hour-gutter label for the week grid ("9a" / "12p" / "5p").
+const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
+
 const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
     ? a.duration_minutes
@@ -143,6 +153,9 @@ export default function DashboardPage() {
   // bookings underneath (the main `appointments` array is bound to dateFilter).
   const [selectedDayAppts, setSelectedDayAppts] = useState<AppointmentWithDetails[]>([]);
   const [loadingSelectedDay, setLoadingSelectedDay] = useState(false);
+  // Whole-week appointments for the compact week calendar (independent of the
+  // date filter, so the grid always shows the full current week).
+  const [weekAppts, setWeekAppts] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
@@ -155,13 +168,6 @@ export default function DashboardPage() {
   const [showAddWalkin, setShowAddWalkin] = useState(false);
   const walkinSheetRef = useRef<HTMLDivElement | null>(null);
   const walkinDrag = useSheetDrag(walkinSheetRef, () => setShowAddWalkin(false), { enabled: showAddWalkin });
-  // Defer mounting the heavy embedded calendar until after the dashboard paints,
-  // so a slow calendar load never holds up the rest of the home.
-  const [calReady, setCalReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setCalReady(true), 50);
-    return () => clearTimeout(t);
-  }, []);
   const [walkinName, setWalkinName] = useState("");
   const [walkinBarber, setWalkinBarber] = useState("");
   const [walkinService, setWalkinService] = useState("");
@@ -263,6 +269,22 @@ export default function DashboardPage() {
     setLoadingAppts(false);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
 
+  // ── Load the current week's appointments (for the compact calendar) ─────────
+  const loadWeekAppts = useCallback(async () => {
+    if (!shop) return;
+    const days = currentWeekDays();
+    let q = supabase
+      .from("appointments")
+      .select("*, barbers(id, name), services(id, name, price, category, duration_minutes)")
+      .eq("shop_id", shop.id)
+      .gte("date", formatDateForDb(days[0]))
+      .lte("date", formatDateForDb(days[6]))
+      .order("time_slot", { ascending: true });
+    if (profile?.role === "barber" && myBarberId) q = q.eq("barber_id", myBarberId);
+    const { data } = await q;
+    setWeekAppts((data ?? []) as AppointmentWithDetails[]);
+  }, [shop, profile, myBarberId]);
+
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     if (!shop || !profile) return;
@@ -303,6 +325,7 @@ export default function DashboardPage() {
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
   useEffect(() => { loadSideData(); }, [loadSideData]);
   useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
+  useEffect(() => { loadWeekAppts(); }, [loadWeekAppts]);
 
   // ── Load appointments for the calendar-selected date ───────────────────────
   // Independent of the main dateFilter — clicking June 15 should always
@@ -470,7 +493,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
           >
             <Bell size={15} />
             {notifications.filter(n => !n.is_read).length > 0 && (
@@ -480,7 +503,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Account"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           >
             <AvatarImage src={ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
               fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
@@ -638,13 +661,69 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left / main column */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Calendar — the full Calendar tab embedded here (day/week/month,
-              barber columns, tap-to-add), so Home mirrors /dashboard/calendar. */}
-          <div className="h-[70vh] min-h-[520px] rounded-2xl overflow-hidden border border-[#1e1e1e]">
-            {calReady
-              ? <CalendarView embedded canBlock />
-              : <div className="h-full flex items-center justify-center text-[#777] text-sm">Loading calendar…</div>}
-          </div>
+          {/* Compact week calendar — the week at a glance; tap to open the
+              full Calendar tab (day/week/month, tap-to-book). */}
+          {(() => {
+            const weekDays = currentWeekDays();
+            const todayKey = formatDateForDb(new Date());
+            const hrs = weekAppts
+              .map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; })
+              .filter(h => h >= 0);
+            const minH = hrs.length ? Math.min(...hrs) : 9;
+            const maxH = hrs.length ? Math.max(...hrs) : 17;
+            const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
+            const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
+            return (
+              <Link href="/dashboard/calendar" className="block bg-[#141414] border border-[#1e1e1e] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
+                <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1e1e1e]">
+                  <p className="text-sm font-bold text-white">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
+                  <div className="flex bg-[#0e0e0e] border border-[#1e1e1e] rounded-lg overflow-hidden text-[11px]">
+                    <span className="px-2.5 py-1 text-[#777]">Day</span>
+                    <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
+                    <span className="px-2.5 py-1 text-[#777]">Month</span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[620px]">
+                    <div className="grid" style={cols}>
+                      <div className="border-b border-[#1e1e1e]" />
+                      {weekDays.map(d => {
+                        const isToday = formatDateForDb(d) === todayKey;
+                        return (
+                          <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#1e1e1e]">
+                            <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-[#666]")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
+                            <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-white font-bold" : "text-white")}>{d.getDate()}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {calHours.map(h => (
+                      <div key={h} className="grid" style={cols}>
+                        <div className="text-[9.5px] text-[#555] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
+                        {weekDays.map(d => {
+                          const dk = formatDateForDb(d);
+                          const isToday = dk === todayKey;
+                          const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
+                          return (
+                            <div key={dk} className={cn("border-r border-b border-[#151515] min-h-[34px] p-0.5 space-y-0.5", isToday && "bg-accent-muted")}>
+                              {evs.map(a => {
+                                const pend = a.status === "pending";
+                                return (
+                                  <div key={a.id} className={cn("rounded text-[9.5px] px-1.5 py-0.5 leading-tight truncate border-l-2", pend ? "border-amber-500 bg-amber-500/[0.12] text-amber-200" : "border-[#00e5a0] bg-emerald-500/[0.12] text-emerald-100")}>
+                                    {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Link>
+            );
+          })()}
 
           {/* Today's / Selected Schedule — same bone tint as the calendar
               above, so the two cards read as a connected unit. */}
