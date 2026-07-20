@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
-  Calendar, DollarSign, Users, Star, Plus, X, CreditCard,
+  Calendar, DollarSign, Users, Star, Plus, X,
   ChevronRight, AlertCircle, TrendingUp, UserX, Bell,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -17,7 +17,6 @@ import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -113,19 +112,6 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
       </div>
     </Card>
   );
-}
-
-// ─── Custom Chart Tooltip ─────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-xs">
-        <p className="text-[#777]">{label}</p>
-        <p className="text-white font-semibold">{formatCurrency(payload[0].value)}</p>
-      </div>
-    );
-  }
-  return null;
 }
 
 const apptMins = (a: AppointmentWithDetails): number =>
@@ -474,6 +460,9 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-white uppercase tracking-wide truncate">{shop?.name ?? "Dashboard"}</h1>
             {/* Plan badge moved to the sidebar wordmark (next to CLIPWISE). */}
           </div>
+          <p className="text-sm text-[#777] mt-0.5 truncate">
+            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 pt-1">
           {/* Desktop-only bell + avatar — only at lg+, where the floating
@@ -580,17 +569,6 @@ export default function DashboardPage() {
                   on tablet+. */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard
-                  label="Appointments"
-                  value={String(appointments.length)}
-                  sub={hasCompleted
-                    ? `↑ ${completed.length} completed`
-                    : hasAppts
-                      ? `${appointments.length - completed.length} pending`
-                      : "No bookings yet"}
-                  icon={Calendar} color="gold"
-                  tone={hasCompleted ? "up" : "muted"}
-                />
-                <StatCard
                   label="New Clients"
                   value={String(newClients)}
                   sub={newClients > 0 ? "↑ This period" : "No new clients yet"}
@@ -642,13 +620,13 @@ export default function DashboardPage() {
                     <div className="cw-qa-icon">💳</div>
                     <div className="cw-qa-label">POS</div>
                   </Link>
+                  <Link href="/dashboard/appointments" className="cw-qa">
+                    <div className="cw-qa-icon">📅</div>
+                    <div className="cw-qa-label">Appointments</div>
+                  </Link>
                   <Link href="/dashboard/analytics" className="cw-qa">
                     <div className="cw-qa-icon">📊</div>
                     <div className="cw-qa-label">Reports</div>
-                  </Link>
-                  <Link href="/dashboard/settings" className="cw-qa">
-                    <div className="cw-qa-icon">⚙️</div>
-                    <div className="cw-qa-label">Settings</div>
                   </Link>
                 </div>
               </div>
@@ -673,7 +651,7 @@ export default function DashboardPage() {
           <Card className="!bg-[#141414]">
             <CardHeader>
               <CardTitle>{selectedCalDate ? `Appointments — ${friendlyDate(selectedCalDate)}` : "Today's Schedule"}</CardTitle>
-              <Link href="/dashboard/appointments" className="text-xs text-white hover:underline">View all</Link>
+              <Link href="/dashboard/appointments" className="text-xs text-accent-soft hover:underline">View all</Link>
             </CardHeader>
             <CardContent>
               {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
@@ -715,27 +693,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Over Period</CardTitle>
-              <span className="text-xs text-[#777]">Total: <span className="text-white font-semibold">{formatCurrency(revenue)}</span></span>
-            </CardHeader>
-            <CardContent>
-              {chartData.length === 0 ? (
-                <div className="h-[180px] flex items-center justify-center text-[#777] text-sm">No revenue data for this period</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="revenue" fill="#F5F0E6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right column */}
@@ -761,31 +718,6 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { label: "Add Walk-in", onClick: () => setShowAddWalkin(true), icon: Plus, gold: true },
-                { label: "View Appointments", href: "/dashboard/appointments", icon: Calendar, gold: false },
-                { label: "Open POS", href: "/dashboard/pos", icon: CreditCard, gold: false },
-                { label: "Manage Staff", href: "/dashboard/staff", icon: Users, gold: false },
-              ].map((action) => (
-                action.href ? (
-                  <Link key={action.label} href={action.href}>
-                    <div className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer", action.gold ? "bg-black/10 text-white border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
-                      <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
-                    </div>
-                  </Link>
-                ) : (
-                  <button key={action.label} onClick={action.onClick} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", action.gold ? "bg-black/10 text-white border border-[#1e1e1e] hover:bg-black/10" : "text-[#777] hover:text-white hover:bg-[#141414]")}>
-                    <action.icon size={16} />{action.label}<ChevronRight size={14} className="ml-auto opacity-50" />
-                  </button>
-                )
-              ))}
-            </CardContent>
-          </Card>
-
           {/* Staff Status */}
           <Card>
             <CardHeader><CardTitle>Staff Status</CardTitle></CardHeader>
@@ -797,7 +729,7 @@ export default function DashboardPage() {
                   <div className="relative">
                     {b.photo
                       ? <img src={b.photo} alt={b.name} className="w-9 h-9 rounded-full object-cover border border-[#1e1e1e]" />
-                      : <div className="w-9 h-9 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-sm">{b.name[0]}</div>
+                      : <div className="w-9 h-9 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-white font-bold text-sm">{b.name[0]}</div>
                     }
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-surface rounded-full" />
                   </div>
@@ -817,7 +749,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Alerts</CardTitle>
-              <Link href="/dashboard/notifications" className="text-xs text-white hover:underline">
+              <Link href="/dashboard/notifications" className="text-xs text-accent-soft hover:underline">
                 See all ({notifications.filter((n) => !n.is_read).length})
               </Link>
             </CardHeader>
@@ -825,9 +757,9 @@ export default function DashboardPage() {
               {notifications.length === 0 ? (
                 <p className="text-sm text-[#777] text-center py-4">No notifications</p>
               ) : notifications.map((n) => (
-                <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-black/5 border border-black/10")}>
+                <div key={n.id} className={cn("flex gap-2.5 p-2.5 rounded-xl", !n.is_read && "bg-accent-muted border border-accent/30")}>
                   <div className={cn("mt-0.5 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs",
-                    n.type === "booking" ? "bg-black/10 text-white" : n.type === "no-show" ? "bg-orange-500/20 text-orange-400" : n.type === "review" ? "bg-purple-500/20 text-purple-400" : "bg-red-500/20 text-red-400")}>
+                    n.type === "booking" ? "bg-amber-500/15 text-amber-400" : n.type === "no-show" ? "bg-rose-500/15 text-rose-400" : n.type === "review" ? "bg-yellow-500/15 text-yellow-300" : "bg-rose-500/15 text-rose-400")}>
                     {n.type === "booking" ? <Calendar size={12} /> : n.type === "review" ? <Star size={12} /> : <AlertCircle size={12} />}
                   </div>
                   <div>
