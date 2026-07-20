@@ -480,7 +480,7 @@ export default function DashboardPage() {
           desktop they belong here so they're never hidden when the screen
           is maxed. */}
       <div className="flex items-start justify-between gap-3 mb-6">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-20 lg:pr-0">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-2xl font-bold text-white uppercase tracking-wide truncate">{shop?.name ?? "Dashboard"}</h1>
             {/* Plan badge moved to the sidebar wordmark (next to CLIPWISE). */}
