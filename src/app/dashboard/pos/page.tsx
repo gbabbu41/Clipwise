@@ -11,7 +11,7 @@ import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { Barber, Service, InventoryItem, Transaction, PromoCode } from "@/lib/database.types";
+import type { Barber, Service, InventoryItem, PromoCode } from "@/lib/database.types";
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
@@ -33,9 +33,12 @@ export default function POSPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  // POS grid tabs — split services from physical products so a big inventory
+  // doesn't bury the service menu. Products are further grouped by category.
+  const [posTab, setPosTab] = useState<"services" | "products">("services");
+  const [productSearch, setProductSearch] = useState("");
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [client, setClient] = useState(""); // empty until a customer is chosen
@@ -48,6 +51,7 @@ export default function POSPage() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false); // "add new customer" form collapsed by default
   const [addName, setAddName] = useState("");
   const [addPhone, setAddPhone] = useState("");
   const [addEmail, setAddEmail] = useState("");
@@ -83,11 +87,10 @@ export default function POSPage() {
 
   const loadData = useCallback(async () => {
     if (!shop) return;
-    const [barbersRes, svcsRes, invRes, txRes, promoRes, clientsRes] = await Promise.all([
+    const [barbersRes, svcsRes, invRes, promoRes, clientsRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("category").order("name"),
       supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name"),
-      supabase.from("transactions").select("*").eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("promo_codes").select("*").eq("shop_id", shop.id).eq("is_active", true),
       // Single source of truth — the clients book. Bookings now auto-register
       // customers here (see /api/clients/upsert), so this is the one list POS
@@ -97,7 +100,6 @@ export default function POSPage() {
     if (barbersRes.data) { setBarbers(barbersRes.data); if (barbersRes.data.length > 0) setBarberId(barbersRes.data[0].id); }
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
-    if (txRes.data) setRecentTx(txRes.data);
     if (promoRes.data) setPromoCodes(promoRes.data);
     if (clientsRes.data) setClientsList((clientsRes.data as ClientLite[]).map(c => ({ ...c, saved: true })));
     setDataLoaded(true);
@@ -153,8 +155,15 @@ export default function POSPage() {
     setCustPhone(c.phone ?? "");
     setCustEmail(c.email ?? "");
     setPickerOpen(false);
-    setClientSearch(""); setDupClient(null);
+    setClientSearch(""); setDupClient(null); setAddOpen(false);
     setAddName(""); setAddPhone(""); setAddEmail("");
+  };
+
+  // Open the inline "add customer" form, prefilling the name from whatever's
+  // typed in the search box so "no match → add" is a single tap.
+  const openAddForm = () => {
+    if (clientSearch.trim() && !addName.trim()) setAddName(clientSearch.trim());
+    setAddOpen(true);
   };
 
   const clearClient = () => {
@@ -511,6 +520,20 @@ export default function POSPage() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  // Products grouped into category sub-sections (falls back to "Products" when
+  // an item has no category), filtered by the product search box.
+  const inventoryByCategory = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    const items = q
+      ? inventory.filter(i => i.name.toLowerCase().includes(q) || (i.category?.toLowerCase().includes(q) ?? false))
+      : inventory;
+    return items.reduce((acc, i) => {
+      const cat = i.category?.trim() || "Products";
+      (acc[cat] ||= []).push(i);
+      return acc;
+    }, {} as Record<string, InventoryItem[]>);
+  }, [inventory, productSearch]);
+
   const itemCount = cart.reduce((n, i) => n + i.qty, 0);
 
   // Shared order-summary body — reused by the mobile drawer and the desktop
@@ -621,7 +644,7 @@ export default function POSPage() {
 
         {/* 1 ─ TOP BAR (fixed): Customer | Barber side by side, no labels */}
         <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
-          <button type="button" onClick={() => setPickerOpen(true)}
+          <button type="button" onClick={() => { setAddOpen(false); setPickerOpen(true); }}
             className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-[#141414] px-3 text-sm text-left transition-colors",
               client ? "border-[#1e1e1e]" : "border-[#00e5a0]/40")}>
             <User size={15} className="text-[#555] shrink-0" />
@@ -650,7 +673,20 @@ export default function POSPage() {
           </div>
         ) : (
           <>
-            {Object.entries(servicesByCategory).map(([cat, svcs]) => (
+            {/* Services / Products tabs — only when there's inventory to split out */}
+            {inventory.length > 0 && (
+              <div className="flex gap-1 p-1 rounded-xl bg-[#141414] border border-[#1e1e1e] mb-3">
+                {(["services", "products"] as const).map(t => (
+                  <button key={t} type="button" onClick={() => setPosTab(t)}
+                    className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
+                      posTab === t ? "bg-white text-black" : "text-[#888] hover:text-white")}>
+                    {t === "products" ? `Products (${inventory.length})` : "Services"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(inventory.length === 0 || posTab === "services") && Object.entries(servicesByCategory).map(([cat, svcs]) => (
               <div key={cat}>
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -677,58 +713,49 @@ export default function POSPage() {
               </div>
             ))}
 
-            {inventory.length > 0 && (
-              <div>
-                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2">Products</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {inventory.map(inv => {
-                    const selected = cart.some(i => i.id === `inv-${inv.id}`);
-                    return (
-                      <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                        className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
-                          selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20",
-                          inv.quantity === 0 && "opacity-40 pointer-events-none")}>
-                        {selected && (
-                          <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
-                            <Check size={11} className="text-black" strokeWidth={3} />
-                          </span>
-                        )}
-                        <p className="text-[13px] font-semibold text-[#f0f0f0] leading-tight line-clamp-2 pr-4">{inv.name}</p>
-                        <div className="flex items-end justify-between gap-1">
-                          {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0
-                            ? <span className="text-[10px] text-red-400 leading-none">{inv.quantity} left</span>
-                            : <span />}
-                          <span className="text-[14px] font-bold text-[#00e5a0] leading-none">{formatCurrency(inv.price)}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Recent transactions — scrolls with the grid */}
-            {recentTx.length > 0 && (
-              <div>
-                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-5 mb-2">Recent</p>
-                <div className="space-y-2">
-                  {recentTx.slice(0, 5).map(tx => {
-                    const barberName = barbers.find(b => b.id === tx.barber_id)?.name;
-                    return (
-                      <div key={tx.id} className="flex items-center justify-between gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                        <div className="min-w-0">
-                          <p className="text-sm text-[#f0f0f0] truncate">{tx.service_name}</p>
-                          <p className="text-[11px] text-[#555] truncate">{[tx.client_name, barberName].filter(Boolean).join(" · ") || new Date(tx.created_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-[#f0f0f0]">{formatCurrency(tx.amount + tx.tip)}</p>
-                          <p className="text-[11px] text-[#555] capitalize">{tx.payment_method}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+            {inventory.length > 0 && posTab === "products" && (
+              <>
+                {inventory.length > 6 && (
+                  <div className="flex items-center gap-2 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 mb-3">
+                    <Search size={15} className="text-[#777] shrink-0" />
+                    <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                      placeholder="Search products"
+                      className="flex-1 bg-transparent py-2.5 text-sm text-white focus:outline-none placeholder:text-[#555]" />
+                    {productSearch && <button type="button" onClick={() => setProductSearch("")} className="text-[#777] hover:text-white shrink-0"><X size={14} /></button>}
+                  </div>
+                )}
+                {Object.keys(inventoryByCategory).length === 0 ? (
+                  <p className="text-center text-xs text-[#666] py-10">No products match &ldquo;{productSearch}&rdquo;</p>
+                ) : Object.entries(inventoryByCategory).map(([cat, items]) => (
+                  <div key={cat}>
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {items.map(inv => {
+                        const selected = cart.some(i => i.id === `inv-${inv.id}`);
+                        return (
+                          <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
+                            className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
+                              selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20",
+                              inv.quantity === 0 && "opacity-40 pointer-events-none")}>
+                            {selected && (
+                              <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
+                                <Check size={11} className="text-black" strokeWidth={3} />
+                              </span>
+                            )}
+                            <p className="text-[13px] font-semibold text-[#f0f0f0] leading-tight line-clamp-2 pr-4">{inv.name}</p>
+                            <div className="flex items-end justify-between gap-1">
+                              {inv.quantity <= inv.low_stock_threshold && inv.quantity > 0
+                                ? <span className="text-[10px] text-red-400 leading-none">{inv.quantity} left</span>
+                                : <span />}
+                              <span className="text-[14px] font-bold text-[#00e5a0] leading-none">{formatCurrency(inv.price)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </>
         )}
@@ -822,35 +849,47 @@ export default function POSPage() {
               ))}
             </div>
 
-            {/* Add new — columns for manual entry */}
-            <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
-              <p className="text-[11px] uppercase tracking-wide text-[#777] font-semibold mb-2 flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* Add new — collapsed by default so the sheet stays clean (just
+                search + results). Expands to a compact form, with the name
+                prefilled from the search term. */}
+            {!addOpen ? (
+              <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
+                <button type="button" onClick={openAddForm}
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-[#2a2a2a] text-sm font-semibold text-[#f0f0f0] hover:border-white/30 hover:bg-white/[0.03] transition-colors">
+                  <UserPlus size={15} /> {clientSearch.trim() ? `Add “${clientSearch.trim()}”` : "Add new customer"}
+                </button>
+              </div>
+            ) : (
+              <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a] space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-wide text-[#777] font-semibold flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
+                  <button type="button" onClick={() => { setAddOpen(false); setDupClient(null); }} className="text-[11px] text-[#777] hover:text-white">Cancel</button>
+                </div>
                 <Input placeholder="Name *" value={addName} onChange={e => { setAddName(e.target.value); setDupClient(null); }} />
                 <Input type="tel" placeholder="Phone" value={addPhone} onChange={e => { setAddPhone(e.target.value); setDupClient(null); }} />
                 <Input type="email" placeholder="Email" value={addEmail} onChange={e => { setAddEmail(e.target.value); setDupClient(null); }} />
-              </div>
-              <p className="text-[10px] text-[#666] mt-1">Add phone/email to save them to your client book — or leave blank for a quick walk-in.</p>
+                <p className="text-[10px] text-[#666]">Add phone/email to save them to your client book — or leave blank for a quick walk-in.</p>
 
-              {/* Already-on-file surface — catches the same email/phone under a
-                  different name and offers the existing client for reuse. */}
-              {dupClient && (
-                <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5">
-                  <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-amber-200">
-                      This {dupClient.email && addEmail.trim().toLowerCase() === dupClient.email.toLowerCase() ? "email" : "phone"} is already on file for <span className="font-semibold">{dupClient.name}</span>.
-                    </p>
-                    <p className="text-[10px] text-[#999] truncate">{[dupClient.email, dupClient.phone].filter(Boolean).join(" · ")}</p>
-                    <button onClick={() => selectClient(dupClient)} className="mt-1.5 text-xs font-semibold text-amber-300 hover:underline">Use {dupClient.name} instead →</button>
+                {/* Already-on-file surface — catches the same email/phone under a
+                    different name and offers the existing client for reuse. */}
+                {dupClient && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5">
+                    <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-amber-200">
+                        This {dupClient.email && addEmail.trim().toLowerCase() === dupClient.email.toLowerCase() ? "email" : "phone"} is already on file for <span className="font-semibold">{dupClient.name}</span>.
+                      </p>
+                      <p className="text-[10px] text-[#999] truncate">{[dupClient.email, dupClient.phone].filter(Boolean).join(" · ")}</p>
+                      <button onClick={() => selectClient(dupClient)} className="mt-1.5 text-xs font-semibold text-amber-300 hover:underline">Use {dupClient.name} instead →</button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <Button className="w-full mt-2" size="sm" loading={addingClient} onClick={addManualClient}>
-                <UserPlus size={14} /> Add &amp; select
-              </Button>
-            </div>
+                <Button className="w-full" size="sm" loading={addingClient} onClick={addManualClient}>
+                  <UserPlus size={14} /> Add &amp; select
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
