@@ -499,7 +499,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 lg:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -596,7 +596,7 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="px-3 py-4 border-t border-[#1e1e1e]">
+      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#1e1e1e]">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
             <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />

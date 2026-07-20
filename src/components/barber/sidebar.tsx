@@ -287,7 +287,7 @@ export function BarberSidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-[60] w-64 h-screen flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -352,7 +352,7 @@ export function BarberSidebar() {
         )}
       </nav>
 
-      <div className="px-3 py-4 border-t border-border">
+      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-white border border-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
             <AvatarImage src={barber?.photo} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
