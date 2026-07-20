@@ -519,7 +519,7 @@ export function Sidebar() {
       >
         <span className="cw-grad">CLIPWISE</span>
         {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="inline-flex items-center rounded bg-white/[0.05] text-[#8a8a8a] text-[9px] font-semibold uppercase tracking-[0.12em] px-1.5 py-[3px]">
+          <span className="inline-flex items-center rounded bg-white/[0.05] text-[#a9c6ff] text-[9px] font-semibold uppercase tracking-[0.12em] px-1.5 py-[3px]">
             {shop.subscription_plan}
           </span>
         )}
