@@ -38,7 +38,12 @@ export function DashboardHeader({ title, subtitle }: { title: string; subtitle?:
   };
 
   return (
-    <div className="cwd-hdr">
+    // The template owns its top spacing (pt-6 lg:pt-8) so every page that drops
+    // in <DashboardHeader> sits at the same distance from the top — no per-page
+    // padding to drift. Pages using it give their root horizontal padding only
+    // (px-*, not p-*), otherwise the top would double up. The dashboard home
+    // keeps its own inline copy of this markup, so it's unaffected by this.
+    <div className="cwd-hdr pt-6 lg:pt-8">
       <div className="min-w-0">
         <h1 className="truncate">{title}</h1>
         {subtitle && <p className="cwd-sub">{subtitle}</p>}

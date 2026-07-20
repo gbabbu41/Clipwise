@@ -42,8 +42,10 @@ export default function SchedulePage() {
 
   const current = barbers.find(b => b.id === selected);
 
+  // Horizontal padding only — <DashboardHeader> owns the top spacing so it's
+  // consistent with every other page that uses it.
   return (
-    <div className="p-4 lg:p-8 max-w-2xl mx-auto pb-28">
+    <div className="px-4 lg:px-8 max-w-2xl mx-auto pb-28">
       <DashboardHeader title="Schedule" subtitle="Set working hours, breaks & lunch — each barber gets emailed their schedule." />
 
       {barbers.length === 0 ? (
