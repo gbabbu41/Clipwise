@@ -385,7 +385,7 @@ export function Sidebar() {
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
                   <p className="text-base font-bold text-white">Notifications</p>
-                  <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-amber-400 hover:underline">See all</Link>
+                  <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-accent-soft hover:underline">See all</Link>
                 </div>
                 {recentNotifs.length === 0 ? (
                   <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
@@ -443,7 +443,7 @@ export function Sidebar() {
                                 </div>
                               )}
                             </div>
-                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1" />}
+                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1" />}
                           </div>
                         );
                         return inlineAppt ? (

@@ -23,6 +23,17 @@ const config: Config = {
           light: "#FFFFFF",
           dark: "#D4D4D4",
         },
+        // Brand accent — the periwinkle-blue signature (matches the homepage
+        // wordmark gradient + interactive blue). This retires the old gold/amber
+        // brand accent. Use `accent` for solid fills (white text reads on it),
+        // `accent-soft` for light-blue text / icons / marks on dark surfaces,
+        // and `accent-muted` for faint tinted washes (e.g. today's column).
+        // SEMANTIC amber (pending, warnings, no-show, stars) stays amber.
+        accent: {
+          DEFAULT: "#6ea8fe",
+          soft:    "#a9c6ff",
+          muted:   "rgba(110,168,254,0.12)",
+        },
         // v2 surfaces — `surface` / `surface-raised` are now tier-1 / tier-2
         // dark cards. Existing `bg-surface` / `bg-surface-raised` callsites
         // pick up the right values without any sweep.

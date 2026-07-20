@@ -226,7 +226,7 @@ export function BarberSidebar() {
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
                   <p className="text-base font-bold text-white">Notifications</p>
-                  <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-amber-400 hover:underline">See all</Link>
+                  <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-accent-soft hover:underline">See all</Link>
                 </div>
                 {recentNotifs.length === 0 ? (
                   <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
@@ -250,7 +250,7 @@ export function BarberSidebar() {
                               <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-semibold text-amber-300">Accept &amp; assign ›</span>
                             )}
                           </div>
-                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />}
+                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1.5" />}
                         </>
                       );
                       const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]");

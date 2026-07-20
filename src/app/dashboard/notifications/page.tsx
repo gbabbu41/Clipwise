@@ -149,7 +149,7 @@ export default function NotificationsPage() {
 
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Notifications</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Notifications</h1>
           <p className="text-sm text-[#777] mt-0.5">
             {unreadCount > 0
               ? `${unreadCount} unread`
@@ -225,7 +225,7 @@ export default function NotificationsPage() {
                         {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
                       </div>
                     </div>
-                    {!notif.is_read && <span className="absolute top-3.5 right-9 w-2 h-2 rounded-full bg-amber-400" />}
+                    {!notif.is_read && <span className="absolute top-3.5 right-9 w-2 h-2 rounded-full bg-accent" />}
                     <button type="button" aria-label="Dismiss notification"
                       onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
                       className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#0c0c0c] border border-[#1e1e1e] flex items-center justify-center text-[#777] hover:text-white hover:border-white opacity-0 group-hover:opacity-100 transition-opacity">

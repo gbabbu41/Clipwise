@@ -682,7 +682,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     </div>
                   ))}
                   <button type="button" onClick={addServiceRow}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300">
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-white">
                     <Plus size={15} /> Add another service
                   </button>
                   {editForm.service_ids.filter(Boolean).length > 0 && (
@@ -1457,19 +1457,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button key={dateStr} data-sel={isSel ? "1" : undefined}
               onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
               className="flex-shrink-0 basis-[14.2857%] min-w-[3rem] py-1.5 text-center hover:bg-[#141414] transition-colors">
-              <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-amber-400" : "text-[#666]")}>
+              <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-accent-soft" : "text-[#666]")}>
                 {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
               </p>
               <p className={cn(
                 "text-sm font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors",
-                isSel ? "bg-amber-500 text-white" : today ? "text-amber-400" : "text-white",
+                isSel ? "bg-accent text-white" : today ? "text-accent-soft" : "text-white",
               )}>
                 {day.getDate()}
               </p>
               <div className="flex justify-center gap-0.5 mt-0.5 h-1">
-                {count > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
-                {count > 3 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
-                {count > 6 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                {count > 0 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
+                {count > 3 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
+                {count > 6 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
               </div>
             </button>
           );
@@ -1480,7 +1480,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   // ── YEAR VIEW ───────────────────────────────────────────────────────────────
   // 12 mini-months; tap one to drop into that Month. Days with appointments are
-  // brightened, today is the amber pill — the same language as Apple's year grid.
+  // brightened, today is the accent pill — the same language as Apple's year grid.
   const renderYearView = () => {
     const year = currentDate.getFullYear();
     const todayStr = formatDateForDb(new Date());
@@ -1499,7 +1499,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             return (
               <button key={m} onClick={() => openMonth(first)}
                 className="text-left rounded-xl p-1.5 hover:bg-[#0f0f0f] transition-colors">
-                <p className="text-sm font-bold text-amber-400 mb-1 px-0.5">
+                <p className="text-sm font-bold text-accent-soft mb-1 px-0.5">
                   {first.toLocaleDateString("en-CA", { month: "long" })}
                 </p>
                 <div className="grid grid-cols-7 gap-y-0.5">
@@ -1515,7 +1515,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       <span key={`d${i}`} className={cn(
                         "text-[9px] leading-[15px] h-[15px] w-[15px] mx-auto text-center rounded-full",
                         !inMonth ? "text-transparent"
-                          : isTodayCell ? "bg-amber-500 text-white font-bold"
+                          : isTodayCell ? "bg-accent text-white font-bold"
                           : has ? "text-white font-semibold"
                           : "text-[#777]",
                       )}>
@@ -1579,13 +1579,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
-                    isToday(day) ? "bg-amber-500 text-white font-bold" :
+                    isToday(day) ? "bg-accent text-white font-bold" :
                     inMonth ? "text-white" : "text-[#444]",
                   )}>
                     {day.getDate()}
                   </span>
                 </div>
-                {isToday(day) && <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 leading-none">Today</span>}
+                {isToday(day) && <span className="text-[9px] font-bold uppercase tracking-wide text-accent-soft leading-none">Today</span>}
                 {isMobile ? (
                   // Phones: just colored dots per booking; cell is too narrow for chip text
                   <div className="flex flex-wrap gap-0.5 overflow-hidden">
@@ -1972,14 +1972,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-amber-500 text-white" : "text-white",
+                    isSelected ? "bg-accent text-white" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
                   <div className="flex justify-center gap-0.5 mt-0.5 h-1">
-                    {count > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
-                    {count > 3 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
-                    {count > 6 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                    {count > 0 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
+                    {count > 3 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
+                    {count > 6 && <span className="w-1 h-1 rounded-full bg-accent-soft" />}
                   </div>
                 </button>
               );
@@ -2087,13 +2087,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => openDay(day)}
-                  className={cn("py-2 text-center border-l border-[#161616] hover:bg-[#141414] transition-colors", today && "bg-amber-500/10")}>
+                  className={cn("py-2 text-center border-l border-[#161616] hover:bg-[#141414] transition-colors", today && "bg-accent-muted")}>
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-amber-500 text-white" : "text-white",
+                    today ? "bg-accent text-white" : "text-white",
                   )}>
                     {day.getDate()}
                   </p>
@@ -2112,7 +2112,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-[#141414]", isToday(day) && "bg-amber-500/10")} />
+                  <div key={formatDateForDb(day)} className={cn("border-l border-[#141414]", isToday(day) && "bg-accent-muted")} />
                 ))}
               </div>
             ))}
@@ -2485,7 +2485,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     placeholder="Reason (optional) — e.g. Lunch"
                     className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
                   <p className="text-[11px] text-[#888] flex items-start gap-1.5">
-                    <span className="text-amber-400 mt-0.5">ⓘ</span>
+                    <span className="text-accent-soft mt-0.5">ⓘ</span>
                     {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
                   </p>
                   <div className="flex gap-2 pt-1">
@@ -2530,7 +2530,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   })}
                 </div>
                 <button type="button" onClick={addServiceRow}
-                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300">
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-white">
                   <Plus size={15} /> Add another service
                 </button>
                 {addForm.service_ids.filter(Boolean).length > 0 && (

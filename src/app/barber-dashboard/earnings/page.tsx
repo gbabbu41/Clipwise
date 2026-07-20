@@ -286,7 +286,7 @@ export default function BarberPaymentsPage() {
       {/* Header (left) + small period dropdown (right) — matches the owner. */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Payments</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
           <p className="text-[#777] text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 mt-1">

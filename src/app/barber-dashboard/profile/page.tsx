@@ -76,7 +76,7 @@ export default function BarberProfilePage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">My Profile</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">My Profile</h1>
         <p className="text-[#777] text-sm mt-0.5">Update your info shown to clients</p>
       </div>
 

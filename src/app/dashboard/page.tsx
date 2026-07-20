@@ -471,7 +471,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-2xl font-bold text-white uppercase tracking-tight truncate">{shop?.name ?? "Dashboard"}</h1>
+            <h1 className="text-2xl font-bold text-white uppercase tracking-wide truncate">{shop?.name ?? "Dashboard"}</h1>
             {/* Plan badge moved to the sidebar wordmark (next to CLIPWISE). */}
           </div>
         </div>
@@ -481,7 +481,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-amber-400 hover:border-amber-400 transition-colors relative"
+            className="hidden lg:inline-flex w-9 h-9 rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors relative"
           >
             <Bell size={15} />
             {notifications.filter(n => !n.is_read).length > 0 && (

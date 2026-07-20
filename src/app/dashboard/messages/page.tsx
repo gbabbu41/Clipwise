@@ -550,7 +550,7 @@ export default function MessagesPage() {
                           value={composeSearch}
                           onChange={e => setComposeSearch(e.target.value)}
                           placeholder="Search by name, phone, or email…"
-                          className="w-full bg-white border border-[#1e1e1e] rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
+                          className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white"
                         />
                       </div>
                       <div className="max-h-56 overflow-y-auto border border-[#1e1e1e] rounded-xl divide-y divide-border/50">

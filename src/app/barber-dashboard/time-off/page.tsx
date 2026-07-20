@@ -152,7 +152,7 @@ export default function BarberTimeOffPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Time Off</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Time Off</h1>
           <p className="text-sm text-[#777] mt-0.5">Request days off, block hours, log sick days</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
