@@ -76,9 +76,12 @@ export function StatsCarousel({
   const slides = [
     // 1 — Revenue (area)
     <div key="rev" className={card}>
-      <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Today&apos;s Revenue</p>
-      <p className="text-3xl font-extrabold text-white font-mono tracking-tight mt-0.5 leading-none">{formatCurrency(revenue)}</p>
-      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Revenue · Today</p>
+        <span className="text-[11px] text-[#555] whitespace-nowrap">‹ swipe ›</span>
+      </div>
+      <p className="text-4xl font-extrabold text-white font-mono tracking-tight mt-1 leading-none">{formatCurrency(revenue)}</p>
+      <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>
       <div className="flex-1 min-h-[96px] mt-3 flex items-end justify-center gap-1.5">
@@ -92,14 +95,20 @@ export function StatsCarousel({
                 ? "bg-gradient-to-t from-[#a9c6ff] to-white"
                 : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
           ));
-        })() : <Empty />}
+        })() : (
+          // Empty state — faint placeholder bars so the hero keeps its shape
+          // (the "No bookings yet today" line above already says there's no data).
+          Array.from({ length: 7 }).map((_, i) => (
+            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[34px] rounded-t bg-white/[0.05]" />
+          ))
+        )}
       </div>
     </div>,
 
     // 2 — Bookings (bars)
     <div key="bk" className={card}>
       <p className="text-[11px] uppercase tracking-wide text-[#8a8a8a]">Bookings</p>
-      <p className="text-3xl font-extrabold text-white font-mono tracking-tight mt-0.5 leading-none">{totalBookings}</p>
+      <p className="text-4xl font-extrabold text-white font-mono tracking-tight mt-1 leading-none">{totalBookings}</p>
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `${completed.length} completed` : "No bookings yet"}
       </p>
