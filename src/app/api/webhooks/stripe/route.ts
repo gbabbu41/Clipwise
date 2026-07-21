@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", apptId)
             .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
-            .select("client_email, client_name, date, total_amount, shop_id, barber_id, services(name)")
+            .select("client_email, client_name, date, time_slot, total_amount, shop_id, barber_id, services(name)")
             .maybeSingle();
 
           // A pay-in-person booking that's still awaiting approval is now paid —
@@ -215,6 +215,31 @@ export async function POST(request: NextRequest) {
               date: paidAppt.date,
               kind: "completed",
             });
+
+            // Owner email — the off-app alert. A payment link is usually paid
+            // when the owner isn't in the app, so the realtime chime can't reach
+            // them; the in-app notification only surfaces on next open. The
+            // finalize/reconcile paths already send this, but the webhook (the
+            // primary path when Stripe delivers the event) was the one paid path
+            // that skipped it. The .neq("payment_status","paid") claim above
+            // means only ONE path wins the transition, so there's no double send.
+            if (shopRow?.email) {
+              fetch(`${BASE_URL}/api/send-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "owner_payment_received",
+                  data: {
+                    ownerEmail: shopRow.email,
+                    clientName: paidAppt.client_name ?? "A client",
+                    serviceName: svcName || "Service",
+                    amount: `$${(paidAppt.total_amount ?? 0).toFixed(2)}`,
+                    date: paidAppt.date,
+                    time: paidAppt.time_slot,
+                  },
+                }),
+              }).catch(() => null);
+            }
           }
           break;
         }
