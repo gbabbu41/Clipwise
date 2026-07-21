@@ -332,14 +332,17 @@ export default function PaymentsPage() {
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const count = cardIn.length + cashIn.length;
     const m = new Map<string, { order: number; net: number }>();
-    cardIn.forEach(i => {
+    // Chart the COLLECTED amount per bucket — card gross + cash — so the
+    // sparkline reflects the same total as the card's headline. A cash-only
+    // period now draws bars instead of the empty/grey placeholder.
+    [...cardIn, ...cashIn].forEach(i => {
       const dt = new Date(i.ts);
       const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
       const label = monthly
         ? dt.toLocaleDateString("en-CA", { month: "short" })
         : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += netOf(i); m.set(label, cur);
+      cur.net += i.amount; m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
     return { net, cash, gross, fees, count, data, avg: count ? (gross + cash) / count : 0 };
