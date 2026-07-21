@@ -3,4 +3,10 @@
 // top band and the sidebar hides its floating bell/profile, so the top matches
 // the dashboard home. To convert another page: add its route here AND swap its
 // heading for <DashboardHeader title=… />.
-export const INLINE_HEADER_PAGES = ["/dashboard", "/dashboard/schedule"];
+export const INLINE_HEADER_PAGES = [
+  "/dashboard",
+  "/dashboard/schedule",
+  "/dashboard/appointments",
+  "/dashboard/clients",
+  "/dashboard/payments",
+];

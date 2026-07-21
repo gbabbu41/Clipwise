@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 
@@ -500,7 +501,7 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black px-4 sm:px-6 py-6 max-w-2xl mx-auto pb-28">
+    <div className="min-h-screen bg-black px-4 sm:px-6 max-w-2xl mx-auto pb-28">
       {toast && (
         <div className={cn("fixed bottom-24 right-4 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-medium",
           toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300")}>
@@ -509,11 +510,10 @@ export default function PaymentsPage() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
-        {/* Barber selector (left) + per-barber period selector (right) share one
-            row, so the period control sits with its context instead of floating. */}
-        <div className="mt-1.5 flex items-center justify-between gap-3 min-h-[30px]">
+      <DashboardHeader title="Payments" />
+      {/* Barber selector (left) + per-barber period selector (right) share one
+          row, so the period control sits with its context instead of floating. */}
+      <div className="mb-4 flex items-center justify-between gap-3 min-h-[30px]">
           {barbers.length > 0 ? (
             <div className="relative">
               <button onClick={() => setShowBarberPicker(v => !v)}
@@ -553,7 +553,6 @@ export default function PaymentsPage() {
             </select>
           </div>
         </div>
-      </div>
 
       {/* ── Earnings: per-barber period filter, or the shop payout carousel ──── */}
       <div className="mb-4">

@@ -8,6 +8,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 import type { Service } from "@/lib/database.types";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
@@ -890,19 +891,16 @@ export default function AppointmentsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-6 pb-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Appointments</h1>
-          <p className="text-sm text-[#777] mt-0.5">Manage bookings and waitlist</p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} aria-label="Add appointment"
-          className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-2xl leading-none hover:opacity-90 transition-opacity flex-shrink-0">
-          +
-        </button>
-      </div>
+      <DashboardHeader title="Appointments" subtitle="Manage bookings and waitlist"
+        action={
+          <button onClick={() => setShowAddModal(true)} aria-label="Add appointment"
+            className="w-[38px] h-[38px] rounded-full bg-white text-black flex items-center justify-center text-2xl leading-none hover:opacity-90 transition-opacity flex-shrink-0">
+            +
+          </button>
+        } />
 
       {/* Stats bar — v2 reference treatment: uppercase grey label, 28px
           DM Mono value, colored indicator below (green up / red down). */}

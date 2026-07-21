@@ -16,7 +16,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
  * (so the mobile top band shrinks and the floating bell/profile is hidden),
  * keeping the top consistent with the dashboard home.
  */
-export function DashboardHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function DashboardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   const { profile } = useAuth();
   const [unread, setUnread] = useState(0);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -49,6 +49,9 @@ export function DashboardHeader({ title, subtitle }: { title: string; subtitle?:
         {subtitle && <p className="cwd-sub">{subtitle}</p>}
       </div>
       <div className="cwd-cluster">
+        {/* Optional page action (e.g. "add"), sits left of the universal
+            bell + profile so the right cluster stays consistent everywhere. */}
+        {action}
         <Link href="/dashboard/notifications" aria-label="Notifications" className="cwd-icobtn" onClick={onBell}>
           <Bell size={17} />
           {unread > 0 && <span className="cwd-dot" />}

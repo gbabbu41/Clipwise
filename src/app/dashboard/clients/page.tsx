@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import type { Client, Appointment } from "@/lib/database.types";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -273,46 +274,47 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-6 pb-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Clients</h1>
-          <p className="text-sm text-[#777] mt-0.5">Manage your client base</p>
+      <DashboardHeader title="Clients" subtitle="Manage your client base"
+        action={
+          <button onClick={() => setShowAddModal(true)} aria-label="Add client"
+            className="w-[38px] h-[38px] rounded-full bg-white text-black flex items-center justify-center text-2xl leading-none hover:opacity-90 transition-opacity flex-shrink-0">
+            +
+          </button>
+        } />
+
+      {stats.atRisk > 0 && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={async () => {
+            if (!shop) return;
+            const atRiskWithEmail = clients.filter(c => c.tag === "At Risk" && c.email);
+            if (atRiskWithEmail.length === 0) { showToast("No at-risk clients have email addresses on file"); return; }
+            let sent = 0;
+            for (const c of atRiskWithEmail) {
+              const res = await fetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "rebooking_reminder",
+                  data: {
+                    clientName: c.name,
+                    clientEmail: c.email,
+                    shopName: shop.name,
+                    shopEmail: shop.email ?? "",
+                    bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                  },
+                }),
+              });
+              if (res.ok) sent++;
+            }
+            showToast(`Re-engagement emails sent to ${sent} at-risk clients`);
+          }}>
+            Re-engage {stats.atRisk} At-Risk
+          </Button>
         </div>
-        <div className="flex gap-3">
-          {stats.atRisk > 0 && (
-            <Button variant="outline" size="sm" onClick={async () => {
-              if (!shop) return;
-              const atRiskWithEmail = clients.filter(c => c.tag === "At Risk" && c.email);
-              if (atRiskWithEmail.length === 0) { showToast("No at-risk clients have email addresses on file"); return; }
-              let sent = 0;
-              for (const c of atRiskWithEmail) {
-                const res = await fetch("/api/send-email", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "rebooking_reminder",
-                    data: {
-                      clientName: c.name,
-                      clientEmail: c.email,
-                      shopName: shop.name,
-                      shopEmail: shop.email ?? "",
-                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
-                    },
-                  }),
-                });
-                if (res.ok) sent++;
-              }
-              showToast(`Re-engagement emails sent to ${sent} at-risk clients`);
-            }}>
-              Re-engage {stats.atRisk} At-Risk
-            </Button>
-          )}
-          <Button onClick={() => setShowAddModal(true)}>+ Add Client</Button>
-        </div>
-      </div>
+      )}
 
       {/* Stats — v2 reference treatment */}
       {(() => {
