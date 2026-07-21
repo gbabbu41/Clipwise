@@ -417,7 +417,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 lg:p-8 animate-fade-in">
+    <div className="p-4 lg:p-8 pt-6 lg:pt-8 animate-fade-in">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* Today's Schedule → full appointment detail + actions (shared modal) */}
