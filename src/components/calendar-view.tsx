@@ -5,6 +5,7 @@ import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo, paymentTag,
   occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
@@ -836,7 +837,7 @@ function AgendaSheet({
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.
@@ -2279,6 +2280,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
     <div data-no-swipe className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
+      {/* Page title (owner standalone only) — the universal top header, so the
+          calendar's top matches every other page. The date-nav toolbar below
+          stays as-is. Grid area (flex-1) absorbs the header height. */}
+      {pageTitle && (
+        <div className="shrink-0 px-4 sm:px-6">
+          <DashboardHeader title={pageTitle} />
+        </div>
+      )}
       {/* Header — one row: date hero (left) · controls (right). The barber
           filter is a compact avatar+caret so it all fits on a single line. */}
       <div className="border-b border-[#1a1a1a] px-4 sm:px-6 py-2 flex items-center justify-between gap-3">

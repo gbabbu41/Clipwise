@@ -5,6 +5,7 @@ import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDow
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
@@ -611,7 +612,7 @@ export default function POSPage() {
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
           bar + drawer. PC (lg): order summary as a side panel on the RIGHT
           (flex-row-reverse keeps DOM order but renders the panel last). */}
-      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-3.5rem-68px)] md:h-screen overflow-hidden">
+      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-68px-env(safe-area-inset-top))] md:h-screen overflow-hidden">
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
@@ -624,8 +625,12 @@ export default function POSPage() {
           {cartFooter}
         </div>
 
-        {/* Main column — top bar + scrollable service grid */}
+        {/* Main column — page header + top bar + scrollable service grid */}
         <div className="flex-1 min-w-0 flex flex-col">
+
+        {/* Page title — universal top header, so POS matches every other page.
+            Sits above the workflow bar; the grid (flex-1) absorbs its height. */}
+        <div className="shrink-0 px-3"><DashboardHeader title="Point of Sale" /></div>
 
         {/* 1 ─ TOP BAR (fixed): Customer | Barber side by side, no labels */}
         <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">

@@ -9,4 +9,6 @@ export const INLINE_HEADER_PAGES = [
   "/dashboard/appointments",
   "/dashboard/clients",
   "/dashboard/payments",
+  "/dashboard/calendar",
+  "/dashboard/pos",
 ];

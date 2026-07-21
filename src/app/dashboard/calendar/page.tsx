@@ -2,5 +2,5 @@
 import { CalendarView } from "@/components/calendar-view";
 
 export default function CalendarPage() {
-  return <CalendarView canBlock />;
+  return <CalendarView canBlock pageTitle="Calendar" />;
 }
