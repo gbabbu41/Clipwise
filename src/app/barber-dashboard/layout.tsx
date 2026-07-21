@@ -90,7 +90,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
               pt-14 reserves the mobile top-bar height. The full-bleed calendar
               pins its own #0a0a0a, so the top spacer matches its canvas there. */}
-          <main className={`lg:ml-64 pt-14 lg:pt-0 pb-24 lg:pb-0 ${pathname === "/barber-dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
+          <main className={`lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-24 lg:pb-0 ${pathname === "/barber-dashboard/calendar" ? "bg-[#0a0a0a]" : ""}`}>
             <SwipeNavigator order={BARBER_SWIPE_ORDER}>{children}</SwipeNavigator>
           </main>
           <BarberMobileNav />

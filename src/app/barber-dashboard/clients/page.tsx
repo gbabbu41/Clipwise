@@ -62,7 +62,7 @@ export default function BarberClientsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">My Clients</h1>
+        <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">My Clients</h1>
         <p className="text-[#777] text-sm mt-0.5">Everyone you've worked with at {barber ? "" : "the shop"}</p>
       </div>
 

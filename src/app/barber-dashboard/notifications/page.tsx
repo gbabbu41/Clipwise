@@ -111,7 +111,7 @@ export default function BarberNotificationsPage() {
 
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Notifications</h1>
+          <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">Notifications</h1>
           <p className="text-sm text-[#777] mt-0.5">
             {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? "All caught up" : "Nothing here yet"}
           </p>
