@@ -4,7 +4,7 @@ Read this first. It carries cross-machine context so any Claude Code instance
 (Windows desktop or MacBook) stays consistent. The owner works from **two
 machines** and syncs only through this GitHub repo (`gbabbu41/Clipwise`, branch
 `main`). Local Claude memory does NOT transfer between machines — this file +
-`SESSION-17-NOTES.md` (latest) + `SESSION-16-NOTES.md` are the shared source of truth.
+`SESSION-18-NOTES.md` (latest) + `SESSION-17-NOTES.md` are the shared source of truth.
 
 ## What this is
 Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
@@ -69,8 +69,9 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
 
 ## Where to look
 - `TODO.md` — go-live checklist (§0), pending SQL (§2), **code-review backlog (§2b)**, roadmap (§4b = Tap to Pay via Capacitor).
-- `SESSION-17-NOTES.md` — detailed log of the most recent work (latest).
-- `SESSION-16-NOTES.md` — prior session.
+- `SESSION-18-NOTES.md` — detailed log of the most recent work (latest): universal top header + consistent top padding across all owner pages. NEXT: barber portal.
+- `SESSION-17-NOTES.md` — prior session.
+- `SESSION-16-NOTES.md` — older session.
 - `SESSION-14-NOTES.md` — older session.
 - `CAPACITOR.md` — native-app (Capacitor) setup runbook + Tap to Pay prereqs.
 - `src/lib/` — `stripe.ts`, `supabase{,-admin}.ts`, `twilio.ts`, `payment-notify.ts`,
