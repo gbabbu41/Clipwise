@@ -47,11 +47,11 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
 
-// Title shown in the mobile top bar per route. The home route is intentionally
-// blank (it keeps its own personalized greeting). This also gives the calendar
-// — which has no inline heading — a title beside the bell, matching the shop
-// portal's one-row "title · bell · profile" top.
+// Title shown in the mobile top bar per route — gives every page (the calendar
+// included, which has no inline heading) a title beside the bell, matching the
+// shop portal's one-row "title · bell · profile" top.
 const BAR_TITLE: Record<string, string> = {
+  "/barber-dashboard": "Home",
   "/barber-dashboard/calendar": "Calendar",
   "/barber-dashboard/waitlist": "Walk-Ins",
   "/barber-dashboard/schedule": "Schedule",
@@ -179,13 +179,16 @@ export function BarberSidebar() {
           // pt/h include env(safe-area-inset-top) so the bar (and its title +
           // bell + avatar) clear the notch / Dynamic Island in the native app
           // and installed PWA — where the webview runs full-screen under it.
-          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black/92 backdrop-blur-xl transition-all duration-200 border-b",
+          // Solid black (not black/92) so the bar blends with the pure-black
+          // page at rest — no faint darker strip — and cleanly covers content
+          // when scrolled. Border fades in only once you scroll under it.
+          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black transition-all duration-200 border-b",
           scrolled ? "border-[#1e1e1e]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* Page title (left) — matches the shop portal's inline header. */}
-        <h1 className="flex-1 min-w-0 text-[17px] font-extrabold uppercase tracking-wide text-white truncate">{BAR_TITLE[pathname] ?? ""}</h1>
+        {/* Page title (left) — 23px uppercase, matching the shop portal header. */}
+        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-white truncate">{BAR_TITLE[pathname] ?? ""}</h1>
         {/* Notifications bell — same control as the owner mobile header,
             scoped to this barber. Red dot when there's anything unread. */}
         <button

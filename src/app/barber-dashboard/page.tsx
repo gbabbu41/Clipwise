@@ -115,7 +115,9 @@ export default function BarberOverviewPage() {
           owner dashboard). */}
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-white tracking-tight truncate">
+          {/* Greeting sits under the bar's "HOME" title on mobile, so it's a
+              touch smaller there; stays prominent on desktop (no top bar). */}
+          <h1 className="text-xl lg:text-2xl font-bold text-white tracking-tight truncate">
             {barber?.name ? `Hi, ${barber.name.split(" ")[0]}` : "Hi"}
           </h1>
           <p className="text-[#777] text-sm mt-1 truncate">
