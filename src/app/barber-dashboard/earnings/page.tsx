@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { CreditCard, Banknote, DollarSign, X } from "lucide-react";
+import { CreditCard, Banknote, X, ChevronRight, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
-import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 
@@ -23,19 +22,27 @@ interface Tx {
 
 const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
 
-// The earnings card + transactions reflect a chosen window. Default = a
-// swipeable carousel (this week → month → all time); a dropdown overrides it
-// with last 14 days / last week / a custom from→to range, matching how the
-// barber is actually paid.
-
-// Tooltip rides the top strip and never captures touches (see stats carousel).
-const tip = {
-  contentStyle: { borderRadius: 10, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" },
-  wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
-  position: { y: 0 },
-  allowEscapeViewBox: { x: true, y: true },
-  isAnimationActive: false,
-} as const;
+// Mini CSS-bar sparkline for an earnings period card — same look as the owner
+// Payments page (blue gradient bars, tallest highlighted). Faint placeholder
+// bars when the period has no earnings.
+function Spark({ data }: { data: { val: number }[] }) {
+  if (!data.length) {
+    return (
+      <div className="cwp-spark">
+        {Array.from({ length: 7 }).map((_, i) => <i key={i} className="cwp-ph" style={{ height: `${28 + (i % 3) * 14}%` }} />)}
+      </div>
+    );
+  }
+  const bars = data.slice(-14);
+  const max = Math.max(...bars.map(d => d.val), 1);
+  let peak = 0;
+  bars.forEach((d, i) => { if (d.val > bars[peak].val) peak = i; });
+  return (
+    <div className="cwp-spark">
+      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${Math.max(8, (d.val / max) * 100)}%` }} />)}
+    </div>
+  );
+}
 
 export default function BarberPaymentsPage() {
   const { accessToken, profile } = useAuth();
@@ -48,14 +55,15 @@ export default function BarberPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [stripeNet, setStripeNet] = useState<{ byPi: Record<string, { gross: number; fee: number; net: number }> } | null>(null);
 
-  // Earnings window: Default = swipeable carousel (this week → month → all);
-  // a dropdown overrides it with last 14 days / last week / custom range.
-  const [ownerExtra, setOwnerExtra] = useState<"" | "biweekly" | "lastweek" | "custom">("");
+  // Earnings window: the periods are the swipeable carousel cards (this week →
+  // month → all → custom); the last card opens a from→to date picker.
   const [slide, setSlide] = useState(0);
   const railRef = useRef<HTMLDivElement | null>(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  // Statement filter — All / Card / Cash / Unpaid (Unpaid = collectable appts).
+  const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid">("all");
 
   // ── All-time transactions in one call; the window is applied client-side ──
   const loadEarnings = useCallback(async () => {
@@ -104,11 +112,9 @@ export default function BarberPaymentsPage() {
   };
   // Small "Jul 23 – Jul 29" caption so each period card shows its actual dates.
   const fmtDay = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-  const rangeFor = (key: "week" | "month" | "all" | "biweekly" | "lastweek") => {
+  const rangeFor = (key: "week" | "month" | "all") => {
     const ws = startOf("week");
     if (key === "week") return `${fmtDay(ws)} – ${fmtDay(ws + 6 * 86400000)}`;
-    if (key === "biweekly") return `${fmtDay(startOf("biweekly"))} – ${fmtDay(Date.now())}`;
-    if (key === "lastweek") return `${fmtDay(ws - 7 * 86400000)} – ${fmtDay(ws - 86400000)}`;
     if (key === "month") { const d = new Date(); return `${fmtDay(startOf("month"))} – ${fmtDay(new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime())}`; }
     return ""; // all time
   };
@@ -119,14 +125,14 @@ export default function BarberPaymentsPage() {
     const gross = inP.reduce((s, t) => s + grossOf(t), 0);
     const tips = inP.reduce((s, t) => s + (t.tip ?? 0), 0);
     const fees = inP.reduce((s, t) => s + feeOf(t), 0);
-    // Cash is collected in hand and kept separate from the card/Stripe balance
-    // (which is what the green headline shows), mirroring the owner Payments page.
+    // Cash is collected in hand; shown separately from the card/Stripe figure.
     const cash = inP.filter(t => t.payment_method === "cash").reduce((s, t) => s + earnedOf(t), 0);
     const cardEarned = earned - cash;
     const count = inP.length;
+    // Sparkline buckets = COLLECTED per day (card + cash), so the chart reflects
+    // the same take-home the headline shows (a cash-only week still draws bars).
     const m = new Map<string, { order: number; val: number }>();
     inP.forEach(t => {
-      if (t.payment_method === "cash") return;   // chart tracks the card/Stripe net only
       const dt = new Date(t.created_at);
       const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(dt.getTime() / 86400000);
       const label = monthly
@@ -141,65 +147,27 @@ export default function BarberPaymentsPage() {
 
   const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const nowTs = Date.now();
-  // Default swipe windows: this week → this month → all time.
+  // Carousel windows: this week → this month → all time (+ a Custom card).
   const basePeriods = [
     { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
     { label: "This month", range: rangeFor("month"), from: startOf("month"), to: nowTs, monthly: false },
     { label: "All time", range: "", from: 0, to: Infinity, monthly: true },
   ];
-  // Dropdown override window (null = use the carousel).
-  const overridePeriod = (() => {
-    if (ownerExtra === "biweekly") return { label: "Last 14 days", range: rangeFor("biweekly"), from: startOf("biweekly"), to: nowTs, monthly: false };
-    if (ownerExtra === "lastweek") { const ws = startOf("week"); return { label: "Last week", range: rangeFor("lastweek"), from: ws - 7 * 86400000, to: ws - 1, monthly: false }; }
-    if (ownerExtra === "custom") {
-      const from = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
-      const to = customTo ? new Date(customTo + "T23:59:59.999").getTime() : nowTs;
-      const label = (customFrom || customTo) ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}` : "Custom range";
-      return { from, to, label, range: "", monthly: (to - from) > 62 * 86400000 };
-    }
-    return null;
-  })();
   const baseSummaries = basePeriods.map(p => summarize(p.from, p.to, p.monthly));
-  const overrideSummary = overridePeriod ? summarize(overridePeriod.from, overridePeriod.to, overridePeriod.monthly) : null;
-  // Window currently shown — also drives the transactions list below.
-  const activePeriod = overridePeriod ?? basePeriods[Math.min(slide, 2)];
 
-  // Snap the rail to the first slide when the dropdown override toggles.
-  useEffect(() => { const el = railRef.current; if (el) el.scrollTo({ left: 0 }); setSlide(0); }, [ownerExtra]);
+  // Custom range (the last carousel card) — set from the date picker.
+  const hasCustom = !!(customFrom || customTo);
+  const customFromTs = customFrom ? new Date(customFrom + "T00:00:00").getTime() : 0;
+  const customToTs = customTo ? new Date(customTo + "T23:59:59.999").getTime() : nowTs;
+  const customMonthly = (customToTs - customFromTs) > 62 * 86400000;
+  const customLabel = hasCustom ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}` : "Custom range";
+  const customSummary = summarize(customFromTs, customToTs, customMonthly);
 
-  // One earnings card — reused by the carousel slides and the override view.
-  const earningsCard = (label: string, range: string, s: ReturnType<typeof summarize>) => (
-    <div className="rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">You earned · {label}</p>
-        <div className="flex items-baseline gap-2">
-          {s.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(s.cash)} cash</span>}
-          {s.tips > 0 && <span className="text-xs font-semibold text-amber-600/70">{formatCurrency(s.tips)} tips</span>}
-        </div>
-      </div>
-      <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{loading ? "—" : formatCurrency(s.cardEarned)}</p>
-      {range && <p className="text-[10px] text-gray-400 mt-0.5">{range}</p>}
-      <p className="text-xs text-gray-500 mt-1.5">
-        From {formatCurrency(s.gross)} collected{s.fees > 0 ? ` · ${formatCurrency(s.fees)} Stripe fees` : ""}
-      </p>
-      <div className="flex-1 min-h-[80px] mt-3 -mx-1">
-        {s.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={s.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-              <Bar dataKey="val" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(v) => [formatCurrency(Number(v)), "Earned"]} cursor={{ fill: "#f3f4f6" }} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
-      </div>
-      <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
-        <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{s.count}</p></div>
-        <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(s.avg)}</p></div>
-        <div className="text-right"><p className="text-gray-500">{isOwner ? "Collected" : "To shop"}</p><p className="font-semibold text-gray-700">{isOwner ? formatCurrency(s.gross) : formatCurrency(s.shopCut)}</p></div>
-      </div>
-    </div>
-  );
+  // Window currently shown (last slide = custom) — also drives the statement.
+  const activePeriod = slide >= 3
+    ? { from: customFromTs, to: customToTs, label: hasCustom ? customLabel : "Custom" }
+    : basePeriods[Math.min(slide, 2)];
+  const activeSummary = slide >= 3 ? customSummary : baseSummaries[Math.min(slide, 2)];
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
@@ -270,145 +238,194 @@ export default function BarberPaymentsPage() {
   const visibleUnpaid = unpaid.filter(a => !dismissedOut.has(a.id));
   const outstandingTotal = visibleUnpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);
 
-  // Transactions within the active window (newest first).
+  // ── Statement rows — window transactions (All/Card/Cash) or the collectable
+  // unpaid appointments (Unpaid), grouped by calendar day like the owner page. ─
   const inWindow = (t: Tx) => { const ms = new Date(t.created_at).getTime(); return ms >= activePeriod.from && ms <= activePeriod.to; };
   const windowTxs = [...txs].filter(inWindow).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const recent = windowTxs.slice(0, activePeriod.to === Infinity ? 50 : 300);
+  const feedTxs = recent.filter(t =>
+    txFilter === "all" ? true : txFilter === "card" ? t.payment_method !== "cash" : txFilter === "cash" ? t.payment_method === "cash" : false);
+
+  const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+  const dayLabel = (k: number) => {
+    const diff = Math.round((todayStart - k) / 86400000);
+    const md = new Date(k).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    if (diff === 0) return `Today · ${md}`;
+    if (diff === 1) return `Yesterday · ${md}`;
+    return `${new Date(k).toLocaleDateString("en-CA", { weekday: "short" })} · ${md}`;
+  };
+  const txGroups = (() => {
+    const m = new Map<number, Tx[]>();
+    feedTxs.forEach(t => { const k = dayStart(new Date(t.created_at).getTime()); const arr = m.get(k) ?? []; arr.push(t); m.set(k, arr); });
+    return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
+      const items = m.get(k)!;
+      const total = items.reduce((s, t) => s + earnedOf(t), 0);
+      return { key: k, label: dayLabel(k), total, items };
+    });
+  })();
+  const unpaidGroups = (() => {
+    const m = new Map<number, AppointmentWithDetails[]>();
+    visibleUnpaid.forEach(a => { const k = dayStart(new Date(a.date + "T00:00:00").getTime()); const arr = m.get(k) ?? []; arr.push(a); m.set(k, arr); });
+    return Array.from(m.keys()).sort((a, b) => b - a).map(k => ({ key: k, label: dayLabel(k), items: m.get(k)! }));
+  })();
+  const showUnpaid = txFilter === "unpaid";
+  const statementEmpty = showUnpaid ? unpaidGroups.length === 0 : txGroups.length === 0;
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-28">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
       {toast && (
         <div className="fixed bottom-24 right-4 z-[200] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
           <span className="text-[#00e5a0]">✓</span> {toast}
         </div>
       )}
 
-      {/* Header (left) + small period dropdown (right) — matches the owner. */}
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
-          <p className="text-[#777] text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 mt-1">
-          {ownerExtra === "custom" && (
-            <button type="button" onClick={() => setShowCustomModal(true)}
-              className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
-          )}
-          <select value={ownerExtra}
-            onChange={e => { const v = e.target.value as typeof ownerExtra; setOwnerExtra(v); if (v === "custom") setShowCustomModal(true); }}
-            className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-white [color-scheme:dark]">
-            <option value="">Default</option>
-            <option value="biweekly">Last 14 days</option>
-            <option value="lastweek">Last week</option>
-            <option value="custom">Custom range…</option>
-          </select>
-        </div>
+      {/* Header (barber portal keeps its own title) */}
+      <div className="mb-1">
+        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
+        <p className="text-[#777] text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
       </div>
 
-      {/* ── Earnings: Default = swipeable carousel; override = single card ────── */}
-      {ownerExtra === "" ? (
-        <>
-          <div ref={railRef}
-            onScroll={() => { const el = railRef.current; if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-            className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {basePeriods.map((p, i) => (
-              <div key={p.label} className="min-w-full snap-center">{earningsCard(p.label, p.range, baseSummaries[i])}</div>
-            ))}
-          </div>
-          <div className="flex justify-center gap-1.5 mt-2.5 mb-6">
-            {basePeriods.map((_, i) => (
-              <button key={i} type="button" aria-label={`Slide ${i + 1}`}
-                onClick={() => { const el = railRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
-                className={cn("h-1.5 rounded-full transition-all", i === slide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="mb-6">
-          {overridePeriod && overrideSummary && earningsCard(overridePeriod.label, overridePeriod.range, overrideSummary)}
-        </div>
-      )}
-
-      {/* ── Outstanding — unpaid appointments you can still collect on ──────── */}
-      {visibleUnpaid.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-white">Outstanding · {formatCurrency(outstandingTotal)}</h2>
-            <span className="text-xs text-[#777]">{visibleUnpaid.length} unpaid</span>
-          </div>
-          <div className="space-y-2">
-            {visibleUnpaid.map(a => (
-              <div key={a.id}
-                className={cn("rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3 transition-colors",
-                  canManage ? "hover:border-[#2a2a2a]" : "")}>
-                <button type="button" onClick={() => canManage && setSelectedAppt(a)} disabled={!canManage}
-                  className={cn("flex-1 min-w-0 flex items-center gap-3 text-left", canManage ? "" : "cursor-default")}>
-                  <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center flex-shrink-0">
-                    <CreditCard size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{a.client_name}</p>
-                    <p className="text-xs text-[#777] truncate">
-                      {(a.services as { name: string } | null)?.name ?? "Service"} · {a.date}{a.time_slot ? ` · ${a.time_slot}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
-                    <p className="text-[11px] text-amber-400">{canManage ? "Take payment ›" : "Unpaid"}</p>
-                  </div>
-                </button>
-                {/* Dismiss — clears an uncollectable item from the list */}
-                <button type="button" onClick={() => { dismissOutstanding(a.id); showToast("Dismissed"); }}
-                  aria-label="Dismiss" title="Dismiss"
-                  className="p-1.5 -mr-1 rounded-lg text-[#666] hover:text-white hover:bg-white/5 flex-shrink-0 transition-colors">
-                  <X size={16} />
-                </button>
+      {/* ── Earnings — the period filters live in the carousel ─────────────── */}
+      <div className="cwp-earn-head">
+        <span className="cwp-lbl">You earned</span>
+        <span className="cwp-hint">‹ swipe periods ›</span>
+      </div>
+      <div ref={railRef}
+        onScroll={() => { const el = railRef.current; if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+        className="cwp-rail">
+        {basePeriods.map((p, i) => {
+          const s = baseSummaries[i];
+          return (
+            <div key={p.label} className="cwp-ecard">
+              <div className="cwp-period">
+                <span className="cwp-pname">{p.label}</span>
+                {p.range && <span className="cwp-prange">{p.range}</span>}
               </div>
-            ))}
+              <div className="cwp-amt">{loading ? "—" : formatCurrency(s.earned)}</div>
+              <div className={cn("cwp-meta", s.count === 0 && "cwp-flat")}>
+                {s.count > 0
+                  ? <>↑ {s.count} cut{s.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(s.avg)} avg{s.tips > 0 ? ` · ${formatCurrency(s.tips)} tips` : ""}{s.cash > 0 ? ` · ${formatCurrency(s.cash)} cash` : ""}</span></>
+                  : "No cuts in this period"}
+              </div>
+              <Spark data={s.data} />
+            </div>
+          );
+        })}
+        {/* Custom range card — last in the rail */}
+        {hasCustom ? (
+          <div className="cwp-ecard">
+            <div className="cwp-period">
+              <span className="cwp-pname">Custom</span>
+              <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
+            </div>
+            <div className="cwp-amt">{formatCurrency(customSummary.earned)}</div>
+            <div className={cn("cwp-meta", customSummary.count === 0 && "cwp-flat")}>
+              {customLabel}{customSummary.count > 0 ? <span className="cwp-muted"> · {customSummary.count} cut{customSummary.count !== 1 ? "s" : ""}</span> : ""}
+            </div>
+            <Spark data={customSummary.data} />
           </div>
-          {!canManage && (
-            <p className="text-[11px] text-[#666] mt-2">Ask your shop owner for the &ldquo;manage appointments&rdquo; permission to collect payment here.</p>
-          )}
-        </div>
-      )}
-
-      {/* ── Transactions (selected window) ──────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-white">Transactions</h2>
-        <span className="text-xs text-[#777]">{activePeriod.label}</span>
+        ) : (
+          <div className="cwp-ecard cwp-ghost">
+            <span className="cwp-pname">Custom range</span>
+            <p>Pick any two dates to total<br />your earnings for a window.</p>
+            <button className="cwp-pick" onClick={() => setShowCustomModal(true)}>Choose dates <ChevronRight size={13} /></button>
+          </div>
+        )}
       </div>
+      <div className="cwp-dots">
+        {Array.from({ length: basePeriods.length + 1 }).map((_, i) => (
+          <i key={i} className={cn(i === slide && "cwp-on")} />
+        ))}
+      </div>
+
+      {/* ── Two summary tiles ──────────────────────────────────────────────── */}
+      <div className="cwp-tiles">
+        <button className="cwp-tile cwp-warn" onClick={() => setTxFilter(txFilter === "unpaid" ? "all" : "unpaid")}>
+          <div className="cwp-lbl">Outstanding</div>
+          <div className="cwp-tv">{formatCurrency(outstandingTotal)}</div>
+          <div className="cwp-tn">{visibleUnpaid.length} unpaid{visibleUnpaid.length > 0 ? (canManage ? " · tap to collect" : " · tap to view") : ""}</div>
+        </button>
+        <div className="cwp-tile">
+          <div className="cwp-lbl">Tips</div>
+          <div className="cwp-tv">{formatCurrency(activeSummary.tips)}</div>
+          <div className="cwp-tn">{activePeriod.label}</div>
+        </div>
+      </div>
+
+      {/* ── Statement ──────────────────────────────────────────────────────── */}
+      <div className="cwp-txhead"><h2>Transactions</h2></div>
+      <div className="cwp-seg">
+        {(["all", "card", "cash", "unpaid"] as const).map(f => (
+          <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>
+            {f === "all" ? "All" : f === "card" ? "Card" : f === "cash" ? "Cash" : "Unpaid"}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
-        <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl h-14 animate-pulse" />)}</div>
-      ) : recent.length === 0 ? (
-        <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-10 text-center">
-          <DollarSign size={36} className="text-[#777] mx-auto mb-3" />
-          <p className="text-[#777] text-sm">No transactions in this period</p>
+        <div className="py-16 text-center text-[#66666b] text-sm">Loading payments…</div>
+      ) : statementEmpty ? (
+        <div className="py-16 text-center text-[#66666b] text-sm">
+          {showUnpaid ? "Nothing outstanding — you're all caught up." : "No transactions in this period."}
+        </div>
+      ) : showUnpaid ? (
+        <div className="cwp-statement">
+          {unpaidGroups.map(g => (
+            <div key={g.key} className="cwp-daygroup">
+              <div className="cwp-day"><span className="cwp-dlabel">{g.label}</span></div>
+              {g.items.map(a => (
+                <button key={a.id} className="cwp-row" onClick={() => canManage && setSelectedAppt(a)} disabled={!canManage} style={!canManage ? { cursor: "default" } : undefined}>
+                  <span className="cwp-glyph cwp-due"><Clock size={18} /></span>
+                  <div className="cwp-rmid">
+                    <div className="cwp-nm">{a.client_name}</div>
+                    <div className="cwp-svc">{(a.services as { name: string } | null)?.name ?? "Service"}{a.time_slot ? ` · ${a.time_slot}` : ""}</div>
+                    {canManage && <span className="cwp-send">Take payment →</span>}
+                  </div>
+                  <div className="cwp-rright">
+                    <div className="cwp-a cwp-adue">{formatCurrency(a.total_amount ?? 0)}</div>
+                    <div className="cwp-m"><span className="cwp-tag cwp-tdue">Unpaid</span></div>
+                  </div>
+                  {/* Dismiss — clears an uncollectable item from the list */}
+                  <span role="button" tabIndex={0} aria-label="Dismiss"
+                    onClick={e => { e.stopPropagation(); dismissOutstanding(a.id); showToast("Dismissed"); }}
+                    className="p-1.5 -mr-1 rounded-lg text-[#666] hover:text-white hover:bg-white/5 flex-shrink-0 transition-colors self-center cursor-pointer">
+                    <X size={16} />
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="space-y-2">
-          {recent.map(t => {
-            const cash = t.payment_method === "cash";
-            return (
-              <div key={t.id} className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3">
-                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cash ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400")}>
-                  {cash ? <Banknote size={16} /> : <CreditCard size={16} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{t.client_name ?? "Walk-in"}</p>
-                  <p className="text-xs text-[#777] truncate">
-                    {t.service_name ?? "Service"} · {new Date(t.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-white">{formatCurrency(earnedOf(t))}</p>
-                  <p className="text-[11px]">
-                    <span className={cash ? "text-amber-400" : "text-[#666]"}>{cash ? "cash" : "card"}</span>
-                    {isOwner && !cash && feeOf(t) > 0 && <span className="text-[#666]"> · after {formatCurrency(feeOf(t))} fee</span>}
-                  </p>
-                </div>
+        <div className="cwp-statement">
+          {txGroups.map(g => (
+            <div key={g.key} className="cwp-daygroup">
+              <div className="cwp-day">
+                <span className="cwp-dlabel">{g.label}</span>
+                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}</span>}
               </div>
-            );
-          })}
+              {g.items.map(t => {
+                const cash = t.payment_method === "cash";
+                return (
+                  <div key={t.id} className="cwp-row" style={{ cursor: "default" }}>
+                    <span className={cn("cwp-glyph", cash ? "cwp-cash" : "cwp-card")}>{cash ? <Banknote size={18} /> : <CreditCard size={18} />}</span>
+                    <div className="cwp-rmid">
+                      <div className="cwp-nm">{t.client_name ?? "Walk-in"}</div>
+                      <div className="cwp-svc">{t.service_name ?? "Service"}</div>
+                    </div>
+                    <div className="cwp-rright">
+                      <div className="cwp-a cwp-apos">{formatCurrency(earnedOf(t))}</div>
+                      <div className="cwp-m">
+                        <span className="cwp-method">{cash ? "Cash" : "Card"}</span>
+                        {isOwner && !cash && feeOf(t) > 0 ? ` · after ${formatCurrency(feeOf(t))} fee` : ""}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -428,12 +445,12 @@ export default function BarberPaymentsPage() {
       {/* ── Custom date-range popup ──────────────────────────────────────────── */}
       {showCustomModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} />
+          <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setShowCustomModal(false)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Custom range</h2>
-                <button onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setShowCustomModal(false)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="space-y-3">
                 <div>
@@ -449,9 +466,9 @@ export default function BarberPaymentsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" className="rounded-xl border border-[#1e1e1e] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a]"
-                  onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }}>Cancel</button>
+                  onClick={() => setShowCustomModal(false)}>Cancel</button>
                 <button type="button" className="rounded-xl bg-white text-black text-sm font-semibold py-2.5 hover:opacity-90"
-                  onClick={() => setShowCustomModal(false)}>Apply</button>
+                  onClick={() => { setShowCustomModal(false); const el = railRef.current; if (el) el.scrollTo({ left: el.clientWidth * 3, behavior: "smooth" }); }}>Apply</button>
               </div>
             </div>
           </div>
