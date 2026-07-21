@@ -87,7 +87,7 @@ export function OnboardingBanner({ shop }: Props) {
 
   if (allDone) {
     return (
-      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between animate-fade-in">
+      <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between animate-fade-in">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
             <Check size={16} className="text-emerald-400" />
@@ -110,7 +110,7 @@ export function OnboardingBanner({ shop }: Props) {
   }
 
   return (
-    <div className="bg-surface border border-gold/20 rounded-2xl p-5 animate-fade-in">
+    <div className="mb-6 bg-surface border border-gold/20 rounded-2xl p-5 animate-fade-in">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-sm font-bold text-white">Get your shop ready</p>

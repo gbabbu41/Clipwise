@@ -468,12 +468,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Onboarding banner — shown to new shop owners */}
-      {shop && profile?.role === "shop_owner" && (
-        <div className="mb-6">
-          <OnboardingBanner shop={shop} />
-        </div>
-      )}
+      {/* Onboarding banner — shown to new shop owners. No wrapper margin: the
+          banner carries its own mb-6 so a dismissed (null) banner reserves NO
+          space above the header, keeping the dashboard top flush with every
+          other page. */}
+      {shop && profile?.role === "shop_owner" && <OnboardingBanner shop={shop} />}
 
       {/* Header — shop title + bell + profile on one row (preview layout). */}
       <div className="cwd-hdr">
