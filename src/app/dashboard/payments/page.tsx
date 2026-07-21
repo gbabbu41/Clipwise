@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronRight, ChevronDown, SlidersHorizontal } from "lucide-react";
-import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -66,6 +65,28 @@ const fmtDate = (iso: string | null) => {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 };
+
+// Mini CSS-bar sparkline for an earnings period card — same look as the
+// approved preview (blue gradient bars, tallest highlighted). Falls back to
+// faint placeholder bars when the period has no earnings.
+function Spark({ data }: { data: { net: number }[] }) {
+  if (!data.length) {
+    return (
+      <div className="cwp-spark">
+        {Array.from({ length: 7 }).map((_, i) => <i key={i} className="cwp-ph" style={{ height: `${28 + (i % 3) * 14}%` }} />)}
+      </div>
+    );
+  }
+  const bars = data.slice(-14);
+  const max = Math.max(...bars.map(d => d.net), 1);
+  let peak = 0;
+  bars.forEach((d, i) => { if (d.net > bars[peak].net) peak = i; });
+  return (
+    <div className="cwp-spark">
+      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${Math.max(8, (d.net / max) * 100)}%` }} />)}
+    </div>
+  );
+}
 
 export default function PaymentsPage() {
   const { shop, accessToken } = useAuth();
@@ -349,37 +370,6 @@ export default function PaymentsPage() {
     { label: "All time", range: "", scope: computeScope(0, Infinity, true) },
   ];
   const overrideScope = ownerExtraPeriod ? computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) : null;
-  // One earnings card — reused by the carousel slides and the override view.
-  const barberCard = (label: string, range: string, sc: ReturnType<typeof computeScope>) => (
-    <div className="rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">{barberFirst ? `${barberFirst} · ` : ""}Net collected · {label}</p>
-        {sc.cash > 0 && <span className="text-xs font-semibold text-amber-600">+{formatCurrency(sc.cash)} cash</span>}
-      </div>
-      <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(sc.net)}</p>
-      {range && <p className="text-[10px] text-gray-400 mt-0.5">{range}</p>}
-      <p className="text-xs text-gray-500 mt-1.5">
-        From {formatCurrency(sc.gross)} collected{sc.fees > 0 ? ` · ${formatCurrency(sc.fees)} Stripe fees` : ""}
-      </p>
-      <div className="flex-1 min-h-[80px] mt-3 -mx-1">
-        {sc.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sc.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-              <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No earnings in this period</div>}
-      </div>
-      <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs">
-        <div><p className="text-gray-500">Services</p><p className="font-semibold text-gray-900">{sc.count}</p></div>
-        <div><p className="text-gray-500">Avg ticket</p><p className="font-semibold text-gray-900">{formatCurrency(sc.avg)}</p></div>
-        <div className="text-right"><p className="text-gray-500">Collected</p><p className="font-semibold text-gray-700">{formatCurrency(sc.gross + sc.cash)}</p></div>
-      </div>
-    </div>
-  );
-
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
   const pendingAppts = scopedAppts.filter(a => a.payment_status === "held" || a.payment_status === "saved");
@@ -500,6 +490,48 @@ export default function PaymentsPage() {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
   }
 
+  // ── Earnings carousel = the period selector. Headline = collected (card gross
+  // + cash); the three presets + a Custom card are the swipeable cards. ──────
+  const periodCards = baseSlides.map(s => ({
+    label: s.label, range: s.range,
+    collected: s.scope.gross + s.scope.cash,
+    cash: s.scope.cash, count: s.scope.count, avg: s.scope.avg, data: s.scope.data,
+  }));
+  const customFromTs = customFrom ? new Date(customFrom + "T00:00:00").getTime() : null;
+  const customToTs = customTo ? new Date(customTo + "T23:59:59.999").getTime() : null;
+  const hasCustom = !!(customFromTs || customToTs);
+  const customScope = hasCustom
+    ? computeScope(customFromTs ?? 0, customToTs ?? nowTs, ((customToTs ?? nowTs) - (customFromTs ?? 0)) > 62 * 86400000)
+    : null;
+  const customLabel = hasCustom ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}` : "";
+
+  // ── Statement rows: money-moved (default) or unpaid appts (chase filter),
+  // grouped by calendar day like a bank statement. ──────────────────────────
+  const isUnpaidStatus = (s: string | null) => s === "unpaid" || s === "failed" || !s;
+  const unpaidRows: FeedItem[] = feedAll
+    .filter(i => i.appt && isUnpaidStatus(i.appt.payment_status) && (i.appt.total_amount ?? 0) > 0)
+    .filter(i => !barberName || i.appt?.barbers?.name === barberName)
+    .sort((a, b) => b.ts - a.ts);
+  const stmtItems = txFilter === "unpaid" ? unpaidRows : feed;
+  const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+  const dayLabel = (k: number) => {
+    const diff = Math.round((todayStart - k) / 86400000);
+    const md = new Date(k).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    if (diff === 0) return `Today · ${md}`;
+    if (diff === 1) return `Yesterday · ${md}`;
+    return `${new Date(k).toLocaleDateString("en-CA", { weekday: "short" })} · ${md}`;
+  };
+  const txGroups = (() => {
+    const m = new Map<number, FeedItem[]>();
+    stmtItems.forEach(i => { const k = dayStart(i.ts); const arr = m.get(k) ?? []; arr.push(i); m.set(k, arr); });
+    return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
+      const items = m.get(k)!;
+      const total = items.filter(x => x.settled && !x.refunded).reduce((s, x) => s + netOf(x), 0);
+      return { key: k, label: dayLabel(k), total, items };
+    });
+  })();
+
   return (
     <div className="min-h-screen bg-black px-4 sm:px-6 max-w-2xl mx-auto pb-28">
       {toast && (
@@ -509,269 +541,162 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <DashboardHeader title="Payments" />
-      {/* Barber selector (left) + per-barber period selector (right) share one
-          row, so the period control sits with its context instead of floating. */}
-      <div className="mb-4 flex items-center justify-between gap-3 min-h-[30px]">
-          {barbers.length > 0 ? (
-            <div className="relative">
-              <button onClick={() => setShowBarberPicker(v => !v)}
-                className="flex items-center gap-1 text-sm font-medium text-[#aaa] hover:text-white transition-colors">
-                {selectedBarberLabel}
-                <ChevronDown size={14} className="text-[#666]" />
-              </button>
-              {showBarberPicker && (
-                <>
-                  <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
-                  <div className="absolute top-full left-0 z-[60] mt-1.5 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl overflow-hidden shadow-xl min-w-[150px]">
-                    {["all", ...barbers.map(b => b.id)].map(id => (
-                      <button key={id} onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}
-                        className={cn("w-full text-left px-4 py-2.5 text-sm hover:bg-[#141414] transition-colors",
-                          selectedBarber === id ? "text-white font-medium" : "text-[#aaa]")}>
-                        {id === "all" ? "All barbers" : barbers.find(b => b.id === id)?.name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ) : <span />}
-          {/* Period selector (both views) — Default = swipe; others = single card. */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {ownerExtra === "custom" && (
-              <button type="button" onClick={() => setShowCustomModal(true)}
-                className="text-[11px] font-medium text-[#888] hover:text-white transition-colors">Edit dates</button>
-            )}
-            <select value={ownerExtra}
-              onChange={e => { const v = e.target.value as typeof ownerExtra; setOwnerExtra(v); if (v === "custom") setShowCustomModal(true); }}
-              className="bg-[#141414] border border-[#1e1e1e] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-white [color-scheme:dark]">
-              <option value="">Default</option>
-              <option value="biweekly">Last 14 days</option>
-              <option value="lastweek">Last week</option>
-              <option value="custom">Custom range…</option>
-            </select>
-          </div>
-        </div>
+      {/* ── Header (unchanged nav) ─────────────────────────────────────────── */}
+      <DashboardHeader
+        title="Payments"
+        subtitle={barberName ? `${barberFirst} · collected revenue` : `${shop?.name ?? "Your shop"} · you keep 100%`}
+      />
 
-      {/* ── Earnings: per-barber period filter, or the shop payout carousel ──── */}
-      <div className="mb-4">
-        {barberName ? (
-          <>
-            {ownerExtra === "" ? (
-              <>
-                {/* Default → swipeable carousel: This week → This month → All time */}
-                <div ref={ownerRef}
-                  onScroll={() => { const el = ownerRef.current; if (el) setOwnerSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-                  className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  {baseSlides.map((s, i) => (
-                    <div key={`${s.label}-${i}`} className="min-w-full snap-center">{barberCard(s.label, s.range, s.scope)}</div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between mt-2.5 px-0.5">
-                  <div className="flex gap-1.5">
-                    {baseSlides.map((_, i) => (
-                      <button key={i} type="button" aria-label={`Slide ${i + 1}`}
-                        onClick={() => { const el = ownerRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
-                        className={cn("h-1.5 rounded-full transition-all", i === ownerSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-                    ))}
-                  </div>
-                  <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-                    className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
-                    {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Override → single static card for the chosen window (no swipe) */}
-                {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", ownerExtraPeriod?.range ?? "", overrideScope)}
-                <div className="flex items-center justify-end mt-2.5 px-0.5">
-                  <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-                    className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0">
-                    {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-                  </button>
-                </div>
-              </>
-            )}
-            <p className="text-[11px] text-[#666] leading-snug mt-2 px-0.5">
-              {barberFirst}&apos;s collected revenue. Payouts still settle to the shop&apos;s account — per-barber payouts aren&apos;t set up yet.
-            </p>
-          </>
-        ) : ownerExtra === "" ? (
-          <>
-            <div ref={netRef}
-              onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
-              className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-
-              {/* Slide 1 — shop Stripe balance / payout */}
-              <div className="min-w-full snap-center rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-                <p className="text-[10px] uppercase tracking-wide text-gray-500">Stripe balance</p>
-                <p className="font-extrabold mt-1.5 text-3xl sm:text-4xl text-gray-900">{formatCurrency(payout)}</p>
-                {stripeNet?.nextPayoutDate ? (
-                  <div className="text-xs text-gray-500 mt-1.5 leading-snug">
-                    <span>Next payout{stripeNet.nextPayoutAmount != null ? `: ${formatCurrency(stripeNet.nextPayoutAmount)}` : ""}</span>
-                    <span className="block text-gray-500">{new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</span>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500 mt-1.5">No payout scheduled yet</p>
-                )}
-                <div className="mt-3 pt-3 border-t border-gray-200 flex items-end justify-between gap-3 text-xs">
-                  <div>
-                    <p className="text-gray-500">Net today</p>
-                    <p className="font-semibold text-emerald-600">
-                      {formatCurrency(todayNet)}{todayCash > 0 && <span className="text-amber-600"> + {formatCurrency(todayCash)} cash</span>}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-500">Last payout</p>
-                    <p className="font-medium text-gray-600">
-                      {stripeNet?.lastPayout
-                        ? `${formatCurrency(stripeNet.lastPayout.amount)} · ${new Date(stripeNet.lastPayout.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
-                        : "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slides 2-4 — Net by period */}
-              {netPeriods.map(p => (
-                <div key={p.key} className="min-w-full snap-center rounded-2xl bg-[#F8F9FA] border border-gray-200 px-4 py-5 flex flex-col shadow-sm">
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Net · {p.label}</p>
-                    {p.cash > 0 && <span className="text-xs font-semibold text-amber-600">+ {formatCurrency(p.cash)} cash</span>}
-                  </div>
-                  <p className="text-3xl sm:text-4xl font-extrabold text-gray-900 mt-1.5">{formatCurrency(p.net)}</p>
-                  {p.range && <p className="text-[10px] text-gray-400 mt-0.5">{p.range}</p>}
-                  <div className="flex-1 min-h-[72px] mt-3 -mx-1">
-                    {p.data.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={p.data} margin={{ top: 4, right: 6, left: 6, bottom: 0 }}>
-                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={20} axisLine={false} tickLine={false} />
-                          <Bar dataKey="net" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #eee", background: "#fff", color: "#111", fontSize: 12, padding: "5px 9px", boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: false }} formatter={(v) => [formatCurrency(Number(v)), "Net"]} cursor={{ fill: "#f3f4f6" }} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">No data yet</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Dots (left) + Stripe button (right) */}
-            <div className="flex items-center justify-between mt-2.5 px-0.5">
-              <div className="flex gap-1.5">
-                {Array.from({ length: 1 + netPeriods.length }).map((_, i) => (
-                  <button key={i} type="button" aria-label={`Slide ${i + 1}`}
-                    onClick={() => { const el = netRef.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
-                    className={cn("h-1.5 rounded-full transition-all", i === netSlide ? "w-5 bg-white" : "w-1.5 bg-[#444]")} />
-                ))}
-              </div>
-              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
-                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* All-barbers override → single shop-wide card for the chosen window */}
-            {overrideScope && barberCard(ownerExtraPeriod?.label ?? "Custom range", ownerExtraPeriod?.range ?? "", overrideScope)}
-            <div className="flex items-center justify-end mt-2.5 px-0.5">
-              <button onClick={openStripeDashboard} disabled={busy === "stripe"}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-[#888] hover:text-white transition-colors disabled:opacity-50">
-                {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={11} />
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── Outstanding + On file ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 mb-5">
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
-          <p className="text-[10px] uppercase tracking-wide text-[#777]">Outstanding</p>
-          <p className="font-bold mt-0.5 text-xl text-amber-400">{formatCurrency(outstanding)}</p>
-          <p className="text-[11px] text-[#666] mt-0.5">{outstandingCount} unpaid</p>
-        </div>
-        <div className="rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] px-3 py-3">
-          <p className="text-[10px] uppercase tracking-wide text-[#777]">On file</p>
-          <p className="font-bold mt-0.5 text-xl text-white">{formatCurrency(pending)}</p>
-          <p className="text-[11px] text-[#666] mt-0.5">{pendingCount} held</p>
-        </div>
-      </div>
-
-      {/* ── Recent Transactions header ───────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-white">Recent Transactions</h2>
-        <div className="relative">
-          <button onClick={() => setShowFilterMenu(v => !v)}
-            className={cn("flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#1e1e1e] transition-colors",
-              txFilter !== "all" ? "bg-white text-black border-white" : "bg-[#141414] text-[#aaa] hover:text-white")}>
-            <SlidersHorizontal size={12} /> {filterLabels[txFilter]}
+      {/* Barber chip — only when more than one barber (solo shops stay clean) */}
+      {barbers.length > 1 && (
+        <div className="cwp-barberbar">
+          <button className="cwp-bchip" onClick={() => setShowBarberPicker(v => !v)}>
+            {selectedBarberLabel} <ChevronDown size={13} />
           </button>
-          {showFilterMenu && (
+          {showBarberPicker && (
             <>
-              <div className="fixed inset-0 z-[50]" onClick={() => setShowFilterMenu(false)} />
-              <div className="absolute top-full right-0 z-[60] mt-1.5 bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl overflow-hidden shadow-xl min-w-[120px]">
-                {(["all", "card", "cash", "unpaid"] as const).map(f => (
-                  <button key={f} onClick={() => { setTxFilter(f); setShowFilterMenu(false); }}
-                    className={cn("w-full text-left px-4 py-2.5 text-sm hover:bg-[#141414] transition-colors",
-                      txFilter === f ? "text-white font-medium" : "text-[#aaa]")}>
-                    {filterLabels[f]}
+              <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
+              <div className="cwp-bmenu">
+                {["all", ...barbers.map(b => b.id)].map(id => (
+                  <button key={id} className={cn(selectedBarber === id && "cwp-on")}
+                    onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}>
+                    {id === "all" ? "All barbers" : barbers.find(b => b.id === id)?.name}
                   </button>
                 ))}
               </div>
             </>
           )}
         </div>
+      )}
+
+      {/* ── Earnings — the period filters live in the carousel ─────────────── */}
+      <div className="cwp-earn-head">
+        <span className="cwp-lbl">Earnings{barberFirst ? ` · ${barberFirst}` : ""}</span>
+        <span className="cwp-hint">‹ swipe periods ›</span>
+      </div>
+      <div ref={netRef}
+        onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
+        className="cwp-rail">
+        {periodCards.map((p, idx) => (
+          <div key={idx} className="cwp-ecard">
+            <div className="cwp-period">
+              <span className="cwp-pname">{p.label}</span>
+              {p.range && <span className="cwp-prange">{p.range}</span>}
+            </div>
+            <div className="cwp-amt">{formatCurrency(p.collected)}</div>
+            <div className={cn("cwp-meta", p.count === 0 && "cwp-flat")}>
+              {p.count > 0
+                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}</span></>
+                : "No cuts in this period"}
+            </div>
+            <Spark data={p.data} />
+          </div>
+        ))}
+        {/* Custom range card — last in the rail */}
+        {hasCustom && customScope ? (
+          <div className="cwp-ecard">
+            <div className="cwp-period">
+              <span className="cwp-pname">Custom</span>
+              <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
+            </div>
+            <div className="cwp-amt">{formatCurrency(customScope.gross + customScope.cash)}</div>
+            <div className={cn("cwp-meta", customScope.count === 0 && "cwp-flat")}>
+              {customLabel}{customScope.count > 0 ? <span className="cwp-muted"> · {customScope.count} cut{customScope.count !== 1 ? "s" : ""}</span> : ""}
+            </div>
+            <Spark data={customScope.data} />
+          </div>
+        ) : (
+          <div className="cwp-ecard cwp-ghost">
+            <span className="cwp-pname">Custom range</span>
+            <p>Pick any two dates to total<br />earnings for a specific window.</p>
+            <button className="cwp-pick" onClick={() => setShowCustomModal(true)}>Choose dates <ChevronRight size={13} /></button>
+          </div>
+        )}
+      </div>
+      <div className="cwp-dots">
+        {Array.from({ length: periodCards.length + 1 }).map((_, i) => (
+          <i key={i} className={cn(i === netSlide && "cwp-on")} />
+        ))}
+      </div>
+      <div className="cwp-payout">
+        <span className="cwp-next">
+          {stripeNet?.nextPayoutAmount != null && stripeNet?.nextPayoutDate
+            ? <>Next payout <b>{formatCurrency(stripeNet.nextPayoutAmount)}</b> · {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</>
+            : payout > 0
+              ? <>Balance <b>{formatCurrency(payout)}</b> settling to your bank</>
+              : <>Payouts settle straight to your bank</>}
+        </span>
+        <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
+          {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />
+        </button>
       </div>
 
-      {/* ── Feed ─────────────────────────────────────────────────────────────── */}
-      {loading ? (
-        <div className="py-16 text-center text-[#777] text-sm">Loading payments…</div>
-      ) : feed.length === 0 ? (
-        <div className="py-16 text-center text-[#777] text-sm">No payments here yet.</div>
-      ) : (
-        <div className="space-y-2">
-          {feed.map(i => {
-            const refunded = i.refunded;
-            const isCash = i.method === "cash";
-            const IconEl = isCash ? Banknote : CreditCard;
-            const iconBg = isCash ? "bg-amber-500/10 text-amber-400" : i.settled ? "bg-emerald-500/10 text-emerald-400" : "bg-[#141414] text-[#666]";
+      {/* ── Two summary tiles ──────────────────────────────────────────────── */}
+      <div className="cwp-tiles">
+        <button className="cwp-tile cwp-warn" onClick={() => setTxFilter(txFilter === "unpaid" ? "all" : "unpaid")}>
+          <div className="cwp-lbl">Outstanding</div>
+          <div className="cwp-tv">{formatCurrency(outstanding)}</div>
+          <div className="cwp-tn">{outstandingCount} unpaid{outstandingCount > 0 ? " · tap to chase" : ""}</div>
+        </button>
+        <div className="cwp-tile">
+          <div className="cwp-lbl">On file</div>
+          <div className="cwp-tv">{formatCurrency(pending)}</div>
+          <div className="cwp-tn">{pendingCount} card{pendingCount !== 1 ? "s" : ""} held</div>
+        </div>
+      </div>
 
-            return (
-              <button key={i.key} onClick={() => setDetailItem(i)}
-                className={cn("w-full text-left rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 flex items-center gap-3 hover:border-[#2a2a2a] transition-colors", refunded && "opacity-60")}>
-                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", iconBg)}>
-                  <IconEl size={17} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className={cn("font-semibold text-white text-sm truncate", refunded && "line-through")}>{i.name}</span>
-                    <div className="flex flex-col items-end flex-shrink-0 leading-tight">
-                      <span className={cn("font-bold text-sm", refunded ? "text-[#888] line-through" : "text-white")}>
-                        {formatCurrency(netOf(i))}
-                      </span>
-                      {i.tsIso && timeAgo(i.tsIso) && (
-                        <span className="text-[9px] text-[#666] mt-0.5">{timeAgo(i.tsIso)}</span>
+      {/* ── Statement ──────────────────────────────────────────────────────── */}
+      <div className="cwp-txhead"><h2>Transactions</h2></div>
+      <div className="cwp-seg">
+        {(["all", "card", "cash", "unpaid"] as const).map(f => (
+          <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>{filterLabels[f]}</button>
+        ))}
+      </div>
+      {loading ? (
+        <div className="py-16 text-center text-[#66666b] text-sm">Loading payments…</div>
+      ) : txGroups.length === 0 ? (
+        <div className="py-16 text-center text-[#66666b] text-sm">{txFilter === "unpaid" ? "Nothing outstanding — you're all caught up." : "No transactions here yet."}</div>
+      ) : (
+        <div className="cwp-statement">
+          {txGroups.map(g => (
+            <div key={g.key} className="cwp-daygroup">
+              <div className="cwp-day">
+                <span className="cwp-dlabel">{g.label}</span>
+                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}</span>}
+              </div>
+              {g.items.map(i => {
+                const refunded = i.refunded;
+                const isCash = i.method === "cash";
+                const unpaid = !i.settled && !refunded;
+                const Icon = isCash ? Banknote : unpaid ? Clock : refunded ? RefreshCw : CreditCard;
+                const glyphCls = isCash ? "cwp-cash" : unpaid ? "cwp-due" : refunded ? "" : "cwp-card";
+                const ago = i.tsIso ? timeAgo(i.tsIso) : null;
+                return (
+                  <button key={i.key} className={cn("cwp-row", refunded && "cwp-refunded")} onClick={() => setDetailItem(i)}>
+                    <span className={cn("cwp-glyph", glyphCls)}><Icon size={18} /></span>
+                    <div className="cwp-rmid">
+                      <div className="cwp-nm">{i.name}</div>
+                      <div className="cwp-svc">{i.sub}</div>
+                      {unpaid && i.appt && (i.appt.total_amount ?? 0) > 0 && (
+                        <button className="cwp-send" onClick={e => { e.stopPropagation(); openSendLink(i.appt!); }}>Send payment link →</button>
                       )}
                     </div>
-                  </div>
-                  <p className="text-xs text-[#777] truncate">{i.sub}</p>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-[11px] text-[#666]">
-                      {fmtDate(i.tsIso)}{i.tsIso ? " · " : ""}{i.statusLabel}
-                      {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
-                        <span className="text-[#555]"> · after {formatCurrency(feeOf(i))} fee</span>
-                      )}
-                    </span>
-                    <ChevronRight size={14} className="text-[#555] flex-shrink-0" />
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                    <div className="cwp-rright">
+                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(netOf(i))}</div>
+                      <div className="cwp-m">
+                        {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
+                          : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
+                          : <>
+                              <span className="cwp-method">{isCash ? "Cash" : "Card"}</span>
+                              {ago ? ` · ${ago}` : (i.method !== "cash" && feeOf(i) > 0 ? ` · after ${formatCurrency(feeOf(i))} fee` : "")}
+                            </>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 

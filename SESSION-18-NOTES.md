@@ -156,6 +156,35 @@ c6387c7  Schedule: match dashboard top padding
 
 ---
 
+## Payments page — full v2 rebrand (statement-style)
+A ground-up redesign of `/dashboard/payments`, ported 1:1 from an approved
+preview. Same dark theme, same `<DashboardHeader>` nav (unchanged).
+
+- **CSS:** a namespaced `cwp-*` block appended to `globals.css` (like `cwd-*`
+  for the dashboard). Numbers use DM Mono (`--font-mono`); money green `#31d0a5`,
+  amber `#f5b544`, blue accent used sparingly. Only `/dashboard/payments` uses it.
+- **Earnings = the period selector.** The old *Default / Last 14 days / Last week
+  / Custom* `<select>` is GONE. The periods are now swipeable carousel cards
+  (`.cwp-rail`/`.cwp-ecard`): **This week · This month · All time · Custom range**,
+  each with a big mono headline (collected = card gross + cash), `↑ N cuts · $avg`,
+  and a CSS-bar sparkline (`<Spark>`, tallest bar highlighted). Custom card opens
+  the existing date-range modal.
+- **Statement transactions.** The floating-card feed became one `.cwp-statement`
+  panel: **date groups** (Today / Yesterday / weekday · date) with a per-day total,
+  **hairline-divided rows** — method glyph (card/cash/unpaid-clock), name + service,
+  right-aligned mono amount + method/time or `after $x fee`. Refunds struck through;
+  unpaid rows show an amber tag + inline **Send payment link**.
+- **Filters** are now segmented pills (`.cwp-seg`: All/Card/Cash/Unpaid) instead of
+  a dropdown. **Outstanding tile is tappable** → toggles the Unpaid filter (chase
+  flow); tapping shows unpaid appts (`unpaidRows`) grouped like the statement.
+- **Single barber → no dropdown.** The barber chip (`.cwp-barberbar`) renders only
+  when `barbers.length > 1`.
+- **Unchanged / preserved:** all money logic — Stripe sync, reconcile, realtime,
+  refund, send-link + custom-range modals, `feed`/`computeScope`/`netOf`/`feeOf`.
+  Removed the dead light-themed `barberCard` + its `recharts` import.
+
+---
+
 ## ⏭️ NEXT: apply the same universal header to the BARBER portal
 The owner portal (`src/app/dashboard/**`) is done. The **barber portal**
 (`src/app/barber-dashboard/**`) has NOT been converted yet — do it next so both

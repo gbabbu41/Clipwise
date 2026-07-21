@@ -1055,3 +1055,98 @@ textarea:focus-visible {
   .cwd-qlb { font-size:11px; }
   .cwd-val { font-size:30px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PAYMENTS v2 — namespaced 1:1 port of the approved redesign preview.
+   Dark, calm, statement-first. Numbers use the app's mono (DM Mono).
+   Only used on /dashboard/payments; every class is cwp- prefixed.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cwp-num{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cwp-lbl{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#66666b;font-weight:600}
+
+/* earnings carousel (periods live here) */
+.cwp-earn-head{display:flex;align-items:center;justify-content:space-between;margin:2px 0 10px}
+.cwp-hint{font-size:11px;color:#4a4a4f}
+.cwp-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -4px;padding:0 4px 2px}
+.cwp-rail::-webkit-scrollbar{display:none}
+.cwp-ecard{min-width:calc(100% - 30px);scroll-snap-align:center;background:#0c0c0c;border:1px solid #1c1c1e;border-radius:22px;padding:18px 18px 14px}
+.cwp-period{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cwp-pname{font-size:13px;font-weight:600;color:#f4f4f5}
+.cwp-prange{font-size:11px;color:#66666b;white-space:nowrap}
+.cwp-amt{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:38px;font-weight:600;letter-spacing:-.02em;margin:10px 0 2px;line-height:1;color:#f4f4f5}
+.cwp-meta{font-size:12px;color:#31d0a5;font-weight:500}
+.cwp-meta .cwp-muted{color:#66666b;font-weight:400}
+.cwp-meta.cwp-flat{color:#66666b}
+.cwp-spark{display:flex;align-items:flex-end;gap:5px;height:52px;margin-top:14px}
+.cwp-spark i{flex:1;min-width:3px;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,rgba(110,168,254,.55),rgba(110,168,254,.10));display:block}
+.cwp-spark i.cwp-peak{background:linear-gradient(180deg,#a9c6ff,rgba(110,168,254,.25))}
+.cwp-spark i.cwp-ph{background:rgba(255,255,255,.05)}
+.cwp-ecard.cwp-ghost{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px}
+.cwp-ghost .cwp-pname{font-size:14px}
+.cwp-ghost p{margin:0;font-size:12px;color:#66666b;line-height:1.5}
+.cwp-pick{margin-top:6px;font-size:12px;font-weight:600;color:#000;background:#a9c6ff;border:none;padding:8px 13px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.cwp-editrange{font-size:11px;color:#a9c6ff;background:none;border:none;cursor:pointer;padding:2px 0}
+
+.cwp-dots{display:flex;justify-content:center;gap:6px;margin:12px 0 4px}
+.cwp-dots i{height:6px;width:6px;border-radius:999px;background:#2a2a2e;transition:.2s}
+.cwp-dots i.cwp-on{width:20px;background:#6ea8fe}
+.cwp-payout{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px}
+.cwp-next{font-size:11.5px;color:#66666b}
+.cwp-next b{color:#9a9a9e;font-weight:600}
+.cwp-stripe{font-size:11.5px;color:#9a9a9e;display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;flex:none}
+.cwp-stripe:disabled{opacity:.5}
+
+/* barber selector chip (only when >1 barber) */
+.cwp-barberbar{display:flex;justify-content:flex-end;margin:-2px 0 12px;position:relative}
+.cwp-bchip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:#9a9a9e;background:#141414;border:1px solid #1c1c1e;padding:6px 11px;border-radius:999px;cursor:pointer}
+.cwp-bmenu{position:absolute;top:100%;right:0;margin-top:6px;z-index:60;min-width:160px;background:#0c0c0c;border:1px solid #1c1c1e;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.cwp-bmenu button{width:100%;text-align:left;padding:10px 14px;font-size:13px;color:#9a9a9e;background:none;border:none;cursor:pointer}
+.cwp-bmenu button:hover{background:#141414}
+.cwp-bmenu button.cwp-on{color:#fff;font-weight:600}
+
+/* two summary tiles */
+.cwp-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 8px}
+.cwp-tile{background:#0c0c0c;border:1px solid #1c1c1e;border-radius:16px;padding:14px;text-align:left;display:block;width:100%;cursor:default}
+button.cwp-tile{cursor:pointer;transition:border-color .15s}
+button.cwp-tile:hover{border-color:#2a2a2e}
+.cwp-tile .cwp-lbl{margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.cwp-tv{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;letter-spacing:-.01em;color:#f4f4f5}
+.cwp-tile.cwp-warn .cwp-tv{color:#f5b544}
+.cwp-tn{font-size:11px;color:#66666b;margin-top:3px}
+
+/* statement */
+.cwp-txhead{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}
+.cwp-txhead h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;color:#f4f4f5}
+.cwp-seg{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none;padding:2px;margin-inline:-2px}
+.cwp-seg::-webkit-scrollbar{display:none}
+.cwp-seg button{flex:none;font-size:12.5px;font-weight:500;color:#9a9a9e;background:#141414;border:1px solid #1c1c1e;padding:7px 13px;border-radius:999px;cursor:pointer;transition:.15s}
+.cwp-seg button.cwp-on{background:#f4f4f5;color:#0a0a0a;border-color:#f4f4f5;font-weight:600}
+
+.cwp-statement{background:#0c0c0c;border:1px solid #1c1c1e;border-radius:20px;overflow:hidden}
+.cwp-daygroup{border-top:1px solid #161618}
+.cwp-daygroup:first-child{border-top:none}
+.cwp-day{display:flex;align-items:baseline;justify-content:space-between;padding:12px 16px 8px}
+.cwp-dlabel{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#66666b;font-weight:600}
+.cwp-dtot{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:#66666b}
+.cwp-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid #161618;border-left:none;border-right:none;border-bottom:none;background:none;width:100%;text-align:left;cursor:pointer;transition:background .15s}
+.cwp-row:hover{background:#0f0f11}
+.cwp-daygroup .cwp-row:first-of-type{border-top:none}
+.cwp-glyph{width:38px;height:38px;border-radius:11px;flex:none;display:flex;align-items:center;justify-content:center;background:#141414;color:#9a9a9e}
+.cwp-glyph.cwp-cash{background:rgba(245,181,68,.12);color:#f5b544}
+.cwp-glyph.cwp-card{background:rgba(255,255,255,.05);color:#d8d8dc}
+.cwp-glyph.cwp-due{background:rgba(245,181,68,.12);color:#f5b544}
+.cwp-rmid{flex:1;min-width:0}
+.cwp-nm{font-size:14px;font-weight:600;color:#f4f4f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cwp-svc{font-size:12px;color:#66666b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.cwp-rright{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end}
+.cwp-a{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.cwp-apos{color:#f4f4f5}
+.cwp-adue{color:#f5b544}
+.cwp-m{font-size:10.5px;color:#4a4a4f;margin-top:3px;display:flex;align-items:center;gap:5px;justify-content:flex-end}
+.cwp-method{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#66666b}
+.cwp-refunded{opacity:.6}
+.cwp-refunded .cwp-nm,.cwp-refunded .cwp-a{text-decoration:line-through;color:#66666b}
+.cwp-tag{font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px}
+.cwp-tdue{color:#f5b544;background:rgba(245,181,68,.13)}
+.cwp-tref{color:#66666b;background:#161618}
+.cwp-send{font-size:11px;font-weight:600;color:#a9c6ff;background:rgba(110,168,254,.10);border:1px solid rgba(110,168,254,.22);padding:4px 9px;border-radius:8px;margin-top:5px;cursor:pointer}
