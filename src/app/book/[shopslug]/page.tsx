@@ -503,13 +503,17 @@ export default function BookingPage() {
     const base = new Date(after); base.setHours(0, 0, 0, 0);
     const specificBarber =
       flow === "barber-first" && selectedBarber && selectedBarber !== "any" ? selectedBarber : null;
+    // Never seed/advance past the shop's advance-booking window.
+    const adv = Math.min(60, Math.max(1, Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
+    const windowEnd = new Date(); windowEnd.setHours(0, 0, 0, 0); windowEnd.setDate(windowEnd.getDate() + adv);
     for (let i = inclusive ? 0 : 1; i <= span; i++) {
       const d = new Date(base); d.setDate(base.getDate() + i);
+      if (d > windowEnd) return null;
       const ok = specificBarber ? isBarberAvailableOnDate(specificBarber, d) : isShopAvailableOnDate(d);
       if (ok) return d;
     }
     return null;
-  }, [flow, selectedBarber, isShopAvailableOnDate, isBarberAvailableOnDate]);
+  }, [flow, selectedBarber, isShopAvailableOnDate, isBarberAvailableOnDate, shop]);
 
   // Auto-select the nearest day when the customer reaches the "When" step
   // without a day chosen. It used to open on an empty "Pick a day" void. It
@@ -617,7 +621,9 @@ export default function BookingPage() {
   const confirmBooking = async () => {
     if (!shop || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
-    if (!isWithin6Months(selectedDate)) { showToast("Cannot book more than 6 months in advance.", false); return; }
+    const advDays = Math.min(60, Math.max(1, Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
+    const windowEnd = new Date(); windowEnd.setHours(0, 0, 0, 0); windowEnd.setDate(windowEnd.getDate() + advDays);
+    if (selectedDate > windowEnd) { showToast(`This shop only takes bookings up to ${advDays} day${advDays === 1 ? "" : "s"} ahead.`, false); return; }
     // If the customer left the page open past the slot they picked, the slot
     // is no longer valid. Re-check at submit time.
     const bookingIsToday = formatDateForDb(selectedDate) === formatDateForDb(new Date());
@@ -950,8 +956,10 @@ export default function BookingPage() {
   // customers book far beyond the shop's window.
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const advanceDays = Math.min(60, Math.max(1, Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
-  const calendarDays = Array.from({ length: advanceDays + 1 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; })
-    .filter(d => isWithin6Months(d));
+  // Last bookable day (inclusive) = today + advanceDays. Enforced in the week
+  // strip (disabled days + capped Next-week arrow) and the submit guard so
+  // customers can't page or book past the shop's advance-booking window.
+  const maxDate = new Date(today); maxDate.setDate(today.getDate() + advanceDays);
 
   // Multi-service: slots are `bookingInterval` min apart. We need enough
   // consecutive slots to cover the total duration, all available with at least
@@ -1453,6 +1461,9 @@ export default function BookingPage() {
           // Customers can only look forward: "Previous week" is disabled on the
           // first page (which begins at today).
           const canGoPrev = pageIndex > 0;
+          // Don't page into a week that lies entirely past the booking window.
+          const nextWeekStart = new Date(weekStart); nextWeekStart.setDate(weekStart.getDate() + 7);
+          const canGoNext = nextWeekStart <= maxDate;
 
           // Hour-of-day (0–24, fractional) for a "9:15 AM" style slot — used to
           // bucket slots into Morning / Afternoon / Evening for the chip grid.
@@ -1503,8 +1514,12 @@ export default function BookingPage() {
                 </button>
                 <button
                   aria-label="Next week"
-                  onClick={() => { autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className="w-9 h-9 rounded-full bg-[#141414] hover:bg-[#141414]/80 flex items-center justify-center text-white transition-colors"
+                  disabled={!canGoNext}
+                  onClick={() => { if (!canGoNext) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
+                  className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
+                    canGoNext ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#6e6e6e] cursor-not-allowed",
+                  )}
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -1520,7 +1535,8 @@ export default function BookingPage() {
                   // scheduled or is on approved full-day time-off.
                   const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && !isBarberAvailableOnDate(selectedBarber, day);
                   const isShopClosed = flow !== "barber-first" && !isShopAvailableOnDate(day);
-                  const disabled = !!isBarberOff || isShopClosed;
+                  const isBeyondWindow = day > maxDate;
+                  const disabled = !!isBarberOff || isShopClosed || isBeyondWindow;
                   const isTodayDay = dayStr === todayStr;
                   return (
                     <button key={dayStr} disabled={disabled}
