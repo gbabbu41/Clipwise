@@ -24,7 +24,7 @@ export function PaymentTag({
     )}>
       {tag.segments.map((s, i) => (
         <Fragment key={i}>
-          {i > 0 && <span className="text-[#555] font-normal">·</span>}
+          {i > 0 && <span className="text-[#6e6e6e] font-normal">·</span>}
           <span className={s.className}>{s.text}</span>
         </Fragment>
       ))}

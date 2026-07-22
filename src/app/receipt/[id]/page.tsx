@@ -57,7 +57,7 @@ export default function ReceiptPage() {
         <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
           <Scissors size={40} className="text-[#999] mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Receipt Not Found</h1>
-          <p className="text-[#555] text-sm">This receipt link is invalid or has expired.</p>
+          <p className="text-[#6e6e6e] text-sm">This receipt link is invalid or has expired.</p>
         </div>
       </div>
     );
@@ -85,36 +85,36 @@ export default function ReceiptPage() {
             </div>
             <h1 className="text-lg font-bold text-white">{tx.shops?.name ?? "ClipWise Shop"}</h1>
             {tx.shops?.address && (
-              <p className="text-xs text-[#555] mt-1">{tx.shops.address}, {tx.shops.city}, {tx.shops.province}</p>
+              <p className="text-xs text-[#6e6e6e] mt-1">{tx.shops.address}, {tx.shops.city}, {tx.shops.province}</p>
             )}
             {tx.shops?.phone && (
-              <p className="text-xs text-[#555]">{tx.shops.phone}</p>
+              <p className="text-xs text-[#6e6e6e]">{tx.shops.phone}</p>
             )}
           </div>
 
           {/* Details */}
           <div className="px-6 py-4 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-[#555]">Date</span>
+              <span className="text-[#6e6e6e]">Date</span>
               <span className="text-white text-right">{formattedDate}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-[#555]">Time</span>
+              <span className="text-[#6e6e6e]">Time</span>
               <span className="text-white">{formattedTime}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-[#555]">Client</span>
+              <span className="text-[#6e6e6e]">Client</span>
               <span className="text-white">{tx.client_name}</span>
             </div>
             {tx.barbers?.name && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#555]">Barber</span>
+                <span className="text-[#6e6e6e]">Barber</span>
                 <span className="text-white">{tx.barbers.name}</span>
               </div>
             )}
             {tx.service_name && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#555]">Service</span>
+                <span className="text-[#6e6e6e]">Service</span>
                 <span className="text-white">{tx.service_name}</span>
               </div>
             )}
@@ -128,12 +128,12 @@ export default function ReceiptPage() {
           {/* Pricing */}
           <div className="px-6 py-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-[#555]">Subtotal</span>
+              <span className="text-[#6e6e6e]">Subtotal</span>
               <span className="text-white">{formatCurrency(tx.amount)}</span>
             </div>
             {tx.tip > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#555]">Tip</span>
+                <span className="text-[#6e6e6e]">Tip</span>
                 <span className="text-emerald-400">{formatCurrency(tx.tip)}</span>
               </div>
             )}
@@ -142,7 +142,7 @@ export default function ReceiptPage() {
               <span className="text-gold">{formatCurrency(total)}</span>
             </div>
             <div className="flex justify-between text-sm pt-1">
-              <span className="text-[#555]">Payment</span>
+              <span className="text-[#6e6e6e]">Payment</span>
               <span className="text-white capitalize">{tx.payment_method ?? "card"}</span>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function ReceiptPage() {
 
           {/* Footer */}
           <div className="px-6 py-4 text-center">
-            <p className="text-xs text-[#777]">Transaction ID</p>
+            <p className="text-xs text-[#8f8f8f]">Transaction ID</p>
             <p className="text-xs font-mono text-gold mt-0.5">{tx.id.slice(0, 16).toUpperCase()}</p>
             <p className="text-xs text-[#999] mt-3">Thank you for your visit!</p>
             <p className="text-xs text-[#aaa] mt-1">Powered by <span className="text-gold font-semibold">ClipWise</span></p>

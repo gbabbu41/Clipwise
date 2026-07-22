@@ -64,9 +64,9 @@ function notifTime(dateStr: string) {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -150,7 +150,7 @@ export default function NotificationsPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Notifications</h1>
-          <p className="text-sm text-[#777] mt-0.5">
+          <p className="text-sm text-[#8f8f8f] mt-0.5">
             {unreadCount > 0
               ? `${unreadCount} unread`
               : notifications.length > 0
@@ -175,7 +175,7 @@ export default function NotificationsPage() {
             {[["all","All"],["bookings","Bookings"],["no-shows","No-Shows"],["reviews","Reviews"],["inventory","Inventory"]].map(([v,l]) => (
               <button key={v} onClick={() => setTypeFilter(v)}
                 className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors border",
-                  typeFilter === v ? "bg-gold text-black border-black" : "border-[#1e1e1e] text-[#777] hover:text-white bg-[#141414]")}>
+                  typeFilter === v ? "bg-gold text-black border-black" : "border-[#2a2a2a] text-[#8f8f8f] hover:text-white bg-[#141414]")}>
                 {l}
                 {v === "all" && unreadCount > 0 && (
                   <span className="ml-1.5 text-xs bg-red-500 text-white rounded-full px-1.5">{unreadCount}</span>
@@ -192,7 +192,7 @@ export default function NotificationsPage() {
             <Card>
               <div className="text-center py-12">
                 <p className="text-4xl mb-3">🔔</p>
-                <p className="text-[#777]">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
+                <p className="text-[#8f8f8f]">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
               </div>
             </Card>
           ) : (
@@ -210,7 +210,7 @@ export default function NotificationsPage() {
                   <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
                     style={{ borderLeftColor: c.accent }}
                     className={cn("group relative flex items-start gap-3 p-4 rounded-2xl border border-l-[3px] transition-all cursor-pointer",
-                      notif.is_read ? "bg-[#0c0c0c] border-[#1e1e1e] hover:bg-[#141414]" : "bg-white/[0.04] border-[#2a2a2a] hover:border-white/30")}>
+                      notif.is_read ? "bg-[#0c0c0c] border-[#2a2a2a] hover:bg-[#141414]" : "bg-white/[0.04] border-[#2a2a2a] hover:border-white/30")}>
                     <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
                       <c.Icon size={16} />
                     </div>
@@ -221,20 +221,20 @@ export default function NotificationsPage() {
                       </div>
                       <p className="text-sm text-[#aaa] mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-[#777]">{notifTime(notif.created_at)}</span>
+                        <span className="text-xs text-[#8f8f8f]">{notifTime(notif.created_at)}</span>
                         {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
                       </div>
                     </div>
                     {!notif.is_read && <span className="absolute top-3.5 right-9 w-2 h-2 rounded-full bg-accent" />}
                     <button type="button" aria-label="Dismiss notification"
                       onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#0c0c0c] border border-[#1e1e1e] flex items-center justify-center text-[#777] hover:text-white hover:border-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#0c0c0c] border border-[#2a2a2a] flex items-center justify-center text-[#8f8f8f] hover:text-white hover:border-white opacity-0 group-hover:opacity-100 transition-opacity">
                       <X size={13} />
                     </button>
                   </div>
                 );
               };
-              const section = (label: string, items: Notification[], labelCls = "text-[#777]") =>
+              const section = (label: string, items: Notification[], labelCls = "text-[#8f8f8f]") =>
                 items.length > 0 ? (
                   <div key={label} className="space-y-2">
                     <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
@@ -270,7 +270,7 @@ export default function NotificationsPage() {
                       <span className="text-lg">{s.icon}</span>
                       <div>
                         <p className="text-sm text-white">{s.label}</p>
-                        <p className="text-xs text-[#777]">{s.desc}</p>
+                        <p className="text-xs text-[#8f8f8f]">{s.desc}</p>
                       </div>
                     </div>
                     <Switch checked={!!notifSettings[s.key]} onChange={() => toggleSetting(s.key)} />
@@ -291,10 +291,10 @@ export default function NotificationsPage() {
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{TYPE_ICONS[type]}</span>
-                        <span className="text-sm text-[#777] capitalize">{type}</span>
+                        <span className="text-sm text-[#8f8f8f] capitalize">{type}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-[#777]">{count}</span>
+                        <span className="text-xs text-[#8f8f8f]">{count}</span>
                         {unread > 0 && <Badge variant="warning">{unread}</Badge>}
                       </div>
                     </div>

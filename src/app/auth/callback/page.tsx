@@ -38,7 +38,7 @@ export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
       <Logo size="md" />
-      <p className="text-sm text-[#777]">Signing you in…</p>
+      <p className="text-sm text-[#8f8f8f]">Signing you in…</p>
     </div>
   );
 }

@@ -54,8 +54,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#1e1e1e] border-t-black rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[#777] text-sm">Loading...</p>
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#8f8f8f] text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -70,8 +70,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#1e1e1e] border-t-black rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[#777] text-sm">Redirecting...</p>
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#8f8f8f] text-sm">Redirecting...</p>
         </div>
       </div>
     );

@@ -21,14 +21,14 @@ export function NotifSoundToggle() {
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c]">
+    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c]">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center flex-shrink-0">
-          {on ? <Bell size={18} className="text-gold" /> : <BellOff size={18} className="text-[#777]" />}
+          {on ? <Bell size={18} className="text-gold" /> : <BellOff size={18} className="text-[#8f8f8f]" />}
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white">Notification sound</p>
-          <p className="text-xs text-[#777]">
+          <p className="text-xs text-[#8f8f8f]">
             {on ? "Plays a chime when a new booking or alert arrives." : "Muted on this device."}
           </p>
         </div>

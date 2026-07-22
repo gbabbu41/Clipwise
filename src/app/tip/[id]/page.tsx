@@ -82,7 +82,7 @@ export default function TipPage() {
           <Check size={30} className="text-emerald-400" />
         </div>
         <h1 className="text-xl font-bold text-white">Thank you! 🎉</h1>
-        <p className="text-[#777] text-sm">Your tip went straight to {booking?.shops?.name ?? "the shop"}. They&rsquo;ll appreciate it.</p>
+        <p className="text-[#8f8f8f] text-sm">Your tip went straight to {booking?.shops?.name ?? "the shop"}. They&rsquo;ll appreciate it.</p>
       </div>
     </div>
   );
@@ -93,7 +93,7 @@ export default function TipPage() {
       <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
         <Scissors size={40} className="text-[#999] mx-auto mb-4" />
         <h1 className="text-xl font-bold text-white mb-2">Link not found</h1>
-        <p className="text-[#555] text-sm">This tip link is invalid or has expired.</p>
+        <p className="text-[#6e6e6e] text-sm">This tip link is invalid or has expired.</p>
       </div>
     </div>
   );
@@ -107,7 +107,7 @@ export default function TipPage() {
             <Heart size={26} className="text-gold" />
           </div>
           <h1 className="text-xl font-bold text-white">Leave a tip</h1>
-          <p className="text-[#777] text-sm mt-1">
+          <p className="text-[#8f8f8f] text-sm mt-1">
             for {booking.barbers?.name ? <span className="text-white">{booking.barbers.name}</span> : booking.shops?.name}
             {booking.services?.name ? ` · ${booking.services.name}` : ""}
           </p>
@@ -124,22 +124,22 @@ export default function TipPage() {
                 <button key={p} onClick={() => { setPct(p); setCustom(""); setError(""); }}
                   className={`rounded-xl border py-3 text-center transition-all ${active ? "border-gold bg-gold/15" : "border-border hover:border-gold/40"}`}>
                   <p className={`text-lg font-bold ${active ? "text-gold" : "text-white"}`}>{p}%</p>
-                  <p className="text-xs text-[#777]">{formatCurrency(amt)}</p>
+                  <p className="text-xs text-[#8f8f8f]">{formatCurrency(amt)}</p>
                 </button>
               );
             })}
           </div>
 
           <div>
-            <label className="text-xs text-[#777]">Custom amount</label>
+            <label className="text-xs text-[#8f8f8f]">Custom amount</label>
             <div className="relative mt-1.5">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]">$</span>
               <input
                 type="number" min={1} step="1" inputMode="decimal"
                 value={custom}
                 onChange={e => { setCustom(e.target.value); setPct(null); setError(""); }}
                 placeholder="0.00"
-                className="w-full bg-surface-raised border border-border rounded-xl pl-7 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50"
+                className="w-full bg-surface-raised border border-border rounded-xl pl-7 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50"
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function TipPage() {
           <Button className="w-full" size="lg" loading={paying} disabled={tipAmount < 1} onClick={pay}>
             {tipAmount >= 1 ? `Tip ${formatCurrency(tipAmount)}` : "Choose a tip"}
           </Button>
-          <p className="text-[11px] text-[#777] text-center">Secure payment — your tip goes directly to the shop.</p>
+          <p className="text-[11px] text-[#8f8f8f] text-center">Secure payment — your tip goes directly to the shop.</p>
         </div>
 
         <p className="mt-8 text-center text-xs text-[#999]">Powered by <span className="text-gold font-semibold">ClipWise</span></p>

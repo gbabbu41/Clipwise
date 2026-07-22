@@ -272,7 +272,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <div className="border-b border-border px-4 py-4 flex items-center justify-between">
         <Logo size="sm" />
-        <p className="text-xs text-[#777]">Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</p>
+        <p className="text-xs text-[#8f8f8f]">Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</p>
       </div>
       <div className="h-1 bg-border">
         <div className="h-full bg-gold transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
@@ -281,7 +281,7 @@ export default function OnboardingPage() {
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-1">
             <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
-              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-[#777]")}>
+              i < step ? "bg-gold text-black" : i === step ? "bg-gold/20 text-gold border border-gold" : "bg-surface-raised text-[#8f8f8f]")}>
               {i < step ? <Check size={12} /> : i + 1}
             </div>
             {i < STEPS.length - 1 && <div className={cn("w-5 h-px", i < step ? "bg-gold" : "bg-border")} />}
@@ -310,7 +310,7 @@ export default function OnboardingPage() {
               <div key={key} className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">{label}</label>
                 <input value={shop[key as keyof typeof shop]} onChange={(e) => setShop({ ...shop, [key]: e.target.value })} placeholder={placeholder}
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
               </div>
             ))}
             <div className="space-y-1.5">
@@ -324,7 +324,7 @@ export default function OnboardingPage() {
               <label className="text-sm font-medium text-gray-300">Description (optional)</label>
               <textarea value={shop.description} onChange={(e) => setShop({ ...shop, description: e.target.value })}
                 placeholder="Tell clients what makes your shop special..." rows={3}
-                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
+                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
             </div>
           </div>
         )}
@@ -335,14 +335,14 @@ export default function OnboardingPage() {
             <div className="flex flex-col items-center gap-4">
               <div className="w-32 h-32 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
                 {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> :
-                  <div className="text-center"><div className="text-4xl mb-1">✂️</div><p className="text-xs text-[#777]">No logo yet</p></div>}
+                  <div className="text-center"><div className="text-4xl mb-1">✂️</div><p className="text-xs text-[#8f8f8f]">No logo yet</p></div>}
               </div>
               <label className="cursor-pointer">
                 <div className="px-4 py-2 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">Choose Image</div>
                 <input type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
               </label>
-              <p className="text-xs text-[#777] text-center">You can add your logo later from Settings.</p>
+              <p className="text-xs text-[#8f8f8f] text-center">You can add your logo later from Settings.</p>
             </div>
           </div>
         )}
@@ -350,7 +350,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Add your barbers</h2>
-            <p className="text-[#777] text-sm">Add yourself if you cut hair, and invite your team. You can always do this later from Staff.</p>
+            <p className="text-[#8f8f8f] text-sm">Add yourself if you cut hair, and invite your team. You can always do this later from Staff.</p>
 
             {barberError && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
@@ -366,7 +366,7 @@ export default function OnboardingPage() {
                     <div className="w-8 h-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-sm font-bold flex-shrink-0">{(b.name[0] || "?").toUpperCase()}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{b.name}{b.self && <span className="text-gold"> (you)</span>}</p>
-                      {b.email && <p className="text-xs text-[#777] truncate">{b.email}</p>}
+                      {b.email && <p className="text-xs text-[#8f8f8f] truncate">{b.email}</p>}
                     </div>
                     <span className={cn("text-[10px] px-2 py-0.5 rounded-full flex-shrink-0", b.self ? "bg-emerald-500/15 text-emerald-400" : "bg-orange-500/15 text-orange-300")}>
                       {b.self ? "You" : "Invited"}
@@ -377,7 +377,7 @@ export default function OnboardingPage() {
             )}
 
             {atBarberLimit ? (
-              <p className="text-xs text-[#777]">Your plan includes {planLimit} barber{planLimit === 1 ? "" : "s"}. Upgrade later from Billing to add more.</p>
+              <p className="text-xs text-[#8f8f8f]">Your plan includes {planLimit} barber{planLimit === 1 ? "" : "s"}. Upgrade later from Billing to add more.</p>
             ) : (
               <div className="space-y-3">
                 {!selfAdded && (
@@ -386,7 +386,7 @@ export default function OnboardingPage() {
                     <div className="w-10 h-10 rounded-xl bg-gold/15 flex items-center justify-center flex-shrink-0"><User size={18} className="text-gold" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">Add yourself as a barber</p>
-                      <p className="text-xs text-[#777] truncate">{profile?.name || user?.email} · instant, no invite needed</p>
+                      <p className="text-xs text-[#8f8f8f] truncate">{profile?.name || user?.email} · instant, no invite needed</p>
                     </div>
                   </button>
                 )}
@@ -394,22 +394,22 @@ export default function OnboardingPage() {
                 {!showAddOther ? (
                   <button type="button" onClick={() => { setShowAddOther(true); setBarberError(""); }}
                     className="w-full flex items-center gap-3 bg-surface border border-border hover:border-gray-500 rounded-2xl p-4 text-left transition-all">
-                    <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#777]" /></div>
+                    <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#8f8f8f]" /></div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">Add someone else</p>
-                      <p className="text-xs text-[#777]">Send an email invite to set up their own login</p>
+                      <p className="text-xs text-[#8f8f8f]">Send an email invite to set up their own login</p>
                     </div>
                   </button>
                 ) : (
                   <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-white">Invite a barber</p>
-                      <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "" }); setBarberError(""); }} className="text-[#777] hover:text-white"><X size={16} /></button>
+                      <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "" }); setBarberError(""); }} className="text-[#8f8f8f] hover:text-white"><X size={16} /></button>
                     </div>
                     <input value={otherBarber.name} onChange={(e) => setOtherBarber((p) => ({ ...p, name: e.target.value }))} placeholder="Barber name *"
-                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <input value={otherBarber.email} onChange={(e) => setOtherBarber((p) => ({ ...p, email: e.target.value }))} placeholder="Barber email *" type="email"
-                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <Button className="w-full" loading={addingBarber} onClick={addOtherBarber}>Send invite</Button>
                   </div>
                 )}
@@ -432,22 +432,22 @@ export default function OnboardingPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-[#777]">Name</label>
+                      <label className="text-xs text-[#8f8f8f]">Name</label>
                       <input value={svc.name} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} placeholder="Haircut"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-[#777]">Price ($)</label>
+                      <label className="text-xs text-[#8f8f8f]">Price ($)</label>
                       <input type="number" value={svc.price} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, price: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-[#777]">Duration (min)</label>
+                      <label className="text-xs text-[#8f8f8f]">Duration (min)</label>
                       <input type="number" value={svc.duration} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, duration: e.target.value } : s))} placeholder="30"
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="col-span-2 space-y-1">
-                      <label className="text-xs text-[#777]">Category</label>
+                      <label className="text-xs text-[#8f8f8f]">Category</label>
                       <select value={svc.category} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, category: e.target.value } : s))}
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
                         {SERVICE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
@@ -458,7 +458,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <button onClick={() => setServices([...services, { name: "", price: "", duration: "30", category: "Hair" }])}
-              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-[#777] hover:text-gold hover:border-gold/30 transition-colors">
+              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border rounded-2xl text-sm text-[#8f8f8f] hover:text-gold hover:border-gold/30 transition-colors">
               <Plus size={16} /> Add Another Service
             </button>
           </div>
@@ -467,7 +467,7 @@ export default function OnboardingPage() {
         {step === 4 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Set your business hours</h2>
-            <p className="text-[#777] text-sm">Full 24-hour scheduling — customers can only book within these hours.</p>
+            <p className="text-[#8f8f8f] text-sm">Full 24-hour scheduling — customers can only book within these hours.</p>
             <div className="space-y-2">
               {DAYS.map((day, i) => (
                 <div key={day} className={cn("p-3 rounded-xl border transition-all", hours[i].open ? "border-gold/20 bg-gold/5" : "border-border bg-surface-raised")}>
@@ -477,7 +477,7 @@ export default function OnboardingPage() {
                       onChange={v => setHours(hours.map((h, j) => j === i ? { ...h, open: v } : h))}
                     />
                     <span className="text-sm font-medium text-white w-24">{day}</span>
-                    {!hours[i].open && <span className="text-xs text-[#777]">Closed</span>}
+                    {!hours[i].open && <span className="text-xs text-[#8f8f8f]">Closed</span>}
                   </div>
                   {hours[i].open && (
                     <div className="flex items-center gap-2 ml-13">
@@ -485,7 +485,7 @@ export default function OnboardingPage() {
                         className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
                       </select>
-                      <span className="text-[#777] text-xs">to</span>
+                      <span className="text-[#8f8f8f] text-xs">to</span>
                       <select value={hours[i].end} onChange={(e) => setHours(hours.map((h, j) => j === i ? { ...h, end: e.target.value } : h))}
                         className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
@@ -509,14 +509,14 @@ export default function OnboardingPage() {
               <Check size={36} className="text-gold" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Your shop is ready! 🎉</h2>
-            <p className="text-[#777] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
+            <p className="text-[#8f8f8f] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
             <div className="bg-surface border border-gold/20 rounded-2xl p-5 text-left my-6">
-              <p className="text-xs text-[#777] mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
+              <p className="text-xs text-[#8f8f8f] mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
               <div className="flex items-center gap-2 bg-surface-raised rounded-xl px-3 py-2">
                 <p className="text-sm text-gold font-mono flex-1 truncate">{bookingUrl}</p>
-                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#777] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
+                <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#8f8f8f] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
               </div>
-              <p className="text-xs text-[#777] mt-2">Goes live once your shop is approved.</p>
+              <p className="text-xs text-[#8f8f8f] mt-2">Goes live once your shop is approved.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>

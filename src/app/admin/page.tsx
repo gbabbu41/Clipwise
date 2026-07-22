@@ -55,9 +55,9 @@ function KpiCard({ label, value, sub, icon: Icon, color = "gold" }: {
       <div className={cn("absolute inset-0 opacity-5", bgClass)} />
       <div className="relative flex items-start justify-between">
         <div>
-          <p className="text-xs text-[#777] font-medium uppercase tracking-wider">{label}</p>
+          <p className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wider">{label}</p>
           <p className="text-2xl font-bold text-white mt-1">{value}</p>
-          {sub && <p className="text-xs text-[#777] mt-1">{sub}</p>}
+          {sub && <p className="text-xs text-[#8f8f8f] mt-1">{sub}</p>}
         </div>
         <div className={cn("p-2.5 rounded-xl", iconClass)}><Icon size={20} /></div>
       </div>
@@ -76,7 +76,7 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { va
   if (active && payload?.length) {
     return (
       <div className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-xs">
-        <p className="text-[#777]">{label}</p>
+        <p className="text-[#8f8f8f]">{label}</p>
         <p className="text-gold font-semibold">{payload[0].value} shops</p>
       </div>
     );
@@ -261,14 +261,14 @@ export default function AdminPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-        <p className="text-[#777] text-sm mt-0.5">ClipWise platform management — all data</p>
+        <p className="text-[#8f8f8f] text-sm mt-0.5">ClipWise platform management — all data</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 flex-wrap mb-6 bg-surface-raised p-1 rounded-xl w-fit">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-all", tab === key ? "bg-gold text-black" : "text-[#777] hover:text-white")}
+            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-all", tab === key ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white")}
           >{label}</button>
         ))}
       </div>
@@ -286,7 +286,7 @@ export default function AdminPage() {
           </div>
           {(pastDueCount > 0 || totalUsers > 0) && (
             <div className="flex flex-wrap gap-3 text-xs">
-              <span className="text-[#777]">{totalUsers} total users</span>
+              <span className="text-[#8f8f8f]">{totalUsers} total users</span>
               {pastDueCount > 0 && <span className="text-red-400 font-medium">· {pastDueCount} subscription{pastDueCount === 1 ? "" : "s"} past due</span>}
             </div>
           )}
@@ -297,10 +297,10 @@ export default function AdminPage() {
             <CardContent>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-2 bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-gray-300 flex-1 min-w-0 max-w-sm">
-                  <span className="truncate text-[#777]">Signup link:</span>
+                  <span className="truncate text-[#8f8f8f]">Signup link:</span>
                   <span className="text-white truncate">{typeof window !== "undefined" ? window.location.origin : "http://localhost:3001"}/signup</span>
                   <button onClick={() => { navigator.clipboard.writeText((typeof window !== "undefined" ? window.location.origin : "") + "/signup"); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                    className="ml-auto text-[#777] hover:text-gold flex-shrink-0">
+                    className="ml-auto text-[#8f8f8f] hover:text-gold flex-shrink-0">
                     {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
                   </button>
                 </div>
@@ -341,11 +341,11 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-white text-lg">No shops registered yet</p>
-                  <p className="text-sm text-[#777] mt-1 max-w-sm mx-auto">Share your signup link to get started. Once barbershops register, they&apos;ll appear here for approval.</p>
+                  <p className="text-sm text-[#8f8f8f] mt-1 max-w-sm mx-auto">Share your signup link to get started. Once barbershops register, they&apos;ll appear here for approval.</p>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Shield size={14} className="text-gold" />
-                  <span className="text-xs text-[#777]">Platform is live and ready to accept registrations</span>
+                  <span className="text-xs text-[#8f8f8f]">Platform is live and ready to accept registrations</span>
                 </div>
               </div>
             </Card>
@@ -380,7 +380,7 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b border-border">
                       {["Shop", "Owner", "City", "Plan", "Status", "Joined"].map((h) => (
-                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -394,12 +394,12 @@ export default function AdminPage() {
                           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-gray-300 capitalize">{s.subscription_plan}</span>
                         </td>
                         <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
-                        <td className="px-3 py-3 text-xs text-[#777]">{s.created_at.slice(0, 10)}</td>
+                        <td className="px-3 py-3 text-xs text-[#8f8f8f]">{s.created_at.slice(0, 10)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {shops.length > 10 && <p className="text-xs text-[#777] text-center mt-3">Showing 10 of {shops.length} shops. Switch to &quot;All Shops&quot; for the full list.</p>}
+                {shops.length > 10 && <p className="text-xs text-[#8f8f8f] text-center mt-3">Showing 10 of {shops.length} shops. Switch to &quot;All Shops&quot; for the full list.</p>}
               </div>
             </CardContent>
           </Card>
@@ -414,7 +414,7 @@ export default function AdminPage() {
               <div className="py-16 text-center">
                 <p className="text-4xl mb-3">✓</p>
                 <p className="font-medium text-white">All caught up!</p>
-                <p className="text-sm text-[#777] mt-1">No shops pending approval</p>
+                <p className="text-sm text-[#8f8f8f] mt-1">No shops pending approval</p>
               </div>
             </Card>
           ) : pendingShops.map((s) => (
@@ -425,13 +425,13 @@ export default function AdminPage() {
                     <h3 className="text-white font-semibold text-lg">{s.name}</h3>
                     <StatusBadge status={s.status} />
                   </div>
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#777]">
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#8f8f8f]">
                     <span>Owner: <span className="text-white">{s.users?.name ?? "Unknown"}</span></span>
                     <span>Email: <span className="text-white">{s.users?.email ?? s.email}</span></span>
                     <span>City: <span className="text-white">{s.city}, {s.province}</span></span>
                     <span>Applied: <span className="text-white">{formatDate(s.created_at.slice(0, 10))}</span></span>
                   </div>
-                  {s.description && <p className="text-xs text-[#777] mt-2 line-clamp-2">{s.description}</p>}
+                  {s.description && <p className="text-xs text-[#8f8f8f] mt-2 line-clamp-2">{s.description}</p>}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <a href={`/book/${s.slug}`} target="_blank" rel="noopener noreferrer">
@@ -455,15 +455,15 @@ export default function AdminPage() {
         <div className="space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search shops or owners..."
-              className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 max-w-md"
+              className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 max-w-md"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white"><X size={14} /></button>
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white"><X size={14} /></button>
             )}
           </div>
 
@@ -474,13 +474,13 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b border-border">
                       {["Shop", "Owner", "City", "Plan", "Status", "Joined", "Actions"].map((h) => (
-                        <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredShops.length === 0 && (
-                      <tr><td colSpan={7} className="px-3 py-8 text-center text-[#777] text-sm">No shops found</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-8 text-center text-[#8f8f8f] text-sm">No shops found</td></tr>
                     )}
                     {filteredShops.map((s) => (
                       <tr key={s.id} onClick={() => router.push(`/admin/shops/${s.id}`)} className="border-b border-border/50 hover:bg-surface-raised/30 cursor-pointer">
@@ -491,7 +491,7 @@ export default function AdminPage() {
                           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-gray-300 capitalize">{s.subscription_plan}</span>
                         </td>
                         <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
-                        <td className="px-3 py-3 text-xs text-[#777]">{s.created_at.slice(0, 10)}</td>
+                        <td className="px-3 py-3 text-xs text-[#8f8f8f]">{s.created_at.slice(0, 10)}</td>
                         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
                             {s.status === "pending" && (
@@ -525,12 +525,12 @@ export default function AdminPage() {
             {Object.entries(planCounts).map(([plan, count]) => (
               <Card key={plan} gold={plan === "premium" || plan === "business"}>
                 <div className="text-center">
-                  <p className="text-xs text-[#777] uppercase tracking-wider mb-2 capitalize">{plan}</p>
+                  <p className="text-xs text-[#8f8f8f] uppercase tracking-wider mb-2 capitalize">{plan}</p>
                   <p className="text-3xl font-bold text-white">{count}</p>
-                  <p className="text-xs text-[#777] mt-1">shops</p>
+                  <p className="text-xs text-[#8f8f8f] mt-1">shops</p>
                   <div className="border-t border-border mt-3 pt-3">
                     <p className="text-gold font-bold">{formatCurrency(planPrices[plan] * count)}</p>
-                    <p className="text-xs text-[#777]">MRR ({formatCurrency(planPrices[plan])}/mo each)</p>
+                    <p className="text-xs text-[#8f8f8f]">MRR ({formatCurrency(planPrices[plan])}/mo each)</p>
                   </div>
                 </div>
               </Card>
@@ -540,7 +540,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Plan Distribution</CardTitle>
-              <p className="text-xs text-[#777]">Active shops only ({activeShops} total)</p>
+              <p className="text-xs text-[#8f8f8f]">Active shops only ({activeShops} total)</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -550,7 +550,7 @@ export default function AdminPage() {
                     <div key={plan}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-white capitalize font-medium">{plan}</span>
-                        <span className="text-[#777]">{count} shops · {formatCurrency(planPrices[plan] * count)}/mo</span>
+                        <span className="text-[#8f8f8f]">{count} shops · {formatCurrency(planPrices[plan] * count)}/mo</span>
                       </div>
                       <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
                         <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -560,7 +560,7 @@ export default function AdminPage() {
                 })}
               </div>
               <div className="border-t border-border mt-4 pt-4 flex justify-between items-center">
-                <span className="text-sm text-[#777] font-medium">Total Estimated MRR</span>
+                <span className="text-sm text-[#8f8f8f] font-medium">Total Estimated MRR</span>
                 <span className="text-gold font-bold text-xl">{formatCurrency(mrr)}</span>
               </div>
             </CardContent>
@@ -576,15 +576,15 @@ export default function AdminPage() {
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Shop</h2>
-                <button onClick={() => setRejectModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setRejectModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#777]">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Please provide a reason:</p>
+              <p className="text-sm text-[#8f8f8f]">Rejecting <span className="text-white font-medium">{rejectModal.name}</span>. Please provide a reason:</p>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
                 placeholder="e.g. Missing business information, incomplete profile..."
-                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none"
+                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 resize-none"
               />
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRejectModal(null)}>Cancel</Button>

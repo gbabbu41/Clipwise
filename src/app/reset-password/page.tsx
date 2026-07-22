@@ -56,7 +56,7 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
           <h1 className="text-2xl font-bold text-white">Set new password</h1>
-          <p className="text-[#777] text-sm mt-1">Choose a strong password for your account</p>
+          <p className="text-[#8f8f8f] text-sm mt-1">Choose a strong password for your account</p>
         </div>
 
         <div className="bg-surface border border-border rounded-2xl p-8">
@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
                 <Check size={24} className="text-emerald-400" />
               </div>
               <p className="text-white font-semibold">Password updated!</p>
-              <p className="text-[#777] text-sm">Redirecting you to sign in…</p>
+              <p className="text-[#8f8f8f] text-sm">Redirecting you to sign in…</p>
             </div>
           ) : recovery === "invalid" ? (
             <div className="text-center py-4 space-y-3">
@@ -74,7 +74,7 @@ export default function ResetPasswordPage() {
                 <AlertCircle size={24} className="text-red-400" />
               </div>
               <p className="text-white font-semibold">Invalid or expired link</p>
-              <p className="text-[#777] text-sm">This password-reset link is no longer valid. Request a new one.</p>
+              <p className="text-[#8f8f8f] text-sm">This password-reset link is no longer valid. Request a new one.</p>
               <Link href="/forgot-password" className="inline-block text-gold hover:underline text-sm">Send a new reset link</Link>
             </div>
           ) : (
@@ -89,16 +89,16 @@ export default function ResetPasswordPage() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-300">New Password</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                     <input
                       type={showPass ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Min. 8 characters"
                       required
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                     />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
@@ -106,14 +106,14 @@ export default function ResetPasswordPage() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-300">Confirm Password</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                     <input
                       type={showPass ? "text" : "password"}
                       value={confirm}
                       onChange={(e) => setConfirm(e.target.value)}
                       placeholder="Repeat your password"
                       required
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                     />
                   </div>
                 </div>
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
                   {loading ? "Updating…" : "Update Password"}
                 </Button>
               </form>
-              <p className="text-center text-sm text-[#777] mt-6">
+              <p className="text-center text-sm text-[#8f8f8f] mt-6">
                 <Link href="/login" className="text-gold hover:underline">Back to sign in</Link>
               </p>
             </>

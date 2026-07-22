@@ -8,9 +8,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -25,7 +25,7 @@ export default function SharePage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-[#777]">No shop found. Set up your shop first.</p>
+        <p className="text-[#8f8f8f]">No shop found. Set up your shop first.</p>
       </div>
     );
   }
@@ -86,14 +86,14 @@ export default function SharePage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Share Your Booking Link</h1>
-        <p className="text-sm text-[#777] mt-0.5">Get more clients by sharing your ClipWise booking page</p>
+        <p className="text-sm text-[#8f8f8f] mt-0.5">Get more clients by sharing your ClipWise booking page</p>
       </div>
 
       {/* Main booking URL */}
       <Card>
         <CardContent>
-          <p className="text-xs text-[#777] mb-3 font-medium uppercase tracking-wider">Your Booking Link</p>
-          <div className="flex items-center gap-3 bg-[#141414] rounded-xl px-4 py-3 border border-[#1e1e1e]">
+          <p className="text-xs text-[#8f8f8f] mb-3 font-medium uppercase tracking-wider">Your Booking Link</p>
+          <div className="flex items-center gap-3 bg-[#141414] rounded-xl px-4 py-3 border border-[#2a2a2a]">
             <Link2 size={16} className="text-white flex-shrink-0" />
             <span className="text-white text-sm font-medium flex-1 truncate">{bookingUrl}</span>
             <button
@@ -129,7 +129,7 @@ export default function SharePage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center gap-4">
-              <div className="bg-[#141414] border border-[#1e1e1e] rounded-2xl p-4">
+              <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-4">
                 {/* QR code via free API */}
                 <img
                   src={qrUrl}
@@ -139,7 +139,7 @@ export default function SharePage() {
                   className="rounded-xl"
                 />
               </div>
-              <p className="text-xs text-[#777] text-center">
+              <p className="text-xs text-[#8f8f8f] text-center">
                 Point your phone camera at this code to open your booking page
               </p>
               <div className="flex gap-3 w-full">
@@ -170,19 +170,19 @@ export default function SharePage() {
           {strategies.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-4 hover:border-black transition-colors">
+              <div key={i} className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-4 hover:border-black transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#1e1e1e] flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#2a2a2a] flex items-center justify-center flex-shrink-0">
                     <Icon size={16} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{s.title}</p>
-                    <p className="text-xs text-[#777] mt-0.5 leading-relaxed">{s.desc}</p>
+                    <p className="text-xs text-[#8f8f8f] mt-0.5 leading-relaxed">{s.desc}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => s.copy ? copy(s.copy, `${s.title} copied!`) : showToast("Right-click the QR code to save")}
-                  className="mt-3 w-full text-xs font-medium text-white hover:text-white bg-black/5 hover:bg-black/10 border border-[#1e1e1e] rounded-lg py-1.5 transition-colors"
+                  className="mt-3 w-full text-xs font-medium text-white hover:text-white bg-black/5 hover:bg-black/10 border border-[#2a2a2a] rounded-lg py-1.5 transition-colors"
                 >
                   {s.action}
                 </button>
@@ -199,9 +199,9 @@ export default function SharePage() {
           <CardTitle>Website Embed Code</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-[#777] mb-3">Paste this code into your website to add a "Book Online" button.</p>
+          <p className="text-xs text-[#8f8f8f] mb-3">Paste this code into your website to add a "Book Online" button.</p>
           <div className="relative">
-            <pre className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-4 text-xs text-[#777] overflow-x-auto whitespace-pre-wrap">
+            <pre className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-4 text-xs text-[#8f8f8f] overflow-x-auto whitespace-pre-wrap">
               {embedCode}
             </pre>
             <button
@@ -213,8 +213,8 @@ export default function SharePage() {
           </div>
 
           {/* Preview */}
-          <div className="mt-4 p-4 bg-[#141414] border border-[#1e1e1e] rounded-xl">
-            <p className="text-xs text-[#777] mb-3">Preview:</p>
+          <div className="mt-4 p-4 bg-[#141414] border border-[#2a2a2a] rounded-xl">
+            <p className="text-xs text-[#8f8f8f] mb-3">Preview:</p>
             <a
               href={bookingUrl}
               target="_blank"
@@ -243,7 +243,7 @@ export default function SharePage() {
               { tip: "Ask every happy client to leave a review — it shows up publicly on your profile." },
               { tip: "Enable loyalty points so clients have a reason to return and rebook." },
             ].map((item, i) => (
-              <div key={i} className="flex gap-2.5 text-sm text-[#777]">
+              <div key={i} className="flex gap-2.5 text-sm text-[#8f8f8f]">
                 <span className="text-white mt-0.5 flex-shrink-0">✓</span>
                 <p>{item.tip}</p>
               </div>

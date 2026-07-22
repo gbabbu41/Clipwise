@@ -12,7 +12,7 @@ export default function NotFound() {
         </div>
         <h1 className="text-8xl font-bold text-[#F5F0E6] mb-2">404</h1>
         <h2 className="text-2xl font-semibold text-white mb-3">Page Not Found</h2>
-        <p className="text-[#777] mb-8">
+        <p className="text-[#8f8f8f] mb-8">
           Looks like this page got a bad cut. The page you&apos;re looking for doesn&apos;t exist or was moved.
         </p>
         <div className="flex items-center justify-center gap-3">

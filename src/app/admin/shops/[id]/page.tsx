@@ -38,7 +38,7 @@ function Field({ icon: Icon, label, children }: { icon: React.ElementType; label
     <div className="flex items-start gap-3">
       <div className="w-8 h-8 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Icon size={14} className="text-[#999]" /></div>
       <div className="min-w-0">
-        <p className="text-xs text-[#777]">{label}</p>
+        <p className="text-xs text-[#8f8f8f]">{label}</p>
         <div className="text-sm text-white break-words">{children}</div>
       </div>
     </div>
@@ -125,7 +125,7 @@ export default function AdminShopDetailPage() {
   if (loading) return <div className="p-8"><div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" /></div>;
   if (notFound || !shop) return (
     <div className="p-8">
-      <button onClick={() => router.push("/admin/shops")} className="text-sm text-[#777] hover:text-white flex items-center gap-1 mb-6"><ArrowLeft size={15} /> Back to shops</button>
+      <button onClick={() => router.push("/admin/shops")} className="text-sm text-[#8f8f8f] hover:text-white flex items-center gap-1 mb-6"><ArrowLeft size={15} /> Back to shops</button>
       <Card><div className="py-16 text-center"><Store size={32} className="text-[#999] mx-auto mb-3" /><p className="text-white font-semibold">Shop not found</p></div></Card>
     </div>
   );
@@ -140,12 +140,12 @@ export default function AdminShopDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <button onClick={() => router.push("/admin/shops")} className="text-sm text-[#777] hover:text-white flex items-center gap-1 mb-2"><ArrowLeft size={15} /> Back to shops</button>
+          <button onClick={() => router.push("/admin/shops")} className="text-sm text-[#8f8f8f] hover:text-white flex items-center gap-1 mb-2"><ArrowLeft size={15} /> Back to shops</button>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-white">{shop.name}</h1>
             <StatusBadge status={shop.status} />
           </div>
-          <p className="text-sm text-[#777] mt-0.5">/book/{shop.slug} · joined {formatDate(shop.created_at.slice(0, 10))}</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">/book/{shop.slug} · joined {formatDate(shop.created_at.slice(0, 10))}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <a href={`/book/${shop.slug}`} target="_blank" rel="noopener noreferrer">
@@ -170,7 +170,7 @@ export default function AdminShopDetailPage() {
         ].map(k => (
           <Card key={k.label}>
             <div className="flex items-center justify-between">
-              <div><p className="text-xs text-[#777] uppercase tracking-wider">{k.label}</p><p className="text-xl font-bold text-white mt-1">{k.value}</p></div>
+              <div><p className="text-xs text-[#8f8f8f] uppercase tracking-wider">{k.label}</p><p className="text-xl font-bold text-white mt-1">{k.value}</p></div>
               <div className="p-2 rounded-xl bg-gold/15 text-gold"><k.icon size={18} /></div>
             </div>
           </Card>
@@ -196,7 +196,7 @@ export default function AdminShopDetailPage() {
           <CardHeader><CardTitle>Subscription &amp; Health</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs text-[#777] mb-1.5">Plan (manual override)</p>
+              <p className="text-xs text-[#8f8f8f] mb-1.5">Plan (manual override)</p>
               <div className="flex gap-2">
                 <select value={planChoice} onChange={e => setPlanChoice(e.target.value)}
                   className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 capitalize">
@@ -205,7 +205,7 @@ export default function AdminShopDetailPage() {
                 </select>
                 <Button size="sm" loading={savingPlan} disabled={planChoice === shop.subscription_plan} onClick={savePlan}><Save size={14} /> Save</Button>
               </div>
-              <p className="text-[10px] text-[#777] mt-1">Overrides billing — use to comp or upgrade a shop manually.</p>
+              <p className="text-[10px] text-[#8f8f8f] mt-1">Overrides billing — use to comp or upgrade a shop manually.</p>
             </div>
             <Field icon={CreditCard} label="Subscription status">
               <span className="capitalize">{shop.subscription_status ?? "inactive"}</span>
@@ -227,12 +227,12 @@ export default function AdminShopDetailPage() {
       <Card>
         <CardHeader><CardTitle>Barbers ({barbers.length})</CardTitle></CardHeader>
         <CardContent>
-          {barbers.length === 0 ? <p className="text-sm text-[#777] py-2">No barbers yet.</p> : (
+          {barbers.length === 0 ? <p className="text-sm text-[#8f8f8f] py-2">No barbers yet.</p> : (
             <div className="divide-y divide-border/50">
               {barbers.map(b => (
                 <div key={b.id} className="flex items-center justify-between py-2.5">
                   <span className="text-sm text-white">{b.name}</span>
-                  <span className="flex items-center gap-3 text-xs text-[#777]">
+                  <span className="flex items-center gap-3 text-xs text-[#8f8f8f]">
                     <span>★ {Number(b.rating ?? 0).toFixed(1)} ({b.total_reviews ?? 0})</span>
                     <Badge variant={b.is_active ? "success" : "danger"} className="text-[10px]">{b.is_active ? "Active" : "Inactive"}</Badge>
                   </span>
@@ -247,17 +247,17 @@ export default function AdminShopDetailPage() {
       <Card>
         <CardHeader><CardTitle>Recent Transactions</CardTitle><Badge variant="outline">{stats.txCount} total</Badge></CardHeader>
         <CardContent>
-          {recentTx.length === 0 ? <p className="text-sm text-[#777] py-2">No transactions yet.</p> : (
+          {recentTx.length === 0 ? <p className="text-sm text-[#8f8f8f] py-2">No transactions yet.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead><tr className="border-b border-border">{["Date", "Client", "Service", "Method", "Amount"].map(h => <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>)}</tr></thead>
+                <thead><tr className="border-b border-border">{["Date", "Client", "Service", "Method", "Amount"].map(h => <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>)}</tr></thead>
                 <tbody>
                   {recentTx.map(t => (
                     <tr key={t.id} className="border-b border-border/50">
-                      <td className="px-3 py-2 text-xs text-[#777] whitespace-nowrap">{t.created_at?.slice(0, 10)}</td>
+                      <td className="px-3 py-2 text-xs text-[#8f8f8f] whitespace-nowrap">{t.created_at?.slice(0, 10)}</td>
                       <td className="px-3 py-2 text-sm text-gray-300">{t.client_name ?? "—"}</td>
                       <td className="px-3 py-2 text-sm text-gray-300">{t.service_name ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-[#777] capitalize">{t.payment_method}</td>
+                      <td className="px-3 py-2 text-xs text-[#8f8f8f] capitalize">{t.payment_method}</td>
                       <td className="px-3 py-2 text-sm text-gold font-medium whitespace-nowrap">{formatCurrency((Number(t.amount) || 0) + (Number(t.tip) || 0))}</td>
                     </tr>
                   ))}
@@ -270,11 +270,11 @@ export default function AdminShopDetailPage() {
 
       {/* Private admin note */}
       <Card>
-        <CardHeader><CardTitle>Private Admin Note</CardTitle><span className="text-xs text-[#777]">Only you can see this</span></CardHeader>
+        <CardHeader><CardTitle>Private Admin Note</CardTitle><span className="text-xs text-[#8f8f8f]">Only you can see this</span></CardHeader>
         <CardContent className="space-y-3">
           <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
             placeholder="Internal notes about this shop (never shown to the owner)…"
-            className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none" />
+            className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 resize-none" />
           <Button size="sm" loading={savingNote} onClick={saveNote}><Save size={14} /> Save note</Button>
         </CardContent>
       </Card>
@@ -290,10 +290,10 @@ export default function AdminShopDetailPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <h2 className="text-lg font-bold text-white">Reject {shop.name}</h2>
-              <p className="text-sm text-[#777]">Provide a reason (emailed to the owner):</p>
+              <p className="text-sm text-[#8f8f8f]">Provide a reason (emailed to the owner):</p>
               <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
                 placeholder="e.g. Incomplete business information…"
-                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none" />
+                className="w-full bg-surface-raised border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 resize-none" />
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setRejectOpen(false)}>Cancel</Button>
                 <Button variant="danger" className="flex-1" loading={savingStatus} onClick={() => setStatus("rejected", rejectReason)}>Confirm Rejection</Button>

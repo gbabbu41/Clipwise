@@ -13,9 +13,9 @@ import type { Client, PromoCode } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -188,7 +188,7 @@ export default function LoyaltyPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">🎁</p>
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-[#777]">Loyalty program will be available once your shop is set up.</p>
+        <p className="text-sm text-[#8f8f8f]">Loyalty program will be available once your shop is set up.</p>
       </div>
     );
   }
@@ -199,7 +199,7 @@ export default function LoyaltyPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-4xl mb-4">🔒</p>
         <h2 className="text-xl font-bold text-white mb-2">Loyalty Program</h2>
-        <p className="text-sm text-[#777] mb-6 max-w-sm">Loyalty points, promo codes, and automated reminders are available on the Pro and Premium plans.</p>
+        <p className="text-sm text-[#8f8f8f] mb-6 max-w-sm">Loyalty points, promo codes, and automated reminders are available on the Pro and Premium plans.</p>
         <a href="/dashboard/billing" className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
           Upgrade to unlock
         </a>
@@ -214,16 +214,16 @@ export default function LoyaltyPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Loyalty & Marketing</h1>
-          <p className="text-sm text-[#777] mt-0.5">Retain clients and drive repeat visits</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Retain clients and drive repeat visits</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#1e1e1e]">
+      <div className="flex gap-1 border-b border-[#2a2a2a]">
         {(["loyalty","promos"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white")}>
             {t === "loyalty" ? "Loyalty Program" : "Promo Codes"}
           </button>
         ))}
@@ -241,11 +241,11 @@ export default function LoyaltyPage() {
                   { label: "Points per Dollar", key: "points_per_dollar" as const },
                   { label: "100 pts = $X", key: "redemption" as const },
                 ].map(s => (
-                  <div key={s.key} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                    <p className="text-xs text-[#777] mb-2">{s.label}</p>
+                  <div key={s.key} className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                    <p className="text-xs text-[#8f8f8f] mb-2">{s.label}</p>
                     <input type="number" value={settings[s.key]}
                       onChange={e => setSettings(p => ({ ...p, [s.key]: Number(e.target.value) }))}
-                      className="w-full rounded-xl border border-[#1e1e1e] bg-black px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20 text-center text-lg font-bold" />
+                      className="w-full rounded-xl border border-[#2a2a2a] bg-black px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20 text-center text-lg font-bold" />
                   </div>
                 ))}
               </div>
@@ -263,25 +263,25 @@ export default function LoyaltyPage() {
               {loading ? (
                 <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-[#141414] animate-pulse" />)}</div>
               ) : clients.length === 0 ? (
-                <div className="text-center py-8"><p className="text-[#777] text-sm">No clients yet</p></div>
+                <div className="text-center py-8"><p className="text-[#8f8f8f] text-sm">No clients yet</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-[#1e1e1e]">
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Rank</th>
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Client</th>
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Points</th>
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Visits</th>
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Last Visit</th>
-                        <th className="text-left text-xs text-[#777] px-3 py-2">Actions</th>
+                      <tr className="border-b border-[#2a2a2a]">
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Rank</th>
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Client</th>
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Points</th>
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Visits</th>
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Last Visit</th>
+                        <th className="text-left text-xs text-[#8f8f8f] px-3 py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {clients.map((client, idx) => (
-                        <tr key={client.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
+                        <tr key={client.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
                           <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-white" : idx === 1 ? "text-[#777]" : idx === 2 ? "text-orange-600" : "text-[#777]")}>
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-white" : idx === 1 ? "text-[#8f8f8f]" : idx === 2 ? "text-orange-600" : "text-[#8f8f8f]")}>
                               #{idx + 1}
                             </span>
                           </td>
@@ -301,8 +301,8 @@ export default function LoyaltyPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-sm text-[#777]">{client.total_visits}</td>
-                          <td className="px-3 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
+                          <td className="px-3 py-3 text-sm text-[#8f8f8f]">{client.total_visits}</td>
+                          <td className="px-3 py-3 text-sm text-[#8f8f8f]">{client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
@@ -325,7 +325,7 @@ export default function LoyaltyPage() {
               <Badge variant="success">Active</Badge>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-[#777] mb-4">Sent automatically once a day. Toggle what you want on — 24h reminders text &amp; email the client, the rest email.</p>
+              <p className="text-xs text-[#8f8f8f] mb-4">Sent automatically once a day. Toggle what you want on — 24h reminders text &amp; email the client, the rest email.</p>
               <div className="space-y-4">
                 {[
                   { key: "appointment_24h" as const, label: "24hr Appointment Reminder", desc: "SMS sent 24hrs before appointment", icon: "⏰" },
@@ -333,12 +333,12 @@ export default function LoyaltyPage() {
                   { key: "birthday" as const, label: "Birthday Message", desc: "Send a birthday discount message", icon: "🎂" },
                   { key: "winback_60d" as const, label: "Win-Back Campaign", desc: "Reach out to clients after 60 days of no activity", icon: "💌" },
                 ].map(r => (
-                  <div key={r.key} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div key={r.key} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{r.icon}</span>
                       <div>
                         <p className="text-sm font-medium text-white">{r.label}</p>
-                        <p className="text-xs text-[#777]">{r.desc}</p>
+                        <p className="text-xs text-[#8f8f8f]">{r.desc}</p>
                       </div>
                     </div>
                     <Switch checked={!!reminders[r.key]} onChange={() => toggleReminder(r.key)} />
@@ -363,7 +363,7 @@ export default function LoyaltyPage() {
           ) : promos.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">🎟️</p>
-              <p className="text-[#777] text-sm">No promo codes yet. Create your first promo above.</p>
+              <p className="text-[#8f8f8f] text-sm">No promo codes yet. Create your first promo above.</p>
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -378,17 +378,17 @@ export default function LoyaltyPage() {
                     </div>
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#777]">Discount</span>
+                        <span className="text-[#8f8f8f]">Discount</span>
                         <span className="text-white font-semibold">
                           {promo.discount_type === "percent" ? `${promo.discount_value}% off` : `$${promo.discount_value} off`}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#777]">Uses Left</span>
+                        <span className="text-[#8f8f8f]">Uses Left</span>
                         <span className="text-white">{promo.uses_left ?? "∞"} / {totalAlloc > 0 ? totalAlloc : "∞"}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#777]">Expires</span>
+                        <span className="text-[#8f8f8f]">Expires</span>
                         <span className="text-white">{promo.expires_at ?? "Never"}</span>
                       </div>
                     </div>
@@ -397,7 +397,7 @@ export default function LoyaltyPage() {
                         <div className="w-full h-2 rounded-full bg-[#141414] overflow-hidden">
                           <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
                         </div>
-                        <p className="text-xs text-[#777] mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
+                        <p className="text-xs text-[#8f8f8f] mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -421,9 +421,9 @@ export default function LoyaltyPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setAddPointsFor(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Add Loyalty Points</h3>
-              <p className="text-sm text-[#777]">For: {addPointsFor.name}</p>
+              <p className="text-sm text-[#8f8f8f]">For: {addPointsFor.name}</p>
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsFor(null)}>Cancel</Button>
@@ -439,12 +439,12 @@ export default function LoyaltyPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setRedeemFor(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Redeem Loyalty Points</h3>
-              <p className="text-sm text-[#777]">For: {redeemFor.name} · Balance: {redeemFor.loyalty_points} pts</p>
+              <p className="text-sm text-[#8f8f8f]">For: {redeemFor.name} · Balance: {redeemFor.loyalty_points} pts</p>
               <Input label="Points to redeem" type="number" value={pointsToRedeem} onChange={e => setPointsToRedeem(e.target.value)} />
               {settings.redemption > 0 && (
-                <p className="text-xs text-[#777]">≈ ${((Number(pointsToRedeem) / 100) * settings.redemption).toFixed(2)} discount value</p>
+                <p className="text-xs text-[#8f8f8f]">≈ ${((Number(pointsToRedeem) / 100) * settings.redemption).toFixed(2)} discount value</p>
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setRedeemFor(null)}>Cancel</Button>
@@ -460,10 +460,10 @@ export default function LoyaltyPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowPromoModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{editPromo ? "Edit Promo Code" : "Create Promo Code"}</h2>
-                <button onClick={() => setShowPromoModal(false)} className="text-[#777] hover:text-white">✕</button>
+                <button onClick={() => setShowPromoModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
               </div>
               <Input label="Code" value={newPromo.code} onChange={e => setNewPromo(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="SUMMER20" />
               <Select label="Discount Type" value={newPromo.discount_type} onChange={e => setNewPromo(p => ({ ...p, discount_type: e.target.value }))}>

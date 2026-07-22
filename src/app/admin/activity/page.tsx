@@ -97,7 +97,7 @@ export default function AdminActivityPage() {
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Activity Log</h1>
-        <p className="text-sm text-[#777] mt-0.5">
+        <p className="text-sm text-[#8f8f8f] mt-0.5">
           {scopedTarget ? "Admin actions on this shop" : "Every admin action across the platform"}
         </p>
       </div>
@@ -111,16 +111,16 @@ export default function AdminActivityPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by admin, action, or target…"
-            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
-          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white"><X size={14} /></button>}
+            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50" />
+          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white"><X size={14} /></button>}
         </div>
         <div className="flex gap-2 flex-wrap">
           {(["all", "shop", "plan", "settings"] as const).map(f => (
             <button key={f} onClick={() => setTypeFilter(f)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border",
-                typeFilter === f ? "bg-gold text-black border-gold" : "border-border text-[#777] hover:text-white hover:border-gray-500")}>
+                typeFilter === f ? "bg-gold text-black border-gold" : "border-border text-[#8f8f8f] hover:text-white hover:border-gray-500")}>
               {f}
             </button>
           ))}
@@ -133,13 +133,13 @@ export default function AdminActivityPage() {
         <Card><div className="py-16 text-center space-y-2">
           <History size={32} className="text-[#999] mx-auto" />
           <p className="text-white font-semibold">Activity log not set up yet</p>
-          <p className="text-sm text-[#777] max-w-sm mx-auto">Run the <code className="text-gold">phase27_admin_platform.sql</code> migration to start recording admin actions.</p>
+          <p className="text-sm text-[#8f8f8f] max-w-sm mx-auto">Run the <code className="text-gold">phase27_admin_platform.sql</code> migration to start recording admin actions.</p>
         </div></Card>
       ) : filtered.length === 0 ? (
         <Card><div className="py-16 text-center space-y-2">
           <History size={32} className="text-[#999] mx-auto" />
           <p className="text-white font-semibold">No activity {search || typeFilter !== "all" ? "matches" : "yet"}</p>
-          <p className="text-sm text-[#777]">Admin actions (approvals, plan changes, settings) will appear here.</p>
+          <p className="text-sm text-[#8f8f8f]">Admin actions (approvals, plan changes, settings) will appear here.</p>
         </div></Card>
       ) : (
         <Card>
@@ -156,15 +156,15 @@ export default function AdminActivityPage() {
                       <p className="text-sm text-white">
                         <span className={cn("font-medium", am.tone)}>{am.label}</span>
                         {e.target_label && <span className="text-gray-300"> · {e.target_label}</span>}
-                        {summary && <span className="text-[#777]"> · {summary}</span>}
+                        {summary && <span className="text-[#8f8f8f]"> · {summary}</span>}
                       </p>
-                      <p className="text-xs text-[#777] mt-0.5">{e.actor_email ?? "admin"} · {timeAgo(e.created_at)} · {e.created_at.slice(0, 16).replace("T", " ")}</p>
+                      <p className="text-xs text-[#8f8f8f] mt-0.5">{e.actor_email ?? "admin"} · {timeAgo(e.created_at)} · {e.created_at.slice(0, 16).replace("T", " ")}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <p className="text-xs text-[#777] mt-3 px-1">Showing {filtered.length} of {entries.length} recent actions</p>
+            <p className="text-xs text-[#8f8f8f] mt-3 px-1">Showing {filtered.length} of {entries.length} recent actions</p>
           </CardContent>
         </Card>
       )}

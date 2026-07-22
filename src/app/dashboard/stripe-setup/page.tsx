@@ -9,7 +9,7 @@ export default function StripeSetupPage() {
   useEffect(() => { router.replace("/dashboard/billing"); }, [router]);
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <p className="text-sm text-[#777]">Redirecting to Billing…</p>
+      <p className="text-sm text-[#8f8f8f]">Redirecting to Billing…</p>
     </div>
   );
 }

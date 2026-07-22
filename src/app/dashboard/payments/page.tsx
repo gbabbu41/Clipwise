@@ -721,22 +721,22 @@ export default function PaymentsPage() {
           <>
             <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setDetailItem(null)} />
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-              <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+              <div className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-lg font-bold text-white truncate">{i.name}</h2>
-                  <button onClick={() => setDetailItem(null)} className="text-[#777] hover:text-white text-xl leading-none flex-shrink-0">✕</button>
+                  <button onClick={() => setDetailItem(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none flex-shrink-0">✕</button>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-3"><span className="text-[#777]">Service</span><span className="text-white text-right truncate">{i.sub}</span></div>
-                  <div className="flex justify-between"><span className="text-[#777]">Method</span><span className="text-white">{i.method === "cash" ? "Cash" : "Card"}</span></div>
-                  <div className="flex justify-between"><span className="text-[#777]">Status</span><span className="text-white">{i.statusLabel}</span></div>
-                  <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-semibold">{formatCurrency(netOf(i))}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-[#8f8f8f]">Service</span><span className="text-white text-right truncate">{i.sub}</span></div>
+                  <div className="flex justify-between"><span className="text-[#8f8f8f]">Method</span><span className="text-white">{i.method === "cash" ? "Cash" : "Card"}</span></div>
+                  <div className="flex justify-between"><span className="text-[#8f8f8f]">Status</span><span className="text-white">{i.statusLabel}</span></div>
+                  <div className="flex justify-between"><span className="text-[#8f8f8f]">Amount</span><span className="text-white font-semibold">{formatCurrency(netOf(i))}</span></div>
                   {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
-                    <div className="flex justify-between"><span className="text-[#777]">Stripe fee</span><span className="text-[#aaa]">{formatCurrency(feeOf(i))}</span></div>
+                    <div className="flex justify-between"><span className="text-[#8f8f8f]">Stripe fee</span><span className="text-[#aaa]">{formatCurrency(feeOf(i))}</span></div>
                   )}
                   {dt && (
                     <div className="flex justify-between gap-3">
-                      <span className="text-[#777]">When</span>
+                      <span className="text-[#8f8f8f]">When</span>
                       <span className="text-white text-right">
                         {dt.toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                         <span className="block text-[11px] text-[#666]">{timeAgo(i.tsIso)}</span>
@@ -747,13 +747,13 @@ export default function PaymentsPage() {
                 <div className="flex flex-col gap-2 pt-1">
                   {canSendLink && a && (
                     <button onClick={() => { setDetailItem(null); openSendLink(a); }}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#1e1e1e] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a]">
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#2a2a2a] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a]">
                       <Send size={14} /> Send payment link
                     </button>
                   )}
                   {canRefresh && a && (
                     <button onClick={() => refresh(a)} disabled={busy === a.id}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#1e1e1e] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a] disabled:opacity-50">
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-[#2a2a2a] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a] disabled:opacity-50">
                       <RefreshCw size={14} className={busy === a.id ? "animate-spin" : ""} /> Refresh status
                     </button>
                   )}
@@ -763,7 +763,7 @@ export default function PaymentsPage() {
                       {refunding ? "Refunding…" : "↩ Refund payment"}
                     </button>
                   )}
-                  {i.refunded && <p className="text-center text-xs text-[#777]">✓ Refunded</p>}
+                  {i.refunded && <p className="text-center text-xs text-[#8f8f8f]">✓ Refunded</p>}
                   {i.method === "cash" && !i.refunded && <p className="text-center text-[11px] text-[#666]">Cash payment — refund in person.</p>}
                 </div>
               </div>
@@ -777,21 +777,21 @@ export default function PaymentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
+            <div className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Custom range</h2>
-                <button onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => { if (!customFrom && !customTo) setOwnerExtra(""); setShowCustomModal(false); }} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-[#888] mb-1">From</label>
                   <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
                 <div>
                   <label className="block text-xs text-[#888] mb-1">To</label>
                   <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -809,20 +809,20 @@ export default function PaymentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => busy === null && setLinkModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <div className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Send payment link</h2>
-                <button onClick={() => busy === null && setLinkModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => busy === null && setLinkModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{linkModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="text-white font-bold">{formatCurrency(linkModal.total_amount ?? 0)}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Client</span><span className="text-white">{linkModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Amount</span><span className="text-white font-bold">{formatCurrency(linkModal.total_amount ?? 0)}</span></div>
               </div>
 
               {generatedLink ? (
                 <div className="space-y-3">
                   <p className="text-sm text-white font-medium">Link ready</p>
-                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{generatedLink}</div>
+                  <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-2 text-xs text-sky-300 break-all">{generatedLink}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" className="btn btn-primary w-full"
                       onClick={() => { navigator.clipboard?.writeText(generatedLink); showToast("Link copied"); }}>Copy link</button>
@@ -838,7 +838,7 @@ export default function PaymentsPage() {
                   </label>
                   <input type="email" value={linkEmail} onChange={e => setLinkEmail(e.target.value)}
                     placeholder="customer@email.com" disabled={!viaEmail}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white disabled:opacity-40" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white disabled:opacity-40" />
 
                   <label className="flex items-center gap-2 text-sm text-white pt-1">
                     <input type="checkbox" checked={viaSms} onChange={e => setViaSms(e.target.checked)} className="form-check-input" />
@@ -846,7 +846,7 @@ export default function PaymentsPage() {
                   </label>
                   <input type="tel" value={linkPhone} onChange={e => setLinkPhone(e.target.value)}
                     placeholder="(416) 555-0123" disabled={!viaSms}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white disabled:opacity-40" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white disabled:opacity-40" />
 
                   <button type="button" className="btn btn-primary w-full mt-1" disabled={busy === linkModal.id} onClick={submitSendLink}>
                     {busy === linkModal.id ? "Sending…" : "Send link"}

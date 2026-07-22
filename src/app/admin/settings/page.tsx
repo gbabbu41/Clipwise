@@ -157,14 +157,14 @@ export default function AdminSettingsPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-white">Platform Settings</h1>
-        <p className="text-sm text-[#777] mt-0.5">Global configuration for ClipWise</p>
+        <p className="text-sm text-[#8f8f8f] mt-0.5">Global configuration for ClipWise</p>
       </div>
 
       {/* Global controls */}
       <Card>
         <CardHeader>
           <CardTitle>Global Controls</CardTitle>
-          <p className="text-xs text-[#777]">Platform-wide switches — take effect within a minute.</p>
+          <p className="text-xs text-[#8f8f8f]">Platform-wide switches — take effect within a minute.</p>
         </CardHeader>
         <CardContent className="space-y-1">
           {CONTROLS.map(({ key, icon: Icon, title, desc, danger, invertColor }) => {
@@ -173,12 +173,12 @@ export default function AdminSettingsPage() {
               <div key={key} className="flex items-start justify-between gap-4 py-3 border-b border-border/50 last:border-0">
                 <div className="flex items-start gap-3">
                   <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0",
-                    on ? (danger ? "bg-red-500/15 text-red-400" : invertColor ? "bg-blue-500/15 text-blue-400" : "bg-emerald-500/15 text-emerald-400") : "bg-surface-raised text-[#777]")}>
+                    on ? (danger ? "bg-red-500/15 text-red-400" : invertColor ? "bg-blue-500/15 text-blue-400" : "bg-emerald-500/15 text-emerald-400") : "bg-surface-raised text-[#8f8f8f]")}>
                     <Icon size={15} />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">{title}</p>
-                    <p className="text-xs text-[#777] mt-0.5 max-w-md">{desc}</p>
+                    <p className="text-xs text-[#8f8f8f] mt-0.5 max-w-md">{desc}</p>
                   </div>
                 </div>
                 <Toggle checked={on} onChange={v => saveSettings({ [key]: v })} />
@@ -187,12 +187,12 @@ export default function AdminSettingsPage() {
           })}
           {settings.maintenance_mode && (
             <div className="pt-3">
-              <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Maintenance banner message</label>
+              <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Maintenance banner message</label>
               <div className="flex gap-2 mt-1.5">
                 <input value={settings.maintenance_message}
                   onChange={e => setSettings(p => ({ ...p, maintenance_message: e.target.value }))}
                   placeholder="We're doing scheduled maintenance — some features may be briefly unavailable."
-                  className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
+                  className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50" />
                 <Button size="sm" loading={savingSettings} onClick={() => saveSettings({ maintenance_message: settings.maintenance_message })}>Save</Button>
               </div>
             </div>
@@ -207,7 +207,7 @@ export default function AdminSettingsPage() {
             <div className="w-9 h-9 bg-gold/15 rounded-xl flex items-center justify-center"><Shield size={18} className="text-gold" /></div>
             <div>
               <CardTitle>Admin Account</CardTitle>
-              <p className="text-xs text-[#777] mt-0.5">Super administrator</p>
+              <p className="text-xs text-[#8f8f8f] mt-0.5">Super administrator</p>
             </div>
           </div>
         </CardHeader>
@@ -216,7 +216,7 @@ export default function AdminSettingsPage() {
             <p className="text-sm text-white font-medium">{user?.email ?? "—"}</p>
             <Badge variant="gold">Super Admin</Badge>
           </div>
-          <p className="text-xs text-[#777] mt-2">Admin access is granted to users with the <code className="text-gold">super_admin</code> role.</p>
+          <p className="text-xs text-[#8f8f8f] mt-2">Admin access is granted to users with the <code className="text-gold">super_admin</code> role.</p>
         </CardContent>
       </Card>
 
@@ -238,7 +238,7 @@ export default function AdminSettingsPage() {
             <Plus size={14} /> Add Plan
           </Button>
         </div>
-        <p className="text-xs text-[#777] mb-4">
+        <p className="text-xs text-[#8f8f8f] mb-4">
           Edits here are the single source of truth — prices flow into Stripe Checkout and the feature
           toggles control what each plan can actually do. Changes take effect within a minute.
         </p>
@@ -254,15 +254,15 @@ export default function AdminSettingsPage() {
                   <div className="flex-1 space-y-2">
                     <Input label="Display name" value={plan.name} onChange={e => patch(idx, { name: e.target.value })} placeholder="Premium" />
                     <div>
-                      <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Plan id (slug)</label>
+                      <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Plan id (slug)</label>
                       <input value={plan.id} disabled={!plan.__isNew}
                         onChange={e => patch(idx, { id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
                         placeholder="premium"
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 disabled:opacity-60" />
-                      {!plan.__isNew && <p className="text-[10px] text-[#777] mt-1">Slug is fixed once created (shops reference it).</p>}
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 disabled:opacity-60" />
+                      {!plan.__isNew && <p className="text-[10px] text-[#8f8f8f] mt-1">Slug is fixed once created (shops reference it).</p>}
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-[#777] shrink-0 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-[#8f8f8f] shrink-0 cursor-pointer">
                     <input type="checkbox" checked={plan.is_active} onChange={e => patch(idx, { is_active: e.target.checked })} className="accent-gold w-4 h-4" />
                     Active
                   </label>
@@ -270,23 +270,23 @@ export default function AdminSettingsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Price ($/mo, CAD)</label>
+                    <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Price ($/mo, CAD)</label>
                     <input type="number" min={0} step="0.01" value={plan.price_cents / 100}
                       onChange={e => patch(idx, { price_cents: Math.max(0, Math.round(Number(e.target.value) * 100)) })}
                       className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
-                    <p className="text-[10px] text-[#777] mt-1">0 = free (no checkout)</p>
+                    <p className="text-[10px] text-[#8f8f8f] mt-1">0 = free (no checkout)</p>
                   </div>
                   <div>
-                    <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Barber limit</label>
+                    <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Barber limit</label>
                     <input type="number" min={1} value={plan.barber_limit ?? ""} placeholder="Unlimited"
                       onChange={e => patch(idx, { barber_limit: e.target.value === "" ? null : Math.max(1, Math.round(Number(e.target.value))) })}
-                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50" />
-                    <p className="text-[10px] text-[#777] mt-1">Empty = unlimited</p>
+                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50" />
+                    <p className="text-[10px] text-[#8f8f8f] mt-1">Empty = unlimited</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Features unlocked</label>
+                  <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Features unlocked</label>
                   <div className="grid grid-cols-2 gap-1.5 mt-2">
                     {ALL_PLAN_FEATURES.map(f => (
                       <label key={f} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -300,7 +300,7 @@ export default function AdminSettingsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="Badge (optional)" value={plan.badge ?? ""} onChange={e => patch(idx, { badge: e.target.value || null })} placeholder="Most Popular" />
                   <div>
-                    <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Sort order</label>
+                    <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Sort order</label>
                     <input type="number" value={plan.sort_order}
                       onChange={e => patch(idx, { sort_order: Math.round(Number(e.target.value)) || 0 })}
                       className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
@@ -308,11 +308,11 @@ export default function AdminSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#777] font-medium uppercase tracking-wide">Marketing bullets (one per line)</label>
+                  <label className="text-xs text-[#8f8f8f] font-medium uppercase tracking-wide">Marketing bullets (one per line)</label>
                   <textarea rows={4} value={(plan.highlights ?? []).join("\n")}
                     onChange={e => patch(idx, { highlights: e.target.value.split("\n") })}
                     placeholder={"Up to 4 barbers\nOnline booking + payments\nLoyalty program"}
-                    className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50 resize-none" />
+                    className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50 resize-none" />
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">

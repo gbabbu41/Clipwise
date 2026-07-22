@@ -113,7 +113,7 @@ export default function SignupPage() {
               <Store size={26} className="text-gold" />
             </div>
             <h1 className="text-xl font-bold text-white">Sign-ups are paused</h1>
-            <p className="text-sm text-[#777]">We&apos;re not accepting new accounts right now. Please check back soon.</p>
+            <p className="text-sm text-[#8f8f8f]">We&apos;re not accepting new accounts right now. Please check back soon.</p>
             <Link href="/login" className="block pt-2 text-gold hover:underline text-sm font-medium">Already have an account? Sign in →</Link>
           </div>
         </div>
@@ -129,13 +129,13 @@ export default function SignupPage() {
           {!selectedRole && !emailSent && (
             <>
               <h1 className="text-2xl font-bold text-white">Join ClipWise</h1>
-              <p className="text-[#777] text-sm mt-1">How are you planning to use ClipWise?</p>
+              <p className="text-[#8f8f8f] text-sm mt-1">How are you planning to use ClipWise?</p>
             </>
           )}
           {selectedRole && !emailSent && (
             <>
               <h1 className="text-2xl font-bold text-white">Create your account</h1>
-              <p className="text-[#777] text-sm mt-1">
+              <p className="text-[#8f8f8f] text-sm mt-1">
                 {selectedRole === "shop_owner" ? "Set up your shop in minutes. No credit card required." : "Book appointments at top barbershops near you."}
               </p>
             </>
@@ -148,7 +148,7 @@ export default function SignupPage() {
               <CheckCircle size={28} className="text-emerald-400" />
             </div>
             <h2 className="text-xl font-bold text-white">Check your email</h2>
-            <p className="text-sm text-[#777]">We sent a confirmation link to <span className="text-white font-medium">{form.email}</span>. Click it to activate your account, then come back to sign in.</p>
+            <p className="text-sm text-[#8f8f8f]">We sent a confirmation link to <span className="text-white font-medium">{form.email}</span>. Click it to activate your account, then come back to sign in.</p>
             <Link href="/login" className="block mt-2 text-gold hover:underline text-sm font-medium">Go to Sign In →</Link>
           </div>
         )}
@@ -163,16 +163,16 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="text-xs text-[#777] mt-0.5">{desc}</p>
+                  <p className="text-xs text-[#8f8f8f] mt-0.5">{desc}</p>
                 </div>
               </button>
             ))}
             <div className="text-center pt-2">
-              <p className="text-xs text-[#777]">Are you a barber looking to join a shop?{" "}
+              <p className="text-xs text-[#8f8f8f]">Are you a barber looking to join a shop?{" "}
                 <Link href="/signup/barber" className="text-gold hover:underline">Sign up as a barber →</Link>
               </p>
             </div>
-            <p className="text-center text-sm text-[#777] pt-2">
+            <p className="text-center text-sm text-[#8f8f8f] pt-2">
               Already have an account?{" "}
               <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
             </p>
@@ -181,7 +181,7 @@ export default function SignupPage() {
 
         {!emailSent && selectedRole && (
           <div className="bg-surface border border-border rounded-2xl p-8">
-            <button onClick={() => setSelectedRole("")} className="text-xs text-[#777] hover:text-gold mb-4 flex items-center gap-1">
+            <button onClick={() => setSelectedRole("")} className="text-xs text-[#8f8f8f] hover:text-gold mb-4 flex items-center gap-1">
               ← Back
             </button>
 
@@ -197,9 +197,9 @@ export default function SignupPage() {
                 <div key={key} className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-300">{label}</label>
                   <div className="relative">
-                    <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                    <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                     <input type={type} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
-                      className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 transition-all",
+                      className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                         fieldErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
                   </div>
                   {fieldErrors[key] && (
@@ -216,11 +216,11 @@ export default function SignupPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">Password</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                   <input type={showPass ? "text" : "password"} value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
-                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 transition-all",
+                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                       fieldErrors.password ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
-                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -246,18 +246,18 @@ export default function SignupPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">Confirm Password</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                   <input type={showConfirm ? "text" : "password"} value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
-                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 transition-all",
+                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                       fieldErrors.confirmPassword ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
-                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white">
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
                     {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
                 {fieldErrors.confirmPassword && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} /> {fieldErrors.confirmPassword}</p>}
               </div>
 
-              <p className="text-xs text-[#777] leading-relaxed">
+              <p className="text-xs text-[#8f8f8f] leading-relaxed">
                 By signing up, you agree to our{" "}
                 <Link href="/terms" className="text-gold hover:underline">Terms of Service</Link> and{" "}
                 <Link href="/privacy" className="text-gold hover:underline">Privacy Policy</Link>.
@@ -268,7 +268,7 @@ export default function SignupPage() {
               </Button>
             </form>
 
-            <p className="text-center text-sm text-[#777] mt-6">
+            <p className="text-center text-sm text-[#8f8f8f] mt-6">
               Already have an account?{" "}
               <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
             </p>

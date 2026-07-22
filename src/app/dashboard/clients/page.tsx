@@ -12,9 +12,9 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -268,7 +268,7 @@ export default function ClientsPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">👥</p>
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-[#777]">Client profiles will appear here once your shop is active.</p>
+        <p className="text-sm text-[#8f8f8f]">Client profiles will appear here once your shop is active.</p>
       </div>
     );
   }
@@ -348,14 +348,14 @@ export default function ClientsPage() {
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {tiles.map(s => (
-              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
-                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
+                <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{s.label}</p>
                 <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
                 <p className={cn(
                   "text-[11px] mt-2 font-medium",
                   s.tone === "up"    && "text-emerald-400",
                   s.tone === "down"  && "text-red-400",
-                  s.tone === "muted" && "text-[#777]",
+                  s.tone === "muted" && "text-[#8f8f8f]",
                 )}>{s.sub}</p>
               </div>
             ))}
@@ -365,25 +365,25 @@ export default function ClientsPage() {
 
       {/* Filter & Search */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex rounded-xl border border-[#1e1e1e] overflow-hidden">
+        <div className="flex rounded-xl border border-[#2a2a2a] overflow-hidden">
           {["All","VIP","New","Returning","At Risk"].map(t => (
             <button key={t} onClick={() => setTagFilter(t)}
-              className={cn("px-4 py-2 text-sm font-medium transition-colors", tagFilter === t ? "bg-gold text-black" : "text-[#777] hover:text-white bg-[#141414]")}>
+              className={cn("px-4 py-2 text-sm font-medium transition-colors", tagFilter === t ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
               {t}
             </button>
           ))}
         </div>
         <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="w-56" />
         <div className="flex gap-1 ml-auto">
-          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-white" : "border-[#1e1e1e] text-[#777]")}>⊞</button>
-          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-white" : "border-[#1e1e1e] text-[#777]")}>☰</button>
+          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-white" : "border-[#2a2a2a] text-[#8f8f8f]")}>⊞</button>
+          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-white" : "border-[#2a2a2a] text-[#8f8f8f]")}>☰</button>
         </div>
       </div>
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 space-y-3 animate-pulse">
+            <div key={i} className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3 animate-pulse">
               <div className="flex items-start justify-between">
                 <div className="w-10 h-10 rounded-full bg-[#141414]" />
                 <div className="h-5 w-16 rounded-full bg-[#141414]" />
@@ -402,7 +402,7 @@ export default function ClientsPage() {
         <div className="text-center py-16">
           <p className="text-4xl mb-3">👥</p>
           <p className="text-white font-medium mb-1">{clients.length === 0 ? "Your client list is empty" : "No clients match your filters"}</p>
-          <p className="text-sm text-[#777]">{clients.length === 0 ? "Clients are added automatically when they book, or you can add them manually above." : "Try a different search or filter."}</p>
+          <p className="text-sm text-[#8f8f8f]">{clients.length === 0 ? "Clients are added automatically when they book, or you can add them manually above." : "Try a different search or filter."}</p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -424,12 +424,12 @@ export default function ClientsPage() {
                 </div>
               </div>
               <h3 className="text-white font-semibold">{client.name}</h3>
-              <p className="text-sm text-[#777]">{client.phone}</p>
+              <p className="text-sm text-[#8f8f8f]">{client.phone}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <div><p className="text-xs text-[#777]">Visits</p><p className="text-sm font-semibold text-white">{client.total_visits}</p></div>
-                <div><p className="text-xs text-[#777]">Spent</p><p className="text-sm font-semibold text-white">{formatCurrency(client.total_spent)}</p></div>
-                <div><p className="text-xs text-[#777]">Points</p><p className="text-sm font-semibold text-white">{client.loyalty_points}</p></div>
-                <div><p className="text-xs text-[#777]">Last Visit</p><p className="text-sm font-semibold text-white">{client.last_visit ?? "—"}</p></div>
+                <div><p className="text-xs text-[#8f8f8f]">Visits</p><p className="text-sm font-semibold text-white">{client.total_visits}</p></div>
+                <div><p className="text-xs text-[#8f8f8f]">Spent</p><p className="text-sm font-semibold text-white">{formatCurrency(client.total_spent)}</p></div>
+                <div><p className="text-xs text-[#8f8f8f]">Points</p><p className="text-sm font-semibold text-white">{client.loyalty_points}</p></div>
+                <div><p className="text-xs text-[#8f8f8f]">Last Visit</p><p className="text-sm font-semibold text-white">{client.last_visit ?? "—"}</p></div>
               </div>
               <Button variant="outline" size="sm" className="w-full mt-3">View Profile</Button>
             </Card>
@@ -438,19 +438,19 @@ export default function ClientsPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           <table className="w-full">
-            <thead className="border-b border-[#1e1e1e]">
+            <thead className="border-b border-[#2a2a2a]">
               <tr>
                 {["Client","Phone","Tag","Visits","Spent","Points","Last Visit"].map(h => (
-                  <th key={h} className="text-left text-xs font-medium text-[#777] px-4 py-3">{h}</th>
+                  <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(client => (
                 <tr key={client.id} onClick={() => openClient(client)}
-                  className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer">
+                  className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/50 cursor-pointer">
                   <td className="px-4 py-3 text-sm font-medium text-white">{client.name}</td>
-                  <td className="px-4 py-3 text-sm text-[#777]">{client.phone}</td>
+                  <td className="px-4 py-3 text-sm text-[#8f8f8f]">{client.phone}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
@@ -464,7 +464,7 @@ export default function ClientsPage() {
                   <td className="px-4 py-3 text-sm text-white">{client.total_visits}</td>
                   <td className="px-4 py-3 text-sm text-white">{formatCurrency(client.total_spent)}</td>
                   <td className="px-4 py-3 text-sm text-white">{client.loyalty_points}</td>
-                  <td className="px-4 py-3 text-sm text-[#777]">{client.last_visit ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-[#8f8f8f]">{client.last_visit ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -476,10 +476,10 @@ export default function ClientsPage() {
       {selectedClient && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedClient(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#2a2a2a] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Client Profile</h2>
-              <button onClick={() => setSelectedClient(null)} className="text-[#777] hover:text-white text-xl">✕</button>
+              <button onClick={() => setSelectedClient(null)} className="text-[#8f8f8f] hover:text-white text-xl">✕</button>
             </div>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-black/10 flex items-center justify-center text-white font-bold text-lg">
@@ -500,11 +500,11 @@ export default function ClientsPage() {
               </div>
             </div>
             {/* Tabs */}
-            <div className="flex gap-1 bg-[#141414] border border-[#1e1e1e] rounded-xl p-1">
+            <div className="flex gap-1 bg-[#141414] border border-[#2a2a2a] rounded-xl p-1">
               {(["overview", "hair", "history"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
-                    activeTab === tab ? "bg-black/10 text-white border border-[#1e1e1e]" : "text-[#777] hover:text-white")}>
+                    activeTab === tab ? "bg-black/10 text-white border border-[#2a2a2a]" : "text-[#8f8f8f] hover:text-white")}>
                   {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
                 </button>
               ))}
@@ -522,18 +522,18 @@ export default function ClientsPage() {
                     { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
                     { label: "Last Visit", value: selectedClient.last_visit ?? "—" },
                   ].map(item => (
-                    <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                      <p className="text-xs text-[#777]">{item.label}</p>
+                    <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                      <p className="text-xs text-[#8f8f8f]">{item.label}</p>
                       <p className="text-sm text-white mt-0.5 break-all">{item.value}</p>
                     </div>
                   ))}
                 </div>
                 {/* Birthday */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#777]">Birthday</label>
+                  <label className="text-xs font-medium text-[#8f8f8f]">Birthday</label>
                   <div className="flex gap-2">
                     <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
-                      className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20" />
+                      className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20" />
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
                   {selectedClient.email && birthday && (
@@ -567,7 +567,7 @@ export default function ClientsPage() {
                     {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
                   </Button>
                 </div>
-                <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                <div className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-white">Loyalty Points</p>
                     <p className="text-xl font-bold text-white">{selectedClient.loyalty_points} pts</p>
@@ -583,7 +583,7 @@ export default function ClientsPage() {
             {/* Hair Profile tab */}
             {activeTab === "hair" && (
               <div className="space-y-4">
-                <p className="text-xs text-[#777]">Saved per client — visible to all barbers at your shop.</p>
+                <p className="text-xs text-[#8f8f8f]">Saved per client — visible to all barbers at your shop.</p>
 
                 <div className="grid grid-cols-2 gap-3">
                   {[
@@ -591,12 +591,12 @@ export default function ClientsPage() {
                     { key: "sidesGuard" as keyof HairProfile, label: "Sides — Guard #", placeholder: "e.g. 1.5" },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-xs font-medium text-[#777]">{label}</label>
+                      <label className="text-xs font-medium text-[#8f8f8f]">{label}</label>
                       <input
                         value={hairProfile[key]}
                         onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-1 focus:ring-black/20"
+                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-1 focus:ring-black/20"
                       />
                     </div>
                   ))}
@@ -604,22 +604,22 @@ export default function ClientsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-[#777]">Fade Type</label>
+                    <label className="text-xs font-medium text-[#8f8f8f]">Fade Type</label>
                     <select
                       value={hairProfile.fadeType}
                       onChange={e => setHairProfile(p => ({ ...p, fadeType: e.target.value }))}
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20"
+                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Low Fade", "Mid Fade", "High Fade", "Skin Fade", "Taper"].map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-[#777]">Beard</label>
+                    <label className="text-xs font-medium text-[#8f8f8f]">Beard</label>
                     <select
                       value={hairProfile.beardStyle}
                       onChange={e => setHairProfile(p => ({ ...p, beardStyle: e.target.value }))}
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20"
+                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-black/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Shape Up", "Light Trim", "Full Trim", "Full Beard", "Shave"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -633,13 +633,13 @@ export default function ClientsPage() {
                   { key: "barberNotes" as keyof HairProfile, label: "Barber Notes (internal)", placeholder: "e.g. Comes in every 3 weeks, sensitive around ears…" },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key} className="space-y-1.5">
-                    <label className="text-xs font-medium text-[#777]">{label}</label>
+                    <label className="text-xs font-medium text-[#8f8f8f]">{label}</label>
                     <textarea
                       value={hairProfile[key]}
                       onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={2}
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
+                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
                     />
                   </div>
                 ))}
@@ -652,18 +652,18 @@ export default function ClientsPage() {
             {activeTab === "history" && (
               <div>
                 {clientAppointments.length === 0 ? (
-                  <p className="text-sm text-[#777] text-center py-8">No appointments found</p>
+                  <p className="text-sm text-[#8f8f8f] text-center py-8">No appointments found</p>
                 ) : (
                   <div className="space-y-2">
                     {clientAppointments.map(apt => (
-                      <div key={apt.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                      <div key={apt.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                         <div>
                           <p className="text-sm text-white">{apt.services?.name ?? "—"} · {apt.barbers?.name ?? "—"}</p>
-                          <p className="text-xs text-[#777]">{prettyDate(apt.date)} {apt.time_slot}</p>
+                          <p className="text-xs text-[#8f8f8f]">{prettyDate(apt.date)} {apt.time_slot}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</p>
-                          <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-[#777]")}>
+                          <span className={cn("text-xs", apt.status === "no-show" ? "text-red-400" : apt.status === "completed" ? "text-blue-400" : "text-[#8f8f8f]")}>
                             {apt.status}
                           </span>
                         </div>
@@ -682,7 +682,7 @@ export default function ClientsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setAddPointsClient(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-xs space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-white font-bold">Add Points for {addPointsClient.name}</h3>
               <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
               <div className="flex gap-2">
@@ -699,19 +699,19 @@ export default function ClientsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add New Client</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-[#777] hover:text-white">✕</button>
+                <button onClick={() => setShowAddModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
               </div>
               <Input label="Full Name" placeholder="John Doe" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} />
               <Input label="Phone" placeholder="506-555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
               <Input label="Email" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
               <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
               <div className="space-y-1.5">
-                <label className="text-sm text-[#777]">Birthday (optional)</label>
+                <label className="text-sm text-[#8f8f8f]">Birthday (optional)</label>
                 <input type="date" value={newClient.birthday} onChange={e => setNewClient(p => ({ ...p, birthday: e.target.value }))}
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" />
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" />
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>

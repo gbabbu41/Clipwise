@@ -183,7 +183,7 @@ export function BarberSidebar() {
           // page at rest — no faint darker strip — and cleanly covers content
           // when scrolled. Border fades in only once you scroll under it.
           "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black transition-all duration-200 border-b",
-          scrolled ? "border-[#1e1e1e]" : "border-transparent",
+          scrolled ? "border-[#2a2a2a]" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
@@ -238,7 +238,7 @@ export function BarberSidebar() {
             >
               <div
                 ref={notifSheetRef}
-                className="bg-[#0c0c0c] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
+                className="bg-[#0c0c0c] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
@@ -348,10 +348,10 @@ export function BarberSidebar() {
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                 isActive
                   ? "bg-white text-black border border-white"
-                  : "text-[#777] hover:text-white hover:bg-[#141414]"
+                  : "text-[#8f8f8f] hover:text-white hover:bg-[#141414]"
               )}
             >
-              <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
+              <Icon size={18} className={cn(isActive ? "text-black" : "text-[#8f8f8f] group-hover:text-white")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && unreadCount > 0 && (
                 <span className={cn(
@@ -367,8 +367,8 @@ export function BarberSidebar() {
         {/* Owner-also-barber: show a way back to the owner dashboard */}
         {profile?.role === "shop_owner" && (
           <Link href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#777] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
-            <Building2 size={18} className="text-[#777] group-hover:text-white" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#8f8f8f] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            <Building2 size={18} className="text-[#8f8f8f] group-hover:text-white" />
             <span className="flex-1">Owner Dashboard</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -382,9 +382,9 @@ export function BarberSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-[#777]">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
+            <p className="text-xs text-[#8f8f8f]">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
           </div>
-          <button onClick={signOut} className="text-[#777] hover:text-red-400 transition-colors">
+          <button onClick={signOut} className="text-[#8f8f8f] hover:text-red-400 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

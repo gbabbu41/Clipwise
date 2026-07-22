@@ -48,7 +48,7 @@ const config: Config = {
           raised:  "#141414",
         },
         border: {
-          DEFAULT: "#1e1e1e",
+          DEFAULT: "#2a2a2a",
           gold:    "rgba(255,255,255,0.25)",
         },
       },

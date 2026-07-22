@@ -200,7 +200,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
   if (loading) return (
     <div className="space-y-4 animate-pulse">
-      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
         <div className="h-4 w-36 bg-[#1a1a1a] rounded" />
         <div className="mt-4 divide-y divide-[#161616]">
           {[0, 1, 2, 3, 4, 5, 6].map(i => (
@@ -212,7 +212,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           ))}
         </div>
       </div>
-      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4 h-20" />
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4 h-20" />
     </div>
   );
 
@@ -221,7 +221,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
   return (
     <div className="space-y-4">
       {/* ── Weekly schedule (compact one-line rows, edit in a popup) ─────── */}
-      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-semibold text-white">Weekly Schedule</h3>
@@ -252,28 +252,28 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
         {/* Quick actions */}
         {canEdit && <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
             Quick fill: Mon–Fri 9–6
           </button>
-          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
             <Copy size={13} /> Copy first day to all
           </button>
         </div>}
       </div>
 
       {!canEdit && (
-        <p className="text-xs text-[#777] text-center py-1">Read-only — your shop owner manages your hours.</p>
+        <p className="text-xs text-[#8f8f8f] text-center py-1">Read-only — your shop owner manages your hours.</p>
       )}
 
       {/* ── Time off ─────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarOff size={16} className="text-amber-400" />
             <span className="font-semibold text-white">Time Off</span>
           </div>
           <button onClick={() => setShowOffForm(v => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
             <Plus size={13} /> {isOwner ? "Add time off" : "Request"}
           </button>
         </div>
@@ -283,19 +283,19 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
         {/* Add / request form */}
         {showOffForm && (
-          <div className="mt-3 rounded-xl border border-[#1e1e1e] bg-[#0f0f0f] p-3 space-y-2.5">
+          <div className="mt-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-3 space-y-2.5">
             <select value={offForm.type} onChange={e => setOffForm(f => ({ ...f, type: e.target.value }))}
-              className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-white text-sm px-3 py-2 focus:outline-none focus:border-white">
+              className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-white text-sm px-3 py-2 focus:outline-none focus:border-white">
               {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-[#141414]">{t.label}</option>)}
             </select>
             <div className="flex items-center gap-2 text-sm">
               <input type="date" value={offForm.start_date} min={todayISO()} style={{ colorScheme: "dark" }}
                 onChange={e => setOffForm(f => ({ ...f, start_date: e.target.value, end_date: f.end_date < e.target.value ? e.target.value : f.end_date }))}
-                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-white px-3 py-2 focus:outline-none focus:border-white" />
+                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#2a2a2a] text-white px-3 py-2 focus:outline-none focus:border-white" />
               <span className="text-[#666] flex-shrink-0">to</span>
               <input type="date" value={offForm.end_date} min={offForm.start_date} style={{ colorScheme: "dark" }}
                 onChange={e => setOffForm(f => ({ ...f, end_date: e.target.value }))}
-                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#1e1e1e] text-white px-3 py-2 focus:outline-none focus:border-white" />
+                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#2a2a2a] text-white px-3 py-2 focus:outline-none focus:border-white" />
             </div>
             {offForm.type === "blocked_hours" && (
               <div className="flex items-center gap-2 text-sm">
@@ -305,7 +305,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
               </div>
             )}
             <input value={offForm.reason} onChange={e => setOffForm(f => ({ ...f, reason: e.target.value }))} placeholder="Reason (optional)"
-              className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-white text-sm px-3 py-2 focus:outline-none focus:border-white placeholder:text-[#555]" />
+              className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-white text-sm px-3 py-2 focus:outline-none focus:border-white placeholder:text-[#6e6e6e]" />
             <button onClick={addTimeOff} disabled={offBusy}
               className="w-full rounded-lg bg-amber-500 text-black font-semibold text-sm py-2 hover:bg-amber-400 disabled:opacity-50 transition-colors">
               {offBusy ? "Saving…" : isOwner ? "Add time off" : "Send request"}
@@ -318,7 +318,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           {timeOff.length === 0 ? (
             <p className="text-xs text-[#666]">No upcoming time off.</p>
           ) : timeOff.map(t => (
-            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[#1e1e1e] bg-[#0f0f0f] px-3 py-2">
+            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-white truncate">{TIMEOFF_LABEL(t.type)}</span>
@@ -335,7 +335,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 </p>
               </div>
               <button onClick={() => cancelTimeOff(t.id)} aria-label="Cancel time off"
-                className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white flex items-center justify-center">
+                className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#2a2a2a] text-[#8f8f8f] hover:text-white flex items-center justify-center">
                 <X size={14} />
               </button>
             </div>
@@ -348,10 +348,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         <>
           <div className="fixed inset-0 bg-black/70 z-[150]" onClick={() => setDayModal(null)} />
           <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">{DAYS[dayModal]}</h2>
-                <button onClick={() => setDayModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setDayModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
 
               <div className="flex items-center justify-between">
@@ -407,7 +407,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea] disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
               </button>
-              <p className="text-[11px] text-[#555] text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
+              <p className="text-[11px] text-[#6e6e6e] text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
             </div>
           </div>
         </>
@@ -418,19 +418,19 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         <>
           <div className="fixed inset-0 bg-black/70 z-[180]" onClick={() => setBreakModal(null)} />
           <div className="fixed inset-0 z-[190] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">{breakModal.idx === null ? "Add break / lunch" : "Edit break"}</h2>
-                <button onClick={() => setBreakModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setBreakModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <p className="text-xs text-[#666] -mt-2">{DAYS[breakModal.dow]} · within {days[breakModal.dow].start}–{days[breakModal.dow].end}</p>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#777]">Label</label>
+                <label className="text-xs font-medium text-[#8f8f8f]">Label</label>
                 <input value={breakModal.label} onChange={e => setBreakModal(m => m && { ...m, label: e.target.value })} placeholder="Lunch"
-                  className="w-full rounded-lg bg-[#141414] border border-[#1e1e1e] text-amber-400 text-sm px-3 py-2 focus:outline-none focus:border-amber-500/50" />
+                  className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-amber-400 text-sm px-3 py-2 focus:outline-none focus:border-amber-500/50" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#777]">Time</label>
+                <label className="text-xs font-medium text-[#8f8f8f]">Time</label>
                 <div className="flex items-center gap-2">
                   <TimeSelect value={breakModal.start} onChange={v => setBreakModal(m => m && { ...m, start: v })} className="flex-1 min-w-0" />
                   <span className="text-[#666] flex-shrink-0">–</span>
@@ -438,7 +438,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={() => setBreakModal(null)} className="flex-1 rounded-xl border border-[#1e1e1e] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
+                <button onClick={() => setBreakModal(null)} className="flex-1 rounded-xl border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
                 <button onClick={saveBreakModal} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400">{breakModal.idx === null ? "Add" : "Save"}</button>
               </div>
             </div>
@@ -447,7 +447,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>
       )}
     </div>
   );
@@ -456,7 +456,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 function TimeSelect({ value, onChange, small, className }: { value: string; onChange: (v: string) => void; small?: boolean; className?: string }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className={cn("rounded-lg bg-[#141414] border border-[#1e1e1e] text-white focus:outline-none focus:border-white",
+      className={cn("rounded-lg bg-[#141414] border border-[#2a2a2a] text-white focus:outline-none focus:border-white",
         small ? "text-xs px-2 py-1.5" : "text-sm px-3 py-2 font-medium", className)}>
       {TIME_OPTIONS.map(t => <option key={t} value={t} className="bg-[#141414]">{t}</option>)}
     </select>

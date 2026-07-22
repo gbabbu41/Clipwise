@@ -7,5 +7,5 @@ import { useRouter } from "next/navigation";
 export default function BarberHoursRedirect() {
   const router = useRouter();
   useEffect(() => { router.replace("/barber-dashboard/schedule"); }, [router]);
-  return <div className="min-h-[40vh] flex items-center justify-center text-[#777] text-sm">Redirecting…</div>;
+  return <div className="min-h-[40vh] flex items-center justify-center text-[#8f8f8f] text-sm">Redirecting…</div>;
 }

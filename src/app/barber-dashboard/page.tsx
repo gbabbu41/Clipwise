@@ -120,7 +120,7 @@ export default function BarberOverviewPage() {
           <h1 className="text-xl lg:text-2xl font-bold text-white tracking-tight truncate">
             {barber?.name ? `Hi, ${barber.name.split(" ")[0]}` : "Hi"}
           </h1>
-          <p className="text-[#777] text-sm mt-1 truncate">
+          <p className="text-[#8f8f8f] text-sm mt-1 truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {appointments.length} appointment{appointments.length !== 1 ? "s" : ""} today
           </p>
         </div>
@@ -130,7 +130,7 @@ export default function BarberOverviewPage() {
           <Link
             href="/barber-dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#1e1e1e] text-accent-soft hover:border-accent-soft transition-colors"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#2a2a2a] text-accent-soft hover:border-accent-soft transition-colors"
           >
             <Bell size={15} />
           </Link>
@@ -178,14 +178,14 @@ export default function BarberOverviewPage() {
             },
           ];
           return stats.map(stat => (
-            <div key={stat.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
-              <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{stat.label}</p>
+            <div key={stat.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
+              <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{stat.label}</p>
               <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{stat.value}</p>
               <p className={cn(
                 "text-[11px] mt-2 font-medium",
                 stat.tone === "up"    && "text-emerald-400",
                 stat.tone === "down"  && "text-red-400",
-                stat.tone === "muted" && "text-[#777]",
+                stat.tone === "muted" && "text-[#8f8f8f]",
               )}>{stat.sub}</p>
             </div>
           ));
@@ -206,23 +206,23 @@ export default function BarberOverviewPage() {
           const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
           const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
           return (
-            <Link href="/barber-dashboard/calendar" className="block bg-[#141414] border border-[#1e1e1e] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
-              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1e1e1e]">
+            <Link href="/barber-dashboard/calendar" className="block bg-[#141414] border border-[#2a2a2a] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
+              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#2a2a2a]">
                 <p className="text-sm font-bold text-white">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
-                <div className="flex bg-[#0e0e0e] border border-[#1e1e1e] rounded-lg overflow-hidden text-[11px]">
-                  <span className="px-2.5 py-1 text-[#777]">Day</span>
+                <div className="flex bg-[#0e0e0e] border border-[#2a2a2a] rounded-lg overflow-hidden text-[11px]">
+                  <span className="px-2.5 py-1 text-[#8f8f8f]">Day</span>
                   <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
-                  <span className="px-2.5 py-1 text-[#777]">Month</span>
+                  <span className="px-2.5 py-1 text-[#8f8f8f]">Month</span>
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <div className="min-w-[620px]">
                   <div className="grid" style={cols}>
-                    <div className="border-b border-[#1e1e1e]" />
+                    <div className="border-b border-[#2a2a2a]" />
                     {weekDays.map(d => {
                       const isToday = formatDateForDb(d) === todayKey;
                       return (
-                        <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#1e1e1e]">
+                        <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#2a2a2a]">
                           <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-[#666]")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
                           <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-white font-bold" : "text-white")}>{d.getDate()}</span>
                         </div>
@@ -231,7 +231,7 @@ export default function BarberOverviewPage() {
                   </div>
                   {calHours.map(h => (
                     <div key={h} className="grid" style={cols}>
-                      <div className="text-[9.5px] text-[#555] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
+                      <div className="text-[9.5px] text-[#6e6e6e] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
                       {weekDays.map(d => {
                         const dk = formatDateForDb(d);
                         const isToday = dk === todayKey;
@@ -270,7 +270,7 @@ export default function BarberOverviewPage() {
           {loading ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="animate-pulse bg-[#141414] rounded-xl h-14" />)}</div>
           ) : appointments.length === 0 ? (
-            <div className="py-8 text-center text-[#777]">
+            <div className="py-8 text-center text-[#8f8f8f]">
               <Calendar size={32} className="mx-auto mb-2 opacity-30" />
               <p>No appointments today</p>
             </div>
@@ -283,15 +283,15 @@ export default function BarberOverviewPage() {
                 const [hh, mer] = (apt.time_slot ?? "").split(" ");
                 return (
                   <button key={apt.id} onClick={() => setSelectedAppt(apt)}
-                    className="w-full text-left flex items-center gap-3 py-3 border-b border-[#1e1e1e] last:border-0 hover:bg-white/[0.02] transition-colors">
+                    className="w-full text-left flex items-center gap-3 py-3 border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02] transition-colors">
                     <div className="text-center min-w-[52px]">
                       <p className="text-xs text-white font-medium">{hh}</p>
-                      <p className="text-[10px] text-[#777]">{mer}</p>
+                      <p className="text-[10px] text-[#8f8f8f]">{mer}</p>
                     </div>
                     <div className="w-px h-10 bg-[#1e1e1e]" />
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
-                      <p className="text-xs text-[#777] truncate">
+                      <p className="text-xs text-[#8f8f8f] truncate">
                         {(apt.services as { name?: string } | null)?.name ?? "Service"}{mins ? ` · ${mins} min` : ""}
                       </p>
                     </div>

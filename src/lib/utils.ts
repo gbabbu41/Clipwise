@@ -94,7 +94,7 @@ export function getTagColor(tag: string): string {
     Returning: "text-blue-400 bg-blue-500/20 border-blue-500/30",
     "At Risk": "text-red-400 bg-red-500/20 border-red-500/30",
   };
-  return map[tag] ?? "text-[#777] bg-gray-500/20 border-gray-500/30";
+  return map[tag] ?? "text-[#8f8f8f] bg-gray-500/20 border-gray-500/30";
 }
 
 // ─── Time Utilities ────────────────────────────────────────────────────────────

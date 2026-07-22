@@ -133,7 +133,7 @@ export function NotificationListener() {
           </div>
           <span
             onClick={(e) => { e.stopPropagation(); dismiss(p.id); }}
-            className="text-[#777] hover:text-white flex-shrink-0"
+            className="text-[#8f8f8f] hover:text-white flex-shrink-0"
             aria-label="Dismiss"
           >
             <X size={15} />

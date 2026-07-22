@@ -14,9 +14,9 @@
   --card-raised:    #141414;  /* surface tier 2 (chips, inner pills) */
   --surface:        #0c0c0c;  /* legacy alias = --card */
   --surface-raised: #141414;  /* legacy alias = --card-raised */
-  --border:         #1e1e1e;  /* hairline */
-  --grey:           #777777;  /* secondary text */
-  --grey-2:         #333333;  /* tertiary text / disabled */
+  --border:         #2a2a2a;  /* hairline — lifted for daylight legibility */
+  --grey:           #8f8f8f;  /* secondary text — lifted for daylight legibility */
+  --grey-2:         #555555;  /* tertiary text / disabled — lifted for daylight legibility */
   --green:          #22c55e;  /* status: success / paid / confirmed */
   --red:            #ef4444;  /* status: danger / cancelled */
   --amber:          #f59e0b;  /* status: pending / no-show */
@@ -708,7 +708,7 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   background: #ffffff; color: #000000;
   border-radius: 20px; padding: 22px;
 }
-.cw-hero-label { font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.cw-hero-label { font-size: 11px; color: #6e6e6e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
 .cw-hero-value { font-size: 38px; font-weight: 800; color: #000; letter-spacing: -0.05em; font-family: 'DM Mono', monospace; line-height: 1; }
 .cw-hero-trend { font-size: 11px; color: #3d9e5f; margin-top: 6px; font-weight: 600; }
 /* Mini bar sparkline rendered to the right of the hero value */

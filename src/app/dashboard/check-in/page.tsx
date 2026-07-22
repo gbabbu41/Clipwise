@@ -97,45 +97,45 @@ export default function CheckInPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-28 space-y-6">
       {toast && (
-        <div className="fixed bottom-24 lg:bottom-6 right-4 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+        <div className="fixed bottom-24 lg:bottom-6 right-4 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
           <span className="text-[#00e5a0]">✓</span> {toast}
         </div>
       )}
 
       <div>
         <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Check-in</h1>
-        <p className="text-sm text-[#777] mt-0.5">Clock your team in and out, and review their history.</p>
+        <p className="text-sm text-[#8f8f8f] mt-0.5">Clock your team in and out, and review their history.</p>
       </div>
 
       {bioAvailable ? (
-        <label className="flex items-center gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3 cursor-pointer">
+        <label className="flex items-center gap-3 rounded-xl border border-[#2a2a2a] bg-[#0c0c0c] p-3 cursor-pointer">
           <Fingerprint size={18} className="text-[#00e5a0] flex-shrink-0" />
           <span className="flex-1 text-xs text-[#ccc]">Require Face ID / fingerprint to clock staff in and out on this device.</span>
           <input type="checkbox" checked={bioRequired} onChange={e => setBioRequiredPersist(e.target.checked)} className="form-check-input" />
         </label>
       ) : (
-        <div className="flex items-start gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3">
+        <div className="flex items-start gap-3 rounded-xl border border-[#2a2a2a] bg-[#0c0c0c] p-3">
           <Fingerprint size={18} className="text-[#00e5a0] flex-shrink-0 mt-0.5" />
           <p className="text-xs text-[#999]">Face ID / fingerprint check-in works on the ClipWise app. On the web you clock staff in and out manually here.</p>
         </div>
       )}
 
       {loading ? (
-        <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-[#0c0c0c] border border-[#1e1e1e] animate-pulse" />)}</div>
+        <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-[#0c0c0c] border border-[#2a2a2a] animate-pulse" />)}</div>
       ) : barbers.length === 0 ? (
-        <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-10 text-center text-[#777] text-sm">No active staff yet. Add staff first.</div>
+        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-10 text-center text-[#8f8f8f] text-sm">No active staff yet. Add staff first.</div>
       ) : (
         <div className="space-y-2">
           {barbers.map(b => {
             const open = openByBarber[b.id];
             return (
-              <div key={b.id} className="flex items-center gap-3 rounded-xl border border-[#1e1e1e] bg-[#0c0c0c] p-3">
+              <div key={b.id} className="flex items-center gap-3 rounded-xl border border-[#2a2a2a] bg-[#0c0c0c] p-3">
                 <div className="w-10 h-10 rounded-full bg-[#141414] text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
                   <AvatarImage src={b.photo} alt={b.name} className="w-full h-full object-cover" fallback={<>{b.name.charAt(0).toUpperCase()}</>} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{b.name}</p>
-                  <p className={cn("text-xs mt-0.5", open ? "text-emerald-400" : "text-[#777]")}>
+                  <p className={cn("text-xs mt-0.5", open ? "text-emerald-400" : "text-[#8f8f8f]")}>
                     {open ? `● Clocked in ${open.clock_in}` : "Not clocked in"}
                   </p>
                 </div>
@@ -157,20 +157,20 @@ export default function CheckInPage() {
       )}
 
       <div>
-        <div className="flex items-center gap-2 mb-2"><Clock size={15} className="text-[#777]" /><h2 className="text-sm font-bold text-white">Recent check-in history</h2></div>
+        <div className="flex items-center gap-2 mb-2"><Clock size={15} className="text-[#8f8f8f]" /><h2 className="text-sm font-bold text-white">Recent check-in history</h2></div>
         {history.length === 0 ? (
-          <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-8 text-center text-[#777] text-sm">No check-in records yet</div>
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-8 text-center text-[#8f8f8f] text-sm">No check-in records yet</div>
         ) : (
-          <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] overflow-hidden divide-y divide-[#1a1a1a]">
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] overflow-hidden divide-y divide-[#1a1a1a]">
             {history.map(h => (
               <div key={h.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{nameOf(h.barber_id)}</p>
-                  <p className="text-xs text-[#777]">{h.date}</p>
+                  <p className="text-xs text-[#8f8f8f]">{h.date}</p>
                 </div>
                 <div className="text-right text-xs">
-                  <p><span className="text-emerald-400">{h.clock_in}</span> <span className="text-[#555]">→</span> <span className="text-rose-400">{h.clock_out ?? "—"}</span></p>
-                  <p className="text-[#777] mt-0.5">{h.clock_out ? `${h.hours_worked ?? 0}h` : "Clocked in"}</p>
+                  <p><span className="text-emerald-400">{h.clock_in}</span> <span className="text-[#6e6e6e]">→</span> <span className="text-rose-400">{h.clock_out ?? "—"}</span></p>
+                  <p className="text-[#8f8f8f] mt-0.5">{h.clock_out ? `${h.hours_worked ?? 0}h` : "Clocked in"}</p>
                 </div>
               </div>
             ))}

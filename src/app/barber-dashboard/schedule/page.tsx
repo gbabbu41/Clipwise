@@ -15,11 +15,11 @@ export default function BarberSchedulePage() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
       <div className="mb-4">
         <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">Schedule</h1>
-        <p className="text-sm text-[#777] mt-0.5">Your working hours, breaks &amp; lunch.</p>
+        <p className="text-sm text-[#8f8f8f] mt-0.5">Your working hours, breaks &amp; lunch.</p>
       </div>
       {barber
         ? <ScheduleEditor key={barber.id} barberId={barber.id} barberName={barber.name ?? "you"} accessToken={accessToken} canEdit={canEdit} isOwner={false} />
-        : <p className="text-sm text-[#777] py-12 text-center">Loading…</p>}
+        : <p className="text-sm text-[#8f8f8f] py-12 text-center">Loading…</p>}
     </div>
   );
 }

@@ -85,13 +85,13 @@ export default function BarberWaitlistPage() {
     return null;
   };
 
-  if (barberLoading) return <div className="p-6 text-[#777] text-sm">Loading…</div>;
-  if (!canManage) return <div className="p-6 text-[#777] text-sm">You don&apos;t have permission to manage walk-ins.</div>;
+  if (barberLoading) return <div className="p-6 text-[#8f8f8f] text-sm">Loading…</div>;
+  if (!canManage) return <div className="p-6 text-[#8f8f8f] text-sm">You don&apos;t have permission to manage walk-ins.</div>;
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-28 space-y-5">
       {toast && (
-        <div className="fixed bottom-24 lg:bottom-6 right-4 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+        <div className="fixed bottom-24 lg:bottom-6 right-4 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
           <span className="text-[#00e5a0]">✓</span> {toast}
         </div>
       )}
@@ -99,29 +99,29 @@ export default function BarberWaitlistPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">Walk-Ins</h1>
-          <p className="text-sm text-[#777] mt-0.5">Customers waiting for you today — call one and pick an open slot.</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Customers waiting for you today — call one and pick an open slot.</p>
         </div>
-        <button onClick={load} className="text-[#777] hover:text-white transition-colors p-2 rounded-xl hover:bg-[#141414]">
+        <button onClick={load} className="text-[#8f8f8f] hover:text-white transition-colors p-2 rounded-xl hover:bg-[#141414]">
           <RefreshCw size={18} />
         </button>
       </div>
 
       {loading ? (
-        <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-2xl bg-[#0c0c0c] border border-[#1e1e1e] animate-pulse" />)}</div>
+        <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-2xl bg-[#0c0c0c] border border-[#2a2a2a] animate-pulse" />)}</div>
       ) : mine.length === 0 ? (
-        <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-12 text-center">
-          <ListOrdered size={36} className="mx-auto mb-3 text-[#555]" />
+        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-12 text-center">
+          <ListOrdered size={36} className="mx-auto mb-3 text-[#6e6e6e]" />
           <p className="text-white font-medium">No one waiting for you</p>
-          <p className="text-sm text-[#777] mt-1">Walk-ins that pick you (or “any barber”) show up here.</p>
+          <p className="text-sm text-[#8f8f8f] mt-1">Walk-ins that pick you (or “any barber”) show up here.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {mine.map((e, idx) => (
-            <div key={e.id} className="flex items-center gap-3 rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] p-4">
+            <div key={e.id} className="flex items-center gap-3 rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
               <div className="w-9 h-9 rounded-full bg-[#141414] text-[#999] font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold truncate">{e.client_name}</p>
-                <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#777]">
+                <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#8f8f8f]">
                   {e.client_phone && <span className="flex items-center gap-1"><Phone size={11} />{e.client_phone}</span>}
                   {e.barber_id == null && <span className="flex items-center gap-1"><Scissors size={11} />Any barber</span>}
                   <span className="flex items-center gap-1"><Clock size={11} />{waitTime(e.added_at)}</span>
@@ -138,12 +138,12 @@ export default function BarberWaitlistPage() {
       {seated.length > 0 && (
         <div>
           <h2 className="text-sm font-bold text-white mb-2">Seated today</h2>
-          <div className="rounded-2xl border border-[#1e1e1e] bg-[#0c0c0c] overflow-hidden divide-y divide-[#1a1a1a]">
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] overflow-hidden divide-y divide-[#1a1a1a]">
             {seated.map(e => (
               <div key={e.id} className="flex items-center gap-3 px-4 py-3">
                 <Check size={15} className="text-emerald-400 flex-shrink-0" />
                 <p className="flex-1 text-sm text-white truncate">{e.client_name}</p>
-                <span className="text-xs text-[#777]">On your calendar</span>
+                <span className="text-xs text-[#8f8f8f]">On your calendar</span>
               </div>
             ))}
           </div>

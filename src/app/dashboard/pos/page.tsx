@@ -22,9 +22,9 @@ type ClientLite = { id: string | null; name: string; email: string | null; phone
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -434,7 +434,7 @@ export default function POSPage() {
         <div className="text-center">
           <p className="text-3xl mb-3">💳</p>
           <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-          <p className="text-sm text-[#777]">POS will be available once your shop is set up.</p>
+          <p className="text-sm text-[#8f8f8f]">POS will be available once your shop is set up.</p>
         </div>
       </div>
     );
@@ -462,7 +462,7 @@ export default function POSPage() {
               {lastCharge.items.length > 0 ? (
                 lastCharge.items.map(item => (
                   <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-[#777]">{item.name} × {item.qty}</span>
+                    <span className="text-[#8f8f8f]">{item.name} × {item.qty}</span>
                     <span className="text-white">{formatCurrency(item.price * item.qty)}</span>
                   </div>
                 ))
@@ -470,20 +470,20 @@ export default function POSPage() {
                 // Card sales come back from Stripe with the cart cleared — show
                 // the service label captured at checkout instead.
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#777]">{lastCharge.summaryLabel ?? "Sale"}</span>
+                  <span className="text-[#8f8f8f]">{lastCharge.summaryLabel ?? "Sale"}</span>
                   <span className="text-white">{formatCurrency(lastCharge.subtotal)}</span>
                 </div>
               )}
             </div>
-            <div className="border-t border-[#1e1e1e] pt-3 space-y-1">
-              <div className="flex justify-between text-sm"><span className="text-[#777]">Subtotal</span><span className="text-white">{formatCurrency(lastCharge.subtotal)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-[#777]">Tip</span><span className="text-white">{formatCurrency(lastCharge.tip)}</span></div>
-              {(lastCharge.tax ?? 0) > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">{taxLabel}</span><span className="text-white">{formatCurrency(lastCharge.tax ?? 0)}</span></div>}
-              {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-[#777]">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
-              <div className="flex justify-between font-bold border-t border-[#1e1e1e] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(lastCharge.total)}</span></div>
+            <div className="border-t border-[#2a2a2a] pt-3 space-y-1">
+              <div className="flex justify-between text-sm"><span className="text-[#8f8f8f]">Subtotal</span><span className="text-white">{formatCurrency(lastCharge.subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-[#8f8f8f]">Tip</span><span className="text-white">{formatCurrency(lastCharge.tip)}</span></div>
+              {(lastCharge.tax ?? 0) > 0 && <div className="flex justify-between text-sm"><span className="text-[#8f8f8f]">{taxLabel}</span><span className="text-white">{formatCurrency(lastCharge.tax ?? 0)}</span></div>}
+              {lastCharge.discount > 0 && <div className="flex justify-between text-sm"><span className="text-[#8f8f8f]">Discount</span><span className="text-emerald-400">-{formatCurrency(lastCharge.discount)}</span></div>}
+              <div className="flex justify-between font-bold border-t border-[#2a2a2a] pt-2 mt-2"><span className="text-white">Total</span><span className="text-white text-lg">{formatCurrency(lastCharge.total)}</span></div>
             </div>
-            <div className="flex justify-between text-sm pt-2 border-t border-[#1e1e1e]">
-              <span className="text-[#777]">Payment</span>
+            <div className="flex justify-between text-sm pt-2 border-t border-[#2a2a2a]">
+              <span className="text-[#8f8f8f]">Payment</span>
               <span className="text-white capitalize">{lastCharge.method}</span>
             </div>
           </Card>
@@ -527,12 +527,12 @@ export default function POSPage() {
   const cartItemsList = (
     <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
       {cart.length === 0 ? (
-        <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-[#555]">No items added</p></div>
+        <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-[#6e6e6e]">No items added</p></div>
       ) : cart.map(item => (
-        <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+        <div key={item.id} className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
           <div className="flex-1 min-w-0">
             <p className="text-sm text-[#f0f0f0] truncate">{item.name}</p>
-            <p className="text-xs text-[#555]">{formatCurrency(item.price)}</p>
+            <p className="text-xs text-[#6e6e6e]">{formatCurrency(item.price)}</p>
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => changeQty(item.id, -1)} className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#222] text-white flex items-center justify-center">−</button>
@@ -546,8 +546,8 @@ export default function POSPage() {
   );
 
   const cartFooter = (
-    <div className="shrink-0 px-4 pt-3 pb-4 border-t border-[#1e1e1e] space-y-3">
-      <div className="flex justify-between text-sm"><span className="text-[#555]">Subtotal</span><span className="text-[#f0f0f0]">{formatCurrency(subtotal)}</span></div>
+    <div className="shrink-0 px-4 pt-3 pb-4 border-t border-[#2a2a2a] space-y-3">
+      <div className="flex justify-between text-sm"><span className="text-[#6e6e6e]">Subtotal</span><span className="text-[#f0f0f0]">{formatCurrency(subtotal)}</span></div>
       {promoCodes.length > 0 && (
         <div className="flex gap-2">
           <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
@@ -567,7 +567,7 @@ export default function POSPage() {
         </div>
       )}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-[#555] mr-1 shrink-0">Tip</span>
+        <span className="text-xs text-[#6e6e6e] mr-1 shrink-0">Tip</span>
         {[10,15,20].map(t => (
           <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
             className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-colors", tipPercent === t ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-[#1a1a1a] text-[#888] border-[#222]")}>
@@ -577,11 +577,11 @@ export default function POSPage() {
         <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
           className="w-14 shrink-0 rounded-lg border border-[#222] bg-[#1a1a1a] px-1 py-2 text-xs text-white text-center focus:outline-none focus:border-[#00e5a0]/50" />
       </div>
-      {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
-      {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
-      {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">{taxLabel} ({posTaxRate}%)</span><span className="text-[#f0f0f0]">{formatCurrency(taxAmt)}</span></div>}
-      {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-[#555]">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
-      <div className="flex justify-between items-baseline border-t border-[#1e1e1e] pt-2">
+      {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#6e6e6e]">Tip amount</span><span className="text-[#f0f0f0]">{formatCurrency(tipAmt)}</span></div>}
+      {discount > 0 && <div className="flex justify-between text-xs"><span className="text-[#6e6e6e]">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+      {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-[#6e6e6e]">{taxLabel} ({posTaxRate}%)</span><span className="text-[#f0f0f0]">{formatCurrency(taxAmt)}</span></div>}
+      {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-[#6e6e6e]">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
+      <div className="flex justify-between items-baseline border-t border-[#2a2a2a] pt-2">
         <span className="text-sm font-bold text-[#f0f0f0]">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
         <span className="text-xl font-extrabold text-[#f0f0f0]">{formatCurrency(dueAfterGift)}</span>
       </div>
@@ -616,10 +616,10 @@ export default function POSPage() {
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
-        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-[#0c0c0c] border-l border-[#1e1e1e]">
-          <div className="shrink-0 px-4 py-3 border-b border-[#1e1e1e]">
+        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-[#0c0c0c] border-l border-[#2a2a2a]">
+          <div className="shrink-0 px-4 py-3 border-b border-[#2a2a2a]">
             <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
-            <p className="text-xs text-[#555] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
+            <p className="text-xs text-[#6e6e6e] truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
           </div>
           {cartItemsList}
           {cartFooter}
@@ -636,21 +636,21 @@ export default function POSPage() {
         <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
           <button type="button" onClick={() => { setAddOpen(false); setPickerOpen(true); }}
             className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-[#141414] px-3 text-sm text-left transition-colors",
-              client ? "border-[#1e1e1e]" : "border-[#00e5a0]/40")}>
-            <User size={15} className="text-[#555] shrink-0" />
+              client ? "border-[#2a2a2a]" : "border-[#00e5a0]/40")}>
+            <User size={15} className="text-[#6e6e6e] shrink-0" />
             <span className="flex-1 min-w-0 leading-tight">
-              <span className={cn("block truncate", client ? "text-[#f0f0f0]" : "text-[#555]")}>{client || "Select customer"}</span>
-              {client && (custEmail || custPhone) && <span className="block text-[10px] text-[#555] truncate">{custEmail || custPhone}</span>}
+              <span className={cn("block truncate", client ? "text-[#f0f0f0]" : "text-[#6e6e6e]")}>{client || "Select customer"}</span>
+              {client && (custEmail || custPhone) && <span className="block text-[10px] text-[#6e6e6e] truncate">{custEmail || custPhone}</span>}
             </span>
-            <Search size={13} className="text-[#555] shrink-0" />
+            <Search size={13} className="text-[#6e6e6e] shrink-0" />
           </button>
           <div className="relative flex-1 min-w-0">
             <select value={barberId} onChange={e => setBarberId(e.target.value)}
-              className="w-full h-11 appearance-none rounded-xl border border-[#1e1e1e] bg-[#141414] pl-3 pr-8 text-sm text-[#f0f0f0] focus:outline-none focus:border-[#00e5a0]/50">
+              className="w-full h-11 appearance-none rounded-xl border border-[#2a2a2a] bg-[#141414] pl-3 pr-8 text-sm text-[#f0f0f0] focus:outline-none focus:border-[#00e5a0]/50">
               {barbers.length === 0 && <option value="">No barbers</option>}
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            <ChevronDown size={15} className="text-[#555] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown size={15} className="text-[#6e6e6e] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -665,7 +665,7 @@ export default function POSPage() {
           <>
             {/* Services / Products tabs — only when there's inventory to split out */}
             {inventory.length > 0 && (
-              <div className="flex gap-1 p-1 rounded-xl bg-[#141414] border border-[#1e1e1e] mb-3">
+              <div className="flex gap-1 p-1 rounded-xl bg-[#141414] border border-[#2a2a2a] mb-3">
                 {(["services", "products"] as const).map(t => (
                   <button key={t} type="button" onClick={() => setPosTab(t)}
                     className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
@@ -685,7 +685,7 @@ export default function POSPage() {
                     return (
                       <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
                         className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
-                          selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20")}>
+                          selected ? "border-[#00e5a0]" : "border-[#2a2a2a] hover:border-white/20")}>
                         {selected && (
                           <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
                             <Check size={11} className="text-black" strokeWidth={3} />
@@ -693,7 +693,7 @@ export default function POSPage() {
                         )}
                         <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight line-clamp-2 pr-4">{svc.name}</p>
                         <div className="flex items-end justify-between gap-1">
-                          <span className="text-[12px] text-[#555] leading-none">{svc.duration_minutes} min</span>
+                          <span className="text-[12px] text-[#6e6e6e] leading-none">{svc.duration_minutes} min</span>
                           <span className="text-[14px] font-bold text-[#00e5a0] leading-none">{formatCurrency(svc.price)}</span>
                         </div>
                       </button>
@@ -706,12 +706,12 @@ export default function POSPage() {
             {inventory.length > 0 && posTab === "products" && (
               <>
                 {inventory.length > 6 && (
-                  <div className="flex items-center gap-2 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 mb-3">
-                    <Search size={15} className="text-[#777] shrink-0" />
+                  <div className="flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#141414] px-3 mb-3">
+                    <Search size={15} className="text-[#8f8f8f] shrink-0" />
                     <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
                       placeholder="Search products"
-                      className="flex-1 bg-transparent py-2.5 text-sm text-white focus:outline-none placeholder:text-[#555]" />
-                    {productSearch && <button type="button" onClick={() => setProductSearch("")} className="text-[#777] hover:text-white shrink-0"><X size={14} /></button>}
+                      className="flex-1 bg-transparent py-2.5 text-sm text-white focus:outline-none placeholder:text-[#6e6e6e]" />
+                    {productSearch && <button type="button" onClick={() => setProductSearch("")} className="text-[#8f8f8f] hover:text-white shrink-0"><X size={14} /></button>}
                   </div>
                 )}
                 {Object.keys(inventoryByCategory).length === 0 ? (
@@ -725,7 +725,7 @@ export default function POSPage() {
                         return (
                           <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
                             className={cn("relative h-20 p-3 rounded-xl border bg-[#141414] flex flex-col justify-between text-left transition-all active:scale-95",
-                              selected ? "border-[#00e5a0]" : "border-[#1e1e1e] hover:border-white/20",
+                              selected ? "border-[#00e5a0]" : "border-[#2a2a2a] hover:border-white/20",
                               inv.quantity === 0 && "opacity-40 pointer-events-none")}>
                             {selected && (
                               <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
@@ -757,16 +757,16 @@ export default function POSPage() {
       {/* 3 ─ STICKY CART BAR — mobile/tablet only (lg uses the side panel).
           Above the bottom nav on mobile; flush bottom on md. */}
       {cart.length > 0 && !cartOpen && (
-        <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#1e1e1e]">
+        <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#2a2a2a]">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setCartOpen(true)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
               <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
               <span className="text-sm text-[#f0f0f0] truncate">
                 <span className="font-semibold">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
-                <span className="text-[#555]"> · </span>
+                <span className="text-[#6e6e6e]"> · </span>
                 <span className="font-bold">{formatCurrency(total)}</span>
               </span>
-              <ChevronDown size={14} className="text-[#555] shrink-0" />
+              <ChevronDown size={14} className="text-[#6e6e6e] shrink-0" />
             </button>
             {/* Checkout opens the summary drawer to review, pick tender + tip,
                 then charge — no more one-tap charging straight from the grid. */}
@@ -784,13 +784,13 @@ export default function POSPage() {
           <div className="lg:hidden fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
           <div ref={cartSheetRef}
             style={{ transform: cartDrag.dragY ? `translate3d(0,${cartDrag.dragY}px,0)` : undefined, transition: cartDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#1e1e1e] animate-slide-up">
+            className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-[#111] rounded-t-[20px] border-t border-[#2a2a2a] animate-slide-up">
             <div onClick={() => setCartOpen(false)} className="shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>
-            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
               <h2 className="text-base font-bold text-[#f0f0f0]">Order Summary</h2>
-              <button onClick={() => setCartOpen(false)} className="text-[#555] hover:text-white"><X size={20} /></button>
+              <button onClick={() => setCartOpen(false)} className="text-[#6e6e6e] hover:text-white"><X size={20} /></button>
             </div>
             {cartItemsList}
             {cartFooter}
@@ -805,38 +805,38 @@ export default function POSPage() {
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center sm:p-4 bg-black/70" onClick={() => setPickerOpen(false)}>
           <div ref={pickerSheetRef}
             style={{ transform: pickerDrag.dragY ? `translate3d(0,${pickerDrag.dragY}px,0)` : undefined, transition: pickerDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="w-full sm:max-w-md max-h-[88vh] flex flex-col bg-[#0c0c0c] border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+            className="w-full sm:max-w-md max-h-[88vh] flex flex-col bg-[#0c0c0c] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
             <div onClick={() => setPickerOpen(false)} className="sm:hidden shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>
-            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
               <h3 className="text-sm font-bold text-white">Select customer</h3>
-              <button onClick={() => setPickerOpen(false)} className="text-[#777] hover:text-white"><X size={18} /></button>
+              <button onClick={() => setPickerOpen(false)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
             </div>
 
             {/* Search */}
-            <div className="shrink-0 p-3 border-b border-[#1e1e1e]">
-              <div className="flex items-center gap-2 rounded-xl border border-[#1e1e1e] bg-[#141414] px-3">
-                <Search size={15} className="text-[#777] flex-shrink-0" />
+            <div className="shrink-0 p-3 border-b border-[#2a2a2a]">
+              <div className="flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#141414] px-3">
+                <Search size={15} className="text-[#8f8f8f] flex-shrink-0" />
                 <input value={clientSearch} onChange={e => setClientSearch(e.target.value)}
                   placeholder="Search name, email, or phone"
-                  className="flex-1 bg-transparent py-2 text-sm text-white focus:outline-none placeholder:text-[#555]" />
+                  className="flex-1 bg-transparent py-2 text-sm text-white focus:outline-none placeholder:text-[#6e6e6e]" />
               </div>
             </div>
 
             {/* Results — flexes to fill, scrolls internally */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredClients.length === 0 ? (
-                <p className="text-center text-xs text-[#777] py-6">{clientSearch ? "No matching clients" : "No clients yet — add one below"}</p>
+                <p className="text-center text-xs text-[#8f8f8f] py-6">{clientSearch ? "No matching clients" : "No clients yet — add one below"}</p>
               ) : filteredClients.map((c, i) => (
                 <button key={c.id ?? `past-${i}-${c.email ?? c.phone ?? c.name}`} onClick={() => selectClient(c)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#141414] border-b border-[#1e1e1e]/60 last:border-0">
-                  <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{c.name[0]?.toUpperCase()}</div>
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#141414] border-b border-[#2a2a2a]/60 last:border-0">
+                  <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#2a2a2a] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{c.name[0]?.toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white truncate">{c.name}</p>
-                    <p className="text-[11px] text-[#777] truncate">{[c.email, c.phone].filter(Boolean).join(" · ") || "no contact"}</p>
+                    <p className="text-[11px] text-[#8f8f8f] truncate">{[c.email, c.phone].filter(Boolean).join(" · ") || "no contact"}</p>
                   </div>
-                  {!c.saved && <span className="text-[9px] uppercase tracking-wide text-[#777] border border-[#1e1e1e] rounded-full px-1.5 py-0.5 flex-shrink-0">Past</span>}
+                  {!c.saved && <span className="text-[9px] uppercase tracking-wide text-[#8f8f8f] border border-[#2a2a2a] rounded-full px-1.5 py-0.5 flex-shrink-0">Past</span>}
                 </button>
               ))}
             </div>
@@ -845,17 +845,17 @@ export default function POSPage() {
                 search + results). Expands to a compact form, with the name
                 prefilled from the search term. */}
             {!addOpen ? (
-              <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a]">
+              <div className="shrink-0 p-3 border-t border-[#2a2a2a] bg-[#0a0a0a]">
                 <button type="button" onClick={openAddForm}
                   className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-[#2a2a2a] text-sm font-semibold text-[#f0f0f0] hover:border-white/30 hover:bg-white/[0.03] transition-colors">
                   <UserPlus size={15} /> {clientSearch.trim() ? `Add “${clientSearch.trim()}”` : "Add new customer"}
                 </button>
               </div>
             ) : (
-              <div className="shrink-0 p-3 border-t border-[#1e1e1e] bg-[#0a0a0a] space-y-2">
+              <div className="shrink-0 p-3 border-t border-[#2a2a2a] bg-[#0a0a0a] space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] uppercase tracking-wide text-[#777] font-semibold flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
-                  <button type="button" onClick={() => { setAddOpen(false); setDupClient(null); }} className="text-[11px] text-[#777] hover:text-white">Cancel</button>
+                  <p className="text-[11px] uppercase tracking-wide text-[#8f8f8f] font-semibold flex items-center gap-1"><UserPlus size={12} /> Add new customer</p>
+                  <button type="button" onClick={() => { setAddOpen(false); setDupClient(null); }} className="text-[11px] text-[#8f8f8f] hover:text-white">Cancel</button>
                 </div>
                 <Input placeholder="Name *" value={addName} onChange={e => { setAddName(e.target.value); setDupClient(null); }} />
                 <Input type="tel" placeholder="Phone" value={addPhone} onChange={e => { setAddPhone(e.target.value); setDupClient(null); }} />

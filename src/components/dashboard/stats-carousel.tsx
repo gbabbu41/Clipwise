@@ -61,7 +61,7 @@ export function StatsCarousel({
   const goTo = (i: number) => { const el = ref.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-[#666]">No data yet</div>;
-  const card = "bg-[#141414] border border-[#1e1e1e] rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
+  const card = "bg-[#141414] border border-[#2a2a2a] rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
   // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
   // — so tapping a bar shows its value without the popup covering / blocking the
   // neighbouring bars. Shared by every chart so the behaviour is global.
@@ -78,7 +78,7 @@ export function StatsCarousel({
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · Today</p>
-        <span className="text-[11px] text-[#555] whitespace-nowrap">‹ swipe ›</span>
+        <span className="text-[11px] text-[#6e6e6e] whitespace-nowrap">‹ swipe ›</span>
       </div>
       <p className="text-[34px] font-bold text-white font-mono tracking-[-0.02em] mt-1.5 leading-none">{formatCurrency(revenue)}</p>
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>

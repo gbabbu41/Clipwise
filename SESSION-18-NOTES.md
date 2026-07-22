@@ -202,3 +202,31 @@ Plan when we pick it up:
    root `px-*` only, header owns the 24px top.
 4. Barber calendar already supports a title via `CalendarView pageTitle` — just
    pass it once the barber layout is inline-header-aware.
+
+---
+
+## Dark-theme daylight-legibility polish (colours only — every portal)
+
+**Goal (owner's words):** keep the premium dark look (no light theme), but fix
+the one weakness dark has — faint greys / near-invisible outlines that wash out
+in bright sunlight. Booking page + owner dashboard + barber portal. **Pure
+colour-value lift — zero layout/logic/structure changes.** Verified with a real
+`next build` (compiled ✓, types ✓, full route table).
+
+**What moved (each value nudged brighter, nothing else):**
+
+| Element | Before → After | How |
+| --- | --- | --- |
+| Secondary/muted text | `#777` → `#8f8f8f` | sed on all `[#777]` Tailwind classes (~1107 sites) **+** `--grey` CSS var (`#777777`→`#8f8f8f`) for the `.btn/.card/.form/.cw-*` layer |
+| Hairlines / card + field outlines | `#1e1e1e` → `#2a2a2a` | `border-[#1e1e1e]`→`border-[#2a2a2a]` (436 sites) **+** tailwind `border.DEFAULT` token (covers 191 `border-border`) **+** `--border` CSS var |
+| Faint placeholders / tertiary | `[#555]`→`[#6e6e6e]`, `--grey-2` `#333`→`#555`, `.cw-hero-label` `#555`→`#6e6e6e` | sed + globals.css |
+| Booking time-slot tiles (booking page only — the #1 fix) | `bg-sky-500/10 border-sky-400/40` → `/15` + `/60`; hover `/20`→`/25`; sublabel `text-sky-300/80`→`text-sky-300` | targeted edits in `src/app/book/[shopslug]/page.tsx` |
+
+- **Black ground and white accent are untouched** — the premium feel is identical;
+  only the too-faint bits got readable. `bg-[#1e1e1e]` backgrounds (5 sites) left
+  alone so nothing structural shifts.
+- Three coordinated layers so it's consistent everywhere at once: Tailwind
+  arbitrary classes (sed), the Tailwind `border` token (config), and the CSS
+  variables `--border` / `--grey` / `--grey-2` (globals.css `:root`).
+- Diff: **92 files, 1525 insertions / 1525 deletions** (balanced = pure swaps).
+- Reference mockup shown to owner before shipping (before/after preview artifact).

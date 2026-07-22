@@ -18,7 +18,7 @@ const PLAN_STYLE: Record<string, {
 }> = {
   starter: {
     icon: Zap, accent: "border-gray-700 hover:border-gray-500",
-    iconWrap: "bg-surface-raised", iconColor: "text-[#777]", checkColor: "text-emerald-400",
+    iconWrap: "bg-surface-raised", iconColor: "text-[#8f8f8f]", checkColor: "text-emerald-400",
     btn: "bg-surface-raised text-white hover:bg-surface border border-border", badgeBg: "bg-gold text-black",
   },
   pro: {
@@ -116,7 +116,7 @@ function PlanPageInner() {
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
           <p className="font-semibold text-white">{step === "redirecting" ? "Taking you to secure checkout…" : "Confirming your payment…"}</p>
-          <p className="text-[#777] text-sm mt-1">Powered by Stripe</p>
+          <p className="text-[#8f8f8f] text-sm mt-1">Powered by Stripe</p>
         </div>
       </div>
     );
@@ -130,7 +130,7 @@ function PlanPageInner() {
             <Check size={28} className="text-green-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-1">Payment successful!</h2>
-          <p className="text-[#777] text-sm">Setting up your shop…</p>
+          <p className="text-[#8f8f8f] text-sm">Setting up your shop…</p>
         </div>
       </div>
     );
@@ -142,7 +142,7 @@ function PlanPageInner() {
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
-          <p className="text-[#777] mt-2">Start free, upgrade anytime. No hidden fees.</p>
+          <p className="text-[#8f8f8f] mt-2">Start free, upgrade anytime. No hidden fees.</p>
         </div>
 
         {error && (
@@ -174,7 +174,7 @@ function PlanPageInner() {
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-3xl font-bold text-white">{formatPlanPrice(plan.price_cents)}</span>
-                    <span className="text-[#777] text-sm">{isFree ? "forever" : "/month"}</span>
+                    <span className="text-[#8f8f8f] text-sm">{isFree ? "forever" : "/month"}</span>
                   </div>
                 </div>
 
@@ -195,7 +195,7 @@ function PlanPageInner() {
           })}
         </div>
 
-        <p className="text-center text-xs text-[#777] mt-8">
+        <p className="text-center text-xs text-[#8f8f8f] mt-8">
           Starter is free forever. Pro and Premium are billed monthly, no contracts. Secure checkout by Stripe.
         </p>
       </div>

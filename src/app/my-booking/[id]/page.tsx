@@ -146,7 +146,7 @@ export default function MyBookingPage() {
         <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
           <Scissors size={40} className="text-[#999] mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Booking Not Found</h1>
-          <p className="text-[#555] text-sm">This booking link is invalid or has expired.</p>
+          <p className="text-[#6e6e6e] text-sm">This booking link is invalid or has expired.</p>
         </div>
       </div>
     );
@@ -170,7 +170,7 @@ export default function MyBookingPage() {
               <X size={28} className="text-red-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Appointment Cancelled</h1>
-            <p className="text-[#555]">Your appointment on {prettyDate(appt.date)} at {appt.time_slot} has been cancelled.</p>
+            <p className="text-[#6e6e6e]">Your appointment on {prettyDate(appt.date)} at {appt.time_slot} has been cancelled.</p>
             <a href={`/book/${appt.shops?.slug ?? ""}`}>
               <Button className="w-full mt-4">Book a New Appointment</Button>
             </a>
@@ -185,7 +185,7 @@ export default function MyBookingPage() {
                 <Scissors size={28} className="text-gold" />
               </div>
               <h1 className="text-xl font-bold text-white">{appt.shops?.name}</h1>
-              <p className="text-[#555] text-sm mt-1">Booking for {appt.client_name}</p>
+              <p className="text-[#6e6e6e] text-sm mt-1">Booking for {appt.client_name}</p>
               <div className="flex justify-center mt-3">
                 <Badge variant={status.variant}>{status.label}</Badge>
               </div>
@@ -193,14 +193,14 @@ export default function MyBookingPage() {
 
             {/* Details card */}
             <div className="bg-surface border border-border rounded-2xl p-6 space-y-4">
-              <p className="text-xs text-[#777] uppercase tracking-wider font-medium">Appointment Details</p>
+              <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">Appointment Details</p>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
                     <Calendar size={15} className="text-gold" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#777]">Date</p>
+                    <p className="text-xs text-[#8f8f8f]">Date</p>
                     <p className="text-sm font-semibold text-white">
                       {new Date(appt.date + "T12:00:00").toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                     </p>
@@ -211,7 +211,7 @@ export default function MyBookingPage() {
                     <Clock size={15} className="text-gold" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#777]">Time</p>
+                    <p className="text-xs text-[#8f8f8f]">Time</p>
                     <p className="text-sm font-semibold text-white">{appt.time_slot}</p>
                   </div>
                 </div>
@@ -221,7 +221,7 @@ export default function MyBookingPage() {
                       <User size={15} className="text-gold" />
                     </div>
                     <div>
-                      <p className="text-xs text-[#777]">Barber</p>
+                      <p className="text-xs text-[#8f8f8f]">Barber</p>
                       <p className="text-sm font-semibold text-white">{appt.barbers.name}</p>
                     </div>
                   </div>
@@ -232,13 +232,13 @@ export default function MyBookingPage() {
                       <Scissors size={15} className="text-gold" />
                     </div>
                     <div>
-                      <p className="text-xs text-[#777]">Service</p>
+                      <p className="text-xs text-[#8f8f8f]">Service</p>
                       <p className="text-sm font-semibold text-white">{appt.services.name}</p>
                     </div>
                   </div>
                 )}
                 <div className="pt-3 border-t border-border flex justify-between">
-                  <span className="text-sm text-[#555]">Total</span>
+                  <span className="text-sm text-[#6e6e6e]">Total</span>
                   <span className="text-gold font-bold">{formatCurrency(appt.total_amount)}</span>
                 </div>
               </div>
@@ -247,12 +247,12 @@ export default function MyBookingPage() {
             {/* Shop info */}
             {appt.shops && (
               <div className="bg-surface border border-border rounded-2xl p-4 space-y-2">
-                <p className="text-xs text-[#777] uppercase tracking-wider font-medium">Shop Info</p>
-                <div className="flex items-center gap-2 text-sm text-[#555]">
+                <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">Shop Info</p>
+                <div className="flex items-center gap-2 text-sm text-[#6e6e6e]">
                   <MapPin size={13} className="text-gold flex-shrink-0" />
                   {appt.shops.address}, {appt.shops.city}, {appt.shops.province}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-[#555]">
+                <div className="flex items-center gap-2 text-sm text-[#6e6e6e]">
                   <Phone size={13} className="text-gold flex-shrink-0" />
                   {appt.shops.phone}
                 </div>
@@ -303,7 +303,7 @@ export default function MyBookingPage() {
                 ) : (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 space-y-3">
                     <p className="text-sm font-semibold text-red-400">Cancel this appointment?</p>
-                    <p className="text-xs text-[#555]">This cannot be undone. You&apos;ll need to rebook if you change your mind.</p>
+                    <p className="text-xs text-[#6e6e6e]">This cannot be undone. You&apos;ll need to rebook if you change your mind.</p>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCancelConfirm(false)}>Keep it</Button>
                       <Button variant="danger" size="sm" className="flex-1" disabled={cancelling} onClick={cancelBooking}>
@@ -327,14 +327,14 @@ export default function MyBookingPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <button onClick={() => { setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); setRescheduleError(""); }}
-                className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-[#555] hover:text-white transition-colors">
+                className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-[#6e6e6e] hover:text-white transition-colors">
                 <ArrowLeft size={18} />
               </button>
               <h2 className="text-xl font-bold text-white">Reschedule</h2>
             </div>
 
             <div className="bg-surface border border-border rounded-2xl p-4">
-              <p className="text-xs text-[#777] mb-3 uppercase tracking-wider font-medium">Current Appointment</p>
+              <p className="text-xs text-[#8f8f8f] mb-3 uppercase tracking-wider font-medium">Current Appointment</p>
               <p className="text-sm text-white">{prettyDate(appt.date)} at {appt.time_slot}</p>
             </div>
 
@@ -351,7 +351,7 @@ export default function MyBookingPage() {
                       onClick={() => { setNewDate(d); loadSlots(d); }}
                       className={cn(
                         "p-2 rounded-xl border text-center transition-all",
-                        isSelected ? "border-gold bg-gold/15 text-gold" : "border-border text-[#555] hover:border-gold/30 hover:text-white"
+                        isSelected ? "border-gold bg-gold/15 text-gold" : "border-border text-[#6e6e6e] hover:border-gold/30 hover:text-white"
                       )}
                     >
                       <p className="text-xs">{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
@@ -372,7 +372,7 @@ export default function MyBookingPage() {
                     <div className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
                   </div>
                 ) : slots.length === 0 ? (
-                  <p className="text-sm text-[#777] text-center py-4">No available slots for this date.</p>
+                  <p className="text-sm text-[#8f8f8f] text-center py-4">No available slots for this date.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {slots.filter(s => s.available).map(s => (

@@ -13,9 +13,9 @@ import type { Service, InventoryItem } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -178,7 +178,7 @@ export default function ServicesPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">✂️</p>
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-[#777]">Services will appear here once your shop is set up.</p>
+        <p className="text-sm text-[#8f8f8f]">Services will appear here once your shop is set up.</p>
       </div>
     );
   }
@@ -190,7 +190,7 @@ export default function ServicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Services & Inventory</h1>
-          <p className="text-sm text-[#777] mt-0.5">Manage your menu and stock</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage your menu and stock</p>
         </div>
         <Button onClick={() => {
           setEditService(null); setNewSvc(BLANK_SVC);
@@ -203,11 +203,11 @@ export default function ServicesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#1e1e1e]">
+      <div className="flex gap-1 border-b border-[#2a2a2a]">
         {(["services","inventory"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white")}>
             {t} {t === "inventory" && lowStock.length > 0 && (
               <span className="ml-1 text-xs bg-red-500/20 text-red-400 px-1.5 rounded-full">{lowStock.length} low</span>
             )}
@@ -226,7 +226,7 @@ export default function ServicesPage() {
           {services.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">✂️</p>
-              <p className="text-[#777] text-sm">No services yet. Add your first service above.</p>
+              <p className="text-[#8f8f8f] text-sm">No services yet. Add your first service above.</p>
             </div>
           ) : categories.map(cat => {
             const catServices = grouped[cat] || [];
@@ -234,8 +234,8 @@ export default function ServicesPage() {
             return (
               <div key={cat}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-[#777]">{cat}</h2>
-                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-[#777] bg-gray-500/20 border-gray-500/30")}>
+                  <h2 className="text-sm font-semibold text-[#8f8f8f]">{cat}</h2>
+                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-[#8f8f8f] bg-gray-500/20 border-gray-500/30")}>
                     {catServices.length}
                   </span>
                 </div>
@@ -251,10 +251,10 @@ export default function ServicesPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold text-white">{formatCurrency(svc.price)}</p>
-                          <p className="text-xs text-[#777]">{svc.duration_minutes} min</p>
+                          <p className="text-xs text-[#8f8f8f]">{svc.duration_minutes} min</p>
                         </div>
                       </div>
-                      <p className="text-xs text-[#777] mb-2">{svc.description}</p>
+                      <p className="text-xs text-[#8f8f8f] mb-2">{svc.description}</p>
                       <div className="flex items-center justify-between">
                         <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
                         <div className="flex gap-2">
@@ -273,15 +273,15 @@ export default function ServicesPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <Card className="py-4 px-5">
-              <p className="text-xs text-[#777]">Total Products</p>
+              <p className="text-xs text-[#8f8f8f]">Total Products</p>
               <p className="text-2xl font-bold text-white mt-1">{inventory.length}</p>
             </Card>
             <Card className="py-4 px-5">
-              <p className="text-xs text-[#777]">Low Stock</p>
+              <p className="text-xs text-[#8f8f8f]">Low Stock</p>
               <p className="text-2xl font-bold text-red-400 mt-1">{lowStock.length}</p>
             </Card>
             <Card className="py-4 px-5">
-              <p className="text-xs text-[#777]">Total Value</p>
+              <p className="text-xs text-[#8f8f8f]">Total Value</p>
               <p className="text-2xl font-bold text-white mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
             </Card>
           </div>
@@ -289,23 +289,23 @@ export default function ServicesPage() {
           {lowStock.length > 0 && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
               <p className="text-sm font-semibold text-red-400 mb-1">Low Stock Alert</p>
-              <p className="text-xs text-[#777]">{lowStock.map(i => i.name).join(", ")} need restocking</p>
+              <p className="text-xs text-[#8f8f8f]">{lowStock.map(i => i.name).join(", ")} need restocking</p>
             </div>
           )}
 
           {inventory.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">📦</p>
-              <p className="text-[#777] text-sm">No products yet. Add your first product above.</p>
+              <p className="text-[#8f8f8f] text-sm">No products yet. Add your first product above.</p>
             </div>
           ) : (
             <Card className="p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-[#1e1e1e]">
+                  <thead className="border-b border-[#2a2a2a]">
                     <tr>
                       {["Product","Category","Retail","Cost","Margin","Stock","Status","Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-[#777] px-4 py-3">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-4 py-3">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -313,11 +313,11 @@ export default function ServicesPage() {
                     {inventory.map(item => {
                       const isLow = item.quantity <= item.low_stock_threshold;
                       return (
-                        <tr key={item.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
+                        <tr key={item.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
                           <td className="px-4 py-3 text-sm font-medium text-white">{item.name}</td>
-                          <td className="px-4 py-3 text-sm text-[#777]">{item.category}</td>
+                          <td className="px-4 py-3 text-sm text-[#8f8f8f]">{item.category}</td>
                           <td className="px-4 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
-                          <td className="px-4 py-3 text-sm text-[#777]">{formatCurrency(item.cost_price ?? 0)}</td>
+                          <td className="px-4 py-3 text-sm text-[#8f8f8f]">{formatCurrency(item.cost_price ?? 0)}</td>
                           <td className="px-4 py-3 text-sm text-emerald-400">{margin(item)}%</td>
                           <td className="px-4 py-3 text-sm text-white">{item.quantity}</td>
                           <td className="px-4 py-3">
@@ -345,10 +345,10 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowServiceModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{editService ? "Edit Service" : "Add Service"}</h2>
-                <button onClick={() => setShowServiceModal(false)} className="text-[#777] hover:text-white">✕</button>
+                <button onClick={() => setShowServiceModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
               </div>
               <Input label="Service Name" value={newSvc.name} onChange={e => setNewSvc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Skin Fade" />
               <div className="grid grid-cols-2 gap-3">
@@ -363,7 +363,7 @@ export default function ServicesPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
-                  <span className="text-sm text-[#777]">Active</span>
+                  <span className="text-sm text-[#8f8f8f]">Active</span>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
@@ -380,10 +380,10 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowInvModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{editInv ? "Edit Product" : "Add Product"}</h2>
-                <button onClick={() => setShowInvModal(false)} className="text-[#777] hover:text-white">✕</button>
+                <button onClick={() => setShowInvModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
               </div>
               <Input label="Product Name" value={newInv.name} onChange={e => setNewInv(p => ({ ...p, name: e.target.value }))} placeholder="Gold Label Pomade" />
               <Input label="Category" value={newInv.category} onChange={e => setNewInv(p => ({ ...p, category: e.target.value }))} placeholder="Styling" />
@@ -407,9 +407,9 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setDeleteConfirm(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
               <p className="text-lg font-bold text-white">Delete Service?</p>
-              <p className="text-sm text-[#777]">This action cannot be undone.</p>
+              <p className="text-sm text-[#8f8f8f]">This action cannot be undone.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
                 <Button variant="danger" className="flex-1" onClick={() => deleteService(deleteConfirm)}>Delete</Button>

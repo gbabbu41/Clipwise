@@ -148,7 +148,7 @@ export default function PayrollPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-4xl mb-4">🔒</p>
         <h2 className="text-xl font-bold text-white mb-2">Payroll & Earnings</h2>
-        <p className="text-sm text-[#777] mb-6 max-w-sm">Staff commission tracking and payroll reports are available on the Premium plan.</p>
+        <p className="text-sm text-[#8f8f8f] mb-6 max-w-sm">Staff commission tracking and payroll reports are available on the Premium plan.</p>
         <a href="/dashboard/billing" className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
           Upgrade to unlock
         </a>
@@ -162,7 +162,7 @@ export default function PayrollPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Payroll & Earnings</h1>
-          <p className="text-sm text-[#777] mt-0.5">Staff commission and hours breakdown</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Staff commission and hours breakdown</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={exportCSV}>
@@ -176,11 +176,11 @@ export default function PayrollPage() {
         {PERIOD_OPTIONS.map(opt => (
           <button key={opt.value} onClick={() => setPeriod(opt.value)}
             className={cn("px-4 py-2 text-sm font-medium rounded-xl border transition-colors",
-              period === opt.value ? "bg-black/10 border-black text-white" : "border-[#1e1e1e] text-[#777] hover:text-white")}>
+              period === opt.value ? "bg-black/10 border-black text-white" : "border-[#2a2a2a] text-[#8f8f8f] hover:text-white")}>
             {opt.label}
           </button>
         ))}
-        <div className="flex items-center gap-2 text-xs text-[#777] self-center ml-2">
+        <div className="flex items-center gap-2 text-xs text-[#8f8f8f] self-center ml-2">
           <Calendar size={13} />
           {from} → {to}
         </div>
@@ -189,19 +189,19 @@ export default function PayrollPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <p className="text-xs text-[#777]">Total Service Revenue</p>
+          <p className="text-xs text-[#8f8f8f]">Total Service Revenue</p>
           <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalServiceRevenue)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-[#777]">Total Commission Out</p>
+          <p className="text-xs text-[#8f8f8f]">Total Commission Out</p>
           <p className="text-2xl font-bold text-red-400 mt-1">{formatCurrency(totalCommission)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-[#777]">Shop Keeps</p>
+          <p className="text-xs text-[#8f8f8f]">Shop Keeps</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(shopRevenue)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-[#777]">Total Hours Worked</p>
+          <p className="text-xs text-[#8f8f8f]">Total Hours Worked</p>
           <p className="text-2xl font-bold text-white mt-1">{totalHours.toFixed(1)}h</p>
         </Card>
       </div>
@@ -212,7 +212,7 @@ export default function PayrollPage() {
         <Card>
           <CardHeader>
             <CardTitle>Earnings by Barber</CardTitle>
-            <p className="text-xs text-[#777]">Commission vs. shop&apos;s cut</p>
+            <p className="text-xs text-[#8f8f8f]">Commission vs. shop&apos;s cut</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
@@ -233,17 +233,17 @@ export default function PayrollPage() {
       <Card>
         <CardHeader>
           <CardTitle>Barber Earnings Breakdown</CardTitle>
-          <p className="text-xs text-[#777]">{from} to {to}</p>
+          <p className="text-xs text-[#8f8f8f]">{from} to {to}</p>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-12 text-center text-[#777]">Loading...</div>
+            <div className="py-12 text-center text-[#8f8f8f]">Loading...</div>
           ) : payroll.length === 0 ? (
-            <div className="py-12 text-center text-[#777]">No barbers found</div>
+            <div className="py-12 text-center text-[#8f8f8f]">No barbers found</div>
           ) : (
             <div className="space-y-4">
               {payroll.map(p => (
-                <div key={p.barber.id} className="bg-[#141414] rounded-2xl p-5 border border-[#1e1e1e]">
+                <div key={p.barber.id} className="bg-[#141414] rounded-2xl p-5 border border-[#2a2a2a]">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     {/* Barber info */}
                     <div className="flex items-center gap-3">
@@ -252,13 +252,13 @@ export default function PayrollPage() {
                       </div>
                       <div>
                         <h3 className="text-white font-semibold">{p.barber.name}</h3>
-                        <p className="text-xs text-[#777]">{p.barber.commission_percent}% commission</p>
+                        <p className="text-xs text-[#8f8f8f]">{p.barber.commission_percent}% commission</p>
                       </div>
                     </div>
 
                     {/* Commission payout highlight */}
-                    <div className="bg-black/5 border border-[#1e1e1e] rounded-xl px-4 py-2 text-center">
-                      <p className="text-xs text-[#777]">Pay Out</p>
+                    <div className="bg-black/5 border border-[#2a2a2a] rounded-xl px-4 py-2 text-center">
+                      <p className="text-xs text-[#8f8f8f]">Pay Out</p>
                       <p className="text-xl font-bold text-white">{formatCurrency(p.commissionEarned)}</p>
                     </div>
                   </div>
@@ -267,26 +267,26 @@ export default function PayrollPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                     <div className="text-center bg-black shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-white">{p.appointments.length}</p>
-                      <p className="text-xs text-[#777]">Appointments</p>
+                      <p className="text-xs text-[#8f8f8f]">Appointments</p>
                     </div>
                     <div className="text-center bg-black shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-white">{formatCurrency(p.serviceRevenue)}</p>
-                      <p className="text-xs text-[#777]">Service Revenue</p>
+                      <p className="text-xs text-[#8f8f8f]">Service Revenue</p>
                     </div>
                     <div className="text-center bg-black shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(p.commissionEarned)}</p>
-                      <p className="text-xs text-[#777]">Commission ({p.barber.commission_percent}%)</p>
+                      <p className="text-xs text-[#8f8f8f]">Commission ({p.barber.commission_percent}%)</p>
                     </div>
                     <div className="text-center bg-black shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-white">{p.hoursWorked.toFixed(1)}h</p>
-                      <p className="text-xs text-[#777]">Hours Worked</p>
+                      <p className="text-xs text-[#8f8f8f]">Hours Worked</p>
                     </div>
                   </div>
 
                   {/* Revenue bar */}
                   {p.serviceRevenue > 0 && (
                     <div className="mt-4">
-                      <div className="flex justify-between text-xs text-[#777] mb-1">
+                      <div className="flex justify-between text-xs text-[#8f8f8f] mb-1">
                         <span>Commission breakdown</span>
                         <span>{p.barber.commission_percent}% to barber / {100 - p.barber.commission_percent}% to shop</span>
                       </div>
@@ -303,9 +303,9 @@ export default function PayrollPage() {
 
                   {/* Per-appointment list for non-zero */}
                   {p.appointments.length > 0 && p.appointments.length <= 5 && (
-                    <div className="mt-4 border-t border-[#1e1e1e] pt-3 space-y-1">
+                    <div className="mt-4 border-t border-[#2a2a2a] pt-3 space-y-1">
                       {p.appointments.map(a => (
-                        <div key={a.id} className="flex items-center justify-between text-xs text-[#777]">
+                        <div key={a.id} className="flex items-center justify-between text-xs text-[#8f8f8f]">
                           <span>{prettyDate(a.date)} — {a.client_name}</span>
                           <span className="text-white">{formatCurrency(a.total_amount)}</span>
                         </div>
@@ -313,7 +313,7 @@ export default function PayrollPage() {
                     </div>
                   )}
                   {p.appointments.length > 5 && (
-                    <p className="text-xs text-[#777] mt-3 border-t border-[#1e1e1e] pt-2">
+                    <p className="text-xs text-[#8f8f8f] mt-3 border-t border-[#2a2a2a] pt-2">
                       + {p.appointments.length - 5} more appointments
                     </p>
                   )}
@@ -334,15 +334,15 @@ export default function PayrollPage() {
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xs text-[#777]">Gross Revenue</p>
+                <p className="text-xs text-[#8f8f8f]">Gross Revenue</p>
                 <p className="text-xl font-bold text-white mt-1">{formatCurrency(totalServiceRevenue)}</p>
               </div>
               <div>
-                <p className="text-xs text-[#777]">Staff Payouts</p>
+                <p className="text-xs text-[#8f8f8f]">Staff Payouts</p>
                 <p className="text-xl font-bold text-red-400 mt-1">- {formatCurrency(totalCommission)}</p>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                <p className="text-xs text-[#777]">Net to Shop</p>
+                <p className="text-xs text-[#8f8f8f]">Net to Shop</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">{formatCurrency(shopRevenue)}</p>
               </div>
             </div>

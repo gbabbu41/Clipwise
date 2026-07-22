@@ -110,17 +110,17 @@ export default function ShopsPage() {
             <Scissors size={14} /> Find Your Barber
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Book Your Next Cut</h1>
-          <p className="text-[#555] text-lg mb-8">Discover the best barbershops near you. Book online in seconds.</p>
+          <p className="text-[#6e6e6e] text-lg mb-8">Discover the best barbershops near you. Book online in seconds.</p>
 
           {/* Search */}
           <div className="max-w-xl mx-auto">
             <div className="relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#777]" />
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search shops, city, style..."
-                className="w-full bg-surface-raised border border-border rounded-2xl pl-12 pr-4 py-3.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50"
+                className="w-full bg-surface-raised border border-border rounded-2xl pl-12 pr-4 py-3.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50"
               />
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function ShopsPage() {
             {cities.map(c => (
               <button key={c} onClick={() => setCity(c)}
                 className={cn("px-4 py-1.5 rounded-xl text-sm font-medium transition-colors border",
-                  city === c ? "bg-gold text-black border-gold" : "border-border text-[#555] hover:text-white bg-surface-raised")}>
+                  city === c ? "bg-gold text-black border-gold" : "border-border text-[#6e6e6e] hover:text-white bg-surface-raised")}>
                 {c}
               </button>
             ))}
@@ -142,7 +142,7 @@ export default function ShopsPage() {
         )}
 
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-[#777]">
+          <p className="text-sm text-[#8f8f8f]">
             {loading ? "Finding shops..." : `${filtered.length} shop${filtered.length !== 1 ? "s" : ""} found`}
           </p>
         </div>
@@ -156,7 +156,7 @@ export default function ShopsPage() {
           <div className="text-center py-20">
             <Scissors size={40} className="text-[#999] mx-auto mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">No shops found</h2>
-            <p className="text-[#777] text-sm">
+            <p className="text-[#8f8f8f] text-sm">
               {search ? `No results for "${search}"` : "No barbershops available in this area yet."}
             </p>
             {search && (
@@ -177,7 +177,7 @@ export default function ShopsPage() {
                     } />
                   <div className="flex-1 min-w-0">
                     <h2 className="text-white font-bold text-lg group-hover:text-gold transition-colors truncate">{shop.name}</h2>
-                    <div className="flex items-center gap-1 text-[#777] text-sm mt-0.5">
+                    <div className="flex items-center gap-1 text-[#8f8f8f] text-sm mt-0.5">
                       <MapPin size={12} />
                       <span className="truncate">{shop.city}, {shop.province}</span>
                     </div>
@@ -185,7 +185,7 @@ export default function ShopsPage() {
                 </div>
 
                 {shop.description && (
-                  <p className="text-sm text-[#555] leading-relaxed mb-4 line-clamp-2">{shop.description}</p>
+                  <p className="text-sm text-[#6e6e6e] leading-relaxed mb-4 line-clamp-2">{shop.description}</p>
                 )}
 
                 <div className="flex items-center justify-between">
@@ -195,17 +195,17 @@ export default function ShopsPage() {
                         <>
                           <Star size={13} className="text-amber-400 fill-amber-400" />
                           <span className="text-sm font-semibold text-white">{shop.avgRating.toFixed(1)}</span>
-                          <span className="text-xs text-[#777]">({shop.reviewCount})</span>
+                          <span className="text-xs text-[#8f8f8f]">({shop.reviewCount})</span>
                         </>
                       ) : (
                         <>
                           <Star size={13} className="text-[#999]" />
-                          <span className="text-xs text-[#777]">New</span>
+                          <span className="text-xs text-[#8f8f8f]">New</span>
                         </>
                       )}
                     </div>
                     {(shop.barberCount ?? 0) > 0 && (
-                      <div className="flex items-center gap-1 text-[#777] text-xs">
+                      <div className="flex items-center gap-1 text-[#8f8f8f] text-xs">
                         <Users size={11} />
                         {shop.barberCount} barber{shop.barberCount !== 1 ? "s" : ""}
                       </div>
@@ -224,7 +224,7 @@ export default function ShopsPage() {
         <div className="mt-16 bg-surface border border-gold/20 rounded-2xl p-8 text-center">
           <p className="text-gold text-sm font-medium mb-2">Are you a barber or shop owner?</p>
           <h2 className="text-2xl font-bold text-white mb-3">Get Your Shop on ClipWise</h2>
-          <p className="text-[#555] text-sm mb-6 max-w-lg mx-auto">Join hundreds of barbershops using ClipWise to manage bookings, staff, and payments — all in one place.</p>
+          <p className="text-[#6e6e6e] text-sm mb-6 max-w-lg mx-auto">Join hundreds of barbershops using ClipWise to manage bookings, staff, and payments — all in one place.</p>
           <Link href="/signup"><Button size="lg">Get Started Free →</Button></Link>
         </div>
       </div>

@@ -610,7 +610,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
           }}
           className={cn(
-            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl",
             "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[88vh] overflow-y-auto overscroll-contain",
           )}
         >
@@ -623,9 +623,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           <div className="px-[18px] pb-3.5 border-b border-[#1a1a1a]">
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-base font-bold text-white truncate">{appt.client_name}</h3>
-              <button onClick={close} className="text-[#777] hover:text-white flex-shrink-0 -mr-1"><X size={18} /></button>
+              <button onClick={close} className="text-[#8f8f8f] hover:text-white flex-shrink-0 -mr-1"><X size={18} /></button>
             </div>
-            <p className="text-xs text-[#777] mt-1 truncate">{metaLine}</p>
+            <p className="text-xs text-[#8f8f8f] mt-1 truncate">{metaLine}</p>
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
@@ -644,16 +644,16 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 onChange={e => setEditForm(f => ({ ...f, client_email: e.target.value }))} placeholder="name@email.com" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Day</label>
+                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Day</label>
                   <input type="date" value={editForm.date}
                     onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Time</label>
+                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Time</label>
                   <select value={editForm.time}
                     onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
                     {editSlots.length === 0 && <option value="">No open times</option>}
                     {editSlots.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -666,17 +666,17 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               </Select>
               {services && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-wide text-[#777]">Service(s)</label>
+                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Service(s)</label>
                   {(editForm.service_ids.length ? editForm.service_ids : [""]).map((sid, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                       <select value={sid} onChange={e => setServiceAt(idx, e.target.value)}
-                        className="flex-1 bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                        className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
                         <option value="">Select a service</option>
                         {services.map(s => <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>)}
                       </select>
                       {(editForm.service_ids.length > 1 || !!sid) && (
                         <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                          className="w-9 h-9 flex-shrink-0 rounded-lg border border-[#1e1e1e] text-[#777] hover:text-white hover:border-white flex items-center justify-center">
+                          className="w-9 h-9 flex-shrink-0 rounded-lg border border-[#2a2a2a] text-[#8f8f8f] hover:text-white hover:border-white flex items-center justify-center">
                           <X size={15} />
                         </button>
                       )}
@@ -723,7 +723,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         onChange={e => setPayEmail(e.target.value)}
                         placeholder="Customer email (for the link)"
                         autoFocus
-                        className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#333]"
+                        className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:border-[#333]"
                       />
                       <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
                     </>
@@ -734,7 +734,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   )}
                 </>
               )}
-              <button className="text-xs text-[#777] hover:text-white pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
+              <button className="text-xs text-[#8f8f8f] hover:text-white pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
             </div>
           ) : (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
@@ -782,18 +782,18 @@ function AgendaSheet({
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-black shadow-sm border-l border-[#1e1e1e] z-50 flex flex-col animate-fade-in">
-        <div className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] border-b border-[#1e1e1e] flex items-center justify-between">
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-black shadow-sm border-l border-[#2a2a2a] z-50 flex flex-col animate-fade-in">
+        <div className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] border-b border-[#2a2a2a] flex items-center justify-between">
           <div>
-            <p className="text-xs text-[#777]">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
+            <p className="text-xs text-[#8f8f8f]">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
             <h3 className="text-lg font-bold text-white">{dayLabel}</h3>
-            <p className="text-xs text-[#777] mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
+            <p className="text-xs text-[#8f8f8f] mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
           </div>
-          <button onClick={onClose} className="text-[#777] hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="text-[#8f8f8f] hover:text-white"><X size={20} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {appts.length === 0 && (
-            <div className="text-center py-12 text-[#777] text-sm">No bookings on this day.</div>
+            <div className="text-center py-12 text-[#8f8f8f] text-sm">No bookings on this day.</div>
           )}
           {appts.map(appt => {
             const barber = barbers.find(b => b.id === appt.barber_id);
@@ -806,13 +806,13 @@ function AgendaSheet({
                     <p className={cn("text-sm font-semibold text-white truncate", isDimmed(appt.status) && "line-through opacity-60")}>
                       {appt.client_name}
                     </p>
-                    <span className="text-xs text-[#777] flex-shrink-0">{appt.time_slot}</span>
+                    <span className="text-xs text-[#8f8f8f] flex-shrink-0">{appt.time_slot}</span>
                   </div>
-                  <p className="text-xs text-[#777] truncate">
+                  <p className="text-xs text-[#8f8f8f] truncate">
                     {(appt.services as { name: string } | null)?.name ?? "—"} · {barber?.name ?? "Any"}
                   </p>
                   {appt.client_email && (
-                    <p className="text-xs text-[#777] truncate">{appt.client_email}</p>
+                    <p className="text-xs text-[#8f8f8f] truncate">{appt.client_email}</p>
                   )}
                   <span className={cn("inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded text-white", statusFill(appt.status).split(" ")[0])}>
                     {statusLabel(appt.status)}
@@ -822,7 +822,7 @@ function AgendaSheet({
             );
           })}
         </div>
-        <div className="px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] lg:pb-4 border-t border-[#1e1e1e]">
+        <div className="px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] lg:pb-4 border-t border-[#2a2a2a]">
           <button onClick={onDrillToDay}
             className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors">
             Open day view
@@ -1505,7 +1505,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </p>
                 <div className="grid grid-cols-7 gap-y-0.5">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <span key={`h${i}`} className="text-[8px] text-[#555] text-center">{d}</span>
+                    <span key={`h${i}`} className="text-[8px] text-[#6e6e6e] text-center">{d}</span>
                   ))}
                   {cells.map((d, i) => {
                     const inMonth = d.getMonth() === m;
@@ -1518,7 +1518,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         !inMonth ? "text-transparent"
                           : isTodayCell ? "bg-accent text-white font-bold"
                           : has ? "text-white font-semibold"
-                          : "text-[#777]",
+                          : "text-[#8f8f8f]",
                       )}>
                         {d.getDate()}
                       </span>
@@ -1660,7 +1660,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {cells.map((c, ci) => c.k === "empty" ? (
             <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
               className="rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-[#555]">{rangeLabel(c.s, c.minutes)}</span>
+              <span className="text-xs text-[#6e6e6e]">{rangeLabel(c.s, c.minutes)}</span>
               <span className="text-[10px] text-[#444]">Free</span>
             </button>
           ) : c.k === "block" ? (
@@ -1695,7 +1695,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
                 <span className="text-[10px] font-semibold">
                   <span className="text-[#00e5a0]">Paid</span>
-                  <span className="text-[#555]"> · </span>
+                  <span className="text-[#6e6e6e]"> · </span>
                   <span className={c.a.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
                     {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
                   </span>
@@ -1769,7 +1769,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             fallback, so there's nothing to reveal — no button. */}
         {!single && scheduledBarbers.length > 0 && unscheduledCount > 0 && (
           <button type="button" onClick={() => setShowUnscheduled(v => !v)}
-            className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#1e1e1e] text-[#999] hover:text-white transition-colors flex-shrink-0">
+            className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#2a2a2a] text-[#999] hover:text-white transition-colors flex-shrink-0">
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
           </button>
         )}
@@ -1806,7 +1806,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-[#161616] relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
                 <div className="relative text-right pr-2">
-                  <span className="text-[10px] text-[#777]">
+                  <span className="text-[10px] text-[#8f8f8f]">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </span>
                 </div>
@@ -1895,7 +1895,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                               <span className="text-[8px] font-normal flex-shrink-0 whitespace-nowrap opacity-90">
                                 {paymentTag(appt).segments.map((s, i) => (
                                   <Fragment key={i}>
-                                    {i > 0 && <span className="text-[#555]">·</span>}
+                                    {i > 0 && <span className="text-[#6e6e6e]">·</span>}
                                     <span className={s.className}>{s.text}</span>
                                   </Fragment>
                                 ))}
@@ -1991,7 +1991,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <div className="relative">
               {hours.map(hour => (
                 <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                  <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+                  <div className="text-[10px] text-[#8f8f8f] text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </div>
                   <div className="border-l border-[#141414]" />
@@ -2109,7 +2109,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div className="relative">
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-[#777] text-right pr-2 pt-1">
+                <div className="text-[10px] text-[#8f8f8f] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
@@ -2307,7 +2307,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
             <div className="relative">
               <button onClick={() => setViewMenu(o => !o)} aria-label="Choose barber"
-                className="flex items-center gap-0.5 rounded-full border border-[#1e1e1e] bg-[#141414] p-0.5 pr-1 hover:border-[#333] transition-colors">
+                className="flex items-center gap-0.5 rounded-full border border-[#2a2a2a] bg-[#141414] p-0.5 pr-1 hover:border-[#333] transition-colors">
                 {(() => { const db = barbers.find(b => b.id === dayBarberId); return db
                   ? <BarberAvatar b={db} i={barbers.indexOf(db)} sm />
                   : <span className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center text-[#aaa]"><Users size={14} /></span>; })()}
@@ -2316,7 +2316,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {viewMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
-                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-[#0c0c0c] border border-[#1e1e1e] rounded-xl shadow-lg py-1">
+                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl shadow-lg py-1">
                     {orderedBarbers.map(b => (
                       <button key={b.id} onClick={() => { setBarberFilter(b.id); setViewMenu(false); }}
                         className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#141414]", dayBarberId === b.id ? "text-white font-semibold" : "text-[#aaa]")}>
@@ -2343,20 +2343,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
               aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
               title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="p-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
               {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
             </button>
           )}
           {/* Day: add an appointment */}
           {view === "day" && canManage && (
             <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
-              className="p-1.5 rounded-lg border border-[#1e1e1e] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="p-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
               <Plus size={16} />
             </button>
           )}
           {!onToday && (
             <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#1e1e1e] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#2a2a2a] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
               Today
             </button>
           )}
@@ -2426,9 +2426,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
       {toast && (
         <Portal>
-          <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+          <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
             <span className="text-white">✓</span>{toast}
-            <button onClick={() => setToast("")} className="text-[#777] hover:text-white ml-2">✕</button>
+            <button onClick={() => setToast("")} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
           </div>
         </Portal>
       )}
@@ -2447,7 +2447,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 transition: addDragging ? "none" : "transform 0.26s cubic-bezier(.32,.72,0,1)",
               }}
               className={cn(
-                "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+                "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl",
                 "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
               )}>
               {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
@@ -2459,7 +2459,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">{addMode === "block" ? "Block time" : "New appointment"}</h3>
-                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-[#777] hover:text-white"><X size={18} /></button>
+                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
               {canManage && canBlock && (
@@ -2471,28 +2471,28 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </div>
               )}
               <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#aaa] space-y-0.5">
-                <p><span className="text-[#777]">Barber:</span> {addCtx.barberName}</p>
-                <p><span className="text-[#777]">When:</span> {friendlyDate(currentDate)}</p>
+                <p><span className="text-[#8f8f8f]">Barber:</span> {addCtx.barberName}</p>
+                <p><span className="text-[#8f8f8f]">When:</span> {friendlyDate(currentDate)}</p>
               </div>
               {addMode === "block" ? (
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-[#777]">From</label>
+                      <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">From</label>
                       <input type="time" value={blockForm.start} max={blockForm.end || undefined}
                         onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-[#777]">To</label>
+                      <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">To</label>
                       <input type="time" value={blockForm.end} min={blockForm.start || undefined}
                         onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
                     </div>
                   </div>
                   <input type="text" value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
                     placeholder="Reason (optional) — e.g. Lunch"
-                    className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
+                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
                   <p className="text-[11px] text-[#888] flex items-start gap-1.5">
                     <span className="text-accent-soft mt-0.5">ⓘ</span>
                     {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
@@ -2530,7 +2530,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         </Select>
                         {(addForm.service_ids.length > 1 || !!sid) && (
                           <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-[#1e1e1e] text-[#777] hover:text-white hover:border-white flex items-center justify-center">
+                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-[#2a2a2a] text-[#8f8f8f] hover:text-white hover:border-white flex items-center justify-center">
                             <X size={15} />
                           </button>
                         )}

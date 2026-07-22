@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center mb-8">
           <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
           <h1 className="text-2xl font-bold text-white">Reset your password</h1>
-          <p className="text-[#777] text-sm mt-1">We&apos;ll send you a link to reset it</p>
+          <p className="text-[#8f8f8f] text-sm mt-1">We&apos;ll send you a link to reset it</p>
         </div>
 
         <div className="bg-surface border border-border rounded-2xl p-8">
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
                 <Check size={24} className="text-emerald-400" />
               </div>
               <p className="text-white font-semibold">Check your inbox</p>
-              <p className="text-[#777] text-sm mt-2">
+              <p className="text-[#8f8f8f] text-sm mt-2">
                 We sent a password reset link to <span className="text-white">{email}</span>
               </p>
               <Link href="/login" className="block mt-6 text-sm text-gold hover:underline">
@@ -64,14 +64,14 @@ export default function ForgotPasswordPage() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-300">Email</label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@freshcutz.ca"
                       required
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
+                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
                     />
                   </div>
                 </div>
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>
               </form>
-              <p className="text-center text-sm text-[#777] mt-6">
+              <p className="text-center text-sm text-[#8f8f8f] mt-6">
                 Remember your password?{" "}
                 <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
               </p>

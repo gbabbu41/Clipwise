@@ -68,9 +68,9 @@ function ResetLinkCopy({ link }: { link: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div className="flex items-center gap-2 bg-[#141414] border border-[#1e1e1e] rounded-xl p-3">
-      <p className="flex-1 text-xs text-[#777] truncate">{link}</p>
-      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-[#777] hover:text-white")}>
+    <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded-xl p-3">
+      <p className="flex-1 text-xs text-[#8f8f8f] truncate">{link}</p>
+      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-[#8f8f8f] hover:text-white")}>
         {copied ? <Check size={15} /> : <Copy size={15} />}
       </button>
     </div>
@@ -85,9 +85,9 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -581,7 +581,7 @@ export default function StaffPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Staff</h1>
-          <p className="text-sm text-[#777] mt-0.5">Manage barbers, schedules and commissions</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
         <div className="flex items-center gap-2">
           {!alreadyOwnerBarber && shop && barbers.length < getPlanLimit(shop.subscription_plan) && (
@@ -603,7 +603,7 @@ export default function StaffPage() {
           <div className="py-16 text-center">
             <p className="text-4xl mb-3">💈</p>
             <p className="font-medium text-white mb-1">No barbers yet</p>
-            <p className="text-sm text-[#777] mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
+            <p className="text-sm text-[#8f8f8f] mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
             <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
           </div>
         </Card>
@@ -622,7 +622,7 @@ export default function StaffPage() {
                   <div className="relative flex-shrink-0">
                     <label className={cn("relative w-12 h-12 rounded-full cursor-pointer group block", photoBusyId === barber.id && "pointer-events-none opacity-70")}
                       title="Upload photo">
-                      <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#1e1e1e]"
+                      <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#2a2a2a]"
                         fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{barber.name[0]}</div>} />
                       <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Camera size={14} className="text-white" />
@@ -640,7 +640,7 @@ export default function StaffPage() {
                   </div>
                   <div>
                     <h3 className="text-white font-semibold">{barber.name}</h3>
-                    {barber.email && <p className="text-xs text-[#777]">{barber.email}</p>}
+                    {barber.email && <p className="text-xs text-[#8f8f8f]">{barber.email}</p>}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {isOwnerBarber && (
                         <span className="text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5">Owner</span>
@@ -650,7 +650,7 @@ export default function StaffPage() {
                       ) : barber.email ? (
                         <span className="text-xs bg-orange-500/15 border border-orange-500/30 text-orange-400 rounded-full px-2 py-0.5">⏳ Invite pending</span>
                       ) : (
-                        <span className="text-xs bg-[#141414] border border-[#1e1e1e] text-[#777] rounded-full px-2 py-0.5">Manual</span>
+                        <span className="text-xs bg-[#141414] border border-[#2a2a2a] text-[#8f8f8f] rounded-full px-2 py-0.5">Manual</span>
                       )}
                       <span className="text-white text-xs">★ {barber.rating}</span>
                     </div>
@@ -664,18 +664,18 @@ export default function StaffPage() {
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="text-center p-2.5 bg-[#141414] rounded-xl">
                   <p className="text-lg font-bold text-white">{barber.apptCount ?? 0}</p>
-                  <p className="text-xs text-[#777]">Appts (mo.)</p>
+                  <p className="text-xs text-[#8f8f8f]">Appts (mo.)</p>
                 </div>
                 <div className="text-center p-2.5 bg-[#141414] rounded-xl">
                   <p className="text-lg font-bold text-white">{commissions[barber.id] ?? barber.commission_percent}%</p>
-                  <p className="text-xs text-[#777]">Commission</p>
+                  <p className="text-xs text-[#8f8f8f]">Commission</p>
                 </div>
               </div>
 
               {/* Commission Slider */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-[#777]">Commission Rate</p>
+                  <p className="text-xs text-[#8f8f8f]">Commission Rate</p>
                   <p className="text-sm font-bold text-white">{commissions[barber.id]}%</p>
                 </div>
                 <input
@@ -684,7 +684,7 @@ export default function StaffPage() {
                   onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Number(e.target.value) }))}
                   className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-[#777] mt-0.5"><span>20%</span><span>70%</span></div>
+                <div className="flex justify-between text-xs text-[#8f8f8f] mt-0.5"><span>20%</span><span>70%</span></div>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
                   Save Commission
                 </Button>
@@ -742,7 +742,7 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#777]")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#8f8f8f]")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
@@ -750,8 +750,8 @@ export default function StaffPage() {
 
               {/* Approved upcoming time-off */}
               {barber.upcomingTimeOff && barber.upcomingTimeOff.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-[#1e1e1e]/50 space-y-1">
-                  <p className="text-[10px] uppercase tracking-wider text-[#777]">Upcoming time off</p>
+                <div className="mt-3 pt-3 border-t border-[#2a2a2a]/50 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-[#8f8f8f]">Upcoming time off</p>
                   {barber.upcomingTimeOff.map(t => {
                     const dateLabel = t.start_date === t.end_date
                       ? formatFriendlyDate(t.start_date)
@@ -760,14 +760,14 @@ export default function StaffPage() {
                       t.type === "day_off" ? "Day Off" :
                       t.type === "vacation" ? "Vacation" : "Sick";
                     return (
-                      <div key={t.id} className="text-xs flex items-center gap-2 text-[#777]">
+                      <div key={t.id} className="text-xs flex items-center gap-2 text-[#8f8f8f]">
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/20">
                           {typeLabel}
                         </span>
                         <span className="truncate">
                           {dateLabel}
                           {t.type === "blocked_hours" && t.start_time && t.end_time && (
-                            <span className="text-[#777]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                            <span className="text-[#8f8f8f]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
                           )}
                         </span>
                       </div>
@@ -789,24 +789,24 @@ export default function StaffPage() {
         </CardHeader>
         <CardContent>
           {staffHours.length === 0 ? (
-            <div className="py-8 text-center text-[#777]">
+            <div className="py-8 text-center text-[#8f8f8f]">
               <p>No clock records found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#1e1e1e]">
+                  <tr className="border-b border-[#2a2a2a]">
                     {["Barber", "Date", "Clock In", "Clock Out", "Hours", "Status"].map((h) => (
-                      <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {staffHours.map((sh) => (
-                    <tr key={sh.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/30">
+                    <tr key={sh.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
                       <td className="px-3 py-3 text-sm text-white">{sh.barbers?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-[#777]">{prettyDate(sh.date)}</td>
+                      <td className="px-3 py-3 text-sm text-[#8f8f8f]">{prettyDate(sh.date)}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
                       <td className="px-3 py-3 text-sm text-red-400">{sh.clock_out ?? "—"}</td>
                       <td className="px-3 py-3 text-sm text-white">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
@@ -827,13 +827,13 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white">Permissions — {permBarber.name}</h2>
-                  <p className="text-xs text-[#777] mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
+                  <p className="text-xs text-[#8f8f8f] mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
                 </div>
-                <button onClick={() => setPermBarber(null)} className="text-[#777] hover:text-white"><X size={18} /></button>
+                <button onClick={() => setPermBarber(null)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
               </div>
               <div className="space-y-2 pt-1">
                 {([
@@ -844,10 +844,10 @@ export default function StaffPage() {
                   { key: "view_clients",        label: "View clients",          description: "Access their client list with appointment history." },
                   { key: "manage_appointments", label: "Manage appointments",   description: "Approve, complete, reject, and take payment on appointments assigned to them. Refunds stay owner-only." },
                 ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (
-                  <div key={key} className="flex items-start gap-4 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div key={key} className="flex items-start gap-4 p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">{label}</p>
-                      <p className="text-xs text-[#777] mt-0.5">{description}</p>
+                      <p className="text-xs text-[#8f8f8f] mt-0.5">{description}</p>
                     </div>
                     <Switch checked={!!permDraft[key]} onChange={v => setPermDraft(prev => ({ ...prev, [key]: v }))} />
                   </div>
@@ -867,21 +867,21 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setScheduleBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Schedule — {scheduleBarber.name}</h2>
-                <button onClick={() => setScheduleBarber(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setScheduleBarber(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
 
               {/* Time increments — quarter-hour lets a barber start at e.g.
                   9:45 AM. Shop-wide; the customer booking page offers the same
                   start-time spacing. */}
-              <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+              <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                 <div className="pr-3">
                   <p className="text-sm font-medium text-white">Time increments</p>
-                  <p className="text-xs text-[#777]">Start/end + customer slots step by this. 15 min allows 9:45, 10:15…</p>
+                  <p className="text-xs text-[#8f8f8f]">Start/end + customer slots step by this. 15 min allows 9:45, 10:15…</p>
                 </div>
-                <div className="flex bg-black border border-[#1e1e1e] rounded-lg p-1 gap-1 flex-shrink-0">
+                <div className="flex bg-black border border-[#2a2a2a] rounded-lg p-1 gap-1 flex-shrink-0">
                   {[30, 15].map(min => (
                     <button
                       key={min}
@@ -889,7 +889,7 @@ export default function StaffPage() {
                       onClick={() => changeInterval(min)}
                       className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                        scheduleInterval === min ? "bg-gold text-black" : "text-[#777] hover:text-white",
+                        scheduleInterval === min ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white",
                       )}
                     >
                       {min} min
@@ -940,7 +940,7 @@ export default function StaffPage() {
                   };
 
                   return (
-                    <div key={day} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-2">
+                    <div key={day} className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-2">
                       <div className="flex items-center gap-3">
                         {/* Open/Close toggle — reflects the effective state.
                             If a full-day time-off is active, this toggle is
@@ -956,21 +956,21 @@ export default function StaffPage() {
                             <select
                               value={editSchedule[dow].startTime}
                               onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
-                              className="flex-1 rounded-lg border border-[#1e1e1e] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
-                            <span className="text-[#777] text-xs flex-shrink-0">to</span>
+                            <span className="text-[#8f8f8f] text-xs flex-shrink-0">to</span>
                             <select
                               value={editSchedule[dow].endTime}
                               onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
-                              className="flex-1 rounded-lg border border-[#1e1e1e] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
                           </>
                         ) : (
-                          <span className="text-xs text-[#777]">Closed</span>
+                          <span className="text-xs text-[#8f8f8f]">Closed</span>
                         )}
                       </div>
                       {/* Approved time-off chips for this day */}
@@ -988,10 +988,10 @@ export default function StaffPage() {
                               "px-1.5 py-0.5 rounded text-[10px] font-medium border",
                               isFullDay ? "bg-orange-500/10 text-orange-300 border-orange-500/20" : "bg-purple-500/10 text-purple-300 border-purple-500/20",
                             )}>{typeLabel}</span>
-                            <span className="text-[#777] flex-1 truncate">
+                            <span className="text-[#8f8f8f] flex-1 truncate">
                               {dateLabel}
                               {t.type === "blocked_hours" && t.start_time && t.end_time && (
-                                <span className="text-[#777]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                                <span className="text-[#8f8f8f]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
                               )}
                             </span>
                             <button
@@ -1024,12 +1024,12 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
-                <button onClick={() => setInviteLinkModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setInviteLinkModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#777]">
+              <p className="text-sm text-[#8f8f8f]">
                 An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, sandbox limits, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
               </p>
               <ResetLinkCopy link={inviteLinkModal.link} />
@@ -1052,17 +1052,17 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Password reset sent</h2>
-                <button onClick={() => setResetModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setResetModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#777]">
+              <p className="text-sm text-[#8f8f8f]">
                 {resetModal.emailed
                   ? <>A password-reset link was emailed to <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.</>
                   : <>We couldn&apos;t send the email to <span className="text-white font-medium">{resetModal.email}</span> right now. Ask them to use <span className="text-white">Forgot password</span> on the login page instead.</>}
               </p>
-              <p className="text-xs text-[#777]">For their security, the reset link goes only to the barber&apos;s own inbox — it isn&apos;t shown here.</p>
+              <p className="text-xs text-[#8f8f8f]">For their security, the reset link goes only to the barber&apos;s own inbox — it isn&apos;t shown here.</p>
               <Button className="w-full" onClick={() => setResetModal(null)}>Done</Button>
             </div>
           </div>
@@ -1074,13 +1074,13 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm space-y-4">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
                   <Trash2 size={20} className="text-red-400" />
                 </div>
                 <h2 className="text-lg font-bold text-white">Remove Barber?</h2>
-                <p className="text-sm text-[#777] mt-1">
+                <p className="text-sm text-[#8f8f8f] mt-1">
                   This will remove <span className="text-white font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
                 </p>
               </div>
@@ -1104,19 +1104,19 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Barber</h2>
-                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 bg-[#141414] border border-[#1e1e1e] rounded-xl p-1">
+              <div className="flex gap-1 bg-[#141414] border border-[#2a2a2a] rounded-xl p-1">
                 {(["invite", "manual"] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => { setAddTab(tab); setInviteSent(false); }}
-                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-white border border-[#1e1e1e]" : "text-[#777] hover:text-white")}
+                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-white border border-[#2a2a2a]" : "text-[#8f8f8f] hover:text-white")}
                   >
                     {tab === "invite" ? "✉️ Invite by Email" : "➕ Add Manually"}
                   </button>
@@ -1127,18 +1127,18 @@ export default function StaffPage() {
                 <div className="py-6 text-center">
                   <div className="text-4xl mb-3">✉️</div>
                   <p className="font-semibold text-white">Invite sent!</p>
-                  <p className="text-sm text-[#777] mt-1">{addForm.name} will get an email with a link to set up their account.</p>
+                  <p className="text-sm text-[#8f8f8f] mt-1">{addForm.name} will get an email with a link to set up their account.</p>
                   <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Done</Button>
                 </div>
               ) : (
                 <>
                   {addTab === "invite" && (
-                    <p className="text-xs text-[#777] bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2">
+                    <p className="text-xs text-[#8f8f8f] bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2">
                       An invite email will be sent. The barber clicks the link to create their account and gets access to their barber portal automatically.
                     </p>
                   )}
                   {addTab === "manual" && (
-                    <div className="text-xs text-[#777] bg-[#141414] border border-[#1e1e1e] rounded-xl px-3 py-2.5 space-y-2">
+                    <div className="text-xs text-[#8f8f8f] bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2.5 space-y-2">
                       {alreadyOwnerBarber ? (
                         <p>You&apos;re already on the team as a barber. Enter someone else&apos;s email to add them — they&apos;ll get an invite link.</p>
                       ) : (
@@ -1170,14 +1170,14 @@ export default function StaffPage() {
                     { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false },
                   ].map(({ key, label, placeholder, type, required }) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-sm text-[#777]">{label}</label>
+                      <label className="text-sm text-[#8f8f8f]">{label}</label>
                       <input
                         type={type}
                         value={addForm[key]}
                         onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
                         required={required}
-                        className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-black"
+                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
                       />
                     </div>
                   ))}

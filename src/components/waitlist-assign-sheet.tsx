@@ -151,7 +151,7 @@ export function WaitlistAssignSheet({
       <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
         <div ref={sheetRef}
           style={{ transform: shown ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)", transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-          className="pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[85vh] overflow-y-auto overscroll-contain">
+          className="pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[85vh] overflow-y-auto overscroll-contain">
           <div onClick={close} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
             <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
           </div>
@@ -161,9 +161,9 @@ export function WaitlistAssignSheet({
 
             {showSwitch && barbers.length > 1 && (
               <div className="mt-3">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Barber</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#8f8f8f] block mb-1">Barber</label>
                 <select value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}{b.fullDayOff ? " — off today" : ""}</option>)}
                 </select>
               </div>
@@ -171,9 +171,9 @@ export function WaitlistAssignSheet({
 
             {services && services.length > 0 && (
               <div className="mt-3">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Service</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[#8f8f8f] block mb-1">Service</label>
                 <select value={serviceId ?? ""} onChange={e => setServiceId(e.target.value || null)}
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
                   <option value="">Select a service</option>
                   {services.map(s => <option key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</option>)}
                 </select>
@@ -181,17 +181,17 @@ export function WaitlistAssignSheet({
             )}
 
             <div className="mt-3">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#777] block mb-1">Open slots</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[#8f8f8f] block mb-1">Open slots</label>
               {loading ? (
-                <p className="text-sm text-[#777] py-6 text-center">Loading open slots…</p>
+                <p className="text-sm text-[#8f8f8f] py-6 text-center">Loading open slots…</p>
               ) : openSlots.length === 0 ? (
-                <p className="text-sm text-[#777] py-6 text-center">No open slots{allowBarberSwitch ? " left today" : " that day"}. Pick another barber or free up time.</p>
+                <p className="text-sm text-[#8f8f8f] py-6 text-center">No open slots{allowBarberSwitch ? " left today" : " that day"}. Pick another barber or free up time.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {openSlots.map(s => (
                     <button key={s} type="button" onClick={() => setSlot(s)}
                       className={cn("py-2.5 rounded-lg text-sm font-medium border transition-colors",
-                        slot === s ? "bg-white text-black border-white" : "bg-[#141414] text-[#ccc] border-[#1e1e1e] hover:border-[#2a2a2a]")}>
+                        slot === s ? "bg-white text-black border-white" : "bg-[#141414] text-[#ccc] border-[#2a2a2a] hover:border-[#2a2a2a]")}>
                       {s}
                     </button>
                   ))}

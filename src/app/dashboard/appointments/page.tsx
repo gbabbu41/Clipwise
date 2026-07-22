@@ -19,9 +19,9 @@ function Skeleton({ className }: { className?: string }) {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -885,7 +885,7 @@ export default function AppointmentsPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-[#777]">No shop found. Set up your shop first.</p>
+        <p className="text-[#8f8f8f]">No shop found. Set up your shop first.</p>
       </div>
     );
   }
@@ -938,8 +938,8 @@ export default function AppointmentsPage() {
             // — matches the in-row prices everywhere else.
             const isMoney = s.label.startsWith("Revenue");
             return (
-              <div key={s.label} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4">
-                <p className="text-[10px] text-[#777] font-semibold uppercase tracking-wider">{s.label}</p>
+              <div key={s.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
+                <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{s.label}</p>
                 <p className={cn(
                   "text-[28px] font-extrabold mt-2 font-mono tracking-tighter leading-none",
                   isMoney ? "text-emerald-400" : "text-white",
@@ -948,7 +948,7 @@ export default function AppointmentsPage() {
                   "text-[11px] mt-2 font-medium",
                   s.tone === "up"    && "text-emerald-400",
                   s.tone === "down"  && "text-red-400",
-                  s.tone === "muted" && "text-[#777]",
+                  s.tone === "muted" && "text-[#8f8f8f]",
                 )}>{s.sub}</p>
               </div>
             );
@@ -957,11 +957,11 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#1e1e1e]">
+      <div className="flex gap-1 border-b border-[#2a2a2a]">
         {(["appointments", "waitlist"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-white" : "border-transparent text-[#777] hover:text-white")}>
+              tab === t ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white")}>
             {t} {t === "waitlist" && waitlist.length > 0 && (
               <span className="ml-1 text-xs bg-black/10 text-white px-1.5 rounded-full">{waitlist.length}</span>
             )}
@@ -976,7 +976,7 @@ export default function AppointmentsPage() {
             <select
               value={pickedDate ? "" : dateFilter}
               onChange={e => { setDateFilter(e.target.value); setPickedDate(null); }}
-              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20"
+              className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20"
             >
               {pickedDate && <option value="">Picked date</option>}
               {DATE_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
@@ -984,11 +984,11 @@ export default function AppointmentsPage() {
 
             <button type="button" onClick={() => setShowDatePicker(s => !s)}
               className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-colors",
-                pickedDate ? "bg-gold text-black border-black" : "bg-[#141414] text-[#777] border-[#1e1e1e] hover:text-white hover:border-gray-400")}>
+                pickedDate ? "bg-gold text-black border-black" : "bg-[#141414] text-[#8f8f8f] border-[#2a2a2a] hover:text-white hover:border-gray-400")}>
               📅 {pickedDate ? friendlyDate(pickedDate) : "Pick date"}
             </button>
             {pickedDate && (
-              <button type="button" onClick={() => setPickedDate(null)} className="text-[#777] hover:text-white text-sm px-1" aria-label="Clear date">✕</button>
+              <button type="button" onClick={() => setPickedDate(null)} className="text-[#8f8f8f] hover:text-white text-sm px-1" aria-label="Clear date">✕</button>
             )}
 
             {showDatePicker && (
@@ -1009,12 +1009,12 @@ export default function AppointmentsPage() {
           <div className="flex flex-wrap gap-3">
             <Input placeholder="Search client…" value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
             <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
+              className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="all">All Barbers</option>
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
+              className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="active">Open · needs action</option>
               <option value="unpaid">💲 Unpaid · money owed</option>
               <option value="all">All Statuses</option>
@@ -1026,7 +1026,7 @@ export default function AppointmentsPage() {
           <div className="md:hidden space-y-3">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 space-y-3 animate-pulse">
+                <div key={i} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4 space-y-3 animate-pulse">
                   <div className="flex justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-16 rounded-full" /></div>
                   <Skeleton className="h-3 w-40" />
                   <Skeleton className="h-3 w-28" />
@@ -1034,10 +1034,10 @@ export default function AppointmentsPage() {
                 </div>
               ))
             ) : filtered.length === 0 ? (
-              <div className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl py-12 text-center">
+              <div className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl py-12 text-center">
                 <p className="text-3xl mb-3">📅</p>
                 <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
-                <p className="text-sm text-[#777] px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                <p className="text-sm text-[#8f8f8f] px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
               </div>
             ) : filtered.map(apt => {
               const [timeHour, timeMeridian] = (apt.time_slot ?? "").split(" ");
@@ -1045,19 +1045,19 @@ export default function AppointmentsPage() {
               const hasFooter = !!apt.client_phone || !!payBadge;
               return (
               <div key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                className="bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors">
+                className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4 active:bg-[#141414]/50 cursor-pointer transition-colors">
                 {/* Primary row — time block · client/service · price/status */}
                 <div className="flex items-center gap-3">
                   <div className="text-center min-w-[52px]">
                     <p className="text-base font-bold text-white font-mono leading-none">{timeHour}</p>
-                    <p className="text-[10px] text-[#777] mt-1">{timeMeridian}</p>
+                    <p className="text-[10px] text-[#8f8f8f] mt-1">{timeMeridian}</p>
                   </div>
                   <div className="w-px h-10 bg-[#1e1e1e] flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{apt.client_name}</p>
-                    <p className="text-xs text-[#777] truncate">
+                    <p className="text-xs text-[#8f8f8f] truncate">
                       {apt.services?.name ?? "—"}
-                      {apptDuration(apt) ? <span className="text-[#555]"> · {apptDuration(apt)} min</span> : null}
+                      {apptDuration(apt) ? <span className="text-[#6e6e6e]"> · {apptDuration(apt)} min</span> : null}
                       {" · "}{apt.barbers?.name ?? "—"}
                     </p>
                   </div>
@@ -1069,10 +1069,10 @@ export default function AppointmentsPage() {
                 {/* Secondary row — date + phone + payment badge (only shown
                     when there's something worth showing). */}
                 {hasFooter && (
-                  <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#1e1e1e]">
+                  <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#2a2a2a]">
                     <div className="min-w-0">
-                      <p className="text-[11px] text-[#777] truncate">{shortFriendlyDate(apt.date)}</p>
-                      <p className="text-[10px] text-[#555] truncate leading-tight">{monthDay(apt.date)}{apt.client_phone && ` · ${apt.client_phone}`}</p>
+                      <p className="text-[11px] text-[#8f8f8f] truncate">{shortFriendlyDate(apt.date)}</p>
+                      <p className="text-[10px] text-[#6e6e6e] truncate leading-tight">{monthDay(apt.date)}{apt.client_phone && ` · ${apt.client_phone}`}</p>
                     </div>
                     {payBadge && (
                       <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap flex-shrink-0", payBadge.bsClass)}>{payBadge.label}</span>
@@ -1103,9 +1103,9 @@ export default function AppointmentsPage() {
 
           {/* ── Desktop / tablet table (hidden on mobile) ─────────────── */}
           {loading ? (
-            <div className="hidden md:block bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-[#1e1e1e]/50 last:border-0">
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-[#2a2a2a]/50 last:border-0">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-16" />
                 <div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-20" /></div>
@@ -1121,10 +1121,10 @@ export default function AppointmentsPage() {
             <Card className="hidden md:block p-0 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-[#1e1e1e]">
+                  <thead className="border-b border-[#2a2a2a]">
                     <tr>
                       {["Date", "Time", "Client", "Barber", "Service", "Status", "Amount", "Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-[#777] px-4 py-3">{h}</th>
+                        <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-4 py-3">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1133,22 +1133,22 @@ export default function AppointmentsPage() {
                       <tr><td colSpan={8} className="text-center py-16">
                         <p className="text-3xl mb-3">📅</p>
                         <p className="text-white font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
-                        <p className="text-sm text-[#777]">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                        <p className="text-sm text-[#8f8f8f]">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
                       </td></tr>
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}
-                        className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
+                        className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/50 cursor-pointer transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="text-sm text-[#777]">{shortFriendlyDate(apt.date)}</p>
-                          <p className="text-xs text-[#555] leading-tight">{monthDay(apt.date)}</p>
+                          <p className="text-sm text-[#8f8f8f]">{shortFriendlyDate(apt.date)}</p>
+                          <p className="text-xs text-[#6e6e6e] leading-tight">{monthDay(apt.date)}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-white font-medium">{apt.time_slot}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-white">{apt.client_name}</p>
-                          <p className="text-xs text-[#777]">{apt.client_phone}</p>
+                          <p className="text-xs text-[#8f8f8f]">{apt.client_phone}</p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#777]">{apt.barbers?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-sm text-[#777]">{apt.services?.name ?? "—"}{apptDuration(apt) ? <span className="text-[#555]"> · {apptDuration(apt)} min</span> : null}</td>
+                        <td className="px-4 py-3 text-sm text-[#8f8f8f]">{apt.barbers?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-[#8f8f8f]">{apt.services?.name ?? "—"}{apptDuration(apt) ? <span className="text-[#6e6e6e]"> · {apptDuration(apt)} min</span> : null}</td>
                         <td className="px-4 py-3">
                           <StatusPill status={apt.status} />
                         </td>
@@ -1161,7 +1161,7 @@ export default function AppointmentsPage() {
                             const action = primaryAction(apt.status as AppStatus);
                             const rejectable = canReject(apt.status as AppStatus);
                             if (!action && !rejectable) {
-                              return <span className="text-xs text-[#777]">—</span>;
+                              return <span className="text-xs text-[#8f8f8f]">—</span>;
                             }
                             return (
                               <div className="flex gap-1">
@@ -1190,18 +1190,18 @@ export default function AppointmentsPage() {
           <CardHeader><CardTitle>Waitlist ({waitlist.length})</CardTitle></CardHeader>
           <CardContent>
             {waitlist.length === 0 ? (
-              <p className="text-center text-[#777] py-8">No one on the waitlist right now</p>
+              <p className="text-center text-[#8f8f8f] py-8">No one on the waitlist right now</p>
             ) : (
               <div className="space-y-3">
                 {waitlist.map(wl => {
                   const svc = services.find(s => s.id === wl.service_id);
                   const barber = barbers.find(b => b.id === wl.barber_id);
                   return (
-                    <div key={wl.id} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                    <div key={wl.id} className="flex items-center justify-between p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                       <div>
                         <p className="text-sm font-medium text-white">{wl.client_name} · {svc?.name ?? "Any Service"}</p>
-                        <p className="text-xs text-[#777]">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
-                        <p className="text-xs text-[#777] mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
+                        <p className="text-xs text-[#8f8f8f]">{wl.client_phone} · Preferred: {barber?.name ?? "Any Barber"}</p>
+                        <p className="text-xs text-[#8f8f8f] mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => showToast("Barber assigned")}>Assign</Button>
@@ -1225,20 +1225,20 @@ export default function AppointmentsPage() {
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedApt(null)} />
           <div ref={detailSheetRef}
             style={{ transform: detailDrag.dragY ? `translate3d(0,${detailDrag.dragY}px,0)` : undefined, transition: detailDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#1e1e1e] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
+            className="fixed right-0 top-0 h-full w-full max-w-md bg-black shadow-sm border-l border-[#2a2a2a] z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
             {/* Grab handle (mobile) — pull down anywhere to dismiss */}
             <div onClick={() => setSelectedApt(null)} className="sm:hidden flex justify-center -mt-2 mb-1 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Appointment Details</h2>
-              <button onClick={() => setSelectedApt(null)} className="text-[#777] hover:text-white text-xl">✕</button>
+              <button onClick={() => setSelectedApt(null)} className="text-[#8f8f8f] hover:text-white text-xl">✕</button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e] space-y-1">
-                <p className="text-xs text-[#777] uppercase tracking-wide">Client</p>
+              <div className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-1">
+                <p className="text-xs text-[#8f8f8f] uppercase tracking-wide">Client</p>
                 <p className="text-white font-semibold">{selectedApt.client_name}</p>
-                <p className="text-sm text-[#777]">{selectedApt.client_phone}</p>
+                <p className="text-sm text-[#8f8f8f]">{selectedApt.client_phone}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -1250,8 +1250,8 @@ export default function AppointmentsPage() {
                   { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
                   { label: "Status", value: statusLabel(selectedApt.status) },
                 ].map(item => (
-                  <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                    <p className="text-xs text-[#777]">{item.label}</p>
+                  <div key={item.label} className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                    <p className="text-xs text-[#8f8f8f]">{item.label}</p>
                     <p className={cn(
                       "text-sm mt-0.5 capitalize",
                       item.label === "Amount"
@@ -1270,10 +1270,10 @@ export default function AppointmentsPage() {
                 const paidWhen = (selectedApt.payment_status === "paid" || selectedApt.payment_status === "captured")
                   ? timeAgo(selectedApt.paid_at) : "";
                 return (
-                  <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
-                    <span className="text-xs text-[#777] uppercase tracking-wide">Payment</span>
+                  <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                    <span className="text-xs text-[#8f8f8f] uppercase tracking-wide">Payment</span>
                     <span className="flex items-center gap-2">
-                      {paidWhen && <span className="text-[11px] text-[#777]">{paidWhen}</span>}
+                      {paidWhen && <span className="text-[11px] text-[#8f8f8f]">{paidWhen}</span>}
                       <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap", p.bsClass)}>{p.label}</span>
                     </span>
                   </div>
@@ -1330,17 +1330,17 @@ export default function AppointmentsPage() {
                   charged automatically on Complete (or via Charge No-Show). No
                   "take payment" here, or it would double-charge. */}
               {selectedApt.payment_status === "held" && selectedApt.status !== "no-show" && (
-                <div className="rounded-xl border border-[#1e1e1e] bg-[#141414] p-3 text-xs text-[#aaa]">
+                <div className="rounded-xl border border-[#2a2a2a] bg-[#141414] p-3 text-xs text-[#aaa]">
                   💳 Card on hold · <span className="text-white font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
-                  <span className="block text-[#777] mt-0.5">Charged automatically when you mark this Complete.</span>
+                  <span className="block text-[#8f8f8f] mt-0.5">Charged automatically when you mark this Complete.</span>
                 </div>
               )}
               {/* Saved-card notice (booking was >7 days out, so the card is on
                   file rather than authorized). Charged off-session on Complete. */}
               {selectedApt.payment_status === "saved" && selectedApt.status !== "no-show" && (
-                <div className="rounded-xl border border-[#1e1e1e] bg-[#141414] p-3 text-xs text-[#aaa]">
+                <div className="rounded-xl border border-[#2a2a2a] bg-[#141414] p-3 text-xs text-[#aaa]">
                   💳 Card on file · <span className="text-white font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
-                  <span className="block text-[#777] mt-0.5">Booked &gt;7 days out — charged when you mark this Complete (or as a no-show fee).</span>
+                  <span className="block text-[#8f8f8f] mt-0.5">Booked &gt;7 days out — charged when you mark this Complete (or as a no-show fee).</span>
                 </div>
               )}
               {selectedApt.payment_status === "captured" && (
@@ -1371,7 +1371,7 @@ export default function AppointmentsPage() {
                 </button>
               )}
               {selectedApt.payment_status === "refunded" && (
-                <p className="text-center text-xs text-[#777]">✓ Refunded</p>
+                <p className="text-center text-xs text-[#8f8f8f]">✓ Refunded</p>
               )}
             </div>
           </div>
@@ -1383,27 +1383,27 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRejectModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Reject Appointment</h2>
-                <button onClick={() => setRejectModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setRejectModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="bg-[#141414] rounded-xl p-3 text-sm text-[#777]">
+              <div className="bg-[#141414] rounded-xl p-3 text-sm text-[#8f8f8f]">
                 <span className="text-white font-medium">{rejectModal.appt.client_name}</span> · {rejectModal.appt.services?.name ?? "Service"} · {shortFriendlyDate(rejectModal.appt.date)} · {rejectModal.appt.time_slot}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#777]">Reason (optional)</label>
+                <label className="text-sm font-medium text-[#8f8f8f]">Reason (optional)</label>
                 <textarea
                   value={rejectModal.reason}
                   onChange={e => setRejectModal(prev => prev ? { ...prev, reason: e.target.value } : null)}
                   rows={3}
                   placeholder="e.g. Barber unavailable, fully booked, shop closed…"
-                  className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
                 />
               </div>
               {rejectModal.appt.client_email && (
-                <p className="text-xs text-[#777] bg-[#141414] rounded-xl px-3 py-2">
-                  A cancellation email will be sent to <span className="text-[#777]">{rejectModal.appt.client_email}</span> with this reason.
+                <p className="text-xs text-[#8f8f8f] bg-[#141414] rounded-xl px-3 py-2">
+                  A cancellation email will be sent to <span className="text-[#8f8f8f]">{rejectModal.appt.client_email}</span> with this reason.
                 </p>
               )}
               <div className="flex gap-3">
@@ -1422,17 +1422,17 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setRefundModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Issue Refund</h2>
-                <button onClick={() => setRefundModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => setRefundModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{refundModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount</span><span className="font-mono font-bold text-emerald-400">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Client</span><span className="text-white">{refundModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Service</span><span className="text-white">{refundModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Amount</span><span className="font-mono font-bold text-emerald-400">${(refundModal.total_amount ?? 0).toFixed(2)}</span></div>
               </div>
-              <p className="text-sm text-[#777]">
+              <p className="text-sm text-[#8f8f8f]">
                 This refunds <span className="font-mono font-semibold text-emerald-400">${(refundModal.total_amount ?? 0).toFixed(2)}</span> to {refundModal.client_name} via Stripe and emails them a confirmation. <span className="text-red-400">This cannot be undone.</span>
               </p>
               <div className="flex gap-3">
@@ -1453,15 +1453,15 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => !savingNoShow && setNoShowModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">{noShowModal.mode === "mark" ? "Mark No-Show & Charge?" : "Charge No-Show Fee?"}</h2>
-                <button onClick={() => !savingNoShow && setNoShowModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => !savingNoShow && setNoShowModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-[#141414] rounded-xl p-3 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{noShowModal.appt.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{noShowModal.appt.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">When</span><span className="text-white">{prettyDate(noShowModal.appt.date)} · {noShowModal.appt.time_slot}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Client</span><span className="text-white">{noShowModal.appt.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Service</span><span className="text-white">{noShowModal.appt.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">When</span><span className="text-white">{prettyDate(noShowModal.appt.date)} · {noShowModal.appt.time_slot}</span></div>
               </div>
               {(() => {
                 const max = noShowMaxFor(noShowModal.appt);
@@ -1469,17 +1469,17 @@ export default function AppointmentsPage() {
                 return (
                   <>
                     <div>
-                      <label className="text-xs text-[#777]">No-show charge ($) — max {formatCurrency(max)} ({NO_SHOW_MAX_PCT}% of {formatCurrency(noShowModal.appt.total_amount ?? 0)})</label>
+                      <label className="text-xs text-[#8f8f8f]">No-show charge ($) — max {formatCurrency(max)} ({NO_SHOW_MAX_PCT}% of {formatCurrency(noShowModal.appt.total_amount ?? 0)})</label>
                       <input
                         type="number" min={0} max={max} step="0.01" inputMode="decimal"
                         value={noShowAmt}
                         onChange={e => setNoShowAmt(e.target.value)}
                         onBlur={() => setNoShowAmt(String(Math.min(Math.max(Number(noShowAmt) || 0, 0), max)))}
-                        className="w-full mt-1 bg-[#141414] border border-[#1e1e1e] rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-amber-500"
                       />
-                      <p className="text-[11px] text-[#777] mt-1">Defaults to your set fee. Lower it, or set $0 to mark the no-show without charging.</p>
+                      <p className="text-[11px] text-[#8f8f8f] mt-1">Defaults to your set fee. Lower it, or set $0 to mark the no-show without charging.</p>
                     </div>
-                    <p className="text-sm text-[#777]">
+                    <p className="text-sm text-[#8f8f8f]">
                       {entered > 0
                         ? <>⚠️ This charges <span className="text-white">{noShowModal.appt.client_name}</span>&apos;s card on file <span className="font-mono font-semibold text-amber-400">{formatCurrency(entered)}</span>{noShowModal.mode === "mark" ? " and marks the appointment a no-show." : "."} They&apos;ll be emailed a receipt.</>
                         : <>This marks the appointment a no-show and <span className="text-white">releases the hold — no charge.</span></>}
@@ -1504,23 +1504,23 @@ export default function AppointmentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => savingPayment === "" && setPaymentModal(null)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-black border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Check out</h2>
-                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#777] hover:text-white text-xl leading-none">✕</button>
+                <button onClick={() => savingPayment === "" && setPaymentModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
               <div className="bg-[#141414] rounded-xl p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-[#777]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-[#777]">Amount due</span><span className="font-mono font-bold text-emerald-400">{formatCurrency(paymentModal.total_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Client</span><span className="text-white">{paymentModal.client_name}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Service</span><span className="text-white">{paymentModal.services?.name ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-[#8f8f8f]">Amount due</span><span className="font-mono font-bold text-emerald-400">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
               {payLink ? (
                 /* Link generated without an email — show it to copy / open. */
                 <div className="space-y-3">
                   <p className="text-sm text-white font-medium">Payment link ready</p>
-                  <p className="text-xs text-[#777]">Send this to the customer to pay. They&apos;ll enter their email on the secure Stripe page.</p>
-                  <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
+                  <p className="text-xs text-[#8f8f8f]">Send this to the customer to pay. They&apos;ll enter their email on the secure Stripe page.</p>
+                  <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" className="btn btn-primary w-full"
                       onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
@@ -1549,7 +1549,7 @@ export default function AppointmentsPage() {
                       value={payEmail}
                       onChange={e => setPayEmail(e.target.value)}
                       placeholder="Email (optional — to send the link)"
-                      className="w-full bg-[#141414] border border-[#1e1e1e] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-white"
+                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white"
                     />
                     <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== ""}
                       onClick={() => sendPaymentLink(true)}>
@@ -1566,7 +1566,7 @@ export default function AppointmentsPage() {
                     </button>
                   </div>
 
-                  <p className="text-xs text-[#777] text-center">
+                  <p className="text-xs text-[#8f8f8f] text-center">
                     Cash and online links can be reconciled later from the appointment&apos;s payment badge.
                   </p>
                 </>
@@ -1583,14 +1583,14 @@ export default function AppointmentsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 [&>*]:my-auto">
             <div ref={addSheetRef}
               style={{ transform: addDrag.dragY ? `translate3d(0,${addDrag.dragY}px,0)` : undefined, transition: addDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-              className="bg-black shadow-sm border border-[#1e1e1e] rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[88vh] overflow-y-auto overscroll-contain">
+              className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[88vh] overflow-y-auto overscroll-contain">
               {/* Grab handle (mobile) — pull down to dismiss */}
               <div onClick={() => setShowAddModal(false)} className="sm:hidden flex justify-center -mt-2 -mb-1 cursor-grab active:cursor-grabbing">
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Add Appointment</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-[#777] hover:text-white">✕</button>
+                <button onClick={() => setShowAddModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
               </div>
               <Input label="Client Name *" value={addForm.client_name} onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone} onChange={e => setAddForm(p => ({ ...p, client_phone: formatPhone(e.target.value) }))} placeholder="506-555-0000" />
@@ -1614,7 +1614,7 @@ export default function AppointmentsPage() {
                 <option value="monthly3">Every 4 weeks — 3 visits</option>
               </Select>
               {addForm.repeat !== "none" && (
-                <p className="text-xs text-[#777] -mt-1">
+                <p className="text-xs text-[#8f8f8f] -mt-1">
                   Creates the same booking on each date at {addForm.time_slot}.
                 </p>
               )}

@@ -118,7 +118,7 @@ export default function MyStatsPage() {
 
   if (!profile || !shop) {
     return (
-      <div className="p-8 text-center text-[#777]">
+      <div className="p-8 text-center text-[#8f8f8f]">
         <p>No shop linked to your account.</p>
       </div>
     );
@@ -130,16 +130,16 @@ export default function MyStatsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">My Stats</h1>
-          <p className="text-sm text-[#777] mt-0.5">{profile.name} · {shop.name}</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">{profile.name} · {shop.name}</p>
         </div>
-        <div className="flex gap-1 p-1 bg-[#141414] border border-[#1e1e1e] rounded-xl">
+        <div className="flex gap-1 p-1 bg-[#141414] border border-[#2a2a2a] rounded-xl">
           {(["week", "month", "all"] as Period[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                period === p ? "bg-gold text-black" : "text-[#777] hover:text-white"
+                period === p ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white"
               )}
             >
               {p === "week" ? "Week" : p === "month" ? "Month" : "All"}
@@ -165,9 +165,9 @@ export default function MyStatsPage() {
               <CardContent>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-[#777] uppercase tracking-wider font-medium">{stat.label}</p>
+                    <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">{stat.label}</p>
                     <p className="text-2xl font-bold text-white mt-1">{loading ? "—" : stat.value}</p>
-                    <p className="text-xs text-[#777] mt-0.5">{stat.sub}</p>
+                    <p className="text-xs text-[#8f8f8f] mt-0.5">{stat.sub}</p>
                   </div>
                   <div className={cn("p-2.5 rounded-xl", colorMap[stat.color])}>
                     <Icon size={18} />
@@ -189,21 +189,21 @@ export default function MyStatsPage() {
           </CardHeader>
           <CardContent>
             {todayAppts.length === 0 ? (
-              <div className="py-8 text-center text-[#777]">
+              <div className="py-8 text-center text-[#8f8f8f]">
                 <Calendar size={28} className="mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No appointments today</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {todayAppts.map(a => (
-                  <div key={a.id} className="flex items-center gap-3 p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div key={a.id} className="flex items-center gap-3 p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                     <div className="text-center w-12 flex-shrink-0">
                       <p className="text-xs text-white font-semibold">{a.time_slot.split(" ")[0]}</p>
-                      <p className="text-xs text-[#777]">{a.time_slot.split(" ")[1]}</p>
+                      <p className="text-xs text-[#8f8f8f]">{a.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{a.client_name}</p>
-                      <p className="text-xs text-[#777]">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
+                      <p className="text-xs text-[#8f8f8f]">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
                     </div>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full", a.status === "confirmed" ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400")}>
                       {a.status}
@@ -223,7 +223,7 @@ export default function MyStatsPage() {
           </CardHeader>
           <CardContent>
             {topServices.length === 0 ? (
-              <div className="py-8 text-center text-[#777]">
+              <div className="py-8 text-center text-[#8f8f8f]">
                 <p className="text-sm">No completed services yet</p>
               </div>
             ) : (
@@ -242,7 +242,7 @@ export default function MyStatsPage() {
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-[#777] flex-shrink-0">{formatCurrency(svc.revenue)}</p>
+                    <p className="text-xs text-[#8f8f8f] flex-shrink-0">{formatCurrency(svc.revenue)}</p>
                   </div>
                 ))}
               </div>
@@ -260,15 +260,15 @@ export default function MyStatsPage() {
             <CardContent>
               <div className="grid sm:grid-cols-2 gap-3">
                 {reviews.slice(0, 4).map((rev, i) => (
-                  <div key={i} className="p-4 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div key={i} className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-white">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
-                      <span className="text-xs text-[#777]">{rev.client_name}</span>
+                      <span className="text-xs text-[#8f8f8f]">{rev.client_name}</span>
                     </div>
                     {rev.comment && (
-                      <p className="text-xs text-[#777] leading-relaxed line-clamp-2">{rev.comment}</p>
+                      <p className="text-xs text-[#8f8f8f] leading-relaxed line-clamp-2">{rev.comment}</p>
                     )}
-                    <p className="text-xs text-[#777] mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
+                    <p className="text-xs text-[#8f8f8f] mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
                   </div>
                 ))}
               </div>
@@ -286,20 +286,20 @@ export default function MyStatsPage() {
             <CardContent>
               <div className="space-y-2">
                 {upcoming.slice(0, 8).map(a => (
-                  <div key={a.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#1e1e1e]">
+                  <div key={a.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
                     <div className="flex items-center gap-3">
                       <div className="text-center w-16">
                         <p className="text-xs font-semibold text-white">{a.date.slice(5)}</p>
-                        <p className="text-xs text-[#777]">{a.time_slot}</p>
+                        <p className="text-xs text-[#8f8f8f]">{a.time_slot}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">{a.client_name}</p>
-                        <p className="text-xs text-[#777]">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
+                        <p className="text-xs text-[#8f8f8f]">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
-                      <p className="text-xs text-[#777] capitalize">{a.status}</p>
+                      <p className="text-xs text-[#8f8f8f] capitalize">{a.status}</p>
                     </div>
                   </div>
                 ))}

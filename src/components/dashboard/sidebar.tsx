@@ -383,7 +383,7 @@ export function Sidebar() {
                   lets you pull it down to dismiss); on tablets it centres as a modal. */}
               <div
                 ref={notifSheetRef}
-                className="bg-[#0c0c0c] border-t sm:border border-[#1e1e1e] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
+                className="bg-[#0c0c0c] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
@@ -414,7 +414,7 @@ export function Sidebar() {
                         // Inline actions only when we have a linked appointment (phase16).
                         const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
                         const acting = notifActing === n.id;
-                        const cls = cn("block rounded-xl border border-[#1e1e1e] border-l-[3px] mb-2 px-3 py-3 transition-colors",
+                        const cls = cn("block rounded-xl border border-[#2a2a2a] border-l-[3px] mb-2 px-3 py-3 transition-colors",
                           n.is_read ? "bg-[#0e0e0e]" : "bg-white/[0.04]");
                         const body = (
                           <div className="flex gap-3">
@@ -441,11 +441,11 @@ export function Sidebar() {
                                       <X size={13} /> Decline
                                     </button>
                                   </div>
-                                  <span className="block text-[11px] text-[#777] mt-1.5">{timeAgo(n.created_at)}</span>
+                                  <span className="block text-[11px] text-[#8f8f8f] mt-1.5">{timeAgo(n.created_at)}</span>
                                 </>
                               ) : (
                                 <div className="flex items-center justify-between mt-1.5">
-                                  <span className="text-[11px] text-[#777]">{timeAgo(n.created_at)}</span>
+                                  <span className="text-[11px] text-[#8f8f8f]">{timeAgo(n.created_at)}</span>
                                   {c.actionable && (
                                     <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">
                                       Review <ChevronRight size={12} />
@@ -467,7 +467,7 @@ export function Sidebar() {
                           </Link>
                         );
                       };
-                      const section = (label: string, items: typeof recentNotifs, labelCls = "text-[#777]") =>
+                      const section = (label: string, items: typeof recentNotifs, labelCls = "text-[#8f8f8f]") =>
                         items.length > 0 ? (
                           <div className="mb-1" key={label}>
                             <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1 pt-2 pb-1.5", labelCls)}>{label}</p>
@@ -492,7 +492,7 @@ export function Sidebar() {
 
       {/* Confirmation toast for inline Approve/Decline (sits above the sheet). */}
       {notifToast && (
-        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl whitespace-nowrap">
+        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl whitespace-nowrap">
           {notifToast}
         </div>
       )}
@@ -510,7 +510,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-[#0c0c0c] border-r border-[#1e1e1e] transition-transform duration-200 lg:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-[#0c0c0c] border-r border-[#2a2a2a] transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -518,7 +518,7 @@ export function Sidebar() {
           wordmark doesn't float with dead space on both sides. cw-grad is on the
           wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#1e1e1e] flex items-center justify-start gap-2.5 pl-6"
+        className="cw-logo-fade whitespace-nowrap border-b border-[#2a2a2a] flex items-center justify-start gap-2.5 pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
@@ -556,9 +556,9 @@ export function Sidebar() {
           return visibleSections.map((section, sectionIdx) => (
             <div
               key={section.label}
-              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-[#1e1e1e]")}
+              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-[#2a2a2a]")}
             >
-              <p className="text-[10px] uppercase tracking-wider text-[#777] font-semibold px-3 mb-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-[#8f8f8f] font-semibold px-3 mb-1.5">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -573,10 +573,10 @@ export function Sidebar() {
                         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isActive
                           ? "bg-white text-black border border-white"
-                          : "text-[#777] hover:text-white hover:bg-[#141414]"
+                          : "text-[#8f8f8f] hover:text-white hover:bg-[#141414]"
                       )}
                     >
-                      <Icon size={18} className={cn(isActive ? "text-black" : "text-[#777] group-hover:text-white")} />
+                      <Icon size={18} className={cn(isActive ? "text-black" : "text-[#8f8f8f] group-hover:text-white")} />
                       <span className="flex-1">{item.label}</span>
                       {item.badge && unreadCount > 0 && (
                         <span className={cn(
@@ -598,8 +598,8 @@ export function Sidebar() {
         {/* Owner-also-barber: prominent switch to barber view */}
         {isAlsoBarber && (
           <Link href="/barber-dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#777] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#1e1e1e]">
-            <Scissors size={18} className="text-[#777] group-hover:text-white" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#8f8f8f] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#2a2a2a]">
+            <Scissors size={18} className="text-[#8f8f8f] group-hover:text-white" />
             <span className="flex-1">My Barber View</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -607,16 +607,16 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#1e1e1e]">
+      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#2a2a2a]">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
             <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-[#777] truncate capitalize">{profile?.role ?? "owner"}</p>
+            <p className="text-xs text-[#8f8f8f] truncate capitalize">{profile?.role ?? "owner"}</p>
           </div>
-          <button onClick={signOut} className="text-[#777] hover:text-red-500 transition-colors">
+          <button onClick={signOut} className="text-[#8f8f8f] hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

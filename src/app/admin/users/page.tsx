@@ -26,7 +26,7 @@ function RoleBadge({ role }: { role: UserRole }) {
     super_admin: "text-gold bg-gold/15 border-gold/30",
     shop_owner: "text-blue-400 bg-blue-500/15 border-blue-500/30",
     barber: "text-purple-400 bg-purple-500/15 border-purple-500/30",
-    customer: "text-[#777] bg-gray-500/15 border-gray-500/30",
+    customer: "text-[#8f8f8f] bg-gray-500/15 border-gray-500/30",
   };
   const labels: Record<UserRole, string> = {
     super_admin: "Super Admin",
@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Users</h1>
-        <p className="text-sm text-[#777] mt-0.5">All registered users on the platform</p>
+        <p className="text-sm text-[#8f8f8f] mt-0.5">All registered users on the platform</p>
       </div>
 
       {/* Stats row */}
@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
             return (
               <div key={r} className="bg-surface border border-border rounded-xl px-4 py-3 text-center min-w-[80px]">
                 <p className="text-xl font-bold text-white">{count}</p>
-                <p className="text-xs text-[#777] capitalize">{roleLabels[r]}</p>
+                <p className="text-xs text-[#8f8f8f] capitalize">{roleLabels[r]}</p>
               </div>
             );
           })}
@@ -103,20 +103,20 @@ export default function AdminUsersPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:border-gold/50"
+            className="w-full bg-surface-raised border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50"
           />
-          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777] hover:text-white"><X size={14} /></button>}
+          {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white"><X size={14} /></button>}
         </div>
         <div className="flex gap-2 flex-wrap">
           {ROLES.map(r => (
             <button key={r} onClick={() => setRoleFilter(r)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border",
-                roleFilter === r ? "bg-gold text-black border-gold" : "border-border text-[#777] hover:text-white hover:border-gray-500")}>
+                roleFilter === r ? "bg-gold text-black border-gold" : "border-border text-[#8f8f8f] hover:text-white hover:border-gray-500")}>
               {roleLabels[r]}
             </button>
           ))}
@@ -129,10 +129,10 @@ export default function AdminUsersPage() {
         <Card>
           <div className="py-20 text-center space-y-3">
             <div className="w-16 h-16 bg-surface-raised rounded-2xl flex items-center justify-center mx-auto">
-              <Users size={28} className="text-[#777]" />
+              <Users size={28} className="text-[#8f8f8f]" />
             </div>
             <p className="font-semibold text-white">No users found</p>
-            <p className="text-sm text-[#777]">
+            <p className="text-sm text-[#8f8f8f]">
               {search || roleFilter !== "all" ? "Try a different search or filter." : "No users have signed up yet."}
             </p>
             {(search || roleFilter !== "all") && (
@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
                 <thead>
                   <tr className="border-b border-border">
                     {["Name", "Email", "Role", "Shop", "Phone", "Joined"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2 whitespace-nowrap">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -158,17 +158,17 @@ export default function AdminUsersPage() {
                       <td className="px-3 py-3 text-sm font-medium text-white">{u.name || "—"}</td>
                       <td className="px-3 py-3 text-sm text-gray-300">{u.email}</td>
                       <td className="px-3 py-3"><RoleBadge role={u.role} /></td>
-                      <td className="px-3 py-3 text-sm text-[#777]">
+                      <td className="px-3 py-3 text-sm text-[#8f8f8f]">
                         {Array.isArray(u.shops) && u.shops.length > 0 ? u.shops[0].name : "—"}
                       </td>
-                      <td className="px-3 py-3 text-sm text-[#777]">{u.phone || "—"}</td>
-                      <td className="px-3 py-3 text-xs text-[#777] whitespace-nowrap">{u.created_at?.slice(0, 10) ?? "—"}</td>
+                      <td className="px-3 py-3 text-sm text-[#8f8f8f]">{u.phone || "—"}</td>
+                      <td className="px-3 py-3 text-xs text-[#8f8f8f] whitespace-nowrap">{u.created_at?.slice(0, 10) ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-[#777] mt-3 px-3">Showing {filtered.length} of {users.length} users</p>
+            <p className="text-xs text-[#8f8f8f] mt-3 px-3">Showing {filtered.length} of {users.length} users</p>
           </CardContent>
         </Card>
       )}

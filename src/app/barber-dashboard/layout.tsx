@@ -33,7 +33,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">✂️</div>
           <h2 className="text-xl font-bold text-white mb-2">Account not linked</h2>
-          <p className="text-[#777] text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
+          <p className="text-[#8f8f8f] text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
         </div>
       </div>
     );
@@ -47,7 +47,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
             <span className="text-2xl">🔒</span>
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Account suspended</h2>
-          <p className="text-[#777] text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
+          <p className="text-[#8f8f8f] text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
         </div>
       </div>
     );

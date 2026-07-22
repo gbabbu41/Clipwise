@@ -33,7 +33,7 @@ export function TimePicker({ label, value, onChange, stepMinutes = 30, minTime, 
     <div className={cn("space-y-1.5", className)}>
       {label && <label className="text-sm font-medium text-gray-300">{label}</label>}
       <div className="relative">
-        <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777] pointer-events-none" />
+        <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] pointer-events-none" />
         <select
           value={value}
           onChange={onSelect}

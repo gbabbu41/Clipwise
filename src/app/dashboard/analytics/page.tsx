@@ -24,9 +24,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#1e1e1e] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
       <span className="text-white">↓</span>{message}
-      <button onClick={onClose} className="text-[#777] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
     </div>
   );
 }
@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">📊</p>
         <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-[#777]">Analytics will appear here once your shop is active.</p>
+        <p className="text-sm text-[#8f8f8f]">Analytics will appear here once your shop is active.</p>
       </div>
     );
   }
@@ -230,7 +230,7 @@ export default function AnalyticsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Analytics</h1>
-          <p className="text-sm text-[#777] mt-0.5">Business performance overview</p>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Business performance overview</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => {
           const rows = [
@@ -255,16 +255,16 @@ export default function AnalyticsPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3">
-        <div className="flex rounded-xl border border-[#1e1e1e] overflow-hidden">
+        <div className="flex rounded-xl border border-[#2a2a2a] overflow-hidden">
           {[["today","Today"],["week","This Week"],["month","This Month"],["last","Last Month"]].map(([v,l]) => (
             <button key={v} onClick={() => setPeriod(v)}
-              className={cn("px-3 py-2 text-xs font-medium transition-colors", period === v ? "bg-gold text-black" : "text-[#777] hover:text-white bg-[#141414]")}>
+              className={cn("px-3 py-2 text-xs font-medium transition-colors", period === v ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
               {l}
             </button>
           ))}
         </div>
         <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-          className="rounded-xl border border-[#1e1e1e] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
+          className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/20">
           <option value="all">All Barbers</option>
           {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
@@ -279,9 +279,9 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map(k => (
             <Card key={k.label} className="py-4 px-5">
-              <p className="text-xs text-[#777]">{k.label}</p>
+              <p className="text-xs text-[#8f8f8f]">{k.label}</p>
               <p className={cn("text-2xl font-bold mt-1", k.color)}>{k.value}</p>
-              <p className="text-xs text-[#777] mt-1">{k.sub}</p>
+              <p className="text-xs text-[#8f8f8f] mt-1">{k.sub}</p>
             </Card>
           ))}
         </div>
@@ -309,7 +309,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-3xl mb-3">📊</p>
-            <p className="text-[#777] text-sm">No data yet for this period. Complete appointments or process POS transactions to see analytics.</p>
+            <p className="text-[#8f8f8f] text-sm">No data yet for this period. Complete appointments or process POS transactions to see analytics.</p>
           </CardContent>
         </Card>
       )}
@@ -368,8 +368,8 @@ export default function AnalyticsPage() {
                     {apptStatuses.map(s => (
                       <div key={s.name} className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                        <span className="text-xs text-[#777]">{s.name}</span>
-                        <span className="text-xs text-[#777] ml-auto">{s.value}%</span>
+                        <span className="text-xs text-[#8f8f8f]">{s.name}</span>
+                        <span className="text-xs text-[#8f8f8f] ml-auto">{s.value}%</span>
                       </div>
                     ))}
                   </div>
@@ -405,9 +405,9 @@ export default function AnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#1e1e1e]">
+                  <tr className="border-b border-[#2a2a2a]">
                     {["Barber", "Appointments", "Completed", "No-Shows", "Revenue", "Avg Ticket", "Completion Rate"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-[#777] px-3 py-2">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -420,7 +420,7 @@ export default function AnalyticsPage() {
                     const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (
-                      <tr key={b.id} className="border-b border-[#1e1e1e]/50 hover:bg-[#141414]/20">
+                      <tr key={b.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/20">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-white text-xs font-bold overflow-hidden">
@@ -433,13 +433,13 @@ export default function AnalyticsPage() {
                         <td className="px-3 py-3 text-sm text-emerald-400">{bCompleted.length}</td>
                         <td className="px-3 py-3 text-sm text-orange-400">{bNoShows}</td>
                         <td className="px-3 py-3 text-sm text-white font-semibold">{formatCurrency(bRevenue)}</td>
-                        <td className="px-3 py-3 text-sm text-[#777]">{formatCurrency(bAvg)}</td>
+                        <td className="px-3 py-3 text-sm text-[#8f8f8f]">{formatCurrency(bAvg)}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-[#141414] rounded-full overflow-hidden">
                               <div className="h-full bg-gold rounded-full" style={{ width: `${completionRate}%` }} />
                             </div>
-                            <span className="text-xs text-[#777]">{completionRate}%</span>
+                            <span className="text-xs text-[#8f8f8f]">{completionRate}%</span>
                           </div>
                         </td>
                       </tr>

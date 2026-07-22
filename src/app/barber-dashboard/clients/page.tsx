@@ -63,18 +63,18 @@ export default function BarberClientsPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">My Clients</h1>
-        <p className="text-[#777] text-sm mt-0.5">Everyone you've worked with at {barber ? "" : "the shop"}</p>
+        <p className="text-[#8f8f8f] text-sm mt-0.5">Everyone you've worked with at {barber ? "" : "the shop"}</p>
       </div>
 
       {/* Search */}
       <div className="relative mb-6">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
         <input
           type="text"
           placeholder="Search by name or phone..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full bg-surface border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-gold/50"
+          className="w-full bg-surface border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50"
         />
       </div>
 
@@ -84,9 +84,9 @@ export default function BarberClientsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-surface border border-border rounded-2xl p-10 text-center">
-          <Users size={40} className="text-[#777] mx-auto mb-3" />
-          <p className="text-[#777]">{query ? "No clients match your search" : "No clients yet"}</p>
-          <p className="text-xs text-[#777] mt-1">{query ? "" : "Clients will appear here after appointments"}</p>
+          <Users size={40} className="text-[#8f8f8f] mx-auto mb-3" />
+          <p className="text-[#8f8f8f]">{query ? "No clients match your search" : "No clients yet"}</p>
+          <p className="text-xs text-[#8f8f8f] mt-1">{query ? "" : "Clients will appear here after appointments"}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -99,12 +99,12 @@ export default function BarberClientsPage() {
                 <p className="font-medium text-white">{client.client_name}</p>
                 <div className="flex items-center gap-3 mt-0.5">
                   {client.client_phone && (
-                    <span className="flex items-center gap-1 text-xs text-[#777]">
+                    <span className="flex items-center gap-1 text-xs text-[#8f8f8f]">
                       <Phone size={11} />
                       {client.client_phone}
                     </span>
                   )}
-                  <span className="flex items-center gap-1 text-xs text-[#777]">
+                  <span className="flex items-center gap-1 text-xs text-[#8f8f8f]">
                     <Calendar size={11} />
                     Last: {client.last_date}
                   </span>
@@ -112,11 +112,11 @@ export default function BarberClientsPage() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-white">{client.visits} visit{client.visits !== 1 ? "s" : ""}</p>
-                <p className="text-xs text-[#777]">{client.last_service}</p>
+                <p className="text-xs text-[#8f8f8f]">{client.last_service}</p>
               </div>
               <div className="text-right min-w-[60px]">
                 <p className="text-sm font-medium text-gold">${client.total_spent.toFixed(0)}</p>
-                <p className="text-xs text-[#777]">total</p>
+                <p className="text-xs text-[#8f8f8f]">total</p>
               </div>
             </div>
           ))}

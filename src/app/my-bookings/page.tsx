@@ -28,7 +28,7 @@ export default function MyBookingsPage() {
             <Calendar size={14} /> My Bookings
           </div>
           <h1 className="text-2xl font-bold text-white mb-3">Manage Your Appointment</h1>
-          <p className="text-[#777] text-sm">
+          <p className="text-[#8f8f8f] text-sm">
             Every booking confirmation includes a secure link to view, reschedule,
             or cancel that appointment — no sign-in needed.
           </p>
@@ -41,7 +41,7 @@ export default function MyBookingsPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Check your email</p>
-              <p className="text-xs text-[#777] mt-0.5">
+              <p className="text-xs text-[#8f8f8f] mt-0.5">
                 Open your booking confirmation and tap <span className="text-gray-300">&ldquo;View / Manage Booking&rdquo;</span> to make changes.
               </p>
             </div>
@@ -52,7 +52,7 @@ export default function MyBookingsPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Or your text message</p>
-              <p className="text-xs text-[#777] mt-0.5">
+              <p className="text-xs text-[#8f8f8f] mt-0.5">
                 If you booked with a phone number, the same link is in your confirmation SMS.
               </p>
             </div>
@@ -62,7 +62,7 @@ export default function MyBookingsPage() {
         <div className="mt-6 bg-surface/60 border border-border rounded-2xl p-5 text-center">
           <Search size={22} className="mx-auto mb-2 text-[#999]" />
           <p className="text-sm text-white font-medium mb-1">Can&apos;t find your link?</p>
-          <p className="text-xs text-[#777] mb-4">
+          <p className="text-xs text-[#8f8f8f] mb-4">
             Contact the barbershop directly and they can look up or update your appointment for you.
           </p>
           <Link href="/shops">
