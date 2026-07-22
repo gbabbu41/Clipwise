@@ -2279,7 +2279,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   return (
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
-    <div data-no-swipe className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", !embedded && "min-h-[100dvh]")}>
+    <div data-no-swipe className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", embedded && "min-h-[100dvh]")}>
       {/* Page title (owner standalone only) — the universal top header, so the
           calendar's top matches every other page. The date-nav toolbar below
           stays as-is. Grid area (flex-1) absorbs the header height. */}

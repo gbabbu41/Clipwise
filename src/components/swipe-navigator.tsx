@@ -57,8 +57,8 @@ export function SwipeNavigator({
   }, [pathname]);
 
   return (
-    <div className="cw-swipe-clip overflow-x-clip">
-      <div ref={ref} className="cw-swipe-root">
+    <div className="cw-swipe-clip overflow-x-clip h-full">
+      <div ref={ref} className="cw-swipe-root h-full">
         {children}
       </div>
       <div ref={liveRef} aria-live="polite" role="status" className="sr-only" />
