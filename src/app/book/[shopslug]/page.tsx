@@ -454,7 +454,12 @@ export default function BookingPage() {
   // ── Trigger slot load when date changes ───────────────────────────────────
   useEffect(() => {
     if (!selectedDate) return;
-    if (flow === "time-first") loadTimeFirstSlots(selectedDate);
+    // "No Preference" (selectedBarber === "any") has no single barber, so load
+    // the merged all-barbers grid instead — loadBarberFirstSlots would query a
+    // barber literally named "any", get zero slots for EVERY day, and the
+    // auto-advance effect below would then hop through ~20 empty days looking
+    // for an opening (the glitch), leaving the customer unable to book.
+    if (flow === "time-first" || selectedBarber === "any") loadTimeFirstSlots(selectedDate);
     else if (flow === "barber-first" && selectedBarber) loadBarberFirstSlots(selectedBarber, selectedDate);
   }, [selectedDate, flow, selectedBarber, loadTimeFirstSlots, loadBarberFirstSlots]);
 
