@@ -1427,7 +1427,7 @@ export default function BookingPage() {
                       <Badge>{svc.category}</Badge>
                       {count > 1 && <span className="text-xs text-white">× {count}</span>}
                     </div>
-                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-0.5">{svc.description}</p>}
+                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-0.5 line-clamp-2">{svc.description}</p>}
                     <p className="text-xs text-[#8f8f8f] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">

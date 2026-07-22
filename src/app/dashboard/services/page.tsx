@@ -254,7 +254,7 @@ export default function ServicesPage() {
                           <p className="text-xs text-[#8f8f8f]">{svc.duration_minutes} min</p>
                         </div>
                       </div>
-                      <p className="text-xs text-[#8f8f8f] mb-2">{svc.description}</p>
+                      <p className="text-xs text-[#8f8f8f] mb-2 line-clamp-2">{svc.description}</p>
                       <div className="flex items-center justify-between">
                         <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
                         <div className="flex gap-2">
@@ -359,7 +359,10 @@ export default function ServicesPage() {
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 <option value="Other">Other</option>
               </Select>
-              <Textarea label="Description" value={newSvc.description} onChange={e => setNewSvc(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Brief description..." />
+              <div>
+                <Textarea label="Description" value={newSvc.description} onChange={e => setNewSvc(p => ({ ...p, description: e.target.value.slice(0, 100) }))} rows={2} maxLength={100} placeholder="Brief description..." />
+                <p className={cn("text-[11px] mt-1 text-right", newSvc.description.length >= 100 ? "text-amber-400" : "text-[#8f8f8f]")}>{newSvc.description.length}/100</p>
+              </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
