@@ -62,8 +62,8 @@ const PLAN_INFO: PlanInfo[] = [
   },
 ];
 
-type NewLocation = { name: string; address: string; city: string; province: string; phone: string; email: string };
-const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "", email: "" };
+type NewLocation = { name: string; address: string; city: string; province: string; phone: string };
+const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "" };
 
 export default function SettingsPage() {
   const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
@@ -270,30 +270,31 @@ export default function SettingsPage() {
   };
 
   const addLocation = async () => {
-    if (!newLocation.name.trim() || !authProfile) return;
+    if (!newLocation.name.trim() || !accessToken) return;
     if (!canMultiLocation) { showToast("Multiple locations are available on the Premium plan."); setShowAddLocation(false); return; }
     setAddingLocation(true);
-    const slug = newLocation.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
-    const { error } = await supabase.from("shops").insert({
-      owner_id: authProfile.id,
-      name: newLocation.name.trim(),
-      address: newLocation.address,
-      city: newLocation.city,
-      province: newLocation.province,
-      phone: newLocation.phone,
-      email: newLocation.email,
-      slug,
-      subscription_plan: shop?.subscription_plan ?? "starter",
-      is_active: true,
-      status: "pending",
-      postal_code: "",
+    // Trusted server route: auto-approves for a paying owner, reuses the owner's
+    // email, shares the one subscription (no second charge), and leaves Stripe
+    // Connect empty so the new location gets its own account.
+    const res = await fetch("/api/shops/add-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        name: newLocation.name.trim(),
+        address: newLocation.address,
+        city: newLocation.city,
+        province: newLocation.province,
+        phone: newLocation.phone,
+      }),
     });
+    const data = await res.json().catch(() => ({}));
     setAddingLocation(false);
-    if (error) { showToast("Failed to add location: " + error.message); return; }
-    showToast("New location added! Awaiting approval.");
+    if (!res.ok) { showToast(data.error ?? "Failed to add location."); return; }
+    showToast("Location added! Connect its Stripe next to take payments.");
     setShowAddLocation(false);
     setNewLocation(BLANK_LOCATION);
     await refreshShop();
+    if (data.shop) setActiveShop(data.shop); // jump straight into the new location
   };
 
   const TABS = ["profile","account","booking","notifications","subscription","locations","danger"];
@@ -761,7 +762,7 @@ export default function SettingsPage() {
                     <h2 className="text-lg font-bold text-white">Add New Location</h2>
                     <button onClick={() => setShowAddLocation(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
                   </div>
-                  <p className="text-sm text-[#8f8f8f]">New locations go through our approval process (usually under 24 hours).</p>
+                  <p className="text-sm text-[#8f8f8f]">This location is added instantly on your current plan — no extra charge. It uses your account email, and you&apos;ll connect its own Stripe (same bank is fine) so its payments stay separate.</p>
                   <Input label="Shop Name" placeholder="Fresh Cutz — Downtown" value={newLocation.name} onChange={e => setNewLocation(p => ({ ...p, name: e.target.value }))} />
                   <Input label="Address" placeholder="123 Main St" value={newLocation.address} onChange={e => setNewLocation(p => ({ ...p, address: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">
@@ -769,7 +770,6 @@ export default function SettingsPage() {
                     <Input label="Province" placeholder="NB" value={newLocation.province} onChange={e => setNewLocation(p => ({ ...p, province: e.target.value }))} />
                   </div>
                   <Input label="Phone" value={newLocation.phone} onChange={e => setNewLocation(p => ({ ...p, phone: e.target.value }))} />
-                  <Input label="Email" value={newLocation.email} onChange={e => setNewLocation(p => ({ ...p, email: e.target.value }))} />
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowAddLocation(false)}>Cancel</Button>
                     <Button className="flex-1" loading={addingLocation} onClick={addLocation}>Add Location</Button>

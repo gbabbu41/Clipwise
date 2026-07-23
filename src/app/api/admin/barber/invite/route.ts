@@ -13,20 +13,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Get caller's shop
-  const { data: shop } = await supabaseAdmin
-    .from("shops")
-    .select("id, name, email")
-    .eq("owner_id", user.id)
-    .single();
-
-  if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
-
-  const { name, email: rawEmail, commission_percent = 50, skip_invite = false } = await request.json() as {
-    name: string; email: string; commission_percent?: number; skip_invite?: boolean;
+  const { name, email: rawEmail, commission_percent = 50, skip_invite = false, shop_id } = await request.json() as {
+    name: string; email: string; commission_percent?: number; skip_invite?: boolean; shop_id?: string;
   };
 
   if (!name || !rawEmail) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+
+  // Resolve the target location (multi-location aware). Always owner-scoped, so a
+  // shop_id the caller doesn't own resolves to nothing → 404. With no shop_id we
+  // fall back to the owner's first shop. (Previously `.single()` here threw for
+  // any owner with more than one shop — the multi-location bug.)
+  let shopQuery = supabaseAdmin.from("shops").select("id, name, email").eq("owner_id", user.id);
+  if (shop_id) shopQuery = shopQuery.eq("id", shop_id);
+  const { data: shopRows } = await shopQuery.order("created_at", { ascending: true }).limit(1);
+  const shop = shopRows?.[0];
+  if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
   // Normalize email to match how Supabase auth stores it (lowercase + trimmed)
   const email = rawEmail.trim().toLowerCase();

@@ -32,6 +32,11 @@ const AuthContext = createContext<AuthContextType>({
   setActiveShop: () => {},
 });
 
+// Remember which location a multi-shop owner last selected, so switching sticks
+// across reloads instead of snapping back to the newest shop (which used to
+// bounce owners to /dashboard/pending when the newest shop was awaiting review).
+const ACTIVE_SHOP_KEY = "cw_active_shop";
+
 async function fetchProfileAndShop(accessToken: string): Promise<{ profile: UserProfile | null; shop: Shop | null; shops: Shop[] }> {
   const res = await fetch("/api/profile", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveShop = useCallback((s: Shop) => {
     setShop(s);
+    try { localStorage.setItem(ACTIVE_SHOP_KEY, s.id); } catch { /* storage unavailable */ }
   }, []);
 
   const refreshShop = useCallback(async () => {
@@ -93,7 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!mounted) return;
           setProfile(p);
           setShops(all);
-          setShop(s);
+          // Restore the owner's last-selected location if it still exists,
+          // otherwise fall back to the server default (newest shop).
+          let active = s;
+          try {
+            const savedId = localStorage.getItem(ACTIVE_SHOP_KEY);
+            if (savedId) { const found = all.find(x => x.id === savedId); if (found) active = found; }
+          } catch { /* storage unavailable */ }
+          setShop(active);
         } else {
           setProfile(null);
           setShop(null);
@@ -136,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setShop(null);
     setShops([]);
     setAccessToken(null);
+    try { localStorage.removeItem(ACTIVE_SHOP_KEY); } catch { /* storage unavailable */ }
   };
 
   return (

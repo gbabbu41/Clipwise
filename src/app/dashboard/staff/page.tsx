@@ -332,6 +332,7 @@ export default function StaffPage() {
         email: addForm.email.trim(),
         commission_percent: parseInt(addForm.commission_percent) || 50,
         skip_invite: skipInvite,
+        shop_id: shop.id,
       }),
     });
     const data = await res.json();
@@ -393,7 +394,7 @@ export default function StaffPage() {
     const res = await fetch("/api/admin/barber/invite", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 50 }),
+      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 50, shop_id: shop.id }),
     });
     const data = await res.json();
     setSavingAdd(false);

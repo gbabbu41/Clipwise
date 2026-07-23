@@ -269,3 +269,49 @@ imports. Title is now just **"Services"**. Inventory lives solely on
 (`feature: "inventory"`), but the old Services-page tab was **not** — so shops
 on a plan without the inventory feature lose the tab bypass and now see stock
 only if their plan includes it (the intended gating).
+
+---
+
+## Multi-location: fix "add second location" (auto-approve, own Stripe, one sub)
+
+**Bug:** adding a 2nd location (Settings → Locations) went to admin approval and
+asked for a new email. Root cause: the "Add Location" button did a raw client
+insert (`settings/page.tsx`) — hardcoded `status:'pending'`, force-clamped to
+pending by the phase24/phase31 triggers anyway, and never ran the auto-approve
+logic (which only lived in the service-role `/api/shops/create`). So a paying
+Premium owner's second location could never auto-approve.
+
+**Design decided with owner (Stripe):** each location gets its **own** Stripe
+Connect account (Express — our code mints it via `accounts.create`, no "log in
+to existing" step), so balances/payouts stay fully separate (no cross-location
+leakage). Same bank account is fine across accounts. The **$79 subscription is
+shared** (one charge, all locations). In-app Payments are already per-`shop_id`
+from ClipWise's own DB; only Stripe's live balance widget is account-level,
+which separate accounts keep clean.
+
+**What shipped:**
+- **New service-role route `/api/shops/add-location`** — verifies the owner has
+  an active `multi_location` subscription (hydrates plan config, same check as
+  the client), then inserts the shop `status:'approved'`, `subscription_status:
+  'active'`, reusing the owner's email, **copying the subscription link**
+  (`stripe_subscription_id`/`customer_id`) but **NOT** the Connect account
+  (`stripe_account_id` left null → its own account). Inherits the first shop's
+  booking_settings (with `bookings_paused` reset). Service role → exempt from the
+  pending-clamp triggers, so approved sticks.
+- **Settings Add-Location modal** now calls that route (was a raw insert),
+  **drops the email field** (reuses owner email), updates the copy, and on
+  success jumps the owner into the new location (`setActiveShop`).
+- **Owner active-location now persists** (`auth-context.tsx`, `cw_active_shop` in
+  localStorage) — switching sticks across reloads instead of snapping to the
+  newest shop (which used to bounce owners to `/dashboard/pending`). Cleared on
+  sign-out.
+- **Barber invite is multi-location aware** (`/api/admin/barber/invite`): takes a
+  `shop_id` (owner-scoped for security) instead of `.single()` on the owner's
+  shops (which threw for multi-shop owners). Staff page passes the active
+  `shop.id`. Owner-as-barber (self-add) works per location.
+
+**One-time data cleanup (needs live DB — Supabase MCP was disconnected):** the
+location already created before this fix is stuck `pending` with the wrong email
+and no subscription link. Run the backfill SQL (provided to owner) in the
+Supabase SQL Editor to approve it + attach the shared subscription + fix the
+email. New locations created from now on don't need it.
