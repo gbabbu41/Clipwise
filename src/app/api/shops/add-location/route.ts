@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
-import { planHasFeature, effectivePlan, getLocationLimit } from "@/lib/validation";
+import { planHasFeature, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
 
 // Add ANOTHER location for an existing owner.
 //
@@ -61,9 +61,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Enforce the plan's location cap (Premium = 2). Beyond that is a paid add-on
-  // we don't bill for yet, so block it cleanly rather than giving it away free.
-  const limit = getLocationLimit(paid.subscription_plan ?? undefined);
+  // Enforce the plan's location cap (Premium = 2), never above the absolute
+  // MAX_LOCATIONS ceiling for any subscription. Beyond the included count is a
+  // paid add-on we don't bill for yet, so block it cleanly, not for free.
+  const limit = Math.min(getLocationLimit(paid.subscription_plan ?? undefined), MAX_LOCATIONS);
   if (existingShops.length >= limit) {
     return NextResponse.json(
       { error: `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Contact us to add more.` },
