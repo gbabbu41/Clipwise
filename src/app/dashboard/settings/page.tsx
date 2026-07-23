@@ -99,6 +99,7 @@ export default function SettingsPage() {
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState<NewLocation>(BLANK_LOCATION);
   const [addingLocation, setAddingLocation] = useState(false);
+  const [confirmingAddon, setConfirmingAddon] = useState(false);
 
   const [profile, setProfile] = useState({
     name: "", address: "", city: "", province: "", postal_code: "",
@@ -277,6 +278,9 @@ export default function SettingsPage() {
   const addLocation = async () => {
     if (!newLocation.name.trim() || !accessToken) return;
     if (!canMultiLocation) { showToast("Multiple locations are available on the Premium plan."); setShowAddLocation(false); return; }
+    // A paid add-on (beyond the included 2) needs explicit agreement to the
+    // $30/mo charge — pop a confirmation before we bill anything.
+    if (willCostAddon && !confirmingAddon) { setConfirmingAddon(true); return; }
     setAddingLocation(true);
     // Trusted server route: auto-approves for a paying owner, reuses the owner's
     // email, shares the one subscription (no second charge), and leaves Stripe
@@ -295,7 +299,8 @@ export default function SettingsPage() {
     const data = await res.json().catch(() => ({}));
     setAddingLocation(false);
     if (!res.ok) { showToast(data.error ?? "Failed to add location."); return; }
-    showToast("Location added! Connect its Stripe next to take payments.");
+    showToast(willCostAddon ? "Location added — $30/mo added to your subscription." : "Location added! Connect its Stripe next to take payments.");
+    setConfirmingAddon(false);
     setShowAddLocation(false);
     setNewLocation(BLANK_LOCATION);
     await refreshShop();
@@ -788,7 +793,28 @@ export default function SettingsPage() {
                   <Input label="Phone" value={newLocation.phone} onChange={e => setNewLocation(p => ({ ...p, phone: e.target.value }))} />
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowAddLocation(false)}>Cancel</Button>
-                    <Button className="flex-1" loading={addingLocation} onClick={addLocation}>Add Location</Button>
+                    <Button className="flex-1" loading={addingLocation} onClick={addLocation}>{willCostAddon ? "Continue" : "Add Location"}</Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Paid add-on: explicit agreement to the $30/mo charge before billing */}
+          {confirmingAddon && (
+            <>
+              <div className="fixed inset-0 bg-black/75 z-[60]" onClick={() => setConfirmingAddon(false)} />
+              <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+                <div className="bg-black border border-amber-500/40 rounded-2xl p-6 w-full max-w-sm space-y-4">
+                  <h2 className="text-lg font-bold text-white">Add a paid location?</h2>
+                  <p className="text-sm text-[#aaa]">
+                    Adding <span className="text-white font-medium">{newLocation.name.trim() || "this location"}</span> will add{" "}
+                    <span className="text-white font-semibold">$30/month</span> to your subscription, prorated on your next invoice.
+                    This will be location {shops.length + 1} of {MAX_LOCATIONS}. You can remove it anytime to stop the charge.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={() => setConfirmingAddon(false)}>Cancel</Button>
+                    <Button className="flex-1" loading={addingLocation} onClick={addLocation}>Agree &amp; add · $30/mo</Button>
                   </div>
                 </div>
               </div>
