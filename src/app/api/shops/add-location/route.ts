@@ -95,7 +95,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Couldn't find your subscription to bill the extra location. Contact support." }, { status: 400 });
     }
     try {
-      await reconcileLocationAddon(paid.stripe_subscription_id, extraAfter);
+      // invoiceNow → charge the prorated $30 right away (visible today), not only
+      // on the next cycle.
+      await reconcileLocationAddon(paid.stripe_subscription_id, extraAfter, { invoiceNow: true });
     } catch {
       return NextResponse.json({ error: "Couldn't update your billing for the extra location. Please try again." }, { status: 502 });
     }

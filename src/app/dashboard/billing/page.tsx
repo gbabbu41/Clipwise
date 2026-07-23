@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight } from "lucide-react";
+import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlanPrice } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -137,6 +137,9 @@ export default function BillingPage() {
   // Every active PAID plan the owner can move to (all tiers except their current
   // one) — driven by the admin-editable plans table, so any middle tier shows.
   const otherPaidPlans = plans.filter(p => p.is_active && p.price_cents > 0 && p.id !== currentPlanId);
+  // Current plan price → so each option reads "Upgrade" (higher) or "Downgrade"
+  // (lower) rather than a vague "Switch". Starter/expired = fresh "Choose".
+  const currentPrice = plans.find(p => p.id === currentPlanId)?.price_cents ?? 0;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -191,7 +194,7 @@ export default function BillingPage() {
 
           {otherPaidPlans.length > 0 && (
             <div className="space-y-3 mb-4">
-              <p className="text-xs font-medium text-[#8f8f8f] uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Switch plan"}</p>
+              <p className="text-xs font-medium text-[#8f8f8f] uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Change plan"}</p>
               {otherPaidPlans.map(p => (
                 <div key={p.id} className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -202,8 +205,12 @@ export default function BillingPage() {
                         {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
                       </p>
                     </div>
-                    <Button size="sm" loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
-                      <ArrowUpRight size={14} /> {isStarter || isExpired ? "Choose" : "Switch"}
+                    <Button size="sm" variant={!isStarter && !isExpired && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                      {isStarter || isExpired
+                        ? <><ArrowUpRight size={14} /> Choose</>
+                        : p.price_cents < currentPrice
+                          ? <><ArrowDownRight size={14} /> Downgrade</>
+                          : <><ArrowUpRight size={14} /> Upgrade</>}
                     </Button>
                   </div>
                   {p.highlights && p.highlights.length > 0 && (

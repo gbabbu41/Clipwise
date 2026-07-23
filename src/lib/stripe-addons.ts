@@ -40,12 +40,22 @@ async function getLocationAddonPriceId(): Promise<string> {
 /**
  * Make the owner's subscription carry exactly `extraLocations` add-on units.
  * Idempotent: adds the item, changes its quantity, or removes it to match.
- * Proration accrues to the next invoice (no immediate charge attempt, so it
- * can't decline at call time). Throws on Stripe error — callers decide whether
- * to proceed (add-location bills BEFORE creating the shop and rolls back).
+ *
+ * `opts.invoiceNow` → charge the prorated amount immediately (`always_invoice`),
+ * so adding a paid location bills the owner right away (visible today) instead
+ * of only on the next cycle. Used by add-location; decrements/plan-change
+ * reconciles leave it off so credits just accrue to the next invoice.
+ *
+ * Throws on Stripe error — callers decide whether to proceed (add-location bills
+ * BEFORE creating the shop and rolls back on failure).
  */
-export async function reconcileLocationAddon(subscriptionId: string, extraLocations: number): Promise<void> {
+export async function reconcileLocationAddon(
+  subscriptionId: string,
+  extraLocations: number,
+  opts?: { invoiceNow?: boolean },
+): Promise<void> {
   const qty = Math.max(0, Math.floor(extraLocations));
+  const proration = opts?.invoiceNow ? ("always_invoice" as const) : ("create_prorations" as const);
   const priceId = await getLocationAddonPriceId();
   const sub = await stripe.subscriptions.retrieve(subscriptionId);
   const item = sub.items.data.find((i) => i.price?.id === priceId);
@@ -56,14 +66,14 @@ export async function reconcileLocationAddon(subscriptionId: string, extraLocati
   }
   if (item) {
     if (item.quantity !== qty) {
-      await stripe.subscriptionItems.update(item.id, { quantity: qty, proration_behavior: "create_prorations" });
+      await stripe.subscriptionItems.update(item.id, { quantity: qty, proration_behavior: proration });
     }
   } else {
     await stripe.subscriptionItems.create({
       subscription: subscriptionId,
       price: priceId,
       quantity: qty,
-      proration_behavior: "create_prorations",
+      proration_behavior: proration,
     });
   }
 }
