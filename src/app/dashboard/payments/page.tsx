@@ -186,14 +186,18 @@ export default function PaymentsPage() {
   }, [shop, syncStripe]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken || !shop?.id) return;
     let active = true;
-    fetch("/api/stripe/reconcile-payments", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } })
+    fetch("/api/stripe/reconcile-payments", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id }), // reconcile the ACTIVE location, not the newest
+    })
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (active && d?.updated > 0) loadData(); })
       .catch(() => {});
     return () => { active = false; };
-  }, [accessToken, loadData]);
+  }, [accessToken, shop?.id, loadData]);
 
   useEffect(() => {
     if (!shop) return;

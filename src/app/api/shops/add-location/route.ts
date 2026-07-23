@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string; phone?: string;
+    agree_addon?: boolean;
   };
   if (!body.name?.trim()) return NextResponse.json({ error: "Location name is required" }, { status: 400 });
 
@@ -80,6 +81,15 @@ export async function POST(request: NextRequest) {
   const extraBefore = Math.max(0, existingShops.length - included);
   const extraAfter = Math.max(0, newTotal - included);
   const needsAddon = extraAfter > extraBefore;
+  // A paid add-on must be explicitly agreed to on the client ($30/mo popup).
+  // Never bill it without that agreement — even if the client's own count was
+  // stale and it skipped the popup. It re-shows the confirmation on this signal.
+  if (needsAddon && !body.agree_addon) {
+    return NextResponse.json(
+      { error: "This location adds $30/mo to your subscription. Please confirm to continue.", needsConfirm: true },
+      { status: 409 },
+    );
+  }
   if (needsAddon) {
     if (!paid.stripe_subscription_id) {
       return NextResponse.json({ error: "Couldn't find your subscription to bill the extra location. Contact support." }, { status: 400 });

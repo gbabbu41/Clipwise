@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { LOCATION_ADDON_LOOKUP_KEY } from "@/lib/stripe-addons";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -43,11 +44,13 @@ export async function GET(request: NextRequest) {
       }) as unknown as Stripe.Subscription & { current_period_end?: number };
       result.subscriptionStatus = sub.status === "active" || sub.status === "trialing" ? "active"
         : sub.status === "past_due" || sub.status === "unpaid" ? "past_due" : "cancelled";
-      // In newer Stripe API versions current_period_end lives on the subscription item
-      const item0 = sub.items.data[0] as (typeof sub.items.data[0] & { current_period_end?: number }) | undefined;
-      const periodEnd = item0?.current_period_end ?? sub.current_period_end;
+      // Use the PLAN line item (not [0]): a subscription can also carry the
+      // $30/location add-on item, and Stripe doesn't guarantee item order, so
+      // [0] could be the add-on — which would show $30 as the plan price/period.
+      const planItem = (sub.items.data.find(i => i.price?.lookup_key !== LOCATION_ADDON_LOOKUP_KEY) ?? sub.items.data[0]) as (typeof sub.items.data[0] & { current_period_end?: number }) | undefined;
+      const periodEnd = planItem?.current_period_end ?? sub.current_period_end;
       result.nextBilling = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
-      result.amount = item0?.price.unit_amount ? item0.price.unit_amount / 100 : null;
+      result.amount = planItem?.price.unit_amount ? planItem.price.unit_amount / 100 : null;
       // Card: prefer subscription's default PM, fall back to the customer's default PM
       let pm = sub.default_payment_method as Stripe.PaymentMethod | string | null;
       if (pm && typeof pm !== "string" && pm.card) {

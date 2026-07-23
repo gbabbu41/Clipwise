@@ -14,10 +14,15 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Resolve the caller's shop (owner) — or, for a barber, the shop they belong to.
-  const { data: ownerShops } = await supabaseAdmin
+  // Which location to reconcile — the active shop_id when provided (each location
+  // has its OWN Stripe account, so reconciling the newest shop was wrong for a
+  // multi-location owner viewing another one), else the owner's most recent shop.
+  const { shop_id } = await request.json().catch(() => ({})) as { shop_id?: string };
+  let ownerQuery = supabaseAdmin
     .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected")
-    .eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
+    .eq("owner_id", user.id);
+  if (shop_id) ownerQuery = ownerQuery.eq("id", shop_id);
+  const { data: ownerShops } = await ownerQuery.order("created_at", { ascending: false }).limit(1);
   let shop = ownerShops?.[0] ?? null;
   if (!shop) {
     const { data: barber } = await supabaseAdmin

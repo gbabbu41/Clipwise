@@ -4,6 +4,9 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
+import { ensurePlansHydrated } from "@/lib/plans-server";
+import { getLocationLimit } from "@/lib/validation";
+import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -260,6 +263,14 @@ export async function POST(request: NextRequest) {
           // On upgrade, cancel the previous subscription so they aren't billed twice
           if (oldSubId && oldSubId !== newSubId) {
             await stripe.subscriptions.cancel(oldSubId).catch(() => null);
+          }
+          // Re-attach the $30/location add-on onto the new subscription (a plan
+          // change makes a fresh sub, so the add-on item doesn't carry over).
+          if (newSubId && userId && plan) {
+            await ensurePlansHydrated();
+            const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", userId);
+            const included = getLocationLimit(plan);
+            await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
           }
         }
         break;

@@ -343,3 +343,36 @@ email. New locations created from now on don't need it.
 - **Follow-up worth doing:** a Stripe webhook path or periodic job that
   reconciles the add-on quantity from shop count would self-heal any drift if a
   reconcile call ever fails mid-flow.
+
+### Multi-location audit + fixes
+
+Ran a sweep for "assumes one shop per owner" regressions after enabling
+multi-location. Fixed:
+1. **Consent is now server-enforced** — add-location refuses to bill the $30
+   add-on without `agree_addon:true` (returns `needsConfirm`); the client sends
+   it only after the popup and re-shows the popup on that signal. The $30 can
+   never be charged in a path where the popup didn't happen.
+2. **Billing page read `items[0]`** for the plan amount/period — with the add-on
+   as a 2nd item and no guaranteed order, it could show $30 as the plan price.
+   Now filters to the plan item by `lookup_key !== LOCATION_ADDON_LOOKUP_KEY`.
+3. **Add-on was lost on plan change** — an upgrade makes a fresh subscription, so
+   the add-on item didn't carry over (owner kept extra locations, stopped being
+   billed). Both `confirm-subscription` and the webhook now re-run
+   `reconcileLocationAddon(newSubId, extra)` after the new sub.
+4. **`confirm-subscription` updated only the newest shop** — now updates ALL the
+   owner's shops (`.eq owner_id`), matching the webhook (was leaving a
+   multi-location owner's other shops on the old/cancelled sub id + plan).
+5. **Onboarding crash** — `shops…eq(owner_id).maybeSingle()` throws for a
+   returning multi-location owner; switched to `.limit(1)+[0]`. Also passes
+   `shop_id` to the onboarding barber invite.
+6. **reconcile-payments** reconciled the newest shop's Stripe account only; now
+   takes `shop_id` (each location has its OWN Stripe account) and the Payments
+   page passes the active `shop.id`.
+
+Reported as benign / no change: `cancel-subscription` + `billing-portal` read the
+newest shop but the subscription/customer are per-owner (same result);
+`loyalty/points` picks an owner shop but the plan is shared (same plan). Barber
+context localStorage key (`clipwise_active_barber_shop_<uid>`) does NOT collide
+with the owner key (`cw_active_shop`). Admin users list shows only an owner's
+first shop (display-only). No remaining `.single()` on owner-scoped shops in API
+routes (all use `.limit(1)`).

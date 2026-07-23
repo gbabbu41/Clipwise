@@ -11,25 +11,27 @@ import { stripe } from "./stripe";
 export const LOCATION_ADDON_CENTS = 3000;
 
 // Stable lookup key so we find-or-create ONE reusable price (per Stripe mode).
-const LOOKUP_KEY = "clipwise_location_addon_monthly_cad";
+// Exported so other routes (e.g. the billing summary) can distinguish the
+// plan line item from this add-on item.
+export const LOCATION_ADDON_LOOKUP_KEY = "clipwise_location_addon_monthly_cad";
 
 /** The reusable recurring Price for the location add-on, created lazily the
  *  first time it's needed (works in test and live without any dashboard step). */
 async function getLocationAddonPriceId(): Promise<string> {
-  const found = await stripe.prices.list({ lookup_keys: [LOOKUP_KEY], active: true, limit: 1 });
+  const found = await stripe.prices.list({ lookup_keys: [LOCATION_ADDON_LOOKUP_KEY], active: true, limit: 1 });
   if (found.data[0]) return found.data[0].id;
   try {
     const price = await stripe.prices.create({
       currency: "cad",
       unit_amount: LOCATION_ADDON_CENTS,
       recurring: { interval: "month" },
-      lookup_key: LOOKUP_KEY,
+      lookup_key: LOCATION_ADDON_LOOKUP_KEY,
       product_data: { name: "ClipWise — Additional Location" },
     });
     return price.id;
   } catch {
     // Lost a create race (lookup_key already taken) — re-read and use it.
-    const retry = await stripe.prices.list({ lookup_keys: [LOOKUP_KEY], active: true, limit: 1 });
+    const retry = await stripe.prices.list({ lookup_keys: [LOCATION_ADDON_LOOKUP_KEY], active: true, limit: 1 });
     if (retry.data[0]) return retry.data[0].id;
     throw new Error("Could not resolve the location add-on price");
   }

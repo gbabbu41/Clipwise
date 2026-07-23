@@ -74,8 +74,11 @@ export default function OnboardingPage() {
     if (!user) return;
     if (createdShopId) return; // already loaded
     (async () => {
-      const { data: existingShop } = await supabase
-        .from("shops").select("id, slug").eq("owner_id", user.id).maybeSingle();
+      // .limit(1)+[0] (not .maybeSingle) — a returning multi-location owner has
+      // 2+ shops, and .maybeSingle() throws on multiple rows.
+      const { data: existingShops } = await supabase
+        .from("shops").select("id, slug").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
+      const existingShop = existingShops?.[0];
       if (!existingShop) return;
       setCreatedShopId(existingShop.id);
       setCreatedShopSlug(existingShop.slug);
@@ -233,7 +236,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/admin/barber/invite", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, commission_percent: 50 }),
+        body: JSON.stringify({ name, email, commission_percent: 50, shop_id: createdShopId }),
       });
       const data = await res.json();
       if (!res.ok || !data.barber) { setBarberError(data.error ?? "Could not add barber."); return; }

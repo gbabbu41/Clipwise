@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { ensurePlansHydrated } from "@/lib/plans-server";
+import { getLocationLimit } from "@/lib/validation";
+import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 // Called by the Billing page when the owner returns from a subscription
 // Checkout (upgrade/switch). Verifies the session and applies the plan to the
@@ -49,12 +52,15 @@ export async function POST(request: NextRequest) {
     await stripe.customers.update(customerId, { name: shop.name }).catch(() => null);
   }
 
+  // Apply to ALL of the owner's shops — they share ONE subscription. (Was only
+  // the newest shop, which left a multi-location owner's other shops pointing at
+  // the old, now-cancelled subscription id + old plan.)
   const { error: updErr } = await supabaseAdmin.from("shops").update({
     subscription_status: "active",
     stripe_subscription_id: newSubId,
     stripe_customer_id: customerId,
     ...(planId ? { subscription_plan: planId } : {}),
-  }).eq("id", shop.id);
+  }).eq("owner_id", user.id);
   if (updErr) {
     // Most likely the prevent_shop_field_escalation trigger rejecting the plan
     // change (run migrations/phase10_subscription_backend_update.sql).
@@ -65,6 +71,17 @@ export async function POST(request: NextRequest) {
   // Cancel the previous subscription on an upgrade so they aren't double-billed.
   if (oldSubId && oldSubId !== newSubId) {
     await stripe.subscriptions.cancel(oldSubId).catch(() => null);
+  }
+
+  // Re-attach the $30/location add-on onto the NEW subscription: a plan change
+  // creates a fresh subscription, so the add-on item doesn't carry over. Recompute
+  // it from the owner's real location count so 3rd+ locations keep being billed.
+  const effPlan = planId ?? shop.subscription_plan ?? undefined;
+  if (newSubId && effPlan) {
+    await ensurePlansHydrated();
+    const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
+    const included = getLocationLimit(effPlan);
+    await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
   }
 
   // Welcome / confirmation email to the shop owner (best-effort).

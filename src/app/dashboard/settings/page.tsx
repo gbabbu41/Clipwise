@@ -294,11 +294,16 @@ export default function SettingsPage() {
         city: newLocation.city,
         province: newLocation.province,
         phone: newLocation.phone,
+        agree_addon: confirmingAddon, // true only after the $30/mo popup was agreed
       }),
     });
     const data = await res.json().catch(() => ({}));
     setAddingLocation(false);
-    if (!res.ok) { showToast(data.error ?? "Failed to add location."); return; }
+    if (!res.ok) {
+      // Server says this is a paid add-on that wasn't agreed to → show the popup.
+      if (data.needsConfirm) { setConfirmingAddon(true); return; }
+      showToast(data.error ?? "Failed to add location."); return;
+    }
     showToast(willCostAddon ? "Location added — $30/mo added to your subscription." : "Location added! Connect its Stripe next to take payments.");
     setConfirmingAddon(false);
     setShowAddLocation(false);
