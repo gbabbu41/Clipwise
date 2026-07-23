@@ -110,13 +110,15 @@ export const ALL_PLAN_FEATURES: PlanFeature[] = ["payments", "loyalty", "pos", "
 export interface PlanConfigEntry {
   barberLimit: number; // Infinity = unlimited
   features: PlanFeature[];
+  locationLimit?: number; // max shops/locations; undefined → falls back to default
 }
 
 const DEFAULT_PLAN_CONFIG: Record<string, PlanConfigEntry> = {
-  starter: { barberLimit: 1, features: [] },
-  pro: { barberLimit: 4, features: ["payments", "loyalty"] },
-  premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"] },
-  business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"] },
+  starter: { barberLimit: 1, features: [], locationLimit: 1 },
+  pro: { barberLimit: 4, features: ["payments", "loyalty"], locationLimit: 1 },
+  // Premium: 2 locations included ($79). A 3rd+ is a paid add-on (future).
+  premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], locationLimit: 2 },
+  business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], locationLimit: Infinity },
 };
 
 let planConfig: Record<string, PlanConfigEntry> = { ...DEFAULT_PLAN_CONFIG };
@@ -131,6 +133,13 @@ export function hydratePlanConfig(entries: Record<string, PlanConfigEntry> | nul
 
 export function getPlanLimit(plan: string): number {
   return planConfig[plan]?.barberLimit ?? DEFAULT_PLAN_CONFIG[plan]?.barberLimit ?? 1;
+}
+
+// Max locations (shops) a plan allows. DB-hydrated plans have no location_limit
+// column yet, so this falls back to the defaults above (premium = 2).
+export function getLocationLimit(plan: string | undefined): number {
+  const key = plan ?? "starter";
+  return planConfig[key]?.locationLimit ?? DEFAULT_PLAN_CONFIG[key]?.locationLimit ?? 1;
 }
 
 export function planHasFeature(plan: string | undefined, feature: PlanFeature): boolean {

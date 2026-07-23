@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
-import { planHasFeature, effectivePlan } from "@/lib/validation";
+import { planHasFeature, effectivePlan, getLocationLimit } from "@/lib/validation";
 
 // Add ANOTHER location for an existing owner.
 //
@@ -57,6 +57,16 @@ export async function POST(request: NextRequest) {
   if (!paid) {
     return NextResponse.json(
       { error: "Multiple locations are a Premium feature. Upgrade your plan to add another location." },
+      { status: 403 },
+    );
+  }
+
+  // Enforce the plan's location cap (Premium = 2). Beyond that is a paid add-on
+  // we don't bill for yet, so block it cleanly rather than giving it away free.
+  const limit = getLocationLimit(paid.subscription_plan ?? undefined);
+  if (existingShops.length >= limit) {
+    return NextResponse.json(
+      { error: `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Contact us to add more.` },
       { status: 403 },
     );
   }

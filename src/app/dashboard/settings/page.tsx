@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan, planHasFeature, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
+import { effectivePlan, planHasFeature, getLocationLimit, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,9 @@ export default function SettingsPage() {
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
   // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
   const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
+  // How many locations this plan includes (Premium = 2) and whether we're there.
+  const locationLimit = getLocationLimit(effectivePlan(shop?.subscription_plan, shop?.subscription_status));
+  const atLocationLimit = canMultiLocation && shops.length >= locationLimit;
 
   // Account/password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -703,15 +706,21 @@ export default function SettingsPage() {
         <div className="space-y-4 max-w-2xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#8f8f8f]">{shops.length} location{shops.length !== 1 ? "s" : ""}</p>
+              <p className="text-sm text-[#8f8f8f]">
+                {shops.length}{canMultiLocation && locationLimit !== Infinity ? ` of ${locationLimit}` : ""} location{shops.length !== 1 ? "s" : ""}
+              </p>
             </div>
-            {canMultiLocation ? (
-              <Button size="sm" onClick={() => setShowAddLocation(true)}>
-                <Plus size={14} /> Add Location
-              </Button>
-            ) : (
+            {!canMultiLocation ? (
               <Button size="sm" variant="outline" onClick={() => setTab("subscription")}>
                 <Plus size={14} /> Add Location · Premium
+              </Button>
+            ) : atLocationLimit ? (
+              <Button size="sm" variant="outline" onClick={() => showToast(`Your plan includes ${locationLimit} locations. More coming soon as an add-on.`)}>
+                <Plus size={14} /> {shops.length} of {locationLimit} used
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => setShowAddLocation(true)}>
+                <Plus size={14} /> Add Location
               </Button>
             )}
           </div>
