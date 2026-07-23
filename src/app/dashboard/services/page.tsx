@@ -305,7 +305,7 @@ export default function ServicesPage() {
                   <thead className="border-b border-[#2a2a2a]">
                     <tr>
                       {["Product","Category","Retail","Cost","Margin","Stock","Status","Actions"].map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-4 py-3">{h}</th>
+                        <th key={h} className={cn("text-left text-xs font-medium text-[#8f8f8f] px-4 py-3", ["Category","Cost","Margin"].includes(h) && "hidden md:table-cell")}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -315,10 +315,10 @@ export default function ServicesPage() {
                       return (
                         <tr key={item.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
                           <td className="px-4 py-3 text-sm font-medium text-white">{item.name}</td>
-                          <td className="px-4 py-3 text-sm text-[#8f8f8f]">{item.category}</td>
+                          <td className="px-4 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{item.category}</td>
                           <td className="px-4 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
-                          <td className="px-4 py-3 text-sm text-[#8f8f8f]">{formatCurrency(item.cost_price ?? 0)}</td>
-                          <td className="px-4 py-3 text-sm text-emerald-400">{margin(item)}%</td>
+                          <td className="px-4 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{formatCurrency(item.cost_price ?? 0)}</td>
+                          <td className="px-4 py-3 text-sm text-emerald-400 hidden md:table-cell">{margin(item)}%</td>
                           <td className="px-4 py-3 text-sm text-white">{item.quantity}</td>
                           <td className="px-4 py-3">
                             <Badge variant={isLow ? "danger" : "success"}>{isLow ? "Low Stock" : "OK"}</Badge>
