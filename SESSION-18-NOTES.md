@@ -230,3 +230,42 @@ colour-value lift — zero layout/logic/structure changes.** Verified with a rea
   variables `--border` / `--grey` / `--grey-2` (globals.css `:root`).
 - Diff: **92 files, 1525 insertions / 1525 deletions** (balanced = pure swaps).
 - Reference mockup shown to owner before shipping (before/after preview artifact).
+
+---
+
+## Follow-up fixes (booking window, service copy, product tables)
+
+Small, focused fixes shipped straight to `main` after the polish:
+
+1. **Booking window was ignored** (`book/[shopslug]/page.tsx`). The shop's
+   `advance_days` (e.g. 7) fed a dead `calendarDays` array; the live week-strip
+   had no ceiling, so customers could page/book months out. Wired it back:
+   `maxDate = today + advanceDays` → days past it are disabled, the "Next week"
+   arrow caps at the window, the auto-advance/seed (`nextScheduledDay`) stops at
+   the window instead of scanning 60 days, and the confirm guard rejects
+   out-of-window dates ("up to N days ahead") instead of the old 6-month check.
+   Client-side only; the booking APIs don't independently re-check the date yet.
+2. **Service description cap** (`dashboard/services/page.tsx`). Descriptions were
+   unbounded and the booking card doesn't truncate. Added `maxLength={100}` +
+   `slice(0,100)` + a live N/100 counter (amber at cap), and `line-clamp-2` on
+   the booking card + services list as a safety net for older long text.
+3. **Product tables overflowed on mobile.** Hid secondary columns below `md`:
+   Services > Products table (Category/Cost/Margin) and the standalone Inventory
+   table (Category/Cost/Value), keeping Product/Retail/Stock/(Status)/Actions.
+
+## Removed the inventory tab from the Services page
+
+Owner's call: **one source of truth for stock.** The Services page had a
+Services|Inventory tab toggle whose Inventory side duplicated the dedicated
+`/dashboard/inventory` page (same `inventory` table). Removed the whole
+inventory half of `dashboard/services/page.tsx`: the tab bar, the products
+table + stat cards + low-stock alert, the Add/Edit Product modal, and all
+product-only state/functions (`inventory`, `newInv`, `editInv`, `saveInv`,
+`deleteInv`, `margin`, `lowStock`, `BLANK_INV`) and the `Badge`/`InventoryItem`
+imports. Title is now just **"Services"**. Inventory lives solely on
+`/dashboard/inventory` (its own sidebar entry).
+
+⚠️ Behaviour note: the dedicated Inventory sidebar link is **plan-gated**
+(`feature: "inventory"`), but the old Services-page tab was **not** — so shops
+on a plan without the inventory feature lose the tab bypass and now see stock
+only if their plan includes it (the intended gating).

@@ -5,11 +5,10 @@ import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { validatePrice, validateDuration } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import type { Service, InventoryItem } from "@/lib/database.types";
+import type { Service } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -27,36 +26,26 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const BLANK_SVC = { name: "", price: "", duration_minutes: "", category: "Hair", description: "", is_active: true, deposit_required: false, deposit_amount: "" };
-const BLANK_INV = { name: "", category: "", price: "", cost_price: "", quantity: "", low_stock_threshold: "" };
 
 export default function ServicesPage() {
   const { shop } = useAuth();
-  const [tab, setTab] = useState<"services" | "inventory">("services");
   const [toast, setToast] = useState("");
   const [services, setServices] = useState<Service[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editService, setEditService] = useState<Service | null>(null);
-  const [showInvModal, setShowInvModal] = useState(false);
-  const [editInv, setEditInv] = useState<InventoryItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [newSvc, setNewSvc] = useState(BLANK_SVC);
-  const [newInv, setNewInv] = useState(BLANK_INV);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [svcRes, invRes] = await Promise.all([
-      supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name"),
-      supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name"),
-    ]);
-    if (svcRes.data) setServices(svcRes.data);
-    if (invRes.data) setInventory(invRes.data);
+    const { data } = await supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name");
+    if (data) setServices(data);
     setLoading(false);
   }, [shop]);
 
@@ -68,19 +57,10 @@ export default function ServicesPage() {
     return acc;
   }, {} as Record<string, Service[]>);
 
-  const lowStock = inventory.filter(i => i.quantity <= i.low_stock_threshold);
-  const margin = (item: InventoryItem) => item.price > 0 && item.cost_price ? Math.round(((item.price - item.cost_price) / item.price) * 100) : 0;
-
   const openEditService = (s: Service) => {
     setEditService(s);
     setNewSvc({ name: s.name, price: String(s.price), duration_minutes: String(s.duration_minutes), category: s.category, description: s.description ?? "", is_active: s.is_active, deposit_required: s.deposit_required ?? false, deposit_amount: String(s.deposit_amount ?? "") });
     setShowServiceModal(true);
-  };
-
-  const openEditInv = (i: InventoryItem) => {
-    setEditInv(i);
-    setNewInv({ name: i.name, category: i.category ?? "", price: String(i.price), cost_price: String(i.cost_price ?? ""), quantity: String(i.quantity), low_stock_threshold: String(i.low_stock_threshold) });
-    setShowInvModal(true);
   };
 
   const toggleServiceActive = async (svc: Service) => {
@@ -140,39 +120,6 @@ export default function ServicesPage() {
     setDeleteConfirm(null);
   };
 
-  const saveInv = async () => {
-    if (!shop || !newInv.name.trim()) return;
-    setSaving(true);
-    const payload = {
-      shop_id: shop.id,
-      name: newInv.name.trim(),
-      category: newInv.category,
-      price: Number(newInv.price),
-      cost_price: Number(newInv.cost_price),
-      quantity: Number(newInv.quantity),
-      low_stock_threshold: Number(newInv.low_stock_threshold),
-    };
-    if (editInv) {
-      const { error } = await supabase.from("inventory").update(payload).eq("id", editInv.id);
-      if (!error) { showToast("Product updated!"); loadData(); }
-      else showToast("Error: " + error.message);
-    } else {
-      const { error } = await supabase.from("inventory").insert(payload);
-      if (!error) { showToast("Product added!"); loadData(); }
-      else showToast("Error: " + error.message);
-    }
-    setSaving(false);
-    setShowInvModal(false);
-    setEditInv(null);
-    setNewInv(BLANK_INV);
-  };
-
-  const deleteInv = async (id: string) => {
-    const { error } = await supabase.from("inventory").delete().eq("id", id);
-    if (!error) { setInventory(prev => prev.filter(i => i.id !== id)); showToast("Product removed."); }
-    else showToast("Error: " + error.message);
-  };
-
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -189,30 +136,12 @@ export default function ServicesPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Services & Inventory</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage your menu and stock</p>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Services</h1>
+          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage your service menu</p>
         </div>
-        <Button onClick={() => {
-          setEditService(null); setNewSvc(BLANK_SVC);
-          setEditInv(null); setNewInv(BLANK_INV);
-          if (tab === "services") setShowServiceModal(true);
-          else setShowInvModal(true);
-        }}>
-          + {tab === "services" ? "Add Service" : "Add Product"}
+        <Button onClick={() => { setEditService(null); setNewSvc(BLANK_SVC); setShowServiceModal(true); }}>
+          + Add Service
         </Button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#2a2a2a]">
-        {(["services","inventory"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white")}>
-            {t} {t === "inventory" && lowStock.length > 0 && (
-              <span className="ml-1 text-xs bg-red-500/20 text-red-400 px-1.5 rounded-full">{lowStock.length} low</span>
-            )}
-          </button>
-        ))}
       </div>
 
       {loading ? (
@@ -221,7 +150,7 @@ export default function ServicesPage() {
             <div key={i} className="h-36 rounded-2xl bg-[#141414] animate-pulse" />
           ))}
         </div>
-      ) : tab === "services" ? (
+      ) : (
         <div className="space-y-6">
           {services.length === 0 ? (
             <div className="text-center py-12">
@@ -269,75 +198,6 @@ export default function ServicesPage() {
             );
           })}
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Card className="py-4 px-5">
-              <p className="text-xs text-[#8f8f8f]">Total Products</p>
-              <p className="text-2xl font-bold text-white mt-1">{inventory.length}</p>
-            </Card>
-            <Card className="py-4 px-5">
-              <p className="text-xs text-[#8f8f8f]">Low Stock</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">{lowStock.length}</p>
-            </Card>
-            <Card className="py-4 px-5">
-              <p className="text-xs text-[#8f8f8f]">Total Value</p>
-              <p className="text-2xl font-bold text-white mt-1">{formatCurrency(inventory.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
-            </Card>
-          </div>
-
-          {lowStock.length > 0 && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-              <p className="text-sm font-semibold text-red-400 mb-1">Low Stock Alert</p>
-              <p className="text-xs text-[#8f8f8f]">{lowStock.map(i => i.name).join(", ")} need restocking</p>
-            </div>
-          )}
-
-          {inventory.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-3xl mb-3">📦</p>
-              <p className="text-[#8f8f8f] text-sm">No products yet. Add your first product above.</p>
-            </div>
-          ) : (
-            <Card className="p-0 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-[#2a2a2a]">
-                    <tr>
-                      {["Product","Category","Retail","Cost","Margin","Stock","Status","Actions"].map(h => (
-                        <th key={h} className={cn("text-left text-xs font-medium text-[#8f8f8f] px-4 py-3", ["Category","Cost","Margin"].includes(h) && "hidden md:table-cell")}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventory.map(item => {
-                      const isLow = item.quantity <= item.low_stock_threshold;
-                      return (
-                        <tr key={item.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
-                          <td className="px-4 py-3 text-sm font-medium text-white">{item.name}</td>
-                          <td className="px-4 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{item.category}</td>
-                          <td className="px-4 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
-                          <td className="px-4 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{formatCurrency(item.cost_price ?? 0)}</td>
-                          <td className="px-4 py-3 text-sm text-emerald-400 hidden md:table-cell">{margin(item)}%</td>
-                          <td className="px-4 py-3 text-sm text-white">{item.quantity}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={isLow ? "danger" : "success"}>{isLow ? "Low Stock" : "OK"}</Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => openEditInv(item)}>Edit</Button>
-                              <Button variant="danger" size="sm" onClick={() => deleteInv(item.id)}>Del</Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-        </div>
       )}
 
       {/* Service Modal */}
@@ -372,33 +232,6 @@ export default function ServicesPage() {
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowServiceModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={saveService}>{editService ? "Update" : "Add"} Service</Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Inventory Modal */}
-      {showInvModal && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowInvModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">{editInv ? "Edit Product" : "Add Product"}</h2>
-                <button onClick={() => setShowInvModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
-              </div>
-              <Input label="Product Name" value={newInv.name} onChange={e => setNewInv(p => ({ ...p, name: e.target.value }))} placeholder="Gold Label Pomade" />
-              <Input label="Category" value={newInv.category} onChange={e => setNewInv(p => ({ ...p, category: e.target.value }))} placeholder="Styling" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Retail Price ($)" type="number" value={newInv.price} onChange={e => setNewInv(p => ({ ...p, price: e.target.value }))} />
-                <Input label="Cost Price ($)" type="number" value={newInv.cost_price} onChange={e => setNewInv(p => ({ ...p, cost_price: e.target.value }))} />
-                <Input label="Quantity" type="number" value={newInv.quantity} onChange={e => setNewInv(p => ({ ...p, quantity: e.target.value }))} />
-                <Input label="Low Stock Alert" type="number" value={newInv.low_stock_threshold} onChange={e => setNewInv(p => ({ ...p, low_stock_threshold: e.target.value }))} />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowInvModal(false)}>Cancel</Button>
-                <Button className="flex-1" loading={saving} onClick={saveInv}>{editInv ? "Update" : "Add"} Product</Button>
               </div>
             </div>
           </div>
