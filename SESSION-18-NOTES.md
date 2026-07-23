@@ -315,3 +315,31 @@ location already created before this fix is stuck `pending` with the wrong email
 and no subscription link. Run the backfill SQL (provided to owner) in the
 Supabase SQL Editor to approve it + attach the shared subscription + fix the
 email. New locations created from now on don't need it.
+
+### Location limits + $30/mo add-on billing
+
+- **Per-plan location limit** (`validation.ts`): `PlanConfigEntry.locationLimit`
+  + `getLocationLimit()`. starter/pro = 1, premium = 2 (included), business = 5.
+- **Absolute ceiling** `MAX_LOCATIONS = 5` — no plan/owner can exceed 5 shops.
+  `getLocationLimit` clamps to it; the add-location route enforces it.
+- **$30/mo add-on billing** (`lib/stripe-addons.ts`): each location beyond the
+  plan's included count is a $30/mo item on the owner's SAME subscription
+  (no second checkout). `reconcileLocationAddon(subId, extraQty)` find-or-creates
+  a reusable recurring price (lookup_key `clipwise_location_addon_monthly_cad`,
+  created lazily — works in test/live, no dashboard step) and sets the add-on
+  subscription-item quantity = extra locations. Proration accrues to the next
+  invoice (`create_prorations`), so it can't decline at call time.
+  - **add-location route**: bills the add-on FIRST (quantity reconcile), then
+    creates the shop; rolls the quantity back if the insert fails. Allows up to
+    MAX (5); the 3rd–5th are self-serve paid (no more "contact us").
+  - **delete-shop route**: recomputes the add-on quantity from the remaining
+    shop count (best-effort) so removing a location decrements the bill.
+  - Webhook safety: `customer.subscription.updated` only syncs *status*, not
+    plan, so the add-on line item never confuses plan detection.
+- **UI**: Settings > Locations shows "N of 5", allows adding up to 5, and the
+  Add-Location modal warns "$30/mo add-on (prorated)" when beyond the included 2.
+  Premium subscription banner + homepage pricing now read "2 locations — add
+  more $30/mo each (up to 5)".
+- **Follow-up worth doing:** a Stripe webhook path or periodic job that
+  reconciles the add-on quantity from shop count would self-heal any drift if a
+  reconcile call ever fails mid-flow.

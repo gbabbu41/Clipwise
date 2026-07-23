@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getLocationLimit } from "@/lib/validation";
+import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 // Permanent shop deletion. The owner can delete their own shop, which
 // cascades to all dependent rows (barbers, services, appointments, etc.
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("id, name, owner_id")
+    .select("id, name, owner_id, stripe_subscription_id, subscription_plan")
     .eq("id", shop_id)
     .single();
   if (!shop || shop.owner_id !== user.id) {
@@ -49,6 +51,16 @@ export async function POST(request: NextRequest) {
       .from("users")
       .update({ role: "customer" })
       .eq("id", user.id);
+  }
+
+  // Keep the $30/location add-on in sync: after removing a shop the owner may
+  // drop below (or further below) their included count, so recompute the extra-
+  // location quantity on their subscription. Best-effort — the delete already
+  // succeeded; a billing hiccup shouldn't fail it.
+  if (shop.stripe_subscription_id) {
+    const included = getLocationLimit(shop.subscription_plan ?? undefined);
+    const remainingCount = remaining?.length ?? 0;
+    await reconcileLocationAddon(shop.stripe_subscription_id, Math.max(0, remainingCount - included)).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });

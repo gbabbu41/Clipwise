@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan, planHasFeature, getLocationLimit, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
+import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -75,9 +75,11 @@ export default function SettingsPage() {
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
   // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
   const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
-  // How many locations this plan includes (Premium = 2) and whether we're there.
+  // Locations INCLUDED in the plan (Premium = 2); beyond that each is a $30/mo
+  // add-on, up to the hard MAX_LOCATIONS ceiling.
   const locationLimit = getLocationLimit(effectivePlan(shop?.subscription_plan, shop?.subscription_status));
-  const atLocationLimit = canMultiLocation && shops.length >= locationLimit;
+  const atLocationLimit = canMultiLocation && shops.length >= MAX_LOCATIONS;
+  const willCostAddon = canMultiLocation && shops.length >= locationLimit;
 
   // Account/password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -707,7 +709,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-[#8f8f8f]">
-                {shops.length}{canMultiLocation && locationLimit !== Infinity ? ` of ${locationLimit}` : ""} location{shops.length !== 1 ? "s" : ""}
+                {shops.length}{canMultiLocation ? ` of ${MAX_LOCATIONS}` : ""} location{shops.length !== 1 ? "s" : ""}
               </p>
             </div>
             {!canMultiLocation ? (
@@ -715,8 +717,8 @@ export default function SettingsPage() {
                 <Plus size={14} /> Add Location · Premium
               </Button>
             ) : atLocationLimit ? (
-              <Button size="sm" variant="outline" onClick={() => showToast(`Your plan includes ${locationLimit} locations. More coming soon as an add-on.`)}>
-                <Plus size={14} /> {shops.length} of {locationLimit} used
+              <Button size="sm" variant="outline" onClick={() => showToast(`You've reached the maximum of ${MAX_LOCATIONS} locations.`)}>
+                <Plus size={14} /> {MAX_LOCATIONS} of {MAX_LOCATIONS} used
               </Button>
             ) : (
               <Button size="sm" onClick={() => setShowAddLocation(true)}>
@@ -771,7 +773,12 @@ export default function SettingsPage() {
                     <h2 className="text-lg font-bold text-white">Add New Location</h2>
                     <button onClick={() => setShowAddLocation(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
                   </div>
-                  <p className="text-sm text-[#8f8f8f]">This location is added instantly on your current plan — no extra charge. It uses your account email, and you&apos;ll connect its own Stripe (same bank is fine) so its payments stay separate.</p>
+                  <p className="text-sm text-[#8f8f8f]">
+                    {willCostAddon
+                      ? "This location is a $30/mo add-on on your subscription (prorated on your next invoice). "
+                      : "This location is included on your current plan — no extra charge. "}
+                    It uses your account email, and you&apos;ll connect its own Stripe (same bank is fine) so its payments stay separate.
+                  </p>
                   <Input label="Shop Name" placeholder="Fresh Cutz — Downtown" value={newLocation.name} onChange={e => setNewLocation(p => ({ ...p, name: e.target.value }))} />
                   <Input label="Address" placeholder="123 Main St" value={newLocation.address} onChange={e => setNewLocation(p => ({ ...p, address: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">

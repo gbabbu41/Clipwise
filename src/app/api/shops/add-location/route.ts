@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { planHasFeature, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
+import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 // Add ANOTHER location for an existing owner.
 //
@@ -61,15 +62,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Enforce the plan's location cap (Premium = 2), never above the absolute
-  // MAX_LOCATIONS ceiling for any subscription. Beyond the included count is a
-  // paid add-on we don't bill for yet, so block it cleanly, not for free.
-  const limit = Math.min(getLocationLimit(paid.subscription_plan ?? undefined), MAX_LOCATIONS);
-  if (existingShops.length >= limit) {
+  // Location cap + billing. The plan INCLUDES `included` locations (Premium = 2);
+  // each one beyond that is a $30/mo add-on on the owner's existing subscription,
+  // up to the absolute MAX_LOCATIONS ceiling.
+  const included = getLocationLimit(paid.subscription_plan ?? undefined);
+  const newTotal = existingShops.length + 1;
+  if (newTotal > MAX_LOCATIONS) {
     return NextResponse.json(
-      { error: `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Contact us to add more.` },
+      { error: `You've reached the maximum of ${MAX_LOCATIONS} locations.` },
       { status: 403 },
     );
+  }
+
+  // Bill the add-on FIRST (idempotent quantity reconcile → accrues to the next
+  // invoice), so we never create a location we couldn't charge for. Rolled back
+  // below if the shop insert fails.
+  const extraBefore = Math.max(0, existingShops.length - included);
+  const extraAfter = Math.max(0, newTotal - included);
+  const needsAddon = extraAfter > extraBefore;
+  if (needsAddon) {
+    if (!paid.stripe_subscription_id) {
+      return NextResponse.json({ error: "Couldn't find your subscription to bill the extra location. Contact support." }, { status: 400 });
+    }
+    try {
+      await reconcileLocationAddon(paid.stripe_subscription_id, extraAfter);
+    } catch {
+      return NextResponse.json({ error: "Couldn't update your billing for the extra location. Please try again." }, { status: 502 });
+    }
   }
 
   // Inherit the first shop's booking policy (no-show, slot interval, tax, etc.)
@@ -90,7 +109,7 @@ export async function POST(request: NextRequest) {
     is_active: true,
     // Auto-approved: verified paying owner, not a brand-new unknown shop.
     status: "approved",
-    // Share the owner's one subscription — no second charge.
+    // Share the owner's one subscription (a 3rd+ location adds a $30/mo item).
     subscription_plan: paid.subscription_plan,
     subscription_status: "active",
     stripe_subscription_id: paid.stripe_subscription_id ?? null,
@@ -102,14 +121,22 @@ export async function POST(request: NextRequest) {
 
   // Unique slug — retry with a fresh suffix on collision.
   const base = slugify(body.name);
+  let created: Record<string, unknown> | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
     const { data, error } = await supabaseAdmin
       .from("shops").insert({ ...baseRow, slug }).select("*").single();
-    if (!error && data) return NextResponse.json({ ok: true, shop: data });
-    if (error && !/slug|unique|duplicate|23505/i.test(error.message)) {
-      return NextResponse.json({ error: "Couldn't create the location. Please try again." }, { status: 500 });
-    }
+    if (!error && data) { created = data; break; }
+    if (error && !/slug|unique|duplicate|23505/i.test(error.message)) break;
   }
-  return NextResponse.json({ error: "Couldn't generate a unique location URL. Please try again." }, { status: 500 });
+
+  if (!created) {
+    // Roll the add-on back so the owner isn't billed for a shop that never got
+    // created.
+    if (needsAddon && paid.stripe_subscription_id) {
+      await reconcileLocationAddon(paid.stripe_subscription_id, extraBefore).catch(() => {});
+    }
+    return NextResponse.json({ error: "Couldn't create the location. Please try again." }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, shop: created });
 }
