@@ -244,7 +244,7 @@ export default function InventoryPage() {
                 <thead>
                   <tr className="border-b border-[#2a2a2a]">
                     {["Product", "Category", "Retail", "Cost", "Stock", "Value", "Actions"].map(h => (
-                      <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-3">{h}</th>
+                      <th key={h} className={cn("text-left text-xs font-medium text-[#8f8f8f] px-3 py-3", ["Category", "Cost", "Value"].includes(h) && "hidden md:table-cell")}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -260,7 +260,7 @@ export default function InventoryPage() {
                               <input value={editRow.name} onChange={e => setEditRow(p => p && ({ ...p, name: e.target.value }))}
                                 className="w-full bg-black border border-gray-400 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 hidden md:table-cell">
                               <select value={editRow.category} onChange={e => setEditRow(p => p && ({ ...p, category: e.target.value }))}
                                 className="bg-black border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none">
                                 {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
@@ -270,7 +270,7 @@ export default function InventoryPage() {
                               <input value={editRow.price} onChange={e => setEditRow(p => p && ({ ...p, price: e.target.value }))} type="number" min="0" step="0.01"
                                 className="w-20 bg-black border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 hidden md:table-cell">
                               <input value={editRow.cost_price} onChange={e => setEditRow(p => p && ({ ...p, cost_price: e.target.value }))} type="number" min="0" step="0.01"
                                 className="w-20 bg-black border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none" />
                             </td>
@@ -281,7 +281,7 @@ export default function InventoryPage() {
                                 <span className="text-xs text-[#8f8f8f]">/ {editRow.low_stock_threshold}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 hidden md:table-cell">
                               <span className="text-sm text-[#8f8f8f]">—</span>
                             </td>
                             <td className="px-3 py-2">
@@ -303,11 +303,11 @@ export default function InventoryPage() {
                                 <span className="text-sm text-white font-medium">{item.name}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-3">
+                            <td className="px-3 py-3 hidden md:table-cell">
                               <Badge variant="outline" className="text-xs">{item.category ?? "—"}</Badge>
                             </td>
                             <td className="px-3 py-3 text-sm text-white">{formatCurrency(item.price)}</td>
-                            <td className="px-3 py-3 text-sm text-[#8f8f8f]">{item.cost_price ? formatCurrency(item.cost_price) : "—"}</td>
+                            <td className="px-3 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{item.cost_price ? formatCurrency(item.cost_price) : "—"}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-2">
                                 <button onClick={() => adjustQty(item.id, -1)} className="w-6 h-6 rounded-md bg-[#141414] border border-[#2a2a2a] text-white hover:border-red-400/50 hover:text-red-400 flex items-center justify-center text-xs transition-colors">
@@ -322,7 +322,7 @@ export default function InventoryPage() {
                                 <span className="text-xs text-[#8f8f8f]">/ {item.low_stock_threshold}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-sm text-[#8f8f8f]">{formatCurrency(item.price * item.quantity)}</td>
+                            <td className="px-3 py-3 text-sm text-[#8f8f8f] hidden md:table-cell">{formatCurrency(item.price * item.quantity)}</td>
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-1">
                                 <button onClick={() => startEdit(item)} className="text-[#8f8f8f] hover:text-white transition-colors p-1" title="Edit">
