@@ -414,3 +414,32 @@ ones — but NOT the RLS-helper ones without testing); `waitlist_insert_public`
 RLS is `WITH CHECK (true)`; `barber_breaks` has RLS enabled but no policy; Auth
 leaked-password protection is off (dashboard toggle). None applied yet — DB
 security surgery on prod needs a dedicated, tested pass.
+
+### "Unhappy path" UI-state hardening (universal)
+
+Audited the app against 10 UI states (empty/loading/error/offline/slow/no-results/
+permission/session-expired/validation/success). It was already strong on the
+visible ones; the gaps were the invisible ones. Fixed the top ones **globally**:
+
+1. **React error boundary** — `src/app/error.tsx` (route segments) + `global-error.tsx`
+   (root layout). There was NONE — any render crash white-screened the whole app,
+   booking page included. Now: "Something went wrong · Try again / Go home."
+2. **Session expiry** — a dead/expired token used to show owners a false "No shop
+   found" and barbers "you were removed from the shop." Fixed in the auth layer
+   (universal): `auth-context.fetchProfileAndShop` returns `unauthorized` on a 401
+   (vs a network error, which it does NOT sign out on), and the caller +
+   `refreshShop` do `supabase.auth.signOut()` → layouts redirect to /login.
+   `barber-context` now checks `r.status===401` → `signOut()` (was calling
+   `.then(r=>r.json())` with no `.ok` check → "account not linked").
+3. **Offline banner** — `src/components/offline-banner.tsx` in the root layout;
+   listens to `navigator.onLine` + online/offline events, shows an amber bar on
+   every page. The SW only rescued full navigations; this covers the in-app case.
+4. **False-success toasts → honest** — clock-in/out (`dashboard/page.tsx`),
+   walk-in add, and save-birthday (`clients/page.tsx`) all showed "saved!" even
+   when the write errored. Now they check `error` and show a real failure toast.
+
+Reported, not yet done (per-page, lower priority): systemic silent data-LOAD
+failures (most `const { data } = await supabase…` discard `error`, so a failed
+load looks like an empty shop) — needs a per-page `error`+retry pass; request
+timeouts on data loads (only login has one); Add-Client email/phone validation;
+booking page conflating a network error with an invalid-link "Shop Not Found".

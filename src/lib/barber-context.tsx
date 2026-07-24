@@ -21,7 +21,7 @@ const BarberContext = createContext<BarberContextType>({
 const ACTIVE_KEY = (userId: string) => `clipwise_active_barber_shop_${userId}`;
 
 export function BarberProvider({ children }: { children: React.ReactNode }) {
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, signOut } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [shop, setShop] = useState<Shop | null>(null);
@@ -38,9 +38,17 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!accessToken) { setLoading(false); return; }
+    let cancelled = false;
     fetch("/api/barber/me", { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
-      .then(({ barbers: bs, shops: ss, error: e }) => {
+      .then(async r => {
+        // Expired/revoked token → sign out to /login, NOT the "account not
+        // linked" screen (a lapsed token was telling barbers they'd been removed).
+        if (r.status === 401) { await signOut(); return null; }
+        return r.ok ? r.json() : { error: "Couldn't load your profile — please try again." };
+      })
+      .then(data => {
+        if (cancelled || !data) return;
+        const { barbers: bs, shops: ss, error: e } = data;
         if (e) { setError(e); return; }
         const barberList: Barber[] = bs ?? [];
         const shopList: Shop[] = ss ?? [];
@@ -52,9 +60,10 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         const preferred = stored ? shopList.find(s => s.id === stored) : null;
         setShop(preferred ?? shopList[0] ?? null);
       })
-      .catch(() => setError("Failed to load barber profile"))
-      .finally(() => setLoading(false));
-  }, [accessToken, user?.id]);
+      .catch(() => { if (!cancelled) setError("Couldn't load your profile — check your connection and try again."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [accessToken, user?.id, signOut]);
 
   return (
     <BarberContext.Provider value={{ barber, shop, barbers, shops, loading, error, setActiveShop }}>

@@ -186,9 +186,10 @@ export default function ClientsPage() {
   const saveBirthday = async () => {
     if (!selectedClient) return;
     setSavingBirthday(true);
-    await supabase.from("clients").update({ birthday }).eq("id", selectedClient.id);
-    setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, birthday } : c));
+    const { error } = await supabase.from("clients").update({ birthday }).eq("id", selectedClient.id);
     setSavingBirthday(false);
+    if (error) { showToast("Couldn't save birthday — please try again."); return; }
+    setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, birthday } : c));
     showToast("Birthday saved!");
   };
 

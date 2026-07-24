@@ -227,13 +227,14 @@ export default function DashboardPage() {
     if (!myBarberId || !shop) return;
     setClockLoading(true);
     const now = new Date();
-    const { data } = await supabase.from("staff_hours").insert({
+    const { data, error } = await supabase.from("staff_hours").insert({
       barber_id: myBarberId,
       shop_id: shop.id,
       date: formatDateForDb(now),
       clock_in: now.toTimeString().slice(0, 5),
     }).select("id, clock_in").single();
-    if (data) { setClockedIn({ id: data.id, clock_in: data.clock_in }); showToast("Clocked in!"); }
+    if (error || !data) { showToast("Couldn't clock in — please try again."); setClockLoading(false); return; }
+    setClockedIn({ id: data.id, clock_in: data.clock_in }); showToast("Clocked in!");
     setClockLoading(false);
   };
 
@@ -244,7 +245,8 @@ export default function DashboardPage() {
     const outStr = now.toTimeString().slice(0, 5);
     const [inH, inM] = clockedIn.clock_in.split(":").map(Number);
     const hours = Math.round(((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60 * 100) / 100;
-    await supabase.from("staff_hours").update({ clock_out: outStr, hours_worked: hours }).eq("id", clockedIn.id);
+    const { error } = await supabase.from("staff_hours").update({ clock_out: outStr, hours_worked: hours }).eq("id", clockedIn.id);
+    if (error) { showToast("Couldn't clock out — please try again."); setClockLoading(false); return; }
     setClockedIn(null);
     showToast(`Clocked out! ${hours}h worked`);
     setClockLoading(false);
@@ -788,8 +790,9 @@ export default function DashboardPage() {
               <Button className="flex-1" loading={savingWalkin} onClick={async () => {
                 if (!shop || !walkinName.trim()) return;
                 setSavingWalkin(true);
-                await supabase.from("waitlist").insert({ shop_id: shop.id, barber_id: walkinBarber || null, client_name: walkinName, client_phone: "", status: "waiting", added_at: new Date().toISOString() });
+                const { error } = await supabase.from("waitlist").insert({ shop_id: shop.id, barber_id: walkinBarber || null, client_name: walkinName, client_phone: "", status: "waiting", added_at: new Date().toISOString() });
                 setSavingWalkin(false);
+                if (error) { showToast("Couldn't add walk-in — please try again."); return; }
                 setShowAddWalkin(false);
                 setWalkinName(""); setWalkinBarber(""); setWalkinService("");
                 showToast("Walk-in added to waitlist!");

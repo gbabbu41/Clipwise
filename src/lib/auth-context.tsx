@@ -37,12 +37,21 @@ const AuthContext = createContext<AuthContextType>({
 // bounce owners to /dashboard/pending when the newest shop was awaiting review).
 const ACTIVE_SHOP_KEY = "cw_active_shop";
 
-async function fetchProfileAndShop(accessToken: string): Promise<{ profile: UserProfile | null; shop: Shop | null; shops: Shop[] }> {
-  const res = await fetch("/api/profile", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) return { profile: null, shop: null, shops: [] };
-  return res.json();
+async function fetchProfileAndShop(accessToken: string): Promise<{ profile: UserProfile | null; shop: Shop | null; shops: Shop[]; unauthorized?: boolean }> {
+  try {
+    const res = await fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    // A dead/expired token → signal it so the caller signs out and redirects to
+    // /login, rather than rendering with a null profile (which used to show
+    // owners a false "No shop found").
+    if (res.status === 401) return { profile: null, shop: null, shops: [], unauthorized: true };
+    if (!res.ok) return { profile: null, shop: null, shops: [] };
+    return res.json();
+  } catch {
+    // Network error (offline) — NOT an auth failure, so don't sign the user out.
+    return { profile: null, shop: null, shops: [] };
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -77,7 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshShop = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
-    const { shop: s, shops: all } = await fetchProfileAndShop(session.access_token);
+    const { shop: s, shops: all, unauthorized } = await fetchProfileAndShop(session.access_token);
+    if (unauthorized) { await supabase.auth.signOut(); return; }
     if (all.length > 0) setShops(all);
     setShop(prev => {
       if (!prev) return s;
@@ -95,8 +105,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(session?.access_token ?? null);
       try {
         if (session?.access_token) {
-          const { profile: p, shop: s, shops: all } = await fetchProfileAndShop(session.access_token);
+          const { profile: p, shop: s, shops: all, unauthorized } = await fetchProfileAndShop(session.access_token);
           if (!mounted) return;
+          if (unauthorized) { await supabase.auth.signOut(); return; }
           setProfile(p);
           setShops(all);
           // Restore the owner's last-selected location if it still exists,
