@@ -30,7 +30,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 export default function POSPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -385,7 +385,7 @@ export default function POSPage() {
     try {
       const res = await fetch("/api/pos/cash-sale", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({
           shop_id: shop!.id,
           owner_id: shop!.owner_id,

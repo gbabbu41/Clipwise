@@ -13,9 +13,27 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
  */
 export async function POST(req: Request) {
   try {
+    // Auth — only the shop owner or an active barber of the shop may record a
+    // sale. This route inserts with the SERVICE ROLE (bypassing RLS), so without
+    // this gate anyone could POST fake revenue into any shop.
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+    if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const b = await req.json();
     const shop_id = b.shop_id as string | undefined;
     if (!shop_id) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
+
+    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", shop_id).maybeSingle();
+    if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+    let allowed = shop.owner_id === user.id;
+    if (!allowed) {
+      const { data: barber } = await supabaseAdmin
+        .from("barbers").select("id").eq("shop_id", shop_id).eq("user_id", user.id).eq("is_active", true).maybeSingle();
+      allowed = !!barber;
+    }
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const fullRow: Record<string, unknown> = {
       shop_id,
@@ -60,9 +78,9 @@ export async function POST(req: Request) {
       if (!inv) continue;
       const newQty = Math.max(0, inv.quantity - p.qty);
       await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
-      if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && b.owner_id) {
+      if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && shop.owner_id) {
         supabaseAdmin.from("notifications").insert({
-          user_id: b.owner_id,
+          user_id: shop.owner_id,
           title: "Low Stock Alert",
           message: `${inv.name} is running low — only ${newQty} units remaining.`,
           type: "inventory", is_read: false,

@@ -376,3 +376,41 @@ context localStorage key (`clipwise_active_barber_shop_<uid>`) does NOT collide
 with the owner key (`cw_active_shop`). Admin users list shows only an owner's
 first shop (display-only). No remaining `.single()` on owner-scoped shops in API
 routes (all use `.limit(1)`).
+
+### Heavy QA pass (live API + Supabase MCP) + fixes
+
+Logged in as the owner and hammered the live API (browser UI testing wasn't
+possible — the env proxy resets Chromium's TLS to external hosts, so no automated
+visual). All test data auto-cleaned (verified: 3 shops, 0 test barbers/tx).
+
+**Passed (server held up):** barber invite multi-location targeting, duplicate
+block, missing-field 400s, unowned-shop 404, no/invalid-token 401, unowned-shop
+delete 403, delete-confirm 400, add-location $30 **consent enforced server-side**
+(409 needsConfirm — not just the popup), add-on create→delete→decrement cycle,
+booking-validation 400, availability, promo validate + **SQL-injection stored as
+literal** (no injection), XSS name stored but React-escaped on render.
+
+**Fixes shipped:**
+1. **POS `cash-sale` had NO auth** — it inserts a transaction with the service
+   role and only checked `shop_id`, so anyone could POST fake revenue into any
+   shop. Added an auth gate (owner or active barber of the shop); the POS page
+   now sends the token; low-stock notification uses the shop's real `owner_id`
+   instead of the client-supplied one. (`api/pos/cash-sale`, `dashboard/pos`)
+2. **Barber name had no length cap** (5000-char accepted) — added `maxLength`
+   (name 60 / email 120 / commission 5) on the staff form + a server-side
+   `.slice(0,60)` in the invite route.
+
+**Reported, not changed (public-by-design or low-severity):** `reviews/submit`,
+`waitlist/join`, `appointments/notify-staff`, `clients/upsert`, `my-booking/[id]`
+are intentionally unauthenticated (customers have no login) and validate the
+shop/appt first — candidates for rate-limiting, not auth. `stripe/payment-link`
+low-severity (owner action, no getUser). Admin routes use `requireSuperAdmin`;
+Stripe finalize routes verify the Stripe session — both safe.
+
+**Supabase security advisor** (for later, needs its own careful pass): ~9
+functions with mutable `search_path` (pin to `public`); several SECURITY DEFINER
+funcs executable via RPC by anon/authenticated (revoke EXECUTE on the pure-trigger
+ones — but NOT the RLS-helper ones without testing); `waitlist_insert_public`
+RLS is `WITH CHECK (true)`; `barber_breaks` has RLS enabled but no policy; Auth
+leaked-password protection is off (dashboard toggle). None applied yet — DB
+security surgery on prod needs a dedicated, tested pass.

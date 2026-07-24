@@ -1166,10 +1166,10 @@ export default function StaffPage() {
                   )}
 
                   {[
-                    { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true },
-                    { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true },
-                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false },
-                  ].map(({ key, label, placeholder, type, required }) => (
+                    { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true, maxLength: 60 },
+                    { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true, maxLength: 120 },
+                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 5 },
+                  ].map(({ key, label, placeholder, type, required, maxLength }) => (
                     <div key={key} className="space-y-1.5">
                       <label className="text-sm text-[#8f8f8f]">{label}</label>
                       <input
@@ -1178,6 +1178,7 @@ export default function StaffPage() {
                         onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
                         required={required}
+                        maxLength={maxLength}
                         className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
                       />
                     </div>
