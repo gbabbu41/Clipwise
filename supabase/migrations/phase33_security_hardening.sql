@@ -42,7 +42,10 @@ begin
   end loop;
 
   -- 2) Revoke direct EXECUTE on TRIGGER-only functions (no app impact — they run
-  --    as triggers). NOT the RLS-helper functions above.
+  --    as triggers). Must revoke from PUBLIC, not anon/authenticated: Postgres
+  --    grants EXECUTE to the PUBLIC pseudo-role by default, and both roles
+  --    inherit it through PUBLIC — so revoking from anon/authenticated alone is a
+  --    no-op. NOT the RLS-helper functions above (policies call those).
   foreach fn in array array[
     'public.prevent_role_escalation()',
     'public.prevent_shop_field_escalation()',
@@ -54,7 +57,7 @@ begin
     'public.handle_new_user()'
   ] loop
     begin
-      execute format('revoke execute on function %s from anon, authenticated', fn);
+      execute format('revoke execute on function %s from public', fn);
     exception when undefined_function then null;
     end;
   end loop;
