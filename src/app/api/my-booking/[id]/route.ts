@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
+import { stripe } from "@/lib/stripe";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -19,23 +20,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Reschedule slot list for THIS booking's barber on a given day.
   if (slotsDate) {
     const { data: appt } = await supabaseAdmin
-      .from("appointments").select("barber_id, time_slot, shop_id, shops(timezone)").eq("id", id).maybeSingle();
+      .from("appointments").select("barber_id, time_slot, shop_id, shops(timezone, booking_settings)").eq("id", id).maybeSingle();
     if (!appt?.barber_id) return NextResponse.json({ slots: [] });
     const dow = new Date(slotsDate + "T00:00:00").getDay();
-    const { data: ts } = await supabaseAdmin
+    // A barber can have MULTIPLE rows for one day (split shift) — aggregate to the
+    // widest window rather than .maybeSingle() (which errors on >1 row → no slots).
+    const { data: tsRows } = await supabaseAdmin
       .from("time_slots").select("start_time, end_time")
-      .eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true).maybeSingle();
-    if (!ts) return NextResponse.json({ slots: [] });
+      .eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true);
+    if (!tsRows || tsRows.length === 0) return NextResponse.json({ slots: [] });
+    const startTime = tsRows.reduce((m, r) => (r.start_time < m ? r.start_time : m), tsRows[0].start_time);
+    const endTime = tsRows.reduce((m, r) => (r.end_time > m ? r.end_time : m), tsRows[0].end_time);
     const { data: booked } = await supabaseAdmin
       .from("appointments").select("time_slot")
       .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING);
     const bookedSlots = (booked ?? []).map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
     // Judge "past" in the SHOP's timezone, not the server's UTC — otherwise
     // same-day morning slots get wrongly hidden (Canada is hours behind UTC).
-    const shopRel = (appt as { shops?: { timezone?: string } | { timezone?: string }[] }).shops;
-    const tz = safeTz((Array.isArray(shopRel) ? shopRel[0]?.timezone : shopRel?.timezone) ?? null);
+    const shopRel = (appt as { shops?: { timezone?: string; booking_settings?: { slot_interval_minutes?: number } } | { timezone?: string; booking_settings?: { slot_interval_minutes?: number } }[] }).shops;
+    const shopObj = Array.isArray(shopRel) ? shopRel[0] : shopRel;
+    const tz = safeTz(shopObj?.timezone ?? null);
+    // Honor the shop's slot granularity (15 or 30) instead of hardcoding 30.
+    const interval = Number(shopObj?.booking_settings?.slot_interval_minutes) === 15 ? 15 : 30;
     const nowOverride = { todayStr: todayInTz(tz), nowMinutes: nowMinutesInTz(tz) };
-    return NextResponse.json({ slots: getSlotsInRange(ts.start_time, ts.end_time, new Date(slotsDate + "T00:00:00"), bookedSlots, 30, nowOverride) });
+    return NextResponse.json({ slots: getSlotsInRange(startTime, endTime, new Date(slotsDate + "T00:00:00"), bookedSlots, interval, nowOverride) });
   }
 
   // The booking itself — display fields only (never client email/phone).
@@ -52,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json() as { action?: "cancel" | "reschedule"; date?: string; time_slot?: string };
 
   const { data: appt } = await supabaseAdmin
-    .from("appointments").select("id, shop_id, barber_id, client_name, date, time_slot, status, service_id, duration_minutes").eq("id", id).maybeSingle();
+    .from("appointments").select("id, shop_id, barber_id, client_name, date, time_slot, status, service_id, duration_minutes, payment_status, payment_intent_id").eq("id", id).maybeSingle();
   if (!appt) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (appt.status === "cancelled" || appt.status === "completed" || appt.status === "no-show") {
     return NextResponse.json({ error: "This booking can no longer be changed." }, { status: 400 });
@@ -62,6 +70,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (body.action === "cancel") {
     await supabaseAdmin.from("appointments").update({ status: "cancelled" }).eq("id", id);
+    // Release a no-show card HOLD so the customer's card isn't left authorized
+    // until Stripe auto-voids (~7 days). Only a held (uncaptured) auth is
+    // released — a captured/paid booking is a refund policy decision, left alone.
+    if (appt.payment_status === "held" && appt.payment_intent_id) {
+      const { data: shopStripe } = await supabaseAdmin
+        .from("shops").select("stripe_account_id").eq("id", appt.shop_id).maybeSingle();
+      const opts = shopStripe?.stripe_account_id ? { stripeAccount: shopStripe.stripe_account_id } : {};
+      await stripe.paymentIntents.cancel(appt.payment_intent_id, {}, opts).then(null, () => null);
+      await supabaseAdmin.from("appointments").update({ payment_status: "voided" }).eq("id", id).then(null, () => null);
+    }
     // Notify barber + waitlist + owner (server-side, fire-and-forget).
     fetch(`${base}/api/appointments/notify-cancellation`, {
       method: "POST", headers: { "Content-Type": "application/json" },
