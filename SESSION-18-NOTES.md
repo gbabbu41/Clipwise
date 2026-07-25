@@ -514,9 +514,17 @@ prod-grade), `src/lib/service-pricing.ts` (server-authoritative price from DB),
   = Supabase REST(https) + realtime(wss), `img-src https:` (Supabase Storage +
   QR image API + data/blob), `frame-src` opened to Stripe defensively.
   `frame-ancestors` omitted so /book stays embeddable; portals keep
-  X-Frame-Options: DENY. ⚠️ Could NOT be browser-tested in-container (proxy
-  blocks Chromium TLS) — verify on clipwise.ca (booking, pay, dashboard; check
-  DevTools console for CSP violations) and tell me if anything's blocked.
+  X-Frame-Options: DENY.
+  **Browser-tested locally** (the proxy only blocks EXTERNAL TLS — a local
+  `next start` on :3100 + the pre-installed Chromium with NO proxy loads
+  `localhost` fine): headers verified via curl; a Playwright pass over `/`,
+  `/login`, `/signup`, `/shops`, `/why-clipwise`, `/book/*` reported **0 CSP
+  violations** and every page **hydrated** (scripts ran), so the policy doesn't
+  block Next.js's own scripts/styles. Live-only paths not exercised with
+  placeholder env (Supabase realtime wss, Storage images, the QR image) are
+  each explicitly allowed by the policy (`connect-src` supabase +
+  `img-src https:`). Lesson: localhost IS testable in-container — don't claim
+  "can't browser-test", only external hosts are blocked.
 
 ### Still deferred (low priority)
 - Generic-error-message sweep (some routes still return raw `error.message`).
