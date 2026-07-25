@@ -837,7 +837,7 @@ function AgendaSheet({
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string }) {
   const { shop, profile, accessToken, user } = useAuth();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.
@@ -846,7 +846,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // even for an owner who also cuts: no other-barber chrome (selector/pager).
   const isolated = !!forceBarberId;
   const [barberFilter, setBarberFilter] = useState<string>("all"); // owner: filter calendar to one barber
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Deep-linked from the dashboard? Open on that appointment's day (parse the
+  // YYYY-MM-DD in local time so it doesn't shift a day via UTC).
+  const [currentDate, setCurrentDate] = useState(() =>
+    initialDate ? new Date(`${initialDate}T00:00:00`) : new Date(),
+  );
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1001,6 +1005,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Deep link from the dashboard mini-calendar (?appt=<id>): once that day's
+  // appointments have loaded, open the exact appointment's detail — once, so it
+  // doesn't reopen on later reloads/navigation.
+  const openedInitialAppt = useRef(false);
+  useEffect(() => {
+    if (openedInitialAppt.current || !initialApptId) return;
+    const found = appointments.find(a => a.id === initialApptId);
+    if (found) { setSelectedAppt(found); openedInitialAppt.current = true; }
+  }, [appointments, initialApptId]);
 
   // Working hours for the current day's weekday, per barber — drives the day
   // view's working-window bounds + empty-slot generation. Authenticated owner /

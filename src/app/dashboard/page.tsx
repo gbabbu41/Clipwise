@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
   ChevronRight, AlertCircle, TrendingUp, UserX, Bell, Banknote,
@@ -133,6 +134,7 @@ const apptMins = (a: AppointmentWithDetails): number =>
 
 export default function DashboardPage() {
   const { shop, profile, accessToken } = useAuth();
+  const router = useRouter();
 
   // ── Filter state ────────────────────────────────────────────────────────────
   const [dateFilter, setDateFilter] = useState<DateFilterKey>("today");
@@ -638,7 +640,14 @@ export default function DashboardPage() {
             // and clipped Thu–Sat on a phone.
             const cols = { gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))" };
             return (
-              <Link href="/dashboard/calendar" className="cwd-cal">
+              <div
+                className="cwd-cal"
+                role="link"
+                tabIndex={0}
+                style={{ cursor: "pointer" }}
+                onClick={() => router.push("/dashboard/calendar")}
+                onKeyDown={(e) => { if (e.key === "Enter") router.push("/dashboard/calendar"); }}
+              >
                 <div className="cwd-caltop">
                   <span className="cwd-calm">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</span>
                   <div className="cwd-seg"><span>Day</span><span className="on">Week</span><span>Month</span></div>
@@ -665,9 +674,14 @@ export default function DashboardPage() {
                           return (
                             <div key={dk} className={cn("cwd-cell", isToday && "todaycol")}>
                               {evs.map(a => (
-                                <div key={a.id} className={cn("cwd-ev", a.status === "pending" && "pend")}>
+                                <Link
+                                  key={a.id}
+                                  href={`/dashboard/calendar?date=${dk}&appt=${a.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={cn("cwd-ev block", a.status === "pending" && "pend")}
+                                >
                                   {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
-                                </div>
+                                </Link>
                               ))}
                             </div>
                           );
@@ -676,7 +690,7 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })()}
 
