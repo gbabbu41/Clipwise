@@ -150,6 +150,7 @@ export default function DashboardPage() {
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [loadingAppts, setLoadingAppts] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   // Appointments fetched specifically for the calendar-selected date, so
   // clicking a day outside the active dateFilter range still surfaces the
@@ -269,8 +270,9 @@ export default function DashboardPage() {
     if (profile?.role === "barber" && myBarberId) {
       q = q.eq("barber_id", myBarberId);
     }
-    const { data } = await q;
+    const { data, error } = await q;
     setAppointments((data ?? []) as AppointmentWithDetails[]);
+    setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
     setLoadingAppts(false);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
 
@@ -507,6 +509,21 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Load-failure banner — distinguishes "couldn't load" from a genuinely
+          empty shop, with a retry (so the owner never mistakes a broken load for
+          lost data). */}
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-2">
+          <p className="text-sm text-red-300">Couldn&apos;t load your latest data — it may be out of date.</p>
+          <button
+            onClick={() => { setLoadError(false); loadAppointments(); loadSideData(); loadWeekAppts(); }}
+            className="text-xs font-semibold text-white bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Date filter — compact dropdown (sizes to the selected label) + pill */}
       <div className="cwd-filter">

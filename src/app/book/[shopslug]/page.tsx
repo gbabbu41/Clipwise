@@ -138,6 +138,7 @@ export default function BookingPage() {
 
   // ── Page-level state ───────────────────────────────────────────────────────
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [shop, setShop] = useState<Shop | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -234,24 +235,35 @@ export default function BookingPage() {
     if (!shopslug) return;
     (async () => {
       setPageLoading(true);
-      const { data: shopData } = await supabase
-        .from("shops")
-        .select("*")
-        .eq("slug", shopslug)
-        .single();
-      setShop(shopData as Shop | null);
-      if (shopData && shopData.status === "approved") {
-        const [{ data: b }, { data: s }] = await Promise.all([
-          // Public booking page — never expose staff PII (email/phone),
-          // commission rates, or user_id (the latter was the signal an attacker
-          // used to spot a claimable barber row). Select only display fields.
-          supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true),
-          supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
-        ]);
-        setBarbers((b ?? []) as Barber[]);
-        setServices((s ?? []) as Service[]);
+      setLoadError(false);
+      try {
+        // maybeSingle (not single): 0 rows → data null + error null (a genuinely
+        // invalid link → "Shop Not Found"); a real DB/network error → error set
+        // (→ retry screen). single() conflated the two, so a transient failure
+        // wrongly showed "Shop Not Found" on this public revenue page.
+        const { data: shopData, error } = await supabase
+          .from("shops")
+          .select("*")
+          .eq("slug", shopslug)
+          .maybeSingle();
+        if (error) { setLoadError(true); setPageLoading(false); return; }
+        setShop(shopData as Shop | null);
+        if (shopData && shopData.status === "approved") {
+          const [{ data: b }, { data: s }] = await Promise.all([
+            // Public booking page — never expose staff PII (email/phone),
+            // commission rates, or user_id (the latter was the signal an attacker
+            // used to spot a claimable barber row). Select only display fields.
+            supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true),
+            supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
+          ]);
+          setBarbers((b ?? []) as Barber[]);
+          setServices((s ?? []) as Service[]);
+        }
+      } catch {
+        setLoadError(true); // network failure — not an invalid link
+      } finally {
+        setPageLoading(false);
       }
-      setPageLoading(false);
     })();
   }, [shopslug]);
 
@@ -1070,6 +1082,21 @@ export default function BookingPage() {
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  // A load/network error is NOT the same as an invalid link — offer a retry
+  // instead of telling a real customer the shop doesn't exist.
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-3xl">⚠️</div>
+          <h1 className="text-xl font-bold text-white">Couldn&apos;t load this page</h1>
+          <p className="text-[#8f8f8f] mt-2 mb-6">Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="rounded-xl bg-white text-black font-semibold text-sm px-5 py-2.5 hover:bg-[#eaeaea] transition-colors">Try again</button>
+        </div>
       </div>
     );
   }
