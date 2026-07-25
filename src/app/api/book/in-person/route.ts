@@ -3,6 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, findAvailableBarber, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
+import { resolveServiceCharge } from "@/lib/service-pricing";
+import { authorizeShop, getBearer } from "@/lib/api-auth";
+import { sendSmsBestEffort } from "@/lib/twilio";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -15,10 +19,14 @@ import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type Pr
  * race. Money is never touched here (in-person / unpaid).
  */
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, "book-in-person", 12, 60_000);
+  if (limited) return limited;
+
   const b = await request.json() as {
     shop_id: string;
     barber_id?: string | null;       // null / "any" → auto-resolve
     service_id: string;              // primary service
+    service_ids?: string[];          // full multiset — server recomputes the real price from these
     service_names?: string;          // "Haircut + Beard" for the multi-service note
     duration_minutes?: number;       // combined block length
     client_name: string;
@@ -40,13 +48,25 @@ export async function POST(request: NextRequest) {
 
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, status, booking_settings, owner_id").eq("id", b.shop_id).maybeSingle();
+    .from("shops").select("id, name, status, booking_settings, owner_id").eq("id", b.shop_id).maybeSingle();
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
   }
-  // Emergency pause — block customer self-bookings, but still let the owner add
-  // walk-ins manually from the dashboard (b.confirmed = owner-initiated).
-  if (!b.confirmed && (shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
+
+  // The `confirmed` flag (skip approval queue + bypass the pause switch) is
+  // owner/staff-only. Honor it ONLY for an authenticated owner or active barber
+  // of this shop — an anonymous customer can't self-confirm or bypass the pause
+  // by POSTing confirmed:true.
+  let callerIsStaff = false;
+  if (b.confirmed && getBearer(request)) {
+    const auth = await authorizeShop(request, b.shop_id);
+    callerIsStaff = !("error" in auth);
+  }
+  const confirmed = !!b.confirmed && callerIsStaff;
+
+  // Emergency pause — block customer self-bookings, but still let staff add
+  // walk-ins manually from the dashboard (confirmed = authenticated owner/barber).
+  if (!confirmed && (shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
     return NextResponse.json({ error: "This shop isn't accepting bookings right now." }, { status: 403 });
   }
   const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
@@ -55,25 +75,29 @@ export async function POST(request: NextRequest) {
   // Validate the code, enforce the cap + once-per-customer, and recompute the
   // discount from the subtotal. The consume happens after the appointment is
   // created (so a redemption always links to a real booking).
+  // ── Server-authoritative price + duration (NEVER trust client amounts) ──────
+  // Sum the REAL prices/durations from the DB for the selected services, scoped
+  // to this shop, so a client can't POST a fake total_amount or reference
+  // another shop's cheaper service.
+  const requestedServiceIds = (Array.isArray(b.service_ids) && b.service_ids.length) ? b.service_ids : [b.service_id];
+  const charge = await resolveServiceCharge(b.shop_id, requestedServiceIds);
+  if (!charge.allResolved || charge.count === 0) {
+    return NextResponse.json({ error: "One or more selected services are unavailable." }, { status: 400 });
+  }
+
   let validPromo: PromoRow | null = null;
-  let effectiveTotal = b.total_amount ?? 0;
+  let effectiveTotal = charge.subtotal;
   if (b.promo_code) {
     validPromo = await fetchValidPromo(b.shop_id, b.promo_code);
     if (!validPromo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
     const blocked = await promoBlockReason(validPromo, b.client_email, b.client_phone);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
-    const sub = Number(b.subtotal ?? b.total_amount ?? 0);
-    effectiveTotal = Math.max(0, sub - promoDiscount(validPromo, sub));
+    effectiveTotal = Math.max(0, charge.subtotal - promoDiscount(validPromo, charge.subtotal));
   }
 
-  // Resolve duration → conflict window.
+  // Duration → conflict window (server value).
   const startMin = timeToMinutes(b.time_slot);
-  let duration = b.duration_minutes && b.duration_minutes > 0 ? b.duration_minutes : 0;
-  if (!duration) {
-    const { data: svc } = await supabaseAdmin
-      .from("services").select("duration_minutes").eq("id", b.service_id).maybeSingle();
-    duration = svc?.duration_minutes ?? 30;
-  }
+  const duration = charge.duration > 0 ? charge.duration : 30;
   const endMin = startMin + duration;
 
   // Resolve barber + conflict check (service-role → sees real bookings).
@@ -112,7 +136,7 @@ export async function POST(request: NextRequest) {
 
   // Owner-initiated bookings (b.confirmed) skip approval; customer self-bookings
   // still respect the shop's auto-confirm setting.
-  const status = (b.confirmed || autoConfirm) ? "confirmed" : "pending";
+  const status = (confirmed || autoConfirm) ? "confirmed" : "pending";
   const noteParts = [b.note, b.service_names ? `Services: ${b.service_names}` : null].filter(Boolean);
   const baseRow = {
     shop_id: b.shop_id,
@@ -159,6 +183,21 @@ export async function POST(request: NextRequest) {
   // /api/appointments/notify-staff (called from the booking page), which is the
   // single source — and now entity-links them so they're inline-actionable.
   // (Creating one here too caused a duplicate owner notification.)
+
+  // Text the customer their confirmation (server-side, best-effort). Only for
+  // customer self-bookings — staff-added walk-ins don't auto-text (unchanged
+  // behavior). Sent here, not from the public page, so /api/twilio/send-sms can
+  // require auth (no open SMS relay).
+  if (!callerIsStaff && b.client_phone) {
+    const ref = inserted.data.id.slice(0, 8).toUpperCase();
+    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+    const manageLink = `${origin}/my-booking/${inserted.data.id}`;
+    const shopName = (shop as { name?: string }).name ?? "the shop";
+    const smsBody = inserted.data.status === "pending"
+      ? `Thanks! Your booking request at ${shopName} for ${b.date} at ${b.time_slot} was received — we'll text you once it's confirmed. Ref #${ref}. Manage: ${manageLink}`
+      : `Your appointment on ${b.date} at ${b.time_slot} is confirmed. Booking #${ref}. Manage: ${manageLink}`;
+    await sendSmsBestEffort(b.client_phone, smsBody, shopName);
+  }
 
   return NextResponse.json({
     id: inserted.data.id,

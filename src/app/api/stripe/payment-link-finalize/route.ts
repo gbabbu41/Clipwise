@@ -66,6 +66,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ paid: false }, { status: 200 });
   }
 
+  // Bind the paid session to THIS appointment. Otherwise a customer could pay a
+  // small unrelated session (e.g. a $1 gift card) and replay its session_id here
+  // to flip a large unpaid booking to paid. Require a post-booking-payment
+  // session whose metadata names this exact appointment + shop.
+  const m = session.metadata ?? {};
+  if (m.flow !== "post_booking_payment" || m.appointment_id !== appointment_id || m.shop_id !== appt.shop_id) {
+    return NextResponse.json({ paid: false, error: "This payment does not match the appointment." }, { status: 400 });
+  }
+
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const completeOnPaid = session.metadata?.complete_on_paid === "1";
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

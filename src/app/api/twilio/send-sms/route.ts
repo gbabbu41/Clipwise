@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
+import { getUserFromReq } from "@/lib/api-auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Send a one-off SMS via Twilio.
@@ -16,6 +18,14 @@ import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
  * alongside the email send — so the message stays in-app even if SMS fails.
  */
 export async function POST(request: NextRequest) {
+  // Staff-only. This sends SMS on the shop's Twilio account — an open relay is
+  // direct toll-fraud/spam. Customer booking confirmations are sent server-side
+  // from /api/book/in-person, so this endpoint requires an authenticated user.
+  const user = await getUserFromReq(request);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = enforceRateLimit(request, "send-sms", 20, 60_000);
+  if (limited) return limited;
+
   const { to, body, shopName } = await request.json() as {
     to: string;
     body: string;

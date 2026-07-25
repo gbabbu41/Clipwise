@@ -7,10 +7,15 @@ import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
 import { taxCents } from "@/lib/pricing";
+import { resolveServiceCharge } from "@/lib/service-pricing";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, "booking-checkout", 12, 60_000);
+  if (limited) return limited;
+
   // Return URL from the live request origin so the redirect back from Stripe
   // works on any port/domain (NEXT_PUBLIC_APP_URL can be stale, e.g. :3001).
   const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -19,6 +24,7 @@ export async function POST(request: NextRequest) {
     shop_slug: string;
     barber_id: string | null;
     service_id: string;
+    service_ids?: string[]; // full multiset — server recomputes the real price from these
     service_name: string;
     client_name: string;
     client_email: string;
@@ -52,14 +58,19 @@ export async function POST(request: NextRequest) {
   // appointment. Duration-aware (covers overlap with a longer existing
   // appointment), and resolves an "Any Available" booking to a concrete free
   // barber so the DB unique index actually protects it.
-  const { data: svc } = await supabaseAdmin
-    .from("services").select("duration_minutes").eq("id", booking.service_id).maybeSingle();
+  // ── Server-authoritative price + duration (NEVER trust the client) ──────────
+  // Sum the REAL prices/durations from the DB for the selected services (a
+  // multiset — the same service can repeat), scoped to this shop so a client
+  // can't POST a fake total_amount or reference another shop's cheaper service.
+  const requestedServiceIds = (Array.isArray(booking.service_ids) && booking.service_ids.length)
+    ? booking.service_ids
+    : [booking.service_id];
+  const charge = await resolveServiceCharge(booking.shop_id, requestedServiceIds);
+  if (!charge.allResolved || charge.count === 0) {
+    return NextResponse.json({ error: "One or more selected services are unavailable." }, { status: 400 });
+  }
   const startMin = timeToMinutes(booking.time_slot);
-  // Use the combined length for multi-service bookings so the conflict check
-  // reserves the full block, not just the primary service's duration.
-  const bookingDuration = (booking.duration_minutes && booking.duration_minutes > 0)
-    ? booking.duration_minutes
-    : (svc?.duration_minutes ?? 30);
+  const bookingDuration = charge.duration > 0 ? charge.duration : 30;
   const endMin = startMin + bookingDuration;
   let resolvedBarberId = booking.barber_id || null;
   if (resolvedBarberId) {
@@ -106,15 +117,15 @@ export async function POST(request: NextRequest) {
   // Validate the code + enforce cap/once-per-customer BEFORE charging, and
   // recompute the total from the subtotal. The code is consumed in /booking-
   // finalize once the appointment exists.
-  let effectiveTotal = booking.total_amount ?? 0;
+  // Server subtotal is authoritative; the client's subtotal/total_amount is ignored.
+  let effectiveTotal = charge.subtotal;
   let promoCodeForMeta = "";
   if (booking.promo_code) {
     const promo = await fetchValidPromo(booking.shop_id, booking.promo_code);
     if (!promo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
     const blocked = await promoBlockReason(promo, booking.client_email, booking.client_phone);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
-    const sub = Number(booking.subtotal ?? booking.total_amount ?? 0);
-    effectiveTotal = Math.max(0, sub - promoDiscount(promo, sub));
+    effectiveTotal = Math.max(0, charge.subtotal - promoDiscount(promo, charge.subtotal));
     promoCodeForMeta = promo.code;
   }
 

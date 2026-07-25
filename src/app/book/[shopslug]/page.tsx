@@ -243,7 +243,11 @@ export default function BookingPage() {
         // wrongly showed "Shop Not Found" on this public revenue page.
         const { data: shopData, error } = await supabase
           .from("shops")
-          .select("*")
+          // Public/anon read — explicit columns only. Never select("*"): it would
+          // ship stripe_customer_id / stripe_subscription_id / owner_id to any
+          // visitor. (stripe_account_id + stripe_connected are needed here to
+          // decide if online pay is available and are non-secret identifiers.)
+          .select("id, name, slug, status, logo, address, city, province, postal_code, phone, email, website, instagram, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
           .eq("slug", shopslug)
           .maybeSingle();
         if (error) { setLoadError(true); setPageLoading(false); return; }
@@ -727,6 +731,7 @@ export default function BookingPage() {
             shop_slug: shop.slug,
             barber_id: finalBarberId,
             service_id: selectedService,
+            service_ids: selectedServices,
             service_name: servicesPicked.length > 1
               ? servicesPicked.map(s => s.name).join(" + ")
               : (service?.name ?? "Service"),
@@ -785,6 +790,7 @@ export default function BookingPage() {
         shop_id: shop.id,
         barber_id: finalBarberId,
         service_id: selectedService, // primary service of the combined booking
+        service_ids: selectedServices,
         service_names: isMulti ? servicesPicked.map(s => s.name).join(" + ") : "",
         duration_minutes: combinedDuration,
         client_name: clientInfo.name,
@@ -820,23 +826,8 @@ export default function BookingPage() {
       body: JSON.stringify({ shop_id: shop.id, name: clientInfo.name, email: clientInfo.email, phone: clientInfo.phone }),
     }).catch(() => null);
 
-    // Text the customer (best-effort). A pending in-person booking is awaiting
-    // the shop's approval — don't tell them it's "confirmed" yet.
-    if (clientInfo.phone) {
-      const dateStr = selectedDate ? prettyDate(formatDateForDb(selectedDate)) : "";
-      const ref = newApptId.slice(0, 8).toUpperCase();
-      // Per-booking manage link — the customer's way to view/reschedule/cancel
-      // (their only way when they booked by phone with no email).
-      const manageLink = `${window.location.origin}/my-booking/${newApptId}`;
-      const smsBody = inPersonStatus === "pending"
-        ? `Thanks! Your booking request at ${shop.name} for ${dateStr} at ${selectedTime} was received — we'll text you once the shop confirms it. Ref #${ref}. Manage: ${manageLink}`
-        : `Your appointment on ${dateStr} at ${selectedTime} is confirmed. Pay at the shop. Booking #${ref}. Manage: ${manageLink}`;
-      fetch("/api/twilio/send-sms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: clientInfo.phone, shopName: shop.name, body: smsBody }),
-      }).catch(() => null);
-    }
+    // The customer's confirmation SMS is sent server-side by /api/book/in-person
+    // (so /api/twilio/send-sms can require auth — no open SMS relay).
 
     // Staff alerts (owner + assigned barber): in-app notifications + SMS, all
     // server-side. The owner's in-app notification used to be inserted here via

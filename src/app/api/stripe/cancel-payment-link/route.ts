@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { authorizeAppointment } from "@/lib/api-auth";
 
 /**
  * Expire any open Checkout session from a previously-sent payment link.
@@ -9,28 +9,24 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
  * can't still pay the stale link and get double-charged. Best-effort: if the
  * session is already completed/expired we just no-op (the webhook duplicate
  * guard is the backstop that auto-refunds anything that slips through).
+ *
+ * Owner or a barber with manage_appointments only — otherwise any logged-in
+ * user could expire another shop's payment link and block a customer from paying.
  */
 export async function POST(request: NextRequest) {
-  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { appointment_id } = await request.json() as { appointment_id?: string };
-  if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
+  const auth = await authorizeAppointment(request, appointment_id, { permission: "manage_appointments" });
+  if ("error" in auth) return auth.error;
 
-  const { data: appt } = await supabaseAdmin
-    .from("appointments").select("shop_id, stripe_checkout_session_id").eq("id", appointment_id).maybeSingle();
-  if (!appt?.stripe_checkout_session_id) return NextResponse.json({ ok: true, expired: false });
-
-  const { data: shop } = await supabaseAdmin
-    .from("shops").select("stripe_account_id").eq("id", appt.shop_id).maybeSingle();
+  const appt = auth.appointment as { stripe_checkout_session_id?: string | null };
+  const shop = auth.shop as { stripe_account_id?: string | null };
+  if (!appt.stripe_checkout_session_id) return NextResponse.json({ ok: true, expired: false });
 
   try {
     await stripe.checkout.sessions.expire(
       appt.stripe_checkout_session_id,
       undefined,
-      shop?.stripe_account_id ? { stripeAccount: shop.stripe_account_id } : undefined,
+      shop.stripe_account_id ? { stripeAccount: shop.stripe_account_id } : undefined,
     );
     return NextResponse.json({ ok: true, expired: true });
   } catch {

@@ -348,7 +348,7 @@ export default function POSPage() {
       try {
         const res = await fetch("/api/stripe/pos-checkout", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({
             shop_id: shop!.id,
             origin: window.location.origin,

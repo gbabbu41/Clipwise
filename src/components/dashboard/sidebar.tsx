@@ -170,7 +170,7 @@ const navSections: NavSection[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, profile, shop, shops, setActiveShop, signOut } = useAuth();
+  const { user, profile, shop, shops, setActiveShop, signOut, accessToken } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
@@ -274,7 +274,7 @@ export function Sidebar() {
     if (decision === "approve") {
       const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", a.id);
       if (error) { setNotifActing(null); showNotifToast("Couldn't approve — please try again"); return; }
-      sendApprovalNotifications(a, shop);
+      sendApprovalNotifications(a, shop, accessToken);
       showNotifToast(`Booking approved${who} ✓`);
     } else {
       const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", a.id);

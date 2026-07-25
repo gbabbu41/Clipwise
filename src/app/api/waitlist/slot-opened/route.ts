@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       if (w.client_email) {
         fetch(`${baseUrl}/api/send-email`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
           body: JSON.stringify({
             type: "waitlist_slot_open",
             data: {

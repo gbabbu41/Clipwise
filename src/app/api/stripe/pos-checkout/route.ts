@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { authorizeShop } from "@/lib/api-auth";
 
 // In-person POS card sale → hosted Stripe Checkout on the shop's connected
 // account (platform-charge fallback when Connect KYC isn't done, so sandbox
@@ -31,15 +32,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid sale" }, { status: 400 });
   }
 
-  const { data: shop } = await supabaseAdmin
-    .from("shops")
-    .select("name, stripe_account_id, stripe_connected, subscription_plan, subscription_status")
-    .eq("id", body.shop_id).single();
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+  // Staff-only — this opens a Stripe session on the shop's account and its
+  // metadata is recorded verbatim by /pos-finalize. Mirror the cash-sale gate so
+  // an anonymous caller can't spin up sessions / record arbitrary amounts.
+  const auth = await authorizeShop(request, body.shop_id);
+  if ("error" in auth) return auth.error;
+  const shop = auth.shop as { name?: string; stripe_account_id?: string | null; stripe_connected?: boolean | null; subscription_plan?: string | null; subscription_status?: string | null };
 
   // Card payments are a paid feature (same gate as online bookings).
   await ensurePlansHydrated();
-  const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
+  const plan = effectivePlan(shop.subscription_plan ?? undefined, shop.subscription_status ?? undefined);
   if (!planHasFeature(plan, "payments")) {
     return NextResponse.json({ error: "Card payments require a paid plan." }, { status: 403 });
   }

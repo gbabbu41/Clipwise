@@ -9,6 +9,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // transactional templates fired by legitimate public flows and stay open.
 const PRIVILEGED_EMAIL_TYPES = new Set([
   "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset",
+  // Link-bearing / customer-recipient types — gated so this endpoint can't be an
+  // open phishing/spam relay (attacker sets the recipient + a payment/booking
+  // URL). Legit callers pass a staff token or x-internal-secret (cron/server).
+  "payment_link", "waitlist_slot_open", "rebooking_reminder", "no_show_followup", "review_request",
 ]);
 
 // Escape HTML in the free-text fields that originate from untrusted sources

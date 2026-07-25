@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { stripShopSecrets } from "@/lib/shop-public";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -20,16 +21,20 @@ export async function GET(request: NextRequest) {
   }
 
   const shopIds = Array.from(new Set(barbers.map(b => b.shop_id)));
-  const { data: shops } = await supabaseAdmin
+  const { data: shopsRaw } = await supabaseAdmin
     .from("shops")
     .select("*")
     .in("id", shopIds);
 
+  // Barbers are staff, not the merchant — strip the shop's Stripe identifiers
+  // before returning them to the barber portal.
+  const shops = (shopsRaw ?? []).map(stripShopSecrets);
+
   // Return both the arrays AND the first pair for back-compat with single-shop callers
   return NextResponse.json({
     barbers,
-    shops: shops ?? [],
+    shops,
     barber: barbers[0],
-    shop: (shops ?? []).find(s => s.id === barbers[0].shop_id) ?? null,
+    shop: shops.find(s => s.id === barbers[0].shop_id) ?? null,
   });
 }

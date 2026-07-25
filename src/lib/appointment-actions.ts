@@ -15,7 +15,7 @@ const origin = () => (typeof window !== "undefined" ? window.location.origin : "
 
 /** Customer "your booking is confirmed" email + SMS — fired when a pending
  *  booking is approved (pending → confirmed). Fire-and-forget. */
-export function sendApprovalNotifications(appt: AppointmentWithDetails, shop: Shop) {
+export function sendApprovalNotifications(appt: AppointmentWithDetails, shop: Shop, accessToken?: string | null) {
   const id = appt.id;
   if (appt.client_email) {
     fetch("/api/send-email", {
@@ -44,7 +44,7 @@ export function sendApprovalNotifications(appt: AppointmentWithDetails, shop: Sh
   if (appt.client_phone) {
     fetch("/api/twilio/send-sms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
         to: appt.client_phone,
         shopName: shop.name,
@@ -90,7 +90,7 @@ export async function runCompletionEffects(
   if (appt.client_email) {
     fetch("/api/send-email", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
         type: "review_request",
         data: {

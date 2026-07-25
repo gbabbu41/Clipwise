@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Public validation for the booking page's promo field. Checks the code exists,
 // is active/not-expired, hasn't hit its cap, and hasn't already been used by
 // this customer — then returns the authoritative discount for the subtotal.
 export async function POST(req: NextRequest) {
+  // Rate-limit so the endpoint can't be used to brute-force valid promo codes.
+  const limited = enforceRateLimit(req, "promo-validate", 30, 60_000);
+  if (limited) return limited;
+
   const { shop_id, code, email, phone, subtotal } = await req.json() as {
     shop_id?: string; code?: string; email?: string; phone?: string; subtotal?: number;
   };

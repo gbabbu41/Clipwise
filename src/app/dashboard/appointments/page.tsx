@@ -340,7 +340,7 @@ export default function AppointmentsPage() {
       if (appt.client_email) {
         fetch("/api/send-email", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({
             type: "review_request",
             data: {
@@ -387,7 +387,7 @@ export default function AppointmentsPage() {
       if (appt.client_phone) {
         fetch("/api/twilio/send-sms", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({
             to: appt.client_phone,
             shopName: shop.name,
@@ -401,7 +401,7 @@ export default function AppointmentsPage() {
     if (status === "no-show" && appt?.client_email && shop) {
       fetch("/api/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({
           type: "no_show_followup",
           data: {

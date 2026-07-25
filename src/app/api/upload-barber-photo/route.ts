@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { detectImage, MAX_IMAGE_BYTES } from "@/lib/upload-validate";
 
 const BUCKET = "barber-photos";
 
@@ -35,13 +36,17 @@ export async function POST(req: NextRequest) {
   // Bucket is provisioned public by phase19; keep this as a best-effort fallback.
   await supabaseAdmin.storage.createBucket(BUCKET, { public: true }).catch(() => {});
 
-  const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-  const path = `${barberId}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (buffer.byteLength > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "Image too large (max 5 MB)." }, { status: 400 });
+  }
+  const img = detectImage(buffer);
+  if (!img) return NextResponse.json({ error: "Only PNG, JPEG, or WebP images are allowed." }, { status: 400 });
+  const path = `${barberId}.${img.ext}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(path, buffer, { contentType: file.type, upsert: true });
+    .upload(path, buffer, { contentType: img.contentType, upsert: true });
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
   const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);

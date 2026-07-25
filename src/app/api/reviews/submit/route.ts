@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Public review submission. The review page is anonymous and RLS blocks anon
 // INSERT on `reviews`, so we insert with the service role here (no RLS change).
 // Validates the appointment, dedupes, records the review, recomputes the
 // barber's rating, and notifies the shop owner.
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, "reviews-submit", 5, 60_000);
+  if (limited) return limited;
+
   const { booking_id, shopslug, rating, comment } = await request.json() as {
     booking_id?: string; shopslug?: string; rating?: number; comment?: string;
   };
@@ -45,6 +49,12 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabaseAdmin
       .from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_id", clientId).maybeSingle();
     if (existing) return NextResponse.json({ ok: true, alreadyReviewed: true });
+  } else if (appt.client_name) {
+    // No client on file — dedupe by shop + name so the review link can't be
+    // replayed for unlimited rating-boosting reviews.
+    const { data: dupes } = await supabaseAdmin
+      .from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_name", appt.client_name).limit(1);
+    if (dupes && dupes.length) return NextResponse.json({ ok: true, alreadyReviewed: true });
   }
 
   const trimmed = (comment ?? "").trim();

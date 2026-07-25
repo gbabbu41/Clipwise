@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Upsert a client for a shop, deduped by email → phone (case-insensitive email).
 // Runs with the service role so it works from the anonymous customer booking
 // flow. Idempotent: returns the existing client if one already matches.
 export async function POST(request: NextRequest) {
+  // Public (anon booking flow calls this) — rate-limit to blunt bulk PII
+  // injection into a shop's client book.
+  const limited = enforceRateLimit(request, "clients-upsert", 20, 60_000);
+  if (limited) return limited;
+
   const { shop_id, name, email, phone } = await request.json() as {
     shop_id?: string; name?: string; email?: string; phone?: string;
   };
@@ -17,8 +23,9 @@ export async function POST(request: NextRequest) {
     .from("shops").select("id").eq("id", shop_id).eq("status", "approved").maybeSingle();
   if (!shop) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
 
-  const e = (email ?? "").trim();
-  const p = (phone ?? "").trim();
+  const e = (email ?? "").trim().slice(0, 120);
+  const p = (phone ?? "").trim().slice(0, 30);
+  const nm = name.trim().slice(0, 80);
 
   try {
     // Dedupe: match an existing client by email first, then phone.
@@ -36,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (existing) return NextResponse.json({ ok: true, id: existing.id, created: false });
 
     const { data, error } = await supabaseAdmin.from("clients").insert({
-      shop_id, name: name.trim(), email: e, phone: p,
+      shop_id, name: nm, email: e, phone: p,
       total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
     }).select("id").single();
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

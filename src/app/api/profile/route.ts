@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { stripShopSecrets } from "@/lib/shop-public";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -39,7 +40,8 @@ export async function GET(request: NextRequest) {
         .select("*")
         .eq("id", barberRecord.shop_id)
         .single();
-      shop = data;
+      // Barber (non-owner) — strip the shop's Stripe identifiers.
+      shop = stripShopSecrets(data);
     }
   }
 

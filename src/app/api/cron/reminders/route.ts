@@ -29,14 +29,14 @@ const MAX_SENDS = 300; // safety cap per run (Twilio trial / Resend limits)
 
 function authorized(req: NextRequest): boolean {
   const s = process.env.CRON_SECRET;
-  if (!s) return true; // unset = allow (local dev)
+  if (!s) return process.env.NODE_ENV !== "production"; // unset = allow in local dev only; fail closed in prod
   return req.headers.get("x-cron-secret") === s || req.headers.get("authorization") === `Bearer ${s}`;
 }
 
 async function sendEmail(type: string, data: Record<string, unknown>) {
   await fetch(`${BASE_URL}/api/send-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
     body: JSON.stringify({ type, data }),
   }).then(null, () => null);
 }

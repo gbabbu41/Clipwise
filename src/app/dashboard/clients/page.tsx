@@ -39,7 +39,7 @@ interface HairProfile {
 const BLANK_HAIR: HairProfile = { topGuard: "", sidesGuard: "", fadeType: "", beardStyle: "", styleNotes: "", productsUsed: "", barberNotes: "" };
 
 export default function ClientsPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [tagFilter, setTagFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -298,7 +298,7 @@ export default function ClientsPage() {
             for (const c of atRiskWithEmail) {
               const res = await fetch("/api/send-email", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
                 body: JSON.stringify({
                   type: "rebooking_reminder",
                   data: {
@@ -553,7 +553,7 @@ export default function ClientsPage() {
                     if (!selectedClient.email || !shop) { showToast("No email on file for this client"); return; }
                     const res = await fetch("/api/send-email", {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
+                      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
                       body: JSON.stringify({
                         type: "rebooking_reminder",
                         data: {

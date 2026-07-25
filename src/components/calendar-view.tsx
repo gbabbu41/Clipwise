@@ -256,7 +256,7 @@ export function makeApptActions(opts: {
       setBusy("");
       if (error) { toast(`Update failed: ${error.message}`); return; }
       patch(appt.id, { status: "confirmed" });
-      sendApprovalNotifications(appt, shop);
+      sendApprovalNotifications(appt, shop, accessToken);
       toast("Approved · Customer notified");
     },
     edit: async (appt, fields) => {
@@ -1308,9 +1308,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const outside = isOutsideSchedule(addCtx.barberId, time);
     setSavingAdd(true);
     const res = await fetch("/api/book/in-person", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
         shop_id: shop.id, barber_id: addCtx.barberId, service_id: svcs[0].id,
+        service_ids: chosenIds,
         service_names: svcs.length > 1 ? svcs.map(s => s.name).join(" + ") : undefined,
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
         date: formatDateForDb(currentDate), time_slot: time,

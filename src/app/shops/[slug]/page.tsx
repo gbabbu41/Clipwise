@@ -48,7 +48,9 @@ export default function ShopProfilePage() {
     (async () => {
       const { data: shopData } = await supabase
         .from("shops")
-        .select("*")
+        // Public/anon read — explicit columns only (never select("*"), which
+        // would leak Stripe ids + owner_id to any visitor).
+        .select("id, name, slug, status, logo, description, address, city, province, postal_code, phone, email, website, facebook, instagram, tiktok, youtube")
         .eq("slug", slug)
         .eq("status", "approved")
         .single();

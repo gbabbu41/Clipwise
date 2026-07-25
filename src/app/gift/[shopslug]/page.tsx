@@ -27,7 +27,8 @@ export default function GiftCardPurchasePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("shops").select("*").eq("slug", slug).eq("status", "approved").maybeSingle();
+      // Public/anon read — explicit columns only (never select("*"): no Stripe ids / owner_id).
+      const { data } = await supabase.from("shops").select("id, name, slug, status, logo").eq("slug", slug).eq("status", "approved").maybeSingle();
       setShop(data as Shop | null);
       setLoading(false);
     })();

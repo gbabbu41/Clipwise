@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { authorizeAppointment } from "@/lib/api-auth";
 
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
@@ -28,6 +29,12 @@ export async function POST(request: NextRequest) {
     complete_on_paid?: boolean; // checkout flow → mark the appointment completed when paid
   };
   if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
+
+  // Owner or a barber with manage_appointments only. Without this, anyone with a
+  // (leaked) appointment id could overwrite its contact details and blast
+  // "Pay Now" messages to arbitrary addresses via the shop's email/SMS.
+  const auth = await authorizeAppointment(request, appointment_id, { permission: "manage_appointments" });
+  if ("error" in auth) return auth.error;
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
@@ -141,7 +148,7 @@ export async function POST(request: NextRequest) {
     if (send_email && emailTo && session.url) {
       const er = await fetch(`${BASE_URL}/api/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
         body: JSON.stringify({
           type: "payment_link",
           data: {

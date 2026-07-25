@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { authorizeShop } from "@/lib/api-auth";
 
 const WEEKDAY: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
 
@@ -41,10 +42,12 @@ function estimateNextPayout(sch?: { interval?: string; weekly_anchor?: string | 
  */
 export async function POST(req: NextRequest) {
   const { shop_id } = (await req.json().catch(() => ({}))) as { shop_id?: string };
-  if (!shop_id) return NextResponse.json({ error: "Missing shop_id" }, { status: 400 });
-
-  const { data: shop } = await supabaseAdmin
-    .from("shops").select("stripe_account_id, stripe_connected").eq("id", shop_id).maybeSingle();
+  // Financials — owner or an active barber of the shop only. shop_id is
+  // effectively public (the booking flow passes it around), so without this gate
+  // anyone could read any shop's Stripe balance, payouts, and revenue.
+  const auth = await authorizeShop(req, shop_id);
+  if ("error" in auth) return auth.error;
+  const shop = auth.shop as { stripe_account_id?: string | null; stripe_connected?: boolean | null };
   const connected = !!(shop?.stripe_account_id && shop.stripe_connected);
   if (!connected) {
     return NextResponse.json({ connected: false, byPi: {}, available: 0, pending: 0 });
