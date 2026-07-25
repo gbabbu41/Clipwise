@@ -36,6 +36,12 @@ export async function POST(req: NextRequest) {
   const { error: updErr } = await supabaseAdmin.from("users").update({ avatar: url }).eq("id", user.id);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
+  // Single source of truth: mirror the account photo onto EVERY barber record
+  // this user holds (across all their shops) so the calendar, staff list, and
+  // public booking page show the same face as the portal avatar — no per-shop
+  // barber photo to drift. Best-effort; the account photo is already saved.
+  await supabaseAdmin.from("barbers").update({ photo: url }).eq("user_id", user.id).then(null, () => null);
+
   return NextResponse.json({ url });
 }
 
@@ -48,5 +54,7 @@ export async function DELETE(req: NextRequest) {
   await supabaseAdmin.storage.from(BUCKET)
     .remove(["jpg", "jpeg", "png", "webp"].map(e => `${user.id}.${e}`)).catch(() => {});
   await supabaseAdmin.from("users").update({ avatar: null }).eq("id", user.id);
+  // Clear the mirrored photo on the user's barber records too.
+  await supabaseAdmin.from("barbers").update({ photo: null }).eq("user_id", user.id).then(null, () => null);
   return NextResponse.json({ ok: true });
 }

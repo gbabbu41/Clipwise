@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: callerProfile } = await supabaseAdmin.from("users").select("role").eq("id", user.id).single();
+  const { data: callerProfile } = await supabaseAdmin.from("users").select("role, avatar").eq("id", user.id).single();
   if (!callerProfile || !["shop_owner", "super_admin"].includes(callerProfile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -79,7 +79,9 @@ export async function POST(request: NextRequest) {
       is_active: true,
       rating: 0,
       total_reviews: 0,
-      ...(isOwnerSelf ? { user_id: user.id } : {}),
+      // Owner adding themselves → seed the barber photo from their account photo
+      // so a new location's barber card matches their universal avatar out of the box.
+      ...(isOwnerSelf ? { user_id: user.id, ...(callerProfile.avatar ? { photo: callerProfile.avatar } : {}) } : {}),
     })
     .select()
     .single();
