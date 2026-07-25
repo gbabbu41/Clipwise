@@ -438,8 +438,17 @@ visible ones; the gaps were the invisible ones. Fixed the top ones **globally**:
    walk-in add, and save-birthday (`clients/page.tsx`) all showed "saved!" even
    when the write errored. Now they check `error` and show a real failure toast.
 
-Reported, not yet done (per-page, lower priority): systemic silent data-LOAD
-failures (most `const { data } = await supabase…` discard `error`, so a failed
-load looks like an empty shop) — needs a per-page `error`+retry pass; request
-timeouts on data loads (only login has one); Add-Client email/phone validation;
-booking page conflating a network error with an invalid-link "Shop Not Found".
+Reported, not yet done (per-page, lower priority): request timeouts on data
+loads (only login has one); Add-Client email/phone validation.
+
+### Silent data-LOAD failures — per-page sweep DONE
+The systemic issue (most `const { data } = await supabase…` discarded `error`, so
+a failed load looked like an empty shop) is now covered across the app:
+- `dashboard/page.tsx` (home) — `loadError` state + dismissible retry banner
+  (shipped earlier this session).
+- `book/[shopslug]/page.tsx` — `.maybeSingle()` split of network-error vs
+  0-rows "Shop Not Found" + retry screen (shipped earlier).
+- `dashboard/services`, `dashboard/inventory`, `dashboard/clients`,
+  `dashboard/appointments`, `barber-dashboard` — each load fn now captures the
+  discarded `error` and fires an honest toast ("Couldn't load … — please
+  refresh.") instead of silently rendering an empty state.

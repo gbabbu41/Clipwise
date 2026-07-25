@@ -54,14 +54,15 @@ export default function BarberOverviewPage() {
   // appointment modal needs (services + barber relations, payment fields).
   const loadAppointments = useCallback(async () => {
     if (!shop?.id || !barber?.id) { setLoading(false); return; }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("appointments")
       .select("*, services(name, duration_minutes), barbers(name)")
       .eq("shop_id", shop.id).eq("barber_id", barber.id).eq("date", todayStr)
       .order("time_slot");
+    if (error) showToast("Couldn't load today's schedule — please refresh.");
     setAppointments((data ?? []) as AppointmentWithDetails[]);
     setLoading(false);
-  }, [shop?.id, barber?.id, todayStr]);
+  }, [shop?.id, barber?.id, todayStr, showToast]);
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
 
   // The whole current week's appointments (this barber) — for the compact

@@ -44,7 +44,8 @@ export default function ServicesPage() {
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name");
+    const { data, error } = await supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name");
+    if (error) showToast("Couldn't load services — please refresh.");
     if (data) setServices(data);
     setLoading(false);
   }, [shop]);

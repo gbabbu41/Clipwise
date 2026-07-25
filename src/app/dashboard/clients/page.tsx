@@ -74,7 +74,7 @@ export default function ClientsPage() {
   const loadClients = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: clientRows }, { data: apptRows }, { data: nsData }] = await Promise.all([
+    const [{ data: clientRows, error: clientErr }, { data: apptRows, error: apptErr }, { data: nsData }] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false }),
       supabase
         .from("appointments")
@@ -83,6 +83,8 @@ export default function ClientsPage() {
         .order("date", { ascending: false }),
       supabase.from("appointments").select("client_name").eq("shop_id", shop.id).eq("status", "no-show"),
     ]);
+
+    if (clientErr || apptErr) showToast("Couldn't load clients — please refresh.");
 
     const keyOf = (c: { id?: string; email?: string | null; phone?: string | null; name?: string | null }) =>
       (c.email && `e:${c.email.toLowerCase()}`)

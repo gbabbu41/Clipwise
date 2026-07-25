@@ -53,7 +53,8 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name");
+    const { data, error } = await supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name");
+    if (error) showToast("Couldn't load inventory — please refresh.");
     setItems((data ?? []) as InventoryItem[]);
     setLoading(false);
   }, [shop]);

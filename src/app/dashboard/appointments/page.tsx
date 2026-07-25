@@ -246,13 +246,14 @@ export default function AppointmentsPage() {
       apptQuery = apptQuery.eq("barber_id", myBarberId);
     }
 
-    const [{ data: appts }, { data: bs }, { data: svcs }, { data: wl }] = await Promise.all([
+    const [{ data: appts, error: apptErr }, { data: bs }, { data: svcs }, { data: wl }] = await Promise.all([
       apptQuery,
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true),
       supabase.from("waitlist").select("*").eq("shop_id", shop.id).order("added_at", { ascending: true }),
     ]);
 
+    if (apptErr) showToast("Couldn't load appointments — please refresh.");
     setAppointments((appts ?? []) as AppointmentWithDetails[]);
     setBarbers((bs ?? []) as Barber[]);
     setServices((svcs ?? []) as Service[]);
