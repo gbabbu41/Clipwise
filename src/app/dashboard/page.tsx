@@ -139,6 +139,7 @@ export default function DashboardPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const calTouch = useRef<{ x: number; y: number } | null>(null);
   const calSwiped = useRef(false);
+  const [visibleAppts, setVisibleAppts] = useState(20); // Today's Schedule list: show 20, +20 per "Load more"
 
   // ── Filter state ────────────────────────────────────────────────────────────
   const [dateFilter, setDateFilter] = useState<DateFilterKey>("today");
@@ -366,6 +367,8 @@ export default function DashboardPage() {
   // fetch (selectedDayAppts) so the picked date's bookings always render,
   // independent of the page-level dateFilter.
   const displayAppts = selectedCalDate ? selectedDayAppts : appointments;
+  // Reset the "Today's Schedule" list cap whenever the range/day changes.
+  useEffect(() => { setVisibleAppts(20); }, [dateFilter, customStart, customEnd, selectedCalDate]);
   const todayStr = formatDateForDb(new Date());
 
   // ── Today's Schedule → full appointment actions (reuse the shared modal) ─────
@@ -646,6 +649,7 @@ export default function DashboardPage() {
             return (
               <div
                 className="cwd-cal"
+                data-no-swipe
                 style={{ cursor: "pointer" }}
                 onClick={() => { if (calSwiped.current) { calSwiped.current = false; return; } router.push("/dashboard/calendar"); }}
                 onTouchStart={(e) => { const t = e.touches[0]; calTouch.current = { x: t.clientX, y: t.clientY }; calSwiped.current = false; }}
@@ -731,29 +735,41 @@ export default function DashboardPage() {
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
                   <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
                 </div>
-              ) : (
-                [...displayAppts]
-                  .sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""))
-                  .map((apt) => {
-                    const dimmed = apt.status === "cancelled" || apt.status === "no-show";
-                    const mins = apptMins(apt);
-                    const [hh, mer] = (apt.time_slot ?? "").split(" ");
-                    return (
-                      <button key={apt.id} onClick={() => setSelectedAppt(apt)} className="cwd-sch">
-                        <div className="cwd-tm"><div className="cwd-th">{hh}</div><div className="cwd-tp">{mer}</div></div>
-                        <div className="cwd-sep" />
-                        <div className="cwd-who">
-                          <div className={cn("cwd-wn", dimmed && "line-through opacity-60")}>{apt.client_name}</div>
-                          <div className="cwd-ws">{apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}</div>
-                        </div>
-                        <div className="cwd-rt">
-                          <div className="cwd-amt cwd-mono">{formatCurrency(apt.total_amount)}</div>
-                          <PaymentTag appt={apt} />
-                        </div>
+              ) : (() => {
+                const sorted = [...displayAppts].sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""));
+                const remaining = sorted.length - visibleAppts;
+                return (
+                  <>
+                    {sorted.slice(0, visibleAppts).map((apt) => {
+                      const dimmed = apt.status === "cancelled" || apt.status === "no-show";
+                      const mins = apptMins(apt);
+                      const [hh, mer] = (apt.time_slot ?? "").split(" ");
+                      return (
+                        <button key={apt.id} onClick={() => setSelectedAppt(apt)} className="cwd-sch">
+                          <div className="cwd-tm"><div className="cwd-th">{hh}</div><div className="cwd-tp">{mer}</div></div>
+                          <div className="cwd-sep" />
+                          <div className="cwd-who">
+                            <div className={cn("cwd-wn", dimmed && "line-through opacity-60")}>{apt.client_name}</div>
+                            <div className="cwd-ws">{apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}</div>
+                          </div>
+                          <div className="cwd-rt">
+                            <div className="cwd-amt cwd-mono">{formatCurrency(apt.total_amount)}</div>
+                            <PaymentTag appt={apt} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {remaining > 0 && (
+                      <button
+                        onClick={() => setVisibleAppts(c => c + 20)}
+                        className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-sm font-medium text-[#cfcfcf] hover:bg-white/5 transition-colors"
+                      >
+                        Load {Math.min(20, remaining)} more · {remaining} left
                       </button>
-                    );
-                  })
-              )}
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
