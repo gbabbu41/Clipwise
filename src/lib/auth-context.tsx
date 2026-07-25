@@ -86,8 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshShop = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
-    const { shop: s, shops: all, unauthorized } = await fetchProfileAndShop(session.access_token);
+    const { profile: p, shop: s, shops: all, unauthorized } = await fetchProfileAndShop(session.access_token);
     if (unauthorized) { await supabase.auth.signOut(); return; }
+    if (p) setProfile(p); // keep the profile (incl. avatar) fresh, not just the shop
     if (all.length > 0) setShops(all);
     setShop(prev => {
       if (!prev) return s;

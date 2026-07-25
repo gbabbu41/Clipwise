@@ -357,7 +357,7 @@ export function Sidebar() {
           aria-label="Account"
           className="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity overflow-hidden"
         >
-          <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
+          <AvatarImage src={profile?.avatar || ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
         </Link>
       </div>
       )}
@@ -610,7 +610,7 @@ export function Sidebar() {
       <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#2a2a2a]">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
-            <AvatarImage src={ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
+            <AvatarImage src={profile?.avatar || ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{displayName}</p>

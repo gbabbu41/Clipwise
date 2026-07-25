@@ -98,6 +98,8 @@ export default function SettingsPage() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState<NewLocation>(BLANK_LOCATION);
@@ -152,6 +154,50 @@ export default function SettingsPage() {
     }
   };
 
+  // Account photo (users.avatar) — the owner's personal avatar shown in the
+  // portal corner on EVERY shop they own, independent of any barber record.
+  const uploadAvatar = async (file: File) => {
+    setAvatarUploading(true);
+    setAvatarPreview(URL.createObjectURL(file));
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload-avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+        body: form,
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as { error?: string }).error ?? "Upload failed"); }
+      const { url } = await res.json() as { url: string };
+      setAvatarPreview(url);
+      await refreshShop(); // refreshes profile too → corner avatar updates everywhere
+      showToast("Photo updated!");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Upload failed");
+      setAvatarPreview(authProfile?.avatar ?? null);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarUploading(true);
+    try {
+      const res = await fetch("/api/upload-avatar", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as { error?: string }).error ?? "Remove failed"); }
+      setAvatarPreview(null);
+      await refreshShop();
+      showToast("Photo removed");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const removeLogo = async () => {
     if (!shop) return;
     setLogoUploading(true);
@@ -174,6 +220,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (shop?.logo) setLogoPreview(shop.logo);
   }, [shop?.logo]);
+
+  useEffect(() => { if (authProfile?.avatar) setAvatarPreview(authProfile.avatar); }, [authProfile?.avatar]);
 
   useEffect(() => {
     if (!shop) return;
@@ -442,6 +490,37 @@ export default function SettingsPage() {
         <Card className="max-w-2xl">
           <CardHeader><CardTitle>My Account</CardTitle></CardHeader>
           <CardContent className="space-y-6">
+            {/* Your account photo — the avatar shown in the portal corner on EVERY
+                shop you own, separate from any barber record. */}
+            <div>
+              <p className="text-sm font-medium text-[#8f8f8f] mb-2">Your Photo</p>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-[#141414] border-2 border-dashed border-[#2a2a2a] flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {avatarPreview
+                    ? <img src={avatarPreview} alt="Your photo" className="w-full h-full object-cover" />
+                    : <span className="text-2xl text-[#8f8f8f]">{(authProfile?.name ?? "?").charAt(0).toUpperCase()}</span>}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label className={cn("cursor-pointer", avatarUploading && "pointer-events-none opacity-60")}>
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#2a2a2a] text-sm text-white hover:bg-[#141414] transition-colors">
+                        {avatarUploading ? "Uploading…" : avatarPreview ? "Change Photo" : "Upload Photo"}
+                      </div>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
+                    </label>
+                    {avatarPreview && !avatarUploading && (
+                      <button type="button" onClick={removeAvatar}
+                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-red-500/30 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#8f8f8f] mt-1">Shows as your avatar on every shop you own. PNG, JPG, WebP up to 5MB.</p>
+                </div>
+              </div>
+            </div>
+
             <div>
               <p className="text-sm font-medium text-[#8f8f8f] mb-2">Account email</p>
               <p className="text-xs text-[#8f8f8f] mb-2">This is the email you use to sign in. It cannot be changed here — contact support if you need to update it.</p>

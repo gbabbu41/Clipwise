@@ -504,7 +504,7 @@ export default function DashboardPage() {
             {notifications.filter(n => !n.is_read).length > 0 && <span className="cwd-dot" />}
           </Link>
           <Link href="/dashboard/settings" aria-label="Account" className="cwd-avatar">
-            <AvatarImage src={ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
+            <AvatarImage src={profile?.avatar || ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
               fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
           </Link>
         </div>
