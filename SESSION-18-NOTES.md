@@ -452,3 +452,62 @@ a failed load looked like an empty shop) is now covered across the app:
   `dashboard/appointments`, `barber-dashboard` — each load fn now captures the
   discarded `error` and fires an honest toast ("Couldn't load … — please
   refresh.") instead of silently rendering an empty state.
+
+---
+
+## 🛡️ Security + functionality hardening pass (2026-07-25)
+
+Ran the new **`secure-engineer`** skill end-to-end (5-check audit via parallel
+subagents → fix → build → ship). Three commits to `main`:
+`a351144` (security), `d987f9c` (correctness), `5c7a29b` (holds/reschedule).
+
+New shared libs: `src/lib/api-auth.ts` (authorizeShop / authorizeAppointment),
+`src/lib/rate-limit.ts` (best-effort in-memory limiter — swap for Upstash for
+prod-grade), `src/lib/service-pricing.ts` (server-authoritative price from DB),
+`src/lib/upload-validate.ts` (image magic-byte + size), `src/lib/shop-public.ts`
+(strip Stripe ids from shop rows).
+
+### Security fixes
+- **Client-priced bookings** → `booking-checkout` + `book/in-person` recompute
+  the charge from real DB service prices (client sends `service_ids`); ignore
+  client `total_amount`/`subtotal`.
+- **Mark-paid replay** → `payment-link-finalize` binds the session
+  (flow + appointment_id + shop_id) before marking paid.
+- **Open SMS relay** → `twilio/send-sms` now requires auth; customer booking
+  SMS moved server-side into `book/in-person` (staff callers thread the token:
+  appointment-actions, sidebar, calendar-view, appointments, messages, pos).
+- **Auth/IDOR** → `payments-summary`, `payment-link`, `pos-checkout` require
+  owner/barber; `cancel-payment-link` checks ownership; `book/in-person`
+  `confirmed`/pause-bypass only for authed staff.
+- **Phishing/spam** → `send-email` gates the link-bearing types
+  (payment_link, waitlist_slot_open, rebooking_reminder, no_show_followup,
+  review_request); cron + server callers pass `x-internal-secret`.
+- **Rate limits** on booking, waitlist, reviews, promo, clients-upsert, send-sms.
+- **Exposure** → public shop pages + `barber/me` + `profile` no longer
+  `select("*")` on shops (no Stripe ids / owner_id leaked). Upload routes
+  validate real image bytes + size. Security headers in `next.config`. Cron
+  reminders fail closed in prod. Removed `check-admin*.mjs` (hardcoded owner
+  password — **owner should rotate it**); `.gitignore` now ignores all `.env`.
+
+### Functionality fixes
+- Cash "mark paid + complete" routes through `updateStatus` → gets loyalty +
+  client stats + review email (was silently skipping them).
+- Client completion stats are idempotent (guard on pre-update status).
+- Barber earnings exclude refunded transactions.
+- Manual loyalty accepts `shop_id` (multi-location owners).
+- `isSlotInPast` uses `<` (currently-active slot stays bookable).
+- Gift-card redemption re-reads balance from DB.
+- `waitlist/join` dedupe uses scoped `.eq()` (no `.or()` filter injection).
+- Self-cancel releases a held card auth; reschedule aggregates split shifts +
+  honors 15/30-min granularity.
+
+### Deferred (noted, not done)
+- **User/customer data-deletion flow** (privacy/PIPEDA) — needs a product
+  decision (self-service button vs. manual runbook) + UI, so left for the owner
+  to choose. Capability can be added on request.
+- Generic-error-message sweep (some routes still return raw `error.message` —
+  low severity). Middleware role check + `/api/unsubscribe` GET→POST (low).
+- Cross-surface completion idempotency (calendar vs appointments) — the
+  per-page guard covers the common case; a `stats_counted` DB flag would be
+  fully robust.
+- CSP header (omitted — needs testing against Stripe/Supabase first).
