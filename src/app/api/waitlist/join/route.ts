@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Customer opt-in to the smart waitlist for a fully-booked day.
@@ -11,6 +12,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
  *         client_phone?, barber_id?, service_id? }
  */
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, "waitlist-join", 10, 60_000);
+  if (limited) return limited;
   try {
     const b = await request.json() as {
       shop_id?: string;
@@ -40,14 +43,22 @@ export async function POST(request: NextRequest) {
     if (!shopId) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
     // Dedupe: same shop + date + contact already waiting → no duplicate row.
-    const { data: existing } = await supabaseAdmin
-      .from("appointment_waitlist")
-      .select("id")
-      .eq("shop_id", shopId)
-      .eq("desired_date", b.desired_date)
-      .eq("status", "waiting")
-      .or(`client_email.eq.${b.client_email ?? "___none___"},client_phone.eq.${b.client_phone ?? "___none___"}`)
-      .maybeSingle();
+    // Two scoped .eq() queries instead of interpolating user input into an
+    // .or() filter string (a filter-injection surface).
+    const emailVal = (b.client_email ?? "").trim();
+    const phoneVal = (b.client_phone ?? "").trim();
+    const dedupeBase = () => supabaseAdmin
+      .from("appointment_waitlist").select("id")
+      .eq("shop_id", shopId).eq("desired_date", b.desired_date).eq("status", "waiting");
+    let existing: { id: string } | null = null;
+    if (emailVal) {
+      const { data } = await dedupeBase().eq("client_email", emailVal).maybeSingle();
+      existing = data;
+    }
+    if (!existing && phoneVal) {
+      const { data } = await dedupeBase().eq("client_phone", phoneVal).maybeSingle();
+      existing = data;
+    }
     if (existing) return NextResponse.json({ ok: true, deduped: true });
 
     const { data: wl, error } = await supabaseAdmin.from("appointment_waitlist").insert({

@@ -51,7 +51,10 @@ export async function GET(request: NextRequest) {
     .gte("created_at", from)
     .order("created_at", { ascending: false });
 
-  const list = transactions ?? [];
+  // Exclude refunded transactions — a refunded charge must not keep inflating
+  // revenue/commission/tips/count. Filter in JS (not .neq) so rows where
+  // `refunded` is null/absent are kept.
+  const list = (transactions ?? []).filter(t => !t.refunded);
   const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
   const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
   const revenue = serviceAmount + tips;

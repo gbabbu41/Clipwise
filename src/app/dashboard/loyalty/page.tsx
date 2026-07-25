@@ -88,7 +88,7 @@ export default function LoyaltyPage() {
     const res = await fetch("/api/loyalty/points", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: redeemFor.id, points: -Math.abs(pts) }),
+      body: JSON.stringify({ client_id: redeemFor.id, points: -Math.abs(pts), shop_id: shop?.id }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -123,7 +123,7 @@ export default function LoyaltyPage() {
     const res = await fetch("/api/loyalty/points", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: addPointsFor.id, points: pts }),
+      body: JSON.stringify({ client_id: addPointsFor.id, points: pts, shop_id: shop?.id }),
     });
     const data = await res.json();
     if (res.ok) {

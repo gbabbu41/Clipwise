@@ -90,12 +90,20 @@ export async function POST(req: Request) {
 
     // Redeem the gift card for the covered amount (its value was already booked
     // as revenue when sold, so the sale only records the non-gift remainder).
-    const gc = b.gift_card as { id: string; remaining_value: number; applied: number } | null;
-    if (gc?.id && gc.applied > 0) {
-      const newBal = Math.max(0, gc.remaining_value - gc.applied);
-      await supabaseAdmin.from("gift_cards").update({
-        remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
-      }).eq("id", gc.id).then(null, () => null);
+    const gc = b.gift_card as { id: string; applied: number } | null;
+    if (gc?.id && Number(gc.applied) > 0) {
+      // Re-read the real balance from the DB — never trust the client's
+      // remaining_value — and clamp the redemption to it.
+      const { data: card } = await supabaseAdmin
+        .from("gift_cards").select("remaining_value").eq("id", gc.id).maybeSingle();
+      if (card) {
+        const bal = Number(card.remaining_value) || 0;
+        const applied = Math.min(Number(gc.applied) || 0, bal);
+        const newBal = Math.max(0, bal - applied);
+        await supabaseAdmin.from("gift_cards").update({
+          remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
+        }).eq("id", gc.id).then(null, () => null);
+      }
     }
 
     return NextResponse.json({ transactionId: ins.data!.id });

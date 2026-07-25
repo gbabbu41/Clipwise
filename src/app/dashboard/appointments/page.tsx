@@ -306,7 +306,10 @@ export default function AppointmentsPage() {
 
     const appt = appointments.find(a => a.id === id);
 
-    if (status === "completed" && appt && shop) {
+    // Guard on the PRE-update status so completing an already-completed
+    // appointment (double-tap, or completing from two surfaces) can't
+    // double-count visits/spend. Loyalty is already idempotent server-side.
+    if (status === "completed" && appt && shop && appt.status !== "completed") {
       // Update client stats: increment visits, add spent, update last_visit
       if (appt.client_email || appt.client_phone) {
         const matchField = appt.client_email ? "email" : "phone";
@@ -668,22 +671,27 @@ export default function AppointmentsPage() {
 
   const markCashPaid = async (alsoComplete: boolean) => {
     if (!paymentModal) return;
+    const apptId = paymentModal.id;
     setSavingPayment("cash");
+    // Record the cash PAYMENT here. The completion (when requested) runs through
+    // updateStatus below so it gets the same loyalty / client-stats / review-email
+    // side-effects every other completion path does — this button used to update
+    // the row directly and silently skip all of them.
     const patch: Record<string, unknown> = { payment_status: "paid", payment_method: "cash", paid_at: new Date().toISOString() };
-    if (alsoComplete) patch.status = "completed";
-    const { error } = await supabase.from("appointments").update(patch).eq("id", paymentModal.id);
+    const { error } = await supabase.from("appointments").update(patch).eq("id", apptId);
     setSavingPayment("");
     if (error) { showToast(`Failed: ${error.message}`); return; }
-    setAppointments(prev => prev.map(a => a.id === paymentModal.id ? { ...a, ...patch } as AppointmentWithDetails : a));
-    if (selectedApt?.id === paymentModal.id) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
+    setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, ...patch } as AppointmentWithDetails : a));
+    if (selectedApt?.id === apptId) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
     // Settled by cash → expire any open payment link so it can't be paid too.
     if (accessToken) {
       fetch("/api/stripe/cancel-payment-link", {
         method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: paymentModal.id }),
+        body: JSON.stringify({ appointment_id: apptId }),
       }).catch(() => {});
     }
     setPaymentModal(null);
+    if (alsoComplete) await updateStatus(apptId, "completed");
     showToast(alsoComplete ? "Cash payment recorded · Appointment completed" : "Cash payment recorded");
   };
 

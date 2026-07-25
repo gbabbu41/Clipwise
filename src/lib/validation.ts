@@ -85,7 +85,8 @@ export function slotToMinutes(slot: string): number {
 export function isSlotInPast(slot: string): boolean {
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  return slotToMinutes(slot) <= nowMinutes;
+  // Strictly-less-than so the currently-active slot stays bookable.
+  return slotToMinutes(slot) < nowMinutes;
 }
 
 // Convert "HH:MM" (24h) to minutes — for settings hours comparison

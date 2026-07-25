@@ -332,7 +332,9 @@ export function isSlotInPast(slot: string): boolean {
   const now = new Date();
   const slotMins = timeToMinutes(slot);
   const nowMins = now.getHours() * 60 + now.getMinutes();
-  return slotMins <= nowMins;
+  // Strictly-less-than so the slot you're currently inside (e.g. 9:00 at 9:00)
+  // is still bookable, not hidden as "past".
+  return slotMins < nowMins;
 }
 
 /** Generate booking slots between a DB start_time and end_time on a given date */
