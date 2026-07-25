@@ -518,19 +518,20 @@ export function Sidebar() {
           wordmark doesn't float with dead space on both sides. cw-grad is on the
           wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#2a2a2a] flex items-center justify-start gap-2.5 pl-6"
+        className="cw-logo-fade whitespace-nowrap border-b border-[#2a2a2a] flex flex-col justify-center items-start gap-1.5 pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
-          fontSize: "26px",
           letterSpacing: "-0.02em",
           color: "#ffffff",
           height: "64px",
         }}
       >
-        <span className="cw-grad">CLIPWISE</span>
+        {/* Stacked lockup: signature gradient wordmark over the plan as a spaced
+            small-caps kicker (no pill) — tidier than the old inline badge. */}
+        <span className="cw-grad" style={{ fontSize: "23px", lineHeight: 1 }}>CLIPWISE</span>
         {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="inline-flex items-center rounded bg-white/[0.05] text-[#a9c6ff] text-[9px] font-semibold uppercase tracking-[0.12em] px-1.5 py-[3px]">
+          <span className="uppercase font-semibold text-[#b9cdf2] text-[9px] tracking-[0.34em] ml-[2px] leading-none">
             {shop.subscription_plan}
           </span>
         )}
