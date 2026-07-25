@@ -633,7 +633,10 @@ export default function DashboardPage() {
             const minH = hrs.length ? Math.min(...hrs) : 9;
             const maxH = hrs.length ? Math.max(...hrs) : 17;
             const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
-            const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
+            // Fluid columns (minmax 0) so the whole week fits ANY screen width —
+            // phone/tablet/iPad — instead of a fixed 620px grid that overflowed
+            // and clipped Thu–Sat on a phone.
+            const cols = { gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))" };
             return (
               <Link href="/dashboard/calendar" className="cwd-cal">
                 <div className="cwd-caltop">
