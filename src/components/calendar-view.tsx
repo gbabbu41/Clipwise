@@ -2081,8 +2081,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div ref={scrollRef} className="overflow-auto h-full">
-        <div className="min-w-[700px]">
-          <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)` }}>
+        {/* Fluid (min-w-0) so all 7 day columns shrink to fit any screen —
+            phone/tablet/iPad — instead of a fixed 700px grid that scrolled + clipped. */}
+        <div className="min-w-0">
+          <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -2110,7 +2112,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `56px repeat(7, 1fr)`, height: `${ROW_PX}px` }}>
+              <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))`, height: `${ROW_PX}px` }}>
                 <div className="text-[10px] text-[#8f8f8f] text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
@@ -2120,7 +2122,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
             ))}
 
-            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `56px repeat(7, 1fr)` }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
               <div />
               {weekDays.map(day => {
                 const dateStr = formatDateForDb(day);
