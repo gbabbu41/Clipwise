@@ -501,13 +501,26 @@ prod-grade), `src/lib/service-pricing.ts` (server-authoritative price from DB),
 - Self-cancel releases a held card auth; reschedule aggregates split shifts +
   honors 15/30-min granularity.
 
-### Deferred (noted, not done)
-- **User/customer data-deletion flow** (privacy/PIPEDA) — needs a product
-  decision (self-service button vs. manual runbook) + UI, so left for the owner
-  to choose. Capability can be added on request.
-- Generic-error-message sweep (some routes still return raw `error.message` —
-  low severity). Middleware role check + `/api/unsubscribe` GET→POST (low).
+### Follow-up (done next, commit after the three above)
+- **Account + data deletion** (privacy/PIPEDA/GDPR): new
+  `POST /api/account/delete` (owner-authed, `confirm:"DELETE"`) — cancels the
+  Stripe subscription, deletes every owned shop (cascades all shop data),
+  unlinks stray barber rows, removes the profile row, deletes the auth user.
+  UI = a "Delete My Account & All Data" block in Settings → **Danger Zone**
+  (next to Delete Shop), typed-DELETE confirm → sign out → home.
+- **Content-Security-Policy** added in `next.config.mjs` (global `base` headers).
+  Scoped to the real load surface: self-hosted scripts/styles
+  (`'unsafe-inline'`/`'unsafe-eval'`, no external script hosts), `connect-src`
+  = Supabase REST(https) + realtime(wss), `img-src https:` (Supabase Storage +
+  QR image API + data/blob), `frame-src` opened to Stripe defensively.
+  `frame-ancestors` omitted so /book stays embeddable; portals keep
+  X-Frame-Options: DENY. ⚠️ Could NOT be browser-tested in-container (proxy
+  blocks Chromium TLS) — verify on clipwise.ca (booking, pay, dashboard; check
+  DevTools console for CSP violations) and tell me if anything's blocked.
+
+### Still deferred (low priority)
+- Generic-error-message sweep (some routes still return raw `error.message`).
+  Middleware role check + `/api/unsubscribe` GET→POST (low).
 - Cross-surface completion idempotency (calendar vs appointments) — the
   per-page guard covers the common case; a `stats_counted` DB flag would be
   fully robust.
-- CSP header (omitted — needs testing against Stripe/Supabase first).

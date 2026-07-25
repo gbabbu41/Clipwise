@@ -93,6 +93,9 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deletingShop, setDeletingShop] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deleteAccountInput, setDeleteAccountInput] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -901,6 +904,50 @@ export default function SettingsPage() {
                         window.location.href = "/";
                       }}>
                       Permanently Delete
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Delete the entire account + all data (privacy / right-to-erasure) */}
+            <div className="p-4 bg-red-500/15 rounded-xl border border-red-500/40 space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-red-400">Delete My Account &amp; All Data</p>
+                <p className="text-xs text-[#8f8f8f] mt-1">
+                  Permanently erases your account and <span className="text-red-300 font-semibold">every</span> shop you own — all barbers, services, appointments, clients, and payment history — and cancels your subscription. This <span className="text-red-300 font-semibold">cannot be undone</span>.
+                </p>
+              </div>
+              {!showDeleteAccountConfirm ? (
+                <Button variant="danger" onClick={() => setShowDeleteAccountConfirm(true)}>Delete My Account</Button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-[#8f8f8f]">Type <span className="text-white font-mono bg-[#141414] px-1 rounded">DELETE</span> to confirm:</p>
+                  <input value={deleteAccountInput} onChange={e => setDeleteAccountInput(e.target.value)}
+                    placeholder="DELETE"
+                    className="w-full rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-red-500/40" />
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setShowDeleteAccountConfirm(false); setDeleteAccountInput(""); }}>Cancel</Button>
+                    <Button variant="danger" size="sm" disabled={deleteAccountInput !== "DELETE" || deletingAccount} loading={deletingAccount}
+                      onClick={async () => {
+                        if (!accessToken) return;
+                        setDeletingAccount(true);
+                        const res = await fetch("/api/account/delete", {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                          body: JSON.stringify({ confirm: "DELETE" }),
+                        });
+                        setDeletingAccount(false);
+                        if (!res.ok) {
+                          const j = await res.json().catch(() => ({}));
+                          showToast(`Delete failed: ${j.error ?? res.statusText}`);
+                          return;
+                        }
+                        // Account gone — sign out and bounce home.
+                        await supabase.auth.signOut();
+                        window.location.href = "/";
+                      }}>
+                      Permanently Delete Account
                     </Button>
                   </div>
                 </div>

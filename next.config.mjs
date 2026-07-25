@@ -12,7 +12,31 @@ const nextConfig = {
   // A Content-Security-Policy is intentionally omitted here — a wrong CSP would
   // break Stripe/Supabase; add one deliberately after testing.
   async headers() {
+    // Content-Security-Policy tuned to this app's ACTUAL load surface:
+    //   • scripts/styles are self-hosted (Next.js) — 'unsafe-inline'/'unsafe-eval'
+    //     are required because we don't use per-request nonces; there are NO
+    //     external script hosts, so injected external scripts are still blocked.
+    //   • data lives at Supabase only: REST/auth over https + realtime over wss.
+    //   • images: Supabase Storage + the QR image API + data/blob URIs → https:.
+    //   • Stripe is a top-level redirect (hosted Checkout), so only frame-src is
+    //     opened to it defensively; no client Stripe.js is loaded.
+    // frame-ancestors is intentionally omitted so shops can still embed their
+    // /book page; the authenticated portals get X-Frame-Options: DENY below.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
+      "frame-src 'self' https://*.stripe.com",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; ");
     const base = [
+      { key: "Content-Security-Policy", value: csp },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
