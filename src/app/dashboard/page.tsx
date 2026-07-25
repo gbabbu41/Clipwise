@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
-  ChevronRight, AlertCircle, TrendingUp, UserX, Bell, Banknote,
+  ChevronRight, ChevronLeft, AlertCircle, TrendingUp, UserX, Bell, Banknote,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,9 +117,9 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
 
 // The 7 days (Sun→Sat) of the current calendar week — powers the compact week
 // calendar on the dashboard home.
-function currentWeekDays(): Date[] {
+function currentWeekDays(offset = 0): Date[] {
   const t = new Date(); t.setHours(0, 0, 0, 0);
-  const start = new Date(t); start.setDate(t.getDate() - t.getDay());
+  const start = new Date(t); start.setDate(t.getDate() - t.getDay() + offset * 7);
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
 }
 // Hour-gutter label for the week grid ("9a" / "12p" / "5p").
@@ -135,6 +135,10 @@ const apptMins = (a: AppointmentWithDetails): number =>
 export default function DashboardPage() {
   const { shop, profile, accessToken } = useAuth();
   const router = useRouter();
+  // Dashboard week calendar navigation: 0 = this week, ±n = weeks away (swipe/arrows).
+  const [weekOffset, setWeekOffset] = useState(0);
+  const calTouch = useRef<{ x: number; y: number } | null>(null);
+  const calSwiped = useRef(false);
 
   // ── Filter state ────────────────────────────────────────────────────────────
   const [dateFilter, setDateFilter] = useState<DateFilterKey>("today");
@@ -281,7 +285,7 @@ export default function DashboardPage() {
   // ── Load the current week's appointments (for the compact calendar) ─────────
   const loadWeekAppts = useCallback(async () => {
     if (!shop) return;
-    const days = currentWeekDays();
+    const days = currentWeekDays(weekOffset);
     let q = supabase
       .from("appointments")
       .select("*, barbers(id, name), services(id, name, price, category, duration_minutes)")
@@ -292,7 +296,7 @@ export default function DashboardPage() {
     if (profile?.role === "barber" && myBarberId) q = q.eq("barber_id", myBarberId);
     const { data } = await q;
     setWeekAppts((data ?? []) as AppointmentWithDetails[]);
-  }, [shop, profile, myBarberId]);
+  }, [shop, profile, myBarberId, weekOffset]);
 
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
@@ -629,7 +633,7 @@ export default function DashboardPage() {
         <div className="cwd-col">
           {/* Compact week calendar — tap to open the full Calendar tab */}
           {(() => {
-            const weekDays = currentWeekDays();
+            const weekDays = currentWeekDays(weekOffset);
             const todayKey = formatDateForDb(new Date());
             const hrs = weekAppts.map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; }).filter(h => h >= 0);
             const minH = hrs.length ? Math.min(...hrs) : 9;
@@ -642,14 +646,33 @@ export default function DashboardPage() {
             return (
               <div
                 className="cwd-cal"
-                role="link"
-                tabIndex={0}
                 style={{ cursor: "pointer" }}
-                onClick={() => router.push("/dashboard/calendar")}
-                onKeyDown={(e) => { if (e.key === "Enter") router.push("/dashboard/calendar"); }}
+                onClick={() => { if (calSwiped.current) { calSwiped.current = false; return; } router.push("/dashboard/calendar"); }}
+                onTouchStart={(e) => { const t = e.touches[0]; calTouch.current = { x: t.clientX, y: t.clientY }; calSwiped.current = false; }}
+                onTouchEnd={(e) => {
+                  const s = calTouch.current; calTouch.current = null;
+                  if (!s) return;
+                  const t = e.changedTouches[0];
+                  const dx = t.clientX - s.x, dy = t.clientY - s.y;
+                  // Mostly-horizontal swipe → change week (left = next, right = prev).
+                  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) { calSwiped.current = true; setWeekOffset(o => o + (dx < 0 ? 1 : -1)); }
+                }}
               >
                 <div className="cwd-caltop">
-                  <span className="cwd-calm">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <button aria-label="Previous week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o - 1); }}
+                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-white hover:bg-white/10 transition-colors">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setWeekOffset(0); }} className="cwd-calm"
+                      title="Back to this week" style={{ background: "none", border: 0, padding: "0 4px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                      {weekDays[3].toLocaleDateString("en-CA", { month: "short", year: "numeric" })}
+                    </button>
+                    <button aria-label="Next week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o + 1); }}
+                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-white hover:bg-white/10 transition-colors">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
                   <div className="cwd-seg"><span>Day</span><span className="on">Week</span><span>Month</span></div>
                 </div>
                 <div className="cwd-calscroll">
@@ -677,7 +700,7 @@ export default function DashboardPage() {
                                 <Link
                                   key={a.id}
                                   href={`/dashboard/calendar?date=${dk}&appt=${a.id}`}
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => { if (calSwiped.current) e.preventDefault(); e.stopPropagation(); }}
                                   className={cn("cwd-ev block", a.status === "pending" && "pend")}
                                 >
                                   {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
