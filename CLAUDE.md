@@ -12,6 +12,14 @@ Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
 (email), **Twilio** (SMS). Live at **clipwise.ca** (Vercel, **Hobby** plan).
 Owner/barber/customer portals under `src/app/{dashboard,barber-dashboard,book}`.
 
+## 🛡️ Build & audit mindset (USE THE SKILL)
+Before writing/changing any API route, auth, payment, or DB code — and for any
+"is this safe / find bugs / harden / check before launch" request — invoke the
+**`secure-engineer`** skill (`.claude/skills/secure-engineer/`). It carries the
+attacker mindset (never trust the client, IDOR checks, fix the class not the
+instance, verify don't assume, flag proactively) + a concrete audit playbook.
+Apply it by reflex, not only when asked.
+
 ## Workflow (IMPORTANT)
 - The owner pushes to `main`; **Vercel auto-deploys** to clipwise.ca (~1 min).
 - Before pushing, run a **real build**, not just tsc: `npm install` then
