@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { sendAppEmail } from "@/lib/emailer";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Fire-and-forget: a booked slot just freed (cancel / reject / no-show), so
@@ -11,10 +12,18 @@ import { sendAppEmail } from "@/lib/emailer";
  * "notified" so they aren't pinged twice.
  *
  * Body: either { appointment_id } (resolved server-side) OR { shop_id, date, barber_id? }.
- * Auth: none — only ever called server-to-server (best-effort) from the app's
- * own cancellation handlers. It reveals nothing and writes only notify status.
+ * Auth: none by design — it only ever notifies a shop's OWN waitlisters with a
+ * fixed template + that shop's own booking link (the caller can't choose the
+ * recipient, the copy, or the link), and it marks them "notified" so nobody is
+ * pinged twice. A generous per-IP rate limit below blunts anyone hammering it.
  */
 export async function POST(request: NextRequest) {
+  // Defense-in-depth. Set high enough that no real burst (staff rejecting
+  // several appointments, a wave of cancellations) ever trips it. Callers
+  // fire-and-forget and ignore the response, so a throttled call simply skips
+  // that notify round — nothing user-facing breaks.
+  const limited = enforceRateLimit(request, "waitlist-notify", 40, 60_000);
+  if (limited) return limited;
   try {
     const body = await request.json() as {
       appointment_id?: string;
