@@ -34,22 +34,30 @@ const config: Config = {
           soft:    "#a9c6ff",
           muted:   "rgba(110,168,254,0.12)",
         },
-        // v2 surfaces — `surface` / `surface-raised` are now tier-1 / tier-2
-        // dark cards. Existing `bg-surface` / `bg-surface-raised` callsites
-        // pick up the right values without any sweep.
+        // v2 surfaces — now CSS-var backed so a single token override (e.g. the
+        // calm `.portal` scope, or the upcoming light theme) re-skins every
+        // `bg-surface` / `bg-card` / `border-border` / `text-grey` callsite with
+        // zero code changes. Public pages keep the :root defaults untouched.
         surface: {
-          DEFAULT: "#0c0c0c",
-          raised:  "#141414",
-          overlay: "#1c1c1c",
+          DEFAULT: "var(--surface)",
+          raised:  "var(--surface-raised)",
+          overlay: "var(--surface-overlay)",
+          sunken:  "var(--surface-sunken)",
         },
-        // Design-system aliases callable as `bg-card`, `bg-card-raised`, etc.
         card: {
-          DEFAULT: "#0c0c0c",
-          raised:  "#141414",
+          DEFAULT: "var(--card)",
+          raised:  "var(--card-raised)",
         },
         border: {
-          DEFAULT: "#2a2a2a",
+          DEFAULT: "var(--border)",
+          strong:  "var(--border-strong)",
           gold:    "rgba(255,255,255,0.25)",
+        },
+        // Secondary / muted text tiers — collapses the old fragmented greys
+        // (#8f8f8f/#999/#888/#aaa vs #666/#6e6e6e/#555) into two switchable tiers.
+        grey: {
+          DEFAULT: "var(--grey)",
+          muted:   "var(--grey-2)",
         },
       },
       fontFamily: {

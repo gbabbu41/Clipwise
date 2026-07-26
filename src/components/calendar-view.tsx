@@ -155,11 +155,11 @@ const STATUS_CHIP: Record<string, string> = {
 };
 // Saturated fill — used only by the DARK agenda side-sheet chip below.
 const STATUS_FILL: Record<string, string> = {
-  pending:   "bg-amber-500/85 text-white",
-  confirmed: "bg-emerald-500/85 text-white",
-  completed: "bg-sky-500/85 text-white",
-  cancelled: "bg-red-500/70 text-white",
-  "no-show": "bg-zinc-500/70 text-white",
+  pending:   "bg-amber-500/85 text-foreground",
+  confirmed: "bg-emerald-500/85 text-foreground",
+  completed: "bg-sky-500/85 text-foreground",
+  cancelled: "bg-red-500/70 text-foreground",
+  "no-show": "bg-zinc-500/70 text-foreground",
 };
 const STATUS_DOT: Record<string, string> = {
   pending: "bg-amber-400", confirmed: "bg-emerald-400", completed: "bg-sky-400",
@@ -171,7 +171,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const statusBlock = (s: string) => STATUS_BLOCK[s] ?? "bg-sky-50 text-sky-900 border-l-4 border-sky-400";
 const statusChip = (s: string) => STATUS_CHIP[s] ?? "bg-sky-100 text-sky-800";
-const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-white";
+const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-foreground";
 const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
@@ -181,11 +181,11 @@ const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 // status-colored 3px left edge + light text. The LIGHT palettes above are kept
 // intact for the planned white-theme toggle — DO NOT delete them.
 const STATUS_BLOCK_DARK: Record<string, string> = {
-  pending:   "bg-[#1a1a1a] text-white border-l-[3px] border-amber-400",
-  confirmed: "bg-[#1a1a1a] text-white border-l-[3px] border-[#00e5a0]",
-  completed: "bg-[#1a1a1a] text-white border-l-[3px] border-sky-400",
-  cancelled: "bg-[#141414] text-[#888] border-l-[3px] border-rose-500/70",
-  "no-show": "bg-[#141414] text-[#888] border-l-[3px] border-zinc-500",
+  pending:   "bg-surface-overlay text-foreground border-l-[3px] border-amber-400",
+  confirmed: "bg-surface-overlay text-foreground border-l-[3px] border-[#00e5a0]",
+  completed: "bg-surface-overlay text-foreground border-l-[3px] border-sky-400",
+  cancelled: "bg-card-raised text-grey border-l-[3px] border-rose-500/70",
+  "no-show": "bg-card-raised text-grey border-l-[3px] border-zinc-500",
 };
 const STATUS_CHIP_DARK: Record<string, string> = {
   pending:   "bg-amber-500/15 text-amber-300",
@@ -194,7 +194,7 @@ const STATUS_CHIP_DARK: Record<string, string> = {
   cancelled: "bg-rose-500/15 text-rose-300",
   "no-show": "bg-zinc-500/15 text-zinc-300",
 };
-const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-[#1a1a1a] text-white border-l-[3px] border-[#00e5a0]";
+const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-surface-overlay text-foreground border-l-[3px] border-[#00e5a0]";
 const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
 
 // Appointment "box" style — #141414 surface + a 3px left accent, coloured by
@@ -204,12 +204,12 @@ const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 te
 const apptBlock = (a: { status?: string | null; payment_status?: string | null }) => {
   const held = a.payment_status === "held" || a.payment_status === "saved";
   const paid = a.payment_status === "paid" || a.payment_status === "captured";
-  const border = a.status === "cancelled" ? "border-[#444]"
+  const border = a.status === "cancelled" ? "border-border-strong"
     : a.status === "no-show" ? "border-[#ff6b6b]"
     : a.status === "pending" ? "border-[#f5c542]"
     : (a.status === "completed" || paid || held) ? "border-[#4a9eff]"
     : "border-[#00e5a0]";
-  return cn("bg-[#141414] border-l-[3px] text-white", border);
+  return cn("bg-card-raised border-l-[3px] text-foreground", border);
 };
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
@@ -418,8 +418,8 @@ function DAction({ icon, label, onClick, disabled, tone = "default" }: {
         "flex items-center gap-3 w-full px-3.5 py-3 rounded-xl border text-sm font-medium text-left transition-colors disabled:opacity-50",
         tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
           : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
-          : tone === "muted" ? "bg-[#1a1a1a] border-[#222] text-[#666] cursor-not-allowed"
-          : "bg-[#1a1a1a] border-[#222] text-[#f0f0f0] hover:bg-[#1e1e1e]",
+          : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
+          : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]",
       )}>
       <span className="text-base leading-none flex-shrink-0">{icon}</span>
       <span className="truncate">{label}</span>
@@ -590,9 +590,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           : appt.status === "completed"
             ? { text: "Completed · Unpaid", cls: "bg-white/5 text-[#bbb]" }
             : appt.status === "cancelled"
-              ? { text: "Cancelled", cls: "bg-white/5 text-[#888]" }
+              ? { text: "Cancelled", cls: "bg-white/5 text-grey" }
               : appt.status === "no-show"
-                ? { text: "No-show", cls: "bg-white/5 text-[#888]" }
+                ? { text: "No-show", cls: "bg-white/5 text-grey" }
                 : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
   const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amt > 0 ? `$${amt.toFixed(0)}` : null].filter(Boolean).join(" · ");
 
@@ -610,7 +610,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             transition: dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
           }}
           className={cn(
-            "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+            "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
             "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[88vh] overflow-y-auto overscroll-contain",
           )}
         >
@@ -620,17 +620,17 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           </div>
 
           {/* Header — name · meta line · single status/payment badge */}
-          <div className="px-[18px] pb-3.5 border-b border-[#1a1a1a]">
+          <div className="px-[18px] pb-3.5 border-b border-border">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-base font-bold text-white truncate">{appt.client_name}</h3>
-              <button onClick={close} className="text-[#8f8f8f] hover:text-white flex-shrink-0 -mr-1"><X size={18} /></button>
+              <h3 className="text-base font-bold text-foreground truncate">{appt.client_name}</h3>
+              <button onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
             </div>
-            <p className="text-xs text-[#8f8f8f] mt-1 truncate">{metaLine}</p>
+            <p className="text-xs text-grey mt-1 truncate">{metaLine}</p>
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
           {appt.notes && (
-            <div className="mx-[18px] mt-3 bg-[#1a1a1a] rounded-xl p-3 text-xs text-[#888]">{appt.notes}</div>
+            <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">{appt.notes}</div>
           )}
 
           {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
@@ -644,16 +644,16 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 onChange={e => setEditForm(f => ({ ...f, client_email: e.target.value }))} placeholder="name@email.com" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Day</label>
+                  <label className="text-[10px] uppercase tracking-wide text-grey">Day</label>
                   <input type="date" value={editForm.date}
                     onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Time</label>
+                  <label className="text-[10px] uppercase tracking-wide text-grey">Time</label>
                   <select value={editForm.time}
                     onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]">
                     {editSlots.length === 0 && <option value="">No open times</option>}
                     {editSlots.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -666,34 +666,34 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               </Select>
               {services && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">Service(s)</label>
+                  <label className="text-[10px] uppercase tracking-wide text-grey">Service(s)</label>
                   {(editForm.service_ids.length ? editForm.service_ids : [""]).map((sid, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                       <select value={sid} onChange={e => setServiceAt(idx, e.target.value)}
-                        className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]">
+                        className="flex-1 bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]">
                         <option value="">Select a service</option>
                         {services.map(s => <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>)}
                       </select>
                       {(editForm.service_ids.length > 1 || !!sid) && (
                         <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                          className="w-9 h-9 flex-shrink-0 rounded-lg border border-[#2a2a2a] text-[#8f8f8f] hover:text-white hover:border-white flex items-center justify-center">
+                          className="w-9 h-9 flex-shrink-0 rounded-lg border border-border text-grey hover:text-foreground hover:border-white flex items-center justify-center">
                           <X size={15} />
                         </button>
                       )}
                     </div>
                   ))}
                   <button type="button" onClick={addServiceRow}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-white">
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-foreground">
                     <Plus size={15} /> Add another service
                   </button>
                   {editForm.service_ids.filter(Boolean).length > 0 && (
-                    <p className="text-xs text-[#aaa]">Total: {editTotalDuration} min · ${editTotalPrice.toFixed(0)}</p>
+                    <p className="text-xs text-grey">Total: {editTotalDuration} min · ${editTotalPrice.toFixed(0)}</p>
                   )}
                 </div>
               )}
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setEditMode(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#222] bg-[#1a1a1a] text-sm font-medium text-[#ccc] hover:bg-[#1e1e1e] transition-colors">Cancel</button>
+                  className="flex-1 py-2.5 rounded-xl border border-border bg-surface-overlay text-sm font-medium text-[#ccc] hover:bg-[#1e1e1e] transition-colors">Cancel</button>
                 <button type="button" disabled={!!busy || !editForm.client_name.trim() || !editForm.date || !editForm.time}
                   onClick={saveEdit}
                   className="flex-1 py-2.5 rounded-xl bg-[#00e5a0] text-black text-sm font-bold disabled:opacity-40 transition-opacity">
@@ -702,7 +702,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               </div>
             </div>
           ) : readOnly ? (
-            <p className="px-[18px] pt-4 text-center text-xs text-[#666]">View only</p>
+            <p className="px-[18px] pt-4 text-center text-xs text-grey-muted">View only</p>
           ) : payChoice ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
               {paid ? (
@@ -723,7 +723,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         onChange={e => setPayEmail(e.target.value)}
                         placeholder="Customer email (for the link)"
                         autoFocus
-                        className="w-full bg-[#1a1a1a] border border-[#222] rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:border-[#333]"
+                        className="w-full bg-surface-overlay border border-border rounded-xl px-3.5 py-3 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-border"
                       />
                       <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
                     </>
@@ -734,7 +734,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   )}
                 </>
               )}
-              <button className="text-xs text-[#8f8f8f] hover:text-white pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
+              <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
             </div>
           ) : (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
@@ -782,39 +782,39 @@ function AgendaSheet({
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-black shadow-sm border-l border-[#2a2a2a] z-50 flex flex-col animate-fade-in">
-        <div className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] border-b border-[#2a2a2a] flex items-center justify-between">
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-card shadow-sm border-l border-border z-50 flex flex-col animate-fade-in">
+        <div className="px-5 pb-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] border-b border-border flex items-center justify-between">
           <div>
-            <p className="text-xs text-[#8f8f8f]">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
-            <h3 className="text-lg font-bold text-white">{dayLabel}</h3>
-            <p className="text-xs text-[#8f8f8f] mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
+            <p className="text-xs text-grey">{date.toLocaleDateString("en-CA", { year: "numeric" })}</p>
+            <h3 className="text-lg font-bold text-foreground">{dayLabel}</h3>
+            <p className="text-xs text-grey mt-0.5">{appts.length} {appts.length === 1 ? "appointment" : "appointments"}</p>
           </div>
-          <button onClick={onClose} className="text-[#8f8f8f] hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="text-grey hover:text-foreground"><X size={20} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {appts.length === 0 && (
-            <div className="text-center py-12 text-[#8f8f8f] text-sm">No bookings on this day.</div>
+            <div className="text-center py-12 text-grey text-sm">No bookings on this day.</div>
           )}
           {appts.map(appt => {
             const barber = barbers.find(b => b.id === appt.barber_id);
             return (
               <button key={appt.id} onClick={() => onOpenAppt(appt)}
-                className="w-full text-left p-3 rounded-xl bg-[#141414] hover:bg-[#141414]/80 transition-colors flex items-start gap-3">
+                className="w-full text-left p-3 rounded-xl bg-card-raised hover:bg-card-raised/80 transition-colors flex items-start gap-3">
                 <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", statusDot(appt.status))} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className={cn("text-sm font-semibold text-white truncate", isDimmed(appt.status) && "line-through opacity-60")}>
+                    <p className={cn("text-sm font-semibold text-foreground truncate", isDimmed(appt.status) && "line-through opacity-60")}>
                       {appt.client_name}
                     </p>
-                    <span className="text-xs text-[#8f8f8f] flex-shrink-0">{appt.time_slot}</span>
+                    <span className="text-xs text-grey flex-shrink-0">{appt.time_slot}</span>
                   </div>
-                  <p className="text-xs text-[#8f8f8f] truncate">
+                  <p className="text-xs text-grey truncate">
                     {(appt.services as { name: string } | null)?.name ?? "—"} · {barber?.name ?? "Any"}
                   </p>
                   {appt.client_email && (
-                    <p className="text-xs text-[#8f8f8f] truncate">{appt.client_email}</p>
+                    <p className="text-xs text-grey truncate">{appt.client_email}</p>
                   )}
-                  <span className={cn("inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded text-white", statusFill(appt.status).split(" ")[0])}>
+                  <span className={cn("inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded text-foreground", statusFill(appt.status).split(" ")[0])}>
                     {statusLabel(appt.status)}
                   </span>
                 </div>
@@ -822,9 +822,9 @@ function AgendaSheet({
             );
           })}
         </div>
-        <div className="px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] lg:pb-4 border-t border-[#2a2a2a]">
+        <div className="px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] lg:pb-4 border-t border-border">
           <button onClick={onDrillToDay}
-            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors">
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-foreground text-sm font-medium transition-colors">
             Open day view
           </button>
         </div>
@@ -1225,7 +1225,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const dim = sm ? "w-7 h-7 text-[11px]" : "w-11 h-11 text-sm";
     if (b.photo) return <img src={b.photo} alt={b.name} className={cn(dim, "rounded-full object-cover")} />;
     return (
-      <span className={cn(dim, "rounded-full flex items-center justify-center font-bold text-white", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
+      <span className={cn(dim, "rounded-full flex items-center justify-center font-bold text-foreground", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
         {initials(b.name)}
       </span>
     );
@@ -1463,7 +1463,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        className="flex overflow-x-auto overscroll-x-contain border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex overflow-x-auto overscroll-x-contain border-b border-border bg-card flex-shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {days.map(day => {
           const dateStr = formatDateForDb(day);
@@ -1473,13 +1473,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           return (
             <button key={dateStr} data-sel={isSel ? "1" : undefined}
               onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
-              className="flex-shrink-0 basis-[14.2857%] min-w-[3rem] py-1.5 text-center hover:bg-[#141414] transition-colors">
-              <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-accent-soft" : "text-[#666]")}>
+              className="flex-shrink-0 basis-[14.2857%] min-w-[3rem] py-1.5 text-center hover:bg-card-raised transition-colors">
+              <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-accent-soft" : "text-grey-muted")}>
                 {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
               </p>
               <p className={cn(
                 "text-sm font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors",
-                isSel ? "bg-accent text-white" : today ? "text-accent-soft" : "text-white",
+                isSel ? "bg-accent text-foreground" : today ? "text-accent-soft" : "text-foreground",
               )}>
                 {day.getDate()}
               </p>
@@ -1515,13 +1515,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i));
             return (
               <button key={m} onClick={() => openMonth(first)}
-                className="text-left rounded-xl p-1.5 hover:bg-[#0f0f0f] transition-colors">
+                className="text-left rounded-xl p-1.5 hover:bg-card transition-colors">
                 <p className="text-sm font-bold text-accent-soft mb-1 px-0.5">
                   {first.toLocaleDateString("en-CA", { month: "long" })}
                 </p>
                 <div className="grid grid-cols-7 gap-y-0.5">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <span key={`h${i}`} className="text-[8px] text-[#6e6e6e] text-center">{d}</span>
+                    <span key={`h${i}`} className="text-[8px] text-grey-muted text-center">{d}</span>
                   ))}
                   {cells.map((d, i) => {
                     const inMonth = d.getMonth() === m;
@@ -1532,9 +1532,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       <span key={`d${i}`} className={cn(
                         "text-[9px] leading-[15px] h-[15px] w-[15px] mx-auto text-center rounded-full",
                         !inMonth ? "text-transparent"
-                          : isTodayCell ? "bg-accent text-white font-bold"
-                          : has ? "text-white font-semibold"
-                          : "text-[#8f8f8f]",
+                          : isTodayCell ? "bg-accent text-foreground font-bold"
+                          : has ? "text-foreground font-semibold"
+                          : "text-grey",
                       )}>
                         {d.getDate()}
                       </span>
@@ -1570,9 +1570,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div className="flex flex-col h-full">
-        <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c]">
+        <div className="grid grid-cols-7 border-b border-border bg-card">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-[#666] text-center">{d}</div>
+            <div key={d} className="px-2 py-2 text-xs font-medium text-grey-muted text-center">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 flex-1 auto-rows-fr">
@@ -1587,17 +1587,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 key={dayStr}
                 onClick={() => openDay(day)}
                 className={cn(
-                  "border-r border-b border-[#161616] p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors",
+                  "border-r border-b border-border p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors",
                   embedded ? "min-h-[58px] sm:min-h-[88px]" : "min-h-[96px] sm:min-h-[132px]",
-                  "hover:bg-[#141414]",
-                  !inMonth && "bg-[#070707]",
+                  "hover:bg-card-raised",
+                  !inMonth && "bg-background",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className={cn(
                     "text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center",
-                    isToday(day) ? "bg-accent text-white font-bold" :
-                    inMonth ? "text-white" : "text-[#444]",
+                    isToday(day) ? "bg-accent text-foreground font-bold" :
+                    inMonth ? "text-foreground" : "text-[#444]",
                   )}>
                     {day.getDate()}
                   </span>
@@ -1610,7 +1610,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       <span key={a.id} className={cn("w-1.5 h-1.5 rounded-full", statusDot(a.status))} />
                     ))}
                     {dayAppts.length > 10 && (
-                      <span className="text-[9px] text-[#666] leading-none">+{dayAppts.length - 10}</span>
+                      <span className="text-[9px] text-grey-muted leading-none">+{dayAppts.length - 10}</span>
                     )}
                   </div>
                 ) : (
@@ -1627,7 +1627,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       </span>
                     ))}
                     {overflow > 0 && (
-                      <span className="text-[10px] text-[#666] pl-1.5">+{overflow} more</span>
+                      <span className="text-[10px] text-grey-muted pl-1.5">+{overflow} more</span>
                     )}
                   </div>
                 )}
@@ -1670,26 +1670,26 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return (
       <div className="p-4 sm:p-5">
         {!sched && (
-          <p className="text-xs text-[#666] mb-3">No schedule set for this day — showing a default 9 AM–10 PM window.</p>
+          <p className="text-xs text-grey-muted mb-3">No schedule set for this day — showing a default 9 AM–10 PM window.</p>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {cells.map((c, ci) => c.k === "empty" ? (
             <button key={`e${ci}`} onClick={() => openAdd(barber.id, barber.name, c.s, c.minutes)}
-              className="rounded-xl bg-[#0f0f0f] hover:bg-[#141414] transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
-              <span className="text-xs text-[#6e6e6e]">{rangeLabel(c.s, c.minutes)}</span>
+              className="rounded-xl bg-card hover:bg-card-raised transition-colors p-3 text-left min-h-[88px] flex flex-col justify-between">
+              <span className="text-xs text-grey-muted">{rangeLabel(c.s, c.minutes)}</span>
               <span className="text-[10px] text-[#444]">Free</span>
             </button>
           ) : c.k === "block" ? (
             <button key={`b${c.b.id}`} onClick={() => canBlock && removeBlock(c.b)} disabled={!canBlock}
               style={{ backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
-              className={cn("rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-[#3a3a3a] transition-colors",
+              className={cn("rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-border-strong transition-colors",
                 canBlock ? "hover:border-[#4a4a4a]" : "cursor-default")}>
               <span className="text-xs font-medium text-[#bdbdbd]">{rangeLabel(dbTimeToDisplay(c.b.start_time!), c.b.endMin - c.b.startMin)}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#dcdcdc] flex items-center gap-1"><Ban size={12} /> Blocked</p>
-                {c.b.reason && <p className="text-[11px] text-[#888] truncate">{c.b.reason}</p>}
+                {c.b.reason && <p className="text-[11px] text-grey truncate">{c.b.reason}</p>}
               </div>
-              <span className={cn("text-[10px] font-semibold", c.b.status === "pending" ? "text-amber-400" : "text-[#888]")}>
+              <span className={cn("text-[10px] font-semibold", c.b.status === "pending" ? "text-amber-400" : "text-grey")}>
                 {c.b.status === "pending" ? "Pending approval" : canBlock ? "Tap to remove" : "Blocked"}
               </span>
             </button>
@@ -1700,10 +1700,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 apptBlock(c.a), isDimmed(c.a.status) && "opacity-60 line-through",
                 flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
-              <span className="text-xs font-medium text-[#999]">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
+              <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
-                <p className="text-[11px] text-[#999] truncate">
+                <p className="text-[11px] text-grey truncate">
                   {(c.a.services as { name: string } | null)?.name ?? "—"}
                   {(c.a.total_amount ?? 0) > 0 ? ` · $${Number(c.a.total_amount).toFixed(0)}` : ""}
                 </p>
@@ -1711,7 +1711,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
                 <span className="text-[10px] font-semibold">
                   <span className="text-[#00e5a0]">Paid</span>
-                  <span className="text-[#6e6e6e]"> · </span>
+                  <span className="text-grey-muted"> · </span>
                   <span className={c.a.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
                     {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
                   </span>
@@ -1719,12 +1719,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               ) : c.a.status === "completed" ? (
                 <span className="text-[10px] font-semibold text-[#bbb]">Unpaid</span>
               ) : (
-                <span className="text-[10px] font-semibold text-[#888]">{statusLabel(c.a.status)}</span>
+                <span className="text-[10px] font-semibold text-grey">{statusLabel(c.a.status)}</span>
               )}
             </button>
           ))}
           {cells.length === 0 && (
-            <p className="col-span-full text-center text-sm text-[#666] py-10">Nothing scheduled.</p>
+            <p className="col-span-full text-center text-sm text-grey-muted py-10">Nothing scheduled.</p>
           )}
         </div>
       </div>
@@ -1754,7 +1754,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div className="overflow-auto flex-1">
             {soloBarber
               ? renderBarberGrid(soloBarber)
-              : <p className="text-center text-sm text-[#666] py-12">No barbers yet.</p>}
+              : <p className="text-center text-sm text-grey-muted py-12">No barbers yet.</p>}
           </div>
         </div>
       );
@@ -1785,18 +1785,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             fallback, so there's nothing to reveal — no button. */}
         {!single && scheduledBarbers.length > 0 && unscheduledCount > 0 && (
           <button type="button" onClick={() => setShowUnscheduled(v => !v)}
-            className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#141414] border border-[#2a2a2a] text-[#999] hover:text-white transition-colors flex-shrink-0">
+            className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-card-raised border border-border text-grey hover:text-foreground transition-colors flex-shrink-0">
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
           </button>
         )}
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
-            <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+            <div className="grid sticky top-0 z-10 bg-surface-sunken border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
-                className="flex items-center justify-center py-1.5 transition-colors hover:bg-[#141414]">
-                <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
+                className="flex items-center justify-center py-1.5 transition-colors hover:bg-card-raised">
+                <span className={cn("w-7 h-7 rounded-full flex items-center justify-center bg-surface-overlay text-grey", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-1 ring-offset-[#0a0a0a]")}>
                   <Users size={14} />
                 </span>
               </button>
@@ -1805,13 +1805,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 const n = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length;
                 return (
                   <button key={b.id} type="button" onClick={() => setBarberFilter(b.id)}
-                    className="px-2 py-1.5 border-l border-[#161616] hover:bg-[#141414] transition-colors min-w-0">
+                    className="px-2 py-1.5 border-l border-border hover:bg-card-raised transition-colors min-w-0">
                     <div className="flex items-center justify-center gap-1.5 min-w-0">
                       <BarberAvatar b={b} i={gi >= 0 ? gi : 0} sm />
-                      <span className="text-xs text-white font-medium truncate">{b.name}</span>
-                      {!schedules.has(b.id) && <span className="text-[9px] text-[#666] flex-shrink-0" title="No schedule set for today">off</span>}
+                      <span className="text-xs text-foreground font-medium truncate">{b.name}</span>
+                      {!schedules.has(b.id) && <span className="text-[9px] text-grey-muted flex-shrink-0" title="No schedule set for today">off</span>}
                     </div>
-                    <p className="text-[10px] text-[#666] leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
+                    <p className="text-[10px] text-grey-muted leading-none mt-0.5 text-center">{n} appt{n === 1 ? "" : "s"}</p>
                   </button>
                 );
               })}
@@ -1820,14 +1820,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-[#161616] relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
                 <div className="relative text-right pr-2">
-                  <span className="text-[10px] text-[#8f8f8f]">
+                  <span className="text-[10px] text-grey">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </span>
                 </div>
                 {cols.map(b => (
-                  <div key={b.id} className="border-l border-[#141414]" />
+                  <div key={b.id} className="border-l border-border" />
                 ))}
               </div>
             ))}
@@ -1857,7 +1857,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           className={cn(
                             "rounded-lg transition-colors pointer-events-auto overflow-hidden",
-                            outside ? "bg-transparent hover:bg-[#141414]" : "bg-[#141414] hover:bg-[#1c1c1c]",
+                            outside ? "bg-transparent hover:bg-card-raised" : "bg-card-raised hover:bg-surface-overlay",
                           )}
                           onClick={() => openAdd(b.id, b.name, slot, minutes)} />
                       );
@@ -1873,10 +1873,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
                             backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
                           className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
-                            bl.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                            bl.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                           <p className="text-[9px] font-semibold text-[#cfcfcf] flex items-center gap-0.5 leading-tight"><Ban size={9} /> Blocked</p>
-                          {height > 28 && <p className="text-[8px] text-[#999] truncate leading-tight">{dbTimeToDisplay(bl.start_time!)}–{dbTimeToDisplay(bl.end_time!)}</p>}
-                          {bl.reason && height > 44 && <p className="text-[8px] text-[#888] truncate leading-tight">{bl.reason}</p>}
+                          {height > 28 && <p className="text-[8px] text-grey truncate leading-tight">{dbTimeToDisplay(bl.start_time!)}–{dbTimeToDisplay(bl.end_time!)}</p>}
+                          {bl.reason && height > 44 && <p className="text-[8px] text-grey truncate leading-tight">{bl.reason}</p>}
                         </button>
                       );
                     })}
@@ -1911,7 +1911,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                               <span className="text-[8px] font-normal flex-shrink-0 whitespace-nowrap opacity-90">
                                 {paymentTag(appt).segments.map((s, i) => (
                                   <Fragment key={i}>
-                                    {i > 0 && <span className="text-[#6e6e6e]">·</span>}
+                                    {i > 0 && <span className="text-grey-muted">·</span>}
                                     <span className={s.className}>{s.text}</span>
                                   </Fragment>
                                 ))}
@@ -1919,7 +1919,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             </div>
                           )}
                           {height > 64 && (
-                            <p className="text-[9px] text-[#999] truncate leading-tight">
+                            <p className="text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
                               {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
                             </p>
@@ -1975,7 +1975,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return (
         <div className="flex flex-col h-full">
           {/* Date strip — tap to switch day */}
-          <div className="grid grid-cols-7 border-b border-[#1a1a1a] bg-[#0c0c0c] flex-shrink-0">
+          <div className="grid grid-cols-7 border-b border-border bg-card flex-shrink-0">
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
               const isSelected = dateStr === selectedStr;
@@ -1983,13 +1983,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
               return (
                 <button key={dateStr} onClick={() => { setNavDir(formatDateForDb(day) >= formatDateForDb(currentDate) ? 1 : -1); setCurrentDate(day); }}
-                  className="py-2 text-center hover:bg-[#141414] transition-colors">
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
+                  className="py-2 text-center hover:bg-card-raised transition-colors">
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>
                     {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
                   </p>
                   <p className={cn(
                     "text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    isSelected ? "bg-accent text-white" : "text-white",
+                    isSelected ? "bg-accent text-foreground" : "text-foreground",
                   )}>
                     {day.getDate()}
                   </p>
@@ -2006,11 +2006,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div ref={scrollRef} className="overflow-auto flex-1">
             <div className="relative">
               {hours.map(hour => (
-                <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
-                  <div className="text-[10px] text-[#8f8f8f] text-right pr-2 pt-1">
+                <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
+                  <div className="text-[10px] text-grey text-right pr-2 pt-1">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </div>
-                  <div className="border-l border-[#141414]" />
+                  <div className="border-l border-border" />
                 </div>
               ))}
               <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `48px 1fr` }}>
@@ -2036,7 +2036,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       >
                         <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
                         {height > 44 && (
-                          <p className="text-[11px] text-[#999] truncate">
+                          <p className="text-[11px] text-grey truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                           </p>
                         )}
@@ -2053,9 +2053,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute",
                           backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
-                        className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-2 py-1 text-left", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                        className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-2 py-1 text-left", b.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                         <p className="text-xs font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-1"><Ban size={11} /> Blocked</p>
-                        {height > 30 && <p className="text-[11px] text-[#999] truncate leading-tight">{dbTimeToDisplay(b.start_time!)} – {dbTimeToDisplay(b.end_time!)}{b.reason ? ` · ${b.reason}` : ""}</p>}
+                        {height > 30 && <p className="text-[11px] text-grey truncate leading-tight">{dbTimeToDisplay(b.start_time!)} – {dbTimeToDisplay(b.end_time!)}{b.reason ? ` · ${b.reason}` : ""}</p>}
                       </button>
                     );
                   })}
@@ -2098,7 +2098,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         {/* Fluid (min-w-0) so all 7 day columns shrink to fit any screen —
             phone/tablet/iPad — instead of a fixed 700px grid that scrolled + clipped. */}
         <div className="min-w-0">
-          <div className="grid sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#1a1a1a]" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
+          <div className="grid sticky top-0 z-10 bg-surface-sunken border-b border-border" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -2106,18 +2106,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => openDay(day)}
-                  className={cn("py-2 text-center border-l border-[#161616] hover:bg-[#141414] transition-colors", today && "bg-accent-muted")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-white" : "text-[#666]")}>
+                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors", today && "bg-accent-muted")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
                   <p className={cn(
                     "text-lg font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full",
-                    today ? "bg-accent text-white" : "text-white",
+                    today ? "bg-accent text-foreground" : "text-foreground",
                   )}>
                     {day.getDate()}
                   </p>
                   {dayAppts.length > 0 && (
-                    <p className="text-[10px] text-[#666] mt-0.5">{dayAppts.length}</p>
+                    <p className="text-[10px] text-grey-muted mt-0.5">{dayAppts.length}</p>
                   )}
                 </button>
               );
@@ -2126,12 +2126,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-[#161616]" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))`, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-[#8f8f8f] text-right pr-2 pt-1">
+              <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))`, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-grey text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-[#141414]", isToday(day) && "bg-accent-muted")} />
+                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
                 ))}
               </div>
             ))}
@@ -2162,7 +2162,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         >
                           <p className="text-[11px] font-semibold leading-tight truncate">{appt.client_name}</p>
                           {height > 36 && (
-                            <p className="text-[10px] text-[#999] truncate">{appt.time_slot}</p>
+                            <p className="text-[10px] text-grey truncate">{appt.time_slot}</p>
                           )}
                         </button>
                       );
@@ -2177,9 +2177,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute",
                             backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
-                          className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", b.status === "pending" ? "border-amber-500/50" : "border-[#3a3a3a]")}>
+                          className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", b.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                           <p className="text-[10px] font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-0.5"><Ban size={9} /> Blocked</p>
-                          {height > 32 && <p className="text-[9px] text-[#999] truncate leading-tight">{dbTimeToDisplay(b.start_time!)}–{dbTimeToDisplay(b.end_time!)}</p>}
+                          {height > 32 && <p className="text-[9px] text-grey truncate leading-tight">{dbTimeToDisplay(b.start_time!)}–{dbTimeToDisplay(b.end_time!)}</p>}
                         </button>
                       );
                     })}
@@ -2297,7 +2297,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   return (
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
-    <div data-no-swipe className={cn("flex flex-col h-full bg-[#0a0a0a] text-white overflow-x-clip", embedded && "min-h-[100dvh]")}>
+    <div data-no-swipe className={cn("flex flex-col h-full bg-surface-sunken text-foreground overflow-x-clip", embedded && "min-h-[100dvh]")}>
       {/* Page title (owner standalone only) — the universal top header, so the
           calendar's top matches every other page. The date-nav toolbar below
           stays as-is. Grid area (flex-1) absorbs the header height. */}
@@ -2308,16 +2308,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       )}
       {/* Header — one row: date hero (left) · controls (right). The barber
           filter is a compact avatar+caret so it all fits on a single line. */}
-      <div className="border-b border-[#1a1a1a] px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+      <div className="border-b border-border px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
-              className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-white transition-colors flex-shrink-0 -ml-1">
+              className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-foreground transition-colors flex-shrink-0 -ml-1">
               <ChevronLeft size={18} /> {backLabel}
             </button>
           )}
-          <h2 className="text-base sm:text-lg font-bold text-white truncate">{titleText}</h2>
-          {loading && <span className="text-xs text-[#666] animate-pulse flex-shrink-0">…</span>}
+          <h2 className="text-base sm:text-lg font-bold text-foreground truncate">{titleText}</h2>
+          {loading && <span className="text-xs text-grey-muted animate-pulse flex-shrink-0">…</span>}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -2325,19 +2325,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
             <div className="relative">
               <button onClick={() => setViewMenu(o => !o)} aria-label="Choose barber"
-                className="flex items-center gap-0.5 rounded-full border border-[#2a2a2a] bg-[#141414] p-0.5 pr-1 hover:border-[#333] transition-colors">
+                className="flex items-center gap-0.5 rounded-full border border-border bg-card-raised p-0.5 pr-1 hover:border-border transition-colors">
                 {(() => { const db = barbers.find(b => b.id === dayBarberId); return db
                   ? <BarberAvatar b={db} i={barbers.indexOf(db)} sm />
-                  : <span className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center text-[#aaa]"><Users size={14} /></span>; })()}
-                <ChevronDown size={13} className="text-[#888]" />
+                  : <span className="w-7 h-7 rounded-full bg-surface-overlay flex items-center justify-center text-grey"><Users size={14} /></span>; })()}
+                <ChevronDown size={13} className="text-grey" />
               </button>
               {viewMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
-                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl shadow-lg py-1">
+                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-card border border-border rounded-xl shadow-lg py-1">
                     {orderedBarbers.map(b => (
                       <button key={b.id} onClick={() => { setBarberFilter(b.id); setViewMenu(false); }}
-                        className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#141414]", dayBarberId === b.id ? "text-white font-semibold" : "text-[#aaa]")}>
+                        className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-raised", dayBarberId === b.id ? "text-foreground font-semibold" : "text-grey")}>
                         <BarberAvatar b={b} i={barbers.indexOf(b)} sm />
                         <span className="truncate">{b.name}</span>
                       </button>
@@ -2349,11 +2349,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           )}
           {/* Big-screen day: page barber columns when there are a lot */}
           {dayPagerVisible && (
-            <div className="flex items-center gap-0.5 text-[#888]">
+            <div className="flex items-center gap-0.5 text-grey">
               <button onClick={() => setColPage(p => Math.max(0, p - 1))} disabled={dayPage === 0} aria-label="Previous barbers"
-                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
+                className="p-1 rounded hover:bg-card-raised disabled:opacity-30 disabled:hover:bg-transparent"><ChevronLeft size={16} /></button>
               <button onClick={() => setColPage(p => Math.min(dayPages - 1, p + 1))} disabled={dayPage >= dayPages - 1} aria-label="More barbers"
-                className="p-1 rounded hover:bg-[#141414] disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
+                className="p-1 rounded hover:bg-card-raised disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
             </div>
           )}
           {/* Day: timeline ⇄ box (card) layout toggle */}
@@ -2361,20 +2361,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
               aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
               title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              className="p-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="p-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
               {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
             </button>
           )}
           {/* Day: add an appointment */}
           {view === "day" && canManage && (
             <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
-              className="p-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#ccc] hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="p-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
               <Plus size={16} />
             </button>
           )}
           {!onToday && (
             <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
-              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-[#2a2a2a] bg-[#141414] rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors">
+              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
               Today
             </button>
           )}
@@ -2385,13 +2385,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           Shown on the month/year overviews to filter; the day view has its own
           selection (columns on desktop, a dropdown on phone). */}
       {!isolated && profile?.role !== "barber" && barbers.length > 0 && view !== "day" && (
-        <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#1a1a1a] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
-            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-[#1a1a1a] text-[#aaa]", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
+            <span className={cn("w-11 h-11 rounded-full flex items-center justify-center bg-surface-overlay text-grey", barberFilter === "all" && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
               <Users size={18} />
             </span>
-            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>All barbers</span>
+            <span className={cn("text-[10px] truncate w-full text-center", barberFilter === "all" ? "text-[#00e5a0] font-semibold" : "text-grey")}>All barbers</span>
           </button>
           {orderedBarbers.map((b) => (
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
@@ -2399,14 +2399,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
                 <BarberAvatar b={b} i={barbers.indexOf(b)} />
               </span>
-              <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-[#00e5a0] font-semibold" : "text-[#888]")}>{b.name}</span>
+              <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-[#00e5a0] font-semibold" : "text-grey")}>{b.name}</span>
             </button>
           ))}
         </div>
       )}
 
       <div
-        className={cn("relative flex-1 bg-[#0a0a0a]", embedded ? "overflow-y-auto" : "overflow-hidden")}
+        className={cn("relative flex-1 bg-surface-sunken", embedded ? "overflow-y-auto" : "overflow-hidden")}
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
@@ -2444,9 +2444,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
       {toast && (
         <Portal>
-          <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-            <span className="text-white">✓</span>{toast}
-            <button onClick={() => setToast("")} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+          <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+            <span className="text-foreground">✓</span>{toast}
+            <button onClick={() => setToast("")} className="text-grey hover:text-foreground ml-2">✕</button>
           </div>
         </Portal>
       )}
@@ -2465,7 +2465,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 transition: addDragging ? "none" : "transform 0.26s cubic-bezier(.32,.72,0,1)",
               }}
               className={cn(
-                "pointer-events-auto w-full sm:max-w-md bg-[#111] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl",
+                "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
                 "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
               )}>
               {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
@@ -2476,42 +2476,42 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">{addMode === "block" ? "Block time" : "New appointment"}</h3>
-                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
+                <h3 className="text-lg font-bold text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
+                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
               {canManage && canBlock && (
-                <div className="grid grid-cols-2 gap-1 p-1 bg-[#141414] rounded-xl">
+                <div className="grid grid-cols-2 gap-1 p-1 bg-card-raised rounded-xl">
                   <button type="button" onClick={() => setAddMode("appt")}
-                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors", addMode === "appt" ? "bg-white text-black" : "text-[#888] hover:text-white")}>Appointment</button>
+                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors", addMode === "appt" ? "bg-white text-black" : "text-grey hover:text-foreground")}>Appointment</button>
                   <button type="button" onClick={() => setAddMode("block")}
-                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-[#888] hover:text-white")}><Ban size={14} /> Block</button>
+                    className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-grey hover:text-foreground")}><Ban size={14} /> Block</button>
                 </div>
               )}
-              <div className="bg-[#141414] rounded-xl p-3 text-xs text-[#aaa] space-y-0.5">
-                <p><span className="text-[#8f8f8f]">Barber:</span> {addCtx.barberName}</p>
-                <p><span className="text-[#8f8f8f]">When:</span> {friendlyDate(currentDate)}</p>
+              <div className="bg-card-raised rounded-xl p-3 text-xs text-grey space-y-0.5">
+                <p><span className="text-grey">Barber:</span> {addCtx.barberName}</p>
+                <p><span className="text-grey">When:</span> {friendlyDate(currentDate)}</p>
               </div>
               {addMode === "block" ? (
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">From</label>
+                      <label className="text-[10px] uppercase tracking-wide text-grey">From</label>
                       <input type="time" value={blockForm.start} max={blockForm.end || undefined}
                         onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
-                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                        className="w-full bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-[#8f8f8f]">To</label>
+                      <label className="text-[10px] uppercase tracking-wide text-grey">To</label>
                       <input type="time" value={blockForm.end} min={blockForm.start || undefined}
                         onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
-                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                        className="w-full bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
                     </div>
                   </div>
                   <input type="text" value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
                     placeholder="Reason (optional) — e.g. Lunch"
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#666] focus:outline-none focus:border-white" />
-                  <p className="text-[11px] text-[#888] flex items-start gap-1.5">
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-white" />
+                  <p className="text-[11px] text-grey flex items-start gap-1.5">
                     <span className="text-accent-soft mt-0.5">ⓘ</span>
                     {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
                   </p>
@@ -2532,7 +2532,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
               {/* Services first — dropdown rows; "+" adds another for a combined appointment */}
               <div>
-                <label className="block text-xs font-medium text-[#aaa] mb-1">Services * <span className="text-[#666] font-normal">(add one or more)</span></label>
+                <label className="block text-xs font-medium text-grey mb-1">Services * <span className="text-grey-muted font-normal">(add one or more)</span></label>
                 <div className="space-y-2">
                   {(addForm.service_ids.length ? addForm.service_ids : [""]).map((sid, idx) => {
                     const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
@@ -2548,7 +2548,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         </Select>
                         {(addForm.service_ids.length > 1 || !!sid) && (
                           <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-[#2a2a2a] text-[#8f8f8f] hover:text-white hover:border-white flex items-center justify-center">
+                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground hover:border-white flex items-center justify-center">
                             <X size={15} />
                           </button>
                         )}
@@ -2557,11 +2557,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   })}
                 </div>
                 <button type="button" onClick={addServiceRow}
-                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-white">
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-foreground">
                   <Plus size={15} /> Add another service
                 </button>
                 {addForm.service_ids.filter(Boolean).length > 0 && (
-                  <p className="text-xs text-[#aaa] mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
+                  <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
                 )}
               </div>
               <Select label="Available time" value={addForm.time}

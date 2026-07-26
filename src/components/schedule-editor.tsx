@@ -200,19 +200,19 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
   if (loading) return (
     <div className="space-y-4 animate-pulse">
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
-        <div className="h-4 w-36 bg-[#1a1a1a] rounded" />
-        <div className="mt-4 divide-y divide-[#161616]">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="h-4 w-36 bg-surface-overlay rounded" />
+        <div className="mt-4 divide-y divide-border">
           {[0, 1, 2, 3, 4, 5, 6].map(i => (
             <div key={i} className="flex items-center gap-3 py-2.5">
-              <div className="w-9 h-3 bg-[#1a1a1a] rounded flex-shrink-0" />
-              <div className="w-2 h-2 rounded-full bg-[#1a1a1a] flex-shrink-0" />
-              <div className="h-3 bg-[#1a1a1a] rounded" style={{ width: `${50 + (i % 3) * 14}%` }} />
+              <div className="w-9 h-3 bg-surface-overlay rounded flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-surface-overlay flex-shrink-0" />
+              <div className="h-3 bg-surface-overlay rounded" style={{ width: `${50 + (i % 3) * 14}%` }} />
             </div>
           ))}
         </div>
       </div>
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4 h-20" />
+      <div className="rounded-2xl border border-border bg-card p-4 h-20" />
     </div>
   );
 
@@ -221,30 +221,30 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
   return (
     <div className="space-y-4">
       {/* ── Weekly schedule (compact one-line rows, edit in a popup) ─────── */}
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
+      <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-semibold text-white">Weekly Schedule</h3>
-            <p className="text-xs text-[#666] mt-0.5">Repeats every week — same hours, automatically.</p>
+            <h3 className="font-semibold text-foreground">Weekly Schedule</h3>
+            <p className="text-xs text-grey-muted mt-0.5">Repeats every week — same hours, automatically.</p>
           </div>
           {headerAction}
         </div>
 
-        <div className={cn("mt-3 divide-y divide-[#161616]", !canEdit && "opacity-80", isPaused && "opacity-40 pointer-events-none")}>
+        <div className={cn("mt-3 divide-y divide-border", !canEdit && "opacity-80", isPaused && "opacity-40 pointer-events-none")}>
           {ORDER.map(dow => {
             const d = days[dow];
             const brk = d.breaks.length === 1 ? ` · ${d.breaks[0].label}` : d.breaks.length > 1 ? ` · ${d.breaks.length} breaks` : "";
             return (
               <button key={dow} onClick={() => canEdit && setDayModal(dow)} disabled={!canEdit}
                 className="w-full flex items-center gap-3 py-2.5 text-left disabled:cursor-default">
-                <span className="w-9 flex-shrink-0 text-[11px] font-bold uppercase tracking-wide text-[#888]">{DAY_ABBR[dow]}</span>
-                <span className={cn("w-2 h-2 rounded-full flex-shrink-0", d.isOpen ? "bg-emerald-500" : "border border-[#444]")} />
+                <span className="w-9 flex-shrink-0 text-[11px] font-bold uppercase tracking-wide text-grey">{DAY_ABBR[dow]}</span>
+                <span className={cn("w-2 h-2 rounded-full flex-shrink-0", d.isOpen ? "bg-emerald-500" : "border border-border-strong")} />
                 <span className="flex-1 min-w-0 text-sm truncate">
                   {d.isOpen
-                    ? <span className="text-white">{d.start} → {d.end}<span className="text-[#888]">{brk}</span></span>
-                    : <span className="text-[#666]">Day off</span>}
+                    ? <span className="text-foreground">{d.start} → {d.end}<span className="text-grey">{brk}</span></span>
+                    : <span className="text-grey-muted">Day off</span>}
                 </span>
-                {canEdit && <Pencil size={14} className="text-[#666] flex-shrink-0" />}
+                {canEdit && <Pencil size={14} className="text-grey-muted flex-shrink-0" />}
               </button>
             );
           })}
@@ -252,60 +252,60 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
         {/* Quick actions */}
         {canEdit && <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
             Quick fill: Mon–Fri 9–6
           </button>
-          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
             <Copy size={13} /> Copy first day to all
           </button>
         </div>}
       </div>
 
       {!canEdit && (
-        <p className="text-xs text-[#8f8f8f] text-center py-1">Read-only — your shop owner manages your hours.</p>
+        <p className="text-xs text-grey text-center py-1">Read-only — your shop owner manages your hours.</p>
       )}
 
       {/* ── Time off ─────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
+      <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarOff size={16} className="text-amber-400" />
-            <span className="font-semibold text-white">Time Off</span>
+            <span className="font-semibold text-foreground">Time Off</span>
           </div>
           <button onClick={() => setShowOffForm(v => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-xs font-medium px-3 py-1.5">
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
             <Plus size={13} /> {isOwner ? "Add time off" : "Request"}
           </button>
         </div>
-        <p className="text-xs text-[#666] mt-1">
+        <p className="text-xs text-grey-muted mt-1">
           {isOwner ? "Block off vacation, days off or specific hours — applied instantly." : "Request a day off or vacation — your owner approves it."}
         </p>
 
         {/* Add / request form */}
         {showOffForm && (
-          <div className="mt-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-3 space-y-2.5">
+          <div className="mt-3 rounded-xl border border-border bg-card p-3 space-y-2.5">
             <select value={offForm.type} onChange={e => setOffForm(f => ({ ...f, type: e.target.value }))}
-              className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-white text-sm px-3 py-2 focus:outline-none focus:border-white">
-              {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-[#141414]">{t.label}</option>)}
+              className="w-full rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white">
+              {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-card-raised">{t.label}</option>)}
             </select>
             <div className="flex items-center gap-2 text-sm">
               <input type="date" value={offForm.start_date} min={todayISO()} style={{ colorScheme: "dark" }}
                 onChange={e => setOffForm(f => ({ ...f, start_date: e.target.value, end_date: f.end_date < e.target.value ? e.target.value : f.end_date }))}
-                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#2a2a2a] text-white px-3 py-2 focus:outline-none focus:border-white" />
-              <span className="text-[#666] flex-shrink-0">to</span>
+                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white" />
+              <span className="text-grey-muted flex-shrink-0">to</span>
               <input type="date" value={offForm.end_date} min={offForm.start_date} style={{ colorScheme: "dark" }}
                 onChange={e => setOffForm(f => ({ ...f, end_date: e.target.value }))}
-                className="flex-1 min-w-0 rounded-lg bg-[#141414] border border-[#2a2a2a] text-white px-3 py-2 focus:outline-none focus:border-white" />
+                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white" />
             </div>
             {offForm.type === "blocked_hours" && (
               <div className="flex items-center gap-2 text-sm">
                 <TimeSelect value={offForm.start_time} onChange={v => setOffForm(f => ({ ...f, start_time: v }))} small className="flex-1 min-w-0" />
-                <span className="text-[#666] flex-shrink-0">–</span>
+                <span className="text-grey-muted flex-shrink-0">–</span>
                 <TimeSelect value={offForm.end_time} onChange={v => setOffForm(f => ({ ...f, end_time: v }))} small className="flex-1 min-w-0" />
               </div>
             )}
             <input value={offForm.reason} onChange={e => setOffForm(f => ({ ...f, reason: e.target.value }))} placeholder="Reason (optional)"
-              className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-white text-sm px-3 py-2 focus:outline-none focus:border-white placeholder:text-[#6e6e6e]" />
+              className="w-full rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white placeholder:text-grey-muted" />
             <button onClick={addTimeOff} disabled={offBusy}
               className="w-full rounded-lg bg-amber-500 text-black font-semibold text-sm py-2 hover:bg-amber-400 disabled:opacity-50 transition-colors">
               {offBusy ? "Saving…" : isOwner ? "Add time off" : "Send request"}
@@ -316,12 +316,12 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         {/* Upcoming list */}
         <div className="mt-3 space-y-2">
           {timeOff.length === 0 ? (
-            <p className="text-xs text-[#666]">No upcoming time off.</p>
+            <p className="text-xs text-grey-muted">No upcoming time off.</p>
           ) : timeOff.map(t => (
-            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2">
+            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white truncate">{TIMEOFF_LABEL(t.type)}</span>
+                  <span className="text-sm font-medium text-foreground truncate">{TIMEOFF_LABEL(t.type)}</span>
                   <span className={cn("text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full flex-shrink-0",
                     t.status === "approved" ? "bg-emerald-500/15 text-emerald-400"
                       : t.status === "rejected" ? "bg-red-500/15 text-red-400"
@@ -329,13 +329,13 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                     {t.status}
                   </span>
                 </div>
-                <p className="text-xs text-[#888] truncate">
+                <p className="text-xs text-grey truncate">
                   {prettyDate(t.start_date)}{t.end_date !== t.start_date ? ` → ${prettyDate(t.end_date)}` : ""}
                   {t.reason ? ` · ${t.reason}` : ""}
                 </p>
               </div>
               <button onClick={() => cancelTimeOff(t.id)} aria-label="Cancel time off"
-                className="flex-shrink-0 w-7 h-7 rounded-lg border border-[#2a2a2a] text-[#8f8f8f] hover:text-white flex items-center justify-center">
+                className="flex-shrink-0 w-7 h-7 rounded-lg border border-border text-grey hover:text-foreground flex items-center justify-center">
                 <X size={14} />
               </button>
             </div>
@@ -348,14 +348,14 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         <>
           <div className="fixed inset-0 bg-black/70 z-[150]" onClick={() => setDayModal(null)} />
           <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">{DAYS[dayModal]}</h2>
-                <button onClick={() => setDayModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-base font-bold text-foreground">{DAYS[dayModal]}</h2>
+                <button onClick={() => setDayModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#aaa]">{dm.isOpen ? "Open this day" : "Day off"}</span>
+                <span className="text-sm text-grey">{dm.isOpen ? "Open this day" : "Day off"}</span>
                 <button onClick={() => setDay(dayModal, { isOpen: !dm.isOpen })}
                   className={cn("relative w-11 h-6 rounded-full transition-colors", dm.isOpen ? "bg-emerald-500" : "bg-[#2a2a2a]")}
                   aria-label="Toggle open">
@@ -366,7 +366,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
               {dm.isOpen ? (
                 <div className="space-y-3">
                   {/* Visual timeline */}
-                  <div className="relative h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+                  <div className="relative h-2.5 rounded-full bg-surface-overlay overflow-hidden">
                     <div className="absolute inset-y-0 bg-emerald-500/70" style={{ left: `${pct(dm.start)}%`, right: `${100 - pct(dm.end)}%` }} />
                     {dm.breaks.map((b, i) => (
                       <div key={i} className="absolute inset-y-0 bg-amber-500" style={{ left: `${pct(b.start)}%`, right: `${100 - pct(b.end)}%` }} />
@@ -375,21 +375,21 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                   {/* Hours */}
                   <div className="flex items-center gap-2 text-sm">
                     <TimeSelect value={dm.start} onChange={v => setDay(dayModal, { start: v })} className="flex-1 min-w-0" />
-                    <span className="text-[#666] flex-shrink-0">to</span>
+                    <span className="text-grey-muted flex-shrink-0">to</span>
                     <TimeSelect value={dm.end} onChange={v => setDay(dayModal, { end: v })} className="flex-1 min-w-0" />
                   </div>
                   {/* Breaks */}
                   {dm.breaks.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {dm.breaks.map((b, i) => (
-                        <div key={i} className="inline-flex items-center gap-2 rounded-full bg-[#141414] pl-3 pr-2.5 py-1.5">
-                          <span className="text-xs font-medium text-white">{b.label}</span>
-                          <span className="text-[11px] text-[#888]">{b.start}–{b.end}</span>
+                        <div key={i} className="inline-flex items-center gap-2 rounded-full bg-card-raised pl-3 pr-2.5 py-1.5">
+                          <span className="text-xs font-medium text-foreground">{b.label}</span>
+                          <span className="text-[11px] text-grey">{b.start}–{b.end}</span>
                           <div className="flex items-center gap-2.5 ml-0.5">
                             <button onClick={() => openEditBreak(dayModal, i)} aria-label="Edit break"
-                              className="text-[#888] hover:text-white flex items-center justify-center"><Pencil size={12} /></button>
+                              className="text-grey hover:text-foreground flex items-center justify-center"><Pencil size={12} /></button>
                             <button onClick={() => removeBreak(dayModal, i)} aria-label="Remove break"
-                              className="text-[#888] hover:text-white flex items-center justify-center"><X size={13} /></button>
+                              className="text-grey hover:text-foreground flex items-center justify-center"><X size={13} /></button>
                           </div>
                         </div>
                       ))}
@@ -400,14 +400,14 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                   </button>
                 </div>
               ) : (
-                <p className="text-xs text-[#666]">Toggle on to set working hours and breaks.</p>
+                <p className="text-xs text-grey-muted">Toggle on to set working hours and breaks.</p>
               )}
 
               <button onClick={async () => { const ok = await save(); if (ok) setDayModal(null); }} disabled={saving}
                 className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea] disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
               </button>
-              <p className="text-[11px] text-[#6e6e6e] text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
+              <p className="text-[11px] text-grey-muted text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
             </div>
           </div>
         </>
@@ -418,27 +418,27 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         <>
           <div className="fixed inset-0 bg-black/70 z-[180]" onClick={() => setBreakModal(null)} />
           <div className="fixed inset-0 z-[190] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">{breakModal.idx === null ? "Add break / lunch" : "Edit break"}</h2>
-                <button onClick={() => setBreakModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-base font-bold text-foreground">{breakModal.idx === null ? "Add break / lunch" : "Edit break"}</h2>
+                <button onClick={() => setBreakModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
-              <p className="text-xs text-[#666] -mt-2">{DAYS[breakModal.dow]} · within {days[breakModal.dow].start}–{days[breakModal.dow].end}</p>
+              <p className="text-xs text-grey-muted -mt-2">{DAYS[breakModal.dow]} · within {days[breakModal.dow].start}–{days[breakModal.dow].end}</p>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#8f8f8f]">Label</label>
+                <label className="text-xs font-medium text-grey">Label</label>
                 <input value={breakModal.label} onChange={e => setBreakModal(m => m && { ...m, label: e.target.value })} placeholder="Lunch"
-                  className="w-full rounded-lg bg-[#141414] border border-[#2a2a2a] text-amber-400 text-sm px-3 py-2 focus:outline-none focus:border-amber-500/50" />
+                  className="w-full rounded-lg bg-card-raised border border-border text-amber-400 text-sm px-3 py-2 focus:outline-none focus:border-amber-500/50" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#8f8f8f]">Time</label>
+                <label className="text-xs font-medium text-grey">Time</label>
                 <div className="flex items-center gap-2">
                   <TimeSelect value={breakModal.start} onChange={v => setBreakModal(m => m && { ...m, start: v })} className="flex-1 min-w-0" />
-                  <span className="text-[#666] flex-shrink-0">–</span>
+                  <span className="text-grey-muted flex-shrink-0">–</span>
                   <TimeSelect value={breakModal.end} onChange={v => setBreakModal(m => m && { ...m, end: v })} className="flex-1 min-w-0" />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={() => setBreakModal(null)} className="flex-1 rounded-xl border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
+                <button onClick={() => setBreakModal(null)} className="flex-1 rounded-xl border border-border bg-card-raised text-grey hover:text-foreground text-sm font-medium py-2.5">Cancel</button>
                 <button onClick={saveBreakModal} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400">{breakModal.idx === null ? "Add" : "Save"}</button>
               </div>
             </div>
@@ -447,7 +447,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground shadow-xl">{toast}</div>
       )}
     </div>
   );
@@ -456,9 +456,9 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 function TimeSelect({ value, onChange, small, className }: { value: string; onChange: (v: string) => void; small?: boolean; className?: string }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className={cn("rounded-lg bg-[#141414] border border-[#2a2a2a] text-white focus:outline-none focus:border-white",
+      className={cn("rounded-lg bg-card-raised border border-border text-foreground focus:outline-none focus:border-white",
         small ? "text-xs px-2 py-1.5" : "text-sm px-3 py-2 font-medium", className)}>
-      {TIME_OPTIONS.map(t => <option key={t} value={t} className="bg-[#141414]">{t}</option>)}
+      {TIME_OPTIONS.map(t => <option key={t} value={t} className="bg-card-raised">{t}</option>)}
     </select>
   );
 }

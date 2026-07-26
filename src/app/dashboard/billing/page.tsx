@@ -9,9 +9,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -116,7 +116,7 @@ export default function BillingPage() {
       active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
       cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
       past_due: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-      inactive: "bg-gray-500/15 text-[#8f8f8f] border-gray-500/30",
+      inactive: "bg-gray-500/15 text-grey border-gray-500/30",
     };
     const label: Record<string, string> = { active: "Active", cancelled: "Cancelled", past_due: "Past Due", inactive: "No subscription" };
     return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", map[status] ?? map.inactive)}>{label[status] ?? status}</span>;
@@ -146,8 +146,8 @@ export default function BillingPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       <div>
-        <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Billing</h1>
-        <p className="text-sm text-[#8f8f8f] mt-0.5">Manage your subscription and payouts</p>
+        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Billing</h1>
+        <p className="text-sm text-grey mt-0.5">Manage your subscription and payouts</p>
       </div>
 
       {isExpired && (
@@ -165,43 +165,43 @@ export default function BillingPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 mb-5">
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isStarter ? "bg-[#141414]" : "bg-black/10")}>
-              <Crown size={22} className={isStarter ? "text-[#8f8f8f]" : "text-white"} />
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isStarter ? "bg-card-raised" : "bg-black/10")}>
+              <Crown size={22} className={isStarter ? "text-grey" : "text-foreground"} />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{currentPlanName}</p>
-              {billing?.amount != null && <p className="text-sm text-[#8f8f8f]">${billing.amount}/month</p>}
+              <p className="text-lg font-bold text-foreground">{currentPlanName}</p>
+              {billing?.amount != null && <p className="text-sm text-grey">${billing.amount}/month</p>}
             </div>
           </div>
 
           {!isStarter && (billing?.nextBilling || billing?.cardLast4 ? (
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
-                <p className="text-xs text-[#8f8f8f]">Next billing date</p>
-                <p className="text-sm text-white mt-0.5">{billing.nextBilling ? new Date(billing.nextBilling).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
+              <div className="p-3 bg-card-raised rounded-xl border border-border">
+                <p className="text-xs text-grey">Next billing date</p>
+                <p className="text-sm text-foreground mt-0.5">{billing.nextBilling ? new Date(billing.nextBilling).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
               </div>
-              <div className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
-                <p className="text-xs text-[#8f8f8f]">Payment method</p>
-                <p className="text-sm text-white mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-[#8f8f8f]" /> {billing.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
+              <div className="p-3 bg-card-raised rounded-xl border border-border">
+                <p className="text-xs text-grey">Payment method</p>
+                <p className="text-sm text-foreground mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-grey" /> {billing.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a] mb-5 text-center">
-              <p className="text-xs text-[#8f8f8f]">Syncing subscription details from Stripe…</p>
-              <p className="text-xs text-[#8f8f8f] mt-0.5">Refresh in a moment, or check your email for the receipt.</p>
+            <div className="p-3 bg-card-raised rounded-xl border border-border mb-5 text-center">
+              <p className="text-xs text-grey">Syncing subscription details from Stripe…</p>
+              <p className="text-xs text-grey mt-0.5">Refresh in a moment, or check your email for the receipt.</p>
             </div>
           ))}
 
           {otherPaidPlans.length > 0 && (
             <div className="space-y-3 mb-4">
-              <p className="text-xs font-medium text-[#8f8f8f] uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Change plan"}</p>
+              <p className="text-xs font-medium text-grey uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Change plan"}</p>
               {otherPaidPlans.map(p => (
-                <div key={p.id} className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-3">
+                <div key={p.id} className="p-4 bg-card-raised rounded-xl border border-border space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
-                      <p className="text-xs text-[#8f8f8f]">
-                        <span className="text-white font-semibold">{formatPlanPrice(p.price_cents)}</span>/month
+                      <p className="text-sm font-semibold text-foreground truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
+                      <p className="text-xs text-grey">
+                        <span className="text-foreground font-semibold">{formatPlanPrice(p.price_cents)}</span>/month
                         {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
                       </p>
                     </div>
@@ -224,7 +224,7 @@ export default function BillingPage() {
                   )}
                 </div>
               ))}
-              <p className="text-[11px] text-[#8f8f8f] leading-relaxed">
+              <p className="text-[11px] text-grey leading-relaxed">
                 Billed monthly in CAD · secure checkout by Stripe. Your plan renews automatically each month.
                 You can cancel or update your card anytime via <span className="text-gray-300">Manage subscription</span> — cancelling stops future charges and keeps your plan active until the end of the billing period (no refund for the unused days), then reverts to the free Starter plan. No contracts, no hidden fees.
               </p>
@@ -248,10 +248,10 @@ export default function BillingPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center">
-              <Building2 size={18} className="text-white" />
+            <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center">
+              <Building2 size={18} className="text-foreground" />
             </div>
-            <p className="text-sm text-[#8f8f8f]">
+            <p className="text-sm text-grey">
               {billing?.connect.connected
                 ? "Your bank account is connected. Customer payments are deposited directly to you."
                 : "Connect your bank account to receive customer payments directly via Stripe."}
@@ -272,15 +272,15 @@ export default function BillingPage() {
           <CardContent>
             <div className="space-y-2">
               {billing.invoices.map(inv => (
-                <div key={inv.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                <div key={inv.id} className="flex items-center justify-between p-3 bg-card-raised rounded-xl border border-border">
                   <div>
-                    <p className="text-sm text-white">{inv.id}</p>
-                    <p className="text-xs text-[#8f8f8f]">{new Date(inv.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</p>
+                    <p className="text-sm text-foreground">{inv.id}</p>
+                    <p className="text-xs text-grey">{new Date(inv.date * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-white">${inv.amount.toFixed(2)}</span>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full", inv.status === "paid" ? "text-emerald-400 bg-emerald-500/10" : "text-[#8f8f8f] bg-gray-500/10")}>{inv.status}</span>
-                    {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-[#8f8f8f] hover:text-white"><ExternalLink size={14} /></a>}
+                    <span className="text-sm font-medium text-foreground">${inv.amount.toFixed(2)}</span>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full", inv.status === "paid" ? "text-emerald-400 bg-emerald-500/10" : "text-grey bg-gray-500/10")}>{inv.status}</span>
+                    {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-grey hover:text-foreground"><ExternalLink size={14} /></a>}
                   </div>
                 </div>
               ))}

@@ -13,9 +13,9 @@ import type { Barber } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -210,8 +210,8 @@ export default function TimeOffPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Time Off & Availability</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage staff days off, vacations, and blocked hours</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Time Off & Availability</h1>
+          <p className="text-sm text-grey mt-0.5">Manage staff days off, vacations, and blocked hours</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
           <Plus size={16} /> Request Time Off
@@ -221,14 +221,14 @@ export default function TimeOffPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Pending Requests", value: pendingCount, color: pendingCount > 0 ? "text-orange-400" : "text-white" },
-          { label: "Approved Upcoming", value: approvedUpcoming, color: "text-white" },
-          { label: "Total Staff", value: barbers.length, color: "text-white" },
-          { label: "This Month", value: requests.filter(r => r.start_date.startsWith(today.slice(0, 7))).length, color: "text-white" },
+          { label: "Pending Requests", value: pendingCount, color: pendingCount > 0 ? "text-orange-400" : "text-foreground" },
+          { label: "Approved Upcoming", value: approvedUpcoming, color: "text-foreground" },
+          { label: "Total Staff", value: barbers.length, color: "text-foreground" },
+          { label: "This Month", value: requests.filter(r => r.start_date.startsWith(today.slice(0, 7))).length, color: "text-foreground" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent>
-              <p className="text-xs text-[#8f8f8f]">{s.label}</p>
+              <p className="text-xs text-grey">{s.label}</p>
               <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
             </CardContent>
           </Card>
@@ -236,14 +236,14 @@ export default function TimeOffPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-[#2a2a2a] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(["all", "pending", "approved", "denied"] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
               "px-4 py-2 text-sm font-medium capitalize whitespace-nowrap shrink-0 border-b-2 -mb-px transition-colors",
-              filter === f ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white"
+              filter === f ? "border-black text-foreground" : "border-transparent text-grey hover:text-foreground"
             )}
           >
             {f === "all" ? `All (${requests.length})` : `${f.charAt(0).toUpperCase() + f.slice(1)} (${requests.filter(r => r.status === f).length})`}
@@ -254,20 +254,20 @@ export default function TimeOffPage() {
       {/* Requests list */}
       <div className="space-y-3">
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-[#8f8f8f]">
-            <CalendarOff size={32} className="mx-auto mb-3 text-[#8f8f8f]" />
+          <div className="text-center py-12 text-grey">
+            <CalendarOff size={32} className="mx-auto mb-3 text-grey" />
             <p>No time-off requests</p>
           </div>
         )}
         {filtered.map(req => (
-          <div key={req.id} className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-4 hover:border-[#2a2a2a] transition-colors">
+          <div key={req.id} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-border transition-colors">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-black/10 border border-[#2a2a2a] flex items-center justify-center flex-shrink-0">
-                <User size={18} className="text-white" />
+              <div className="w-10 h-10 rounded-xl bg-black/10 border border-border flex items-center justify-center flex-shrink-0">
+                <User size={18} className="text-foreground" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-white">{req.barbers?.name ?? "Unknown"}</p>
+                  <p className="text-sm font-semibold text-foreground">{req.barbers?.name ?? "Unknown"}</p>
                   <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", TYPE_COLORS[req.type])}>
                     {TYPE_LABELS[req.type]}
                   </span>
@@ -276,21 +276,21 @@ export default function TimeOffPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs text-[#8f8f8f]">
+                  <div className="flex items-center gap-1.5 text-xs text-grey">
                     <CalendarOff size={12} />
                     {req.start_date === req.end_date
                       ? formatFriendlyDate(req.start_date)
                       : `${formatFriendlyDate(req.start_date)} → ${formatFriendlyDate(req.end_date)}`}
                   </div>
                   {req.start_time && req.end_time && (
-                    <div className="flex items-center gap-1.5 text-xs text-[#8f8f8f]">
+                    <div className="flex items-center gap-1.5 text-xs text-grey">
                       <Clock size={12} />
                       {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
                     </div>
                   )}
                 </div>
                 {req.reason && (
-                  <p className="text-xs text-[#8f8f8f] mt-1">{req.reason}</p>
+                  <p className="text-xs text-grey mt-1">{req.reason}</p>
                 )}
               </div>
 
@@ -319,7 +319,7 @@ export default function TimeOffPage() {
       {requests.filter(r => r.status === "approved" && r.start_date >= today).length > 0 && (
         <Card>
           <CardHeader>
-            <CalendarOff size={18} className="text-white" />
+            <CalendarOff size={18} className="text-foreground" />
             <CardTitle>Upcoming Approved Time Off</CardTitle>
           </CardHeader>
           <CardContent>
@@ -330,8 +330,8 @@ export default function TimeOffPage() {
                 .map(req => (
                   <div key={req.id} className="flex items-center gap-3 py-2 border-b border-[#2a2a2a]/50 last:border-0">
                     <div className="w-2 h-2 rounded-full bg-gold flex-shrink-0" />
-                    <p className="text-sm text-white flex-1">{req.barbers?.name ?? "Unknown"}</p>
-                    <p className="text-xs text-[#8f8f8f]">
+                    <p className="text-sm text-foreground flex-1">{req.barbers?.name ?? "Unknown"}</p>
+                    <p className="text-xs text-grey">
                       {req.start_date === req.end_date
                         ? formatFriendlyDate(req.start_date)
                         : `${formatFriendlyDate(req.start_date)} – ${formatFriendlyDate(req.end_date)}`}
@@ -351,18 +351,18 @@ export default function TimeOffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Request Time Off</h2>
-                <button onClick={() => setShowModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Request Time Off</h2>
+                <button onClick={() => setShowModal(false)} className="text-grey hover:text-foreground">✕</button>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#8f8f8f] mb-1.5 block">Barber</label>
+                <label className="text-sm font-medium text-grey mb-1.5 block">Barber</label>
                 <select
                   value={form.barber_id}
                   onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                  className="w-full rounded-xl border border-[#2a2a2a] bg-black px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-black/15"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/15"
                 >
                   <option value="">Select barber…</option>
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -370,7 +370,7 @@ export default function TimeOffPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#8f8f8f] mb-1.5 block">Type</label>
+                <label className="text-sm font-medium text-grey mb-1.5 block">Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.entries(TYPE_LABELS) as [BlockType, string][]).map(([k, v]) => (
                     <button
@@ -378,7 +378,7 @@ export default function TimeOffPage() {
                       onClick={() => setForm(p => ({ ...p, type: k }))}
                       className={cn(
                         "p-2.5 rounded-xl border text-sm text-left transition-all",
-                        form.type === k ? "border-black bg-black/5 text-white" : "border-[#2a2a2a] text-[#8f8f8f] hover:text-white"
+                        form.type === k ? "border-black bg-black/5 text-foreground" : "border-border text-grey hover:text-foreground"
                       )}
                     >
                       {v}
@@ -415,7 +415,7 @@ export default function TimeOffPage() {
               <Input label="Reason (optional)" placeholder="e.g. Doctor appointment, vacation..." value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} />
 
               {isOwner && (
-                <p className="text-xs text-[#8f8f8f]">As owner, this will be auto-approved.</p>
+                <p className="text-xs text-grey">As owner, this will be auto-approved.</p>
               )}
 
               <div className="flex gap-3 pt-1">

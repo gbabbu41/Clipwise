@@ -18,9 +18,9 @@ type LinkedAppt = { id: string; time_slot: string; status: string };
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -252,11 +252,11 @@ export default function WaitlistPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Walk-In Waitlist</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage today's walk-in queue</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Walk-In Waitlist</h1>
+          <p className="text-sm text-grey mt-0.5">Manage today's walk-in queue</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={load} className="text-[#8f8f8f] hover:text-white transition-colors p-2 rounded-xl hover:bg-[#141414]">
+          <button onClick={load} className="text-grey hover:text-foreground transition-colors p-2 rounded-xl hover:bg-card-raised">
             <RefreshCw size={18} />
           </button>
           <Button onClick={() => setShowAdd(true)}>
@@ -300,14 +300,14 @@ export default function WaitlistPage() {
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {stats.map(s => (
-              <div key={s.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
-                <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{s.label}</p>
-                <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+              <div key={s.label} className="bg-card border border-border rounded-2xl p-4">
+                <p className="text-[10px] text-grey font-semibold uppercase tracking-wider">{s.label}</p>
+                <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
                 <p className={cn(
                   "text-[11px] mt-2 font-medium",
                   s.tone === "up"    && "text-emerald-400",
                   s.tone === "down"  && "text-red-400",
-                  s.tone === "muted" && "text-[#8f8f8f]",
+                  s.tone === "muted" && "text-grey",
                 )}>{s.sub}</p>
               </div>
             ))}
@@ -323,12 +323,12 @@ export default function WaitlistPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-8 text-center text-[#8f8f8f]">Loading...</div>
+            <div className="py-8 text-center text-grey">Loading...</div>
           ) : active.length === 0 ? (
             <div className="py-16 text-center">
-              <Users size={40} className="mx-auto mb-4 text-[#8f8f8f]" />
-              <p className="text-white font-medium">Queue is empty</p>
-              <p className="text-sm text-[#8f8f8f] mt-1">Add a walk-in client to get started</p>
+              <Users size={40} className="mx-auto mb-4 text-grey" />
+              <p className="text-foreground font-medium">Queue is empty</p>
+              <p className="text-sm text-grey mt-1">Add a walk-in client to get started</p>
               <Button className="mt-4" onClick={() => setShowAdd(true)}>
                 <Plus size={16} /> Add Walk-In
               </Button>
@@ -344,20 +344,20 @@ export default function WaitlistPage() {
                 return (
                   <div key={entry.id} className={cn(
                     "flex items-start justify-between gap-4 p-4 rounded-2xl border transition-colors",
-                    entry.status === "called" ? "bg-black/5 border-black" : "bg-[#141414] border-[#2a2a2a]",
+                    entry.status === "called" ? "bg-black/5 border-black" : "bg-card-raised border-border",
                     isLong && entry.status === "waiting" && "border-orange-500/30"
                   )}>
                     {/* Position */}
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0",
-                        entry.status === "called" ? "bg-black/10 text-white" : "bg-black shadow-sm text-[#8f8f8f]"
+                        entry.status === "called" ? "bg-black/10 text-foreground" : "bg-card shadow-sm text-grey"
                       )}>
                         {idx + 1}
                       </div>
                       <div>
-                        <p className="text-white font-semibold">{entry.client_name}</p>
-                        <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#8f8f8f]">
+                        <p className="text-foreground font-semibold">{entry.client_name}</p>
+                        <div className="flex flex-wrap gap-3 mt-1 text-xs text-grey">
                           {entry.client_phone && (
                             <span className="flex items-center gap-1"><Phone size={11} />{entry.client_phone}</span>
                           )}
@@ -413,7 +413,7 @@ export default function WaitlistPage() {
                       {entry.status === "waiting" && (
                         <button
                           onClick={() => updateStatus(entry.id, "removed")}
-                          className="text-xs text-[#8f8f8f] hover:text-red-400 transition-colors text-center py-1"
+                          className="text-xs text-grey hover:text-red-400 transition-colors text-center py-1"
                         >
                           Remove
                         </button>
@@ -436,7 +436,7 @@ export default function WaitlistPage() {
               className="flex items-center justify-between w-full"
             >
               <CardTitle>Today's History ({history.length})</CardTitle>
-              <span className="text-xs text-[#8f8f8f]">{showHistory ? "Hide" : "Show"}</span>
+              <span className="text-xs text-grey">{showHistory ? "Hide" : "Show"}</span>
             </button>
           </CardHeader>
           {showHistory && (
@@ -445,8 +445,8 @@ export default function WaitlistPage() {
                 {history.map(entry => (
                   <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-[#2a2a2a]/50 opacity-60">
                     <div>
-                      <p className="text-sm text-white">{entry.client_name}</p>
-                      {entry.client_phone && <p className="text-xs text-[#8f8f8f]">{entry.client_phone}</p>}
+                      <p className="text-sm text-foreground">{entry.client_name}</p>
+                      {entry.client_phone && <p className="text-xs text-grey">{entry.client_phone}</p>}
                     </div>
                     <Badge variant={STATUS_CONFIG[entry.status].variant} className="text-xs">
                       {STATUS_CONFIG[entry.status].label}
@@ -464,58 +464,58 @@ export default function WaitlistPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAdd(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add Walk-In</h2>
-                <button onClick={() => setShowAdd(false)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Add Walk-In</h2>
+                <button onClick={() => setShowAdd(false)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-[#8f8f8f]">Client Name *</label>
+                  <label className="text-xs text-grey">Client Name *</label>
                   <input
                     value={form.client_name}
                     onChange={e => setForm(p => ({ ...p, client_name: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addEntry()}
                     placeholder="John Smith"
                     autoFocus
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-[#8f8f8f]">Phone (optional)</label>
+                    <label className="text-xs text-grey">Phone (optional)</label>
                     <input
                       value={form.client_phone}
                       onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
                       placeholder="(416) 555-0123"
                       type="tel"
-                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-[#8f8f8f]">Email (optional)</label>
+                    <label className="text-xs text-grey">Email (optional)</label>
                     <input
                       value={form.client_email}
                       onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
                       placeholder="you@email.com"
                       type="email"
-                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-[#8f8f8f]">Preferred Barber</label>
+                    <label className="text-xs text-grey">Preferred Barber</label>
                     <select value={form.barber_id} onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-black">
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
                       <option value="">Any</option>
                       {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-[#8f8f8f]">Service</label>
+                    <label className="text-xs text-grey">Service</label>
                     <select value={form.service_id} onChange={e => setForm(p => ({ ...p, service_id: e.target.value }))}
-                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-black">
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
                       <option value="">Not selected</option>
                       {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
@@ -556,10 +556,10 @@ export default function WaitlistPage() {
             <p className="text-emerald-300 font-semibold flex items-center gap-2">
               <Check size={16} /> Moved to Appointments
             </p>
-            <p className="text-sm text-white mt-1">
+            <p className="text-sm text-foreground mt-1">
               <span className="font-bold">{confirmedNotice.name}</span> is now confirmed with <span className="font-bold">{confirmedNotice.barber}</span>.
             </p>
-            <p className="text-xs text-[#8f8f8f] mt-1.5">Complete or reject the appointment from this list or from /dashboard/appointments.</p>
+            <p className="text-xs text-grey mt-1.5">Complete or reject the appointment from this list or from /dashboard/appointments.</p>
           </div>
         </div>
       )}

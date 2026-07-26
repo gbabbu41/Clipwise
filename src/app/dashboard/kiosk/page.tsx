@@ -32,7 +32,7 @@ function KioskButton({ children, onClick, className, disabled }: {
       disabled={disabled}
       className={cn(
         "w-full p-5 rounded-2xl border-2 text-left transition-all active:scale-[0.98] touch-manipulation select-none",
-        "bg-black shadow-sm border-[#2a2a2a] hover:border-gray-400 hover:bg-[#141414]",
+        "bg-card shadow-sm border-border hover:border-gray-400 hover:bg-card-raised",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
@@ -150,7 +150,7 @@ export default function KioskPage() {
 
   if (!shop) {
     return (
-      <div className="p-8 text-center text-[#8f8f8f]">
+      <div className="p-8 text-center text-grey">
         <p>No shop configured.</p>
       </div>
     );
@@ -158,13 +158,13 @@ export default function KioskPage() {
 
   return (
     <div className={cn(
-      "min-h-screen bg-black flex flex-col",
+      "min-h-screen bg-card flex flex-col",
       isFullscreen && "fixed inset-0 z-[200]"
     )}>
       {/* Fullscreen toggle bar */}
       {!isFullscreen && (
-        <div className="flex items-center justify-between px-6 py-3 bg-black shadow-sm border-b border-[#2a2a2a]">
-          <div className="flex items-center gap-2 text-sm text-[#8f8f8f]">
+        <div className="flex items-center justify-between px-6 py-3 bg-card shadow-sm border-b border-border">
+          <div className="flex items-center gap-2 text-sm text-grey">
             <Monitor size={16} />
             <span>Kiosk Mode — Walk-in Self Check-in</span>
           </div>
@@ -182,12 +182,12 @@ export default function KioskPage() {
             <div className="text-center space-y-8">
               <div className="flex justify-center">
                 <div className="w-24 h-24 rounded-3xl bg-black/10 border-2 border-black flex items-center justify-center">
-                  <Scissors size={40} className="text-white" />
+                  <Scissors size={40} className="text-foreground" />
                 </div>
               </div>
               <div>
-                <h1 className="text-4xl font-black text-white">{shop.name}</h1>
-                <p className="text-xl text-[#8f8f8f] mt-2">Walk-in Check-In</p>
+                <h1 className="text-4xl font-black text-foreground">{shop.name}</h1>
+                <p className="text-xl text-grey mt-2">Walk-in Check-In</p>
               </div>
               <div className="space-y-3">
                 <Button
@@ -196,7 +196,7 @@ export default function KioskPage() {
                 >
                   ✂️ Check In for Walk-in
                 </Button>
-                <p className="text-sm text-[#8f8f8f]">Tap to join the waitlist</p>
+                <p className="text-sm text-grey">Tap to join the waitlist</p>
               </div>
             </div>
           )}
@@ -205,12 +205,12 @@ export default function KioskPage() {
           {step === "service" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("welcome")} className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center text-[#8f8f8f] hover:text-white transition-colors">
+                <button onClick={() => setStep("welcome")} className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-grey hover:text-foreground transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">What service?</h2>
-                  <p className="text-sm text-[#8f8f8f]">Pick the service you want</p>
+                  <h2 className="text-2xl font-bold text-foreground">What service?</h2>
+                  <p className="text-sm text-grey">Pick the service you want</p>
                 </div>
               </div>
 
@@ -223,23 +223,23 @@ export default function KioskPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold text-lg">{svc.name}</p>
-                        <p className="text-[#8f8f8f] text-sm mt-0.5">{svc.duration_minutes} min</p>
+                        <p className="text-foreground font-semibold text-lg">{svc.name}</p>
+                        <p className="text-grey text-sm mt-0.5">{svc.duration_minutes} min</p>
                       </div>
-                      <p className="text-white font-bold text-xl">${svc.price}</p>
+                      <p className="text-foreground font-bold text-xl">${svc.price}</p>
                     </div>
                   </KioskButton>
                 ))}
                 {services.length === 0 && (
                   <KioskButton onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}>
-                    <p className="text-white font-semibold text-lg">Haircut / General Service</p>
+                    <p className="text-foreground font-semibold text-lg">Haircut / General Service</p>
                   </KioskButton>
                 )}
               </div>
 
               <button
                 onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}
-                className="w-full text-sm text-[#8f8f8f] hover:text-[#8f8f8f] py-2 transition-colors"
+                className="w-full text-sm text-grey hover:text-grey py-2 transition-colors"
               >
                 Skip — I'll decide with my barber
               </button>
@@ -250,12 +250,12 @@ export default function KioskPage() {
           {step === "barber" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("service")} className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center text-[#8f8f8f] hover:text-white transition-colors">
+                <button onClick={() => setStep("service")} className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-grey hover:text-foreground transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Any preference?</h2>
-                  <p className="text-sm text-[#8f8f8f]">Choose a barber or go with the next available</p>
+                  <h2 className="text-2xl font-bold text-foreground">Any preference?</h2>
+                  <p className="text-sm text-grey">Choose a barber or go with the next available</p>
                 </div>
               </div>
 
@@ -265,12 +265,12 @@ export default function KioskPage() {
                   className={!data.barber ? "border-black bg-black/5" : ""}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-black/10 border border-[#2a2a2a] flex items-center justify-center">
-                      <Scissors size={20} className="text-white" />
+                    <div className="w-12 h-12 rounded-2xl bg-black/10 border border-border flex items-center justify-center">
+                      <Scissors size={20} className="text-foreground" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold text-lg">Next Available</p>
-                      <p className="text-[#8f8f8f] text-sm">Fastest wait time</p>
+                      <p className="text-foreground font-semibold text-lg">Next Available</p>
+                      <p className="text-grey text-sm">Fastest wait time</p>
                     </div>
                   </div>
                 </KioskButton>
@@ -282,13 +282,13 @@ export default function KioskPage() {
                     className={data.barber?.id === barber.id ? "border-black bg-black/5" : ""}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-black shadow-sm border border-[#2a2a2a] flex items-center justify-center text-xl font-bold text-white overflow-hidden">
+                      <div className="w-12 h-12 rounded-2xl bg-card shadow-sm border border-border flex items-center justify-center text-xl font-bold text-foreground overflow-hidden">
                         <AvatarImage src={barber.photo} alt={barber.name} className="w-full h-full object-cover" fallback={<>{barber.name.charAt(0)}</>} />
                       </div>
                       <div>
-                        <p className="text-white font-semibold text-lg">{barber.name}</p>
+                        <p className="text-foreground font-semibold text-lg">{barber.name}</p>
                         {barber.rating > 0 && (
-                          <p className="text-[#8f8f8f] text-sm">★ {barber.rating.toFixed(1)} rating</p>
+                          <p className="text-grey text-sm">★ {barber.rating.toFixed(1)} rating</p>
                         )}
                       </div>
                     </div>
@@ -302,35 +302,35 @@ export default function KioskPage() {
           {step === "info" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("barber")} className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center text-[#8f8f8f] hover:text-white transition-colors">
+                <button onClick={() => setStep("barber")} className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-grey hover:text-foreground transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Your info</h2>
-                  <p className="text-sm text-[#8f8f8f]">So we can call you when it's your turn</p>
+                  <h2 className="text-2xl font-bold text-foreground">Your info</h2>
+                  <p className="text-sm text-grey">So we can call you when it's your turn</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="relative">
-                  <label className="text-sm font-medium text-[#8f8f8f] block mb-2">Your Name *</label>
+                  <label className="text-sm font-medium text-grey block mb-2">Your Name *</label>
                   <input
                     type="text"
                     value={data.name}
                     onChange={e => { const v = e.target.value; setData(d => ({ ...d, name: v })); setPickedClient(false); searchContacts(v); }}
                     placeholder="Start typing — we'll find you"
-                    className="w-full rounded-2xl border-2 border-[#2a2a2a] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                     autoComplete="off"
                     autoCorrect="off"
                   />
                   {/* Existing-customer suggestions — tap to fill phone + email. */}
                   {matches.length > 0 && !pickedClient && (
-                    <div className="absolute z-20 left-0 right-0 mt-2 rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] shadow-2xl overflow-hidden">
+                    <div className="absolute z-20 left-0 right-0 mt-2 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
                       {matches.map(c => (
                         <button key={c.id} type="button" onClick={() => pickContact(c)}
-                          className="w-full text-left px-5 py-3 hover:bg-[#141414] border-b border-[#1a1a1a] last:border-0">
-                          <p className="text-white font-medium">{c.name}</p>
-                          <p className="text-xs text-[#8f8f8f]">{[c.phone, c.email].filter(Boolean).join(" · ") || "No contact on file"}</p>
+                          className="w-full text-left px-5 py-3 hover:bg-card-raised border-b border-border last:border-0">
+                          <p className="text-foreground font-medium">{c.name}</p>
+                          <p className="text-xs text-grey">{[c.phone, c.email].filter(Boolean).join(" · ") || "No contact on file"}</p>
                         </button>
                       ))}
                     </div>
@@ -338,24 +338,24 @@ export default function KioskPage() {
                   {pickedClient && <p className="text-xs text-emerald-400 mt-1.5">✓ Existing customer — contact filled in</p>}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-[#8f8f8f] block mb-2">Phone (optional — for text when ready)</label>
+                  <label className="text-sm font-medium text-grey block mb-2">Phone (optional — for text when ready)</label>
                   <input
                     type="tel"
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
-                    className="w-full rounded-2xl border-2 border-[#2a2a2a] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                     autoComplete="off"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-[#8f8f8f] block mb-2">Email (optional — for a confirmation)</label>
+                  <label className="text-sm font-medium text-grey block mb-2">Email (optional — for a confirmation)</label>
                   <input
                     type="email"
                     value={data.email}
                     onChange={e => setData(d => ({ ...d, email: e.target.value }))}
                     placeholder="e.g. you@email.com"
-                    className="w-full rounded-2xl border-2 border-[#2a2a2a] bg-[#141414] px-5 py-4 text-lg text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                     autoComplete="off"
                   />
                 </div>
@@ -375,39 +375,39 @@ export default function KioskPage() {
           {step === "confirm" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => setStep("info")} className="w-10 h-10 rounded-xl bg-[#141414] flex items-center justify-center text-[#8f8f8f] hover:text-white transition-colors">
+                <button onClick={() => setStep("info")} className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-grey hover:text-foreground transition-colors">
                   <ArrowLeft size={18} />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Confirm Check-In</h2>
-                  <p className="text-sm text-[#8f8f8f]">Review and join the waitlist</p>
+                  <h2 className="text-2xl font-bold text-foreground">Confirm Check-In</h2>
+                  <p className="text-sm text-grey">Review and join the waitlist</p>
                 </div>
               </div>
 
-              <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-[#2a2a2a]">
-                  <span className="text-[#8f8f8f]">Name</span>
-                  <span className="text-white font-semibold">{data.name}</span>
+              <div className="bg-card-raised border border-border rounded-2xl p-6 space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-grey">Name</span>
+                  <span className="text-foreground font-semibold">{data.name}</span>
                 </div>
                 {data.phone && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#2a2a2a]">
-                    <span className="text-[#8f8f8f]">Phone</span>
-                    <span className="text-white">{data.phone}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-grey">Phone</span>
+                    <span className="text-foreground">{data.phone}</span>
                   </div>
                 )}
                 {data.email && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#2a2a2a]">
-                    <span className="text-[#8f8f8f]">Email</span>
-                    <span className="text-white">{data.email}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-grey">Email</span>
+                    <span className="text-foreground">{data.email}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-b border-[#2a2a2a]">
-                  <span className="text-[#8f8f8f]">Service</span>
-                  <span className="text-white">{data.service?.name ?? "To be decided"}</span>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-grey">Service</span>
+                  <span className="text-foreground">{data.service?.name ?? "To be decided"}</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[#8f8f8f]">Barber</span>
-                  <span className="text-white">{data.barber?.name ?? "Next Available"}</span>
+                  <span className="text-grey">Barber</span>
+                  <span className="text-foreground">{data.barber?.name ?? "Next Available"}</span>
                 </div>
               </div>
 
@@ -433,30 +433,30 @@ export default function KioskPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-3xl font-black text-white">You're checked in!</h2>
-                <p className="text-xl text-[#8f8f8f] mt-2">Welcome, {data.name}</p>
+                <h2 className="text-3xl font-black text-foreground">You're checked in!</h2>
+                <p className="text-xl text-grey mt-2">Welcome, {data.name}</p>
               </div>
-              <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+              <div className="bg-card-raised border border-border rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-[#8f8f8f]">Your position</span>
-                  <span className="text-3xl font-black text-white">#{queuePosition}</span>
+                  <span className="text-grey">Your position</span>
+                  <span className="text-3xl font-black text-foreground">#{queuePosition}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[#8f8f8f]">Est. wait time</span>
-                  <span className="text-white font-semibold">~{estimatedWait} min</span>
+                  <span className="text-grey">Est. wait time</span>
+                  <span className="text-foreground font-semibold">~{estimatedWait} min</span>
                 </div>
                 {data.barber && (
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8f8f8f]">Barber</span>
-                    <span className="text-white">{data.barber.name}</span>
+                    <span className="text-grey">Barber</span>
+                    <span className="text-foreground">{data.barber.name}</span>
                   </div>
                 )}
               </div>
               <div className="space-y-2">
-                <p className="text-[#8f8f8f]">Have a seat — we'll call your name when it's your turn.</p>
-                {data.phone && <p className="text-sm text-[#8f8f8f]">We'll also text you at {data.phone}.</p>}
+                <p className="text-grey">Have a seat — we'll call your name when it's your turn.</p>
+                {data.phone && <p className="text-sm text-grey">We'll also text you at {data.phone}.</p>}
               </div>
-              <p className="text-xs text-[#8f8f8f]">This screen resets in 8 seconds…</p>
+              <p className="text-xs text-grey">This screen resets in 8 seconds…</p>
             </div>
           )}
 
@@ -465,7 +465,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-[#8f8f8f]">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
+        <p className="text-xs text-grey">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
       </div>
     </div>
   );

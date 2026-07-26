@@ -12,9 +12,9 @@ import { CalendarOff, Plus, Clock, X } from "lucide-react";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
+    <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
       <span className="text-gold">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -152,8 +152,8 @@ export default function BarberTimeOffPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">Time Off</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Request days off, block hours, log sick days</p>
+          <h1 className="hidden lg:block text-2xl font-bold text-foreground uppercase tracking-wide">Time Off</h1>
+          <p className="text-sm text-grey mt-0.5">Request days off, block hours, log sick days</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
           <Plus size={15} /> Request Time Off
@@ -168,7 +168,7 @@ export default function BarberTimeOffPage() {
           { label: "Upcoming", value: upcoming, color: "text-blue-400" },
         ].map(s => (
           <div key={s.label} className="bg-surface border border-border rounded-2xl p-4">
-            <p className="text-xs text-[#8f8f8f]">{s.label}</p>
+            <p className="text-xs text-grey">{s.label}</p>
             <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
           </div>
         ))}
@@ -182,9 +182,9 @@ export default function BarberTimeOffPage() {
       ) : requests.length === 0 ? (
         <Card>
           <div className="py-16 text-center">
-            <CalendarOff size={36} className="text-[#8f8f8f] mx-auto mb-3" />
-            <p className="font-medium text-white mb-1">No time-off requests yet</p>
-            <p className="text-sm text-[#8f8f8f] mb-4 max-w-xs mx-auto">Request a day off, block a few hours, or log a sick day. Your shop owner approves each one.</p>
+            <CalendarOff size={36} className="text-grey mx-auto mb-3" />
+            <p className="font-medium text-foreground mb-1">No time-off requests yet</p>
+            <p className="text-sm text-grey mb-4 max-w-xs mx-auto">Request a day off, block a few hours, or log a sick day. Your shop owner approves each one.</p>
             <Button size="sm" onClick={() => setShowModal(true)}>
               <Plus size={14} /> Submit Your First Request
             </Button>
@@ -199,25 +199,25 @@ export default function BarberTimeOffPage() {
                   {TYPE_LABELS[req.type]}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-foreground">
                     {formatFriendlyDate(req.start_date)}
                     {req.start_date !== req.end_date && (
-                      <span className="text-[#8f8f8f]"> → {formatFriendlyDate(req.end_date)}</span>
+                      <span className="text-grey"> → {formatFriendlyDate(req.end_date)}</span>
                     )}
                     {req.type === "blocked_hours" && req.start_time && req.end_time && (
-                      <span className="text-[#8f8f8f] ml-2 inline-flex items-center gap-1">
+                      <span className="text-grey ml-2 inline-flex items-center gap-1">
                         <Clock size={11} /> {formatFriendlyTime(req.start_time)} – {formatFriendlyTime(req.end_time)}
                       </span>
                     )}
                   </p>
-                  {req.reason && <p className="text-xs text-[#8f8f8f] mt-0.5">{req.reason}</p>}
+                  {req.reason && <p className="text-xs text-grey mt-0.5">{req.reason}</p>}
                 </div>
               </div>
               <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border capitalize", STATUS_COLORS[req.status])}>
                 {req.status}
               </span>
               {req.status === "pending" && (
-                <button onClick={() => cancelRequest(req.id)} className="text-[#8f8f8f] hover:text-red-400 transition-colors" title="Cancel request">
+                <button onClick={() => cancelRequest(req.id)} className="text-grey hover:text-red-400 transition-colors" title="Cancel request">
                   <X size={16} />
                 </button>
               )}
@@ -233,8 +233,8 @@ export default function BarberTimeOffPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Request Time Off</h2>
-                <button onClick={() => setShowModal(false)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Request Time Off</h2>
+                <button onClick={() => setShowModal(false)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               <div className="space-y-1.5">
@@ -296,13 +296,13 @@ export default function BarberTimeOffPage() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Reason <span className="text-[#8f8f8f]">(optional)</span></label>
+                <label className="text-sm font-medium text-gray-300">Reason <span className="text-grey">(optional)</span></label>
                 <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                   rows={2} placeholder="e.g. Doctor appointment, family event…"
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
               </div>
 
-              <p className="text-xs text-[#8f8f8f] bg-surface-raised border border-border rounded-xl px-3 py-2">
+              <p className="text-xs text-grey bg-surface-raised border border-border rounded-xl px-3 py-2">
                 Your shop owner will see this and approve or deny it. You&apos;ll be notified.
               </p>
 

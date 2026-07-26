@@ -49,7 +49,7 @@ export default function SchedulePage() {
       <DashboardHeader title="Schedule" subtitle="Set working hours, breaks & lunch — each barber gets emailed their schedule." />
 
       {barbers.length === 0 ? (
-        <p className="text-sm text-[#8f8f8f] py-12 text-center">No barbers yet. Add staff first.</p>
+        <p className="text-sm text-grey py-12 text-center">No barbers yet. Add staff first.</p>
       ) : (
         <>
           {/* Barber picker first */}
@@ -57,7 +57,7 @@ export default function SchedulePage() {
             {barbers.map(b => (
               <button key={b.id} onClick={() => setSelected(b.id)} onPointerEnter={() => warm(b.id)}
                 className={cn("flex-shrink-0 max-w-[45vw] truncate px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors",
-                  selected === b.id ? "bg-white text-black border-white" : "border-[#2a2a2a] bg-[#0c0c0c] text-[#aaa] hover:text-white")}>
+                  selected === b.id ? "bg-white text-black border-white" : "border-border bg-card text-grey hover:text-foreground")}>
                 {b.name}
               </button>
             ))}
@@ -66,7 +66,7 @@ export default function SchedulePage() {
           {current && <ScheduleEditor key={current.id} barberId={current.id} barberName={current.name} accessToken={accessToken} isOwner isPaused={!!current.bookings_paused} headerAction={<PauseBookingsToggle barberId={current.id} barberName={current.name} paused={!!current.bookings_paused} onChanged={loadBarbers} />} />}
 
           {/* Shop-wide setting at the bottom */}
-          <div className="mt-4 pt-4 border-t border-[#161616]">
+          <div className="mt-4 pt-4 border-t border-border">
             <BookingWindowCard />
           </div>
         </>
@@ -135,14 +135,14 @@ function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barb
         <>
           <div className="fixed inset-0 bg-black/70 z-[150]" onClick={() => setConfirm(false)} />
           <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-amber-500/40 rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <div className="bg-card shadow-sm border border-amber-500/40 rounded-2xl p-5 w-full max-w-sm space-y-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
-                <h2 className="text-base font-bold text-white">Pause {first}&apos;s bookings?</h2>
+                <h2 className="text-base font-bold text-foreground">Pause {first}&apos;s bookings?</h2>
               </div>
-              <p className="text-sm text-[#aaa]">Customers won&apos;t be able to book <span className="text-white">{first}</span> online until you turn this back on. Other barbers stay bookable, and existing appointments are kept.</p>
+              <p className="text-sm text-grey">Customers won&apos;t be able to book <span className="text-foreground">{first}</span> online until you turn this back on. Other barbers stay bookable, and existing appointments are kept.</p>
               <div className="flex gap-2">
-                <button onClick={() => setConfirm(false)} className="flex-1 rounded-xl border border-[#2a2a2a] bg-[#141414] text-[#aaa] hover:text-white text-sm font-medium py-2.5">Cancel</button>
+                <button onClick={() => setConfirm(false)} className="flex-1 rounded-xl border border-border bg-card-raised text-grey hover:text-foreground text-sm font-medium py-2.5">Cancel</button>
                 <button onClick={() => setPaused(true)} disabled={busy} className="flex-1 rounded-xl bg-amber-500 text-black font-semibold text-sm py-2.5 hover:bg-amber-400 disabled:opacity-50">{busy ? "Pausing…" : "Pause bookings"}</button>
               </div>
             </div>
@@ -174,17 +174,17 @@ function BookingWindowCard() {
   };
 
   return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0c0c0c] p-4">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-2">
         <CalendarRange size={16} className="text-amber-400" />
-        <span className="font-semibold text-white">Booking window</span>
+        <span className="font-semibold text-foreground">Booking window</span>
       </div>
-      <p className="text-xs text-[#666] mt-1">How far ahead customers can book online.</p>
+      <p className="text-xs text-grey-muted mt-1">How far ahead customers can book online.</p>
       <div className="mt-3 flex items-center gap-2">
         <input type="number" min={1} max={60} value={days}
           onChange={e => setDays(Math.max(1, Math.min(60, Number(e.target.value) || 0)))}
-          className="w-20 rounded-lg bg-[#141414] border border-[#2a2a2a] text-white text-sm px-3 py-2 focus:outline-none focus:border-white" />
-        <span className="text-sm text-[#aaa]">days in advance</span>
+          className="w-20 rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white" />
+        <span className="text-sm text-grey">days in advance</span>
         <button onClick={save} disabled={!dirty || saving}
           className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white text-black font-semibold text-xs px-3 py-2 hover:bg-[#eaeaea] disabled:opacity-40 transition-colors">
           {saving ? "Saving…" : saved ? <><Check size={13} /> Saved</> : "Save"}

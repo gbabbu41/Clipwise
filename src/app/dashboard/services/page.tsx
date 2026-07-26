@@ -12,16 +12,16 @@ import type { Service } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
   Hair: "text-blue-400 bg-blue-500/20 border-blue-500/30",
-  Beard: "text-white bg-black/10 border-black",
+  Beard: "text-foreground bg-black/10 border-black",
   Packages: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
 };
 
@@ -125,8 +125,8 @@ export default function ServicesPage() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
         <p className="text-2xl mb-2">✂️</p>
-        <h2 className="text-lg font-bold text-white mb-1">No shop linked</h2>
-        <p className="text-sm text-[#8f8f8f]">Services will appear here once your shop is set up.</p>
+        <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
+        <p className="text-sm text-grey">Services will appear here once your shop is set up.</p>
       </div>
     );
   }
@@ -137,8 +137,8 @@ export default function ServicesPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Services</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage your service menu</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Services</h1>
+          <p className="text-sm text-grey mt-0.5">Manage your service menu</p>
         </div>
         <Button onClick={() => { setEditService(null); setNewSvc(BLANK_SVC); setShowServiceModal(true); }}>
           + Add Service
@@ -148,7 +148,7 @@ export default function ServicesPage() {
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-36 rounded-2xl bg-[#141414] animate-pulse" />
+            <div key={i} className="h-36 rounded-2xl bg-card-raised animate-pulse" />
           ))}
         </div>
       ) : (
@@ -156,7 +156,7 @@ export default function ServicesPage() {
           {services.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">✂️</p>
-              <p className="text-[#8f8f8f] text-sm">No services yet. Add your first service above.</p>
+              <p className="text-grey text-sm">No services yet. Add your first service above.</p>
             </div>
           ) : categories.map(cat => {
             const catServices = grouped[cat] || [];
@@ -164,8 +164,8 @@ export default function ServicesPage() {
             return (
               <div key={cat}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-[#8f8f8f]">{cat}</h2>
-                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-[#8f8f8f] bg-gray-500/20 border-gray-500/30")}>
+                  <h2 className="text-sm font-semibold text-grey">{cat}</h2>
+                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", CATEGORY_COLORS[cat] ?? "text-grey bg-gray-500/20 border-gray-500/30")}>
                     {catServices.length}
                   </span>
                 </div>
@@ -174,17 +174,17 @@ export default function ServicesPage() {
                     <Card key={svc.id} className={cn("relative", !svc.is_active && "opacity-60")}>
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="text-white font-semibold">{svc.name}</h3>
+                          <h3 className="text-foreground font-semibold">{svc.name}</h3>
                           <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border mt-1", CATEGORY_COLORS[svc.category] ?? "")}>
                             {svc.category}
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold text-white">{formatCurrency(svc.price)}</p>
-                          <p className="text-xs text-[#8f8f8f]">{svc.duration_minutes} min</p>
+                          <p className="text-xl font-bold text-foreground">{formatCurrency(svc.price)}</p>
+                          <p className="text-xs text-grey">{svc.duration_minutes} min</p>
                         </div>
                       </div>
-                      <p className="text-xs text-[#8f8f8f] mb-2 line-clamp-2">{svc.description}</p>
+                      <p className="text-xs text-grey mb-2 line-clamp-2">{svc.description}</p>
                       <div className="flex items-center justify-between">
                         <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
                         <div className="flex gap-2">
@@ -206,10 +206,10 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowServiceModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">{editService ? "Edit Service" : "Add Service"}</h2>
-                <button onClick={() => setShowServiceModal(false)} className="text-[#8f8f8f] hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-foreground">{editService ? "Edit Service" : "Add Service"}</h2>
+                <button onClick={() => setShowServiceModal(false)} className="text-grey hover:text-foreground">✕</button>
               </div>
               <Input label="Service Name" value={newSvc.name} onChange={e => setNewSvc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Skin Fade" />
               <div className="grid grid-cols-2 gap-3">
@@ -222,12 +222,12 @@ export default function ServicesPage() {
               </Select>
               <div>
                 <Textarea label="Description" value={newSvc.description} onChange={e => setNewSvc(p => ({ ...p, description: e.target.value.slice(0, 100) }))} rows={2} maxLength={100} placeholder="Brief description..." />
-                <p className={cn("text-[11px] mt-1 text-right", newSvc.description.length >= 100 ? "text-amber-400" : "text-[#8f8f8f]")}>{newSvc.description.length}/100</p>
+                <p className={cn("text-[11px] mt-1 text-right", newSvc.description.length >= 100 ? "text-amber-400" : "text-grey")}>{newSvc.description.length}/100</p>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Switch checked={!!newSvc.is_active} onChange={v => setNewSvc(p => ({ ...p, is_active: v }))} />
-                  <span className="text-sm text-[#8f8f8f]">Active</span>
+                  <span className="text-sm text-grey">Active</span>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
@@ -244,9 +244,9 @@ export default function ServicesPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setDeleteConfirm(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
-              <p className="text-lg font-bold text-white">Delete Service?</p>
-              <p className="text-sm text-[#8f8f8f]">This action cannot be undone.</p>
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
+              <p className="text-lg font-bold text-foreground">Delete Service?</p>
+              <p className="text-sm text-grey">This action cannot be undone.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
                 <Button variant="danger" className="flex-1" onClick={() => deleteService(deleteConfirm)}>Delete</Button>

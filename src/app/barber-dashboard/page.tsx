@@ -107,7 +107,7 @@ export default function BarberOverviewPage() {
     <div className="p-6 max-w-5xl mx-auto">
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+        <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
           <span className="text-gold">✓</span> {toast}
         </div>
       )}
@@ -118,10 +118,10 @@ export default function BarberOverviewPage() {
         <div className="flex-1 min-w-0">
           {/* Greeting sits under the bar's "HOME" title on mobile, so it's a
               touch smaller there; stays prominent on desktop (no top bar). */}
-          <h1 className="text-xl lg:text-2xl font-bold text-white tracking-tight truncate">
+          <h1 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight truncate">
             {barber?.name ? `Hi, ${barber.name.split(" ")[0]}` : "Hi"}
           </h1>
-          <p className="text-[#8f8f8f] text-sm mt-1 truncate">
+          <p className="text-grey text-sm mt-1 truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {appointments.length} appointment{appointments.length !== 1 ? "s" : ""} today
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function BarberOverviewPage() {
           <Link
             href="/barber-dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-[#0c0c0c] border border-[#2a2a2a] text-accent-soft hover:border-accent-soft transition-colors"
+            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-card border border-border text-accent-soft hover:border-accent-soft transition-colors"
           >
             <Bell size={15} />
           </Link>
@@ -179,14 +179,14 @@ export default function BarberOverviewPage() {
             },
           ];
           return stats.map(stat => (
-            <div key={stat.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
-              <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{stat.label}</p>
-              <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{stat.value}</p>
+            <div key={stat.label} className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-[10px] text-grey font-semibold uppercase tracking-wider">{stat.label}</p>
+              <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{stat.value}</p>
               <p className={cn(
                 "text-[11px] mt-2 font-medium",
                 stat.tone === "up"    && "text-emerald-400",
                 stat.tone === "down"  && "text-red-400",
-                stat.tone === "muted" && "text-[#8f8f8f]",
+                stat.tone === "muted" && "text-grey",
               )}>{stat.sub}</p>
             </div>
           ));
@@ -207,38 +207,38 @@ export default function BarberOverviewPage() {
           const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
           const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
           return (
-            <Link href="/barber-dashboard/calendar" className="block bg-[#141414] border border-[#2a2a2a] rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
-              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#2a2a2a]">
-                <p className="text-sm font-bold text-white">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
-                <div className="flex bg-[#0e0e0e] border border-[#2a2a2a] rounded-lg overflow-hidden text-[11px]">
-                  <span className="px-2.5 py-1 text-[#8f8f8f]">Day</span>
+            <Link href="/barber-dashboard/calendar" className="block bg-card-raised border border-border rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
+              <div className="flex items-center justify-between px-3.5 py-3 border-b border-border">
+                <p className="text-sm font-bold text-foreground">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
+                <div className="flex bg-card border border-border rounded-lg overflow-hidden text-[11px]">
+                  <span className="px-2.5 py-1 text-grey">Day</span>
                   <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
-                  <span className="px-2.5 py-1 text-[#8f8f8f]">Month</span>
+                  <span className="px-2.5 py-1 text-grey">Month</span>
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <div className="min-w-[620px]">
                   <div className="grid" style={cols}>
-                    <div className="border-b border-[#2a2a2a]" />
+                    <div className="border-b border-border" />
                     {weekDays.map(d => {
                       const isToday = formatDateForDb(d) === todayKey;
                       return (
-                        <div key={formatDateForDb(d)} className="text-center py-2 border-b border-[#2a2a2a]">
-                          <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-[#666]")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
-                          <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-white font-bold" : "text-white")}>{d.getDate()}</span>
+                        <div key={formatDateForDb(d)} className="text-center py-2 border-b border-border">
+                          <p className={cn("text-[10px] uppercase tracking-wide", isToday ? "text-accent-soft font-bold" : "text-grey-muted")}>{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
+                          <span className={cn("inline-flex items-center justify-center text-sm mt-0.5", isToday ? "w-6 h-6 rounded-full bg-accent text-foreground font-bold" : "text-foreground")}>{d.getDate()}</span>
                         </div>
                       );
                     })}
                   </div>
                   {calHours.map(h => (
                     <div key={h} className="grid" style={cols}>
-                      <div className="text-[9.5px] text-[#6e6e6e] text-right pr-1.5 pt-1 border-r border-[#161616]">{hourLabel(h)}</div>
+                      <div className="text-[9.5px] text-grey-muted text-right pr-1.5 pt-1 border-r border-border">{hourLabel(h)}</div>
                       {weekDays.map(d => {
                         const dk = formatDateForDb(d);
                         const isToday = dk === todayKey;
                         const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
                         return (
-                          <div key={dk} className={cn("border-r border-b border-[#151515] min-h-[34px] p-0.5 space-y-0.5", isToday && "bg-accent-muted")}>
+                          <div key={dk} className={cn("border-r border-b border-border min-h-[34px] p-0.5 space-y-0.5", isToday && "bg-accent-muted")}>
                             {evs.map(a => {
                               const pend = a.status === "pending";
                               return (
@@ -262,16 +262,16 @@ export default function BarberOverviewPage() {
       {/* Today's Schedule — exact replica of the owner dashboard's card
           (clickable rows → the shared appointment modal with actions), scoped
           to this barber's appointments. */}
-      <Card className="!bg-[#141414]">
+      <Card className="!bg-card-raised">
         <CardHeader>
           <CardTitle>Today&apos;s Schedule</CardTitle>
-          <Link href="/barber-dashboard/calendar" className="text-xs text-white hover:underline">View all</Link>
+          <Link href="/barber-dashboard/calendar" className="text-xs text-foreground hover:underline">View all</Link>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="animate-pulse bg-[#141414] rounded-xl h-14" />)}</div>
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="animate-pulse bg-card-raised rounded-xl h-14" />)}</div>
           ) : appointments.length === 0 ? (
-            <div className="py-8 text-center text-[#8f8f8f]">
+            <div className="py-8 text-center text-grey">
               <Calendar size={32} className="mx-auto mb-2 opacity-30" />
               <p>No appointments today</p>
             </div>
@@ -284,20 +284,20 @@ export default function BarberOverviewPage() {
                 const [hh, mer] = (apt.time_slot ?? "").split(" ");
                 return (
                   <button key={apt.id} onClick={() => setSelectedAppt(apt)}
-                    className="w-full text-left flex items-center gap-3 py-3 border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02] transition-colors">
+                    className="w-full text-left flex items-center gap-3 py-3 border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
                     <div className="text-center min-w-[52px]">
-                      <p className="text-xs text-white font-medium">{hh}</p>
-                      <p className="text-[10px] text-[#8f8f8f]">{mer}</p>
+                      <p className="text-xs text-foreground font-medium">{hh}</p>
+                      <p className="text-[10px] text-grey">{mer}</p>
                     </div>
                     <div className="w-px h-10 bg-[#1e1e1e]" />
                     <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-medium text-white truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
-                      <p className="text-xs text-[#8f8f8f] truncate">
+                      <p className={cn("text-sm font-medium text-foreground truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
+                      <p className="text-xs text-grey truncate">
                         {(apt.services as { name?: string } | null)?.name ?? "Service"}{mins ? ` · ${mins} min` : ""}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="text-sm font-semibold text-white">{formatCurrency(apt.total_amount)}</span>
+                      <span className="text-sm font-semibold text-foreground">{formatCurrency(apt.total_amount)}</span>
                       <PaymentTag appt={apt} />
                     </div>
                   </button>

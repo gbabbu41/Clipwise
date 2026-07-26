@@ -122,18 +122,18 @@ export function NotificationListener() {
           key={p.id}
           type="button"
           onClick={() => { dismiss(p.id); router.push(popupHref(p, isBarber)); }}
-          className="pointer-events-auto text-left flex items-start gap-3 bg-[#0c0c0c] border border-gold/40 rounded-2xl p-4 shadow-2xl animate-slide-up ring-1 ring-gold/10 hover:border-gold transition-colors"
+          className="pointer-events-auto text-left flex items-start gap-3 bg-card border border-gold/40 rounded-2xl p-4 shadow-2xl animate-slide-up ring-1 ring-gold/10 hover:border-gold transition-colors"
         >
           <span className="text-xl leading-none mt-0.5">{ICON[p.type] ?? "🔔"}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white flex items-center gap-1.5">
+            <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
               <Bell size={13} className="text-gold" /> {p.title}
             </p>
-            <p className="text-xs text-[#aaa] mt-0.5 line-clamp-2">{p.message}</p>
+            <p className="text-xs text-grey mt-0.5 line-clamp-2">{p.message}</p>
           </div>
           <span
             onClick={(e) => { e.stopPropagation(); dismiss(p.id); }}
-            className="text-[#8f8f8f] hover:text-white flex-shrink-0"
+            className="text-grey hover:text-foreground flex-shrink-0"
             aria-label="Dismiss"
           >
             <X size={15} />

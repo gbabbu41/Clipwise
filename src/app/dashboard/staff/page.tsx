@@ -68,9 +68,9 @@ function ResetLinkCopy({ link }: { link: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded-xl p-3">
-      <p className="flex-1 text-xs text-[#8f8f8f] truncate">{link}</p>
-      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-[#8f8f8f] hover:text-white")}>
+    <div className="flex items-center gap-2 bg-card-raised border border-border rounded-xl p-3">
+      <p className="flex-1 text-xs text-grey truncate">{link}</p>
+      <button onClick={copy} className={cn("flex-shrink-0 p-1.5 rounded-lg transition-colors", copied ? "text-green-400" : "text-grey hover:text-foreground")}>
         {copied ? <Check size={15} /> : <Copy size={15} />}
       </button>
     </div>
@@ -79,15 +79,15 @@ function ResetLinkCopy({ link }: { link: string }) {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-card-raised rounded-xl", className)} />;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -589,8 +589,8 @@ export default function StaffPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Staff</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Manage barbers, schedules and commissions</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Staff</h1>
+          <p className="text-sm text-grey mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {!alreadyOwnerBarber && shop && barbers.length < getPlanLimit(shop.subscription_plan) && (
@@ -611,8 +611,8 @@ export default function StaffPage() {
         <Card>
           <div className="py-16 text-center">
             <p className="text-4xl mb-3">💈</p>
-            <p className="font-medium text-white mb-1">No barbers yet</p>
-            <p className="text-sm text-[#8f8f8f] mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
+            <p className="font-medium text-foreground mb-1">No barbers yet</p>
+            <p className="text-sm text-grey mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
             <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
           </div>
         </Card>
@@ -631,25 +631,25 @@ export default function StaffPage() {
                   <div className="relative flex-shrink-0">
                     <label className={cn("relative w-12 h-12 rounded-full cursor-pointer group block", photoBusyId === barber.id && "pointer-events-none opacity-70")}
                       title="Upload photo">
-                      <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-[#2a2a2a]"
-                        fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-white font-bold text-xl">{barber.name[0]}</div>} />
+                      <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-border"
+                        fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-foreground font-bold text-xl">{barber.name[0]}</div>} />
                       <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Camera size={14} className="text-white" />
+                        <Camera size={14} className="text-foreground" />
                       </span>
-                      {photoBusyId === barber.id && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[8px] text-white">…</span>}
+                      {photoBusyId === barber.id && <span className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[8px] text-foreground">…</span>}
                       <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(barber.id, f); }} />
                     </label>
                     {barber.photo && photoBusyId !== barber.id && (
                       <button type="button" onClick={() => removePhoto(barber.id)} title="Remove photo"
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center border-2 border-black hover:bg-red-600 transition-colors">
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-foreground flex items-center justify-center border-2 border-black hover:bg-red-600 transition-colors">
                         <X size={10} />
                       </button>
                     )}
                   </div>
                   <div>
-                    <h3 className="text-white font-semibold">{barber.name}</h3>
-                    {barber.email && <p className="text-xs text-[#8f8f8f]">{barber.email}</p>}
+                    <h3 className="text-foreground font-semibold">{barber.name}</h3>
+                    {barber.email && <p className="text-xs text-grey">{barber.email}</p>}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {isOwnerBarber && (
                         <span className="text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5">Owner</span>
@@ -659,9 +659,9 @@ export default function StaffPage() {
                       ) : barber.email ? (
                         <span className="text-xs bg-orange-500/15 border border-orange-500/30 text-orange-400 rounded-full px-2 py-0.5">⏳ Invite pending</span>
                       ) : (
-                        <span className="text-xs bg-[#141414] border border-[#2a2a2a] text-[#8f8f8f] rounded-full px-2 py-0.5">Manual</span>
+                        <span className="text-xs bg-card-raised border border-border text-grey rounded-full px-2 py-0.5">Manual</span>
                       )}
-                      <span className="text-white text-xs">★ {barber.rating}</span>
+                      <span className="text-foreground text-xs">★ {barber.rating}</span>
                     </div>
                   </div>
                 </div>
@@ -671,21 +671,21 @@ export default function StaffPage() {
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="text-center p-2.5 bg-[#141414] rounded-xl">
-                  <p className="text-lg font-bold text-white">{barber.apptCount ?? 0}</p>
-                  <p className="text-xs text-[#8f8f8f]">Appts (mo.)</p>
+                <div className="text-center p-2.5 bg-card-raised rounded-xl">
+                  <p className="text-lg font-bold text-foreground">{barber.apptCount ?? 0}</p>
+                  <p className="text-xs text-grey">Appts (mo.)</p>
                 </div>
-                <div className="text-center p-2.5 bg-[#141414] rounded-xl">
-                  <p className="text-lg font-bold text-white">{commissions[barber.id] ?? barber.commission_percent}%</p>
-                  <p className="text-xs text-[#8f8f8f]">Commission</p>
+                <div className="text-center p-2.5 bg-card-raised rounded-xl">
+                  <p className="text-lg font-bold text-foreground">{commissions[barber.id] ?? barber.commission_percent}%</p>
+                  <p className="text-xs text-grey">Commission</p>
                 </div>
               </div>
 
               {/* Commission Slider */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-[#8f8f8f]">Commission Rate</p>
-                  <p className="text-sm font-bold text-white">{commissions[barber.id]}%</p>
+                  <p className="text-xs text-grey">Commission Rate</p>
+                  <p className="text-sm font-bold text-foreground">{commissions[barber.id]}%</p>
                 </div>
                 <input
                   type="range" min={20} max={70} step={5}
@@ -693,7 +693,7 @@ export default function StaffPage() {
                   onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Number(e.target.value) }))}
                   className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-[#8f8f8f] mt-0.5"><span>20%</span><span>70%</span></div>
+                <div className="flex justify-between text-xs text-grey mt-0.5"><span>20%</span><span>70%</span></div>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
                   Save Commission
                 </Button>
@@ -751,7 +751,7 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-white" : "bg-[#141414] text-[#8f8f8f]")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-foreground" : "bg-card-raised text-grey")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
@@ -760,7 +760,7 @@ export default function StaffPage() {
               {/* Approved upcoming time-off */}
               {barber.upcomingTimeOff && barber.upcomingTimeOff.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-[#2a2a2a]/50 space-y-1">
-                  <p className="text-[10px] uppercase tracking-wider text-[#8f8f8f]">Upcoming time off</p>
+                  <p className="text-[10px] uppercase tracking-wider text-grey">Upcoming time off</p>
                   {barber.upcomingTimeOff.map(t => {
                     const dateLabel = t.start_date === t.end_date
                       ? formatFriendlyDate(t.start_date)
@@ -769,14 +769,14 @@ export default function StaffPage() {
                       t.type === "day_off" ? "Day Off" :
                       t.type === "vacation" ? "Vacation" : "Sick";
                     return (
-                      <div key={t.id} className="text-xs flex items-center gap-2 text-[#8f8f8f]">
+                      <div key={t.id} className="text-xs flex items-center gap-2 text-grey">
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/20">
                           {typeLabel}
                         </span>
                         <span className="truncate">
                           {dateLabel}
                           {t.type === "blocked_hours" && t.start_time && t.end_time && (
-                            <span className="text-[#8f8f8f]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                            <span className="text-grey"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
                           )}
                         </span>
                       </div>
@@ -798,27 +798,27 @@ export default function StaffPage() {
         </CardHeader>
         <CardContent>
           {staffHours.length === 0 ? (
-            <div className="py-8 text-center text-[#8f8f8f]">
+            <div className="py-8 text-center text-grey">
               <p>No clock records found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#2a2a2a]">
+                  <tr className="border-b border-border">
                     {["Barber", "Date", "Clock In", "Clock Out", "Hours", "Status"].map((h) => (
-                      <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2">{h}</th>
+                      <th key={h} className="text-left text-xs font-medium text-grey px-3 py-2">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {staffHours.map((sh) => (
-                    <tr key={sh.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/30">
-                      <td className="px-3 py-3 text-sm text-white">{sh.barbers?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-[#8f8f8f]">{prettyDate(sh.date)}</td>
+                    <tr key={sh.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/30">
+                      <td className="px-3 py-3 text-sm text-foreground">{sh.barbers?.name ?? "—"}</td>
+                      <td className="px-3 py-3 text-sm text-grey">{prettyDate(sh.date)}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
                       <td className="px-3 py-3 text-sm text-red-400">{sh.clock_out ?? "—"}</td>
-                      <td className="px-3 py-3 text-sm text-white">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
+                      <td className="px-3 py-3 text-sm text-foreground">{sh.hours_worked != null ? `${sh.hours_worked}h` : "—"}</td>
                       <td className="px-3 py-3">
                         <Badge variant={sh.clock_out ? "success" : "warning"}>{sh.clock_out ? "Done" : "Clocked In"}</Badge>
                       </td>
@@ -836,13 +836,13 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Permissions — {permBarber.name}</h2>
-                  <p className="text-xs text-[#8f8f8f] mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
+                  <h2 className="text-lg font-bold text-foreground">Permissions — {permBarber.name}</h2>
+                  <p className="text-xs text-grey mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
                 </div>
-                <button onClick={() => setPermBarber(null)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
+                <button onClick={() => setPermBarber(null)} className="text-grey hover:text-foreground"><X size={18} /></button>
               </div>
               <div className="space-y-2 pt-1">
                 {([
@@ -853,10 +853,10 @@ export default function StaffPage() {
                   { key: "view_clients",        label: "View clients",          description: "Access their client list with appointment history." },
                   { key: "manage_appointments", label: "Manage appointments",   description: "Approve, complete, reject, and take payment on appointments assigned to them. Refunds stay owner-only." },
                 ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (
-                  <div key={key} className="flex items-start gap-4 p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                  <div key={key} className="flex items-start gap-4 p-3 bg-card-raised rounded-xl border border-border">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-white">{label}</p>
-                      <p className="text-xs text-[#8f8f8f] mt-0.5">{description}</p>
+                      <p className="text-sm font-medium text-foreground">{label}</p>
+                      <p className="text-xs text-grey mt-0.5">{description}</p>
                     </div>
                     <Switch checked={!!permDraft[key]} onChange={v => setPermDraft(prev => ({ ...prev, [key]: v }))} />
                   </div>
@@ -876,21 +876,21 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setScheduleBarber(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Schedule — {scheduleBarber.name}</h2>
-                <button onClick={() => setScheduleBarber(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Schedule — {scheduleBarber.name}</h2>
+                <button onClick={() => setScheduleBarber(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               {/* Time increments — quarter-hour lets a barber start at e.g.
                   9:45 AM. Shop-wide; the customer booking page offers the same
                   start-time spacing. */}
-              <div className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+              <div className="flex items-center justify-between p-3 bg-card-raised rounded-xl border border-border">
                 <div className="pr-3">
-                  <p className="text-sm font-medium text-white">Time increments</p>
-                  <p className="text-xs text-[#8f8f8f]">Start/end + customer slots step by this. 15 min allows 9:45, 10:15…</p>
+                  <p className="text-sm font-medium text-foreground">Time increments</p>
+                  <p className="text-xs text-grey">Start/end + customer slots step by this. 15 min allows 9:45, 10:15…</p>
                 </div>
-                <div className="flex bg-black border border-[#2a2a2a] rounded-lg p-1 gap-1 flex-shrink-0">
+                <div className="flex bg-card border border-border rounded-lg p-1 gap-1 flex-shrink-0">
                   {[30, 15].map(min => (
                     <button
                       key={min}
@@ -898,7 +898,7 @@ export default function StaffPage() {
                       onClick={() => changeInterval(min)}
                       className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                        scheduleInterval === min ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white",
+                        scheduleInterval === min ? "bg-gold text-black" : "text-grey hover:text-foreground",
                       )}
                     >
                       {min} min
@@ -949,7 +949,7 @@ export default function StaffPage() {
                   };
 
                   return (
-                    <div key={day} className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-2">
+                    <div key={day} className="p-3 bg-card-raised rounded-xl border border-border space-y-2">
                       {/* On a phone the time pickers wrap to their own full-width line
                           under the day (so they don't overflow or truncate); on sm+
                           they sit inline on one row. */}
@@ -963,23 +963,23 @@ export default function StaffPage() {
                             disabled={isCancellingForThisDay}
                             onChange={() => onToggleClick()}
                           />
-                          <span className="text-sm text-white w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
-                          {!effectiveIsOpen && <span className="text-xs text-[#8f8f8f]">Closed</span>}
+                          <span className="text-sm text-foreground w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
+                          {!effectiveIsOpen && <span className="text-xs text-grey">Closed</span>}
                         </div>
                         {effectiveIsOpen && (
                           <div className="flex items-center gap-2 sm:gap-3 pl-[52px] sm:pl-0 sm:flex-1">
                             <select
                               value={editSchedule[dow].startTime}
                               onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
-                              className="flex-1 min-w-0 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
-                            <span className="text-[#8f8f8f] text-xs flex-shrink-0">to</span>
+                            <span className="text-grey text-xs flex-shrink-0">to</span>
                             <select
                               value={editSchedule[dow].endTime}
                               onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
-                              className="flex-1 min-w-0 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -1001,10 +1001,10 @@ export default function StaffPage() {
                               "px-1.5 py-0.5 rounded text-[10px] font-medium border",
                               isFullDay ? "bg-orange-500/10 text-orange-300 border-orange-500/20" : "bg-purple-500/10 text-purple-300 border-purple-500/20",
                             )}>{typeLabel}</span>
-                            <span className="text-[#8f8f8f] flex-1 truncate">
+                            <span className="text-grey flex-1 truncate">
                               {dateLabel}
                               {t.type === "blocked_hours" && t.start_time && t.end_time && (
-                                <span className="text-[#8f8f8f]"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
+                                <span className="text-grey"> · {formatFriendlyTime(t.start_time)}–{formatFriendlyTime(t.end_time)}</span>
                               )}
                             </span>
                             <button
@@ -1037,22 +1037,22 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
-                <button onClick={() => setInviteLinkModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">✉️ Invite Link Ready</h2>
+                <button onClick={() => setInviteLinkModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
               {inviteLinkModal.emailed ? (
-                <p className="text-sm text-[#8f8f8f]">
-                  An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
+                <p className="text-sm text-grey">
+                  An email was sent to <span className="text-foreground font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, etc.), copy this link and send it to <span className="text-foreground font-medium">{inviteLinkModal.name}</span> directly.
                 </p>
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-amber-300">
-                    ⚠ The invite email <span className="font-semibold">couldn&apos;t be sent automatically</span>. Copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> ({inviteLinkModal.email}) yourself — it works exactly the same.
+                    ⚠ The invite email <span className="font-semibold">couldn&apos;t be sent automatically</span>. Copy this link and send it to <span className="text-foreground font-medium">{inviteLinkModal.name}</span> ({inviteLinkModal.email}) yourself — it works exactly the same.
                   </p>
                   {inviteLinkModal.emailError && (
-                    <p className="text-[11px] text-[#666] break-words">Reason: {inviteLinkModal.emailError}</p>
+                    <p className="text-[11px] text-grey-muted break-words">Reason: {inviteLinkModal.emailError}</p>
                   )}
                 </div>
               )}
@@ -1076,17 +1076,17 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Password reset sent</h2>
-                <button onClick={() => setResetModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Password reset sent</h2>
+                <button onClick={() => setResetModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#8f8f8f]">
+              <p className="text-sm text-grey">
                 {resetModal.emailed
-                  ? <>A password-reset link was emailed to <span className="text-white font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.</>
-                  : <>We couldn&apos;t send the email to <span className="text-white font-medium">{resetModal.email}</span> right now. Ask them to use <span className="text-white">Forgot password</span> on the login page instead.</>}
+                  ? <>A password-reset link was emailed to <span className="text-foreground font-medium">{resetModal.name}</span> ({resetModal.email}). It expires in 1 hour.</>
+                  : <>We couldn&apos;t send the email to <span className="text-foreground font-medium">{resetModal.email}</span> right now. Ask them to use <span className="text-foreground">Forgot password</span> on the login page instead.</>}
               </p>
-              <p className="text-xs text-[#8f8f8f]">For their security, the reset link goes only to the barber&apos;s own inbox — it isn&apos;t shown here.</p>
+              <p className="text-xs text-grey">For their security, the reset link goes only to the barber&apos;s own inbox — it isn&apos;t shown here.</p>
               <Button className="w-full" onClick={() => setResetModal(null)}>Done</Button>
             </div>
           </div>
@@ -1098,20 +1098,20 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-sm space-y-4">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
                   <Trash2 size={20} className="text-red-400" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Remove Barber?</h2>
-                <p className="text-sm text-[#8f8f8f] mt-1">
-                  This will remove <span className="text-white font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
+                <h2 className="text-lg font-bold text-foreground">Remove Barber?</h2>
+                <p className="text-sm text-grey mt-1">
+                  This will remove <span className="text-foreground font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
                 </p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>
                 <Button
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-foreground"
                   loading={removingId === confirmRemove.id}
                   onClick={() => removeBarber(confirmRemove)}
                 >
@@ -1128,19 +1128,19 @@ export default function StaffPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Add Barber</h2>
-                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Add Barber</h2>
+                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 bg-[#141414] border border-[#2a2a2a] rounded-xl p-1">
+              <div className="flex gap-1 bg-card-raised border border-border rounded-xl p-1">
                 {(["invite", "manual"] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => { setAddTab(tab); setInviteSent(false); }}
-                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-white border border-[#2a2a2a]" : "text-[#8f8f8f] hover:text-white")}
+                    className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-foreground border border-border" : "text-grey hover:text-foreground")}
                   >
                     {tab === "invite" ? "✉️ Invite by Email" : "➕ Add Manually"}
                   </button>
@@ -1150,25 +1150,25 @@ export default function StaffPage() {
               {inviteSent ? (
                 <div className="py-6 text-center">
                   <div className="text-4xl mb-3">✉️</div>
-                  <p className="font-semibold text-white">Invite sent!</p>
-                  <p className="text-sm text-[#8f8f8f] mt-1">{addForm.name} will get an email with a link to set up their account.</p>
+                  <p className="font-semibold text-foreground">Invite sent!</p>
+                  <p className="text-sm text-grey mt-1">{addForm.name} will get an email with a link to set up their account.</p>
                   <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Done</Button>
                 </div>
               ) : (
                 <>
                   {addTab === "invite" && (
-                    <p className="text-xs text-[#8f8f8f] bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2">
+                    <p className="text-xs text-grey bg-card-raised border border-border rounded-xl px-3 py-2">
                       An invite email will be sent. The barber clicks the link to create their account and gets access to their barber portal automatically.
                     </p>
                   )}
                   {addTab === "manual" && (
-                    <div className="text-xs text-[#8f8f8f] bg-[#141414] border border-[#2a2a2a] rounded-xl px-3 py-2.5 space-y-2">
+                    <div className="text-xs text-grey bg-card-raised border border-border rounded-xl px-3 py-2.5 space-y-2">
                       {alreadyOwnerBarber ? (
                         <p>You&apos;re already on the team as a barber. Enter someone else&apos;s email to add them — they&apos;ll get an invite link.</p>
                       ) : (
                         <>
                           <p>
-                            Use <span className="text-white font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
+                            Use <span className="text-foreground font-mono">{user?.email ?? "your account email"}</span> to add yourself as a barber instantly. Any other email sends an invite link.
                           </p>
                           {user?.email && (
                             <button
@@ -1178,7 +1178,7 @@ export default function StaffPage() {
                                 email: user.email!,
                                 commission_percent: addForm.commission_percent,
                               })}
-                              className="text-white hover:text-white/80 font-medium underline-offset-2 hover:underline"
+                              className="text-foreground hover:text-white/80 font-medium underline-offset-2 hover:underline"
                             >
                               + Add me as a barber
                             </button>
@@ -1194,7 +1194,7 @@ export default function StaffPage() {
                     { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 5 },
                   ].map(({ key, label, placeholder, type, required, maxLength }) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-sm text-[#8f8f8f]">{label}</label>
+                      <label className="text-sm text-grey">{label}</label>
                       <input
                         type={type}
                         value={addForm[key]}
@@ -1202,7 +1202,7 @@ export default function StaffPage() {
                         placeholder={placeholder}
                         required={required}
                         maxLength={maxLength}
-                        className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-black"
+                        className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                       />
                     </div>
                   ))}

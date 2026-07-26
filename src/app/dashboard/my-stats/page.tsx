@@ -118,7 +118,7 @@ export default function MyStatsPage() {
 
   if (!profile || !shop) {
     return (
-      <div className="p-8 text-center text-[#8f8f8f]">
+      <div className="p-8 text-center text-grey">
         <p>No shop linked to your account.</p>
       </div>
     );
@@ -129,17 +129,17 @@ export default function MyStatsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">My Stats</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">{profile.name} · {shop.name}</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">My Stats</h1>
+          <p className="text-sm text-grey mt-0.5">{profile.name} · {shop.name}</p>
         </div>
-        <div className="flex gap-1 p-1 bg-[#141414] border border-[#2a2a2a] rounded-xl">
+        <div className="flex gap-1 p-1 bg-card-raised border border-border rounded-xl">
           {(["week", "month", "all"] as Period[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                period === p ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white"
+                period === p ? "bg-gold text-black" : "text-grey hover:text-foreground"
               )}
             >
               {p === "week" ? "Week" : p === "month" ? "Month" : "All"}
@@ -159,15 +159,15 @@ export default function MyStatsPage() {
           { label: "Avg Rating", value: avgRating, sub: `${reviews.length} review${reviews.length !== 1 ? "s" : ""}`, icon: Star, color: "gold" },
         ].map(stat => {
           const Icon = stat.icon;
-          const colorMap: Record<string, string> = { gold: "bg-black/10 text-white", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
+          const colorMap: Record<string, string> = { gold: "bg-black/10 text-foreground", green: "bg-emerald-500/15 text-emerald-400", blue: "bg-blue-500/15 text-blue-400", purple: "bg-purple-500/15 text-purple-400", orange: "bg-orange-500/15 text-orange-400" };
           return (
             <Card key={stat.label} className="relative overflow-hidden">
               <CardContent>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white mt-1">{loading ? "—" : stat.value}</p>
-                    <p className="text-xs text-[#8f8f8f] mt-0.5">{stat.sub}</p>
+                    <p className="text-xs text-grey uppercase tracking-wider font-medium">{stat.label}</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{loading ? "—" : stat.value}</p>
+                    <p className="text-xs text-grey mt-0.5">{stat.sub}</p>
                   </div>
                   <div className={cn("p-2.5 rounded-xl", colorMap[stat.color])}>
                     <Icon size={18} />
@@ -183,27 +183,27 @@ export default function MyStatsPage() {
         {/* Today's schedule */}
         <Card>
           <CardHeader>
-            <Calendar size={18} className="text-white" />
+            <Calendar size={18} className="text-foreground" />
             <CardTitle>Today's Schedule</CardTitle>
-            <Link href="/dashboard/appointments" className="text-xs text-white hover:underline ml-auto">View all</Link>
+            <Link href="/dashboard/appointments" className="text-xs text-foreground hover:underline ml-auto">View all</Link>
           </CardHeader>
           <CardContent>
             {todayAppts.length === 0 ? (
-              <div className="py-8 text-center text-[#8f8f8f]">
+              <div className="py-8 text-center text-grey">
                 <Calendar size={28} className="mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No appointments today</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {todayAppts.map(a => (
-                  <div key={a.id} className="flex items-center gap-3 p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                  <div key={a.id} className="flex items-center gap-3 p-3 bg-card-raised rounded-xl border border-border">
                     <div className="text-center w-12 flex-shrink-0">
-                      <p className="text-xs text-white font-semibold">{a.time_slot.split(" ")[0]}</p>
-                      <p className="text-xs text-[#8f8f8f]">{a.time_slot.split(" ")[1]}</p>
+                      <p className="text-xs text-foreground font-semibold">{a.time_slot.split(" ")[0]}</p>
+                      <p className="text-xs text-grey">{a.time_slot.split(" ")[1]}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{a.client_name}</p>
-                      <p className="text-xs text-[#8f8f8f]">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{a.client_name}</p>
+                      <p className="text-xs text-grey">{(a as unknown as { services?: { name?: string } }).services?.name ?? "Service"}</p>
                     </div>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full", a.status === "confirmed" ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400")}>
                       {a.status}
@@ -218,12 +218,12 @@ export default function MyStatsPage() {
         {/* Top services */}
         <Card>
           <CardHeader>
-            <TrendingUp size={18} className="text-white" />
+            <TrendingUp size={18} className="text-foreground" />
             <CardTitle>Top Services</CardTitle>
           </CardHeader>
           <CardContent>
             {topServices.length === 0 ? (
-              <div className="py-8 text-center text-[#8f8f8f]">
+              <div className="py-8 text-center text-grey">
                 <p className="text-sm">No completed services yet</p>
               </div>
             ) : (
@@ -232,17 +232,17 @@ export default function MyStatsPage() {
                   <div key={svc.name} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between mb-1">
-                        <p className="text-sm text-white truncate">{svc.name}</p>
-                        <p className="text-xs text-white ml-2 flex-shrink-0">{svc.count}×</p>
+                        <p className="text-sm text-foreground truncate">{svc.name}</p>
+                        <p className="text-xs text-foreground ml-2 flex-shrink-0">{svc.count}×</p>
                       </div>
-                      <div className="h-1.5 bg-[#141414] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-card-raised rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gold/60 rounded-full"
                           style={{ width: `${(svc.count / (topServices[0]?.count ?? 1)) * 100}%` }}
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-[#8f8f8f] flex-shrink-0">{formatCurrency(svc.revenue)}</p>
+                    <p className="text-xs text-grey flex-shrink-0">{formatCurrency(svc.revenue)}</p>
                   </div>
                 ))}
               </div>
@@ -254,21 +254,21 @@ export default function MyStatsPage() {
         {reviews.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <Star size={18} className="text-white" />
+              <Star size={18} className="text-foreground" />
               <CardTitle>My Reviews</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 gap-3">
                 {reviews.slice(0, 4).map((rev, i) => (
-                  <div key={i} className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                  <div key={i} className="p-4 bg-card-raised rounded-xl border border-border">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-white">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
-                      <span className="text-xs text-[#8f8f8f]">{rev.client_name}</span>
+                      <span className="text-foreground">{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</span>
+                      <span className="text-xs text-grey">{rev.client_name}</span>
                     </div>
                     {rev.comment && (
-                      <p className="text-xs text-[#8f8f8f] leading-relaxed line-clamp-2">{rev.comment}</p>
+                      <p className="text-xs text-grey leading-relaxed line-clamp-2">{rev.comment}</p>
                     )}
-                    <p className="text-xs text-[#8f8f8f] mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
+                    <p className="text-xs text-grey mt-2">{new Date(rev.created_at).toLocaleDateString("en-CA")}</p>
                   </div>
                 ))}
               </div>
@@ -280,26 +280,26 @@ export default function MyStatsPage() {
         {upcoming.length > 0 && (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <ChevronRight size={18} className="text-white" />
+              <ChevronRight size={18} className="text-foreground" />
               <CardTitle>Upcoming Appointments</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {upcoming.slice(0, 8).map(a => (
-                  <div key={a.id} className="flex items-center justify-between p-3 bg-[#141414] rounded-xl border border-[#2a2a2a]">
+                  <div key={a.id} className="flex items-center justify-between p-3 bg-card-raised rounded-xl border border-border">
                     <div className="flex items-center gap-3">
                       <div className="text-center w-16">
-                        <p className="text-xs font-semibold text-white">{a.date.slice(5)}</p>
-                        <p className="text-xs text-[#8f8f8f]">{a.time_slot}</p>
+                        <p className="text-xs font-semibold text-foreground">{a.date.slice(5)}</p>
+                        <p className="text-xs text-grey">{a.time_slot}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">{a.client_name}</p>
-                        <p className="text-xs text-[#8f8f8f]">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
+                        <p className="text-sm font-medium text-foreground">{a.client_name}</p>
+                        <p className="text-xs text-grey">{(a as unknown as { services?: { name?: string } }).services?.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-white">{formatCurrency(a.total_amount ?? 0)}</p>
-                      <p className="text-xs text-[#8f8f8f] capitalize">{a.status}</p>
+                      <p className="text-sm font-bold text-foreground">{formatCurrency(a.total_amount ?? 0)}</p>
+                      <p className="text-xs text-grey capitalize">{a.status}</p>
                     </div>
                   </div>
                 ))}

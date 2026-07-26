@@ -22,15 +22,15 @@ import type { AppointmentWithDetails, Barber, Notification } from "@/lib/databas
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
+  return <div className={cn("animate-pulse bg-card-raised rounded-xl", className)} />;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -57,7 +57,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   // on the card. Two-tone tinted background overlay was a dark-mode device —
   // on white it just looks like a misprint. Dropped entirely.
   const iconChipByColor: Record<string, string> = {
-    gold: "bg-[#141414] text-[#8f8f8f]",
+    gold: "bg-card-raised text-grey",
     green: "bg-emerald-50 text-emerald-600",
     blue: "bg-blue-50 text-blue-600",
     purple: "bg-purple-50 text-purple-600",
@@ -72,14 +72,14 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={cn("text-[#8f8f8f] font-medium uppercase tracking-wider", prominent ? "text-[11px]" : "text-xs")}>
+          <p className={cn("text-grey font-medium uppercase tracking-wider", prominent ? "text-[11px]" : "text-xs")}>
             {label}
           </p>
           <p
             className={cn(
               // DM Mono via font-mono. Consistent 28px on every viewport —
               // matches the reference design's stat-val treatment exactly.
-              "font-extrabold text-white mt-1.5 font-mono tracking-tighter leading-none",
+              "font-extrabold text-foreground mt-1.5 font-mono tracking-tighter leading-none",
               prominent ? "text-3xl sm:text-4xl" : "text-[28px]",
             )}
           >
@@ -93,13 +93,13 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
             prominent ? "text-xs" : "text-[11px]",
             tone === "up"   && "text-emerald-400",
             tone === "down" && "text-red-400",
-            tone === "muted" && "text-[#8f8f8f]",
+            tone === "muted" && "text-grey",
           )}>{sub}</p>
           {cta && (
             <Link
               href={cta.href}
               className={cn(
-                "mt-1 inline-flex items-center gap-0.5 text-white/70 hover:text-white hover:underline",
+                "mt-1 inline-flex items-center gap-0.5 text-white/70 hover:text-foreground hover:underline",
                 prominent ? "text-xs" : "text-[10px]",
               )}
             >
@@ -409,13 +409,13 @@ export default function DashboardPage() {
   if (!loadingAppts && !shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-16 h-16 bg-black/5 border border-[#2a2a2a] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Calendar size={28} className="text-white" />
+        <div className="w-16 h-16 bg-black/5 border border-border rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Calendar size={28} className="text-foreground" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">
+        <h2 className="text-xl font-bold text-foreground mb-2">
           {profile?.role === "barber" ? "You're not linked to a shop yet" : "No shop found"}
         </h2>
-        <p className="text-[#8f8f8f] text-sm max-w-sm mb-6">
+        <p className="text-grey text-sm max-w-sm mb-6">
           {profile?.role === "barber"
             ? "You're not linked to a shop yet. Browse approved shops and request to join."
             : "Set up your barbershop to start managing appointments, clients, and more."}
@@ -451,12 +451,12 @@ export default function DashboardPage() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setNewBookingNotif(null)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
+            <div className="bg-card shadow-sm border border-black rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl gold-glow animate-fade-in">
               <div className="w-14 h-14 rounded-full bg-black/10 border border-black flex items-center justify-center mx-auto mb-4">
-                <Calendar size={24} className="text-white" />
+                <Calendar size={24} className="text-foreground" />
               </div>
-              <h2 className="text-lg font-bold text-white mb-1">{newBookingNotif.title}</h2>
-              <p className="text-sm text-[#8f8f8f] mb-5">{newBookingNotif.message}</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">{newBookingNotif.title}</h2>
+              <p className="text-sm text-grey mb-5">{newBookingNotif.message}</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setNewBookingNotif(null)}>Dismiss</Button>
                 <Link href="/dashboard/appointments" className="flex-1">
@@ -527,7 +527,7 @@ export default function DashboardPage() {
           <p className="text-sm text-red-300">Couldn&apos;t load your latest data — it may be out of date.</p>
           <button
             onClick={() => { setLoadError(false); loadAppointments(); loadSideData(); loadWeekAppts(); }}
-            className="text-xs font-semibold text-white bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
+            className="text-xs font-semibold text-foreground bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
           >
             Retry
           </button>
@@ -539,7 +539,7 @@ export default function DashboardPage() {
         <div className="relative">
           <button type="button" onClick={() => setFilterMenuOpen(o => !o)} className="cwd-select">
             {DATE_FILTER_LABELS[dateFilter]}
-            <ChevronDown size={15} className="text-[#5a5a5a]" />
+            <ChevronDown size={15} className="text-grey-muted" />
           </button>
           {filterMenuOpen && (
             <>
@@ -668,7 +668,7 @@ export default function DashboardPage() {
                 <div className="cwd-caltop">
                   <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                     <button aria-label="Previous week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o - 1); }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-white hover:bg-white/10 transition-colors">
+                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-foreground hover:bg-white/10 transition-colors">
                       <ChevronLeft size={16} />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); setWeekOffset(0); }} className="cwd-calm"
@@ -676,7 +676,7 @@ export default function DashboardPage() {
                       {weekDays[3].toLocaleDateString("en-CA", { month: "short", year: "numeric" })}
                     </button>
                     <button aria-label="Next week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o + 1); }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-white hover:bg-white/10 transition-colors">
+                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-foreground hover:bg-white/10 transition-colors">
                       <ChevronRight size={16} />
                     </button>
                   </div>
@@ -734,7 +734,7 @@ export default function DashboardPage() {
               {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
-                <div className="py-8 text-center text-[#8f8f8f]">
+                <div className="py-8 text-center text-grey">
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
                   <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
                 </div>
@@ -765,7 +765,7 @@ export default function DashboardPage() {
                     {remaining > 0 && (
                       <button
                         onClick={() => setVisibleAppts(c => c + 20)}
-                        className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-sm font-medium text-[#cfcfcf] hover:bg-white/5 transition-colors"
+                        className="w-full mt-3 py-2.5 rounded-xl border border-border text-sm font-medium text-[#cfcfcf] hover:bg-white/5 transition-colors"
                       >
                         Load {Math.min(20, remaining)} more · {remaining} left
                       </button>
@@ -784,7 +784,7 @@ export default function DashboardPage() {
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
             <div className="cwd-cardb">
               {barbers.length === 0 ? (
-                <p className="text-sm text-[#8f8f8f] text-center py-4">No active staff</p>
+                <p className="text-sm text-grey text-center py-4">No active staff</p>
               ) : barbers.map((b) => (
                 <div key={b.id} className="cwd-staff">
                   <div className="cwd-sav">
@@ -809,7 +809,7 @@ export default function DashboardPage() {
             </div>
             <div className="cwd-cardb" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {notifications.length === 0 ? (
-                <p className="text-sm text-[#8f8f8f] text-center py-4">No notifications</p>
+                <p className="text-sm text-grey text-center py-4">No notifications</p>
               ) : notifications.map((n) => {
                 const kind = n.type === "no-show" ? "warn" : n.type === "review" ? "rev" : /payment|paid|charged|collected|refund/i.test(`${n.title} ${n.message}`) ? "pay" : "book";
                 return (
@@ -835,30 +835,30 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 [&>*]:my-auto">
           <div ref={walkinSheetRef}
             style={{ transform: walkinDrag.dragY ? `translate3d(0,${walkinDrag.dragY}px,0)` : undefined, transition: walkinDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl w-full max-w-md p-6 max-h-[88vh] overflow-y-auto overscroll-contain animate-slide-up">
+            className="bg-card shadow-sm border border-border rounded-2xl w-full max-w-md p-6 max-h-[88vh] overflow-y-auto overscroll-contain animate-slide-up">
             {/* Grab handle (mobile) — pull down to dismiss */}
             <div onClick={() => setShowAddWalkin(false)} className="sm:hidden flex justify-center -mt-2 mb-2 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Add Walk-in Client</h2>
-              <button onClick={() => setShowAddWalkin(false)} className="text-[#8f8f8f] hover:text-white"><X size={20} /></button>
+              <h2 className="text-lg font-semibold text-foreground">Add Walk-in Client</h2>
+              <button onClick={() => setShowAddWalkin(false)} className="text-grey hover:text-foreground"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm text-[#8f8f8f]">Client Name</label>
-                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" placeholder="Walk-in Client" />
+                <label className="text-sm text-grey">Client Name</label>
+                <input value={walkinName} onChange={(e) => setWalkinName(e.target.value)} className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-black" placeholder="Walk-in Client" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-[#8f8f8f]">Barber</label>
-                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black">
+                <label className="text-sm text-grey">Barber</label>
+                <select value={walkinBarber} onChange={(e) => setWalkinBarber(e.target.value)} className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
                   <option value="">Any Available</option>
                   {barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm text-[#8f8f8f]">Note</label>
-                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-black" placeholder="e.g. Haircut" />
+                <label className="text-sm text-grey">Note</label>
+                <input value={walkinService} onChange={(e) => setWalkinService(e.target.value)} className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-black" placeholder="e.g. Haircut" />
               </div>
             </div>
             <div className="flex gap-3 mt-6">

@@ -93,15 +93,15 @@ export function OnboardingBanner({ shop }: Props) {
             <Check size={16} className="text-emerald-400" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">You&apos;re all set up!</p>
-            <p className="text-xs text-[#8f8f8f]">Your booking page is live. Start sharing it with clients.</p>
+            <p className="text-sm font-semibold text-foreground">You&apos;re all set up!</p>
+            <p className="text-xs text-grey">Your booking page is live. Start sharing it with clients.</p>
           </div>
         </div>
         <button
           onClick={dismissComplete}
           aria-label="Dismiss setup complete banner"
           title="Dismiss"
-          className="w-8 h-8 rounded-full flex items-center justify-center text-emerald-300/70 hover:text-white hover:bg-emerald-500/20 transition-colors flex-shrink-0"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-emerald-300/70 hover:text-foreground hover:bg-emerald-500/20 transition-colors flex-shrink-0"
         >
           <X size={16} />
         </button>
@@ -113,10 +113,10 @@ export function OnboardingBanner({ shop }: Props) {
     <div className="mb-6 bg-surface border border-gold/20 rounded-2xl p-5 animate-fade-in">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-sm font-bold text-white">Get your shop ready</p>
-          <p className="text-xs text-[#8f8f8f] mt-0.5">{doneCount} of {steps.length} steps complete</p>
+          <p className="text-sm font-bold text-foreground">Get your shop ready</p>
+          <p className="text-xs text-grey mt-0.5">{doneCount} of {steps.length} steps complete</p>
         </div>
-        <button onClick={dismissProgress} className="text-[#8f8f8f] hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
+        <button onClick={dismissProgress} className="text-grey hover:text-gray-300 transition-colors p-1 touch-target" aria-label="Dismiss setup guide">
           <X size={14} />
         </button>
       </div>
@@ -145,10 +145,10 @@ export function OnboardingBanner({ shop }: Props) {
               {step.done ? <Check size={12} /> : i + 1}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium", step.done ? "text-[#8f8f8f] line-through" : "text-white")}>{step.label}</p>
-              <p className="text-xs text-[#8f8f8f] truncate">{step.description}</p>
+              <p className={cn("text-sm font-medium", step.done ? "text-grey line-through" : "text-foreground")}>{step.label}</p>
+              <p className="text-xs text-grey truncate">{step.description}</p>
             </div>
-            {!step.done && <ArrowRight size={14} className="text-[#8f8f8f] group-hover:text-gold transition-colors flex-shrink-0" />}
+            {!step.done && <ArrowRight size={14} className="text-grey group-hover:text-gold transition-colors flex-shrink-0" />}
           </Link>
         ))}
       </div>

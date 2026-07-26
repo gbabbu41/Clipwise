@@ -52,10 +52,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // shop — both on the first render before the effect fires and during the fetch.
   if (loading || recovering || (ownerShopMissing && !triedRefresh.current)) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-card flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-black rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[#8f8f8f] text-sm">Loading...</p>
+          <div className="w-8 h-8 border-2 border-border border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-grey text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -68,28 +68,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // useEffect redirect is still pending (the race window).
   if (profile?.role === "barber" || profile?.role === "customer") {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-card flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-black rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[#8f8f8f] text-sm">Redirecting...</p>
+          <div className="w-8 h-8 border-2 border-border border-t-black rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-grey text-sm">Redirecting...</p>
         </div>
       </div>
     );
   }
 
+  // Calendar is a full-bleed canvas (its own height + horizontal scroll); every
+  // other page is capped + centered so wide monitors don't stretch content
+  // edge-to-edge. One shared container = consistent width on PC across pages.
+  const isCalendar = pathname === "/dashboard/calendar";
   return (
-    <div className="min-h-screen bg-black">
+    <div className="portal min-h-screen bg-background">
       <ModalChrome />
       <NotificationListener />
       <Sidebar />
       {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
           main's background follows the active page so that spacer is the page's
-          own color — no separate bar. The calendar pins its own #0a0a0a so the
-          spacer matches its canvas; everything else uses the default dark surface. */}
-      <main className={`lg:ml-64 ${INLINE_HEADER_PAGES.includes(pathname) ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${pathname === "/dashboard/calendar" ? "bg-[#0a0a0a] h-[100dvh] overflow-hidden" : ""}`}>
+          own color — no separate bar. The calendar pins its own sunken canvas so
+          the spacer matches it; everything else uses the calm page background. */}
+      <main className={`lg:ml-64 ${INLINE_HEADER_PAGES.includes(pathname) ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
         <MaintenanceBanner />
         <StripeWarningBanner />
-        <SwipeNavigator order={OWNER_SWIPE_ORDER}>{children}</SwipeNavigator>
+        <SwipeNavigator order={OWNER_SWIPE_ORDER}>
+          {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
+        </SwipeNavigator>
       </main>
       <MobileNav />
     </div>

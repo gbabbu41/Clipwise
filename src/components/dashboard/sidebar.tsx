@@ -341,13 +341,13 @@ export function Sidebar() {
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-7 h-7 rounded-full flex items-center justify-center text-white [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
+            "w-7 h-7 rounded-full flex items-center justify-center text-foreground [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
             notifOpen ? "bg-black/20" : "hover:bg-black/10",
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white leading-none">
+            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 bg-red-500 text-foreground text-[9px] font-bold rounded-full flex items-center justify-center border border-white leading-none">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -383,7 +383,7 @@ export function Sidebar() {
                   lets you pull it down to dismiss); on tablets it centres as a modal. */}
               <div
                 ref={notifSheetRef}
-                className="bg-[#0c0c0c] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
+                className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
@@ -395,11 +395,11 @@ export function Sidebar() {
                   <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
-                  <p className="text-base font-bold text-white">Notifications</p>
+                  <p className="text-base font-bold text-foreground">Notifications</p>
                   <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-accent-soft hover:underline">See all</Link>
                 </div>
                 {recentNotifs.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
+                  <div className="px-4 py-10 text-center text-grey text-sm">Nothing here yet</div>
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pb-2">
                     {(() => {
@@ -414,8 +414,8 @@ export function Sidebar() {
                         // Inline actions only when we have a linked appointment (phase16).
                         const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
                         const acting = notifActing === n.id;
-                        const cls = cn("block rounded-xl border border-[#2a2a2a] border-l-[3px] mb-2 px-3 py-3 transition-colors",
-                          n.is_read ? "bg-[#0e0e0e]" : "bg-white/[0.04]");
+                        const cls = cn("block rounded-xl border border-border border-l-[3px] mb-2 px-3 py-3 transition-colors",
+                          n.is_read ? "bg-card" : "bg-white/[0.04]");
                         const body = (
                           <div className="flex gap-3">
                             <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
@@ -423,10 +423,10 @@ export function Sidebar() {
                             </span>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
-                                <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
+                                <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(n.title)}</p>
                                 <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
                               </div>
-                              <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                              <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
                               {inlineAppt ? (
                                 <>
                                   <div className="flex items-center gap-2 mt-2.5">
@@ -441,11 +441,11 @@ export function Sidebar() {
                                       <X size={13} /> Decline
                                     </button>
                                   </div>
-                                  <span className="block text-[11px] text-[#8f8f8f] mt-1.5">{timeAgo(n.created_at)}</span>
+                                  <span className="block text-[11px] text-grey mt-1.5">{timeAgo(n.created_at)}</span>
                                 </>
                               ) : (
                                 <div className="flex items-center justify-between mt-1.5">
-                                  <span className="text-[11px] text-[#8f8f8f]">{timeAgo(n.created_at)}</span>
+                                  <span className="text-[11px] text-grey">{timeAgo(n.created_at)}</span>
                                   {c.actionable && (
                                     <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">
                                       Review <ChevronRight size={12} />
@@ -462,12 +462,12 @@ export function Sidebar() {
                         ) : (
                           <Link key={n.id} href={notifHref(n)} onClick={() => setNotifOpen(false)}
                             style={{ borderLeftColor: c.accent }}
-                            className={cn(cls, "active:bg-white/[0.06]", n.is_read ? "hover:bg-[#141414]" : "hover:bg-white/[0.07]")}>
+                            className={cn(cls, "active:bg-white/[0.06]", n.is_read ? "hover:bg-card-raised" : "hover:bg-white/[0.07]")}>
                             {body}
                           </Link>
                         );
                       };
-                      const section = (label: string, items: typeof recentNotifs, labelCls = "text-[#8f8f8f]") =>
+                      const section = (label: string, items: typeof recentNotifs, labelCls = "text-grey") =>
                         items.length > 0 ? (
                           <div className="mb-1" key={label}>
                             <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1 pt-2 pb-1.5", labelCls)}>{label}</p>
@@ -492,7 +492,7 @@ export function Sidebar() {
 
       {/* Confirmation toast for inline Approve/Decline (sits above the sheet). */}
       {notifToast && (
-        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl whitespace-nowrap">
+        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl whitespace-nowrap">
           {notifToast}
         </div>
       )}
@@ -510,7 +510,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-[#0c0c0c] border-r border-[#2a2a2a] transition-transform duration-200 lg:translate-x-0",
+          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -518,7 +518,7 @@ export function Sidebar() {
           wordmark doesn't float with dead space on both sides. cw-grad is on the
           wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-[#2a2a2a] flex flex-col justify-center items-start gap-1.5 pl-6"
+        className="cw-logo-fade whitespace-nowrap border-b border-border flex flex-col justify-center items-start gap-1.5 pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
@@ -557,9 +557,9 @@ export function Sidebar() {
           return visibleSections.map((section, sectionIdx) => (
             <div
               key={section.label}
-              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-[#2a2a2a]")}
+              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-border")}
             >
-              <p className="text-[10px] uppercase tracking-wider text-[#8f8f8f] font-semibold px-3 mb-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-grey font-semibold px-3 mb-1.5">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -574,15 +574,15 @@ export function Sidebar() {
                         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isActive
                           ? "bg-white text-black border border-white"
-                          : "text-[#8f8f8f] hover:text-white hover:bg-[#141414]"
+                          : "text-grey hover:text-foreground hover:bg-card-raised"
                       )}
                     >
-                      <Icon size={18} className={cn(isActive ? "text-black" : "text-[#8f8f8f] group-hover:text-white")} />
+                      <Icon size={18} className={cn(isActive ? "text-black" : "text-grey group-hover:text-foreground")} />
                       <span className="flex-1">{item.label}</span>
                       {item.badge && unreadCount > 0 && (
                         <span className={cn(
                           "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
-                          isActive ? "bg-black text-white" : "bg-white text-black"
+                          isActive ? "bg-card text-foreground" : "bg-white text-black"
                         )}>
                           {unreadCount}
                         </span>
@@ -599,8 +599,8 @@ export function Sidebar() {
         {/* Owner-also-barber: prominent switch to barber view */}
         {isAlsoBarber && (
           <Link href="/barber-dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#8f8f8f] hover:text-white hover:bg-[#141414] mt-4 pt-4 border-t border-[#2a2a2a]">
-            <Scissors size={18} className="text-[#8f8f8f] group-hover:text-white" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-grey hover:text-foreground hover:bg-card-raised mt-4 pt-4 border-t border-border">
+            <Scissors size={18} className="text-grey group-hover:text-foreground" />
             <span className="flex-1">My Barber View</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -608,16 +608,16 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#2a2a2a]">
+      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
             <AvatarImage src={profile?.avatar || ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-[#8f8f8f] truncate capitalize">{profile?.role ?? "owner"}</p>
+            <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+            <p className="text-xs text-grey truncate capitalize">{profile?.role ?? "owner"}</p>
           </div>
-          <button onClick={signOut} className="text-[#8f8f8f] hover:text-red-500 transition-colors">
+          <button onClick={signOut} className="text-grey hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

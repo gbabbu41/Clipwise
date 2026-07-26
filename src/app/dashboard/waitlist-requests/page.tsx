@@ -11,9 +11,9 @@ import type { AppointmentWaitlistEntry, Barber, Service } from "@/lib/database.t
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -112,10 +112,10 @@ export default function WaitlistRequestsPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Spot Waitlist</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Customers waiting for a spot to open on a full day</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Spot Waitlist</h1>
+          <p className="text-sm text-grey mt-0.5">Customers waiting for a spot to open on a full day</p>
         </div>
-        <button onClick={load} className="text-[#8f8f8f] hover:text-white transition-colors p-2 rounded-xl hover:bg-[#141414]">
+        <button onClick={load} className="text-grey hover:text-foreground transition-colors p-2 rounded-xl hover:bg-card-raised">
           <RefreshCw size={18} />
         </button>
       </div>
@@ -126,22 +126,22 @@ export default function WaitlistRequestsPage() {
           { label: "Days with a queue", value: String(dates.length) },
           { label: "Total active", value: String(active.length) },
         ].map(s => (
-          <div key={s.label} className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-4">
-            <p className="text-[10px] text-[#8f8f8f] font-semibold uppercase tracking-wider">{s.label}</p>
-            <p className="text-[28px] font-extrabold text-white mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+          <div key={s.label} className="bg-card border border-border rounded-2xl p-4">
+            <p className="text-[10px] text-grey font-semibold uppercase tracking-wider">{s.label}</p>
+            <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
           </div>
         ))}
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-[#8f8f8f]">Loading…</div>
+        <div className="py-16 text-center text-grey">Loading…</div>
       ) : active.length === 0 ? (
         <Card>
           <CardContent>
             <div className="py-16 text-center">
-              <BellRing size={40} className="mx-auto mb-4 text-[#8f8f8f]" />
-              <p className="text-white font-medium">No one waiting right now</p>
-              <p className="text-sm text-[#8f8f8f] mt-1">
+              <BellRing size={40} className="mx-auto mb-4 text-grey" />
+              <p className="text-foreground font-medium">No one waiting right now</p>
+              <p className="text-sm text-grey mt-1">
                 When a day is fully booked, customers can tap &ldquo;Notify me if a spot opens&rdquo; on
                 your booking page. They&apos;ll show up here, and get an automatic alert when an
                 appointment is cancelled.
@@ -158,7 +158,7 @@ export default function WaitlistRequestsPage() {
                 <CardHeader>
                   <CardTitle>
                     <span className="flex items-center gap-2">
-                      <Calendar size={15} className="text-[#8f8f8f]" /> {niceDate(date)}
+                      <Calendar size={15} className="text-grey" /> {niceDate(date)}
                     </span>
                   </CardTitle>
                   <Button
@@ -173,15 +173,15 @@ export default function WaitlistRequestsPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {dayEntries.map(e => (
-                      <div key={e.id} className="flex items-start justify-between gap-4 p-3 rounded-xl border border-[#2a2a2a] bg-[#141414]">
+                      <div key={e.id} className="flex items-start justify-between gap-4 p-3 rounded-xl border border-border bg-card-raised">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-white font-semibold">{e.client_name}</p>
+                            <p className="text-foreground font-semibold">{e.client_name}</p>
                             <Badge variant={STATUS_CONFIG[e.status].variant} className="text-xs">
                               {STATUS_CONFIG[e.status].label}
                             </Badge>
                           </div>
-                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-[#8f8f8f]">
+                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-grey">
                             {e.client_email && <span className="flex items-center gap-1"><Mail size={11} />{e.client_email}</span>}
                             {e.client_phone && <span className="flex items-center gap-1"><Phone size={11} />{e.client_phone}</span>}
                             <span className="flex items-center gap-1"><Scissors size={11} />{barberName(e.barber_id)}</span>
@@ -191,7 +191,7 @@ export default function WaitlistRequestsPage() {
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
                           <button onClick={() => setAssignReq({ id: e.id, shop_id: e.shop_id, barber_id: e.barber_id ?? null, service_id: e.service_id ?? null, client_name: e.client_name, desired_date: e.desired_date })}
                             className="btn btn-success btn-sm whitespace-nowrap">Accept &amp; assign</button>
-                          <button onClick={() => removeEntry(e.id)} className="text-xs text-[#8f8f8f] hover:text-red-400 transition-colors flex items-center gap-1 justify-center py-1">
+                          <button onClick={() => removeEntry(e.id)} className="text-xs text-grey hover:text-red-400 transition-colors flex items-center gap-1 justify-center py-1">
                             <X size={12} /> Remove
                           </button>
                         </div>

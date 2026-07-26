@@ -12,7 +12,7 @@ export default function BarberCalendarPage() {
   const canManage = profile?.role === "shop_owner" || barber?.permissions?.manage_appointments === true;
   const canBlock = profile?.role === "shop_owner" || barber?.permissions?.block_hours !== false;
   if (!barber) {
-    return <div className="h-[70vh] flex items-center justify-center text-[#8f8f8f] text-sm">Loading calendar…</div>;
+    return <div className="h-[70vh] flex items-center justify-center text-grey text-sm">Loading calendar…</div>;
   }
   return <CalendarView defaultView="day" forceBarberId={barber.id} canManage={canManage} canBlock={canBlock} />;
 }

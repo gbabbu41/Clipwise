@@ -32,8 +32,8 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">✂️</div>
-          <h2 className="text-xl font-bold text-white mb-2">Account not linked</h2>
-          <p className="text-[#8f8f8f] text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">Account not linked</h2>
+          <p className="text-grey text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
         </div>
       </div>
     );
@@ -46,8 +46,8 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
           <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔒</span>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Account suspended</h2>
-          <p className="text-[#8f8f8f] text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">Account suspended</h2>
+          <p className="text-grey text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
         </div>
       </div>
     );
@@ -79,19 +79,25 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
 
   if (!user) return null;
 
+  // Calendar is full-bleed; all other pages get one capped+centered container
+  // so content doesn't stretch edge-to-edge on wide monitors.
+  const isCalendar = pathname === "/barber-dashboard/calendar";
+
   return (
     <BarberProvider>
       <BarberGuard>
-        <div className="min-h-screen bg-background">
+        <div className="portal min-h-screen bg-background">
           <ModalChrome />
           <NotificationListener />
           <BarberSidebar />
           {/* Matches the shop portal: docked sidebar at lg+, drawer + bottom nav
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
               pt-14 reserves the mobile top-bar height. The full-bleed calendar
-              pins its own #0a0a0a, so the top spacer matches its canvas there. */}
-          <main className={`lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-24 lg:pb-0 ${pathname === "/barber-dashboard/calendar" ? "bg-[#0a0a0a] h-[100dvh] overflow-hidden" : ""}`}>
-            <SwipeNavigator order={BARBER_SWIPE_ORDER}>{children}</SwipeNavigator>
+              pins its own sunken canvas, so the top spacer matches it there. */}
+          <main className={`lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-24 lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
+            <SwipeNavigator order={BARBER_SWIPE_ORDER}>
+              {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
+            </SwipeNavigator>
           </main>
           <BarberMobileNav />
         </div>

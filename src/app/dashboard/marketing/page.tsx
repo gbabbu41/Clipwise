@@ -11,9 +11,9 @@ import type { Client } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl flex items-center gap-3">
-      <span className="text-white">✓</span>{message}
-      <button onClick={onClose} className="text-[#8f8f8f] hover:text-white ml-2">✕</button>
+    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <span className="text-foreground">✓</span>{message}
+      <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
@@ -184,8 +184,8 @@ export default function MarketingPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Marketing</h1>
-          <p className="text-sm text-[#8f8f8f] mt-0.5">Email campaigns to grow your client base</p>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Marketing</h1>
+          <p className="text-sm text-grey mt-0.5">Email campaigns to grow your client base</p>
         </div>
         {tab === "campaigns" && (
           <Button onClick={() => setTab("create")}><Plus size={16} /> New Campaign</Button>
@@ -205,12 +205,12 @@ export default function MarketingPage() {
             <Card key={stat.label}>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-[#2a2a2a] flex items-center justify-center">
-                    <Icon size={16} className="text-white" />
+                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-border flex items-center justify-center">
+                    <Icon size={16} className="text-foreground" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#8f8f8f]">{stat.label}</p>
-                    <p className="text-xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs text-grey">{stat.label}</p>
+                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
                   </div>
                 </div>
               </CardContent>
@@ -223,7 +223,7 @@ export default function MarketingPage() {
         <div className="space-y-6">
           {/* Quick actions */}
           <div>
-            <h2 className="text-sm font-semibold text-[#8f8f8f] uppercase tracking-wider mb-3">Quick Campaigns</h2>
+            <h2 className="text-sm font-semibold text-grey uppercase tracking-wider mb-3">Quick Campaigns</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { label: "Win-Back At-Risk", desc: `Re-engage ${clients.filter(c=>c.tag==="At Risk"&&!!c.email).length} at-risk clients who haven't been back`, icon: "🔄", template: "winback", segment: "atrisk" },
@@ -240,15 +240,15 @@ export default function MarketingPage() {
                     setCampaignName(qa.label);
                     setTab("create");
                   }}
-                  className="text-left p-4 bg-black shadow-sm border border-[#2a2a2a] rounded-2xl hover:border-black transition-all group"
+                  className="text-left p-4 bg-card shadow-sm border border-border rounded-2xl hover:border-black transition-all group"
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{qa.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white group-hover:text-white transition-colors">{qa.label}</p>
-                      <p className="text-xs text-[#8f8f8f] mt-0.5 leading-relaxed">{qa.desc}</p>
+                      <p className="text-sm font-semibold text-foreground group-hover:text-foreground transition-colors">{qa.label}</p>
+                      <p className="text-xs text-grey mt-0.5 leading-relaxed">{qa.desc}</p>
                     </div>
-                    <ChevronRight size={14} className="text-[#8f8f8f] group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
+                    <ChevronRight size={14} className="text-grey group-hover:text-foreground transition-colors flex-shrink-0 mt-0.5" />
                   </div>
                 </button>
               ))}
@@ -258,33 +258,33 @@ export default function MarketingPage() {
           {/* Campaign history */}
           <Card>
             <CardHeader>
-              <Megaphone size={18} className="text-white" />
+              <Megaphone size={18} className="text-foreground" />
               <CardTitle>Campaign History</CardTitle>
             </CardHeader>
             <CardContent>
               {campaigns.length === 0 ? (
                 <div className="py-10 text-center">
-                  <Megaphone size={32} className="mx-auto mb-3 text-[#8f8f8f] opacity-40" />
-                  <p className="text-sm text-white font-medium">No campaigns sent yet</p>
-                  <p className="text-xs text-[#8f8f8f] mt-1">Your sent campaigns will show up here.</p>
+                  <Megaphone size={32} className="mx-auto mb-3 text-grey opacity-40" />
+                  <p className="text-sm text-foreground font-medium">No campaigns sent yet</p>
+                  <p className="text-xs text-grey mt-1">Your sent campaigns will show up here.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-[#2a2a2a]">
+                      <tr className="border-b border-border">
                         {["Campaign", "Segment", "Sent", "Recipients", "Status"].map(h => (
-                          <th key={h} className="text-left text-xs font-medium text-[#8f8f8f] px-3 py-2 whitespace-nowrap">{h}</th>
+                          <th key={h} className="text-left text-xs font-medium text-grey px-3 py-2 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {campaigns.map(c => (
-                        <tr key={c.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#141414]/50 transition-colors">
-                          <td className="px-3 py-3 text-sm font-medium text-white">{c.name || c.subject || "Campaign"}</td>
-                          <td className="px-3 py-3 text-xs text-[#8f8f8f]">{c.segment ?? "—"}</td>
-                          <td className="px-3 py-3 text-xs text-[#8f8f8f]">{new Date(c.sent_at).toLocaleDateString("en-CA")}</td>
-                          <td className="px-3 py-3 text-sm text-white">{c.recipients}</td>
+                        <tr key={c.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/50 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-foreground">{c.name || c.subject || "Campaign"}</td>
+                          <td className="px-3 py-3 text-xs text-grey">{c.segment ?? "—"}</td>
+                          <td className="px-3 py-3 text-xs text-grey">{new Date(c.sent_at).toLocaleDateString("en-CA")}</td>
+                          <td className="px-3 py-3 text-sm text-foreground">{c.recipients}</td>
                           <td className="px-3 py-3">
                             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                               <CheckCircle2 size={10} /> Sent
@@ -303,7 +303,7 @@ export default function MarketingPage() {
 
       {tab === "create" && (
         <div className="space-y-6">
-          <button onClick={() => setTab("campaigns")} className="text-sm text-[#8f8f8f] hover:text-white transition-colors flex items-center gap-1">
+          <button onClick={() => setTab("campaigns")} className="text-sm text-grey hover:text-foreground transition-colors flex items-center gap-1">
             ← Back to campaigns
           </button>
 
@@ -311,7 +311,7 @@ export default function MarketingPage() {
             {/* Left: Config */}
             <div className="lg:col-span-2 space-y-5">
               <Card>
-                <CardHeader><Zap size={18} className="text-white" /><CardTitle>Campaign Setup</CardTitle></CardHeader>
+                <CardHeader><Zap size={18} className="text-foreground" /><CardTitle>Campaign Setup</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <Input
                     label="Campaign Name"
@@ -322,7 +322,7 @@ export default function MarketingPage() {
 
                   {/* Segment picker */}
                   <div>
-                    <p className="text-sm font-medium text-[#8f8f8f] mb-2">Audience Segment</p>
+                    <p className="text-sm font-medium text-grey mb-2">Audience Segment</p>
                     <div className="grid sm:grid-cols-2 gap-2">
                       {SEGMENTS.map(seg => {
                         const count = seg.filter(clients).filter(c => !!c.email).length;
@@ -333,8 +333,8 @@ export default function MarketingPage() {
                             className={cn(
                               "text-left p-3 rounded-xl border transition-all",
                               selectedSegment.id === seg.id
-                                ? "border-black bg-black/5 text-white"
-                                : "border-[#2a2a2a] text-[#8f8f8f] hover:border-[#2a2a2a]/80"
+                                ? "border-black bg-black/5 text-foreground"
+                                : "border-border text-grey hover:border-[#2a2a2a]/80"
                             )}
                           >
                             <p className="text-sm font-medium">{seg.label}</p>
@@ -348,11 +348,11 @@ export default function MarketingPage() {
               </Card>
 
               <Card>
-                <CardHeader><Mail size={18} className="text-white" /><CardTitle>Message</CardTitle></CardHeader>
+                <CardHeader><Mail size={18} className="text-foreground" /><CardTitle>Message</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   {/* Template picker */}
                   <div>
-                    <p className="text-sm font-medium text-[#8f8f8f] mb-2">Template</p>
+                    <p className="text-sm font-medium text-grey mb-2">Template</p>
                     <div className="flex flex-wrap gap-2">
                       {TEMPLATES.map(t => (
                         <button
@@ -361,16 +361,16 @@ export default function MarketingPage() {
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                             selectedTemplate.id === t.id
-                              ? "border-black bg-black/10 text-white"
-                              : "border-[#2a2a2a] text-[#8f8f8f] hover:text-white hover:border-[#2a2a2a]/80"
+                              ? "border-black bg-black/10 text-foreground"
+                              : "border-border text-grey hover:text-foreground hover:border-[#2a2a2a]/80"
                           )}
                         >
                           {t.label}
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-[#8f8f8f] mt-2">
-                      Use <span className="font-mono bg-[#141414] px-1 rounded">{"{name}"}</span>, <span className="font-mono bg-[#141414] px-1 rounded">{"{shop}"}</span>, <span className="font-mono bg-[#141414] px-1 rounded">{"{link}"}</span> as placeholders
+                    <p className="text-xs text-grey mt-2">
+                      Use <span className="font-mono bg-card-raised px-1 rounded">{"{name}"}</span>, <span className="font-mono bg-card-raised px-1 rounded">{"{shop}"}</span>, <span className="font-mono bg-card-raised px-1 rounded">{"{link}"}</span> as placeholders
                     </p>
                   </div>
 
@@ -394,39 +394,39 @@ export default function MarketingPage() {
             {/* Right: Summary */}
             <div className="space-y-4">
               <Card>
-                <CardHeader><Users size={18} className="text-white" /><CardTitle>Audience Summary</CardTitle></CardHeader>
+                <CardHeader><Users size={18} className="text-foreground" /><CardTitle>Audience Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="p-4 bg-[#141414] rounded-xl border border-[#2a2a2a] text-center">
-                    <p className="text-4xl font-bold text-white">{recipientsWithEmail.length}</p>
-                    <p className="text-xs text-[#8f8f8f] mt-1">recipients with email</p>
-                    <p className="text-xs text-[#8f8f8f] mt-0.5">{recipients.length - recipientsWithEmail.length} without email (skipped)</p>
+                  <div className="p-4 bg-card-raised rounded-xl border border-border text-center">
+                    <p className="text-4xl font-bold text-foreground">{recipientsWithEmail.length}</p>
+                    <p className="text-xs text-grey mt-1">recipients with email</p>
+                    <p className="text-xs text-grey mt-0.5">{recipients.length - recipientsWithEmail.length} without email (skipped)</p>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-[#8f8f8f]">
+                    <div className="flex justify-between text-grey">
                       <span>Segment</span>
-                      <span className="text-white">{selectedSegment.label}</span>
+                      <span className="text-foreground">{selectedSegment.label}</span>
                     </div>
-                    <div className="flex justify-between text-[#8f8f8f]">
+                    <div className="flex justify-between text-grey">
                       <span>Template</span>
-                      <span className="text-white">{selectedTemplate.label}</span>
+                      <span className="text-foreground">{selectedTemplate.label}</span>
                     </div>
-                    <div className="flex justify-between text-[#8f8f8f]">
+                    <div className="flex justify-between text-grey">
                       <span>Type</span>
-                      <span className="text-white">Email</span>
+                      <span className="text-foreground">Email</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><Clock size={18} className="text-white" /><CardTitle>Delivery</CardTitle></CardHeader>
+                <CardHeader><Clock size={18} className="text-foreground" /><CardTitle>Delivery</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <button className="w-full p-3 rounded-xl border border-black bg-black/5 text-sm font-medium text-white text-left">
+                    <button className="w-full p-3 rounded-xl border border-black bg-black/5 text-sm font-medium text-foreground text-left">
                       ● Send Now
                     </button>
                     <button
-                      className="w-full p-3 rounded-xl border border-[#2a2a2a] text-sm text-[#8f8f8f] text-left hover:border-[#2a2a2a]/80"
+                      className="w-full p-3 rounded-xl border border-border text-sm text-grey text-left hover:border-[#2a2a2a]/80"
                       onClick={() => showToast("Scheduling coming soon!")}
                     >
                       ○ Schedule for Later

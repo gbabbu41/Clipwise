@@ -8,8 +8,8 @@ export default function StripeSetupPage() {
   const router = useRouter();
   useEffect(() => { router.replace("/dashboard/billing"); }, [router]);
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <p className="text-sm text-[#8f8f8f]">Redirecting to Billing…</p>
+    <div className="min-h-screen bg-card flex items-center justify-center">
+      <p className="text-sm text-grey">Redirecting to Billing…</p>
     </div>
   );
 }

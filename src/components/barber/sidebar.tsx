@@ -20,7 +20,7 @@ const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
   booking:      { Icon: Calendar,      cls: "bg-emerald-500/15 text-emerald-400" },
   cancellation: { Icon: CalendarX2,    cls: "bg-rose-500/15 text-rose-400" },
   "no-show":    { Icon: AlertTriangle, cls: "bg-amber-500/15 text-amber-400" },
-  system:       { Icon: Info,          cls: "bg-white/10 text-[#aaa]" },
+  system:       { Icon: Info,          cls: "bg-white/10 text-grey" },
 };
 const notifIcon = (type: string) => NOTIF_ICON[type] ?? NOTIF_ICON.system;
 // Strip any leading emoji/symbol so the row shows one consistent icon.
@@ -182,13 +182,13 @@ export function BarberSidebar() {
           // Solid black (not black/92) so the bar blends with the pure-black
           // page at rest — no faint darker strip — and cleanly covers content
           // when scrolled. Border fades in only once you scroll under it.
-          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-black transition-all duration-200 border-b",
-          scrolled ? "border-[#2a2a2a]" : "border-transparent",
+          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
+          scrolled ? "border-border" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
         {/* Page title (left) — 23px uppercase, matching the shop portal header. */}
-        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-white truncate">{BAR_TITLE[pathname] ?? ""}</h1>
+        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
         {/* Notifications bell — same control as the owner mobile header,
             scoped to this barber. Red dot when there's anything unread. */}
         <button
@@ -197,13 +197,13 @@ export function BarberSidebar() {
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors relative flex-shrink-0",
+            "w-9 h-9 rounded-full flex items-center justify-center text-foreground transition-colors relative flex-shrink-0",
             notifOpen ? "bg-white/10" : "hover:bg-white/5",
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-black leading-none">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 bg-red-500 text-foreground text-[10px] font-bold rounded-full flex items-center justify-center border border-black leading-none">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -238,7 +238,7 @@ export function BarberSidebar() {
             >
               <div
                 ref={notifSheetRef}
-                className="bg-[#0c0c0c] border-t sm:border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
+                className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",
@@ -248,13 +248,13 @@ export function BarberSidebar() {
                   <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-between flex-shrink-0">
-                  <p className="text-base font-bold text-white">Notifications</p>
+                  <p className="text-base font-bold text-foreground">Notifications</p>
                   <Link href="/barber-dashboard/notifications" onClick={() => setNotifOpen(false)} className="text-xs font-semibold text-accent-soft hover:underline">See all</Link>
                 </div>
                 {recentNotifs.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-[#888] text-sm">Nothing here yet</div>
+                  <div className="px-4 py-10 text-center text-grey text-sm">Nothing here yet</div>
                 ) : (
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-[#1a1a1a]">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-border">
                     {recentNotifs.map(n => {
                       const { Icon, cls } = notifIcon(n.type);
                       const isWaitlist = n.entity_type === "waitlist" && !!n.entity_id;
@@ -265,10 +265,10 @@ export function BarberSidebar() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline justify-between gap-2">
-                              <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#cdcdcd]" : "font-bold text-white")}>{cleanNotifTitle(n.title)}</p>
-                              <span className="text-[11px] text-[#888] flex-shrink-0">{timeAgo(n.created_at)}</span>
+                              <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#cdcdcd]" : "font-bold text-foreground")}>{cleanNotifTitle(n.title)}</p>
+                              <span className="text-[11px] text-grey flex-shrink-0">{timeAgo(n.created_at)}</span>
                             </div>
-                            <p className="text-xs text-[#aaa] line-clamp-2 mt-0.5">{n.message}</p>
+                            <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
                             {isWaitlist && (
                               <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-semibold text-amber-300">Accept &amp; assign ›</span>
                             )}
@@ -276,7 +276,7 @@ export function BarberSidebar() {
                           {!n.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1.5" />}
                         </>
                       );
-                      const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-[#141414]" : "bg-white/[0.04] hover:bg-white/[0.07]");
+                      const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-card-raised" : "bg-white/[0.04] hover:bg-white/[0.07]");
                       return isWaitlist ? (
                         <button key={n.id} type="button" onClick={() => openAssign(n.entity_id!)} className={rowCls}>{body}</button>
                       ) : (
@@ -348,15 +348,15 @@ export function BarberSidebar() {
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                 isActive
                   ? "bg-white text-black border border-white"
-                  : "text-[#8f8f8f] hover:text-white hover:bg-[#141414]"
+                  : "text-grey hover:text-foreground hover:bg-card-raised"
               )}
             >
-              <Icon size={18} className={cn(isActive ? "text-black" : "text-[#8f8f8f] group-hover:text-white")} />
+              <Icon size={18} className={cn(isActive ? "text-black" : "text-grey group-hover:text-foreground")} />
               <span className="flex-1">{item.label}</span>
               {item.badge && unreadCount > 0 && (
                 <span className={cn(
                   "text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center",
-                  isActive ? "bg-black text-white" : "bg-white text-black",
+                  isActive ? "bg-card text-foreground" : "bg-white text-black",
                 )}>{unreadCount}</span>
               )}
               {isActive && <ChevronRight size={14} className="text-black" />}
@@ -367,8 +367,8 @@ export function BarberSidebar() {
         {/* Owner-also-barber: show a way back to the owner dashboard */}
         {profile?.role === "shop_owner" && (
           <Link href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-[#8f8f8f] hover:text-white hover:bg-surface-raised mt-3 border-t border-border pt-4">
-            <Building2 size={18} className="text-[#8f8f8f] group-hover:text-white" />
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-grey hover:text-foreground hover:bg-surface-raised mt-3 border-t border-border pt-4">
+            <Building2 size={18} className="text-grey group-hover:text-foreground" />
             <span className="flex-1">Owner Dashboard</span>
             <ChevronRight size={14} className="opacity-50" />
           </Link>
@@ -381,10 +381,10 @@ export function BarberSidebar() {
             <AvatarImage src={barber?.photo} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-[#8f8f8f]">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
+            <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+            <p className="text-xs text-grey">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
           </div>
-          <button onClick={signOut} className="text-[#8f8f8f] hover:text-red-400 transition-colors">
+          <button onClick={signOut} className="text-grey hover:text-red-400 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

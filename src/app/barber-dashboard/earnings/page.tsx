@@ -275,15 +275,15 @@ export default function BarberPaymentsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
       {toast && (
-        <div className="fixed bottom-24 right-4 z-[200] bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-3 text-sm text-white shadow-xl">
+        <div className="fixed bottom-24 right-4 z-[200] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
           <span className="text-[#00e5a0]">✓</span> {toast}
         </div>
       )}
 
       {/* Header (barber portal keeps its own title) */}
       <div className="mb-1">
-        <h1 className="hidden lg:block text-2xl font-bold text-white uppercase tracking-wide">Payments</h1>
-        <p className="text-[#8f8f8f] text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
+        <h1 className="hidden lg:block text-2xl font-bold text-foreground uppercase tracking-wide">Payments</h1>
+        <p className="text-grey text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
       </div>
 
       {/* ── Earnings — the period filters live in the carousel ─────────────── */}
@@ -364,9 +364,9 @@ export default function BarberPaymentsPage() {
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-[#66666b] text-sm">Loading payments…</div>
+        <div className="py-16 text-center text-grey-muted text-sm">Loading payments…</div>
       ) : statementEmpty ? (
-        <div className="py-16 text-center text-[#66666b] text-sm">
+        <div className="py-16 text-center text-grey-muted text-sm">
           {showUnpaid ? "Nothing outstanding — you're all caught up." : "No transactions in this period."}
         </div>
       ) : showUnpaid ? (
@@ -389,7 +389,7 @@ export default function BarberPaymentsPage() {
                   {/* Dismiss — clears an uncollectable item from the list */}
                   <span role="button" tabIndex={0} aria-label="Dismiss"
                     onClick={e => { e.stopPropagation(); dismissOutstanding(a.id); showToast("Dismissed"); }}
-                    className="p-1.5 -mr-1 rounded-lg text-[#666] hover:text-white hover:bg-white/5 flex-shrink-0 transition-colors self-center cursor-pointer">
+                    className="p-1.5 -mr-1 rounded-lg text-grey-muted hover:text-foreground hover:bg-white/5 flex-shrink-0 transition-colors self-center cursor-pointer">
                     <X size={16} />
                   </span>
                 </button>
@@ -447,25 +447,25 @@ export default function BarberPaymentsPage() {
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" onClick={() => setShowCustomModal(false)} />
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="bg-[#0c0c0c] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
+            <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-xs space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-white">Custom range</h2>
-                <button onClick={() => setShowCustomModal(false)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Custom range</h2>
+                <button onClick={() => setShowCustomModal(false)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-[#888] mb-1">From</label>
+                  <label className="block text-xs text-grey mb-1">From</label>
                   <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#888] mb-1">To</label>
+                  <label className="block text-xs text-grey mb-1">To</label>
                   <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" className="rounded-xl border border-[#2a2a2a] bg-[#141414] text-white text-sm font-medium py-2.5 hover:bg-[#1a1a1a]"
+                <button type="button" className="rounded-xl border border-border bg-card-raised text-foreground text-sm font-medium py-2.5 hover:bg-surface-overlay"
                   onClick={() => setShowCustomModal(false)}>Cancel</button>
                 <button type="button" className="rounded-xl bg-white text-black text-sm font-semibold py-2.5 hover:opacity-90"
                   onClick={() => { setShowCustomModal(false); const el = railRef.current; if (el) el.scrollTo({ left: el.clientWidth * 3, behavior: "smooth" }); }}>Apply</button>
