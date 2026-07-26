@@ -57,18 +57,19 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  --background:     #f0f0ee;  /* soft off-white PAGE (neutral, barely warm — NOT cool grey) */
+  /* Exact values sampled from the reference screenshot (neutral, no tint). */
+  --background:     #f1f1f1;  /* reference PAGE grey */
   --foreground:     #1a1a1a;  /* crisp near-black text */
-  --card:           #ffffff;  /* white cards, lifted by shadow (borderless) */
-  --card-raised:    #f1f1ee;  /* subtle nested chips/pills */
-  --surface:        #ffffff;
-  --surface-raised: #f1f1ee;
-  --surface-overlay:#eaeae7;  /* hover fills / menus */
-  --surface-sunken: #ebebe8;  /* recessed (calendar canvas) */
-  --border:         #ececea;  /* VERY soft — cards read borderless; only inputs/dividers show it faintly */
-  --border-strong:  #dcdcd9;
-  --grey:           #6b6b67;  /* secondary text */
-  --grey-2:         #9a9a95;  /* muted text */
+  --card:           #f9f9f9;  /* reference CARD near-white (lifted by shadow, borderless) */
+  --card-raised:    #efefef;  /* subtle nested chips/pills */
+  --surface:        #f9f9f9;
+  --surface-raised: #efefef;
+  --surface-overlay:#eaeaea;  /* hover fills / menus */
+  --surface-sunken: #ebebeb;  /* recessed (calendar canvas) */
+  --border:         #e6e6e6;  /* soft neutral — cards read borderless; inputs/dividers show it faintly */
+  --border-strong:  #d6d6d6;
+  --grey:           #6b6b6b;  /* secondary text */
+  --grey-2:         #9a9a9a;  /* muted text */
 }
 
 /* Light theme: BORDERLESS white cards lifted by a soft, diffuse shadow — the
