@@ -57,18 +57,28 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  --background:     #f5f6f8;  /* clean cool grey — no warm/brown tint */
-  --foreground:     #1f2329;  /* near-black text */
+  --background:     #f6f6f6;  /* clean neutral near-white — no warm/brown, no cool tint */
+  --foreground:     #1a1a1a;  /* crisp near-black text (like the references) */
   --card:           #ffffff;  /* white cards */
-  --card-raised:    #f1f3f5;  /* light grey tier 2 */
+  --card-raised:    #f0f0f1;  /* very light grey tier 2 */
   --surface:        #ffffff;
-  --surface-raised: #f1f3f5;
-  --surface-overlay:#e8ebee;
-  --surface-sunken: #eceef1;
-  --border:         #e4e7eb;  /* light neutral hairline */
-  --border-strong:  #d4d8de;
-  --grey:           #5c626c;  /* secondary text */
-  --grey-2:         #878d97;  /* muted text */
+  --surface-raised: #f0f0f1;
+  --surface-overlay:#e8e8ea;
+  --surface-sunken: #eeeeef;
+  --border:         #e6e6e8;  /* faint neutral hairline */
+  --border-strong:  #d5d5d8;
+  --grey:           #636469;  /* secondary text */
+  --grey-2:         #97979c;  /* muted text */
+}
+
+/* Light theme: white cards on a near-white page need a soft shadow (not just a
+   hairline) to read as gently raised — the clean, bright look in the references. */
+html[data-theme="light"] .portal .card,
+html[data-theme="light"] .portal .cwd-card,
+html[data-theme="light"] .portal .cwd-kpi,
+html[data-theme="light"] .portal .cwd-hero,
+html[data-theme="light"] .portal .cwd-cal {
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.04);
 }
 
 /* The wordmark's "CLIP" is white by default (invisible on a light bg). In the
