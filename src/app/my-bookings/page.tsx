@@ -17,7 +17,7 @@ export default function MyBookingsPage() {
           <Link href="/"><Logo size="sm" /></Link>
           <div className="flex gap-3">
             <Link href="/shops"><Button variant="outline" size="sm">Find a Barbershop</Button></Link>
-            <Link href="/login"><Button size="sm">Sign In</Button></Link>
+            <Link href="/login" className="hidden sm:block"><Button size="sm">Sign In</Button></Link>
           </div>
         </div>
       </header>

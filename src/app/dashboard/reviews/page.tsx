@@ -164,10 +164,10 @@ export default function ReviewsPage() {
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
-            <div className="flex rounded-xl border border-[#2a2a2a] overflow-hidden">
+            <div className="flex rounded-xl border border-[#2a2a2a] overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {[["all","All"],["5","5★"],["4","4★"],["below3","Below 3★"]].map(([v,l]) => (
                 <button key={v} onClick={() => setRatingFilter(v)}
-                  className={cn("px-3 py-2 text-sm font-medium transition-colors", ratingFilter === v ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
+                  className={cn("px-3 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", ratingFilter === v ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
                   {l}
                 </button>
               ))}

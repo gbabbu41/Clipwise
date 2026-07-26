@@ -368,10 +368,10 @@ export default function ClientsPage() {
 
       {/* Filter & Search */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex rounded-xl border border-[#2a2a2a] overflow-hidden">
+        <div className="flex rounded-xl border border-[#2a2a2a] overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {["All","VIP","New","Returning","At Risk"].map(t => (
             <button key={t} onClick={() => setTagFilter(t)}
-              className={cn("px-4 py-2 text-sm font-medium transition-colors", tagFilter === t ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
+              className={cn("px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", tagFilter === t ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
               {t}
             </button>
           ))}
@@ -439,7 +439,7 @@ export default function ClientsPage() {
           ))}
         </div>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-[#2a2a2a]">
               <tr>

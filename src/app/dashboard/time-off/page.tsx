@@ -208,7 +208,7 @@ export default function TimeOffPage() {
     <div className="p-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Time Off & Availability</h1>
           <p className="text-sm text-[#8f8f8f] mt-0.5">Manage staff days off, vacations, and blocked hours</p>
@@ -236,13 +236,13 @@ export default function TimeOffPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-[#2a2a2a]">
+      <div className="flex gap-1 border-b border-[#2a2a2a] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(["all", "pending", "approved", "denied"] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
+              "px-4 py-2 text-sm font-medium capitalize whitespace-nowrap shrink-0 border-b-2 -mb-px transition-colors",
               filter === f ? "border-black text-white" : "border-transparent text-[#8f8f8f] hover:text-white"
             )}
           >

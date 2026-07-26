@@ -255,10 +255,10 @@ export default function AnalyticsPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3">
-        <div className="flex rounded-xl border border-[#2a2a2a] overflow-hidden">
+        <div className="flex rounded-xl border border-[#2a2a2a] overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[["today","Today"],["week","This Week"],["month","This Month"],["last","Last Month"]].map(([v,l]) => (
             <button key={v} onClick={() => setPeriod(v)}
-              className={cn("px-3 py-2 text-xs font-medium transition-colors", period === v ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
+              className={cn("px-3 py-2 text-xs font-medium whitespace-nowrap shrink-0 transition-colors", period === v ? "bg-gold text-black" : "text-[#8f8f8f] hover:text-white bg-[#141414]")}>
               {l}
             </button>
           ))}

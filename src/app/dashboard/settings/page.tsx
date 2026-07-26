@@ -444,7 +444,7 @@ export default function SettingsPage() {
             </div>
             <Input label="Shop Name" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
             <Input label="Address" value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-2"><Input label="City" value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))} /></div>
               <Input label="Province" value={profile.province} onChange={e => setProfile(p => ({ ...p, province: e.target.value }))} />
             </div>
@@ -823,7 +823,7 @@ export default function SettingsPage() {
               <Card key={s.id} className={cn("border", s.id === shop?.id && "border-gray-400")}>
                 <CardContent>
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
                         <Building2 size={18} className="text-white" />
                       </div>

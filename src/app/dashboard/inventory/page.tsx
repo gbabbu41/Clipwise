@@ -356,7 +356,7 @@ export default function InventoryPage() {
                 <h2 className="text-lg font-bold text-white">Add Product</h2>
                 <button onClick={() => setShowAdd(false)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs text-[#8f8f8f]">Product Name *</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. American Crew Pomade"

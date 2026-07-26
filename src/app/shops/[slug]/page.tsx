@@ -101,7 +101,7 @@ export default function ShopProfilePage() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <Link href="/shops"><Logo size="sm" /></Link>
           <div className="flex gap-3">
-            <Link href="/my-bookings"><Button variant="ghost" size="sm">My Bookings</Button></Link>
+            <Link href="/my-bookings" className="hidden sm:block"><Button variant="ghost" size="sm">My Bookings</Button></Link>
             <Link href={`/book/${slug}`}><Button size="sm">Book Now</Button></Link>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function ShopProfilePage() {
 
               {/* Contact info */}
               <div className="flex flex-wrap gap-4 mt-4 text-sm text-[#6e6e6e]">
-                <span className="flex items-center gap-1.5"><MapPin size={13} />{shop.address}, {shop.city}, {shop.province} {shop.postal_code}</span>
+                <span className="flex items-center gap-1.5 min-w-0 break-words"><MapPin size={13} />{shop.address}, {shop.city}, {shop.province} {shop.postal_code}</span>
                 {shop.phone && <span className="flex items-center gap-1.5"><Phone size={13} />{shop.phone}</span>}
                 {shop.email && <span className="flex items-center gap-1.5"><Mail size={13} />{shop.email}</span>}
               </div>

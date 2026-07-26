@@ -40,7 +40,7 @@ export default function WhyClipWisePage() {
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur-md px-4 lg:px-8 h-16 flex items-center justify-between max-w-7xl mx-auto">
         <Link href="/"><Logo size="sm" /></Link>
         <div className="flex items-center gap-3">
-          <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
+          <Link href="/login" className="hidden sm:block"><Button variant="ghost" size="sm">Log in</Button></Link>
           <Link href="/signup"><Button size="sm">Get Started Free</Button></Link>
         </div>
       </nav>

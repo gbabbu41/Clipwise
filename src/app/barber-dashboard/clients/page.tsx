@@ -96,8 +96,8 @@ export default function BarberClientsPage() {
                 {client.client_name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-white">{client.client_name}</p>
-                <div className="flex items-center gap-3 mt-0.5">
+                <p className="font-medium text-white truncate">{client.client_name}</p>
+                <div className="flex items-center gap-3 mt-0.5 min-w-0">
                   {client.client_phone && (
                     <span className="flex items-center gap-1 text-xs text-[#8f8f8f]">
                       <Phone size={11} />
@@ -110,9 +110,9 @@ export default function BarberClientsPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right min-w-0">
                 <p className="text-sm font-semibold text-white">{client.visits} visit{client.visits !== 1 ? "s" : ""}</p>
-                <p className="text-xs text-[#8f8f8f]">{client.last_service}</p>
+                <p className="text-xs text-[#8f8f8f] truncate">{client.last_service}</p>
               </div>
               <div className="text-right min-w-[60px]">
                 <p className="text-sm font-medium text-gold">${client.total_spent.toFixed(0)}</p>
