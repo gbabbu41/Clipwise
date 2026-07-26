@@ -5,6 +5,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd } from "@/lib/timezone";
+import { sendAppEmail } from "@/lib/emailer";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -34,11 +35,14 @@ function authorized(req: NextRequest): boolean {
 }
 
 async function sendEmail(type: string, data: Record<string, unknown>) {
-  await fetch(`${BASE_URL}/api/send-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
-    body: JSON.stringify({ type, data }),
-  }).then(null, () => null);
+  // Send in-process (no HTTP hop, no shared secret) so cron reminders/nudges
+  // never silently fail when CRON_SECRET isn't set. Coerce to the string map
+  // the engine expects; drop nulls (same effect the JSON hop had).
+  const strData: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v != null) strData[k] = String(v);
+  }
+  await sendAppEmail(type, strData).then(null, () => null);
 }
 
 type ClientRow = {

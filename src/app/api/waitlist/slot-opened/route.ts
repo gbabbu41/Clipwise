@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { sendAppEmail } from "@/lib/emailer";
 
 /**
  * Fire-and-forget: a booked slot just freed (cancel / reject / no-show), so
@@ -72,21 +73,16 @@ export async function POST(request: NextRequest) {
     await Promise.all(waiters.map(async (w) => {
       const barberName = w.barber_id ? (barberNames[w.barber_id] ?? "") : "";
       if (w.client_email) {
-        fetch(`${baseUrl}/api/send-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
-          body: JSON.stringify({
-            type: "waitlist_slot_open",
-            data: {
-              clientName: w.client_name,
-              clientEmail: w.client_email,
-              shopName: shop.name,
-              shopEmail: shop.email ?? "",
-              date: niceDate,
-              barberName,
-              bookingUrl,
-            },
-          }),
+        // Send in-process (no HTTP hop, no shared secret) so waitlist alerts
+        // never silently fail when CRON_SECRET isn't set.
+        await sendAppEmail("waitlist_slot_open", {
+          clientName: w.client_name,
+          clientEmail: w.client_email,
+          shopName: shop.name,
+          shopEmail: shop.email ?? "",
+          date: niceDate,
+          barberName,
+          bookingUrl,
         }).catch(() => null);
       }
       await sendSmsBestEffort(

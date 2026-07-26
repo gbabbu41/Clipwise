@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Called when the customer returns from a paid gift-card checkout. Verifies the
 // payment on the connected account, then creates the gift_cards row (idempotent
@@ -75,12 +76,10 @@ export async function POST(request: NextRequest) {
       <p style="margin-top:20px;font-size:12px;color:#999;">Redeemable at ${shop.name}. Present this code at checkout.</p>
     </div>`;
 
+    // Send in-process (no HTTP hop, no shared secret) so gift-card emails
+    // never silently fail when CRON_SECRET isn't set.
     const sendMail = async (to: string, subject: string, htmlBody: string) => {
-      await fetch(`${baseUrl}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
-        body: JSON.stringify({ type: "marketing_campaign", data: { to, subject, htmlBody, shopEmail: shop!.email } }),
-      }).then(null, () => null);
+      await sendAppEmail("marketing_campaign", { to, subject, htmlBody, shopEmail: shop!.email ?? "" }).catch(() => null);
     };
     if (m.recipient_email) {
       await sendMail(m.recipient_email, `You've got a gift card for ${shop.name}! 🎁`,
