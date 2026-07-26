@@ -7,6 +7,7 @@ import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { SwipeNavigator } from "@/components/swipe-navigator";
+import { PortalThemeProvider } from "@/components/portal-theme";
 
 // Order mirrors the barber bottom nav so a swipe slides between tabs.
 const BARBER_SWIPE_ORDER = [
@@ -84,6 +85,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
   const isCalendar = pathname === "/barber-dashboard/calendar";
 
   return (
+    <PortalThemeProvider>
     <BarberProvider>
       <BarberGuard>
         <div className="portal min-h-screen bg-background">
@@ -103,5 +105,6 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
         </div>
       </BarberGuard>
     </BarberProvider>
+    </PortalThemeProvider>
   );
 }

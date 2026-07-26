@@ -7,6 +7,7 @@ import { MaintenanceBanner } from "@/components/maintenance-banner";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { SwipeNavigator } from "@/components/swipe-navigator";
+import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 
@@ -82,6 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // edge-to-edge. One shared container = consistent width on PC across pages.
   const isCalendar = pathname === "/dashboard/calendar";
   return (
+    <PortalThemeProvider>
     <div className="portal min-h-screen bg-background">
       <ModalChrome />
       <NotificationListener />
@@ -99,5 +101,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
       <MobileNav />
     </div>
+    </PortalThemeProvider>
   );
 }

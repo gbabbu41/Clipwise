@@ -91,6 +91,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
+import { PortalThemeToggle } from "@/components/portal-theme";
 import { sendApprovalNotifications, sendRejectionEmail, notifyFreedSlot } from "@/lib/appointment-actions";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import type { AppointmentWithDetails } from "@/lib/database.types";
@@ -573,21 +574,21 @@ export function Sidebar() {
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isActive
-                          ? "bg-white text-black border border-white"
+                          ? "bg-foreground text-background border border-foreground"
                           : "text-grey hover:text-foreground hover:bg-card-raised"
                       )}
                     >
-                      <Icon size={18} className={cn(isActive ? "text-black" : "text-grey group-hover:text-foreground")} />
+                      <Icon size={18} className={cn(isActive ? "text-background" : "text-grey group-hover:text-foreground")} />
                       <span className="flex-1">{item.label}</span>
                       {item.badge && unreadCount > 0 && (
                         <span className={cn(
                           "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
-                          isActive ? "bg-card text-foreground" : "bg-white text-black"
+                          isActive ? "bg-card text-foreground" : "bg-foreground text-background"
                         )}>
                           {unreadCount}
                         </span>
                       )}
-                      {isActive && <ChevronRight size={14} className="text-black" />}
+                      {isActive && <ChevronRight size={14} className="text-background" />}
                     </Link>
                   );
                 })}
@@ -617,6 +618,7 @@ export function Sidebar() {
             <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
             <p className="text-xs text-grey truncate capitalize">{profile?.role ?? "owner"}</p>
           </div>
+          <PortalThemeToggle className="w-8 h-8 flex-shrink-0" />
           <button onClick={signOut} className="text-grey hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
