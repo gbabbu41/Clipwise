@@ -1170,7 +1170,7 @@ export default function StaffPage() {
                   )}
 
                   {[
-                    { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true, maxLength: 60 },
+                    { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true, maxLength: 40 },
                     { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true, maxLength: 120 },
                     { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 5 },
                   ].map(({ key, label, placeholder, type, required, maxLength }) => (

@@ -56,7 +56,7 @@ export default function SchedulePage() {
           <div className="flex gap-2 overflow-x-auto pb-1 mb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {barbers.map(b => (
               <button key={b.id} onClick={() => setSelected(b.id)} onPointerEnter={() => warm(b.id)}
-                className={cn("flex-shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors",
+                className={cn("flex-shrink-0 max-w-[45vw] truncate px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors",
                   selected === b.id ? "bg-white text-black border-white" : "border-[#2a2a2a] bg-[#0c0c0c] text-[#aaa] hover:text-white")}>
                 {b.name}
               </button>

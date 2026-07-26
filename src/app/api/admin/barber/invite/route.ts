@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     .from("barbers")
     .insert({
       shop_id: shop.id,
-      name: name.trim().slice(0, 60), // cap length server-side (defense in depth)
+      name: name.trim().slice(0, 40), // cap length server-side (defense in depth)
       email,
       commission_percent,
       is_active: true,
