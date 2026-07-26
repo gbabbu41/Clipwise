@@ -942,22 +942,28 @@ export default function StaffPage() {
 
                   return (
                     <div key={day} className="p-3 bg-[#141414] rounded-xl border border-[#2a2a2a] space-y-2">
-                      <div className="flex items-center gap-3">
-                        {/* Open/Close toggle — reflects the effective state.
-                            If a full-day time-off is active, this toggle is
-                            forced OFF and clicking it cancels the time-off. */}
-                        <Switch
-                          checked={effectiveIsOpen}
-                          disabled={isCancellingForThisDay}
-                          onChange={() => onToggleClick()}
-                        />
-                        <span className="text-sm text-white w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
-                        {effectiveIsOpen ? (
-                          <>
+                      {/* On a phone the time pickers wrap to their own full-width line
+                          under the day (so they don't overflow or truncate); on sm+
+                          they sit inline on one row. */}
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                        <div className="flex items-center gap-3 sm:flex-shrink-0">
+                          {/* Open/Close toggle — reflects the effective state.
+                              If a full-day time-off is active, this toggle is
+                              forced OFF and clicking it cancels the time-off. */}
+                          <Switch
+                            checked={effectiveIsOpen}
+                            disabled={isCancellingForThisDay}
+                            onChange={() => onToggleClick()}
+                          />
+                          <span className="text-sm text-white w-10 flex-shrink-0">{DAYS_SHORT[dow]}</span>
+                          {!effectiveIsOpen && <span className="text-xs text-[#8f8f8f]">Closed</span>}
+                        </div>
+                        {effectiveIsOpen && (
+                          <div className="flex items-center gap-2 sm:gap-3 pl-[52px] sm:pl-0 sm:flex-1">
                             <select
                               value={editSchedule[dow].startTime}
                               onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
-                              className="flex-1 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -965,13 +971,11 @@ export default function StaffPage() {
                             <select
                               value={editSchedule[dow].endTime}
                               onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
-                              className="flex-1 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white focus:outline-none focus:border-black"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
-                          </>
-                        ) : (
-                          <span className="text-xs text-[#8f8f8f]">Closed</span>
+                          </div>
                         )}
                       </div>
                       {/* Approved time-off chips for this day */}
