@@ -138,7 +138,7 @@ export default function StaffPage() {
   const [commissions, setCommissions] = useState<Record<string, number>>({});
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
   const [resetModal, setResetModal] = useState<{ email: string; name: string; emailed?: boolean } | null>(null);
-  const [inviteLinkModal, setInviteLinkModal] = useState<{ link: string; email: string; name: string; existingAccount: boolean } | null>(null);
+  const [inviteLinkModal, setInviteLinkModal] = useState<{ link: string; email: string; name: string; existingAccount: boolean; emailed: boolean; emailError?: string | null } | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<BarberWithSchedule | null>(null);
@@ -366,10 +366,14 @@ export default function StaffPage() {
         email: addForm.email.trim(),
         name: addForm.name.trim(),
         existingAccount: !!data.existingAccount,
+        emailed: !!data.emailed,
+        emailError: data.emailError ?? null,
       });
     } else if (data.existingAccount) {
       // Existing account: no login link is issued (security). They sign in and accept.
-      showToast(`${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`);
+      showToast(data.emailed
+        ? `${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`
+        : `${addForm.name.trim()} already has a ClipWise account, but the email couldn't be sent${data.emailError ? ` (${data.emailError})` : ""}. Ask them to sign in at clipwise.ca/login and accept.`);
     }
     loadBarbers();
   };
@@ -436,9 +440,13 @@ export default function StaffPage() {
         email: barber.email,
         name: barber.name,
         existingAccount: !!data.existingAccount,
+        emailed: !!data.emailed,
+        emailError: data.emailError ?? null,
       });
     } else {
-      showToast(`Invite resent to ${barber.email}`);
+      showToast(data.emailed
+        ? `Invite resent to ${barber.email}`
+        : `Couldn't send the email to ${barber.email}${data.emailError ? ` (${data.emailError})` : ""}.`);
     }
   };
 
@@ -1034,9 +1042,20 @@ export default function StaffPage() {
                 <h2 className="text-lg font-bold text-white">✉️ Invite Link Ready</h2>
                 <button onClick={() => setInviteLinkModal(null)} className="text-[#8f8f8f] hover:text-white text-xl leading-none">✕</button>
               </div>
-              <p className="text-sm text-[#8f8f8f]">
-                An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, sandbox limits, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
-              </p>
+              {inviteLinkModal.emailed ? (
+                <p className="text-sm text-[#8f8f8f]">
+                  An email was sent to <span className="text-white font-medium">{inviteLinkModal.email}</span>. If it doesn&apos;t arrive (spam, etc.), copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> directly.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-amber-300">
+                    ⚠ The invite email <span className="font-semibold">couldn&apos;t be sent automatically</span>. Copy this link and send it to <span className="text-white font-medium">{inviteLinkModal.name}</span> ({inviteLinkModal.email}) yourself — it works exactly the same.
+                  </p>
+                  {inviteLinkModal.emailError && (
+                    <p className="text-[11px] text-[#666] break-words">Reason: {inviteLinkModal.emailError}</p>
+                  )}
+                </div>
+              )}
               <ResetLinkCopy link={inviteLinkModal.link} />
               <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl text-xs text-orange-300">
                 <p className="font-semibold mb-1">⚠ Link expires in ~1 hour</p>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendAppEmail } from "@/lib/emailer";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -48,23 +49,29 @@ export async function POST(request: NextRequest) {
   }
 
   const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
-  await fetch(`${baseUrl}/api/send-email`, {
-    method: "POST",
-    // Forward the owner's bearer token too so this gated send authenticates
-    // even when CRON_SECRET is unset in prod (see invite/route.ts).
-    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      type: "barber_invite",
-      data: {
-        barberName: barber.name, barberEmail: barber.email,
-        shopName: shop?.name ?? "your shop",
-        shopEmail: shop?.email ?? "",
-        inviteLink: emailCtaLink,
-        existingAccount: existingAccount ? "true" : "false",
-      },
-    }),
-  }).catch(() => null);
+
+  // Send in-process and capture the real result (see invite/route.ts) so the
+  // owner sees whether the email actually went out instead of a silent "sent".
+  let emailed = false;
+  let emailError: string | null = null;
+  try {
+    const r = await sendAppEmail("barber_invite", {
+      barberName: barber.name, barberEmail: barber.email,
+      shopName: shop?.name ?? "your shop",
+      shopEmail: shop?.email ?? "",
+      inviteLink: emailCtaLink,
+      existingAccount: existingAccount ? "true" : "false",
+    });
+    if ("error" in r) {
+      const e = r.error as unknown;
+      emailError = typeof e === "string" ? e : ((e as { message?: string })?.message ?? JSON.stringify(e));
+    } else {
+      emailed = true;
+    }
+  } catch (e) {
+    emailError = e instanceof Error ? e.message : String(e);
+  }
 
   // Never return a login link for an existing account.
-  return NextResponse.json({ ok: true, inviteLink: existingAccount ? null : inviteLink, existingAccount });
+  return NextResponse.json({ ok: true, inviteLink: existingAccount ? null : inviteLink, existingAccount, emailed, emailError });
 }

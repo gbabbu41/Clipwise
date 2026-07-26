@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendAppEmail } from "@/lib/emailer";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -143,36 +144,33 @@ export async function POST(request: NextRequest) {
   // The email CTA: new account → the invite link; existing account → a plain
   // /login link (safe, non-authenticating) that says "sign in to accept".
   const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
-  const emailCtrl = new AbortController();
-  // 12s (was 6s): a cold-start self-fetch to the same deployment can take
-  // several seconds; too tight an abort was killing the send before Resend
-  // replied. The route still returns the copy/paste invite link as a fallback.
-  const emailTimeout = setTimeout(() => emailCtrl.abort(), 12000);
-  await fetch(`${baseUrl}/api/send-email`, {
-    method: "POST",
-    // Authenticate the privileged send TWO ways so it never silently 401s:
-    //  · x-internal-secret (works when CRON_SECRET is set), AND
-    //  · the owner's bearer token we already validated above (works even if
-    //    CRON_SECRET is unset/mismatched in prod). barber_invite is a gated
-    //    type — without a valid credential send-email drops it and the invite
-    //    email never goes out (this is why invites weren't arriving).
-    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: `Bearer ${token}` },
-    signal: emailCtrl.signal,
-    body: JSON.stringify({
-      type: "barber_invite",
-      data: {
-        barberName: name,
-        barberEmail: email,
-        shopName: shop.name,
-        shopEmail: shop.email ?? "",
-        inviteLink: emailCtaLink,
-        existingAccount: existingAccount ? "true" : "false",
-      },
-    }),
-  }).catch(() => null);
-  clearTimeout(emailTimeout);
+
+  // Send the invite email IN-PROCESS (no self-fetch → no network hop, no auth
+  // gate, no cold-start timeout that could abort it) and capture the REAL
+  // result, so the owner is told the truth instead of a silent "sent". The
+  // copy/paste link modal is always the reliable fallback when delivery fails.
+  let emailed = false;
+  let emailError: string | null = null;
+  try {
+    const r = await sendAppEmail("barber_invite", {
+      barberName: name,
+      barberEmail: email,
+      shopName: shop.name,
+      shopEmail: shop.email ?? "",
+      inviteLink: emailCtaLink,
+      existingAccount: existingAccount ? "true" : "false",
+    });
+    if ("error" in r) {
+      const e = r.error as unknown;
+      emailError = typeof e === "string" ? e : ((e as { message?: string })?.message ?? JSON.stringify(e));
+    } else {
+      emailed = true;
+    }
+  } catch (e) {
+    emailError = e instanceof Error ? e.message : String(e);
+  }
 
   // Only ever return the copy/paste link for a BRAND-NEW account (owner is
   // provisioning it). Never return a link that logs in as an existing user.
-  return NextResponse.json({ ok: true, barber, inviteLink: existingAccount ? null : inviteLink, existingAccount });
+  return NextResponse.json({ ok: true, barber, inviteLink: existingAccount ? null : inviteLink, existingAccount, emailed, emailError });
 }
