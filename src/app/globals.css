@@ -57,22 +57,23 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  --background:     #edeff2;  /* clear light grey PAGE — white cards pop against it */
+  --background:     #f0f0ee;  /* soft off-white PAGE (neutral, barely warm — NOT cool grey) */
   --foreground:     #1a1a1a;  /* crisp near-black text */
-  --card:           #ffffff;  /* white cards */
-  --card-raised:    #f2f3f6;  /* light grey tier 2 (nested chips/pills) */
+  --card:           #ffffff;  /* white cards, lifted by shadow (borderless) */
+  --card-raised:    #f1f1ee;  /* subtle nested chips/pills */
   --surface:        #ffffff;
-  --surface-raised: #f2f3f6;
-  --surface-overlay:#e7eaef;  /* hover fills / menus */
-  --surface-sunken: #e5e8ed;  /* recessed (calendar canvas) */
-  --border:         #e2e5ea;  /* neutral hairline */
-  --border-strong:  #d1d5dc;
-  --grey:           #636469;  /* secondary text */
-  --grey-2:         #8a8f98;  /* muted text */
+  --surface-raised: #f1f1ee;
+  --surface-overlay:#eaeae7;  /* hover fills / menus */
+  --surface-sunken: #ebebe8;  /* recessed (calendar canvas) */
+  --border:         #ececea;  /* VERY soft — cards read borderless; only inputs/dividers show it faintly */
+  --border-strong:  #dcdcd9;
+  --grey:           #6b6b67;  /* secondary text */
+  --grey-2:         #9a9a95;  /* muted text */
 }
 
-/* Light theme: give card surfaces a real (visible) lift so they read as crisp
-   white cards on the grey page — the clean look from the approved preview. */
+/* Light theme: BORDERLESS white cards lifted by a soft, diffuse shadow — the
+   floating look from the reference. The transparent border keeps the 1px box so
+   there's no layout shift; the shadow does all the separation. */
 html[data-theme="light"] .portal .card,
 html[data-theme="light"] .portal .cwd-card,
 html[data-theme="light"] .portal .cwd-kpi,
@@ -80,7 +81,8 @@ html[data-theme="light"] .portal .cwd-hero,
 html[data-theme="light"] .portal .cwd-qa a,
 html[data-theme="light"] .portal .cwd-qa button,
 html[data-theme="light"] .portal .cwd-cal {
-  box-shadow: 0 1px 2px rgba(16, 18, 27, 0.06), 0 4px 14px rgba(16, 18, 27, 0.06);
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
 }
 
 /* The revenue carousel/hero, quick-action tiles, tinted cards and the calendar
