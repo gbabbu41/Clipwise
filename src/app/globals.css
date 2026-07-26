@@ -81,6 +81,58 @@ html[data-theme="light"] .portal .cwd-cal {
   box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.04);
 }
 
+/* ── Light theme: mute the scattered saturated colors ──────────────────────────
+   The app uses many bright Tailwind tints (…-400 / …-300 text, /15 fills) that
+   look fine on dark but read as loud/unreadable on white. These rules ONLY run
+   in light (dark is entirely unaffected) and collapse everything into a small,
+   consistent muted palette: green=success, amber=pending, red=danger,
+   blue=info, grey=neutral. This is what makes light look clean + minimal.
+   Selectors are scoped under html[data-theme=light] .portal, so they beat the
+   plain utility classes without !important. */
+
+/* Status / semantic TEXT → readable muted tone per family */
+html[data-theme="light"] .portal :is(.text-emerald-400,.text-emerald-300,.text-emerald-500,.text-green-400,.text-green-300,.text-green-500,.text-\[\#00e5a0\]) { color: #157a4a; }
+html[data-theme="light"] .portal :is(.text-amber-400,.text-amber-300,.text-amber-500,.text-yellow-300,.text-yellow-400,.text-orange-400,.text-orange-300,.text-orange-500,.text-\[\#f5c542\]) { color: #966412; }
+html[data-theme="light"] .portal :is(.text-red-400,.text-red-300,.text-red-500,.text-rose-400,.text-rose-300,.text-rose-500,.text-\[\#ff6b6b\]) { color: #b23127; }
+html[data-theme="light"] .portal :is(.text-sky-400,.text-sky-300,.text-sky-500,.text-blue-400,.text-blue-300,.text-blue-500,.text-\[\#4a9eff\]) { color: #2c6cb0; }
+html[data-theme="light"] .portal :is(.text-purple-400,.text-purple-300,.text-violet-400,.text-fuchsia-400,.text-indigo-400) { color: #6b4fca; }
+html[data-theme="light"] .portal :is(.text-zinc-300,.text-zinc-400,.text-gray-400,.text-gray-300,.text-slate-400) { color: #6b7280; }
+
+/* Low-opacity colored FILLS → soft light tint per family (solid -500/-600 fills
+   are left alone so white-text buttons keep their contrast). */
+html[data-theme="light"] .portal :is(.bg-emerald-500\/15,.bg-emerald-500\/20,.bg-emerald-500\/10,.bg-green-500\/15,.bg-green-500\/10,.bg-\[\#00e5a0\]\/15,.bg-\[\#00e5a0\]\/10,.bg-\[\#00e5a0\]\/25) { background-color: #e7f4ed; }
+html[data-theme="light"] .portal :is(.bg-amber-500\/15,.bg-amber-500\/10,.bg-yellow-500\/15,.bg-orange-500\/15,.bg-orange-500\/10,.bg-orange-400\/10) { background-color: #faf1de; }
+html[data-theme="light"] .portal :is(.bg-red-500\/15,.bg-red-500\/10,.bg-red-400\/10,.bg-rose-500\/15,.bg-rose-500\/10) { background-color: #fbeae8; }
+html[data-theme="light"] .portal :is(.bg-sky-500\/15,.bg-sky-500\/10,.bg-blue-500\/15,.bg-blue-500\/10,.bg-blue-400\/10,.bg-\[\#4a9eff\]\/15) { background-color: #e9f1fb; }
+html[data-theme="light"] .portal :is(.bg-zinc-500\/15,.bg-zinc-500\/10,.bg-gray-500\/20,.bg-gray-500\/15,.bg-slate-500\/15) { background-color: #eef0f2; }
+html[data-theme="light"] .portal :is(.bg-purple-500\/15,.bg-violet-500\/15,.bg-fuchsia-500\/15,.bg-indigo-500\/15) { background-color: #efe9fb; }
+
+/* Colored BORDERS (pills/badges) → soft per family */
+html[data-theme="light"] .portal :is(.border-emerald-500\/30,.border-emerald-500\/20,.border-emerald-400\/40,.border-green-500\/30) { border-color: #bfe3cf; }
+html[data-theme="light"] .portal :is(.border-amber-500\/30,.border-amber-400\/40,.border-orange-500\/30,.border-orange-400\/40,.border-yellow-500\/30) { border-color: #ecd7a2; }
+html[data-theme="light"] .portal :is(.border-red-500\/30,.border-red-400\/40,.border-rose-500\/30) { border-color: #f0c6c1; }
+html[data-theme="light"] .portal :is(.border-sky-500\/30,.border-blue-500\/30,.border-blue-400\/40) { border-color: #c6dcf4; }
+
+/* Calendar appointment left-bars → visible but muted (the readability fix). A
+   touch more saturated than fills so the status bar reads on white. */
+html[data-theme="light"] .portal :is(.border-\[\#00e5a0\],.border-emerald-400,.border-emerald-500) { border-color: #2f9e6b; }
+html[data-theme="light"] .portal :is(.border-\[\#f5c542\],.border-amber-400,.border-amber-500,.border-yellow-400) { border-color: #d19a2e; }
+html[data-theme="light"] .portal :is(.border-\[\#ff6b6b\],.border-rose-500,.border-rose-500\/70,.border-red-400,.border-red-500) { border-color: #d9534f; }
+html[data-theme="light"] .portal :is(.border-\[\#4a9eff\],.border-sky-400,.border-sky-500) { border-color: #3f7fc4; }
+html[data-theme="light"] .portal :is(.border-zinc-500,.border-zinc-400) { border-color: #b6bbc3; }
+
+/* Translucent-WHITE chrome (hover fills, faint dividers) → light neutral so it
+   doesn't vanish on white. */
+html[data-theme="light"] .portal :is(.bg-white\/10,.bg-white\/5,.bg-white\/15,.bg-white\/\[0\.04\],.bg-white\/\[0\.05\],.bg-white\/\[0\.06\],.bg-white\/\[0\.07\],.bg-white\/\[0\.02\],.bg-white\/\[0\.03\]) { background-color: rgba(20,22,28,0.05); }
+html[data-theme="light"] .portal :is(.border-white\/30,.border-white\/20,.border-white\/15,.border-white\/10,.border-white\/\[0\.07\]) { border-color: rgba(20,22,28,0.10); }
+
+/* getStatusColor() near-black pill (from lib/utils.ts) → light pill + dark text */
+html[data-theme="light"] .portal .bg-\[\#1a1a1a\] { background-color: var(--surface-overlay); }
+html[data-theme="light"] .portal .bg-\[\#1a1a1a\].text-white { color: var(--foreground); }
+
+/* Hardcoded light-grey hex text (bypasses the theme var) → readable secondary */
+html[data-theme="light"] .portal :is(.text-\[\#bbb\],.text-\[\#cfcfcf\],.text-\[\#ccc\],.text-\[\#dcdcdc\],.text-\[\#e5e5e5\],.text-\[\#9a9a9a\],.text-\[\#bdbdbd\],.text-\[\#cdcdcd\],.text-\[\#8a8a8a\],.text-\[\#888\],.text-\[\#999\]) { color: var(--grey); }
+
 /* The wordmark's "CLIP" is white by default (invisible on a light bg). In the
    light theme, make it near-black so the whole ClipWise mark reads; the WISE
    accent tail stays blue→violet but darkened enough for light backgrounds. */
