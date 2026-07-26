@@ -96,6 +96,15 @@ html[data-theme="light"] .portal .cwd-card.tint,
 html[data-theme="light"] .portal .cwd-cal,
 html[data-theme="light"] .portal .cwd-seg { background: var(--card); }
 
+/* Stats carousel slides default to the grey "raised" surface — in light, match
+   the white KPI cards exactly (white + borderless + soft shadow). Dark keeps
+   its raised tone. */
+html[data-theme="light"] .portal .cwd-stat {
+  background: var(--card);
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
+}
+
 /* ── Light theme: mute the scattered saturated colors ──────────────────────────
    The app uses many bright Tailwind tints (…-400 / …-300 text, /15 fills) that
    look fine on dark but read as loud/unreadable on white. These rules ONLY run

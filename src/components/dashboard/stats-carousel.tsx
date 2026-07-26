@@ -61,7 +61,7 @@ export function StatsCarousel({
   const goTo = (i: number) => { const el = ref.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-grey-muted">No data yet</div>;
-  const card = "bg-card-raised border border-border rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
+  const card = "cwd-stat bg-card-raised border border-border rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
   // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
   // — so tapping a bar shows its value without the popup covering / blocking the
   // neighbouring bars. Shared by every chart so the behaviour is global.
