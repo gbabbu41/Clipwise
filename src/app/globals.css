@@ -57,18 +57,29 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  --background:     #f4f2ec;
-  --foreground:     #24272c;
-  --card:           #ffffff;
-  --card-raised:    #f5f2ea;
+  --background:     #f5f6f8;  /* clean cool grey — no warm/brown tint */
+  --foreground:     #1f2329;  /* near-black text */
+  --card:           #ffffff;  /* white cards */
+  --card-raised:    #f1f3f5;  /* light grey tier 2 */
   --surface:        #ffffff;
-  --surface-raised: #f5f2ea;
-  --surface-overlay:#ece7dc;
-  --surface-sunken: #efece4;
-  --border:         #e6e1d5;
-  --border-strong:  #d7d1c2;
-  --grey:           #6b7078;
-  --grey-2:         #9aa0a8;
+  --surface-raised: #f1f3f5;
+  --surface-overlay:#e8ebee;
+  --surface-sunken: #eceef1;
+  --border:         #e4e7eb;  /* light neutral hairline */
+  --border-strong:  #d4d8de;
+  --grey:           #5c626c;  /* secondary text */
+  --grey-2:         #878d97;  /* muted text */
+}
+
+/* The wordmark's "CLIP" is white by default (invisible on a light bg). In the
+   light theme, make it near-black so the whole ClipWise mark reads; the WISE
+   accent tail stays blue→violet but darkened enough for light backgrounds. */
+html[data-theme="light"] .portal .cw-grad {
+  background: linear-gradient(90deg, #1f2329 0%, #1f2329 44%, #5a86d8 66%, #7d5fc8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 * {

@@ -532,7 +532,7 @@ export function Sidebar() {
             small-caps kicker (no pill) — tidier than the old inline badge. */}
         <span className="cw-grad" style={{ fontSize: "23px", lineHeight: 1 }}>CLIPWISE</span>
         {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="uppercase font-semibold text-[#b9cdf2] text-[9px] tracking-[0.34em] ml-[2px] leading-none">
+          <span className="uppercase font-semibold text-accent text-[9px] tracking-[0.34em] ml-[2px] leading-none">
             {shop.subscription_plan}
           </span>
         )}
