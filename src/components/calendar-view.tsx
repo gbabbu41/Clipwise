@@ -1681,7 +1681,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : c.k === "block" ? (
             <button key={`b${c.b.id}`} onClick={() => canBlock && removeBlock(c.b)} disabled={!canBlock}
-              style={{ backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+              style={{ backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--surface-sunken) 6px, var(--surface-sunken) 12px)" }}
               className={cn("rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-border-strong transition-colors",
                 canBlock ? "hover:border-[#4a4a4a]" : "cursor-default")}>
               <span className="text-xs font-medium text-[#bdbdbd]">{rangeLabel(dbTimeToDisplay(c.b.start_time!), c.b.endMin - c.b.startMin)}</span>
@@ -1871,7 +1871,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
                           onClick={() => canBlock && removeBlock(bl)} disabled={!canBlock}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
-                            backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                            backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--surface-sunken) 6px, var(--surface-sunken) 12px)" }}
                           className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
                             bl.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                           <p className="text-[9px] font-semibold text-[#cfcfcf] flex items-center gap-0.5 leading-tight"><Ban size={9} /> Blocked</p>
@@ -2052,7 +2052,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       <button key={`wmb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
                         onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute",
-                          backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                          backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--surface-sunken) 6px, var(--surface-sunken) 12px)" }}
                         className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-2 py-1 text-left", b.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                         <p className="text-xs font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-1"><Ban size={11} /> Blocked</p>
                         {height > 30 && <p className="text-[11px] text-grey truncate leading-tight">{dbTimeToDisplay(b.start_time!)} – {dbTimeToDisplay(b.end_time!)}{b.reason ? ` · ${b.reason}` : ""}</p>}
@@ -2176,7 +2176,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={`wb${b.id}`} title={b.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
                           onClick={() => canBlock && removeBlock(b)} disabled={!canBlock}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute",
-                            backgroundImage: "repeating-linear-gradient(45deg, #151515, #151515 6px, #1c1c1c 6px, #1c1c1c 12px)" }}
+                            backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--surface-sunken) 6px, var(--surface-sunken) 12px)" }}
                           className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", b.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
                           <p className="text-[10px] font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-0.5"><Ban size={9} /> Blocked</p>
                           {height > 32 && <p className="text-[9px] text-grey truncate leading-tight">{dbTimeToDisplay(b.start_time!)}–{dbTimeToDisplay(b.end_time!)}</p>}

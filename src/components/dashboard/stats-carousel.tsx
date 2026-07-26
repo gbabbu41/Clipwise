@@ -92,7 +92,7 @@ export function StatsCarousel({
             <span key={i} title={`${d.day}: ${formatCurrency(d.revenue)}`}
               style={{ height: `${Math.max(6, (d.revenue / max) * 100)}%` }}
               className={cn("flex-1 max-w-[34px] rounded-t min-h-[6px]", i === peak
-                ? "bg-gradient-to-t from-[#a9c6ff] to-white"
+                ? "bg-gradient-to-t from-[#3f6fb2] to-[#6ea8fe]"
                 : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
           ));
         })() : (

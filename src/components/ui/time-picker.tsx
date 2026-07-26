@@ -38,7 +38,7 @@ export function TimePicker({ label, value, onChange, stepMinutes = 30, minTime, 
           value={value}
           onChange={onSelect}
           className={cn(
-            "w-full rounded-xl border border-border bg-surface-raised pl-10 pr-4 py-2.5 text-sm text-white",
+            "w-full rounded-xl border border-border bg-surface-raised pl-10 pr-4 py-2.5 text-sm text-foreground",
             "focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50",
             "transition-all duration-200 appearance-none cursor-pointer",
             // 44px on mobile via py — tap-friendly

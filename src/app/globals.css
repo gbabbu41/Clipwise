@@ -144,7 +144,69 @@ html[data-theme="light"] .portal .bg-\[\#1a1a1a\] { background-color: var(--surf
 html[data-theme="light"] .portal .bg-\[\#1a1a1a\].text-white { color: var(--foreground); }
 
 /* Hardcoded light-grey hex text (bypasses the theme var) → readable secondary */
-html[data-theme="light"] .portal :is(.text-\[\#bbb\],.text-\[\#cfcfcf\],.text-\[\#ccc\],.text-\[\#dcdcdc\],.text-\[\#e5e5e5\],.text-\[\#9a9a9a\],.text-\[\#bdbdbd\],.text-\[\#cdcdcd\],.text-\[\#8a8a8a\],.text-\[\#888\],.text-\[\#999\]) { color: var(--grey); }
+html[data-theme="light"] .portal :is(.text-\[\#bbb\],.text-\[\#cfcfcf\],.text-\[\#ccc\],.text-\[\#dcdcdc\],.text-\[\#e5e5e5\],.text-\[\#9a9a9a\],.text-\[\#bdbdbd\],.text-\[\#cdcdcd\],.text-\[\#8a8a8a\],.text-\[\#888\],.text-\[\#999\],.text-\[\#cccccc\]) { color: var(--grey); }
+
+/* ── Light theme: hidden/interactive & leftover-dark elements ──────────────────
+   Things that only appear on tap (selected states, pills, handles, dividers) or
+   were never tokenized. Without these they'd be white-on-white or dark-on-white. */
+
+/* Solid white accent pills/buttons/selected states (bg-white + text-black) → invert
+   like the active nav: dark surface, light text. Only fires when BOTH classes are
+   present, so bright accent buttons (bg-[#00e5a0] text-black) are untouched. */
+html[data-theme="light"] .portal .bg-white.text-black { background-color: var(--foreground); color: var(--background); }
+html[data-theme="light"] .portal .bg-white.text-black { border-color: var(--foreground); }
+
+/* Borders: invisible white outlines → visible hairline; heavy pure-black active
+   outlines → soft strong border. */
+html[data-theme="light"] .portal .border-white { border-color: var(--border-strong); }
+html[data-theme="light"] .portal .border-black { border-color: var(--border-strong); }
+
+/* Leftover dark literal surfaces that never got tokenized (toggle tracks, drag
+   handles, dividers, dots, vertical rules). */
+html[data-theme="light"] .portal .bg-\[\#2a2a2a\] { background-color: var(--surface-overlay); }
+html[data-theme="light"] .portal .bg-\[\#3a3a3a\] { background-color: var(--border-strong); }
+html[data-theme="light"] .portal .bg-\[\#262626\] { background-color: var(--border-strong); }
+html[data-theme="light"] .portal .bg-\[\#1e1e1e\] { background-color: var(--surface-overlay); }
+html[data-theme="light"] .portal :is(.border-\[\#2a2a2a\]\/50,.border-\[\#1e1e1e\],.border-\[\#242424\]) { border-color: var(--border); }
+html[data-theme="light"] .portal :is(.hover\:bg-\[\#1e1e1e\]:hover) { background-color: var(--surface-overlay); }
+
+/* Faint white-opacity text → readable secondary. */
+html[data-theme="light"] .portal :is(.text-white\/60,.text-white\/70,.text-white\/80,.text-white\/90) { color: var(--grey); }
+
+/* Dark ring-offset halos on selected cells → the light page color. */
+html[data-theme="light"] .portal .ring-offset-\[\#0a0a0a\] { --tw-ring-offset-color: var(--background); }
+
+/* Header bell icon (pale blue on white card) → readable accent-blue. */
+html[data-theme="light"] .portal .cwd-icobtn { color: #3f6fb2; }
+
+/* Toggle switch ON-state: the track is white with a black knob (great on dark,
+   invisible on a light card). In light → dark track + white knob = clear ON. */
+html[data-theme="light"] .portal .form-switch .form-check-input:checked,
+html[data-theme="light"] .portal .form-switch .form-check-input:checked:hover {
+  background-color: var(--foreground);
+  border-color: var(--foreground);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ffffff'/%3e%3c/svg%3e");
+}
+
+/* Native date/time/select popups: the inline [color-scheme:dark] utility forces
+   the browser's native picker dark even in light mode → flip it to light. */
+html[data-theme="light"] .portal .\[color-scheme\:dark\] { color-scheme: light; }
+
+/* Invisible white focus rings on light → visible hairline. */
+html[data-theme="light"] .portal .focus\:border-white:focus { border-color: var(--border-strong); }
+
+/* Dark muted-label hexes not caught above → readable secondary. */
+html[data-theme="light"] .portal :is(.text-\[\#444\],.text-\[\#8f8f8f\],.text-\[\#777\]) { color: var(--grey); }
+
+/* Darker border-opacity variants (only /50 was mapped) → theme hairline. */
+html[data-theme="light"] .portal :is(.border-\[\#2a2a2a\]\/60,.border-\[\#2a2a2a\]\/80,.hover\:border-\[\#2a2a2a\]\/80:hover) { border-color: var(--border); }
+
+/* Owner-home filter dropdown menu: pale-blue active text + invisible hover. */
+html[data-theme="light"] .portal .cwd-menu button.on { background: rgba(63,111,178,0.12); color: #3f6fb2; }
+html[data-theme="light"] .portal .cwd-menu button:hover { background: var(--surface-overlay); }
+
+/* White hover flash on inverted CTAs (e.g. feature-lock upgrade button). */
+html[data-theme="light"] .portal :is(.hover\:bg-white\/90:hover,.hover\:bg-white:hover) { background-color: var(--foreground); }
 
 /* The wordmark's "CLIP" is white by default (invisible on a light bg). In the
    light theme, make it near-black so the whole ClipWise mark reads; the WISE

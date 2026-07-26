@@ -16,9 +16,11 @@ const DARK_TOOLTIP = {
   contentStyle: { background: "#2C2C2E", border: "1px solid #2C2C2E", borderRadius: 12, color: "#fff", fontSize: 12 },
   cursor: { fill: "rgba(245, 240, 230,0.08)" },
 };
-const GOLD_PALETTE = ["#F5F0E6","#FFFFFF","#D4CCB8","#B8AC8C","#928773","#6B6354"];
+// Chart palette — medium tones chosen to read on BOTH the dark and light theme
+// (the old cream/white marks vanished on the white light-theme plot).
+const GOLD_PALETTE = ["#4a86d8","#2f9e6b","#d99a2e","#8b7bd6","#e07a5f","#64748b"];
 const STATUS_COLORS: Record<string, string> = {
-  completed: "#10B981", confirmed: "#F5F0E6", pending: "#F59E0B",
+  completed: "#10B981", confirmed: "#4a86d8", pending: "#F59E0B",
   cancelled: "#EF4444", "no-show": "#F97316",
 };
 
@@ -298,7 +300,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                <Line type="monotone" dataKey="revenue" stroke="#F5F0E6" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="revenue" stroke="#4a86d8" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -326,7 +328,7 @@ export default function AnalyticsPage() {
                     <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 12 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                    <Bar dataKey="revenue" fill="#F5F0E6" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#4a86d8" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -388,7 +390,7 @@ export default function AnalyticsPage() {
                     <XAxis dataKey="hour" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                    <Bar dataKey="revenue" fill="#D4CCB8" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#94a3b8" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

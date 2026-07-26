@@ -78,9 +78,9 @@ const classifyNotif = (n: { title: string; message: string; type: string }): Not
     const pending = /pending|approval|request|awaiting/.test(s) || n.type === "booking";
     return k(Calendar, pending ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]",
       pending ? "Pending" : "Booking", pending ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]",
-      pending ? "#f59e0b" : "#3a3a3a", pending);
+      pending ? "#f59e0b" : "var(--border-strong)", pending);
   }
-  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "#3a3a3a");
+  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "var(--border-strong)");
 };
 // Is the timestamp from the current calendar day?
 const isToday = (iso: string) => {
