@@ -639,8 +639,11 @@ export default function DashboardPage() {
             const weekDays = currentWeekDays(weekOffset);
             const todayKey = formatDateForDb(new Date());
             const hrs = weekAppts.map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; }).filter(h => h >= 0);
-            const minH = hrs.length ? Math.min(...hrs) : 9;
-            const maxH = hrs.length ? Math.max(...hrs) : 17;
+            // Always show a full day window (9a–5p) so the grid keeps a consistent
+            // height — expand earlier/later only when appointments fall outside it.
+            // (Otherwise a week with one appointment collapsed to a single row.)
+            const minH = Math.min(9, ...hrs);
+            const maxH = Math.max(17, ...hrs);
             const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
             // Fluid columns (minmax 0) so the whole week fits ANY screen width —
             // phone/tablet/iPad — instead of a fixed 620px grid that overflowed
