@@ -220,6 +220,14 @@ html[data-theme="light"] .portal :is(.bg-gold\/5,.bg-gold\/10,.bg-gold\/15,.bg-g
 html[data-theme="light"] .portal .bg-gold { background-color: var(--foreground); }
 html[data-theme="light"] .portal .bg-gold.text-black { color: var(--background); }
 
+/* Faded pastel banner text (…-200 shades + /opacity variants) that stays near-
+   invisible on the soft light tints — e.g. the Stripe / maintenance / onboarding
+   banner body copy. Map to a readable dark tone per family (light only). */
+html[data-theme="light"] .portal :is(.text-orange-200,.text-orange-200\/80,.text-orange-300\/80,.text-orange-300\/70,.text-orange-300\/60,.text-amber-200,.text-amber-200\/80,.text-amber-300\/80,.text-yellow-200,.text-yellow-300\/80) { color: #8a6410; }
+html[data-theme="light"] .portal :is(.text-emerald-200,.text-emerald-200\/80,.text-emerald-300\/80,.text-green-200) { color: #157a4a; }
+html[data-theme="light"] .portal :is(.text-sky-200,.text-sky-300\/80,.text-blue-200,.text-blue-300\/80) { color: #2c6cb0; }
+html[data-theme="light"] .portal :is(.text-red-200,.text-red-300\/80,.text-rose-200,.text-rose-300\/80) { color: #b23127; }
+
 /* Toggle switch ON-state: the track is white with a black knob (great on dark,
    invisible on a light card). In light → dark track + white knob = clear ON. */
 html[data-theme="light"] .portal .form-switch .form-check-input:checked,
