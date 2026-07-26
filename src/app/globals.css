@@ -57,29 +57,42 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  --background:     #f6f6f6;  /* clean neutral near-white — no warm/brown, no cool tint */
-  --foreground:     #1a1a1a;  /* crisp near-black text (like the references) */
+  --background:     #edeff2;  /* clear light grey PAGE — white cards pop against it */
+  --foreground:     #1a1a1a;  /* crisp near-black text */
   --card:           #ffffff;  /* white cards */
-  --card-raised:    #f0f0f1;  /* very light grey tier 2 */
+  --card-raised:    #f2f3f6;  /* light grey tier 2 (nested chips/pills) */
   --surface:        #ffffff;
-  --surface-raised: #f0f0f1;
-  --surface-overlay:#e8e8ea;
-  --surface-sunken: #eeeeef;
-  --border:         #e6e6e8;  /* faint neutral hairline */
-  --border-strong:  #d5d5d8;
+  --surface-raised: #f2f3f6;
+  --surface-overlay:#e7eaef;  /* hover fills / menus */
+  --surface-sunken: #e5e8ed;  /* recessed (calendar canvas) */
+  --border:         #e2e5ea;  /* neutral hairline */
+  --border-strong:  #d1d5dc;
   --grey:           #636469;  /* secondary text */
-  --grey-2:         #97979c;  /* muted text */
+  --grey-2:         #8a8f98;  /* muted text */
 }
 
-/* Light theme: white cards on a near-white page need a soft shadow (not just a
-   hairline) to read as gently raised — the clean, bright look in the references. */
+/* Light theme: give card surfaces a real (visible) lift so they read as crisp
+   white cards on the grey page — the clean look from the approved preview. */
 html[data-theme="light"] .portal .card,
 html[data-theme="light"] .portal .cwd-card,
 html[data-theme="light"] .portal .cwd-kpi,
 html[data-theme="light"] .portal .cwd-hero,
+html[data-theme="light"] .portal .cwd-qa a,
+html[data-theme="light"] .portal .cwd-qa button,
 html[data-theme="light"] .portal .cwd-cal {
-  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.04);
+  box-shadow: 0 1px 2px rgba(16, 18, 27, 0.06), 0 4px 14px rgba(16, 18, 27, 0.06);
 }
+
+/* The revenue carousel/hero, quick-action tiles, tinted cards and the calendar
+   segmented control default to the grey "raised" surface — force them to WHITE
+   in light so they read as cards, not grey blocks blending into the page
+   (this is the "you left the carousel color" fix). */
+html[data-theme="light"] .portal .cwd-hero,
+html[data-theme="light"] .portal .cwd-qa a,
+html[data-theme="light"] .portal .cwd-qa button,
+html[data-theme="light"] .portal .cwd-card.tint,
+html[data-theme="light"] .portal .cwd-cal,
+html[data-theme="light"] .portal .cwd-seg { background: var(--card); }
 
 /* ── Light theme: mute the scattered saturated colors ──────────────────────────
    The app uses many bright Tailwind tints (…-400 / …-300 text, /15 fills) that
