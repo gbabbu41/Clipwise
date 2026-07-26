@@ -148,7 +148,10 @@ export async function POST(request: NextRequest) {
     if (send_email && emailTo && session.url) {
       const er = await fetch(`${BASE_URL}/api/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
+        // Forward the caller's bearer token too so this gated send authenticates
+        // even when CRON_SECRET is unset in prod (see invite/route.ts). The
+        // caller was already authorized on this appointment above.
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: request.headers.get("Authorization") ?? "" },
         body: JSON.stringify({
           type: "payment_link",
           data: {

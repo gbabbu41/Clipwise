@@ -144,10 +144,19 @@ export async function POST(request: NextRequest) {
   // /login link (safe, non-authenticating) that says "sign in to accept".
   const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);
   const emailCtrl = new AbortController();
-  const emailTimeout = setTimeout(() => emailCtrl.abort(), 6000);
+  // 12s (was 6s): a cold-start self-fetch to the same deployment can take
+  // several seconds; too tight an abort was killing the send before Resend
+  // replied. The route still returns the copy/paste invite link as a fallback.
+  const emailTimeout = setTimeout(() => emailCtrl.abort(), 12000);
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
+    // Authenticate the privileged send TWO ways so it never silently 401s:
+    //  · x-internal-secret (works when CRON_SECRET is set), AND
+    //  · the owner's bearer token we already validated above (works even if
+    //    CRON_SECRET is unset/mismatched in prod). barber_invite is a gated
+    //    type — without a valid credential send-email drops it and the invite
+    //    email never goes out (this is why invites weren't arriving).
+    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: `Bearer ${token}` },
     signal: emailCtrl.signal,
     body: JSON.stringify({
       type: "barber_invite",

@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
     try {
       const res = await fetch(`${baseUrl}/api/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "" },
+        // Forward the owner's bearer token too so this gated send authenticates
+        // even when CRON_SECRET is unset in prod (see invite/route.ts).
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           type: "barber_password_reset",
           data: {
