@@ -123,6 +123,9 @@ html[data-theme="light"] .portal .cwp-glyph.cwp-card { background: var(--surface
 html[data-theme="light"] .portal .cwp-spark i.cwp-ph { background: var(--surface-overlay); }
 html[data-theme="light"] .portal .cwp-pick { background: #3f6fb2; color: #ffffff; }
 html[data-theme="light"] .portal :is(.cwp-editrange, .cwp-send) { color: #3f6fb2; }
+/* Payments amber (#f5b544) is a light gold — low contrast on the light cards.
+   Darken it for the OUTSTANDING value, due amounts/tags, and cash/due icons. */
+html[data-theme="light"] .portal :is(.cwp-tile.cwp-warn .cwp-tv, .cwp-adue, .cwp-tdue, .cwp-glyph.cwp-cash, .cwp-glyph.cwp-due) { color: #96690f; }
 
 /* ── Light theme: mute the scattered saturated colors ──────────────────────────
    The app uses many bright Tailwind tints (…-400 / …-300 text, /15 fills) that
