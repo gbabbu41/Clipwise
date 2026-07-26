@@ -209,6 +209,17 @@ html[data-theme="light"] .portal .ring-offset-\[\#0a0a0a\] { --tw-ring-offset-co
 /* Header bell icon (pale blue on white card) → readable accent-blue. */
 html[data-theme="light"] .portal .cwd-icobtn { color: #3f6fb2; }
 
+/* `gold` = white (the dark-theme accent). On a light page every text-gold /
+   border-gold / ring-gold icon is white-on-white = invisible (shop-switcher
+   icon, checkmarks, etc.). In light, map them to visible tokens. Dark keeps
+   gold = white, untouched. */
+html[data-theme="light"] .portal :is(.text-gold,.text-gold\/90,.text-gold\/80,.text-gold\/70,.text-gold\/60,.text-gold\/50) { color: var(--foreground); }
+html[data-theme="light"] .portal :is(.border-gold,.border-gold\/40,.border-gold\/30,.border-gold\/25,.border-gold\/20) { border-color: var(--border-strong); }
+html[data-theme="light"] .portal :is(.ring-gold,.ring-gold\/40,.ring-gold\/30) { --tw-ring-color: var(--border-strong); }
+html[data-theme="light"] .portal :is(.bg-gold\/5,.bg-gold\/10,.bg-gold\/15,.bg-gold\/20) { background-color: var(--surface-overlay); }
+html[data-theme="light"] .portal .bg-gold { background-color: var(--foreground); }
+html[data-theme="light"] .portal .bg-gold.text-black { color: var(--background); }
+
 /* Toggle switch ON-state: the track is white with a black knob (great on dark,
    invisible on a light card). In light → dark track + white knob = clear ON. */
 html[data-theme="light"] .portal .form-switch .form-check-input:checked,
