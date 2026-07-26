@@ -579,12 +579,12 @@ export default function StaffPage() {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Staff</h1>
           <p className="text-sm text-[#8f8f8f] mt-0.5">Manage barbers, schedules and commissions</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {!alreadyOwnerBarber && shop && barbers.length < getPlanLimit(shop.subscription_plan) && (
             <Button variant="outline" loading={savingAdd} onClick={addSelfAsBarber}>+ Add myself as a barber</Button>
           )}
