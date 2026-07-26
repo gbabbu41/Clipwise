@@ -106,6 +106,24 @@ html[data-theme="light"] .portal .cwd-stat {
   box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
 }
 
+/* ── Payments page (cwp-*) — the block kept hardcoded dark borders/rows/dots/
+   muted-text + light-blue accents that never themed. Light-only overrides so
+   payments matches the rest (dark theme untouched). ── */
+html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement) {
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
+}
+html[data-theme="light"] .portal :is(.cwp-bchip, .cwp-bmenu, .cwp-seg button) { border-color: var(--border); }
+html[data-theme="light"] .portal button.cwp-tile:hover { border-color: transparent; }
+html[data-theme="light"] .portal :is(.cwp-hint, .cwp-m) { color: var(--grey-2); }
+html[data-theme="light"] .portal .cwp-dots i { background: var(--border-strong); }
+html[data-theme="light"] .portal .cwp-dots i.cwp-on { background: #4a86d8; }
+html[data-theme="light"] .portal .cwp-row:hover { background: var(--surface-overlay); }
+html[data-theme="light"] .portal .cwp-glyph.cwp-card { background: var(--surface-overlay); color: var(--grey); }
+html[data-theme="light"] .portal .cwp-spark i.cwp-ph { background: var(--surface-overlay); }
+html[data-theme="light"] .portal .cwp-pick { background: #3f6fb2; color: #ffffff; }
+html[data-theme="light"] .portal :is(.cwp-editrange, .cwp-send) { color: #3f6fb2; }
+
 /* ── Light theme: mute the scattered saturated colors ──────────────────────────
    The app uses many bright Tailwind tints (…-400 / …-300 text, /15 fills) that
    look fine on dark but read as loud/unreadable on white. These rules ONLY run
