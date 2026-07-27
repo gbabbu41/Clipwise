@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
+import { insertNotifications } from "@/lib/notify";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
@@ -60,11 +61,11 @@ export async function POST(request: NextRequest) {
               }
               const { data: tipShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", session.metadata.shop_id).maybeSingle();
               if (tipShop?.owner_id) {
-                supabaseAdmin.from("notifications").insert({
-                  user_id: tipShop.owner_id, title: "Tip received",
+                insertNotifications({
+                  user_id: tipShop.owner_id, shop_id: session.metadata.shop_id, title: "Tip received",
                   message: `${session.metadata.client_name || "A customer"} left a $${tipDollars.toFixed(2)} tip. 🎉`,
-                  type: "system", is_read: false,
-                }).then(null, () => null);
+                  type: "system",
+                });
               }
             }
           }
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
             await notifyDuplicatePayment({
               ownerId: shopRow?.owner_id ?? null,
               barberId: existing!.barber_id ?? null,
+              shopId: existing!.shop_id ?? null,
               clientName: existing!.client_name,
               amountCents,
               date: existing!.date,
@@ -214,6 +216,7 @@ export async function POST(request: NextRequest) {
             notifyNoShowCharged({
               ownerId: shopRow?.owner_id ?? null,
               barberId: paidAppt.barber_id ?? null,
+              shopId: paidAppt.shop_id ?? null,
               clientName: paidAppt.client_name,
               amountCents: Math.round((paidAppt.total_amount ?? 0) * 100),
               date: paidAppt.date,
@@ -364,13 +367,13 @@ export async function POST(request: NextRequest) {
         if (appt?.shop_id) {
           const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();
           if (shop?.owner_id) {
-            supabaseAdmin.from("notifications").insert({
+            insertNotifications({
               user_id: shop.owner_id,
+              shop_id: appt.shop_id,
               title: "Payment Failed",
               message: `A payment from ${appt.client_name ?? "a client"} failed.`,
               type: "system",
-              is_read: false,
-            }).then(null, () => null);
+            });
           }
         }
         break;
@@ -405,6 +408,7 @@ export async function POST(request: NextRequest) {
             notifyRefundIssued({
               ownerId: refShop?.owner_id ?? null,
               barberId: flipped.barber_id ?? null,
+              shopId: flipped.shop_id ?? null,
               clientName: flipped.client_name,
               amountCents: Math.round((flipped.total_amount ?? 0) * 100),
               date: flipped.date,

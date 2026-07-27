@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     notifyRefundIssued({
       ownerId: shop.owner_id,
       barberId: appt.barber_id,
+      shopId: appt.shop_id,
       clientName: appt.client_name,
       amountCents: Math.round((appt.total_amount ?? 0) * 100),
       date: appt.date,

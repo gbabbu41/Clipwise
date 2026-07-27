@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 // Owner removes a single date from an approved multi-day time-off (e.g. a
@@ -104,12 +105,12 @@ export async function POST(request: NextRequest) {
   const niceDate = prettyDate(exclude_date);
 
   if (barber?.user_id) {
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: barber.user_id,
+      shop_id: req.shop_id,
       title: "Time-Off Modified",
       message: `Your ${TYPE_LABELS[req.type]} no longer covers ${niceDate}. The shop owner removed that day from your approved request.`,
       type: "system",
-      is_read: false,
     });
   }
 

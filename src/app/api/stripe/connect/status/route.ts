@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 
 const CONNECT_NUDGE_TITLE = "Finish Stripe setup to get paid";
 
@@ -9,7 +10,7 @@ const CONNECT_NUDGE_TITLE = "Finish Stripe setup to get paid";
 // title so repeated status checks don't spam. This route is only hit by shops on
 // a payments-capable plan (the warning banner gates the call), so it targets
 // exactly the owners who need it.
-async function syncConnectNudge(userId: string, connected: boolean): Promise<void> {
+async function syncConnectNudge(userId: string, connected: boolean, shopId?: string | null): Promise<void> {
   if (connected) {
     await supabaseAdmin.from("notifications")
       .delete().eq("user_id", userId).eq("title", CONNECT_NUDGE_TITLE).then(null, () => null);
@@ -18,13 +19,13 @@ async function syncConnectNudge(userId: string, connected: boolean): Promise<voi
   const { data: existing } = await supabaseAdmin.from("notifications")
     .select("id").eq("user_id", userId).eq("title", CONNECT_NUDGE_TITLE).limit(1).maybeSingle();
   if (!existing) {
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: userId,
+      shop_id: shopId ?? null,
       title: CONNECT_NUDGE_TITLE,
       message: "Your plan can take online payments, but you must connect Stripe to receive the money. Open Billing → Finish Stripe setup (a couple of minutes).",
       type: "system",
-      is_read: false,
-    }).then(null, () => null);
+    });
   }
 }
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
   if (!shop.stripe_account_id) {
-    await syncConnectNudge(user.id, false);
+    await syncConnectNudge(user.id, false, shop.id);
     return NextResponse.json({ connected: false, status: "pending", chargesEnabled: false, payoutsEnabled: false });
   }
 
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       .update({ stripe_connected: !!active, stripe_connect_status: status })
       .eq("id", shop.id);
 
-    await syncConnectNudge(user.id, !!active);
+    await syncConnectNudge(user.id, !!active, shop.id);
 
     return NextResponse.json({
       connected: !!active,

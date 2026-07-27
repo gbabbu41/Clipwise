@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     notifyRefundIssued({
       ownerId: shop.owner_id,
       barberId: appt.barber_id,
+      shopId: appt.shop_id,
       clientName: appt.client_name,
       amountCents: Math.round((appt.total_amount ?? 0) * 100),
       date: appt.date,
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
   notifyRefundIssued({
     ownerId: shop.owner_id,
     barberId: tx.barber_id,
+    shopId: tx.shop_id,
     clientName: tx.client_name,
     amountCents: Math.round((tx.amount ?? 0) * 100),
     date: typeof tx.created_at === "string" ? tx.created_at.slice(0, 10) : null,

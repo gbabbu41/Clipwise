@@ -16,6 +16,7 @@ import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
+import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -224,8 +225,9 @@ export default function DashboardPage() {
         event: "INSERT", schema: "public", table: "notifications",
         filter: `user_id=eq.${shop.owner_id}`,
       }, (payload) => {
-        const n = payload.new as { type: string; title: string; message: string };
-        if (n.type === "booking") setNewBookingNotif({ title: n.title, message: n.message });
+        const n = payload.new as { type: string; title: string; message: string; shop_id?: string | null };
+        // Only pop for THIS shop (or a legacy null-shop row) — not the owner's other shops.
+        if (n.type === "booking" && notifBelongsToShop(n, shop.id)) setNewBookingNotif({ title: n.title, message: n.message });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -302,13 +304,14 @@ export default function DashboardPage() {
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     if (!shop || !profile) return;
-    const [{ data: b }, { data: n }, { data: rev }] = await Promise.all([
+    const [{ data: b }, notifRes, { data: rev }] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
-      supabase.from("notifications").select("*").eq("user_id", profile.id).order("created_at", { ascending: false }).limit(5),
+      // Scoped to the active shop so a multi-shop owner's alerts don't bleed in.
+      fetchShopNotifications(supabase, { userId: profile.id, shopId: shop.id, limit: 5 }),
       supabase.from("reviews").select("rating").eq("shop_id", shop.id),
     ]);
     setBarbers((b ?? []) as Barber[]);
-    setNotifications((n ?? []) as Notification[]);
+    setNotifications((notifRes.data ?? []) as unknown as Notification[]);
     if (rev && rev.length > 0) {
       const avg = rev.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / rev.length;
       setAvgRating(Math.round(avg * 10) / 10);

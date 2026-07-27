@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 // Owner-side approve/deny. Uses the service role so the in-app notification
@@ -56,12 +57,12 @@ export async function POST(request: NextRequest) {
 
   // 2) Barber's in-app notification — only if the barber has linked an account
   if (barber?.user_id) {
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: barber.user_id,
+      shop_id: shop?.id ?? null,
       title: decision === "approved" ? "Time-Off Approved" : "Time-Off Denied",
       message: `Your ${TYPE_LABELS[req.type]} request for ${dateRange} was ${decision} by the shop owner.`,
       type: "system",
-      is_read: false,
     });
   }
 

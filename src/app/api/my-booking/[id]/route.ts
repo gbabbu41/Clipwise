@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
@@ -96,11 +97,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }).catch(() => null);
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
     if (shopRow?.owner_id) {
-      supabaseAdmin.from("notifications").insert({
-        user_id: shopRow.owner_id, title: "Appointment Cancelled",
+      insertNotifications({
+        user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment Cancelled",
         message: `${appt.client_name} cancelled their appointment (was ${appt.date} at ${appt.time_slot})`,
-        type: "cancellation", is_read: false,
-      }).then(null, () => null);
+        type: "cancellation",
+      });
     }
     return NextResponse.json({ ok: true, status: "cancelled" });
   }
@@ -149,9 +150,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const msg = `${appt.client_name} rescheduled to ${body.date} at ${body.time_slot} (was ${appt.date} at ${appt.time_slot})`;
     const targets = Array.from(new Set([shopRow?.owner_id, barberUserId].filter(Boolean))) as string[];
     for (const uid of targets) {
-      supabaseAdmin.from("notifications").insert({
-        user_id: uid, title: "Appointment Rescheduled", message: msg, type: "booking", is_read: false,
-      }).then(null, () => null);
+      insertNotifications({
+        user_id: uid, shop_id: appt.shop_id, title: "Appointment Rescheduled", message: msg, type: "booking",
+      });
     }
     return NextResponse.json({ ok: true, date: body.date, time_slot: body.time_slot, status: appt.status });
   }

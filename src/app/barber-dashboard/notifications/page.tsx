@@ -2,7 +2,9 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { X, Check, Calendar, CalendarX2, AlertTriangle, Info, Bell, Star, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
+import { fetchShopNotifications } from "@/lib/notify";
 import { cn, friendlyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Notification } from "@/lib/database.types";
@@ -42,6 +44,7 @@ function notifTime(dateStr: string) {
 
 export default function BarberNotificationsPage() {
   const { user } = useAuth();
+  const { shop } = useBarber();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -51,12 +54,11 @@ export default function BarberNotificationsPage() {
   const load = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("notifications").select("*")
-      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
-    if (data) setNotifications(data as Notification[]);
+    // Scoped to the barber's active shop (multi-shop barbers don't see other shops').
+    const { data } = await fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 50 });
+    if (data) setNotifications(data as unknown as Notification[]);
     setLoading(false);
-  }, [user]);
+  }, [user, shop?.id]);
   useEffect(() => { load(); }, [load]);
 
   // Live updates so a charge/no-show notification lands without a reload.

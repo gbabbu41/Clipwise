@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDateWithContext } from "@/lib/utils";
+import { insertNotifications } from "@/lib/notify";
 
 /**
  * Fire-and-forget staff alerts for a NEW booking — the pieces the booking
@@ -72,17 +73,13 @@ export async function POST(request: NextRequest) {
     if (barberUserId) notifyUserIds.add(barberUserId);
     if (notifyUserIds.size > 0) {
       // Entity-link each notification to the appointment so the bell/sheet can
-      // render inline Approve/Decline buttons (phase16 columns). If those
-      // columns don't exist yet, retry the plain insert so the notif still lands.
-      const base = Array.from(notifyUserIds).map(uid => ({
-        user_id: uid, title, message, type: "booking", is_read: false,
-      }));
-      const ins = await supabaseAdmin.from("notifications").insert(
-        base.map(r => ({ ...r, entity_type: "appointment", entity_id: appointment_id })),
-      );
-      if (ins.error && /entity_(type|id)/.test(ins.error.message)) {
-        await supabaseAdmin.from("notifications").insert(base).then(null, () => null);
-      }
+      // render inline Approve/Decline buttons, and stamp shop_id so a multi-shop
+      // owner's alerts stay scoped. insertNotifications drops any column a lagging
+      // migration lacks (entity_* / shop_id) so the notif still lands.
+      await insertNotifications(Array.from(notifyUserIds).map(uid => ({
+        user_id: uid, shop_id: appt.shop_id, title, message, type: "booking",
+        entity_type: "appointment", entity_id: appointment_id,
+      })));
     }
 
     // SMS — best-effort, never throws.

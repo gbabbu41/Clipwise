@@ -12,6 +12,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
+import { fetchShopNotifications, fetchShopUnreadCount } from "@/lib/notify";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
@@ -98,26 +99,23 @@ export function BarberSidebar() {
 
   useEffect(() => {
     if (!user) return;
-    const fetchCount = () => supabase
-      .from("notifications").select("id", { count: "exact", head: true })
-      .eq("user_id", user.id).eq("is_read", false)
-      .then(({ count }) => setUnreadCount(count ?? 0));
+    // Scoped to the barber's active shop (a barber at multiple shops doesn't see
+    // the other shop's alerts in this count).
+    const fetchCount = () => fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
     fetchCount();
     const channel = supabase
       .channel(`barber-notifs:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, fetchCount)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, shop?.id]);
 
   // Recent 5 for the popover — refetched whenever it opens / the count changes.
   useEffect(() => {
     if (!notifOpen || !user) return;
-    supabase
-      .from("notifications").select("*")
-      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(15)
-      .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
-  }, [notifOpen, user, unreadCount]);
+    fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 15 })
+      .then(({ data }) => setRecentNotifs((data ?? []) as unknown as typeof recentNotifs));
+  }, [notifOpen, user, unreadCount, shop?.id]);
 
   useEffect(() => { setNotifOpen(false); }, [pathname]);
 

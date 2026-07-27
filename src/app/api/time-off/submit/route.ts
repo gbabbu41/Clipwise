@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 // Barber-side time-off submission. The barber's own auth context cannot
@@ -78,12 +79,12 @@ export async function POST(request: NextRequest) {
     const summary = `${TYPE_LABELS[body.type]} · ${dateRange}${timeRange}`;
 
     // Notification — service role bypasses the user_id=auth.uid() restriction
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: shop.owner_id,
+      shop_id: body.shop_id,
       title: "New Time-Off Request",
       message: `${barber.name}: ${summary}${body.reason ? ` — "${body.reason}"` : ""}`,
       type: "system",
-      is_read: false,
     });
 
     // Resolve owner's email — auth email is always set, shop.email often isn't

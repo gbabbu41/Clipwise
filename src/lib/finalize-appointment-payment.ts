@@ -157,6 +157,7 @@ export async function markAppointmentPaid(args: {
   notifyNoShowCharged({
     ownerId: shop.owner_id,
     barberId: appt.barber_id,
+    shopId: appt.shop_id,
     clientName: appt.client_name,
     amountCents,
     date: appt.date,

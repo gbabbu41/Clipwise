@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Info, Bell, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { fetchShopNotifications } from "@/lib/notify";
 import { cn, friendlyDate } from "@/lib/utils";
 
 // Rich classification (mirrors the notification sheet): coloured badge + icon
@@ -72,7 +73,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, shop } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -86,15 +87,13 @@ export default function NotificationsPage() {
   const loadNotifications = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) setNotifications(data);
+    // Scoped to the active shop so a multi-shop owner's list, counts, and the
+    // "Mark all read" / "Clear all" actions (which act on the loaded ids) only
+    // touch this shop's alerts.
+    const { data } = await fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 50 });
+    if (data) setNotifications(data as unknown as typeof notifications);
     setLoading(false);
-  }, [user]);
+  }, [user, shop?.id]);
 
   useEffect(() => { loadNotifications(); }, [loadNotifications]);
 

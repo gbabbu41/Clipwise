@@ -94,6 +94,7 @@ const isToday = (iso: string) => {
 };
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { fetchShopNotifications, fetchShopUnreadCount } from "@/lib/notify";
 import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
@@ -241,14 +242,10 @@ export function Sidebar() {
     if (!notifOpen || !user) return;
     // select("*") so entity_type/entity_id come through once phase16 is run, and
     // the query doesn't error on shops that haven't run it yet.
-    supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(15)
-      .then(({ data }) => setRecentNotifs((data ?? []) as typeof recentNotifs));
-  }, [notifOpen, user, unreadCount]);
+    // Scoped to the active shop (multi-shop owners don't see other shops' alerts).
+    fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 15 })
+      .then(({ data }) => setRecentNotifs((data ?? []) as unknown as typeof recentNotifs));
+  }, [notifOpen, user, unreadCount, shop?.id]);
 
   // ── Inline Approve / Decline for booking notifications ────────────────────
   // Reuses the same client-side flow the calendar uses (status update + the
@@ -304,29 +301,20 @@ export function Sidebar() {
   useEffect(() => {
     if (!user) return;
 
-    // Initial load
-    supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false)
-      .then(({ count }) => setUnreadCount(count ?? 0));
+    // Initial load — scoped to the active shop.
+    fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
 
-    // Real-time updates
+    // Real-time updates. postgres_changes can only filter by user_id, so we
+    // subscribe by user and recompute the shop-scoped count on any change.
     const channel = supabase
       .channel(`notifications:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => {
-        supabase
-          .from("notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_read", false)
-          .then(({ count }) => setUnreadCount(count ?? 0));
+        fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, shop?.id]);
 
   const displayName = profile?.name ?? user?.email ?? "User";
   const initial = displayName.charAt(0).toUpperCase();

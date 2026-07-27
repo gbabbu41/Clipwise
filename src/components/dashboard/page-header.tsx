@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { fetchShopUnreadCount } from "@/lib/notify";
 import { AvatarImage } from "@/components/ui/avatar-image";
 
 /**
@@ -17,18 +18,21 @@ import { AvatarImage } from "@/components/ui/avatar-image";
  * keeping the top consistent with the dashboard home.
  */
 export function DashboardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
-  const { profile } = useAuth();
+  const { profile, shop } = useAuth();
   const [unread, setUnread] = useState(0);
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id) return;
-    supabase.from("notifications").select("id", { count: "exact", head: true })
-      .eq("user_id", profile.id).eq("is_read", false)
-      .then(({ count }) => setUnread(count ?? 0));
-    supabase.from("barbers").select("photo").eq("user_id", profile.id).limit(1).maybeSingle()
-      .then(({ data }) => setPhoto((data as { photo?: string } | null)?.photo ?? null));
-  }, [profile?.id]);
+    // Unread count scoped to the active shop (multi-shop owners don't see other
+    // shops' unread lighting the bell).
+    fetchShopUnreadCount(supabase, profile.id, shop?.id).then(setUnread);
+    // Scope the avatar to this shop's barber row too (an owner who is a barber at
+    // multiple shops otherwise gets an arbitrary shop's photo).
+    let q = supabase.from("barbers").select("photo").eq("user_id", profile.id);
+    if (shop?.id) q = q.eq("shop_id", shop.id);
+    q.limit(1).maybeSingle().then(({ data }) => setPhoto((data as { photo?: string } | null)?.photo ?? null));
+  }, [profile?.id, shop?.id]);
 
   const onBell = (e: React.MouseEvent) => {
     if (typeof window !== "undefined" && window.innerWidth < 1024) {

@@ -209,6 +209,7 @@ export async function POST(request: NextRequest) {
     notifyNoShowCharged({
       ownerId: shop.owner_id,
       barberId: appt.barber_id,
+      shopId: appt.shop_id,
       clientName: appt.client_name,
       amountCents: amountReceived,
       date: appt.date,
@@ -261,6 +262,7 @@ export async function POST(request: NextRequest) {
       .then(null, () => null);
     notifyChargeFailed({
       ownerId: shop.owner_id,
+      shopId: appt.shop_id,
       clientName: appt.client_name,
       amountCents: feeCents > 0 ? feeCents : Math.round((appt.total_amount ?? 0) * 100),
       reason: reason === "no_show" ? "no_show" : "completed",

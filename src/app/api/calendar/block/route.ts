@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 // Calendar "block hours" — a thin wrapper over the time_off_requests engine
@@ -92,26 +93,26 @@ export async function POST(request: NextRequest) {
     // Confirmation to the owner; notify the barber if it's not the owner's own column.
     const recipients = new Set<string>([shop.owner_id]);
     if (barber.user_id && barber.user_id !== shop.owner_id) recipients.add(barber.user_id);
-    await supabaseAdmin.from("notifications").insert(
+    await insertNotifications(
       Array.from(recipients).map(uid => ({
         user_id: uid,
+        shop_id: shopId,
         title: "Hours blocked",
         message: uid === barber.user_id && uid !== shop.owner_id
           ? `${barber.name}'s ${niceDate} ${timeRange} was blocked by the shop owner.`
           : `Blocked ${barber.name} · ${niceDate} ${timeRange}${body.reason ? ` — "${body.reason}"` : ""}.`,
         type: "system",
-        is_read: false,
       })),
-    ).then(null, () => null);
+    );
   } else {
     // Pending request → owner gets a notification + an email to approve.
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: shop.owner_id,
+      shop_id: shopId,
       title: "New Block Request",
       message: `${barber.name} requested to block ${niceDate} ${timeRange}${body.reason ? ` — "${body.reason}"` : ""}.`,
       type: "system",
-      is_read: false,
-    }).then(null, () => null);
+    });
 
     const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(shop.owner_id);
     const ownerEmail = ownerUser?.user?.email ?? shop.email ?? "";

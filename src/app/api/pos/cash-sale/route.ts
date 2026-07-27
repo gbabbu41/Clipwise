@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 
 /**
  * Record a cash (or gift-card-covered) POS sale server-side.
@@ -79,12 +80,13 @@ export async function POST(req: Request) {
       const newQty = Math.max(0, inv.quantity - p.qty);
       await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
       if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && shop.owner_id) {
-        supabaseAdmin.from("notifications").insert({
+        insertNotifications({
           user_id: shop.owner_id,
+          shop_id,
           title: "Low Stock Alert",
           message: `${inv.name} is running low — only ${newQty} units remaining.`,
-          type: "inventory", is_read: false,
-        }).then(null, () => null);
+          type: "inventory",
+        });
       }
     }
 

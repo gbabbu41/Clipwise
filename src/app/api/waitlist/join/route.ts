@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
@@ -87,18 +88,15 @@ export async function POST(request: NextRequest) {
       (barbersRes.data ?? []).forEach((x: { user_id: string | null }) => { if (x.user_id) recipients.add(x.user_id); });
       if (recipients.size > 0) {
         const niceDate = new Date(`${b.desired_date}T12:00:00`).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
-        const base = Array.from(recipients).map(uid => ({
+        await insertNotifications(Array.from(recipients).map(uid => ({
           user_id: uid,
+          shop_id: shopId,
           title: "Waitlist request",
           message: `${b.client_name!.trim()} is waiting for a spot on ${niceDate}`,
           type: "booking",
-          is_read: false,
-        }));
-        const withEntity = base.map(r => ({ ...r, entity_type: "waitlist", entity_id: wl!.id }));
-        const ins = await supabaseAdmin.from("notifications").insert(withEntity);
-        if (ins.error && /entity_(type|id)/.test(ins.error.message)) {
-          await supabaseAdmin.from("notifications").insert(base);
-        }
+          entity_type: "waitlist",
+          entity_id: wl!.id,
+        })));
       }
     } catch { /* notifications are best-effort */ }
 

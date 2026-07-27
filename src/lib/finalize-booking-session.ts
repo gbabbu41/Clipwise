@@ -5,6 +5,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
+import { insertNotifications } from "@/lib/notify";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 
@@ -216,20 +217,15 @@ export async function finalizeBookingFromSession(params: {
       : isHold ? `New Booking · card held · ${amountStr}`
       : `New Paid Booking · ${amountStr}`;
     const bookingVerb = isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
-    const notifBase = {
+    insertNotifications({
       user_id: shopRow.owner_id,
+      shop_id: m.shop_id,
       title: bookingTitle,
       message: `${m.client_name} booked ${bookingVerb} for ${friendly} at ${m.time_slot}`,
       type: "booking",
-      is_read: false,
-    };
-    supabaseAdmin.from("notifications")
-      .insert({ ...notifBase, entity_type: "appointment", entity_id: appt.id })
-      .then(({ error: nErr }) => {
-        if (nErr && /entity_(type|id)/.test(nErr.message)) {
-          return supabaseAdmin.from("notifications").insert(notifBase).then(null, () => null);
-        }
-      }, () => null);
+      entity_type: "appointment",
+      entity_id: appt.id,
+    });
   }
 
   // Barber in-app notification + SMS to owner & barber.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
@@ -121,12 +122,12 @@ export async function POST(request: NextRequest) {
     const timeRange = type === "blocked_hours" && newStart && newEnd ? ` (${newStart}–${newEnd})` : "";
     const summary = `${TYPE_LABELS[type]} · ${dateRange}${timeRange}`;
 
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: shop.owner_id,
+      shop_id: barber!.shop_id,
       title: "New Time-Off Request",
       message: `${barber!.name}: ${summary}${body.reason ? ` — "${body.reason}"` : ""}`,
       type: "system",
-      is_read: false,
     });
 
     const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(shop.owner_id);

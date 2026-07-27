@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { isNotifSoundOn } from "@/lib/notif-sound";
+import { notifBelongsToShop } from "@/lib/notify";
 
 interface Popup { id: string; title: string; message: string; type: string }
 
@@ -43,7 +44,7 @@ function popupHref(n: Popup, isBarber: boolean): string {
  * until the first user gesture, so we resume the context on the first click/key.
  */
 export function NotificationListener() {
-  const { user } = useAuth();
+  const { user, shop } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isBarber = !!pathname?.startsWith("/barber-dashboard");
@@ -102,7 +103,10 @@ export function NotificationListener() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => {
-          const n = payload.new as Popup;
+          const n = payload.new as Popup & { shop_id?: string | null };
+          // Only pop + chime for the shop the user is currently viewing (or a
+          // legacy null-shop row) — not the owner's other shops.
+          if (!notifBelongsToShop(n, shop?.id)) return;
           setPopups(prev => [...prev, { id: n.id, title: n.title, message: n.message, type: n.type }].slice(-4));
           chime();
           // Auto-dismiss after 7s.
@@ -111,7 +115,7 @@ export function NotificationListener() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, chime, dismiss]);
+  }, [user, shop?.id, chime, dismiss]);
 
   if (popups.length === 0) return null;
 

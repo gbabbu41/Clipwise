@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { prettyDate } from "@/lib/utils";
+import { insertNotifications } from "@/lib/notify";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send
@@ -46,6 +47,7 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
 export async function notifyNoShowCharged(args: {
   ownerId?: string | null;
   barberId?: string | null;   // barbers.id (resolved to its linked user)
+  shopId?: string | null;     // stamps the notification so it's scoped to this shop
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
@@ -67,16 +69,16 @@ export async function notifyNoShowCharged(args: {
   }
   if (recipients.size === 0) return;
 
-  await supabaseAdmin.from("notifications").insert(
+  await insertNotifications(
     Array.from(recipients).map(uid => ({
       user_id: uid,
+      shop_id: args.shopId ?? null,
       title,
       message,
       // "no-show" is a CHECK-allowed type; "booking" fits a completion charge.
       type: completed ? "booking" : "no-show",
-      is_read: false,
     })),
-  ).then(null, () => null);
+  );
 }
 
 /**
@@ -87,6 +89,7 @@ export async function notifyNoShowCharged(args: {
 export async function notifyRefundIssued(args: {
   ownerId?: string | null;
   barberId?: string | null;   // barbers.id (resolved to its linked user)
+  shopId?: string | null;
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
@@ -103,13 +106,14 @@ export async function notifyRefundIssued(args: {
   }
   if (recipients.size === 0) return;
 
-  await supabaseAdmin.from("notifications").insert(
-    Array.from(recipients).map(uid => ({ user_id: uid, title: "↩️ Refund issued", message, type: "cancellation", is_read: false })),
-  ).then(null, () => null);
+  await insertNotifications(
+    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "↩️ Refund issued", message, type: "cancellation" })),
+  );
 }
 
 export async function notifyChargeFailed(args: {
   ownerId?: string | null;
+  shopId?: string | null;
   clientName?: string | null;
   amountCents?: number;
   reason: "completed" | "no_show";
@@ -119,13 +123,13 @@ export async function notifyChargeFailed(args: {
   const what = args.reason === "no_show" ? "no-show fee" : "completion charge";
   // notifications.type is CHECK-constrained — 'system' is the right bucket for
   // an ops alert the owner needs to act on.
-  await supabaseAdmin.from("notifications").insert({
+  await insertNotifications({
     user_id: args.ownerId,
+    shop_id: args.shopId ?? null,
     title: "⚠️ Card charge failed",
     message: `Couldn't charge ${args.clientName ?? "a client"}'s card for the ${what}${amt}. Open the appointment to retry or take payment another way.`,
     type: "system",
-    is_read: false,
-  }).then(null, () => null);
+  });
 }
 
 /**
@@ -140,6 +144,7 @@ export async function notifyChargeFailed(args: {
 export async function notifyDuplicatePayment(args: {
   ownerId?: string | null;
   barberId?: string | null;   // barbers.id (resolved to its linked user)
+  shopId?: string | null;
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
@@ -166,7 +171,7 @@ export async function notifyDuplicatePayment(args: {
   }
   if (recipients.size === 0) return;
 
-  await supabaseAdmin.from("notifications").insert(
-    Array.from(recipients).map(uid => ({ user_id: uid, title, message, type: "system", is_read: false })),
-  ).then(null, () => null);
+  await insertNotifications(
+    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title, message, type: "system" })),
+  );
 }

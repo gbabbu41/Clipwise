@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Public review submission. The review page is anonymous and RLS blocks anon
@@ -83,12 +84,13 @@ export async function POST(request: NextRequest) {
   // Notify the shop owner (fire-and-forget).
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();
   if (shopRow?.owner_id) {
-    supabaseAdmin.from("notifications").insert({
+    insertNotifications({
       user_id: shopRow.owner_id,
+      shop_id: appt.shop_id,
       title: `New ${rating}-Star Review`,
       message: `${appt.client_name} left a ${rating}-star review${trimmed ? `: "${trimmed.slice(0, 60)}"` : ""}`,
-      type: "review", is_read: false,
-    }).then(null, () => null);
+      type: "review",
+    });
   }
 
   return NextResponse.json({ ok: true });

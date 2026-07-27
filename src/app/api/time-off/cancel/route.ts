@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertNotifications } from "@/lib/notify";
 import { prettyDate } from "@/lib/utils";
 
 // Owner-side cancellation of an already-approved time-off. Same server-side
@@ -50,12 +51,12 @@ export async function POST(request: NextRequest) {
 
   // Barber notification
   if (barber?.user_id) {
-    await supabaseAdmin.from("notifications").insert({
+    await insertNotifications({
       user_id: barber.user_id,
+      shop_id: shop?.id ?? null,
       title: "Time-Off Cancelled",
       message: `Your ${TYPE_LABELS[req.type]} for ${dateRange} was cancelled by the shop owner.`,
       type: "system",
-      is_read: false,
     });
   }
 
