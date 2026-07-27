@@ -49,14 +49,14 @@ export async function POST(request: NextRequest) {
   // Fallback to omitting duration_minutes if the column doesn't exist yet (pre-phase14).
   const apptWithDur = await supabaseAdmin
     .from("appointments")
-    .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
+    .select("barber_id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
     .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
-  let apptRows: { barber_id: string; time_slot: string; duration_minutes?: number | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[];
+  let apptRows: { barber_id: string; time_slot: string; duration_minutes?: number | null; payment_status?: string | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[];
   if (apptWithDur.error) {
     if (apptWithDur.error.message?.includes("duration_minutes")) {
       const fallback = await supabaseAdmin
         .from("appointments")
-        .select("barber_id, time_slot, services(duration_minutes)")
+        .select("barber_id, time_slot, payment_status, services(duration_minutes)")
         .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
       apptRows = (fallback.data ?? []) as typeof apptRows;
     } else {
@@ -65,6 +65,9 @@ export async function POST(request: NextRequest) {
   } else {
     apptRows = (apptWithDur.data ?? []) as typeof apptRows;
   }
+  // A refunded booking (even one checked out early → completed, then refunded)
+  // no longer holds its slot — drop it so the time reads as free everywhere.
+  apptRows = apptRows.filter((a) => a.payment_status !== "refunded");
 
   const [{ data: slots }, { data: timeOff }, { data: breaks }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("barber_id, start_time, end_time, is_available")

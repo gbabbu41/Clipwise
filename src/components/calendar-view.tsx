@@ -177,6 +177,13 @@ const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-foregrou
 const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
+// Single source of truth for "does this appointment still hold its chair?".
+// A booking frees its slot when it's cancelled / no-show OR the money was
+// refunded — a refunded booking (even one checked out early → completed, then
+// refunded) must read as free everywhere: empty-slot detection, the add/edit
+// pickers, AND the rendered grid (so a dead block never sits on a bookable time).
+const freesSlot = (a: { status?: string | null; payment_status?: string | null }) =>
+  isDimmed(a.status ?? "") || a.payment_status === "refunded";
 
 // ── Dark palettes (ACTIVE theme) ──────────────────────────────────────────────
 // The calendar canvas is now DARK. Appointment blocks use a #1a1a1a fill + a
@@ -1175,7 +1182,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const bookedSlotsFor = useCallback((barberId: string, dateStr: string, step: number = EMPTY_STEP) => {
     const set = new Set<string>();
     appointments.forEach(a => {
-      if (a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status)) {
+      if (a.date === dateStr && a.barber_id === barberId && !freesSlot(a)) {
         occupiedSlots(a.time_slot, apptDuration(a), step).forEach(s => set.add(s));
       }
     });
@@ -1199,7 +1206,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // Occupied = active appointments + blocked-hours for this barber/day, clipped
     // to the window and merged so adjacent/overlapping ones don't split a gap.
     const apptIntervals = appointments
-      .filter(a => a.date === dateStr && a.barber_id === barberId && !isDimmed(a.status))
+      .filter(a => a.date === dateStr && a.barber_id === barberId && !freesSlot(a))
       .map(a => { const s = timeToMinutes(a.time_slot); return [s, s + apptDuration(a)] as [number, number]; });
     const blockIntervals = blocks
       .filter(b => b.barber_id === barberId && b.start_date === dateStr && b.start_time && b.end_time)
@@ -1394,7 +1401,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const boxStart = timeToMinutes(addForm.time || addCtx.time);
     const dateStr = formatDateForDb(currentDate);
     const nexts = appointments
-      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !isDimmed(a.status))
+      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
       .map(a => timeToMinutes(a.time_slot))
       .filter(m => m > boxStart);
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
@@ -1443,7 +1450,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // would overrun into the next appointment is DROPPED from the list entirely
     // (not just shown disabled "won't fit").
     const bookingStarts = appointments
-      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !isDimmed(a.status))
+      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
       .map(a => timeToMinutes(a.time_slot));
     const nextBookingAfter = (m: number) => {
       const after = bookingStarts.filter(s => s > m);
@@ -1509,7 +1516,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           const dateStr = formatDateForDb(day);
           const isSel = dateStr === selectedStr;
           const today = isToday(day);
-          const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
+          const count = appointments.filter(a => a.date === dateStr && !freesSlot(a)).length;
           return (
             <button key={dateStr} data-sel={isSel ? "1" : undefined}
               onClick={() => { setNavDir(dateStr >= selectedStr ? 1 : -1); setCurrentDate(day); }}
@@ -1542,7 +1549,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const year = currentDate.getFullYear();
     const todayStr = formatDateForDb(new Date());
     const apptDays = new Set(
-      appointments.filter(a => a.status !== "cancelled" && a.date.startsWith(`${year}-`)).map(a => a.date),
+      appointments.filter(a => !freesSlot(a) && a.date.startsWith(`${year}-`)).map(a => a.date),
     );
     return (
       <div className="overflow-auto h-full px-4 py-4">
@@ -1688,7 +1695,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const sched = schedules.get(barber.id);
     const startDb = sched?.start ?? "09:00:00";
     const endDb = sched?.end ?? "22:00:00";
-    const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && a.status !== "cancelled");
+    const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && !freesSlot(a));
     const dayBlocks = blocksFor(barber.id, dateStr);
     // Drop any free slot that falls inside a block window (so it can't be booked
     // over, and the grid shows the block instead).
@@ -1773,7 +1780,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   const renderDayView = () => {
     const dateStr = formatDateForDb(currentDate);
-    const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
+    const dayAppts = appointments.filter(a => a.date === dateStr && !freesSlot(a));
 
     // Columns: barber portal / a picked barber / phone → a single column (the
     // header dropdown chooses which); big-screen all-barbers → every scheduled
@@ -2003,7 +2010,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // Mobile: date strip at top, then a single-day timeline for currentDate
     if (isMobile) {
       const selectedStr = formatDateForDb(currentDate);
-      const dayAppts = appointments.filter(a => a.date === selectedStr && a.status !== "cancelled");
+      const dayAppts = appointments.filter(a => a.date === selectedStr && !freesSlot(a));
       // Visible hour window — start at business hours, not 12 AM.
       const mwStarts: number[] = [], mwEnds: number[] = [];
       dayAppts.forEach(a => { const s = parseTime(a.time_slot); mwStarts.push(s); mwEnds.push(s + apptDuration(a) / 60); });
@@ -2020,7 +2027,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const dateStr = formatDateForDb(day);
               const isSelected = dateStr === selectedStr;
               const today = isToday(day);
-              const count = appointments.filter(a => a.date === dateStr && a.status !== "cancelled" && a.status !== "no-show").length;
+              const count = appointments.filter(a => a.date === dateStr && !freesSlot(a)).length;
               return (
                 <button key={dateStr} onClick={() => { setNavDir(formatDateForDb(day) >= formatDateForDb(currentDate) ? 1 : -1); setCurrentDate(day); }}
                   className="py-2 text-center hover:bg-card-raised transition-colors">
@@ -2124,7 +2131,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     // Visible hour window across the whole week — start at business hours.
     const weekStrs = new Set(weekDays.map(formatDateForDb));
-    const weekAppts = appointments.filter(a => weekStrs.has(a.date) && a.status !== "cancelled");
+    const weekAppts = appointments.filter(a => weekStrs.has(a.date) && !freesSlot(a));
     const wwStarts: number[] = [], wwEnds: number[] = [];
     weekAppts.forEach(a => { const s = parseTime(a.time_slot); wwStarts.push(s); wwEnds.push(s + apptDuration(a) / 60); });
     blocks.filter(b => weekStrs.has(b.start_date) && b.start_time && b.end_time).forEach(b => {
@@ -2142,7 +2149,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
-              const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
+              const dayAppts = appointments.filter(a => a.date === dateStr && !freesSlot(a));
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => openDay(day)}
@@ -2180,7 +2187,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <div />
               {weekDays.map(day => {
                 const dateStr = formatDateForDb(day);
-                const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== "cancelled");
+                const dayAppts = appointments.filter(a => a.date === dateStr && !freesSlot(a));
                 return (
                   <div key={dateStr} className="relative">
                     {dayAppts.map(appt => {

@@ -22,8 +22,15 @@ const OCCUPYING_STATUSES = ["pending", "confirmed", "completed"];
 type ApptRow = {
   time_slot: string;
   duration_minutes?: number | null;
+  payment_status?: string | null;
   services: { duration_minutes: number } | { duration_minutes: number }[] | null;
 };
+
+// A refunded booking no longer holds its chair — even one that was checked out
+// early (status "completed") and then refunded. Filtered in JS (not a `.neq`
+// query) because `payment_status <> 'refunded'` would also drop rows where
+// payment_status is NULL (unpaid/in-person), wrongly freeing real bookings.
+const stillHoldsSlot = (r: { payment_status?: string | null }) => r.payment_status !== "refunded";
 
 function durationOf(r: ApptRow): number {
   // Prefer the appointment's own block length (set for multi-service bookings);
@@ -43,14 +50,14 @@ async function barberIntervals(barber_id: string, date: string, excludeId?: stri
   let rows: (ApptRow & { id: string })[];
   const withDur = await supabaseAdmin
     .from("appointments")
-    .select("id, time_slot, duration_minutes, services(duration_minutes)")
+    .select("id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
     .eq("barber_id", barber_id)
     .eq("date", date)
     .in("status", OCCUPYING_STATUSES);
   if (withDur.error) {
     const fallback = await supabaseAdmin
       .from("appointments")
-      .select("id, time_slot, services(duration_minutes)")
+      .select("id, time_slot, payment_status, services(duration_minutes)")
       .eq("barber_id", barber_id)
       .eq("date", date)
       .in("status", OCCUPYING_STATUSES);
@@ -59,6 +66,7 @@ async function barberIntervals(barber_id: string, date: string, excludeId?: stri
     rows = (withDur.data ?? []) as (ApptRow & { id: string })[];
   }
   return rows
+    .filter(stillHoldsSlot)                             // refunded booking frees its chair
     .filter((r) => !excludeId || r.id !== excludeId)   // ignore the appointment being edited
     .map((r) => {
       const start = timeToMinutes(r.time_slot);
@@ -108,22 +116,23 @@ export async function findAvailableBarber(
   type RowWithBarber = ApptRow & { barber_id: string };
   const withDur = await supabaseAdmin
     .from("appointments")
-    .select("barber_id, time_slot, duration_minutes, services(duration_minutes)")
+    .select("barber_id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
     .in("barber_id", ordered).eq("date", date).in("status", OCCUPYING_STATUSES);
   let allRows: RowWithBarber[];
   if (withDur.error) {
     const fallback = await supabaseAdmin
       .from("appointments")
-      .select("barber_id, time_slot, services(duration_minutes)")
+      .select("barber_id, time_slot, payment_status, services(duration_minutes)")
       .in("barber_id", ordered).eq("date", date).in("status", OCCUPYING_STATUSES);
     allRows = (fallback.data ?? []) as RowWithBarber[];
   } else {
     allRows = (withDur.data ?? []) as RowWithBarber[];
   }
 
-  // Group intervals by barber in memory.
+  // Group intervals by barber in memory (refunded bookings free their chair).
   const intervalsByBarber = new Map<string, [number, number][]>();
   for (const r of allRows) {
+    if (!stillHoldsSlot(r)) continue;
     const arr = intervalsByBarber.get(r.barber_id) ?? [];
     const s = timeToMinutes(r.time_slot);
     arr.push([s, s + durationOf(r)]);

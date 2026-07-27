@@ -12,7 +12,9 @@ import { stripe } from "@/lib/stripe";
 // returns ONLY display fields (no client email/phone) and handles cancel /
 // reschedule, with a server-side conflict check.
 
-const OCCUPYING = ["pending", "confirmed"];
+// Statuses that hold a slot (a completed booking still used its time). Refunded
+// rows are filtered out separately (see below) since a refund frees the slot.
+const OCCUPYING = ["pending", "confirmed", "completed"];
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
@@ -33,9 +35,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const startTime = tsRows.reduce((m, r) => (r.start_time < m ? r.start_time : m), tsRows[0].start_time);
     const endTime = tsRows.reduce((m, r) => (r.end_time > m ? r.end_time : m), tsRows[0].end_time);
     const { data: booked } = await supabaseAdmin
-      .from("appointments").select("time_slot")
+      .from("appointments").select("time_slot, payment_status")
       .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING);
-    const bookedSlots = (booked ?? []).map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
+    const bookedSlots = (booked ?? [])
+      .filter(a => a.payment_status !== "refunded")     // refunded frees the slot
+      .map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
     // Judge "past" in the SHOP's timezone, not the server's UTC — otherwise
     // same-day morning slots get wrongly hidden (Canada is hours behind UTC).
     const shopRel = (appt as { shops?: { timezone?: string; booking_settings?: { slot_interval_minutes?: number } } | { timezone?: string; booking_settings?: { slot_interval_minutes?: number } }[] }).shops;
