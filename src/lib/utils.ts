@@ -140,6 +140,28 @@ export function timeToMinutes(display: string): number {
   return hours * 60 + (m || 0);
 }
 
+// How early (hours before the appointment's start) an owner/barber may check out
+// & charge an appointment. Blocks completing/charging a booking days ahead;
+// allowed from this window before the start onward, and any time after.
+export const CHECKOUT_LEAD_HOURS = 3;
+/**
+ * Whether check-out/completion is allowed for an appointment right now.
+ * All args are in the SHOP's timezone: date "YYYY-MM-DD", timeSlot display time
+ * ("9:30 AM"), nowYmd today's date + nowMin minutes-since-midnight, both in tz.
+ */
+export function isCheckoutAllowed(
+  date: string | null | undefined,
+  timeSlot: string | null | undefined,
+  nowYmd: string,
+  nowMin: number,
+): boolean {
+  if (!date) return true; // no date → don't block
+  const startMin = timeSlot ? timeToMinutes(timeSlot) : 0;
+  const dayDiff = Math.round((Date.parse(date + "T00:00:00Z") - Date.parse(nowYmd + "T00:00:00Z")) / 86400000);
+  const startAbs = dayDiff * 1440 + startMin;      // minutes from now's midnight to appt start
+  return nowMin >= startAbs - CHECKOUT_LEAD_HOURS * 60;
+}
+
 /** Convert display time "9:00 AM" → DB time "09:00:00" */
 export function displayTimeToDb(display: string): string {
   const mins = timeToMinutes(display);

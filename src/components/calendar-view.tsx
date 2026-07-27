@@ -9,7 +9,9 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import {
   cn, formatDateForDb, friendlyDate, timeAgo, paymentTag,
   occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
+  isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
+import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -204,12 +206,15 @@ const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 te
 const apptBlock = (a: { status?: string | null; payment_status?: string | null }) => {
   const held = a.payment_status === "held" || a.payment_status === "saved";
   const paid = a.payment_status === "paid" || a.payment_status === "captured";
-  const border = a.status === "cancelled" ? "border-border-strong"
+  // Refunded (or cancelled) → muted grey + faded, regardless of prior status, so
+  // a completed-then-refunded booking doesn't keep its active blue accent.
+  const inactive = a.payment_status === "refunded" || a.status === "cancelled";
+  const border = inactive ? "border-border-strong"
     : a.status === "no-show" ? "border-[#ff6b6b]"
     : a.status === "pending" ? "border-[#f5c542]"
     : (a.status === "completed" || paid || held) ? "border-[#4a9eff]"
     : "border-[#00e5a0]";
-  return cn("bg-card-raised border-l-[3px] text-foreground", border);
+  return cn("bg-card-raised border-l-[3px] text-foreground", border, inactive && "opacity-60");
 };
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
@@ -248,6 +253,15 @@ export function makeApptActions(opts: {
   onDone: () => void;                                              // close the detail card after a terminal action
 }): ApptActions {
   const { shop, accessToken, patch, setBusy, toast, onDone } = opts;
+  // Check-out / completion is only allowed from CHECKOUT_LEAD_HOURS before the
+  // appointment starts (and any time after) — no completing/charging days early.
+  // Computed in the shop's timezone; returns true (and toasts) when too early.
+  const checkoutBlocked = (appt: AppointmentWithDetails): boolean => {
+    const tz = safeTz((shop as { timezone?: string } | null)?.timezone);
+    if (isCheckoutAllowed(appt.date, appt.time_slot, todayInTz(tz), nowMinutesInTz(tz))) return false;
+    toast(`Too early — you can check out from ${CHECKOUT_LEAD_HOURS}h before the appointment.`);
+    return true;
+  };
   return {
     approve: async (appt) => {
       if (!shop) return;
@@ -290,6 +304,7 @@ export function makeApptActions(opts: {
     },
     complete: async (appt) => {
       if (!shop) return;
+      if (checkoutBlocked(appt)) return;
       setBusy("complete");
       const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
       if (error) { setBusy(""); toast(`Update failed: ${error.message}`); return; }
@@ -301,6 +316,7 @@ export function makeApptActions(opts: {
     },
     captureComplete: async (appt) => {
       if (!shop || !accessToken) return;
+      if (checkoutBlocked(appt)) return;
       setBusy("capture");
       toast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
       const res = await fetch("/api/stripe/capture-appointment", {
@@ -319,6 +335,7 @@ export function makeApptActions(opts: {
     },
     cashComplete: async (appt) => {
       if (!shop) return;
+      if (checkoutBlocked(appt)) return;
       setBusy("cash");
       const p = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const, paid_at: new Date().toISOString() };
       const { error } = await supabase.from("appointments").update(p).eq("id", appt.id);

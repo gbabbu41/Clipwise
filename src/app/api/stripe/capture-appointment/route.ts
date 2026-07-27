@@ -3,7 +3,8 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { prettyDate } from "@/lib/utils";
+import { prettyDate, isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
+import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { noShowFeeCents, NO_SHOW_MAX_PCT } from "@/lib/validation";
 
 /**
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt, error: apptErr } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, total_amount, tip_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, time_slot, total_amount, tip_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .eq("id", appointment_id).maybeSingle();
   if (apptErr || !appt) {
     console.warn("[capture-appointment] appointment NOT FOUND", { appointment_id, apptErr: apptErr?.message });
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: shop, error: shopErr } = await supabaseAdmin
-    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).maybeSingle();
+    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings, timezone").eq("id", appt.shop_id).maybeSingle();
   if (shopErr || !shop) {
     console.warn("[capture-appointment] shop NOT FOUND", { appointment_id, shop_id: appt.shop_id, shopErr: shopErr?.message });
     return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
@@ -61,6 +62,16 @@ export async function POST(request: NextRequest) {
   }
   console.log("[capture-appointment] found", { appointment_id, payment_status: appt.payment_status, allowed });
   if (!allowed) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+
+  // Check-out window: a completion charge is only allowed from CHECKOUT_LEAD_HOURS
+  // before the appointment (any time after is fine). Blocks charging a booking
+  // days early. A no-show fee is exempt (it's charged at/after the missed slot).
+  if (reason === "completed") {
+    const tz = safeTz((shop as { timezone?: string | null }).timezone);
+    if (!isCheckoutAllowed(appt.date, appt.time_slot, todayInTz(tz), nowMinutesInTz(tz))) {
+      return NextResponse.json({ ok: false, error: `Too early — check out is allowed from ${CHECKOUT_LEAD_HOURS} hours before the appointment.` }, { status: 400 });
+    }
+  }
 
   // "saved" path = charge a stored card off-session (nothing was held). Also
   // covers a RETRY after a failed charge: payment_status flips to "failed" but
