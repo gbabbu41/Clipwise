@@ -75,7 +75,12 @@ const classifyNotif = (n: { title: string; message: string; type: string }): Not
   if (/approved|confirmed/.test(s))
     return k(CheckCircle2, "bg-emerald-500/15 text-emerald-300", "Confirmed", "bg-emerald-500/15 text-emerald-300", "#10b981");
   if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) {
-    const pending = /pending|approval|request|awaiting/.test(s) || n.type === "booking";
+    // Only bookings that genuinely need a decision are actionable (Approve/
+    // Decline). Keying off `type === "booking"` alone wrongly flagged confirmed,
+    // card-paid online bookings (type "booking", no approval wording) as pending
+    // — showing a bogus Approve/Decline. Pay-in-person approvals carry
+    // "needs approval" in their title, so the keyword test still catches them.
+    const pending = /pending|approval|request|awaiting/.test(s);
     return k(Calendar, pending ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]",
       pending ? "Pending" : "Booking", pending ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]",
       pending ? "#f59e0b" : "var(--border-strong)", pending);
