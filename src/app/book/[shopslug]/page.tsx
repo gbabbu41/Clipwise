@@ -1497,14 +1497,14 @@ export default function BookingPage() {
             return hour + m / 60;
           };
 
-          const blockSlotSet = new Set(slotGridForBlock.map(s => s.slot));
           const todayStr = formatDateForDb(new Date());
           const dateStr = selectedDate ? formatDateForDb(selectedDate) : null;
           const isTodaySelected = dateStr === todayStr;
-          const bookableSlots = slotGrid.filter(({ slot }) => {
-            const past = isTodaySelected && isSlotInPast(slot);
-            return !past && blockSlotSet.has(slot);
-          });
+          // Drive the slot buttons from the BLOCK-aware grid so each slot's
+          // barberIds are the barbers free for the FULL service duration (not
+          // just the start slot). Using the raw grid gave wrong "N free" counts
+          // and could auto-select a barber free only at the start → double-book.
+          const bookableSlots = slotGridForBlock.filter(({ slot }) => !(isTodaySelected && isSlotInPast(slot)));
 
           // Group bookable slots into parts of the day so a 15-min-granularity
           // shop with 40+ openings stays scannable.
@@ -1696,7 +1696,11 @@ export default function BookingPage() {
 
               {/* Barber-picker popup — for slots with multiple barbers free */}
               {expandedSlot && (() => {
-                const slotEntry = slotGrid.find(s => s.slot === expandedSlot);
+                // Use the BLOCK-aware entry (barbers free for the full service
+                // duration), not the raw start-slot entry — otherwise a barber
+                // free at 9:15 but booked at 9:30 is offered for a 45-min slot
+                // and gets double-booked. Falls back to the raw slot if needed.
+                const slotEntry = slotGridForBlock.find(s => s.slot === expandedSlot) ?? slotGrid.find(s => s.slot === expandedSlot);
                 if (!slotEntry) return null;
                 const slotBarbers = barbers.filter(b => slotEntry.barberIds.includes(b.id));
                 return (
