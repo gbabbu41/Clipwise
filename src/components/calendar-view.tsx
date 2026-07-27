@@ -395,10 +395,16 @@ export function makeApptActions(opts: {
     },
     reject: async (appt) => {
       if (!shop) return;
-      const wasPaid = !!(appt.payment_intent_id && appt.payment_status === "captured");
-      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${wasPaid ? " and refunded." : "."}`)) return;
+      // A settled charge (immediate online "paid" OR a captured hold) gets
+      // refunded; an UNCAPTURED hold gets released (can't refund what wasn't
+      // captured). Both undo the money — the old check only caught "captured",
+      // so rejecting a paid-online booking kept the customer's money and a held
+      // card stayed authorized ~7 days.
+      const hasCharge = !!(appt.payment_intent_id && (appt.payment_status === "paid" || appt.payment_status === "captured"));
+      const hasHold = !!(appt.payment_intent_id && appt.payment_status === "held");
+      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${hasCharge ? " and refunded." : "."}`)) return;
       setBusy("reject");
-      if (wasPaid && accessToken) {
+      if (hasCharge && accessToken) {
         const refundRes = await fetch("/api/stripe/refund", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -406,16 +412,30 @@ export function makeApptActions(opts: {
         }).catch(() => null);
         if (refundRes?.ok) {
           patch(appt.id, { status: "cancelled", payment_status: "refunded" });
-          notifyFreedSlot(appt, shop, "Cancelled");
+          // The refund route already cancelled the booking + pinged the waitlist;
+          // just tell the barber the slot freed (no second waitlist ping).
+          fetch("/api/appointments/notify-cancellation", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
+          }).catch(() => null);
           setBusy(""); onDone();
           toast("Rejected · Refund issued");
           return;
         }
+        // fall through to a plain cancel if the refund call failed
+      }
+      // Uncaptured hold → release the authorization before cancelling.
+      if (hasHold && accessToken) {
+        await fetch("/api/stripe/release-hold", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => null);
       }
       const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
       setBusy("");
       if (error) { toast(`Failed: ${error.message}`); return; }
-      patch(appt.id, { status: "cancelled" });
+      patch(appt.id, hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
       sendRejectionEmail(appt, shop, "");
       notifyFreedSlot(appt, shop, "Cancelled");
       onDone();

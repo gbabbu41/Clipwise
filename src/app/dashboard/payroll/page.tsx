@@ -90,7 +90,10 @@ export default function PayrollPage() {
     const hours = (hoursData ?? []) as StaffHour[];
 
     const result: BarberPayroll[] = barberList.map(b => {
-      const bAppts = appts.filter(a => a.barber_id === b.id);
+      // A refunded appointment keeps status "completed" (only payment_status
+      // flips to "refunded"), so exclude it — otherwise the barber earns
+      // commission on money that was handed back to the customer.
+      const bAppts = appts.filter(a => a.barber_id === b.id && a.payment_status !== "refunded");
       const serviceRevenue = bAppts.reduce((s, a) => s + a.total_amount, 0);
       const commissionEarned = serviceRevenue * (b.commission_percent / 100);
       const bHours = hours.filter(h => h.barber_id === b.id);

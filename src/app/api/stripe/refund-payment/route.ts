@@ -63,6 +63,13 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.from("appointments")
       .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
       .eq("id", appointment_id);
+
+    // Flag the completion/no-show ledger row too, so barber earnings + analytics
+    // correct immediately instead of relying on the charge.refunded webhook.
+    if (appt.payment_intent_id) {
+      await supabaseAdmin.from("transactions")
+        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).then(null, () => null);
+    }
     if (!served) {
       fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
         method: "POST", headers: { "Content-Type": "application/json" },

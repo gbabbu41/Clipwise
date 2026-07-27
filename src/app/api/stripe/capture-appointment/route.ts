@@ -232,15 +232,33 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, amount: amountReceived / 100 });
   } catch (err) {
+    const e = err as { code?: string; raw?: { code?: string }; message?: string };
+    const code = e?.code ?? e?.raw?.code ?? "";
+    // A concurrent "Complete" (double-click / double-submit) may have already
+    // captured this authorization — Stripe then throws on the second capture.
+    // That charge SUCCEEDED, so treat it as success: never clobber the row to
+    // "failed" (a "failed" row offers a "send payment link" action → the owner
+    // could collect a SECOND time on an already-captured card).
+    const alreadyCaptured = /already.*captur|charge_already_captured|payment_intent_unexpected_state/i.test(code)
+      || /already been captured|already captured|has already been captured/i.test(e?.message ?? "");
+    if (alreadyCaptured) {
+      console.warn("[capture-appointment] capture raced — already captured", { appointment_id, reason });
+      return NextResponse.json({ ok: true, alreadyCaptured: true });
+    }
     // Flag for manual review instead of crashing the UI, and alert the owner
     // in-app so a silent card failure doesn't go unnoticed.
     console.error("[capture-appointment] charge FAILED", {
       appointment_id, reason, isSaved,
       message: err instanceof Error ? err.message : String(err),
-      code: (err as { code?: string })?.code,
+      code,
     });
+    // Only downgrade to "failed" when the row isn't already settled — a racing
+    // successful capture (captured/paid) must win over this error path.
     await supabaseAdmin.from("appointments")
-      .update({ payment_status: "failed" }).eq("id", appointment_id).then(null, () => null);
+      .update({ payment_status: "failed" })
+      .eq("id", appointment_id)
+      .in("payment_status", ["unpaid", "held", "saved", "failed"])
+      .then(null, () => null);
     notifyChargeFailed({
       ownerId: shop.owner_id,
       clientName: appt.client_name,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
+import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
 
@@ -113,11 +114,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (appt.barber_id && await barberHasConflict(appt.barber_id, body.date, startMin, startMin + duration, appt.id)) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
+    // Don't let a reschedule land on the barber's approved time-off or a
+    // recurring break — the conflict check above only looks at other
+    // appointments, so without this a crafted PATCH (or a slot blocked after the
+    // page loaded) could move the booking onto a day off / lunch.
+    if (appt.barber_id) {
+      const blockReason = await scheduleBlockReason(appt.shop_id, appt.barber_id, body.date, startMin, startMin + duration, { includeBreaks: true });
+      if (blockReason) return NextResponse.json({ error: blockReason }, { status: 409 });
+    }
     // Preserve the booking's state — a confirmed (card-held) booking stays
     // confirmed after a reschedule, so it does NOT go back to the owner as a new
     // request to approve. The card hold / payment_intent is untouched and still
     // applies to the new time. Only a still-pending booking stays pending.
+    const oldDate = appt.date;
     await supabaseAdmin.from("appointments").update({ date: body.date, time_slot: body.time_slot }).eq("id", id);
+    // Reschedule vacates the OLD slot — ping the waitlist for that date/barber so
+    // anyone waiting on the original day gets a shot (every other freeing
+    // transition — cancel/reject/no-show — already does this).
+    fetch(`${base}/api/waitlist/slot-opened`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: appt.shop_id, date: oldDate, barber_id: appt.barber_id }),
+    }).catch(() => null);
     // Informational notice to owner + barber that the time moved (NOT a re-approval).
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
     let barberUserId: string | null = null;

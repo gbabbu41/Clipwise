@@ -91,7 +91,9 @@ export default function MyStatsPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const completed = appointments.filter(a => a.status === "completed");
-  const revenue = completed.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  // Exclude refunded completed appts from revenue/commission (money handed back);
+  // the completion count keeps them (the service was still rendered).
+  const revenue = completed.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + (a.total_amount ?? 0), 0);
   const commission = revenue * (commissionRate / 100);
   const noShows = appointments.filter(a => a.status === "no-show").length;
   const totalHours = hours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
@@ -110,7 +112,7 @@ export default function MyStatsPage() {
     const svcName = (a as unknown as { services?: { name?: string } }).services?.name ?? "Unknown";
     if (!serviceCounts[svcName]) serviceCounts[svcName] = { name: svcName, count: 0, revenue: 0 };
     serviceCounts[svcName].count++;
-    serviceCounts[svcName].revenue += a.total_amount ?? 0;
+    if (a.payment_status !== "refunded") serviceCounts[svcName].revenue += a.total_amount ?? 0;
   });
   const topServices = Object.values(serviceCounts).sort((a, b) => b.count - a.count).slice(0, 5);
 

@@ -384,14 +384,17 @@ export default function DashboardPage() {
   const todayAppts = appointments.filter((a) => a.date === todayStr);
 
   const completed = appointments.filter((a) => a.status === "completed");
-  const revenue = completed.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  // Revenue figures exclude refunded completed appts (money handed back); the
+  // completion COUNT keeps them (the service was still rendered).
+  const paidCompleted = completed.filter((a) => a.payment_status !== "refunded");
+  const revenue = paidCompleted.reduce((s, a) => s + (a.total_amount ?? 0), 0);
   const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
 
   // Revenue chart data — aggregate by date
   const revenueByDate: Record<string, number> = {};
-  completed.forEach((a) => { revenueByDate[a.date] = (revenueByDate[a.date] ?? 0) + (a.total_amount ?? 0); });
+  paidCompleted.forEach((a) => { revenueByDate[a.date] = (revenueByDate[a.date] ?? 0) + (a.total_amount ?? 0); });
   const chartData = Object.entries(revenueByDate)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-30)

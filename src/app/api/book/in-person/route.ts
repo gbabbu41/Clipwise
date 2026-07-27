@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, findAvailableBarber, isDoubleBookError } from "@/lib/booking-conflict";
+import { scheduleBlockReason } from "@/lib/schedule-block";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { resolveServiceCharge } from "@/lib/service-pricing";
@@ -115,23 +116,14 @@ export async function POST(request: NextRequest) {
 
   // Don't book over a block / time-off. Approved blocked-hours that overlap the
   // window, or any full-day off (day_off/vacation/sick), make the slot unbookable
-  // — even for an owner-added appointment (unblock first to override).
-  const mins24 = (t: string) => { const [h, m] = t.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
-  const { data: offs } = await supabaseAdmin
-    .from("time_off_requests")
-    .select("type, start_time, end_time, barber_id")
-    .eq("shop_id", b.shop_id).eq("status", "approved")
-    .lte("start_date", b.date).gte("end_date", b.date);
-  const blockedHit = (offs ?? []).some(o => {
-    if (o.barber_id && o.barber_id !== barberId) return false; // other barber's block (null = shop-wide)
-    if (o.type === "day_off" || o.type === "vacation" || o.type === "sick") return true;
-    if (o.type === "blocked_hours" && o.start_time && o.end_time) {
-      return startMin < mins24(o.end_time) && endMin > mins24(o.start_time);
-    }
-    return false;
-  });
-  if (blockedHit) {
-    return NextResponse.json({ error: "That time is blocked for this barber. Unblock it or pick another time." }, { status: 409 });
+  // — even for an owner-added appointment (unblock first to override). A recurring
+  // break is enforced only for a CUSTOMER self-booking; an owner/staff adding a
+  // walk-in from the dashboard may deliberately squeeze someone in over a break.
+  const blockReason = await scheduleBlockReason(
+    b.shop_id, barberId, b.date, startMin, endMin, { includeBreaks: !callerIsStaff },
+  );
+  if (blockReason) {
+    return NextResponse.json({ error: blockReason }, { status: 409 });
   }
 
   // Owner-initiated bookings (b.confirmed) skip approval; customer self-bookings

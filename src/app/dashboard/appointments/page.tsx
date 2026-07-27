@@ -467,32 +467,48 @@ export default function AppointmentsPage() {
       ? `[Rejected by shop: ${reason}]${appt.notes ? `\n${appt.notes}` : ""}`
       : appt.notes ?? "";
 
-    // Auto-refund if the appointment was paid online (captured payment intent)
-    const wasPaid = appt.payment_intent_id && appt.payment_status === "captured";
-    if (wasPaid && accessToken) {
+    // Undo the money: a settled charge (immediate online "paid" OR a captured
+    // hold) is refunded; an uncaptured "held" card is released instead (you
+    // can't refund what wasn't captured). The old check only caught "captured",
+    // so rejecting a paid-online booking kept the customer's money and a held
+    // card stayed authorized ~7 days.
+    const hasCharge = !!(appt.payment_intent_id && (appt.payment_status === "paid" || appt.payment_status === "captured"));
+    const hasHold = !!(appt.payment_intent_id && appt.payment_status === "held");
+    if (hasCharge && accessToken) {
       const refundRes = await fetch("/api/stripe/refund", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ appointment_id: appt.id }),
       }).catch(() => null);
-      // Refund route already cancels the appointment + emails customer — just update local state
+      // Refund route already cancels the appointment, emails the customer AND
+      // pings the waitlist — just mirror local state + tell the barber (no
+      // second waitlist ping, which would double-notify every waiter).
       if (refundRes?.ok) {
         setSavingReject(false);
         setRejectModal(null);
         setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : a));
         if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : null);
         fetch("/api/appointments/notify-cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }) }).catch(() => null);
-        fetch("/api/waitlist/slot-opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }) }).catch(() => null);
         showToast("Appointment rejected · Refund issued to customer");
         return;
       }
+      // fall through to a plain cancel if the refund call failed
+    }
+
+    // Uncaptured hold → release the authorization so the card isn't left on hold.
+    if (hasHold && accessToken) {
+      await fetch("/api/stripe/release-hold", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id }),
+      }).catch(() => null);
     }
 
     await supabase.from("appointments").update({ status: "cancelled", notes: updatedNotes }).eq("id", appt.id);
     setSavingReject(false);
     setRejectModal(null);
-    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", notes: updatedNotes } : a));
-    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", notes: updatedNotes } : null);
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: hasHold ? "voided" : a.payment_status, notes: updatedNotes } : a));
+    if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: hasHold ? "voided" : prev.payment_status, notes: updatedNotes } : null);
 
     // Email customer if they have an email
     if (appt.client_email) {
@@ -882,7 +898,7 @@ export default function AppointmentsPage() {
   const scopeApts = appointments;
   const confirmed = scopeApts.filter(a => a.status === "confirmed").length;
   const noShows = scopeApts.filter(a => a.status === "no-show").length;
-  const revenue = scopeApts.filter(a => a.status === "completed").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const revenue = scopeApts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + (a.total_amount ?? 0), 0);
   const scopeLabel = pickedDate ? friendlyDate(pickedDate) : (DATE_FILTERS.find(f => f.key === dateFilter)?.label ?? "Today");
   const totalLabel = (!pickedDate && dateFilter === "today") ? "Total Today"
     : (!pickedDate && dateFilter === "tomorrow") ? "Total Tomorrow"

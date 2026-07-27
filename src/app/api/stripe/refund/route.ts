@@ -64,6 +64,15 @@ export async function POST(request: NextRequest) {
       .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
       .eq("id", appointment_id);
 
+    // Also flag the completion/no-show ledger row so barber earnings + analytics
+    // stop counting this revenue/commission immediately — don't wait on the
+    // charge.refunded webhook (which may be missed or not registered as a
+    // Connect event). Best-effort; the webhook still syncs as a backstop.
+    if (appt.payment_intent_id) {
+      await supabaseAdmin.from("transactions")
+        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).then(null, () => null);
+    }
+
     // In-app alert to owner + barber (realtime pop-up + chime).
     notifyRefundIssued({
       ownerId: shop.owner_id,

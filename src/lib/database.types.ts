@@ -146,7 +146,7 @@ export interface Appointment {
    *  service's duration_minutes. */
   duration_minutes?: number;
   payment_method?: PaymentMethod;
-  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved";
+  payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved" | "voided";
   payment_intent_id?: string;
   /** Stripe Checkout session for a sent payment/checkout link. Its presence on an
    *  unpaid row drives the "Awaiting payment" tag (see paymentTag). */
@@ -196,6 +196,9 @@ export interface Transaction {
   commission_amount?: number;
   payment_method?: PaymentMethod;
   type: "service" | "product" | "tip";
+  refunded?: boolean;
+  payment_intent_id?: string | null;
+  source?: string | null;
   created_at: string;
 }
 

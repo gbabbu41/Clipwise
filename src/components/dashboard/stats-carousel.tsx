@@ -35,7 +35,7 @@ export function StatsCarousel({
 
   const revenueByBarber = (() => {
     const m: Record<string, number> = {};
-    completed.forEach(a => { if (a.barber_id) m[a.barber_id] = (m[a.barber_id] ?? 0) + (a.total_amount ?? 0); });
+    completed.forEach(a => { if (a.barber_id && a.payment_status !== "refunded") m[a.barber_id] = (m[a.barber_id] ?? 0) + (a.total_amount ?? 0); });
     return Object.entries(m)
       .map(([id, rev]) => ({ name: (barbers.find(b => b.id === id)?.name ?? "—").split(" ")[0], revenue: rev }))
       .sort((a, b) => b.revenue - a.revenue).slice(0, 5);

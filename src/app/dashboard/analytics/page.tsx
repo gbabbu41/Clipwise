@@ -78,7 +78,10 @@ export default function AnalyticsPage() {
   const lastMonth = new Date(new Date(today).setMonth(new Date(today).getMonth() - 1)).toISOString().slice(0, 7);
 
   const filteredTx = useMemo(() => {
-    let list = transactions;
+    // Drop refunded transactions everywhere — a refunded charge must not keep
+    // inflating revenue / tips / per-barber / per-service totals (the barber
+    // earnings API already excludes these; analytics was the odd one out).
+    let list = transactions.filter(t => !t.refunded);
     if (barberFilter !== "all") list = list.filter(t => t.barber_id === barberFilter);
     if (period === "today") list = list.filter(t => t.created_at.startsWith(today));
     else if (period === "week") {
@@ -112,7 +115,7 @@ export default function AnalyticsPage() {
     }
     // If no transactions, build date range from appointments
     if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed")) {
+      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
         if (!map[a.date]) map[a.date] = { revenue: 0, appointments: 0 };
         map[a.date].revenue += a.total_amount;
         map[a.date].appointments += 1;
@@ -126,7 +129,7 @@ export default function AnalyticsPage() {
 
   // KPIs
   const totalRevenue = filteredTx.reduce((s, t) => s + t.amount + t.tip, 0)
-    || filteredAppts.filter(a => a.status === "completed").reduce((s, a) => s + a.total_amount, 0);
+    || filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + a.total_amount, 0);
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
@@ -142,7 +145,7 @@ export default function AnalyticsPage() {
     }
     // Fallback to appointments if no transactions
     if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed")) {
+      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
         map[a.barber_id] = (map[a.barber_id] ?? 0) + a.total_amount;
       }
     }
@@ -157,7 +160,7 @@ export default function AnalyticsPage() {
       map[tx.service_name] = (map[tx.service_name] ?? 0) + tx.amount;
     }
     if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed")) {
+      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
         // Resolve the service_id to its real name; fall back to "Unknown"
         // so the chart never renders a raw UUID.
         const key = (a.service_id && serviceNames[a.service_id]) || "Unknown";
@@ -418,7 +421,9 @@ export default function AnalyticsPage() {
                     const bAppts = filteredAppts.filter(a => a.barber_id === b.id);
                     const bCompleted = bAppts.filter(a => a.status === "completed");
                     const bNoShows = bAppts.filter(a => a.status === "no-show").length;
-                    const bRevenue = bCompleted.reduce((s, a) => s + a.total_amount, 0);
+                    // Revenue excludes refunded completed appts (money handed back);
+                    // the completed COUNT keeps them (the service was still rendered).
+                    const bRevenue = bCompleted.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + a.total_amount, 0);
                     const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (

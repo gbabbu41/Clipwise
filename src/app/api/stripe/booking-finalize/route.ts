@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
+import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
@@ -81,18 +82,38 @@ export async function POST(request: NextRequest) {
       // service duration) so the re-check reserves the whole block.
       const mDuration = Number(m.duration_minutes ?? 0) > 0 ? Number(m.duration_minutes) : (fSvc?.duration_minutes ?? 30);
       const fEnd = fStart + mDuration;
-      if (await barberHasConflict(m.barber_id, m.date, fStart, fEnd)) {
+
+      // Best-effort money reversal when we must refuse the booking AFTER the
+      // customer already paid/authorized (a slot lost, or the barber's schedule
+      // got blocked, in the window between checkout and this finalize).
+      const reverseMoney = async () => {
         try {
           if (isHold && paymentIntentId) {
             await stripe.paymentIntents.cancel(paymentIntentId, undefined, acctOpts);
           } else if (!isHold && !isSave && paymentIntentId) {
             await stripe.refunds.create({ payment_intent: paymentIntentId }, acctOpts);
           }
-        } catch { /* best-effort reversal — surface the conflict regardless */ }
+        } catch { /* best-effort reversal — surface the reason regardless */ }
+      };
+
+      if (await barberHasConflict(m.barber_id, m.date, fStart, fEnd)) {
+        await reverseMoney();
         return NextResponse.json(
           { error: isSave
               ? "That time was just booked by someone else. Please pick another slot."
               : "That time was just booked by someone else. Your payment was reversed — please pick another slot." },
+          { status: 409 },
+        );
+      }
+
+      // Barber's schedule (approved time-off / recurring break) — same guard the
+      // customer's slot list obeys. Owner may approve a vacation while the
+      // customer sits on the payment step; don't create a paid booking onto it.
+      const blockReason = await scheduleBlockReason(m.shop_id, m.barber_id, m.date, fStart, fEnd, { includeBreaks: true });
+      if (blockReason) {
+        await reverseMoney();
+        return NextResponse.json(
+          { error: isSave ? blockReason : `${blockReason} Your payment was reversed.` },
           { status: 409 },
         );
       }
