@@ -969,20 +969,23 @@ export default function BookingPage() {
   // one common barber (time-first) or the picked barber (barber-first).
   const bookingInterval = slotIntervalOf(shop);
   const slotsNeeded = Math.max(1, Math.ceil((totalDuration || bookingInterval) / bookingInterval));
-  const slotGridForBlock = slotGrid.filter((s, i) => {
-    if (!s.available) return false;
-    if (slotsNeeded === 1) return true;
-    // For each of the next (slotsNeeded - 1) slots, require availability
-    // AND for time-first, require at least one barber in common across the block
+  const slotGridForBlock = slotGrid.flatMap((s, i) => {
+    if (!s.available) return [];
+    if (slotsNeeded === 1) return [{ ...s }];
+    // For each of the next (slotsNeeded - 1) slots, require availability AND (for
+    // time-first) at least one barber free across the WHOLE block.
     let intersection = new Set(s.barberIds);
     for (let j = 1; j < slotsNeeded; j++) {
       const next = slotGrid[i + j];
-      if (!next || !next.available) return false;
+      if (!next || !next.available) return [];
       intersection = new Set(Array.from(intersection).filter(id => next.barberIds.includes(id)));
-      if (intersection.size === 0) return false;
+      if (intersection.size === 0) return [];
     }
-    return true;
-  }).map(s => ({ ...s }));
+    // Attach the block-wide common barbers so "any barber" assigns one that's
+    // free for the FULL duration. Using the start slot's barbers let a barber
+    // who's free at 9:15 but booked at 9:30 get a 45-min booking → double-book.
+    return [{ ...s, barberIds: Array.from(intersection) }];
+  });
 
   // Steps — Date + Time merged into one Apple-style "When" step.
   const STEPS_TIME_FIRST = ["Service", "When", "Your Info", "Promo", "Confirm"];
