@@ -1,18 +1,26 @@
 -- phase31_overlap_ignore_refunded.sql
 -- Make the DB overlap guard agree with the app's universal occupancy rule:
 -- a REFUNDED booking no longer holds its chair — even one that was checked out
--- early (status 'completed') and then refunded. Without this, the phase18
+-- early (status 'completed') and then refunded. Without this, the overlap
 -- trigger still counts a refunded 'completed' row as occupying, so nobody
 -- (customer OR owner) can re-book that freed slot — the insert is rejected with
 -- "OVERLAP" even though the app already treats the time as free.
 --
--- Only the overlap TRIGGER needs changing: the phase4 unique index is scoped to
+-- This is a create-or-replace of the SAME function you already run — it PRESERVES
+-- the phase29 concurrency advisory lock and the search_path hardening, and only
+-- adds the two 'refunded' conditions. Function-only replace (the phase18 trigger
+-- keeps pointing at it), so there's never a window where the guard is off.
+--
+-- Only the overlap trigger needs changing: the phase4 unique index is scoped to
 -- ('pending','confirmed') and never sees a refunded/completed row.
 --
--- Safe to run multiple times (create or replace).
+-- Safe to run multiple times.
 
 create or replace function public.clipwise_prevent_overlap()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $function$
 declare
   new_start int;
   new_dur int;
@@ -28,9 +36,7 @@ begin
   if NEW.barber_id is null then
     return NEW;
   end if;
-  -- On UPDATE, only check when the time window actually MOVES. A status/payment/
-  -- name change can't create an overlap and shouldn't be blocked by a pre-existing
-  -- one (e.g. completing one of two legacy-overlapping rows).
+  -- On UPDATE, only check when the time window actually MOVES.
   if TG_OP = 'UPDATE'
      and OLD.barber_id is not distinct from NEW.barber_id
      and OLD.date is not distinct from NEW.date
@@ -39,7 +45,9 @@ begin
   then
     return NEW;
   end if;
-
+  -- phase29: serialize concurrent inserts for the same barber+date so two
+  -- simultaneous bookings can't both pass the check below.
+  perform pg_advisory_xact_lock(hashtext(NEW.barber_id::text || '|' || NEW.date::text));
   new_start := public.clipwise_slot_minutes(NEW.time_slot);
   if new_start is null then
     return NEW; -- unparseable time — don't block, let other guards handle it
@@ -50,7 +58,6 @@ begin
     30
   );
   new_end := new_start + greatest(new_dur, 1);
-
   if exists (
     select 1
     from public.appointments a
@@ -69,14 +76,6 @@ begin
     raise exception 'OVERLAP: that time overlaps another booking for this barber'
       using errcode = 'P0001';
   end if;
-
   return NEW;
 end;
-$$;
-
--- Trigger already exists (phase18) and calls this function by name, so replacing
--- the function is enough. Re-create defensively in case phase18 wasn't run.
-drop trigger if exists trg_clipwise_prevent_overlap on public.appointments;
-create trigger trg_clipwise_prevent_overlap
-  before insert or update on public.appointments
-  for each row execute function public.clipwise_prevent_overlap();
+$function$;
