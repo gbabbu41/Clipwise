@@ -46,7 +46,10 @@ export async function POST(request: NextRequest) {
     .select("id, shop_id, barber_id, client_name, client_email, date, time_slot, total_amount, payment_status, status, stripe_checkout_session_id, services(name)")
     .eq("shop_id", shop.id)
     .not("stripe_checkout_session_id", "is", null)
-    .neq("payment_status", "paid")
+    // Only truly-unpaid rows are catch-up candidates. Never re-touch refunded or
+    // captured rows (a refunded-but-status-completed row would otherwise be
+    // reverted to paid here + fire a bogus "Payment collected" notification).
+    .in("payment_status", ["unpaid", "failed"])
     .in("status", ["pending", "confirmed", "completed"])
     .gte("date", cutoff)
     .limit(25);

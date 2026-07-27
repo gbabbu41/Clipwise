@@ -119,7 +119,12 @@ export async function markAppointmentPaid(args: {
       ...(paymentIntentId ? { payment_intent_id: paymentIntentId } : {}),
     })
     .eq("id", appt.id)
-    .neq("payment_status", "paid")
+    // Only ever promote a genuinely-unpaid booking. Using .neq("paid") let a
+    // REFUNDED or CAPTURED (no-show) row get flipped to paid + re-notified — e.g.
+    // reconcile-payments re-checking Stripe after a refund would revert it and
+    // fire a bogus "Payment collected". Restrict to real unpaid states so a
+    // refunded/captured/paid row is never touched (matches the webhook filter).
+    .in("payment_status", ["unpaid", "held", "saved", "failed"])
     .select("id");
 
   if ((claimed?.length ?? 0) === 0) return false;
