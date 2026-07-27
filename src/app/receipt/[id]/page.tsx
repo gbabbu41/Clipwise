@@ -9,7 +9,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
 
 interface ReceiptRow extends Transaction {
-  shops?: { name: string; address: string; city: string; province: string; phone: string } | null;
+  shops?: { name: string; address: string; city: string; province: string; phone: string; booking_settings?: { tax_number?: string } | null } | null;
   barbers?: { name: string } | null;
 }
 
@@ -27,7 +27,7 @@ export default function ReceiptPage() {
     (async () => {
       const { data } = await supabase
         .from("transactions")
-        .select("*, shops(name, address, city, province, phone), barbers(name)")
+        .select("*, shops(name, address, city, province, phone, booking_settings), barbers(name)")
         .eq("id", id)
         .single();
       if (!data) { setNotFound(true); setLoading(false); return; }
@@ -89,6 +89,9 @@ export default function ReceiptPage() {
             )}
             {tx.shops?.phone && (
               <p className="text-xs text-[#6e6e6e]">{tx.shops.phone}</p>
+            )}
+            {tx.shops?.booking_settings?.tax_number && (
+              <p className="text-xs text-[#6e6e6e] mt-1">GST/HST No. {tx.shops.booking_settings.tax_number}</p>
             )}
           </div>
 

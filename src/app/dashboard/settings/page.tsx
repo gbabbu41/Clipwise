@@ -6,7 +6,7 @@ import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
-import { taxPresetFor, clampTaxRate } from "@/lib/pricing";
+import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -320,9 +320,23 @@ export default function SettingsPage() {
       // Surface the real failure — silently "saving locally" hid settings (like
       // Auto-Confirm) never reaching the DB, so the booking page never saw them.
       showToast(`Couldn't save settings: ${error.message}`);
-    } else {
-      showToast("Booking settings saved!");
+      setSaving(false);
+      return;
     }
+    // The GST/HST number is ONE number for all the owner's shops, so propagate it
+    // to every location (not just the active shop). The route validates the format.
+    const gst = (booking.tax_number ?? "").trim();
+    if (gst && !isValidGstNumber(gst)) {
+      showToast("Settings saved, but the GST/HST number looks invalid — tax won't be charged until it's fixed.");
+      setSaving(false);
+      return;
+    }
+    const res = await fetch("/api/tax/registration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+      body: JSON.stringify({ gst_number: gst }),
+    }).catch(() => null);
+    showToast(res?.ok ? "Booking settings saved!" : "Settings saved (couldn't sync the GST number across locations).");
     setSaving(false);
   };
 
@@ -653,8 +667,8 @@ export default function SettingsPage() {
             <div className="p-4 bg-card-raised rounded-xl border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <div className="pr-4">
-                  <p className="text-sm font-medium text-foreground">Charge sales tax</p>
-                  <p className="text-xs text-grey">Add tax to online bookings and POS sales. You are responsible for remitting collected tax.</p>
+                  <p className="text-sm font-medium text-foreground">Charge GST/HST</p>
+                  <p className="text-xs text-grey">Turn on only if you&rsquo;re registered to collect GST/HST. Add your number below — tax won&rsquo;t be charged without it.</p>
                 </div>
                 <Toggle value={booking.tax_enabled} onChange={() => setBooking(p => ({ ...p, tax_enabled: !p.tax_enabled }))} />
               </div>
@@ -688,13 +702,21 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-grey font-medium uppercase tracking-wide">Tax / GST number (optional, shown on receipts)</label>
+                    <label className="text-xs text-grey font-medium uppercase tracking-wide">GST/HST number</label>
                     <input value={booking.tax_number}
                       onChange={e => setBooking(p => ({ ...p, tax_number: e.target.value.slice(0, 40) }))}
-                      placeholder="12345 6789 RT0001"
+                      placeholder="123456789RT0001"
                       className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                    {(booking.tax_number ?? "").trim() && !isValidGstNumber(booking.tax_number) ? (
+                      <p className="text-[11px] text-red-400 mt-1">That doesn&rsquo;t look like a valid GST/HST number (e.g. 123456789RT0001).</p>
+                    ) : (
+                      <p className="text-[11px] text-grey mt-1">
+                        Required to charge tax — you can only collect GST/HST if you&rsquo;re registered.
+                        This number is <span className="text-foreground">shared across all your locations</span> and printed on receipts.
+                      </p>
+                    )}
                   </div>
-                  <p className="text-[11px] text-grey">Tax applies to the service amount (after any discount). Tips are never taxed. Verify PST applicability for your province &amp; services.</p>
+                  <p className="text-[11px] text-grey">Tax applies to the service amount (after any discount). Tips are never taxed. You&rsquo;re responsible for your own tax registration &amp; remittance — verify PST/QST applicability for your province &amp; services.</p>
                 </div>
               )}
             </div>

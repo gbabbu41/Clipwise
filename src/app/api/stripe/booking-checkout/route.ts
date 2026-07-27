@@ -7,7 +7,7 @@ import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
-import { taxCents } from "@/lib/pricing";
+import { taxCents, shopChargesTax } from "@/lib/pricing";
 import { resolveServiceCharge } from "@/lib/service-pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
@@ -145,7 +145,9 @@ export async function POST(request: NextRequest) {
   // amount after discount; tip (immediate full payment only) is added after and
   // is never taxed. The stored appointment total = service + tax (excl. tip).
   const bs = (shop.booking_settings ?? {}) as Record<string, unknown>;
-  const taxRatePct = bs.tax_enabled === true ? Number(bs.tax_rate ?? 0) : 0;
+  // Only charge tax when the shop is flagged taxable AND has a valid GST/HST
+  // number on file — you can't legally charge tax unless you're registered.
+  const taxRatePct = shopChargesTax(bs as { tax_enabled?: boolean; tax_number?: string }) ? Number(bs.tax_rate ?? 0) : 0;
   const tipsEnabled = bs.tips_enabled !== false;
 
   const serviceNetCents = Math.round(effectiveTotal * 100);      // discounted service total, pre-tax

@@ -7,6 +7,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
+import { shopChargesTax } from "@/lib/pricing";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, noShowFeeDollars } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -922,8 +923,10 @@ export default function BookingPage() {
   // ── Sales tax (from the shop's booking_settings JSON) — display only; the
   // server recomputes it authoritatively at checkout. Tax applies to the
   // service amount after any discount. ───────────────────────────────────────
-  const taxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string } | null;
-  const taxEnabled = taxCfg?.tax_enabled === true;
+  const taxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string; tax_number?: string } | null;
+  // Mirror the server rule so the shown total matches what's charged: tax only
+  // when registered (valid GST/HST number on file).
+  const taxEnabled = shopChargesTax(taxCfg);
   const taxRatePct = taxEnabled ? Number(taxCfg?.tax_rate ?? 0) : 0;
   const taxAmount = taxEnabled ? Math.round(total * taxRatePct) / 100 : 0;
   const taxLabel = (taxCfg?.tax_label || "Tax").trim();

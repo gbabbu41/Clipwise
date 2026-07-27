@@ -22,6 +22,29 @@ export const CANADA_TAX_PRESETS: { province: string; label: string; rate: number
   { province: "YT", label: "GST", rate: 5 },
 ];
 
+/** Normalize a GST/HST number for storage/display: strip spaces + dashes, upper-case. */
+export function normalizeGstNumber(raw: string | null | undefined): string {
+  return (raw ?? "").replace(/[\s-]/g, "").toUpperCase();
+}
+
+/**
+ * A valid Canadian GST/HST number is a 9-digit Business Number, optionally with
+ * the "RT" program account + 4-digit reference (e.g. 123456789RT0001). We accept
+ * BOTH the bare BN and the full RT form so owners aren't blocked on formatting.
+ * (This is a format check only — CRA-registry verification is a later phase.)
+ */
+export function isValidGstNumber(raw: string | null | undefined): boolean {
+  const s = normalizeGstNumber(raw);
+  return /^\d{9}$/.test(s) || /^\d{9}RT\d{4}$/.test(s);
+}
+
+/** A shop only charges tax when it's flagged taxable AND a GST/HST number is on
+ *  file — you can't legally charge tax unless you're registered. Single source of
+ *  truth used by every charge path so the rule is consistent. */
+export function shopChargesTax(bs: { tax_enabled?: boolean; tax_number?: string | null } | null | undefined): boolean {
+  return !!bs && bs.tax_enabled === true && isValidGstNumber(bs.tax_number);
+}
+
 export function taxPresetFor(province: string | null | undefined) {
   if (!province) return null;
   const p = province.trim().toUpperCase();
