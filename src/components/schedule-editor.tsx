@@ -289,13 +289,13 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
               {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-card-raised">{t.label}</option>)}
             </select>
             <div className="flex items-center gap-2 text-sm">
-              <input type="date" value={offForm.start_date} min={todayISO()} style={{ colorScheme: "dark" }}
+              <input type="date" value={offForm.start_date} min={todayISO()}
                 onChange={e => setOffForm(f => ({ ...f, start_date: e.target.value, end_date: f.end_date < e.target.value ? e.target.value : f.end_date }))}
-                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white" />
+                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white [color-scheme:dark]" />
               <span className="text-grey-muted flex-shrink-0">to</span>
-              <input type="date" value={offForm.end_date} min={offForm.start_date} style={{ colorScheme: "dark" }}
+              <input type="date" value={offForm.end_date} min={offForm.start_date}
                 onChange={e => setOffForm(f => ({ ...f, end_date: e.target.value }))}
-                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white" />
+                className="flex-1 min-w-0 rounded-lg bg-card-raised border border-border text-foreground px-3 py-2 focus:outline-none focus:border-white [color-scheme:dark]" />
             </div>
             {offForm.type === "blocked_hours" && (
               <div className="flex items-center gap-2 text-sm">

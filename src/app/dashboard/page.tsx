@@ -687,7 +687,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="cwd-calscroll">
                   <div className="cwd-calgrid" style={cols}>
-                    <div style={{ borderBottom: "1px solid #1e1e1e" }} />
+                    <div style={{ borderBottom: "1px solid var(--border)" }} />
                     {weekDays.map(d => {
                       const isToday = formatDateForDb(d) === todayKey;
                       return (

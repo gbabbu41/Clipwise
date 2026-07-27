@@ -66,7 +66,7 @@ export function StatsCarousel({
   // — so tapping a bar shows its value without the popup covering / blocking the
   // neighbouring bars. Shared by every chart so the behaviour is global.
   const tip = {
-    contentStyle: { borderRadius: 10, border: "1px solid #1e1e1e", background: "#141414", color: "#fff", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.35)" },
+    contentStyle: { borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(20,22,28,0.18)" },
     wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
     position: { y: 0 },
     allowEscapeViewBox: { x: true, y: true },

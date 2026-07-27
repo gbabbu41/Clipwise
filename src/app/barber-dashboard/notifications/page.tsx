@@ -23,8 +23,8 @@ const classify = (n: { title: string; message: string; type: string }) => {
   if (/block|hours|time.?off|vacation|day off/.test(s)) { const act = /request/.test(s); return k(Clock, act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "Request" : "Schedule", act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "#f59e0b" : "#38bdf8", act); }
   if (n.type === "review" || /review|\bstar\b/.test(s)) return k(Star, "bg-yellow-500/15 text-yellow-300", "Review", "bg-yellow-500/15 text-yellow-300", "#eab308");
   if (/approved|confirmed/.test(s)) return k(CheckCircle2, "bg-emerald-500/15 text-emerald-300", "Confirmed", "bg-emerald-500/15 text-emerald-300", "#10b981");
-  if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) { const p = /pending|approval|request|awaiting/.test(s) || n.type === "booking"; return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "#3a3a3a", p); }
-  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "#3a3a3a");
+  if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) { const p = /pending|approval|request|awaiting/.test(s) || n.type === "booking"; return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "var(--border-strong)", p); }
+  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "var(--border-strong)");
 };
 const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;

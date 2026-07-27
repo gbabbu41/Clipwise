@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
+// Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
+// active theme). Was hardcoded dark — a black tooltip floating over the light UI.
 const DARK_TOOLTIP = {
-  contentStyle: { background: "#2C2C2E", border: "1px solid #2C2C2E", borderRadius: 12, color: "#fff", fontSize: 12 },
-  cursor: { fill: "rgba(245, 240, 230,0.08)" },
+  contentStyle: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)", fontSize: 12 },
+  cursor: { fill: "rgba(20,22,28,0.05)" },
 };
 // Chart palette — medium tones chosen to read on BOTH the dark and light theme
 // (the old cream/white marks vanished on the white light-theme plot).
@@ -299,9 +301,9 @@ export default function AnalyticsPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={revenueByDay} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2C2C2E" />
-                <XAxis dataKey="label" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
                 <Line type="monotone" dataKey="revenue" stroke="#4a86d8" strokeWidth={2} dot={false} />
               </LineChart>
@@ -327,9 +329,9 @@ export default function AnalyticsPage() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={barberRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2C2C2E" />
-                    <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 12 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="name" tick={{ fill: "var(--grey)", fontSize: 12 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
                     <Bar dataKey="revenue" fill="#4a86d8" radius={[6, 6, 0, 0]} />
                   </BarChart>
@@ -389,9 +391,9 @@ export default function AnalyticsPage() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={hourlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2C2C2E" />
-                    <XAxis dataKey="hour" tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fill: "#9CA3AF", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="hour" tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
                     <Bar dataKey="revenue" fill="#94a3b8" radius={[4, 4, 0, 0]} />
                   </BarChart>

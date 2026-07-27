@@ -11,9 +11,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { Barber, Appointment } from "@/lib/database.types";
 
+// Theme-aware (renders inside `.portal`, CSS vars resolve to the active theme).
 const CHART_TOOLTIP = {
-  contentStyle: { background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, color: "#fff", fontSize: 12 },
-  cursor: { fill: "rgba(245,240,230,0.06)" },
+  contentStyle: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)", fontSize: 12 },
+  cursor: { fill: "rgba(20,22,28,0.05)" },
 };
 
 interface StaffHour {
@@ -220,10 +221,10 @@ export default function PayrollPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#777" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#777" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--grey)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--grey)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
                 <Tooltip {...CHART_TOOLTIP} formatter={(v) => formatCurrency(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12, color: "#777" }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "var(--grey)" }} />
                 <Bar dataKey="Commission" stackId="a" fill="#C9A84C" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Shop keeps" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} />
               </BarChart>
