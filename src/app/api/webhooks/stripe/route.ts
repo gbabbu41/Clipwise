@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
+import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
@@ -271,6 +272,24 @@ export async function POST(request: NextRequest) {
             const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", userId);
             const included = getLocationLimit(plan);
             await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
+          }
+        } else if (session.metadata?.shop_id && session.metadata?.date && session.metadata?.time_slot) {
+          // ── New online booking, FALLBACK creation ────────────────────────────
+          // A pay/hold/save booking normally becomes an appointment when the
+          // customer returns to /booking-finalize. If they close the tab first,
+          // this is the safety net so a paid booking is never lost. Fully
+          // idempotent — if the return path already created it, this dedupes and
+          // does nothing (and never reverses money for the same-session race).
+          const { data: bShop } = await supabaseAdmin
+            .from("shops").select("stripe_account_id, stripe_connected").eq("id", session.metadata.shop_id).maybeSingle();
+          if (bShop) {
+            const bUseConnect = !!(bShop.stripe_account_id && bShop.stripe_connected);
+            const result = await finalizeBookingFromSession({
+              session, useConnect: bUseConnect, stripeAccountId: bShop.stripe_account_id ?? null, baseUrl: BASE_URL,
+            });
+            if (result.status === "error" || result.status === "conflict") {
+              console.warn("[webhook] booking fallback", result.status, result.message);
+            }
           }
         }
         break;
