@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { notifyRefundIssued } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+// Stripe throws when a charge was already refunded (e.g. an earlier attempt
+// went through but our record drifted). Treat that as success and sync.
+function isAlreadyRefunded(err: unknown): boolean {
+  const e = err as { code?: string; raw?: { code?: string }; message?: string };
+  const code = e?.code ?? e?.raw?.code ?? "";
+  return code === "charge_already_refunded" || /already been refunded|already refunded/i.test(e?.message ?? "");
+}
 
 /**
  * Refund a *settled* card payment from the Payments page WITHOUT cancelling the
@@ -41,11 +50,22 @@ export async function POST(request: NextRequest) {
     try {
       await stripe.refunds.create({ payment_intent: appt.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+      if (!isAlreadyRefunded(err)) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+      }
     }
 
     // Keep the appointment as-is (service happened) — only flag the money refunded.
     await supabaseAdmin.from("appointments").update({ payment_status: "refunded" }).eq("id", appointment_id);
+
+    // In-app alert to owner + barber (realtime pop-up + chime).
+    notifyRefundIssued({
+      ownerId: shop.owner_id,
+      barberId: appt.barber_id,
+      clientName: appt.client_name,
+      amountCents: Math.round((appt.total_amount ?? 0) * 100),
+      date: appt.date,
+    });
 
     if (appt.client_email) {
       fetch(`${BASE_URL}/api/send-email`, {
@@ -66,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   // ── POS / standalone transaction refund ─────────────────────────────────────
   const { data: tx } = await supabaseAdmin
-    .from("transactions").select("id, shop_id, payment_intent_id, refunded").eq("id", transaction_id!).single();
+    .from("transactions").select("id, shop_id, payment_intent_id, refunded, amount, client_name, barber_id, created_at").eq("id", transaction_id!).single();
   if (!tx) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
 
   const { data: shop } = await supabaseAdmin
@@ -80,8 +100,17 @@ export async function POST(request: NextRequest) {
   try {
     await stripe.refunds.create({ payment_intent: tx.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+    if (!isAlreadyRefunded(err)) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+    }
   }
   await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
+  notifyRefundIssued({
+    ownerId: shop.owner_id,
+    barberId: tx.barber_id,
+    clientName: tx.client_name,
+    amountCents: Math.round((tx.amount ?? 0) * 100),
+    date: typeof tx.created_at === "string" ? tx.created_at.slice(0, 10) : null,
+  });
   return NextResponse.json({ ok: true });
 }
