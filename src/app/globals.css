@@ -212,6 +212,10 @@ html[data-theme="light"] .portal .ring-offset-\[\#0a0a0a\] { --tw-ring-offset-co
 /* Header bell icon (pale blue on white card) → readable accent-blue. */
 html[data-theme="light"] .portal .cwd-icobtn { color: #3f6fb2; }
 
+/* Sidebar reads as a distinct "chrome" panel — a hair greyer than the white
+   page/cards so the nav separates cleanly instead of blending. Light only. */
+html[data-theme="light"] .portal .cw-sidebar { background: #eaeaea; }
+
 /* `gold` = white (the dark-theme accent). On a light page every text-gold /
    border-gold / ring-gold icon is white-on-white = invisible (shop-switcher
    icon, checkmarks, etc.). In light, map them to visible tokens. Dark keeps

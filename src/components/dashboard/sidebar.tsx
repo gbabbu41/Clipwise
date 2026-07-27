@@ -516,7 +516,7 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
