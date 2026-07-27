@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { notifyRefundIssued } from "@/lib/payment-notify";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -57,6 +58,15 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.from("appointments")
       .update({ status: "cancelled", payment_status: "refunded" })
       .eq("id", appointment_id);
+
+    // In-app alert to owner + barber (realtime pop-up + chime).
+    notifyRefundIssued({
+      ownerId: shop.owner_id,
+      barberId: appt.barber_id,
+      clientName: appt.client_name,
+      amountCents: Math.round((appt.total_amount ?? 0) * 100),
+      date: appt.date,
+    });
 
     // Email the customer
     if (appt.client_email) {

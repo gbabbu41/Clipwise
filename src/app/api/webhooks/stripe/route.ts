@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
@@ -367,15 +367,30 @@ export async function POST(request: NextRequest) {
           ? ch.payment_intent
           : (ch.payment_intent?.id ?? null);
         if (pi && ch.refunded) {
-          await supabaseAdmin.from("appointments")
+          // Only rows this event actually flips (were not already refunded) get
+          // notified — so an in-app refund (which already set refunded + notified
+          // in the route) doesn't double-notify; only dashboard-initiated refunds
+          // land here fresh.
+          const { data: flipped } = await supabaseAdmin.from("appointments")
             .update({ payment_status: "refunded" })
             .eq("payment_intent_id", pi)
             .neq("payment_status", "refunded")
-            .then(null, () => null);
+            .select("shop_id, barber_id, client_name, total_amount, date")
+            .maybeSingle();
           await supabaseAdmin.from("transactions")
             .update({ refunded: true })
             .eq("payment_intent_id", pi)
             .then(null, () => null);
+          if (flipped) {
+            const { data: refShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", flipped.shop_id).maybeSingle();
+            notifyRefundIssued({
+              ownerId: refShop?.owner_id ?? null,
+              barberId: flipped.barber_id ?? null,
+              clientName: flipped.client_name,
+              amountCents: Math.round((flipped.total_amount ?? 0) * 100),
+              date: flipped.date,
+            });
+          }
         }
         break;
       }

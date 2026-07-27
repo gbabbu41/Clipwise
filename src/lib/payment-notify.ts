@@ -79,6 +79,35 @@ export async function notifyNoShowCharged(args: {
   ).then(null, () => null);
 }
 
+/**
+ * In-app alert to the owner + assigned barber that a payment was refunded.
+ * Fired from the in-app Refund route and (de-duped) from the Stripe webhook so
+ * dashboard-initiated refunds notify too. type "cancellation" (CHECK-allowed).
+ */
+export async function notifyRefundIssued(args: {
+  ownerId?: string | null;
+  barberId?: string | null;   // barbers.id (resolved to its linked user)
+  clientName?: string | null;
+  amountCents?: number;
+  date?: string | null;
+}): Promise<void> {
+  const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const niceDate = prettyDate(args.date);
+  const message = `Refunded ${args.clientName ?? "a client"}${amt}${niceDate ? ` for ${niceDate}` : ""}. The money has been returned to their card.`;
+
+  const recipients = new Set<string>();
+  if (args.ownerId) recipients.add(args.ownerId);
+  if (args.barberId) {
+    const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", args.barberId).maybeSingle();
+    if (b?.user_id) recipients.add(b.user_id);
+  }
+  if (recipients.size === 0) return;
+
+  await supabaseAdmin.from("notifications").insert(
+    Array.from(recipients).map(uid => ({ user_id: uid, title: "↩️ Refund issued", message, type: "cancellation", is_read: false })),
+  ).then(null, () => null);
+}
+
 export async function notifyChargeFailed(args: {
   ownerId?: string | null;
   clientName?: string | null;

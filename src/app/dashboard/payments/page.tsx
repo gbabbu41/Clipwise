@@ -107,7 +107,7 @@ export default function PaymentsPage() {
   // Row expand + tx filter
   const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
   const [refunding, setRefunding] = useState(false);
-  const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid">("all");
+  const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid" | "refunded">("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   // Per-barber earnings window — mirrors the barber's own earnings page so the
@@ -485,13 +485,14 @@ export default function PaymentsPage() {
     .filter(i => !barberName || i.appt?.barbers?.name === barberName)
     .filter(i => {
       if (txFilter === "card") return i.method !== "cash" && i.settled;
-      if (txFilter === "cash") return i.method === "cash";
+      if (txFilter === "cash") return i.method === "cash" && !i.refunded;
       if (txFilter === "unpaid") return !i.settled && !i.refunded;
+      if (txFilter === "refunded") return i.refunded;
       return true;
     });
 
   const selectedBarberLabel = selectedBarber === "all" ? "All barbers" : (barbers.find(b => b.id === selectedBarber)?.name ?? "All barbers");
-  const filterLabels: Record<string, string> = { all: "All", card: "Card", cash: "Cash", unpaid: "Unpaid" };
+  const filterLabels: Record<string, string> = { all: "All", card: "Card", cash: "Cash", unpaid: "Unpaid", refunded: "Refunded" };
 
   if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")) {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
@@ -655,7 +656,7 @@ export default function PaymentsPage() {
       {/* ── Statement ──────────────────────────────────────────────────────── */}
       <div className="cwp-txhead"><h2>Transactions</h2></div>
       <div className="cwp-seg">
-        {(["all", "card", "cash", "unpaid"] as const).map(f => (
+        {(["all", "card", "cash", "unpaid", "refunded"] as const).map(f => (
           <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>{filterLabels[f]}</button>
         ))}
       </div>
