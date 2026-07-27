@@ -558,6 +558,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
+  const refunded = appt.payment_status === "refunded";
   // Outstanding = a real balance not yet settled and not on a held/saved card
   // (those auto-charge on Complete). Drives the standalone "Take Payment" button.
   const outstanding = (appt.total_amount ?? 0) > 0
@@ -567,7 +568,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const amt = Number(appt.total_amount ?? 0);
   // A checkout link is out and the customer hasn't paid yet — keep the Check out
   // button but surface that we're waiting (paying the link auto-completes).
-  const awaiting = !paid && !!appt.stripe_checkout_session_id;
+  const awaiting = !paid && !refunded && !!appt.stripe_checkout_session_id;
 
   // Slide the drawer up on mount; on close, slide down then unmount.
   const [shown, setShown] = useState(false);
@@ -581,6 +582,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const methodWord = appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card";
   const badge = paid
     ? { text: `Paid · ${methodWord}`, cls: "bg-[#00e5a0]/10 text-[#00e5a0]" }
+    : refunded
+      ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
       ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
       : awaiting
