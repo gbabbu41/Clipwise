@@ -55,8 +55,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Keep the appointment as-is (service happened) — only flag the money refunded.
-    await supabaseAdmin.from("appointments").update({ payment_status: "refunded" }).eq("id", appointment_id);
+    // Free the chair only when the service HASN'T happened yet: an upcoming
+    // (pending/confirmed) booking is cancelled so its slot re-opens (and the
+    // waitlist is pinged); a completed/no-show booking keeps its record — the
+    // slot was already used — and we just flag the money refunded.
+    const served = appt.status === "completed" || appt.status === "no-show";
+    await supabaseAdmin.from("appointments")
+      .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
+      .eq("id", appointment_id);
+    if (!served) {
+      fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id }),
+      }).catch(() => null);
+    }
 
     // In-app alert to owner + barber (realtime pop-up + chime).
     notifyRefundIssued({

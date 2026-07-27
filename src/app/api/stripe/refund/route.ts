@@ -55,8 +55,13 @@ export async function POST(request: NextRequest) {
     }
     // (If no payment_intent — e.g. cash booking — we still mark it refunded for records)
 
+    // Free the chair only when the service HASN'T happened yet. An upcoming
+    // (pending/confirmed) booking is cancelled so its slot re-opens; a completed
+    // or no-show booking keeps its record (service rendered / slot already used) —
+    // we just flag the money refunded.
+    const served = appt.status === "completed" || appt.status === "no-show";
     await supabaseAdmin.from("appointments")
-      .update({ status: "cancelled", payment_status: "refunded" })
+      .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
       .eq("id", appointment_id);
 
     // In-app alert to owner + barber (realtime pop-up + chime).
@@ -89,12 +94,15 @@ export async function POST(request: NextRequest) {
       }).catch(() => null);
     }
 
-    // Smart waitlist: a refunded booking frees its slot — ping waiters for that day.
-    fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id }),
-    }).catch(() => null);
+    // Smart waitlist: only when we actually freed the slot (cancelled an upcoming
+    // booking) — a completed/no-show refund frees nothing, so don't ping.
+    if (!served) {
+      fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id }),
+      }).catch(() => null);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
