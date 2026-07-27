@@ -35,10 +35,22 @@ export async function POST(request: NextRequest) {
   try {
     // Real Stripe refund when there's a captured payment on the connected account
     if (appt.payment_intent_id && shop.stripe_account_id) {
-      await stripe.refunds.create(
-        { payment_intent: appt.payment_intent_id },
-        { stripeAccount: shop.stripe_account_id }
-      );
+      try {
+        await stripe.refunds.create(
+          { payment_intent: appt.payment_intent_id },
+          { stripeAccount: shop.stripe_account_id }
+        );
+      } catch (e) {
+        // If Stripe says this charge is ALREADY refunded (e.g. an earlier attempt
+        // succeeded on Stripe but our record drifted back to "paid"), that's a
+        // success from the customer's side — sync our record instead of erroring.
+        // Any other Stripe error is a real failure and must surface.
+        const err = e as { code?: string; raw?: { code?: string }; message?: string };
+        const code = err?.code ?? err?.raw?.code ?? "";
+        const alreadyRefunded = code === "charge_already_refunded"
+          || /already been refunded|already refunded/i.test(err?.message ?? "");
+        if (!alreadyRefunded) throw e;
+      }
     }
     // (If no payment_intent — e.g. cash booking — we still mark it refunded for records)
 
