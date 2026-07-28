@@ -145,6 +145,10 @@ export interface Appointment {
    *  (sum of all picked services). When absent, fall back to the linked
    *  service's duration_minutes. */
   duration_minutes?: number;
+  /** Tip + sales tax captured with the booking (phase30). total_amount INCLUDES
+   *  tax; subtract tax_amount for pre-tax service revenue. */
+  tip_amount?: number;
+  tax_amount?: number;
   payment_method?: PaymentMethod;
   payment_status?: "paid" | "failed" | "refunded" | "unpaid" | "held" | "captured" | "saved" | "voided";
   payment_intent_id?: string;

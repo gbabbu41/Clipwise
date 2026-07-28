@@ -95,7 +95,10 @@ export default function PayrollPage() {
       // flips to "refunded"), so exclude it — otherwise the barber earns
       // commission on money that was handed back to the customer.
       const bAppts = appts.filter(a => a.barber_id === b.id && a.payment_status !== "refunded");
-      const serviceRevenue = bAppts.reduce((s, a) => s + a.total_amount, 0);
+      // Commission is on PRE-TAX service revenue — total_amount includes GST/HST,
+      // and a barber doesn't earn commission on tax (it's remitted to the govt).
+      // Matches the barber Earnings page, which also computes on pre-tax amounts.
+      const serviceRevenue = bAppts.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
       const commissionEarned = serviceRevenue * (b.commission_percent / 100);
       const bHours = hours.filter(h => h.barber_id === b.id);
       const hoursWorked = bHours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
