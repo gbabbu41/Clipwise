@@ -276,7 +276,7 @@ export default function AnalyticsPage() {
         </div>
         <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
           className="rounded-xl border border-border bg-card-raised px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20">
-          <option value="all">All Barbers</option>
+          <option value="all">Shop (all barbers)</option>
           {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>

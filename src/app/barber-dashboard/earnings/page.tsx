@@ -98,7 +98,11 @@ export default function BarberPaymentsPage() {
       ? stripeNet.byPi[t.payment_intent_id].fee : 0, [stripeNet]);
   const earnedOf = useCallback((t: Tx) => {
     const tipAmt = t.tip ?? 0;
-    if (isOwner) return grossOf(t) - feeOf(t);
+    // An owner keeping 100% nets gross − processing fee (it's all theirs, they
+    // bear the fee). Anyone on a partial cut (staff, or an owner who set < 100%
+    // to split barber wage vs business) takes their commission + tips; the fee is
+    // a business cost.
+    if (isOwner && pct >= 100) return grossOf(t) - feeOf(t);
     const commission = t.commission_amount ?? (t.amount * pct) / 100;
     return commission + tipAmt;
   }, [isOwner, pct, feeOf]);
@@ -283,7 +287,9 @@ export default function BarberPaymentsPage() {
       {/* Header (barber portal keeps its own title) */}
       <div className="mb-1">
         <h1 className="hidden lg:block text-2xl font-bold text-foreground uppercase tracking-wide">Payments</h1>
-        <p className="text-grey text-sm mt-0.5">{isOwner ? "You own this shop · you keep 100%" : `Your take-home · ${pct}% commission + tips`}</p>
+        <p className="text-grey text-sm mt-0.5">{isOwner
+          ? (pct >= 100 ? "You own this shop · you keep 100%" : `You own this shop · ${pct}% barber cut + tips (the rest stays in your business)`)
+          : `Your take-home · ${pct}% commission + tips`}</p>
       </div>
 
       {/* ── Earnings — the period filters live in the carousel ─────────────── */}
@@ -418,7 +424,7 @@ export default function BarberPaymentsPage() {
                       <div className="cwp-a cwp-apos">{formatCurrency(earnedOf(t))}</div>
                       <div className="cwp-m">
                         <span className="cwp-method">{cash ? "Cash" : "Card"}</span>
-                        {isOwner && !cash && feeOf(t) > 0 ? ` · after ${formatCurrency(feeOf(t))} fee` : ""}
+                        {isOwner && pct >= 100 && !cash && feeOf(t) > 0 ? ` · after ${formatCurrency(feeOf(t))} fee` : ""}
                       </div>
                     </div>
                   </div>

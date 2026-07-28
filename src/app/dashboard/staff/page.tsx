@@ -296,7 +296,9 @@ export default function StaffPage() {
   // ── Save commission ─────────────────────────────────────────────────────────
   const saveCommission = async (barberId: string) => {
     setSavingCommission(barberId);
-    await supabase.from("barbers").update({ commission_percent: commissions[barberId] }).eq("id", barberId);
+    // Clamp 0–100 (defense in depth alongside the slider bounds + server clamp).
+    const pct = Math.min(100, Math.max(0, Math.round(Number(commissions[barberId]) || 0)));
+    await supabase.from("barbers").update({ commission_percent: pct }).eq("id", barberId);
     setSavingCommission(null);
     showToast("Commission updated!");
   };
@@ -330,7 +332,7 @@ export default function StaffPage() {
       body: JSON.stringify({
         name: addForm.name.trim(),
         email: addForm.email.trim(),
-        commission_percent: parseInt(addForm.commission_percent) || 50,
+        commission_percent: Math.min(100, Math.max(0, parseInt(addForm.commission_percent) || 50)),
         skip_invite: skipInvite,
         shop_id: shop.id,
       }),
@@ -398,7 +400,10 @@ export default function StaffPage() {
     const res = await fetch("/api/admin/barber/invite", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 50, shop_id: shop.id }),
+      // Owner adds self as a barber → default to keeping 100% (they own the shop);
+      // they can lower it on the Staff page to split personal barber wage vs
+      // business profit (e.g. for taxes).
+      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 100, shop_id: shop.id }),
     });
     const data = await res.json();
     setSavingAdd(false);
@@ -688,12 +693,12 @@ export default function StaffPage() {
                   <p className="text-sm font-bold text-foreground">{commissions[barber.id]}%</p>
                 </div>
                 <input
-                  type="range" min={20} max={70} step={5}
+                  type="range" min={0} max={100} step={5}
                   value={commissions[barber.id]}
-                  onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Number(e.target.value) }))}
+                  onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Math.min(100, Math.max(0, Number(e.target.value))) }))}
                   className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-grey mt-0.5"><span>20%</span><span>70%</span></div>
+                <div className="flex justify-between text-xs text-grey mt-0.5"><span>0%</span><span>100%</span></div>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
                   Save Commission
                 </Button>

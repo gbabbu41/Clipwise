@@ -17,15 +17,17 @@ export async function GET(request: NextRequest) {
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
 
-  // Owner who also cuts keeps 100% — they earned it AND own the shop, so no
-  // commission split applies. Detected server-side via the shop's owner_id.
+  // Is this person the shop owner? Kept for LABELLING only now — an owner who
+  // cuts uses their own configured commission (default 100%, editable on the
+  // Staff page) so they can split personal barber wage vs business profit (e.g.
+  // for taxes). Whatever isn't the barber's cut stays in their business.
   const effShopId = shopId ?? barber.shop_id;
   let isOwner = false;
   if (effShopId) {
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", effShopId).maybeSingle();
     isOwner = shopRow?.owner_id === user.id;
   }
-  const commissionPercent = isOwner ? 100 : barber.commission_percent;
+  const commissionPercent = barber.commission_percent;
 
   const period = searchParams.get("period") ?? "month";
 
@@ -58,13 +60,13 @@ export async function GET(request: NextRequest) {
   const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
   const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
   const revenue = serviceAmount + tips;
-  // Service-commission portion (no tips). Owner keeps the whole service amount.
-  const commission = isOwner
-    ? serviceAmount
-    : list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * barber.commission_percent) / 100), 0);
-  // What the barber takes home = their service commission + all tips.
-  // (Owner takes home everything; the shop's cut is whatever is left.)
-  const youKeep = isOwner ? revenue : commission + tips;
+  // Service-commission portion (no tips) — driven by the barber's own commission
+  // rate. For an owner at 100% this equals the whole service amount (unchanged);
+  // an owner who sets e.g. 50% keeps half here and the rest is business profit.
+  const commission = list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * commissionPercent) / 100), 0);
+  // Take-home = service commission + all tips. The remainder is the shop/business
+  // cut (for the owner, that's still their money — it's their business profit).
+  const youKeep = commission + tips;
   const shopKeeps = Math.max(0, revenue - youKeep);
 
   return NextResponse.json({

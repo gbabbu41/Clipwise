@@ -491,7 +491,7 @@ export default function PaymentsPage() {
       return true;
     });
 
-  const selectedBarberLabel = selectedBarber === "all" ? "All barbers" : (barbers.find(b => b.id === selectedBarber)?.name ?? "All barbers");
+  const selectedBarberLabel = selectedBarber === "all" ? "Shop" : (barbers.find(b => b.id === selectedBarber)?.name ?? "Shop");
   const filterLabels: Record<string, string> = { all: "All", card: "Card", cash: "Cash", unpaid: "Unpaid", refunded: "Refunded" };
 
   if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")) {
@@ -568,7 +568,7 @@ export default function PaymentsPage() {
                 {["all", ...barbers.map(b => b.id)].map(id => (
                   <button key={id} className={cn(selectedBarber === id && "cwp-on")}
                     onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}>
-                    {id === "all" ? "All barbers" : barbers.find(b => b.id === id)?.name}
+                    {id === "all" ? "Shop (all barbers)" : barbers.find(b => b.id === id)?.name}
                   </button>
                 ))}
               </div>

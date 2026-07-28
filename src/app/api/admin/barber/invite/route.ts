@@ -14,9 +14,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, email: rawEmail, commission_percent = 50, skip_invite = false, shop_id } = await request.json() as {
+  const { name, email: rawEmail, commission_percent: rawCommission = 50, skip_invite = false, shop_id } = await request.json() as {
     name: string; email: string; commission_percent?: number; skip_invite?: boolean; shop_id?: string;
   };
+  // Commission is a percentage — never allow < 0 or > 100 (never trust the client).
+  const commission_percent = Math.min(100, Math.max(0, Math.round(Number(rawCommission) || 0)));
 
   if (!name || !rawEmail) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
 
