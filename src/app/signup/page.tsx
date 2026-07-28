@@ -56,7 +56,12 @@ export default function SignupPage() {
       // Carry the intended role in metadata so it survives the email-confirmation
       // path (no session yet → the client-side role update can't run). The
       // handle_new_user trigger reads raw_user_meta_data.role on account create.
-      options: { data: { name: form.name, phone: form.phone, role: selectedRole || "customer" } },
+      // emailRedirectTo sends the confirmation link back to /auth/callback, which
+      // establishes the session + routes by role (owner → onboarding).
+      options: {
+        data: { name: form.name, phone: form.phone, role: selectedRole || "customer" },
+        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+      },
     });
 
     if (authError) {

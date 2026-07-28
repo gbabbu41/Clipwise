@@ -13,6 +13,7 @@ export default function BarberSignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", bio: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,8 +39,21 @@ export default function BarberSignupPage() {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
-          options: { data: { name: form.name, phone: form.phone, role: "barber" } },
+          options: {
+            data: { name: form.name, phone: form.phone, role: "barber" },
+            emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+          },
         });
+
+        // Email confirmation ON → account created but NO session yet. Don't try
+        // the (RLS-protected) role update without a session; the "barber" role is
+        // carried in signUp metadata + set by the handle_new_user trigger on
+        // confirm. Prompt them to verify their email.
+        if (authData?.user && !authData.session) {
+          setEmailSent(true);
+          setLoading(false);
+          return;
+        }
 
         if (authError || !authData?.user) {
           // Any auth error (including "User already registered") or null user
@@ -98,7 +112,16 @@ export default function BarberSignupPage() {
           <p className="text-[#8f8f8f] text-sm mt-1">Sign up and set up your shop through onboarding.</p>
         </div>
 
-        {done ? (
+        {emailSent ? (
+          <div className="bg-surface border border-border rounded-2xl p-8 text-center space-y-4">
+            <div className="w-14 h-14 bg-gold/10 border border-gold/30 rounded-2xl flex items-center justify-center mx-auto">
+              <Mail size={28} className="text-gold" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Check your email</h2>
+            <p className="text-sm text-[#8f8f8f]">We sent a confirmation link to <span className="text-white">{form.email}</span>. Click it to verify your account, then you&apos;ll be taken to your dashboard.</p>
+            <p className="text-xs text-[#8f8f8f]">Didn&apos;t get it? Check spam, or <Link href="/login" className="text-gold hover:underline">sign in</Link> once verified.</p>
+          </div>
+        ) : done ? (
           <div className="bg-surface border border-border rounded-2xl p-8 text-center space-y-4">
             <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto">
               <CheckCircle size={28} className="text-emerald-400" />
