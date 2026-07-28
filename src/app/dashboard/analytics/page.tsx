@@ -122,7 +122,7 @@ export default function AnalyticsPage() {
     if (Object.keys(map).length === 0) {
       for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
         if (!map[a.date]) map[a.date] = { revenue: 0, appointments: 0 };
-        map[a.date].revenue += a.total_amount;
+        map[a.date].revenue += Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
         map[a.date].appointments += 1;
       }
     }
@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
 
   // KPIs
   const totalRevenue = filteredTx.reduce((s, t) => s + t.amount + t.tip, 0)
-    || filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + a.total_amount, 0);
+    || filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
     // Fallback to appointments if no transactions
     if (Object.keys(map).length === 0) {
       for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
-        map[a.barber_id] = (map[a.barber_id] ?? 0) + a.total_amount;
+        map[a.barber_id] = (map[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
       }
     }
     return barbers.map(b => ({ name: b.name.split(" ")[0], revenue: Math.round(map[b.id] ?? 0) })).filter(b => b.revenue > 0);
@@ -169,7 +169,7 @@ export default function AnalyticsPage() {
         // Resolve the service_id to its real name; fall back to "Unknown"
         // so the chart never renders a raw UUID.
         const key = (a.service_id && serviceNames[a.service_id]) || "Unknown";
-        map[key] = (map[key] ?? 0) + a.total_amount;
+        map[key] = (map[key] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
       }
     }
     return Object.entries(map)
@@ -429,7 +429,7 @@ export default function AnalyticsPage() {
                     const bNoShows = bAppts.filter(a => a.status === "no-show").length;
                     // Revenue excludes refunded completed appts (money handed back);
                     // the completed COUNT keeps them (the service was still rendered).
-                    const bRevenue = bCompleted.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + a.total_amount, 0);
+                    const bRevenue = bCompleted.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
                     const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (

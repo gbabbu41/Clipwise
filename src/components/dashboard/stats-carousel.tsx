@@ -14,9 +14,10 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, chartData, appointments, completed, barbers,
+  revenue, taxCollected = 0, chartData, appointments, completed, barbers,
 }: {
   revenue: number;
+  taxCollected?: number;   // GST/HST + PST collected (shown as a "+ tax" note)
   chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
@@ -35,7 +36,7 @@ export function StatsCarousel({
 
   const revenueByBarber = (() => {
     const m: Record<string, number> = {};
-    completed.forEach(a => { if (a.barber_id && a.payment_status !== "refunded") m[a.barber_id] = (m[a.barber_id] ?? 0) + (a.total_amount ?? 0); });
+    completed.forEach(a => { if (a.barber_id && a.payment_status !== "refunded") m[a.barber_id] = (m[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)); });
     return Object.entries(m)
       .map(([id, rev]) => ({ name: (barbers.find(b => b.id === id)?.name ?? "—").split(" ")[0], revenue: rev }))
       .sort((a, b) => b.revenue - a.revenue).slice(0, 5);
@@ -80,7 +81,10 @@ export function StatsCarousel({
         <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · Today</p>
         <span className="text-[11px] text-grey-muted whitespace-nowrap">‹ swipe ›</span>
       </div>
-      <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">{formatCurrency(revenue)}</p>
+      <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
+        {formatCurrency(revenue)}
+        {taxCollected > 0 && <span className="text-[13px] font-medium text-grey-muted"> + {formatCurrency(taxCollected)} tax</span>}
+      </p>
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
       </p>

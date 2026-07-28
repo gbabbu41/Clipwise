@@ -296,11 +296,15 @@ export default function StaffPage() {
   // ── Save commission ─────────────────────────────────────────────────────────
   const saveCommission = async (barberId: string) => {
     setSavingCommission(barberId);
-    // Clamp 0–100 (defense in depth alongside the slider bounds + server clamp).
+    // Owner-only + clamped 0–100, verified server-side (commission drives payouts).
     const pct = Math.min(100, Math.max(0, Math.round(Number(commissions[barberId]) || 0)));
-    await supabase.from("barbers").update({ commission_percent: pct }).eq("id", barberId);
+    const res = await fetch("/api/staff/commission", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+      body: JSON.stringify({ barber_id: barberId, commission_percent: pct }),
+    }).catch(() => null);
     setSavingCommission(null);
-    showToast("Commission updated!");
+    showToast(res?.ok ? "Commission updated!" : "Couldn't update commission.");
   };
 
   // ── Add or invite a barber (single API path) ────────────────────────────────

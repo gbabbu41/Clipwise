@@ -388,16 +388,19 @@ export default function DashboardPage() {
 
   const completed = appointments.filter((a) => a.status === "completed");
   // Revenue figures exclude refunded completed appts (money handed back); the
-  // completion COUNT keeps them (the service was still rendered).
+  // completion COUNT keeps them (the service was still rendered). Revenue is
+  // PRE-TAX (total_amount includes GST/HST) so it matches Analytics/Payroll/
+  // Earnings — tax is shown separately as "collected".
   const paidCompleted = completed.filter((a) => a.payment_status !== "refunded");
-  const revenue = paidCompleted.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
+  const taxCollected = paidCompleted.reduce((s, a) => s + (a.tax_amount ?? 0), 0);
   const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
 
   // Revenue chart data — aggregate by date
   const revenueByDate: Record<string, number> = {};
-  paidCompleted.forEach((a) => { revenueByDate[a.date] = (revenueByDate[a.date] ?? 0) + (a.total_amount ?? 0); });
+  paidCompleted.forEach((a) => { revenueByDate[a.date] = (revenueByDate[a.date] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)); });
   const chartData = Object.entries(revenueByDate)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-30)
@@ -602,7 +605,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={revenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} />
+            <StatsCarousel revenue={revenue} taxCollected={taxCollected} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} />
 
             <div className="cwd-kpis">
               <div className="cwd-kpi">

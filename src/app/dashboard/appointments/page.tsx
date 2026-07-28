@@ -898,7 +898,7 @@ export default function AppointmentsPage() {
   const scopeApts = appointments;
   const confirmed = scopeApts.filter(a => a.status === "confirmed").length;
   const noShows = scopeApts.filter(a => a.status === "no-show").length;
-  const revenue = scopeApts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const revenue = scopeApts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const scopeLabel = pickedDate ? friendlyDate(pickedDate) : (DATE_FILTERS.find(f => f.key === dateFilter)?.label ?? "Today");
   const totalLabel = (!pickedDate && dateFilter === "today") ? "Total Today"
     : (!pickedDate && dateFilter === "tomorrow") ? "Total Tomorrow"

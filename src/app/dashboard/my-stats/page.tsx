@@ -92,8 +92,10 @@ export default function MyStatsPage() {
 
   const completed = appointments.filter(a => a.status === "completed");
   // Exclude refunded completed appts from revenue/commission (money handed back);
-  // the completion count keeps them (the service was still rendered).
-  const revenue = completed.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  // the completion count keeps them (the service was still rendered). Pre-tax
+  // (total_amount includes GST/HST) so revenue + commission match the rest of the
+  // app — a barber doesn't earn commission on tax.
+  const revenue = completed.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const commission = revenue * (commissionRate / 100);
   const noShows = appointments.filter(a => a.status === "no-show").length;
   const totalHours = hours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
