@@ -22,8 +22,8 @@ const features = [
 ];
 const plans = [
   { n: "Starter", p: "Free", per: "forever", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", p: "$23", per: "/mo", pop: true, yes: ["Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start Pro" },
-  { n: "Premium", p: "$79", per: "/mo", pop: false, yes: ["Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start Premium" },
+  { n: "Pro", p: "$23", per: "/mo", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
+  { n: "Premium", p: "$79", per: "/mo", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
 ];
 // Comparison claims cross-checked against Squire's & Booksy's own current
 // materials (2026): $0 fees / no marketplace / free plan / Canadian are the

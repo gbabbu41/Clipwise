@@ -261,6 +261,7 @@ export async function POST(request: NextRequest) {
               stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
               stripe_subscription_id: newSubId,
               subscription_status: "active",
+              trial_ends_at: null,   // subscribed with a card — no longer a trial
               ...(plan ? { subscription_plan: plan } : {}),
             }).eq("owner_id", userId);
           }

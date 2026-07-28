@@ -20,6 +20,7 @@ export const PRIVILEGED_EMAIL_TYPES = new Set([
   // be an open phishing/spam relay (attacker sets the recipient + a payment/
   // booking URL). Legit HTTP callers pass a staff token or x-internal-secret.
   "payment_link", "waitlist_slot_open", "rebooking_reminder", "no_show_followup", "review_request",
+  "trial_reminder", "trial_ended",
 ]);
 
 // Escape HTML in the free-text fields that originate from untrusted sources
@@ -666,6 +667,29 @@ export type SendResult = { success: true } | { error: unknown };
  * auth gate — that lives on the /api/send-email HTTP boundary. Direct callers
  * are trusted server code.
  */
+function trialReminder(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">⏳ ${data.daysLeft} left on your trial</div>
+    <h1>Your ${data.planName} trial ends ${data.daysLeft === "1 day" ? "tomorrow" : `in ${data.daysLeft}`}</h1>
+    <p>Hi ${data.ownerName || "there"} — <span class="highlight">${data.shopName}</span> is on the ${data.planName} free trial. Add a card to keep your paid features (online payments, POS, loyalty, extra barbers) once it ends.</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">Add your card →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">No charge until you subscribe. If you do nothing, your shop simply drops to the free Starter plan — your account and bookings stay safe. — The ClipWise Team</p>
+  `);
+}
+
+function trialEnded(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <h1>Your ${data.planName} trial has ended</h1>
+    <p>Hi ${data.ownerName || "there"} — the free trial for <span class="highlight">${data.shopName}</span> is over, so your shop is now on the free <span class="highlight">Starter</span> plan. Your account, booking page and bookings are all safe — you've just lost the paid features (online payments, POS, loyalty, extra barbers).</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">Subscribe to turn them back on →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">Add a card anytime and your paid features switch back on instantly. — The ClipWise Team</p>
+  `);
+}
+
 export async function sendAppEmail(type: string, data: Record<string, string>): Promise<SendResult> {
   if (!process.env.RESEND_API_KEY) {
     return { error: "RESEND_API_KEY not configured" };
@@ -847,6 +871,16 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.to;
       subject = data.subject;
       html = data.htmlBody;
+      break;
+    case "trial_reminder":
+      to = data.ownerEmail;
+      subject = `${data.daysLeft} left on your ClipWise ${data.planName} trial`;
+      html = trialReminder(data);
+      break;
+    case "trial_ended":
+      to = data.ownerEmail;
+      subject = `Your ClipWise ${data.planName} trial has ended`;
+      html = trialEnded(data);
       break;
     default:
       return { error: "Unknown email type" };

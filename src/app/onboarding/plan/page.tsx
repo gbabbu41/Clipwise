@@ -84,7 +84,7 @@ function PlanPageInner() {
     }
   }, [searchParams, router, accessToken]);
 
-  async function selectPlan(plan: Plan) {
+  function selectPlan(plan: Plan) {
     setError("");
     const card = cards.find(c => c.id === plan);
     if (!card || card.price_cents === 0) {
@@ -93,21 +93,10 @@ function PlanPageInner() {
       router.push("/onboarding");
       return;
     }
-    if (!accessToken) { setError("Please sign in again to continue."); return; }
-    setStep("redirecting");
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) { setError(data.error ?? "Could not start checkout."); setStep("pick"); return; }
-      window.location.href = data.url; // redirect to Stripe hosted checkout
-    } catch {
-      setError("Connection error. Please try again.");
-      setStep("pick");
-    }
+    // Pro/Premium → start a NO-CARD 21-day free trial (no checkout up front). The
+    // card is only collected when the trial ends (Billing → subscribe).
+    sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan, trial: true }));
+    router.push("/onboarding");
   }
 
   if (step === "redirecting" || step === "verifying") {
@@ -142,7 +131,7 @@ function PlanPageInner() {
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
-          <p className="text-[#8f8f8f] mt-2">Start free, upgrade anytime. No hidden fees.</p>
+          <p className="text-[#8f8f8f] mt-2">Start free — Pro &amp; Premium include a 21-day free trial, no card needed.</p>
         </div>
 
         {error && (
@@ -157,7 +146,7 @@ function PlanPageInner() {
             const st = styleFor(plan.id);
             const Icon = st.icon;
             const isFree = plan.price_cents === 0;
-            const cta = isFree ? "Get Started Free" : `Start with ${plan.name}`;
+            const cta = isFree ? "Get Started Free" : `Start ${plan.name} — 21 days free`;
             return (
               <div key={plan.id} className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent)}
                 onClick={() => selectPlan(plan.id)}>
@@ -196,7 +185,7 @@ function PlanPageInner() {
         </div>
 
         <p className="text-center text-xs text-[#8f8f8f] mt-8">
-          Starter is free forever. Pro and Premium are billed monthly, no contracts. Secure checkout by Stripe.
+          Starter is free forever. Pro &amp; Premium start with a 21-day free trial — no card required. You only add a card if you decide to keep it; billed monthly, no contracts.
         </p>
       </div>
     </div>

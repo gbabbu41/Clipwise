@@ -6,6 +6,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd } from "@/lib/timezone";
 import { sendAppEmail } from "@/lib/emailer";
+import { processTrials } from "@/lib/process-trials";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -159,9 +160,11 @@ async function run() {
 
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await processTrials(Date.now()).catch(() => null);   // trial reminders + downgrades (same daily cron)
   return run();
 }
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await processTrials(Date.now()).catch(() => null);
   return run();
 }

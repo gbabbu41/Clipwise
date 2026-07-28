@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
+import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { MaintenanceBanner } from "@/components/maintenance-banner";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
@@ -94,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           the spacer matches it; everything else uses the calm page background. */}
       <main className={`lg:ml-64 ${INLINE_HEADER_PAGES.includes(pathname) ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
         <MaintenanceBanner />
+        <TrialBanner />
         <StripeWarningBanner />
         <SwipeNavigator order={OWNER_SWIPE_ORDER}>
           {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}

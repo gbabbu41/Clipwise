@@ -128,6 +128,8 @@ export default function OnboardingPage() {
             name: shop.name, address: shop.address, city: shop.city, province: shop.province,
             postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
             subscription_id: planData.subscriptionId ?? undefined,
+            // No-card trial: picking Pro/Premium starts a 21-day trial server-side.
+            trial_plan: planData.trial ? planData.plan : undefined,
           }),
         });
         const data = await res.json();
@@ -531,7 +533,10 @@ export default function OnboardingPage() {
                 // "No shop found → Set Up My Shop" page until a manual refresh.
                 setFinishing(true);
                 try { await refreshShop(); } catch { /* dashboard will retry */ }
-                if (planData.autoApprove && (planData.plan === "pro" || planData.plan === "premium")) {
+                // Paid or on a Pro/Premium trial → prompt Stripe Connect next, so
+                // they can take online payments right away (and see a payout land
+                // during the trial — the strongest reason to add a card).
+                if ((planData.autoApprove || planData.trial) && (planData.plan === "pro" || planData.plan === "premium")) {
                   router.push("/onboarding/stripe-connect");
                 } else {
                   router.push("/dashboard");

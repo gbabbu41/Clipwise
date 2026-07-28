@@ -32,6 +32,10 @@ export interface Shop {
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
   subscription_status?: "active" | "cancelled" | "past_due" | "inactive";
+  /** No-card Pro/Premium trial end (phase34). Set → shop is on trial until this
+   *  date (subscription_status is "active", no stripe_subscription_id). Cleared
+   *  once they subscribe with a card. */
+  trial_ends_at?: string | null;
   stripe_connected?: boolean;
   stripe_connect_status?: "pending" | "active";
   instagram?: string;

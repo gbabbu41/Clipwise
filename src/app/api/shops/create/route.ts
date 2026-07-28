@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string;
     phone?: string; email?: string; description?: string; logo?: string;
     subscription_id?: string;
+    trial_plan?: string;   // pro/premium → start a no-card 21-day trial
   };
   if (!body.name?.trim()) return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
   let status = "pending";                 // free/unpaid → admin review
   let stripeSubscriptionId: string | null = null;
   let stripeCustomerId: string | null = null;
+  let trialEndsAt: string | null = null;
 
   if (body.subscription_id) {
     try {
@@ -55,6 +57,20 @@ export async function POST(request: NextRequest) {
     } catch {
       // Bad/foreign subscription id → treat as unpaid. No error to the client.
     }
+  }
+
+  // No-card trial: owner picked Pro/Premium without paying. Grant that plan for
+  // 21 days (subscription_status active + trial_ends_at, NO Stripe sub / card),
+  // and approve so the trial is usable immediately. The daily cron downgrades it
+  // to starter if they don't add a card before it ends. Only applies when no
+  // verified paid subscription was found above.
+  const TRIAL_DAYS = 21;
+  const trialPlan = (body.trial_plan ?? "").toLowerCase();
+  if (plan === "starter" && !stripeSubscriptionId && KNOWN_PLANS.has(trialPlan) && trialPlan !== "starter") {
+    plan = trialPlan;
+    subscriptionStatus = "active";
+    status = "approved";
+    trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString();
   }
 
   // Admin lever: when auto-approve is on, a free/unpaid shop skips the review
@@ -83,6 +99,7 @@ export async function POST(request: NextRequest) {
     subscription_status: subscriptionStatus,
     stripe_subscription_id: stripeSubscriptionId,
     stripe_customer_id: stripeCustomerId,
+    trial_ends_at: trialEndsAt,
   };
 
   // Unique slug — retry once with a fresh suffix on collision.

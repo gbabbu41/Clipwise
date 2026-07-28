@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     subscription_status: "active",
     stripe_subscription_id: newSubId,
     stripe_customer_id: customerId,
+    trial_ends_at: null,   // they've added a card — no longer a trial
     ...(planId ? { subscription_plan: planId } : {}),
   }).eq("owner_id", user.id);
   if (updErr) {
