@@ -650,7 +650,12 @@ export default function BookingPage() {
   };
 
   // ── Confirm booking ────────────────────────────────────────────────────────
-  const confirmBooking = async () => {
+  // `methodOverride` lets a caller pass the pay choice DIRECTLY (the pay-method
+  // modal + the single-method auto-route below). Reading `payMethodChoice` from
+  // state instead would see the stale pre-update value right after
+  // setPayMethodChoice (React hasn't re-rendered yet), so the gate would
+  // re-open the modal / re-enter forever. Passing it in sidesteps that entirely.
+  const confirmBooking = async (methodOverride?: "online" | "in_person") => {
     if (!shop || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
     const advDays = Math.min(60, Math.max(1, Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
@@ -673,6 +678,10 @@ export default function BookingPage() {
       : 0;
     const total = Math.max(0, totalPrice - discount);
 
+    // The authoritative pay choice for this run: whatever a caller handed in,
+    // else the state (for the initial "Confirm" click, before any choice).
+    const method = methodOverride ?? payMethodChoice;
+
     // ── Pay-method choice gate ──────────────────────────────────────────────
     // The owner's `allow_pay_in_person` toggle is authoritative (see
     // canPayInPersonNow above). Online is available only when the shop can
@@ -683,7 +692,7 @@ export default function BookingPage() {
     //   • in-person only → book in-person
     //   • neither → in-person is off AND the shop can't charge online yet;
     //               there's no way to take payment, so tell the customer.
-    if (total > 0 && !payMethodChoice) {
+    if (total > 0 && !method) {
       if (canPayOnlineNow && canPayInPersonNow) {
         setShowPayChoiceModal(true);
         return;
@@ -691,13 +700,11 @@ export default function BookingPage() {
       if (canPayOnlineNow) {
         if (cardForNoShow && !noShowConsent) { setShowPayChoiceModal(true); return; }
         setPayMethodChoice("online");
-        setTimeout(confirmBooking, 0);
-        return;
+        return confirmBooking("online");
       }
       if (canPayInPersonNow) {
         setPayMethodChoice("in_person");
-        setTimeout(confirmBooking, 0);
-        return;
+        return confirmBooking("in_person");
       }
       showToast("This shop requires online payment, which isn't available yet. Please contact the shop to book.", false);
       return;
@@ -725,10 +732,10 @@ export default function BookingPage() {
     //                  captured later on completion / no-show.
     //   >7 days out  → card holds expire ~7 days, so instead SAVE the card
     //                  (no charge now) and charge it on completion / no-show.
-    const useHold = payMethodChoice === "online" && !willSaveCard;
-    const useSaveCard = payMethodChoice === "online" && willSaveCard;
+    const useHold = method === "online" && !willSaveCard;
+    const useSaveCard = method === "online" && willSaveCard;
     // A card is being taken online — require the no-show consent first.
-    if (payMethodChoice === "online" && cardForNoShow && !noShowConsent) {
+    if (method === "online" && cardForNoShow && !noShowConsent) {
       setSaving(false);
       showToast("Please accept the no-show policy to continue.", false);
       return;
@@ -737,7 +744,7 @@ export default function BookingPage() {
     // free bookings charge nothing now.
     const chargeAmount = useHold ? total : 0;
     // Route to Stripe whenever paying online (hold or save).
-    if (payMethodChoice === "online" || chargeAmount > 0) {
+    if (method === "online" || chargeAmount > 0) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
           method: "POST",
@@ -817,7 +824,7 @@ export default function BookingPage() {
         total_amount: total, // combined total (discount already applied)
         subtotal: totalPrice,
         promo_code: promoApplied?.code ?? undefined,
-        pay_in_person: payMethodChoice === "in_person",
+        pay_in_person: method === "in_person",
       }),
     }).catch(() => null);
     if (!res) { setSaving(false); showToast("Connection error. Please try again.", false); return; }
@@ -1971,7 +1978,7 @@ export default function BookingPage() {
             <button
               type="button"
               disabled={saving}
-              onClick={confirmBooking}
+              onClick={() => confirmBooking()}
               className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               {saving ? (
@@ -2013,14 +2020,14 @@ export default function BookingPage() {
               {canPayOnlineNow && (
                 <button type="button" className="btn btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed" style={{ padding: "1rem" }}
                   disabled={cardForNoShow && !noShowConsent}
-                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("online"); setTimeout(confirmBooking, 0); }}>
+                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("online"); confirmBooking("online"); }}>
                   💳 Pay online now (secure · Stripe)
                 </button>
               )}
 
               {canPayInPersonNow && (
                 <button type="button" className="btn btn-outline-dark w-full" style={{ padding: "1rem" }}
-                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("in_person"); setTimeout(confirmBooking, 0); }}>
+                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("in_person"); confirmBooking("in_person"); }}>
                   🏪 Pay in person at the shop
                 </button>
               )}
