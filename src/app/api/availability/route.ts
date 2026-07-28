@@ -22,6 +22,27 @@ function durationOf(r: { duration_minutes?: number | null; services: { duration_
   return s?.duration_minutes ?? 30;
 }
 
+type ApptRow = { barber_id: string; time_slot: string; duration_minutes?: number | null; payment_status?: string | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null };
+
+// The day's active appointments, with a fallback that omits duration_minutes if
+// that column doesn't exist yet (pre-phase14). `failed` is true only on a real
+// (non-migration) error so the caller can 500.
+async function loadAppointments(shopId: string, date: string): Promise<{ rows: ApptRow[]; failed: boolean }> {
+  const withDur = await supabaseAdmin
+    .from("appointments")
+    .select("barber_id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
+    .eq("shop_id", shopId).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
+  if (!withDur.error) return { rows: (withDur.data ?? []) as ApptRow[], failed: false };
+  if (withDur.error.message?.includes("duration_minutes")) {
+    const fallback = await supabaseAdmin
+      .from("appointments")
+      .select("barber_id, time_slot, payment_status, services(duration_minutes)")
+      .eq("shop_id", shopId).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
+    return { rows: (fallback.data ?? []) as ApptRow[], failed: false };
+  }
+  return { rows: [], failed: true };
+}
+
 export async function POST(request: NextRequest) {
   const { shop_id, date, barber_id } = await request.json() as {
     shop_id: string; date: string; barber_id?: string | null;
@@ -33,41 +54,29 @@ export async function POST(request: NextRequest) {
   // Active barbers (optionally just the one the customer picked).
   let barbersQ = supabaseAdmin.from("barbers").select("id, name").eq("shop_id", shop_id).eq("is_active", true);
   if (barber_id) barbersQ = barbersQ.eq("id", barber_id);
-  const { data: allBarbers } = await barbersQ.order("name");
 
-  // Drop barbers who've paused their own online bookings. Done as a separate,
-  // error-tolerant query so a shop that hasn't run the phase15 migration yet
-  // (no bookings_paused column) still returns availability normally.
-  const pausedRes = await supabaseAdmin.from("barbers").select("id").eq("shop_id", shop_id).eq("bookings_paused", true);
+  // These three reads don't depend on each other — barbers, the paused set, and
+  // the day's appointments all key off shop_id/date. Run them together instead
+  // of as a serial waterfall: this is the hottest anonymous endpoint (hit on
+  // every date/barber tap), so the saved round-trips matter. The `paused` query
+  // is error-tolerant so a shop pre-phase15 (no bookings_paused column) still
+  // returns availability normally.
+  const [barbersRes, pausedRes, apptResult] = await Promise.all([
+    barbersQ.order("name"),
+    supabaseAdmin.from("barbers").select("id").eq("shop_id", shop_id).eq("bookings_paused", true),
+    loadAppointments(shop_id, date),
+  ]);
+  if (apptResult.failed) return NextResponse.json({ error: "Failed to load appointments" }, { status: 500 });
+
   const pausedIds = new Set((pausedRes.error ? [] : (pausedRes.data ?? [])).map(b => b.id as string));
-  const barbers = (allBarbers ?? []).filter(b => !pausedIds.has(b.id as string));
+  const barbers = (barbersRes.data ?? []).filter(b => !pausedIds.has(b.id as string));
 
   const barberIds = barbers.map(b => b.id as string);
   if (barberIds.length === 0) return NextResponse.json({ barbers: [] });
 
-  // Working hours for the weekday + active appointments + approved time-off.
-  // Fallback to omitting duration_minutes if the column doesn't exist yet (pre-phase14).
-  const apptWithDur = await supabaseAdmin
-    .from("appointments")
-    .select("barber_id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
-    .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
-  let apptRows: { barber_id: string; time_slot: string; duration_minutes?: number | null; payment_status?: string | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }[];
-  if (apptWithDur.error) {
-    if (apptWithDur.error.message?.includes("duration_minutes")) {
-      const fallback = await supabaseAdmin
-        .from("appointments")
-        .select("barber_id, time_slot, payment_status, services(duration_minutes)")
-        .eq("shop_id", shop_id).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
-      apptRows = (fallback.data ?? []) as typeof apptRows;
-    } else {
-      return NextResponse.json({ error: "Failed to load appointments" }, { status: 500 });
-    }
-  } else {
-    apptRows = (apptWithDur.data ?? []) as typeof apptRows;
-  }
   // A refunded booking (even one checked out early → completed, then refunded)
   // no longer holds its slot — drop it so the time reads as free everywhere.
-  apptRows = apptRows.filter((a) => a.payment_status !== "refunded");
+  const apptRows = apptResult.rows.filter((a) => a.payment_status !== "refunded");
 
   const [{ data: slots }, { data: timeOff }, { data: breaks }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("barber_id, start_time, end_time, is_available")

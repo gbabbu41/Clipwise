@@ -570,9 +570,15 @@ export default function BookingPage() {
   const selectedDateRef = useRef<Date | null>(null);
   const flowRef = useRef(flow);
   const selectedBarberRef = useRef<string | null>(null);
+  // This shop's barber ids — used to ignore realtime `time_slots` events for
+  // OTHER shops (that table has no shop_id column, so we can't filter it
+  // server-side; without this gate every visitor refetches whenever any barber
+  // at any shop on the platform edits their hours).
+  const shopBarberIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
   useEffect(() => { flowRef.current = flow; }, [flow]);
   useEffect(() => { selectedBarberRef.current = selectedBarber; }, [selectedBarber]);
+  useEffect(() => { shopBarberIdsRef.current = new Set(barbers.map(b => b.id)); }, [barbers]);
 
   // ── Real-time sync: refresh slot grid + work-day Sets whenever the owner
   //    edits a barber's schedule or a new appointment is booked elsewhere.
@@ -584,7 +590,16 @@ export default function BookingPage() {
       if (flowRef.current === "time-first") loadTimeFirstSlots(date);
       else if (selectedBarberRef.current) loadBarberFirstSlots(selectedBarberRef.current, date);
     };
-    const onTimeSlots = () => {
+    const onTimeSlots = (payload: { new?: unknown; old?: unknown }) => {
+      // `time_slots` has no shop_id, so this subscription can't be filtered
+      // server-side. Gate here: if the changed row belongs to a barber that
+      // isn't at THIS shop, ignore it — otherwise every booking page on the
+      // platform refetches on any shop's schedule edit. Fall through (refresh)
+      // when we can't determine the barber, so we never miss a real update.
+      const bid = (payload?.new as { barber_id?: string })?.barber_id
+        ?? (payload?.old as { barber_id?: string })?.barber_id;
+      const ids = shopBarberIdsRef.current;
+      if (bid && ids.size > 0 && !ids.has(bid)) return;
       // Schedule edits affect both the slot grid AND the calendar's day-greying.
       refreshSlots();
       loadBarberWorkDays();
@@ -830,15 +845,10 @@ export default function BookingPage() {
     // The customer's confirmation SMS is sent server-side by /api/book/in-person
     // (so /api/twilio/send-sms can require auth — no open SMS relay).
 
-    // Staff alerts (owner + assigned barber): in-app notifications + SMS, all
-    // server-side. The owner's in-app notification used to be inserted here via
-    // the anon client, which fails RLS (no auth.uid()) — so owners never got the
-    // live pop-up for customer bookings. notify-staff now creates both.
-    fetch("/api/appointments/notify-staff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: newApptId }),
-    }).catch(() => null);
+    // Staff alerts (owner + assigned barber in-app notifications + SMS) are now
+    // fired SERVER-SIDE inside /api/book/in-person, so they no longer depend on
+    // this browser completing a request — a customer closing the tab right after
+    // "Confirmed" can't cost the shop the booking alert anymore.
 
     const bookingData = {
       clientName: clientInfo.name,
@@ -1225,7 +1235,18 @@ export default function BookingPage() {
             }}>
               <Calendar size={16} /> Add to Calendar
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => { if (navigator.share) navigator.share({ title: `Booking at ${shop.name}`, text: `${shop.name} — ${dispDateObj?.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })} at ${dispTime}`, url: window.location.href }); }}>
+            <Button variant="outline" className="flex-1" onClick={async () => {
+              const shareUrl = window.location.href;
+              const shareData = { title: `Booking at ${shop.name}`, text: `${shop.name} — ${dispDateObj?.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })} at ${dispTime}`, url: shareUrl };
+              // Web Share exists (mostly mobile) → native sheet. Otherwise (most
+              // desktop browsers) don't silently no-op — copy the link + confirm.
+              if (typeof navigator !== "undefined" && navigator.share) {
+                try { await navigator.share(shareData); } catch { /* user dismissed the share sheet — ignore */ }
+              } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+                try { await navigator.clipboard.writeText(shareUrl); showToast("Link copied to clipboard", true); }
+                catch { showToast("Couldn't copy the link.", false); }
+              }
+            }}>
               <Share2 size={16} /> Share
             </Button>
           </div>
@@ -1718,7 +1739,7 @@ export default function BookingPage() {
                             <h3 className="text-base font-bold text-white">Choose a barber</h3>
                             <p className="text-xs text-[#8f8f8f] mt-0.5">{expandedSlot} · {slotBarbers.length} available</p>
                           </div>
-                          <button onClick={() => setExpandedSlot(null)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
+                          <button aria-label="Close" onClick={() => setExpandedSlot(null)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
                         </div>
                         <div className="space-y-2">
                           {slotBarbers.map((b) => (
@@ -1757,12 +1778,23 @@ export default function BookingPage() {
               { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
             ]).map(({ key, label, placeholder, type }) => (
               <div key={key} className="space-y-1.5">
-                <label className="text-sm font-medium text-[#999]">{label}</label>
-                <input type={type} value={clientInfo[key]}
+                <label htmlFor={`ci-${key}`} className="text-sm font-medium text-[#999]">{label}</label>
+                <input id={`ci-${key}`} type={type} value={clientInfo[key]}
                   onChange={(e) => {
                     const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
                     setClientInfo({ ...clientInfo, [key]: val });
                     if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+                  }}
+                  onBlur={() => {
+                    // Surface the reason "Continue" is greyed out instead of
+                    // leaving a dead button — populate this field's inline error
+                    // (cleared again on the next keystroke by onChange above).
+                    const errs = validateClientInfo();
+                    setClientErrors(prev => {
+                      const n = { ...prev };
+                      if (errs[key]) n[key] = errs[key]; else delete n[key];
+                      return n;
+                    });
                   }}
                   placeholder={placeholder}
                   className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
@@ -1781,7 +1813,7 @@ export default function BookingPage() {
             <h2 className="text-lg font-semibold text-white">Have a promo code?</h2>
             <p className="text-[#8f8f8f] text-sm">Optional — skip if you don&apos;t have one.</p>
             <div className="flex gap-2">
-              <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10"
+              <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" aria-label="Promo code"
                 className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest"
               />
               <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
@@ -2016,7 +2048,7 @@ export default function BookingPage() {
                     {selectedDate ? selectedDate.toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" }) : ""}
                   </p>
                 </div>
-                <button onClick={() => !waitlistSaving && setShowWaitlistModal(false)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
+                <button aria-label="Close" onClick={() => !waitlistSaving && setShowWaitlistModal(false)} className="text-[#8f8f8f] hover:text-white"><X size={18} /></button>
               </div>
               <p className="text-xs text-[#8f8f8f]">
                 This day is full. Leave your details and we&apos;ll text or email you the moment a spot opens — first to reply gets it.
@@ -2026,12 +2058,14 @@ export default function BookingPage() {
                   value={waitlistForm.name}
                   onChange={e => setWaitlistForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Your name"
+                  aria-label="Your name"
                   className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
                 />
                 <input
                   value={waitlistForm.email}
                   onChange={e => setWaitlistForm(p => ({ ...p, email: e.target.value }))}
                   placeholder="Email"
+                  aria-label="Email"
                   type="email"
                   className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
                 />
@@ -2039,6 +2073,7 @@ export default function BookingPage() {
                   value={waitlistForm.phone}
                   onChange={e => setWaitlistForm(p => ({ ...p, phone: formatPhone(e.target.value) }))}
                   placeholder="Phone (for a text alert)"
+                  aria-label="Phone number"
                   type="tel"
                   className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
                 />

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Check, Scissors, Share2, Printer } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -20,21 +20,27 @@ export default function ReceiptPage() {
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState<ReceiptRow | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) { setNotFound(true); setLoading(false); return; }
-    (async () => {
-      const { data } = await supabase
-        .from("transactions")
-        .select("*, shops(name, address, city, province, phone, booking_settings), barbers(name)")
-        .eq("id", id)
-        .single();
-      if (!data) { setNotFound(true); setLoading(false); return; }
-      setTx(data as unknown as ReceiptRow);
-      setLoading(false);
-    })();
+    setLoading(true); setNotFound(false); setLoadError(false);
+    // maybeSingle + explicit error handling: `.single()` returns {data:null}
+    // for BOTH a genuine 0-row miss AND any transient network/DB error, so a
+    // valid receipt hit during a blip would falsely read as "invalid link".
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*, shops(name, address, city, province, phone, booking_settings), barbers(name)")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) { setLoadError(true); setLoading(false); return; }
+    if (!data) { setNotFound(true); setLoading(false); return; }
+    setTx(data as unknown as ReceiptRow);
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => { load(); }, [load]);
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -46,6 +52,20 @@ export default function ReceiptPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
+        <Logo size="md" className="justify-center mb-8" />
+        <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
+          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-white mb-2">Couldn&apos;t load this receipt</h1>
+          <p className="text-[#6e6e6e] text-sm mb-4">Check your connection and try again.</p>
+          <Button onClick={() => load()}>Try again</Button>
+        </div>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Star, Check, Scissors } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -29,6 +29,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   const [appt, setAppt] = useState<AppointmentInfo | null>(null);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -37,35 +38,40 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!bookingId) { setNotFound(true); setLoading(false); return; }
-    (async () => {
-      const { data } = await supabase
-        .from("appointments")
-        .select("id, client_name, client_email, date, time_slot, shop_id, barber_id, service_id, barbers(name), services(name), shops(name, slug)")
-        .eq("id", bookingId)
-        .single();
+    setLoading(true); setNotFound(false); setLoadError(false);
+    // maybeSingle + explicit error handling: `.single()` returns {data:null}
+    // for BOTH a genuine 0-row miss AND any transient network/DB error, so a
+    // valid review link hit during a blip would falsely read as "invalid".
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("id, client_name, client_email, date, time_slot, shop_id, barber_id, service_id, barbers(name), services(name), shops(name, slug)")
+      .eq("id", bookingId)
+      .maybeSingle();
 
-      if (!data) { setNotFound(true); setLoading(false); return; }
+    if (error) { setLoadError(true); setLoading(false); return; }
+    if (!data) { setNotFound(true); setLoading(false); return; }
 
-      const apptData = data as unknown as AppointmentInfo;
+    const apptData = data as unknown as AppointmentInfo;
 
-      // Verify slug matches
-      if (apptData.shops?.slug !== shopslug) { setNotFound(true); setLoading(false); return; }
+    // Verify slug matches
+    if (apptData.shops?.slug !== shopslug) { setNotFound(true); setLoading(false); return; }
 
-      // Check if already reviewed
-      const { data: existingReview } = await supabase
-        .from("reviews")
-        .select("id")
-        .eq("shop_id", apptData.shop_id)
-        .eq("client_id", bookingId)
-        .maybeSingle();
+    // Check if already reviewed
+    const { data: existingReview } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("shop_id", apptData.shop_id)
+      .eq("client_id", bookingId)
+      .maybeSingle();
 
-      if (existingReview) { setAlreadyReviewed(true); }
-      setAppt(apptData);
-      setLoading(false);
-    })();
+    if (existingReview) { setAlreadyReviewed(true); }
+    setAppt(apptData);
+    setLoading(false);
   }, [bookingId, shopslug]);
+
+  useEffect(() => { load(); }, [load]);
 
   const submitReview = async () => {
     if (!appt || rating === 0) return;
@@ -93,6 +99,20 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
+        <Logo size="md" className="justify-center mb-8" />
+        <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
+          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-white mb-2">Couldn&apos;t load this page</h1>
+          <p className="text-[#6e6e6e] text-sm mb-4">Check your connection and try again.</p>
+          <Button onClick={() => load()}>Try again</Button>
+        </div>
       </div>
     );
   }

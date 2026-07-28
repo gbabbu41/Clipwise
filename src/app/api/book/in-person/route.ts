@@ -171,10 +171,27 @@ export async function POST(request: NextRequest) {
     await consumePromo(validPromo, b.shop_id, b.client_email ?? null, b.client_phone ?? null, inserted.data.id);
   }
 
-  // In-app notifications for the owner + assigned barber are created by
-  // /api/appointments/notify-staff (called from the booking page), which is the
-  // single source — and now entity-links them so they're inline-actionable.
-  // (Creating one here too caused a duplicate owner notification.)
+  // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned
+  // barber (these drive the live portal pop-up + chime) AND the SMS to them.
+  // This used to be a fire-and-forget fetch from the CUSTOMER's browser, so a
+  // customer who closed the tab right after seeing "Confirmed" (or a mobile
+  // connection blip) left the shop with NO alert for a real booking. Doing it
+  // here — mirroring the online path in finalize-booking-session — makes staff
+  // alerting independent of the customer's browser. Only for customer
+  // self-bookings: a staff-added walk-in shouldn't ping the owner about their
+  // own entry (same gate as the customer SMS below). Awaited so it completes
+  // before this serverless invocation returns; notify-staff is internally
+  // best-effort and never throws.
+  if (!callerIsStaff) {
+    const notifyOrigin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+    if (notifyOrigin) {
+      await fetch(`${notifyOrigin}/api/appointments/notify-staff`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: inserted.data.id, notify_owner: true }),
+      }).catch(() => null);
+    }
+  }
 
   // Text the customer their confirmation (server-side, best-effort). Only for
   // customer self-bookings — staff-added walk-ins don't auto-text (unchanged
