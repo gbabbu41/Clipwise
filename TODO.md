@@ -5,6 +5,27 @@ Twilio, Resend). Demo-mode leftovers removed. Below is what's left to ship and g
 
 ---
 
+## ⏳ DO LATER — Email deliverability (Resend) + turn on email verification
+These are **dashboard/config actions** (Claude can't do them — they need your
+Supabase & Resend logins). Do them together, in order, THEN re-enable email
+verification. Until then keep Supabase "Confirm email" **OFF** so nobody is
+locked out.
+
+1. **Resend — verify the `clipwise.ca` domain.** Resend → Domains → Add Domain →
+   `clipwise.ca` → add the DNS records to your registrar → wait for "Verified".
+   (Right now the app falls back to Resend's test sender `onboarding@resend.dev`,
+   which only delivers to your own inbox — so customer receipts/reminders may not
+   be arriving.)
+2. **Vercel env — set `FROM_EMAIL=noreply@clipwise.ca`** (after step 1 verifies).
+   Ping Claude to confirm the code already reads it (it does: `src/lib/emailer.ts`).
+3. **Supabase — custom SMTP** (Project Settings → Authentication → SMTP):
+   Host `smtp.resend.com` · Port `465` · User `resend` · Password = Resend API key
+   (`re_…`) · Sender `noreply@clipwise.ca` · Name `ClipWise`.
+4. **Only then** re-enable Supabase "Confirm email". (Existing accounts were
+   already backfilled as confirmed via SQL, so they stay logged-in-able.)
+
+---
+
 ## 🟢 0. GO-LIVE CHECKLIST — switch from sandbox to real money
 Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code rewrite.
 
