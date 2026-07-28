@@ -8,7 +8,7 @@ import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
-import { shopChargesTax } from "@/lib/pricing";
+import { shopChargesTax, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -279,10 +279,11 @@ export default function POSPage() {
     ? (promoApplied.discount_type === "percent" ? subtotal * promoApplied.discount_value / 100 : promoApplied.discount_value)
     : 0;
   // Sales tax (shop config) on the discounted service/product amount; tips aren't taxed.
-  const posTaxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string; tax_number?: string } | null;
-  // Charge tax only when registered (valid GST/HST number on file).
+  const posTaxCfg = (shop?.booking_settings ?? null) as TaxConfig | null;
+  // Charge tax only when registered (valid GST/HST number on file); rate is
+  // GST/HST + any optional PST the owner turned on.
   const posTaxEnabled = shopChargesTax(posTaxCfg);
-  const posTaxRate = posTaxEnabled ? Number(posTaxCfg?.tax_rate ?? 0) : 0;
+  const posTaxRate = combinedTaxRate(posTaxCfg);
   const taxLabel = (posTaxCfg?.tax_label || "Tax").trim();
   const taxableAmt = Math.max(0, subtotal - discount);
   const taxAmt = posTaxEnabled ? Math.round(taxableAmt * posTaxRate) / 100 : 0;

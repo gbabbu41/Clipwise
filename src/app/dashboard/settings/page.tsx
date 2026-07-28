@@ -32,9 +32,13 @@ type BookingSettings = {
   slot_interval_minutes: number; // booking-window granularity: 15 or 30
   tips_enabled: boolean;          // offer a tip picker at online payment
   tax_enabled: boolean;           // add sales tax to charges
-  tax_rate: number;               // percent, e.g. 15 for NB HST
+  tax_rate: number;               // GST/HST percent, e.g. 15 for NB HST
   tax_label: string;              // "HST" / "GST" / "GST+QST"
-  tax_number: string;             // business tax/GST number for receipts (optional)
+  tax_number: string;             // GST/HST number (shared across the owner's shops)
+  pst_enabled: boolean;           // ALSO charge a separate provincial tax (BC/SK/MB/QC)
+  pst_rate: number;               // PST/QST percent
+  pst_label: string;              // "PST" / "QST" / "RST"
+  pst_number: string;             // provincial (PST/QST) registration number — per shop
 };
 
 const DEFAULT_BOOKING: BookingSettings = {
@@ -42,6 +46,7 @@ const DEFAULT_BOOKING: BookingSettings = {
   no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, auto_confirm: false,
   slot_interval_minutes: 30,
   tips_enabled: true, tax_enabled: false, tax_rate: 0, tax_label: "HST", tax_number: "",
+  pst_enabled: false, pst_rate: 0, pst_label: "PST", pst_number: "",
 };
 
 // Plan info — mirrors the pricing shown on the public homepage (src/app/page.tsx).
@@ -701,6 +706,44 @@ export default function SettingsPage() {
                         className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
                     </div>
                   </div>
+                  {/* Optional separate provincial tax (PST/QST) — BC/SK/MB/QC only */}
+                  <div className="rounded-lg border border-border p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="pr-3">
+                        <p className="text-xs font-medium text-foreground">Also charge PST/QST</p>
+                        <p className="text-[11px] text-grey">A separate provincial tax — only BC, Saskatchewan, Manitoba &amp; Quebec have it. Most provinces (including NB) don&rsquo;t, so leave this off.</p>
+                      </div>
+                      <Toggle value={booking.pst_enabled} onChange={() => setBooking(p => ({ ...p, pst_enabled: !p.pst_enabled }))} />
+                    </div>
+                    {booking.pst_enabled && (
+                      <div className="space-y-2.5 pt-1">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-grey font-medium uppercase tracking-wide">PST/QST rate (%)</label>
+                            <input type="number" min={0} max={30} step="0.001" value={String(booking.pst_rate)}
+                              onChange={e => setBooking(p => ({ ...p, pst_rate: clampTaxRate(Number(e.target.value)) }))}
+                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold/50" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-grey font-medium uppercase tracking-wide">Label</label>
+                            <input value={booking.pst_label}
+                              onChange={e => setBooking(p => ({ ...p, pst_label: e.target.value.slice(0, 12) }))}
+                              placeholder="PST"
+                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-grey font-medium uppercase tracking-wide">PST/QST number (optional, shown on receipts)</label>
+                          <input value={booking.pst_number}
+                            onChange={e => setBooking(p => ({ ...p, pst_number: e.target.value.slice(0, 40) }))}
+                            placeholder="PST-1234-5678"
+                            className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                          <p className="text-[11px] text-grey mt-1">Unlike GST/HST, this is set per location (it&rsquo;s a provincial number).</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label className="text-xs text-grey font-medium uppercase tracking-wide">GST/HST number</label>
                     <input value={booking.tax_number}
@@ -716,7 +759,19 @@ export default function SettingsPage() {
                       </p>
                     )}
                   </div>
-                  <p className="text-[11px] text-grey">Tax applies to the service amount (after any discount). Tips are never taxed. You&rsquo;re responsible for your own tax registration &amp; remittance — verify PST/QST applicability for your province &amp; services.</p>
+                  <p className="text-[11px] text-grey">Tax applies to the service amount (after any discount). Tips are never taxed. You&rsquo;re responsible for your own tax registration &amp; remittance.</p>
+
+                  {/* Tap-to-expand plain-language guidance */}
+                  <details className="rounded-lg border border-border bg-surface-raised/40 p-3">
+                    <summary className="text-xs font-medium text-foreground cursor-pointer select-none list-none flex items-center gap-1">
+                      <span className="text-gold">ⓘ</span> How does tax work? (GST/HST vs PST)
+                    </summary>
+                    <div className="mt-2.5 space-y-2 text-[11px] text-grey leading-relaxed">
+                      <p><span className="text-foreground font-medium">GST/HST</span> — your main sales tax. In HST provinces it&rsquo;s one all-in rate (NB &amp; the Atlantic 15%, ON 13%); in Alberta &amp; the territories it&rsquo;s just 5% GST. Tap &ldquo;use my province&rsquo;s rate&rdquo; and you&rsquo;re set. You must be registered (have a number) to charge it.</p>
+                      <p><span className="text-foreground font-medium">PST/QST</span> — a <span className="text-foreground">separate</span> provincial tax that exists <span className="text-foreground">only</span> in BC, Saskatchewan, Manitoba &amp; Quebec. Most personal services like haircuts don&rsquo;t need it (it&rsquo;s usually just for products) — except Quebec, where QST does apply to services. Leave it off unless you operate in one of those four and your accountant says to charge it.</p>
+                      <p className="text-grey-muted">Not sure? Charge GST/HST only (that covers most shops), and check with your accountant before turning on PST/QST. ClipWise just charges what you enter — the tax decisions are yours.</p>
+                    </div>
+                  </details>
                 </div>
               )}
             </div>

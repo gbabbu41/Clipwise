@@ -7,7 +7,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
-import { shopChargesTax } from "@/lib/pricing";
+import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, noShowFeeDollars } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
@@ -923,13 +923,15 @@ export default function BookingPage() {
   // ── Sales tax (from the shop's booking_settings JSON) — display only; the
   // server recomputes it authoritatively at checkout. Tax applies to the
   // service amount after any discount. ───────────────────────────────────────
-  const taxCfg = (shop?.booking_settings ?? null) as { tax_enabled?: boolean; tax_rate?: number; tax_label?: string; tax_number?: string } | null;
+  const taxCfg = (shop?.booking_settings ?? null) as TaxConfig | null;
   // Mirror the server rule so the shown total matches what's charged: tax only
-  // when registered (valid GST/HST number on file).
+  // when registered (valid GST/HST number on file). Show GST/HST + any PST as
+  // their own lines; the total uses the combined rate.
   const taxEnabled = shopChargesTax(taxCfg);
-  const taxRatePct = taxEnabled ? Number(taxCfg?.tax_rate ?? 0) : 0;
-  const taxAmount = taxEnabled ? Math.round(total * taxRatePct) / 100 : 0;
-  const taxLabel = (taxCfg?.tax_label || "Tax").trim();
+  const taxLines = taxLinesFor(taxCfg);
+  const taxRatePct = combinedTaxRate(taxCfg);
+  const taxAmount = Math.round(total * taxRatePct) / 100;
+  const taxLabel = taxLines.map((l) => l.label).join(" + ") || "tax";
   const grandTotal = total + taxAmount;
 
   // ── Optional tip (online payment only) — presets off the discounted service
@@ -1831,12 +1833,12 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
                   </div>
                 )}
-                {taxEnabled && taxAmount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#8f8f8f]">{taxLabel} ({taxRatePct}%)</span>
-                    <span className="text-white">{formatCurrency(taxAmount)}</span>
+                {taxEnabled && taxLines.map((line) => (
+                  <div key={line.label} className="flex justify-between text-sm">
+                    <span className="text-[#8f8f8f]">{line.label} ({line.rate}%)</span>
+                    <span className="text-white">{formatCurrency(Math.round(total * line.rate) / 100)}</span>
                   </div>
-                )}
+                ))}
                 <div className="flex justify-between font-bold pt-1 border-t border-[#2a2a2a]/50">
                   <span className="text-white">Total</span>
                   <span className="text-white text-lg">{formatCurrency(grandTotal)}</span>

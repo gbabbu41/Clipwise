@@ -9,7 +9,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
 
 interface ReceiptRow extends Transaction {
-  shops?: { name: string; address: string; city: string; province: string; phone: string; booking_settings?: { tax_number?: string } | null } | null;
+  shops?: { name: string; address: string; city: string; province: string; phone: string; booking_settings?: { tax_number?: string; pst_number?: string } | null } | null;
   barbers?: { name: string } | null;
 }
 
@@ -92,6 +92,9 @@ export default function ReceiptPage() {
             )}
             {tx.shops?.booking_settings?.tax_number && (
               <p className="text-xs text-[#6e6e6e] mt-1">GST/HST No. {tx.shops.booking_settings.tax_number}</p>
+            )}
+            {tx.shops?.booking_settings?.pst_number && (
+              <p className="text-xs text-[#6e6e6e]">PST/QST No. {tx.shops.booking_settings.pst_number}</p>
             )}
           </div>
 

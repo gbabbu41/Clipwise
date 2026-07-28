@@ -45,6 +45,35 @@ export function shopChargesTax(bs: { tax_enabled?: boolean; tax_number?: string 
   return !!bs && bs.tax_enabled === true && isValidGstNumber(bs.tax_number);
 }
 
+export type TaxConfig = {
+  tax_enabled?: boolean; tax_number?: string | null; tax_rate?: number; tax_label?: string;
+  pst_enabled?: boolean; pst_rate?: number; pst_label?: string; pst_number?: string | null;
+};
+export type TaxLine = { label: string; rate: number };
+
+/**
+ * The tax lines a shop charges: GST/HST always (when registered), plus a
+ * SEPARATE provincial tax (PST/QST/RST) when the owner opted in — for BC / SK /
+ * MB / QC. Returns [] when the shop isn't charging tax. Drives both the total
+ * (sum of rates) and the receipt breakdown (one line each) so they always agree.
+ */
+export function taxLinesFor(bs: TaxConfig | null | undefined): TaxLine[] {
+  if (!shopChargesTax(bs ?? undefined)) return [];
+  const lines: TaxLine[] = [];
+  const gstRate = clampTaxRate(Number(bs!.tax_rate ?? 0));
+  if (gstRate > 0) lines.push({ label: (bs!.tax_label || "GST/HST").trim() || "GST/HST", rate: gstRate });
+  if (bs!.pst_enabled) {
+    const pstRate = clampTaxRate(Number(bs!.pst_rate ?? 0));
+    if (pstRate > 0) lines.push({ label: (bs!.pst_label || "PST").trim() || "PST", rate: pstRate });
+  }
+  return lines;
+}
+
+/** Combined tax rate (GST/HST + optional PST) as a single percent. */
+export function combinedTaxRate(bs: TaxConfig | null | undefined): number {
+  return taxLinesFor(bs).reduce((sum, l) => sum + l.rate, 0);
+}
+
 export function taxPresetFor(province: string | null | undefined) {
   if (!province) return null;
   const p = province.trim().toUpperCase();
