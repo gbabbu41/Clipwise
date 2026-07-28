@@ -72,11 +72,19 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
+    setError("");
+    // Surface failures instead of silently doing nothing — the usual cause of
+    // "Google does nothing" is the provider not being enabled in Supabase.
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       // Land on the role-aware router, not a hard-coded /dashboard.
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
+    if (oauthError) {
+      setError(/not enabled|provider/i.test(oauthError.message)
+        ? "Google sign-in isn't set up yet — please use email & password for now."
+        : "Couldn't start Google sign-in. Please try again.");
+    }
   };
 
   return (
