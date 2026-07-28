@@ -55,13 +55,19 @@ export async function POST(request: NextRequest) {
   // Apply to ALL of the owner's shops — they share ONE subscription. (Was only
   // the newest shop, which left a multi-location owner's other shops pointing at
   // the old, now-cancelled subscription id + old plan.)
-  const { error: updErr } = await supabaseAdmin.from("shops").update({
+  const subUpdate = {
     subscription_status: "active",
     stripe_subscription_id: newSubId,
     stripe_customer_id: customerId,
     trial_ends_at: null,   // they've added a card — no longer a trial
     ...(planId ? { subscription_plan: planId } : {}),
-  }).eq("owner_id", user.id);
+  };
+  let { error: updErr } = await supabaseAdmin.from("shops").update(subUpdate).eq("owner_id", user.id);
+  // Resilient to the phase34 migration not being run yet — retry without trial_ends_at.
+  if (updErr && /trial_ends_at/.test(updErr.message) && /column|does not exist|schema cache/i.test(updErr.message)) {
+    const { trial_ends_at: _t, ...noTrial } = subUpdate;
+    ({ error: updErr } = await supabaseAdmin.from("shops").update(noTrial).eq("owner_id", user.id));
+  }
   if (updErr) {
     // Most likely the prevent_shop_field_escalation trigger rejecting the plan
     // change (run migrations/phase10_subscription_backend_update.sql).

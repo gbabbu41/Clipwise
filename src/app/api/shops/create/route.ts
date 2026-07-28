@@ -106,10 +106,16 @@ export async function POST(request: NextRequest) {
   const base = slugify(body.name);
   for (let attempt = 0; attempt < 3; attempt++) {
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-    const { data, error } = await supabaseAdmin
+    let ins = await supabaseAdmin
       .from("shops").insert({ ...baseRow, slug }).select("id, slug, status, subscription_plan").single();
-    if (!error && data) return NextResponse.json({ ok: true, shop: data });
-    if (error && !/slug|unique|duplicate|23505/i.test(error.message)) {
+    // Resilient to the phase34 migration not being run yet: if trial_ends_at
+    // doesn't exist, retry without it so shop creation never breaks.
+    if (ins.error && /trial_ends_at/.test(ins.error.message) && /column|does not exist|schema cache/i.test(ins.error.message)) {
+      const { trial_ends_at: _t, ...noTrial } = baseRow;
+      ins = await supabaseAdmin.from("shops").insert({ ...noTrial, slug }).select("id, slug, status, subscription_plan").single();
+    }
+    if (!ins.error && ins.data) return NextResponse.json({ ok: true, shop: ins.data });
+    if (ins.error && !/slug|unique|duplicate|23505/i.test(ins.error.message)) {
       return NextResponse.json({ error: "Couldn't create the shop. Please try again." }, { status: 500 });
     }
   }

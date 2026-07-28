@@ -257,13 +257,21 @@ export async function POST(request: NextRequest) {
           const oldSubId = session.metadata?.old_subscription_id;
           const newSubId = typeof session.subscription === "string" ? session.subscription : null;
           if (userId) {
-            await supabaseAdmin.from("shops").update({
-              stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
-              stripe_subscription_id: newSubId,
-              subscription_status: "active",
-              trial_ends_at: null,   // subscribed with a card — no longer a trial
-              ...(plan ? { subscription_plan: plan } : {}),
-            }).eq("owner_id", userId);
+            {
+              const subUpd = {
+                stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
+                stripe_subscription_id: newSubId,
+                subscription_status: "active",
+                trial_ends_at: null,   // subscribed with a card — no longer a trial
+                ...(plan ? { subscription_plan: plan } : {}),
+              };
+              const r = await supabaseAdmin.from("shops").update(subUpd).eq("owner_id", userId);
+              // Resilient to phase34 not being run yet — retry without trial_ends_at.
+              if (r.error && /trial_ends_at/.test(r.error.message) && /column|does not exist|schema cache/i.test(r.error.message)) {
+                const { trial_ends_at: _t, ...noTrial } = subUpd;
+                await supabaseAdmin.from("shops").update(noTrial).eq("owner_id", userId).then(null, () => null);
+              }
+            }
           }
           // On upgrade, cancel the previous subscription so they aren't billed twice
           if (oldSubId && oldSubId !== newSubId) {
