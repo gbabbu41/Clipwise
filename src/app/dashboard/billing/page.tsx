@@ -29,7 +29,7 @@ interface Billing {
 const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pro", premium: "Premium" };
 
 export default function BillingPage() {
-  const { accessToken, refreshShop, plans } = useAuth();
+  const { accessToken, refreshShop, plans, shop } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -132,7 +132,7 @@ export default function BillingPage() {
 
   const isStarter = !billing || billing.plan === "starter";
   const isExpired = billing?.subscriptionStatus === "cancelled" || billing?.subscriptionStatus === "past_due";
-  const currentPlanId = billing?.plan ?? "starter";
+  const currentPlanId = billing?.plan ?? shop?.subscription_plan ?? "starter";
   const currentPlanName = PLAN_LABEL[currentPlanId] ?? plans.find(p => p.id === currentPlanId)?.name ?? currentPlanId;
   // Every active PAID plan the owner can move to (all tiers except their current
   // one) — driven by the admin-editable plans table, so any middle tier shows.
@@ -140,6 +140,14 @@ export default function BillingPage() {
   // Current plan price → so each option reads "Upgrade" (higher) or "Downgrade"
   // (lower) rather than a vague "Switch". Starter/expired = fresh "Choose".
   const currentPrice = plans.find(p => p.id === currentPlanId)?.price_cents ?? 0;
+  // On a no-card trial: subscription_status is "active" but there's no Stripe
+  // subscription yet (trial_ends_at set). The page must offer "add card to keep
+  // your CURRENT plan" — otherwise a Pro-trial owner has no way to stay on Pro
+  // (the plan list excludes their current plan) and the Stripe portal would fail.
+  const isTrial = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  const trialDaysLeft = isTrial
+    ? Math.max(0, Math.ceil((new Date(shop!.trial_ends_at as string).getTime() - Date.now()) / 86_400_000))
+    : 0;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -154,6 +162,19 @@ export default function BillingPage() {
         <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
           <AlertTriangle size={18} className="text-orange-400 flex-shrink-0" />
           <p className="text-sm text-orange-300">Your subscription has {billing?.subscriptionStatus === "past_due" ? "a past-due payment" : "expired"}. Premium features are locked until you reactivate.</p>
+        </div>
+      )}
+
+      {isTrial && (
+        <div className="flex items-start gap-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4">
+          <AlertTriangle size={18} className="text-sky-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-sky-300">You&apos;re on a {currentPlanName} free trial — {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} left</p>
+            <p className="text-xs text-sky-200/80 mt-0.5">Add a card to keep {currentPlanName} after your trial ends. No charge until you subscribe; cancel anytime. If you do nothing, your shop drops to the free Starter plan.</p>
+            <Button size="sm" className="mt-2" loading={actionLoading === currentPlanId} onClick={() => startCheckoutUpgrade(currentPlanId)}>
+              <CreditCard size={14} /> Add card &amp; keep {currentPlanName}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -184,6 +205,11 @@ export default function BillingPage() {
                 <p className="text-xs text-grey">Payment method</p>
                 <p className="text-sm text-foreground mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-grey" /> {billing.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
               </div>
+            </div>
+          ) : isTrial ? (
+            <div className="p-3 bg-card-raised rounded-xl border border-border mb-5 text-center">
+              <p className="text-xs text-grey">Free trial — no card on file yet.</p>
+              <p className="text-xs text-grey mt-0.5">Add a card above to continue on {currentPlanName} after your trial.</p>
             </div>
           ) : (
             <div className="p-3 bg-card-raised rounded-xl border border-border mb-5 text-center">
@@ -230,7 +256,7 @@ export default function BillingPage() {
               </p>
             </div>
           )}
-          {!isStarter && (
+          {!isStarter && !isTrial && (
             <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
               <CreditCard size={15} /> Manage subscription
             </Button>
