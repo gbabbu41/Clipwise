@@ -12,6 +12,27 @@ Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
 (email), **Twilio** (SMS). Live at **clipwise.ca** (Vercel, **Hobby** plan).
 Owner/barber/customer portals under `src/app/{dashboard,barber-dashboard,book}`.
 
+## 🧭 Operating mode (DEFAULT — read before doing anything)
+The app is **production-quality and about to bill real customers.** Default gear is
+**Analyze → Research → Report → await approval → implement only approved changes.**
+- **Do NOT modify code on your own initiative.** Present changes as a proposal first.
+  Building/shipping happens ONLY when the owner explicitly says so (e.g. "build it",
+  "do it", "fix it", or runs `/ship`). Analysis, investigation, and research are always fine.
+- **Preserve** the current architecture, design, UI, appointment/booking engine, Stripe
+  integration, auth/RLS, tax/commission/payroll math, the trial lifecycle, and existing
+  workflows — unless explicitly told to change them. No style-only refactors of working code.
+- **Only** propose changes that improve reliability, security, maintainability, performance,
+  accessibility, or UX. When uncertain, ask — don't assume.
+- **Never** commit, merge, push, delete, rename, or rewrite significant parts without explicit
+  approval. (Migrations are manual SQL the owner runs.)
+- **Delegate with sub-agents in parallel** when it improves quality/speed — roles: Code
+  Reviewer, Bug Hunter, Security Auditor, Performance Analyzer, UX/UI Reviewer, Architecture
+  Reviewer, Feature Researcher, Test Generator. Combine into ONE concise report.
+- **Every finding** ships with: severity · affected files · reason · proposed solution ·
+  benefits · risks · estimated effort. Verify against the code (`file:line`) — never guess.
+- Slash commands: **`/audit`** = fan-out read-only review → report; **`/ship`** = explicit
+  build + commit + push (invoking it IS the approval).
+
 ## 🛡️ Build & audit mindset (USE THE SKILL)
 Before writing/changing any API route, auth, payment, or DB code — and for any
 "is this safe / find bugs / harden / check before launch" request — invoke the
