@@ -9,7 +9,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
 
 interface ReceiptRow extends Transaction {
-  shops?: { name: string; address: string; city: string; province: string; phone: string; booking_settings?: { tax_number?: string; pst_number?: string } | null } | null;
+  shops?: { name: string; address: string; city: string; province: string; phone: string; booking_settings?: { tax_number?: string; pst_number?: string; tax_label?: string } | null } | null;
   barbers?: { name: string } | null;
 }
 
@@ -63,7 +63,10 @@ export default function ReceiptPage() {
     );
   }
 
-  const total = tx.amount + tx.tip;
+  const taxAmt = tx.tax ?? 0;
+  const total = tx.amount + taxAmt + tx.tip;
+  const taxLabel = (tx.shops?.booking_settings?.tax_label || "Tax").trim() || "Tax";
+  const taxRatePct = tx.amount > 0 && taxAmt > 0 ? Math.round((taxAmt / tx.amount) * 1000) / 10 : 0;
   const txDate = new Date(tx.created_at);
   const formattedDate = txDate.toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const formattedTime = txDate.toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" });
@@ -137,6 +140,12 @@ export default function ReceiptPage() {
               <span className="text-[#6e6e6e]">Subtotal</span>
               <span className="text-white">{formatCurrency(tx.amount)}</span>
             </div>
+            {taxAmt > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-[#6e6e6e]">{taxLabel}{taxRatePct > 0 ? ` (${taxRatePct}%)` : ""}</span>
+                <span className="text-white">{formatCurrency(taxAmt)}</span>
+              </div>
+            )}
             {tx.tip > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-[#6e6e6e]">Tip</span>

@@ -77,6 +77,7 @@ export default function AnalyticsPage() {
 
   const today = new Date().toISOString().split("T")[0];
   const thisMonth = today.slice(0, 7);
+  const thisYear = today.slice(0, 4);
   const lastMonth = new Date(new Date(today).setMonth(new Date(today).getMonth() - 1)).toISOString().slice(0, 7);
 
   const filteredTx = useMemo(() => {
@@ -90,9 +91,10 @@ export default function AnalyticsPage() {
       const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
       list = list.filter(t => new Date(t.created_at) >= weekAgo);
     } else if (period === "month") list = list.filter(t => t.created_at.startsWith(thisMonth));
+    else if (period === "year") list = list.filter(t => t.created_at.startsWith(thisYear));
     else if (period === "last") list = list.filter(t => t.created_at.startsWith(lastMonth));
     return list;
-  }, [transactions, barberFilter, period, today, thisMonth, lastMonth]);
+  }, [transactions, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
 
   const filteredAppts = useMemo(() => {
     let list = appointments;
@@ -102,9 +104,10 @@ export default function AnalyticsPage() {
       const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
       list = list.filter(a => new Date(a.date) >= weekAgo);
     } else if (period === "month") list = list.filter(a => a.date.startsWith(thisMonth));
+    else if (period === "year") list = list.filter(a => a.date.startsWith(thisYear));
     else if (period === "last") list = list.filter(a => a.date.startsWith(lastMonth));
     return list;
-  }, [appointments, barberFilter, period, today, thisMonth, lastMonth]);
+  }, [appointments, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
 
   // Revenue over time (from transactions)
   const revenueByDay = useMemo<DayRevenue[]>(() => {
@@ -218,6 +221,7 @@ export default function AnalyticsPage() {
     { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-foreground" },
     { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
     { label: "Tips Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + t.tip, 0)), sub: "Via POS", color: "text-foreground" },
+    { label: "Tax Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + (t.tax ?? 0), 0)), sub: "GST/HST + PST to remit", color: "text-foreground" },
   ];
 
   if (!shop) {
@@ -263,7 +267,7 @@ export default function AnalyticsPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3">
         <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {[["today","Today"],["week","This Week"],["month","This Month"],["last","Last Month"]].map(([v,l]) => (
+          {[["today","Today"],["week","This Week"],["month","This Month"],["year","This Year"],["last","Last Month"]].map(([v,l]) => (
             <button key={v} onClick={() => setPeriod(v)}
               className={cn("px-3 py-2 text-xs font-medium whitespace-nowrap shrink-0 transition-colors", period === v ? "bg-gold text-black" : "text-grey hover:text-foreground bg-card-raised")}>
               {l}

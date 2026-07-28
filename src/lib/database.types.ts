@@ -191,8 +191,9 @@ export interface Transaction {
   barber_id?: string;
   client_name?: string;
   service_name?: string;
-  amount: number;
+  amount: number;              // pre-tax service/product revenue
   tip: number;
+  tax?: number;                // sales tax collected on this sale (phase30)
   commission_amount?: number;
   payment_method?: PaymentMethod;
   type: "service" | "product" | "tip";

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt, error: apptErr } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, time_slot, total_amount, tip_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
+    .select("id, shop_id, barber_id, service_id, client_name, client_email, client_phone, date, time_slot, total_amount, tip_amount, tax_amount, payment_intent_id, payment_status, stripe_customer_id, stripe_payment_method_id")
     .eq("id", appointment_id).maybeSingle();
   if (apptErr || !appt) {
     console.warn("[capture-appointment] appointment NOT FOUND", { appointment_id, apptErr: apptErr?.message });
@@ -180,19 +180,31 @@ export async function POST(request: NextRequest) {
     // Split the tip out of the captured amount for the ledger (completion only;
     // no tip is ever collected on a no-show fee).
     const tipDollars = reason === "no_show" ? 0 : Math.min(Math.max(0, Number(appt.tip_amount ?? 0)), amountReceived / 100);
-    await supabaseAdmin.from("transactions").insert({
+    // Split tax out of the captured amount so `amount` is pre-tax revenue and the
+    // tax is stored separately (matching the online + POS ledger rows) — so
+    // receipts can show a Subtotal/Tax breakdown and analytics can total tax
+    // collected. A no-show fee carries no tax.
+    const txTax = reason === "no_show" ? 0 : Math.max(0, Number(appt.tax_amount ?? 0));
+    const txBase = {
       shop_id: appt.shop_id,
       barber_id: appt.barber_id || null,
       client_name: appt.client_name || null,
       service_name: reason === "no_show" ? `No-show fee — ${svc?.name ?? "appointment"}` : (svc?.name ?? "Service"),
-      amount: amountReceived / 100 - tipDollars,
       tip: tipDollars,
       payment_method: "card",
       type: "service",
       appointment_id,
       payment_intent_id: pi.id ?? appt.payment_intent_id ?? null,
       source: reason === "no_show" ? "no_show" : "completion",
-    }).then(null, () => null);
+    };
+    const txRes = await supabaseAdmin.from("transactions")
+      .insert({ ...txBase, amount: Math.max(0, amountReceived / 100 - tipDollars - txTax), tax: txTax });
+    if (txRes.error && /tax/.test(txRes.error.message) && /column|does not exist|schema cache/i.test(txRes.error.message)) {
+      // Pre-phase30 schema (no tax column) — fall back to a tax-inclusive amount
+      // so the row + totals still reconcile.
+      await supabaseAdmin.from("transactions")
+        .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+    }
     sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,
       clientName: appt.client_name,
