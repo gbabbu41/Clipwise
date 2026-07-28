@@ -1108,8 +1108,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // When an appointment flips to paid, flash its card briefly.
   const loadRef = useRef(load);
   useEffect(() => { loadRef.current = load; }, [load]);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!shop) return;
+    // Coalesce reload storms: a busy period (several appointments settling, a POS
+    // burst) fires many row changes, and each reload is a full 3-query load. The
+    // paid-flash still fires immediately below; only the reload is debounced.
+    const debouncedReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => loadRef.current(), 600);
+    };
     const ch = supabase
       .channel(`calendar:${shop.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, (payload) => {
@@ -1121,11 +1129,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             setTimeout(() => setFlashIds(prev => { const s = new Set(prev); s.delete(id); return s; }), 3000);
           }
         }
-        loadRef.current();
+        debouncedReload();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, () => loadRef.current())
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests", filter: `shop_id=eq.${shop.id}` }, () => debouncedReload())
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); supabase.removeChannel(ch); };
   }, [shop]);
 
   // Both the week and day grids are now bounded to business hours, so they

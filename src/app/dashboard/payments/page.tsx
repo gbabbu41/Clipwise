@@ -118,6 +118,7 @@ export default function PaymentsPage() {
   const [ownerExtra, setOwnerExtra] = useState<"" | "biweekly" | "lastweek" | "custom">("");
   const [ownerSlide, setOwnerSlide] = useState(0);
   const ownerRef = useRef<HTMLDivElement>(null);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [showCustomModal, setShowCustomModal] = useState(false); // custom-range date picker popup
@@ -201,12 +202,19 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (!shop) return;
+    // Coalesce bursts: a POS session or several appointments settling can fire
+    // many row changes back-to-back, and each loadData is two 250-row queries
+    // plus a ~9-call Stripe summary. Debounce to a single trailing reload.
+    const debouncedReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => loadData(), 800);
+    };
     const ch = supabase
       .channel(`payments:${shop.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `shop_id=eq.${shop.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, debouncedReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `shop_id=eq.${shop.id}` }, debouncedReload)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); supabase.removeChannel(ch); };
   }, [shop, loadData]);
 
   const isPaid = (s: string | null) => s === "paid" || s === "captured";

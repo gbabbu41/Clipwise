@@ -194,18 +194,17 @@ export default function DashboardPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  // ── Resolve barber record ID for logged-in barbers ─────────────────────────
-  useEffect(() => {
-    if (!profile || profile.role !== "barber" || !shop) return;
-    supabase.from("barbers").select("id").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
-      .then(({ data }) => { if (data) setMyBarberId(data.id); });
-  }, [profile, shop]);
-
-  // The owner's own barber photo → shown on the owner-portal account avatar.
+  // ── Resolve the logged-in user's barber row (id + photo) in ONE query ───────
+  // Used for: the barber record id (barber portal features) and the account
+  // avatar photo. Previously two separate effects hit the same row.
   useEffect(() => {
     if (!profile || !shop) { setOwnerPhoto(null); return; }
-    supabase.from("barbers").select("photo").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
-      .then(({ data }) => setOwnerPhoto((data as { photo?: string | null } | null)?.photo ?? null));
+    supabase.from("barbers").select("id, photo").eq("user_id", profile.id).eq("shop_id", shop.id).maybeSingle()
+      .then(({ data }) => {
+        const row = data as { id?: string; photo?: string | null } | null;
+        setOwnerPhoto(row?.photo ?? null);
+        if (profile.role === "barber" && row?.id) setMyBarberId(row.id);
+      });
   }, [profile, shop]);
 
   // ── Load clock-in status for barbers ────────────────────────────────────────

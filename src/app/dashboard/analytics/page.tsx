@@ -60,9 +60,23 @@ export default function AnalyticsPage() {
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
+    // Only pull the rows the selected period actually needs (every KPI/chart
+    // already filters by period client-side) instead of the shop's ENTIRE
+    // history on every load. `since` is the earliest date the current period can
+    // reference; the client memos still apply the exact period bound on top, so
+    // fetching a hair extra is harmless. Refetches when the period changes.
+    const now = new Date();
+    const iso = (d: Date) => d.toISOString().split("T")[0];
+    let since: string;
+    if (period === "today") since = iso(now);
+    else if (period === "week") { const w = new Date(now); w.setDate(w.getDate() - 7); since = iso(w); }
+    else if (period === "year") since = `${iso(now).slice(0, 4)}-01-01`;
+    else if (period === "last") since = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    else /* month (default) */ since = `${iso(now).slice(0, 7)}-01`;
+
     const [txRes, apptRes, barberRes, svcRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("shop_id", shop.id).order("created_at", { ascending: true }),
-      supabase.from("appointments").select("*").eq("shop_id", shop.id),
+      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }),
+      supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", since),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("id, name").eq("shop_id", shop.id),
     ]);
@@ -71,7 +85,7 @@ export default function AnalyticsPage() {
     if (barberRes.data) setBarbers(barberRes.data);
     if (svcRes.data) setServiceNames(Object.fromEntries(svcRes.data.map((s: { id: string; name: string }) => [s.id, s.name])));
     setLoading(false);
-  }, [shop]);
+  }, [shop, period]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
