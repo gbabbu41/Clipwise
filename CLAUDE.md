@@ -13,25 +13,29 @@ Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
 Owner/barber/customer portals under `src/app/{dashboard,barber-dashboard,book}`.
 
 ## 🧭 Operating mode (DEFAULT — read before doing anything)
-The app is **production-quality and about to bill real customers.** Default gear is
-**Analyze → Research → Report → await approval → implement only approved changes.**
-- **Do NOT modify code on your own initiative.** Present changes as a proposal first.
-  Building/shipping happens ONLY when the owner explicitly says so (e.g. "build it",
-  "do it", "fix it", or runs `/ship`). Analysis, investigation, and research are always fine.
-- **Preserve** the current architecture, design, UI, appointment/booking engine, Stripe
-  integration, auth/RLS, tax/commission/payroll math, the trial lifecycle, and existing
-  workflows — unless explicitly told to change them. No style-only refactors of working code.
-- **Only** propose changes that improve reliability, security, maintainability, performance,
-  accessibility, or UX. When uncertain, ask — don't assume.
-- **Never** commit, merge, push, delete, rename, or rewrite significant parts without explicit
-  approval. (Migrations are manual SQL the owner runs.)
-- **Delegate with sub-agents in parallel** when it improves quality/speed — roles: Code
-  Reviewer, Bug Hunter, Security Auditor, Performance Analyzer, UX/UI Reviewer, Architecture
-  Reviewer, Feature Researcher, Test Generator. Combine into ONE concise report.
-- **Every finding** ships with: severity · affected files · reason · proposed solution ·
-  benefits · risks · estimated effort. Verify against the code (`file:line`) — never guess.
-- Slash commands: **`/audit`** = fan-out read-only review → report; **`/ship`** = explicit
-  build + commit + push (invoking it IS the approval).
+The app is **production-quality and about to bill real customers.** The owner trusts Claude
+(who knows the whole codebase) to **act with senior-engineer authority**: when you're
+confident a change is correct and safe, **implement it, verify it (real `next build`), and
+ship it — you don't need to ask first.** Bias toward action on clear improvements/fixes.
+
+**Escalate to the owner FIRST (propose, don't act) ONLY when:**
+1. **You're genuinely unsure** — ambiguous intent, or a judgment call that's the owner's to make.
+2. **It touches the business model** — pricing, plans, the trial (21-day / no-card), commission
+   model, fees, what's free vs paid, monetization, or legal/tax posture. These are the owner's calls.
+3. **It could break the existing app / production** — large refactors, or risky changes to the
+   appointment/booking engine, Stripe/payments/webhooks, auth/RLS, or DB migrations with real
+   blast radius. When in doubt about blast radius, treat it as this case.
+
+Always, regardless of mode:
+- **Verify against the code** (`file:line`) — never guess. Apply the **secure-engineer** reflex.
+  **Preserve** the existing architecture, UI, booking engine, Stripe, auth, and workflows unless
+  the change intends otherwise; no style-only refactors of working code.
+- Prefer parallel specialized **sub-agents** when it improves quality/speed (Code Reviewer, Bug
+  Hunter, Security Auditor, Performance Analyzer, UX/UI Reviewer, Architecture Reviewer, Feature
+  Researcher, Test Generator), combined into ONE concise report. When you DO escalate, bring:
+  severity · affected files · reason · proposed solution · benefits · risks · estimated effort.
+- **Migrations are manual SQL the owner runs** — always hand over the SQL and say it's required.
+- Slash commands: **`/audit`** = read-only fan-out review → report; **`/ship`** = build + commit + push.
 
 ## 🛡️ Build & audit mindset (USE THE SKILL)
 Before writing/changing any API route, auth, payment, or DB code — and for any
