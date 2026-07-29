@@ -312,6 +312,22 @@ export default function SettingsPage() {
 
   const saveBooking = async () => {
     if (!shop) return;
+    // Tax gate (also enforced by disabling the Save button): you can't legally
+    // charge tax unless you're registered, so NEVER let a taxable config be saved
+    // without a valid GST/HST number AND a rate > 0. Otherwise "tax on, 13%, no
+    // number" saves but silently never charges — the exact confusion to avoid.
+    if (booking.tax_enabled && !isValidGstNumber(booking.tax_number)) {
+      showToast("Add a valid GST/HST number to charge tax (e.g. 123456789RT0001), or turn Charge GST/HST off.");
+      return;
+    }
+    if (booking.tax_enabled && !(Number(booking.tax_rate) > 0)) {
+      showToast("Set a tax rate above 0% to charge tax, or turn Charge GST/HST off.");
+      return;
+    }
+    if (booking.tax_enabled && booking.pst_enabled && !(Number(booking.pst_rate) > 0)) {
+      showToast("Set a PST/QST rate above 0%, or turn off 'Also charge PST/QST'.");
+      return;
+    }
     setSaving(true);
     // Save both the JSON `booking_settings` blob and the top-level
     // `allow_pay_in_person` column in one update — they're both shown in
@@ -329,19 +345,19 @@ export default function SettingsPage() {
       return;
     }
     // The GST/HST number is ONE number for all the owner's shops, so propagate it
-    // to every location (not just the active shop). The route validates the format.
+    // to every location (not just the active shop). Sync only a valid number (or
+    // empty to clear it); when tax is on it's guaranteed valid by the gate above.
     const gst = (booking.tax_number ?? "").trim();
-    if (gst && !isValidGstNumber(gst)) {
-      showToast("Settings saved, but the GST/HST number looks invalid — tax won't be charged until it's fixed.");
-      setSaving(false);
-      return;
+    if (gst === "" || isValidGstNumber(gst)) {
+      const res = await fetch("/api/tax/registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+        body: JSON.stringify({ gst_number: gst }),
+      }).catch(() => null);
+      showToast(res?.ok ? "Booking settings saved!" : "Settings saved (couldn't sync the GST number across locations).");
+    } else {
+      showToast("Settings saved. The GST/HST number looks invalid so it wasn't stored — fix it to charge tax.");
     }
-    const res = await fetch("/api/tax/registration", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
-      body: JSON.stringify({ gst_number: gst }),
-    }).catch(() => null);
-    showToast(res?.ok ? "Booking settings saved!" : "Settings saved (couldn't sync the GST number across locations).");
     setSaving(false);
   };
 
@@ -750,11 +766,14 @@ export default function SettingsPage() {
                       onChange={e => setBooking(p => ({ ...p, tax_number: e.target.value.slice(0, 40) }))}
                       placeholder="123456789RT0001"
                       className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
-                    {(booking.tax_number ?? "").trim() && !isValidGstNumber(booking.tax_number) ? (
-                      <p className="text-[11px] text-red-400 mt-1">That doesn&rsquo;t look like a valid GST/HST number (e.g. 123456789RT0001).</p>
+                    {booking.tax_enabled && !isValidGstNumber(booking.tax_number) ? (
+                      <p className="text-[11px] text-red-400 mt-1">
+                        {(booking.tax_number ?? "").trim()
+                          ? "That doesn’t look like a valid GST/HST number (e.g. 123456789RT0001)."
+                          : "A valid GST/HST number is required to charge tax — you can only collect GST/HST if you’re registered."}
+                      </p>
                     ) : (
                       <p className="text-[11px] text-grey mt-1">
-                        Required to charge tax — you can only collect GST/HST if you&rsquo;re registered.
                         This number is <span className="text-foreground">shared across all your locations</span> and printed on receipts.
                       </p>
                     )}
@@ -776,7 +795,15 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <Button disabled={saving} onClick={saveBooking}>
+            {booking.tax_enabled && (!isValidGstNumber(booking.tax_number) || !(Number(booking.tax_rate) > 0)) && (
+              <p className="text-[11px] text-red-400 -mb-1">
+                To save with tax on, add a valid GST/HST number and a rate above 0% — or turn off &ldquo;Charge GST/HST&rdquo;.
+              </p>
+            )}
+            <Button
+              disabled={saving || (booking.tax_enabled && (!isValidGstNumber(booking.tax_number) || !(Number(booking.tax_rate) > 0)))}
+              onClick={saveBooking}
+            >
               {saving ? "Saving…" : "Save Settings"}
             </Button>
           </CardContent>
