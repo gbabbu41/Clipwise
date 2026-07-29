@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 import { sendAppEmail } from "@/lib/emailer";
 
 // Days-out at which we nudge a trialing shop to add a card (escalating tone).

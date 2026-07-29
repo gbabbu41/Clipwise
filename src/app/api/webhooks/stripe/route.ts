@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";

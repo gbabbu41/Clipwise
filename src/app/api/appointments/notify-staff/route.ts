@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDateWithContext } from "@/lib/utils";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 
 /**
  * Fire-and-forget staff alerts for a NEW booking — the pieces the booking

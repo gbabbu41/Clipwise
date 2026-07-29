@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { prettyDate } from "@/lib/utils";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send

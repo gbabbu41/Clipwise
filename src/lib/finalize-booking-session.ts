@@ -5,7 +5,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 

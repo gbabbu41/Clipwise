@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 import { prettyDate } from "@/lib/utils";
 
 // Calendar "block hours" — a thin wrapper over the time_off_requests engine

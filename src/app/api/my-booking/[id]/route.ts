@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { insertNotifications } from "@/lib/notify";
+import { insertNotifications } from "@/lib/notify-server";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";

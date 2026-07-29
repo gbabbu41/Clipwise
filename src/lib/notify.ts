@@ -1,12 +1,14 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Shared notification helpers. A notification belongs to ONE shop (shop_id) so a
- * multi-shop owner's alerts don't bleed across shops. Everything here is
- * resilient to the `shop_id` (and `entity_*`) columns not existing yet in prod,
- * so a deploy that lands before the phase32 migration degrades gracefully to the
- * old user-scoped behaviour instead of breaking notifications.
+ * Shared notification helpers — CLIENT-SAFE (read helpers + pure fns only). The
+ * server-only writer `insertNotifications` lives in `lib/notify-server.ts` so
+ * this file never imports `supabaseAdmin`; importing that service-role client
+ * into a browser bundle throws "supabaseKey is required" and blanks the page.
+ * A notification belongs to ONE shop (shop_id) so a multi-shop owner's alerts
+ * don't bleed across shops. Everything here is resilient to the `shop_id` (and
+ * `entity_*`) columns not existing yet in prod, so a deploy that lands before
+ * the phase32 migration degrades gracefully instead of breaking notifications.
  */
 
 export type NotificationInput = {
@@ -19,23 +21,6 @@ export type NotificationInput = {
   entity_type?: string;
   entity_id?: string;
 };
-
-/** Insert one or many notifications (server-side, service role). ALWAYS stamps
- *  shop_id; if the column (or entity_*) is missing, retries without it so a
- *  lagging migration never silently drops an alert. Fire-and-forget. */
-export async function insertNotifications(rows: NotificationInput | NotificationInput[]): Promise<void> {
-  const list = (Array.isArray(rows) ? rows : [rows]).map((r) => ({ is_read: false, ...r }));
-  if (list.length === 0) return;
-  const { error } = await supabaseAdmin.from("notifications").insert(list);
-  if (!error) return;
-  if (/shop_id|entity_(type|id)/.test(error.message)) {
-    const stripped = list.map((r) => {
-      const { shop_id: _s, entity_type: _t, entity_id: _i, ...base } = r;
-      return base;
-    });
-    await supabaseAdmin.from("notifications").insert(stripped).then(null, () => null);
-  }
-}
 
 /**
  * Fetch a user's notifications scoped to the active shop, resilient to the
