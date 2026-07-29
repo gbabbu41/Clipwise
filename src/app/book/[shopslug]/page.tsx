@@ -323,6 +323,22 @@ export default function BookingPage() {
     }
   }, [shop, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Barber-specific booking link (?barber=<id>) ────────────────────────────
+  // A barber (or the owner from their barber portal) shares a link that books
+  // ONLY them. When the param points at an active barber of THIS shop, we lock
+  // the flow to that barber: the flow toggle + barber picker are hidden, the
+  // "Barber" step is skipped, and a header shows who you're booking with. An
+  // invalid/missing param → the normal full-shop page (graceful).
+  const lockedBarberId = searchParams.get("barber");
+  const lockedBarber = lockedBarberId ? barbers.find((b) => b.id === lockedBarberId) ?? null : null;
+  useEffect(() => {
+    if (!lockedBarber) return;
+    setFlow("barber-first");
+    setSelectedBarber(lockedBarber.id);
+    setStep((s) => (s < 1 ? 1 : s)); // skip the Barber-pick step
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockedBarber?.id]);
+
   // ── Load barber work days (for Option B calendar greying) ──────────────────
   const loadBarberWorkDays = useCallback(async () => {
     if (flow !== "barber-first" || !selectedBarber) { setBarberWorkDays(new Set()); return; }
@@ -1013,6 +1029,10 @@ export default function BookingPage() {
   const STEPS_TIME_FIRST = ["Service", "When", "Your Info", "Promo", "Confirm"];
   const STEPS_BARBER_FIRST = ["Barber", "Service", "When", "Your Info", "Promo", "Confirm"];
   const STEPS = flow === "time-first" ? STEPS_TIME_FIRST : STEPS_BARBER_FIRST;
+  // When locked to one barber, the "Barber" step is pre-done — drop it from the
+  // progress bar (display only; internal `step` stays barber-first-indexed).
+  const visibleSteps = lockedBarber ? STEPS.slice(1) : STEPS;
+  const visibleStep = lockedBarber ? Math.max(0, step - 1) : step;
 
   const validateClientInfo = () => {
     const errs: Record<string, string> = {};
@@ -1349,7 +1369,8 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* Flow Toggle */}
+      {/* Flow Toggle — hidden on a barber-specific link (barber is locked). */}
+      {!lockedBarber && (
       <div className="bg-black border-b border-[#2a2a2a]">
         <div className="max-w-2xl mx-auto px-5 py-3 flex gap-2">
           {(["time-first", "barber-first"] as const).map((f) => (
@@ -1368,31 +1389,47 @@ export default function BookingPage() {
           ))}
         </div>
       </div>
+      )}
+
+      {/* Booking-with-this-barber header (barber-specific link) */}
+      {lockedBarber && (
+        <div className="bg-black border-b border-[#2a2a2a]">
+          <div className="max-w-2xl mx-auto px-5 py-3 flex items-center gap-3">
+            {lockedBarber.photo
+              ? <img src={lockedBarber.photo} alt={lockedBarber.name} className="w-11 h-11 rounded-full object-cover border border-[#2a2a2a]" />
+              : <div className="w-11 h-11 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold">{lockedBarber.name[0]}</div>}
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-wide text-[#8f8f8f]">Booking with</p>
+              <p className="text-sm font-semibold text-white truncate">{lockedBarber.name}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progress */}
       <div className="bg-black border-b border-[#2a2a2a] sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-5 py-3.5">
           <div className="flex items-center gap-1">
-            {STEPS.map((s, i) => (
+            {visibleSteps.map((s, i) => (
               <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
                 <div className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
-                  i <= step ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
+                  i <= visibleStep ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
                 )}>
-                  {i < step ? <Check size={12} /> : i + 1}
+                  {i < visibleStep ? <Check size={12} /> : i + 1}
                 </div>
-                {i < STEPS.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < step ? "bg-emerald-400" : "bg-[#242424]")} />}
+                {i < visibleSteps.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < visibleStep ? "bg-emerald-400" : "bg-[#242424]")} />}
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#8f8f8f] mt-2">Step {step + 1} of {STEPS.length}: <span className="text-white font-semibold">{STEPS[step]}</span></p>
+          <p className="text-xs text-[#8f8f8f] mt-2">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-28">
 
-        {/* BARBER FIRST — Step 0: Select Barber */}
-        {step === isBarberFirstStep(0) && (
+        {/* BARBER FIRST — Step 0: Select Barber (skipped on a barber-locked link) */}
+        {!lockedBarber && step === isBarberFirstStep(0) && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             <button
@@ -1950,11 +1987,11 @@ export default function BookingPage() {
             </div>
           ) : (
             <p className="flex-1 text-xs text-white/60 leading-tight">
-              Step {step + 1} of {STEPS.length} · {STEPS[step]}
+              Step {visibleStep + 1} of {visibleSteps.length} · {visibleSteps[visibleStep]}
             </p>
           )}
 
-          {step > 0 && (
+          {step > (lockedBarber ? 1 : 0) && (
             <button
               type="button"
               onClick={() => setStep(step - 1)}

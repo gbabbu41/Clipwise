@@ -146,6 +146,24 @@ export default function BarberOverviewPage() {
         </div>
       </div>
 
+      {/* Share my personal booking link — books ONLY me (customers see only me). */}
+      {shop?.slug && barber?.id && (
+        <button
+          type="button"
+          onClick={async () => {
+            const url = `${window.location.origin}/book/${shop.slug}?barber=${barber.id}`;
+            if (typeof navigator !== "undefined" && navigator.share) {
+              try { await navigator.share({ title: `Book with ${barber.name}`, url }); return; } catch { /* dismissed */ }
+            }
+            try { await navigator.clipboard.writeText(url); showToast("Booking link copied — share it anywhere!"); }
+            catch { showToast("Couldn't copy the link."); }
+          }}
+          className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-2xl border border-border bg-card text-foreground text-sm font-semibold hover:border-gray-500 transition-colors"
+        >
+          🔗 Share my booking link
+        </button>
+      )}
+
       {/* Stats — same v2 treatment as the owner dashboard:
             uppercase grey label, 28px DM Mono value, colored sub indicator
             (green = up / positive, red = down / warning, grey = neutral). */}

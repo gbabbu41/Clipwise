@@ -77,6 +77,26 @@ function ResetLinkCopy({ link }: { link: string }) {
   );
 }
 
+// Per-barber "share my booking link" — a link that books ONLY this barber
+// (customers never see the other barbers). Native share on mobile, copy elsewhere.
+function BookingLinkCopy({ slug, barberId, name }: { slug: string; barberId: string; name: string }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/book/${slug}?barber=${barberId}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try { await navigator.share({ title: `Book with ${name}`, url }); return; } catch { /* dismissed */ }
+    }
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
+  };
+  return (
+    <button type="button" onClick={share} disabled={!slug}
+      className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-grey hover:text-foreground hover:border-gray-500 transition-colors text-xs font-medium disabled:opacity-50">
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+      {copied ? "Link copied!" : "Share booking link"}
+    </button>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse bg-card-raised rounded-xl", className)} />;
@@ -717,6 +737,9 @@ export default function StaffPage() {
                   </Button>
                 )}
               </div>
+              {/* Personal booking link (books only this barber) */}
+              <BookingLinkCopy slug={shop?.slug ?? ""} barberId={barber.id} name={barber.name} />
+              {isOwnerBarber && <p className="text-[11px] text-grey mt-1 text-center">Your own link — customers see only you.</p>}
               <div className="mt-2">
                 <Button variant="secondary" size="sm" className="w-full" onClick={() => document.getElementById("clock-history")?.scrollIntoView({ behavior: "smooth" })}>
                   Clock History
