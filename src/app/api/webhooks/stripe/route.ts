@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", apptId)
             .neq("payment_status", "paid") // only the real unpaid→paid transition (avoids double receipt vs payment-link-finalize)
-            .select("client_email, client_name, date, time_slot, total_amount, shop_id, barber_id, services(name)")
+            .select("client_email, client_name, date, time_slot, total_amount, tax_amount, shop_id, barber_id, services(name)")
             .maybeSingle();
 
           // A pay-in-person booking that's still awaiting approval is now paid —
@@ -187,13 +187,16 @@ export async function POST(request: NextRequest) {
 
             // Ledger row so the barber portal + analytics see the online payment
             // (idempotent — payment-link-finalize may have written it already).
+            const linkTax = Math.max(0, Number((paidAppt as { tax_amount?: number }).tax_amount ?? 0));
             await recordOnlinePaymentTx({
               appointmentId: apptId,
               shopId: paidAppt.shop_id,
               barberId: paidAppt.barber_id ?? null,
               clientName: paidAppt.client_name,
               serviceName: svcName || "Service",
-              amountDollars: Number(paidAppt.total_amount ?? 0),
+              // PRE-TAX service revenue (gross − tax); tax recorded separately.
+              amountDollars: Math.max(0, Number(paidAppt.total_amount ?? 0) - linkTax),
+              taxDollars: linkTax,
               paymentIntentId: newPi,
             });
 

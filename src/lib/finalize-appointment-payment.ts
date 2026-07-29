@@ -13,7 +13,8 @@ export interface PayableAppt {
   client_email: string | null;
   date: string;
   time_slot: string;
-  total_amount: number | null;
+  total_amount: number | null;   // GROSS (tax-inclusive)
+  tax_amount?: number | null;    // the tax portion of total_amount (0 if none)
   status?: string | null;
   services?: { name?: string } | { name?: string }[] | null;
 }
@@ -130,16 +131,20 @@ export async function markAppointmentPaid(args: {
   if ((claimed?.length ?? 0) === 0) return false;
 
   const serviceName = serviceNameOf(appt.services);
-  const amountCents = Math.round(Number(appt.total_amount ?? 0) * 100);
+  const amountCents = Math.round(Number(appt.total_amount ?? 0) * 100); // gross paid
+  const taxDollars = Math.max(0, Number(appt.tax_amount ?? 0));
 
   // Put the online payment in the ledger so the barber portal + analytics see it.
+  // amount is PRE-TAX service revenue (gross − tax); tax is recorded separately so
+  // the receipt shows the breakdown and pre-tax revenue isn't overstated.
   await recordOnlinePaymentTx({
     appointmentId: appt.id,
     shopId: appt.shop_id,
     barberId: appt.barber_id,
     clientName: appt.client_name,
     serviceName,
-    amountDollars: amountCents / 100,
+    amountDollars: Math.max(0, amountCents / 100 - taxDollars),
+    taxDollars,
     paymentIntentId: paymentIntentId ?? null,
   });
 

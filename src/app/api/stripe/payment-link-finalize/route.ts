@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, client_name, client_email, date, time_slot, total_amount, payment_status, status, barbers(name), services(name)")
+    .select("id, shop_id, barber_id, client_name, client_email, date, time_slot, total_amount, tax_amount, payment_status, status, barbers(name), services(name)")
     .eq("id", appointment_id).maybeSingle();
   if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
 

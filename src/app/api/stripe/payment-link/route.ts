@@ -5,6 +5,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { authorizeAppointment } from "@/lib/api-auth";
+import { taxOnAmount, taxLabelFor, type TaxConfig } from "@/lib/pricing";
 
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, services(name)")
+    .select("id, shop_id, client_name, client_email, client_phone, date, time_slot, total_amount, tax_amount, payment_status, services(name)")
     .eq("id", appointment_id)
     .single();
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("name, slug, stripe_account_id, stripe_connected, subscription_plan, subscription_status, email")
+    .select("name, slug, stripe_account_id, stripe_connected, subscription_plan, subscription_status, email, booking_settings")
     .eq("id", appt.shop_id)
     .single();
 
@@ -84,18 +85,54 @@ export async function POST(request: NextRequest) {
     ? (appt.services[0]?.name ?? "Service")
     : ((appt.services as { name?: string } | null)?.name ?? "Service");
 
+  // ── Sales tax (one truth) ───────────────────────────────────────────────────
+  // Charge service + tax when the shop is registered (valid GST/HST number). Tax
+  // is computed on the PRE-TAX base — total_amount minus any tax already applied —
+  // so re-sending the link never double-taxes (idempotent). When the shop isn't
+  // charging tax, taxDollars is 0 and a plain no-tax booking is left untouched.
+  const bs = shop.booking_settings as TaxConfig | null;
+  const existingTax = Math.max(0, Number(appt.tax_amount ?? 0));
+  const preTaxDollars = Math.max(0, Number(appt.total_amount ?? 0) - existingTax);
+  const taxDollars = taxOnAmount(preTaxDollars, bs);
+  const grossDollars = Math.round((preTaxDollars + taxDollars) * 100) / 100;
+  const taxLabel = taxLabelFor(bs) || "Tax";
+
+  // Persist the authoritative amounts so the ledger + receipt (webhook / finalize)
+  // read ONE stored truth (total_amount = gross, tax_amount = the tax portion).
+  // Only write when tax is actually involved — never touch a no-tax booking.
+  if (taxDollars > 0 || existingTax > 0) {
+    const upd = await supabaseAdmin.from("appointments")
+      .update({ total_amount: grossDollars, tax_amount: taxDollars })
+      .eq("id", appt.id);
+    if (upd.error && /tax_amount/.test(upd.error.message)) {
+      await supabaseAdmin.from("appointments").update({ total_amount: grossDollars }).eq("id", appt.id).then(null, () => null);
+    }
+  }
+
   try {
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
-        line_items: [{
-          price_data: {
-            currency: "cad",
-            product_data: { name: `${serviceName} — ${shop.name}` },
-            unit_amount: Math.round(appt.total_amount * 100),
+        line_items: [
+          {
+            price_data: {
+              currency: "cad",
+              product_data: { name: `${serviceName} — ${shop.name}` },
+              unit_amount: Math.round(preTaxDollars * 100),
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        }],
+          // Separate tax line so the customer sees it on the Stripe page. Sum of
+          // the two = grossDollars = what the webhook/ledger record.
+          ...(taxDollars > 0 ? [{
+            price_data: {
+              currency: "cad" as const,
+              product_data: { name: taxLabel },
+              unit_amount: Math.round(taxDollars * 100),
+            },
+            quantity: 1,
+          }] : []),
+        ],
         customer_email: appt.client_email ?? undefined,
         // We tag the session so the webhook can look up the appointment
         // without needing the payment_intent_id mapping again.
@@ -160,7 +197,7 @@ export async function POST(request: NextRequest) {
             shopName: shop.name,
             shopEmail: shop.email ?? "",
             serviceName,
-            amount: appt.total_amount,
+            amount: grossDollars,
             paymentUrl: session.url,
             date: appt.date,
             time: appt.time_slot,

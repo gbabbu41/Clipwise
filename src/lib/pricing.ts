@@ -74,6 +74,23 @@ export function combinedTaxRate(bs: TaxConfig | null | undefined): number {
   return taxLinesFor(bs).reduce((sum, l) => sum + l.rate, 0);
 }
 
+/**
+ * THE single source of truth for how much tax (in dollars) a shop charges on a
+ * given PRE-TAX service amount. Every server charge path (booking checkout, POS,
+ * payment links, capture) resolves tax through here so they can never disagree.
+ * Returns 0 when the shop isn't charging tax (not registered / toggle off).
+ */
+export function taxOnAmount(preTaxDollars: number, bs: TaxConfig | null | undefined): number {
+  if (!shopChargesTax(bs ?? undefined)) return 0;
+  return taxCents(Math.round((preTaxDollars || 0) * 100), combinedTaxRate(bs)) / 100;
+}
+
+/** The single combined tax label for receipts / line items (e.g. "HST" or
+ *  "HST + PST"). Empty string when the shop isn't charging tax. */
+export function taxLabelFor(bs: TaxConfig | null | undefined): string {
+  return taxLinesFor(bs).map(l => l.label).join(" + ");
+}
+
 export function taxPresetFor(province: string | null | undefined) {
   if (!province) return null;
   const p = province.trim().toUpperCase();
