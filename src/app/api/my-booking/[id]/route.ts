@@ -5,7 +5,7 @@ import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
-import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
+import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
@@ -105,6 +105,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (body.action === "reschedule") {
     if (!body.date || !body.time_slot) return NextResponse.json({ error: "Missing date/time" }, { status: 400 });
+    // Universal past-booking block (shop-timezone aware) — can't reschedule INTO
+    // the past. Judged in the shop's timezone, not the server's UTC.
+    const { data: shopTz } = await supabaseAdmin.from("shops").select("timezone").eq("id", appt.shop_id).maybeSingle();
+    if (isBookingInPast(body.date, body.time_slot, shopTz?.timezone)) {
+      return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
+    }
     // Server-side conflict check for the new window (excludes this appointment).
     let duration = Number(appt.duration_minutes ?? 0);
     if (!duration && appt.service_id) {

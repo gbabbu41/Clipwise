@@ -41,6 +41,38 @@ export function nowMinutesInTz(tz: string = DEFAULT_TZ): number {
   return h * 60 + m;
 }
 
+/**
+ * THE past-booking guard: is a booking for `date` (YYYY-MM-DD) at `timeSlot`
+ * ("9:00 AM") in the past, judged in the SHOP's timezone (never the server's UTC)?
+ * Used by every server booking/reschedule path so NO ONE — customer or staff —
+ * can ever book a slot that's already passed. A booking exactly at "now" is
+ * allowed; only strictly-earlier is blocked. Unparseable/missing slot on today's
+ * date → not treated as past (fail open on the minute check, the date already
+ * passed the day check).
+ */
+export function isBookingInPast(date: string, timeSlot: string | null | undefined, tz: string | null | undefined): boolean {
+  const zone = safeTz(tz);
+  const today = todayInTz(zone);
+  if (date < today) return true;   // an earlier calendar day (string compare is valid for YYYY-MM-DD)
+  if (date > today) return false;  // a future day
+  if (!timeSlot) return false;     // same day, no time to compare
+  const slotMin = timeToMinutesLocal(timeSlot);
+  if (slotMin === null) return false;
+  return slotMin < nowMinutesInTz(zone);
+}
+
+// Local minutes-from-midnight parser for "9:00 AM" / "12:30 PM" (kept here to
+// avoid an import cycle risk; mirrors utils.timeToMinutes).
+function timeToMinutesLocal(slot: string): number | null {
+  const m = slot.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  const pm = m[3].toUpperCase() === "PM";
+  if (h === 12) h = pm ? 12 : 0; else if (pm) h += 12;
+  return h * 60 + min;
+}
+
 /** Shift a YYYY-MM-DD calendar date by N days (pure date math — DST-safe). */
 export function shiftYmd(ymd: string, days: number): string {
   const [y, m, d] = ymd.split("-").map(Number);

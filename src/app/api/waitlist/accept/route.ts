@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
+import { isBookingInPast } from "@/lib/timezone";
 
 /**
  * Accept a smart-waitlist request and assign it to an open calendar slot.
@@ -40,8 +41,13 @@ export async function POST(request: NextRequest) {
 
   // Authorize: shop owner OR an active barber of this shop.
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, owner_id, name, slug, email").eq("id", wl.shop_id).maybeSingle();
+    .from("shops").select("id, owner_id, name, slug, email, timezone").eq("id", wl.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+
+  // Universal past-booking block (shop-timezone aware).
+  if (isBookingInPast(wl.desired_date, b.time_slot, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
+  }
   let allowed = shop.owner_id === user.id;
   if (!allowed) {
     const { data: barberRow } = await supabaseAdmin

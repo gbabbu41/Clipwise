@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { isBookingInPast } from "@/lib/timezone";
 
 /**
  * Seat a WALK-IN queue entry (the `waitlist` table) onto today's schedule.
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   // Authorize: shop owner OR an active barber of this shop. A barber may only
   // seat to themselves (the owner/front desk can assign to anyone).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, owner_id, name, slug, email").eq("id", wl.shop_id).maybeSingle();
+    .from("shops").select("id, owner_id, name, slug, email, timezone").eq("id", wl.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
   const isOwner = shop.owner_id === user.id;
   let callerBarberId: string | null = null;
@@ -73,6 +74,11 @@ export async function POST(request: NextRequest) {
   const today = new Date().toISOString().slice(0, 10);
   const startMin = timeToMinutes(b.time_slot);
   const endMin = startMin + duration;
+
+  // Universal past-booking block (shop-timezone aware) — no seating into a passed slot.
+  if (isBookingInPast(today, b.time_slot, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That time has already passed — please pick a current or later time." }, { status: 400 });
+  }
 
   if (await barberHasConflict(b.barber_id, today, startMin, endMin)) {
     return NextResponse.json({ error: "That slot was just taken — pick another." }, { status: 409 });

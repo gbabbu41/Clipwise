@@ -10,6 +10,7 @@ import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { resolveServiceCharge } from "@/lib/service-pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { isBookingInPast } from "@/lib/timezone";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -44,10 +45,16 @@ export async function POST(request: NextRequest) {
   };
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status, booking_settings")
+    .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status, booking_settings, timezone")
     .eq("id", booking.shop_id).single();
 
   if (!shop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+
+  // Universal past-booking block (shop-timezone aware) — refuse before taking any
+  // money, so a customer can never pay for a slot that's already passed.
+  if (isBookingInPast(booking.date, booking.time_slot, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
+  }
 
   // Emergency pause — owner flipped the kill switch; stop taking bookings.
   if ((shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {

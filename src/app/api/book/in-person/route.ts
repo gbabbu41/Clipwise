@@ -8,6 +8,7 @@ import { resolveServiceCharge } from "@/lib/service-pricing";
 import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { isBookingInPast } from "@/lib/timezone";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -49,9 +50,15 @@ export async function POST(request: NextRequest) {
 
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, name, status, booking_settings, owner_id").eq("id", b.shop_id).maybeSingle();
+    .from("shops").select("id, name, status, booking_settings, owner_id, timezone").eq("id", b.shop_id).maybeSingle();
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
+  }
+
+  // Universal past-booking block (server-authoritative, shop-timezone aware): no
+  // one — customer OR staff — can book a slot that's already passed.
+  if (isBookingInPast(b.date, b.time_slot, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
   }
 
   // The `confirmed` flag (skip approval queue + bypass the pause switch) is
