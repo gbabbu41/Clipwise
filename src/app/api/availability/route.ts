@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
 
 /**
  * Public availability for the customer booking page.
@@ -16,12 +17,6 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
  */
 type Busy = { time_slot: string; duration: number };
 
-function durationOf(r: { duration_minutes?: number | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null }): number {
-  if (r.duration_minutes && r.duration_minutes > 0) return r.duration_minutes;
-  const s = Array.isArray(r.services) ? r.services[0] : r.services;
-  return s?.duration_minutes ?? 30;
-}
-
 type ApptRow = { barber_id: string; time_slot: string; duration_minutes?: number | null; payment_status?: string | null; services: { duration_minutes?: number } | { duration_minutes?: number }[] | null };
 
 // The day's active appointments, with a fallback that omits duration_minutes if
@@ -31,13 +26,13 @@ async function loadAppointments(shopId: string, date: string): Promise<{ rows: A
   const withDur = await supabaseAdmin
     .from("appointments")
     .select("barber_id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
-    .eq("shop_id", shopId).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
+    .eq("shop_id", shopId).eq("date", date).in("status", OCCUPYING_STATUSES);
   if (!withDur.error) return { rows: (withDur.data ?? []) as ApptRow[], failed: false };
   if (withDur.error.message?.includes("duration_minutes")) {
     const fallback = await supabaseAdmin
       .from("appointments")
       .select("barber_id, time_slot, payment_status, services(duration_minutes)")
-      .eq("shop_id", shopId).eq("date", date).in("status", ["pending", "confirmed", "completed"]);
+      .eq("shop_id", shopId).eq("date", date).in("status", OCCUPYING_STATUSES);
     return { rows: (fallback.data ?? []) as ApptRow[], failed: false };
   }
   return { rows: [], failed: true };
@@ -76,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   // A refunded booking (even one checked out early → completed, then refunded)
   // no longer holds its slot — drop it so the time reads as free everywhere.
-  const apptRows = apptResult.rows.filter((a) => a.payment_status !== "refunded");
+  const apptRows = apptResult.rows.filter(holdsSlot);
 
   const [{ data: slots }, { data: timeOff }, { data: breaks }] = await Promise.all([
     supabaseAdmin.from("time_slots").select("barber_id, start_time, end_time, is_available")
@@ -105,7 +100,7 @@ export async function POST(request: NextRequest) {
   const busyByBarber = new Map<string, Busy[]>();
   apptRows.forEach(a => {
     const arr = busyByBarber.get(a.barber_id) ?? [];
-    arr.push({ time_slot: a.time_slot, duration: durationOf(a) });
+    arr.push({ time_slot: a.time_slot, duration: apptDuration(a) });
     busyByBarber.set(a.barber_id, arr);
   });
 

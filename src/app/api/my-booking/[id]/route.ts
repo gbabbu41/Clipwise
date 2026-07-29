@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
+import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
@@ -12,10 +13,6 @@ import { stripe } from "@/lib/stripe";
 // stakeholder-only, so the browser (anon) can't read it; this service-role route
 // returns ONLY display fields (no client email/phone) and handles cancel /
 // reschedule, with a server-side conflict check.
-
-// Statuses that hold a slot (a completed booking still used its time). Refunded
-// rows are filtered out separately (see below) since a refund frees the slot.
-const OCCUPYING = ["pending", "confirmed", "completed"];
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
@@ -37,9 +34,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const endTime = tsRows.reduce((m, r) => (r.end_time > m ? r.end_time : m), tsRows[0].end_time);
     const { data: booked } = await supabaseAdmin
       .from("appointments").select("time_slot, payment_status")
-      .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING);
+      .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING_STATUSES);
     const bookedSlots = (booked ?? [])
-      .filter(a => a.payment_status !== "refunded")     // refunded frees the slot
+      .filter(holdsSlot)     // refunded frees the slot
       .map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
     // Judge "past" in the SHOP's timezone, not the server's UTC — otherwise
     // same-day morning slots get wrongly hidden (Canada is hours behind UTC).

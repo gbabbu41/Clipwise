@@ -11,6 +11,7 @@ import {
   occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
   isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
+import { freesSlot, apptDuration } from "@/lib/availability";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
@@ -82,11 +83,6 @@ function hourWindow(starts: number[], ends: number[]): { winStart: number; winEn
 // Block length (minutes) for an appointment. Multi-service bookings carry their
 // combined length on the row (duration_minutes); single-service rows fall back
 // to the linked service's duration.
-function apptDuration(a: AppointmentWithDetails): number {
-  if (a.duration_minutes && a.duration_minutes > 0) return a.duration_minutes;
-  return (a.services as { duration_minutes?: number } | null)?.duration_minutes ?? 30;
-}
-
 function parseTime(timeStr: string): number {
   if (!timeStr) return 0;
   const [time, period] = timeStr.split(" ");
@@ -183,14 +179,10 @@ const statusChip = (s: string) => STATUS_CHIP[s] ?? "bg-sky-100 text-sky-800";
 const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-foreground";
 const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
+// VISUAL dimming only (strike-through cancelled / no-show rows). The occupancy
+// rule — does a booking still hold its slot — is `freesSlot`/`holdsSlot`, imported
+// from @/lib/availability (the ONE source of truth, shared with the server + DB).
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
-// Single source of truth for "does this appointment still hold its chair?".
-// A booking frees its slot when it's cancelled / no-show OR the money was
-// refunded — a refunded booking (even one checked out early → completed, then
-// refunded) must read as free everywhere: empty-slot detection, the add/edit
-// pickers, AND the rendered grid (so a dead block never sits on a bookable time).
-const freesSlot = (a: { status?: string | null; payment_status?: string | null }) =>
-  isDimmed(a.status ?? "") || a.payment_status === "refunded";
 
 // ── Dark palettes (ACTIVE theme) ──────────────────────────────────────────────
 // The calendar canvas is now DARK. Appointment blocks use a #1a1a1a fill + a

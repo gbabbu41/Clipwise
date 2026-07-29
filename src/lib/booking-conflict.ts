@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { timeToMinutes } from "@/lib/utils";
+import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
 
 /** Postgres unique-violation error code — raised by the double-booking index. */
 export const UNIQUE_VIOLATION = "23505";
@@ -13,32 +14,12 @@ export function isDoubleBookError(err: { code?: string; message?: string } | nul
 
 const SLOT_MIN = 30;
 
-// Statuses that actually HOLD a chair. A completed appointment still occupied
-// its time, so it blocks an overlap too — only cancelled / no-show free the slot
-// (matching the calendar's isDimmed() occupancy). Keep this in sync with the
-// phase18 DB trigger and /api/availability.
-const OCCUPYING_STATUSES = ["pending", "confirmed", "completed"];
-
 type ApptRow = {
   time_slot: string;
   duration_minutes?: number | null;
   payment_status?: string | null;
   services: { duration_minutes: number } | { duration_minutes: number }[] | null;
 };
-
-// A refunded booking no longer holds its chair — even one that was checked out
-// early (status "completed") and then refunded. Filtered in JS (not a `.neq`
-// query) because `payment_status <> 'refunded'` would also drop rows where
-// payment_status is NULL (unpaid/in-person), wrongly freeing real bookings.
-const stillHoldsSlot = (r: { payment_status?: string | null }) => r.payment_status !== "refunded";
-
-function durationOf(r: ApptRow): number {
-  // Prefer the appointment's own block length (set for multi-service bookings);
-  // fall back to the linked service's duration for single-service rows.
-  if (r.duration_minutes && r.duration_minutes > 0) return r.duration_minutes;
-  const s = Array.isArray(r.services) ? r.services[0] : r.services;
-  return s?.duration_minutes ?? SLOT_MIN;
-}
 
 /** Active (pending/confirmed) appointments for a barber on a date, as
  *  [startMin, endMin) minute intervals — end derived from the appointment's
@@ -66,11 +47,11 @@ async function barberIntervals(barber_id: string, date: string, excludeId?: stri
     rows = (withDur.data ?? []) as (ApptRow & { id: string })[];
   }
   return rows
-    .filter(stillHoldsSlot)                             // refunded booking frees its chair
+    .filter(holdsSlot)                             // refunded booking frees its chair
     .filter((r) => !excludeId || r.id !== excludeId)   // ignore the appointment being edited
     .map((r) => {
       const start = timeToMinutes(r.time_slot);
-      return [start, start + durationOf(r)] as [number, number];
+      return [start, start + apptDuration(r)] as [number, number];
     });
 }
 
@@ -132,10 +113,10 @@ export async function findAvailableBarber(
   // Group intervals by barber in memory (refunded bookings free their chair).
   const intervalsByBarber = new Map<string, [number, number][]>();
   for (const r of allRows) {
-    if (!stillHoldsSlot(r)) continue;
+    if (!holdsSlot(r)) continue;
     const arr = intervalsByBarber.get(r.barber_id) ?? [];
     const s = timeToMinutes(r.time_slot);
-    arr.push([s, s + durationOf(r)]);
+    arr.push([s, s + apptDuration(r)]);
     intervalsByBarber.set(r.barber_id, arr);
   }
 
