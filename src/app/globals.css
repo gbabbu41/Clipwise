@@ -167,6 +167,28 @@ html[data-theme="light"] .portal :is(.border-\[\#ff6b6b\],.border-rose-500,.bord
 html[data-theme="light"] .portal :is(.border-\[\#4a9eff\],.border-sky-400,.border-sky-500) { border-color: #3f7fc4; }
 html[data-theme="light"] .portal :is(.border-zinc-500,.border-zinc-400) { border-color: #b6bbc3; }
 
+/* ── Light theme: dashboard custom components (.cwd-*) ──────────────────────────
+   These carry hardcoded blue/mint that the utility overrides above don't reach —
+   they read as a loud blue wash (alerts / avatar) or washed-out pale text
+   (calendar pills) on white. Re-tone to the same muted light palette used above
+   so they sit cleanly next to the white cards. Dark theme is untouched. */
+
+/* Recent Alerts: drop the periwinkle wash for a clean neutral raised card. */
+html[data-theme="light"] .portal .cwd-alert.unread { background: var(--surface-raised); border-color: var(--border); }
+html[data-theme="light"] .portal .cwd-udot { background: #2c6cb0; }
+html[data-theme="light"] .portal .cwd-aic.book { background:#faf1de; color:#966412; }
+html[data-theme="light"] .portal .cwd-aic.pay  { background:#e7f4ed; color:#157a4a; }
+html[data-theme="light"] .portal .cwd-aic.rev  { background:#faf1de; color:#966412; }
+html[data-theme="light"] .portal .cwd-aic.warn { background:#fbeae8; color:#b23127; }
+
+/* Staff Status: readable muted-blue avatar + muted "Active" pill. */
+html[data-theme="light"] .portal .cwd-sav { background:#e9f1fb; border-color:#c6dcf4; color:#2c6cb0; }
+html[data-theme="light"] .portal .cwd-sst { color:#157a4a; background:#e7f4ed; }
+
+/* Calendar appointment pills: dark readable text on a soft tint (was pale-on-pale). */
+html[data-theme="light"] .portal .cwd-ev { color:#157a4a; background:#e7f4ed; border-left-color:#2f9e6b; }
+html[data-theme="light"] .portal .cwd-ev.pend { color:#966412; background:#faf1de; border-left-color:#d19a2e; }
+
 /* Translucent-WHITE chrome (hover fills, faint dividers) → light neutral so it
    doesn't vanish on white. */
 html[data-theme="light"] .portal :is(.bg-white\/10,.bg-white\/5,.bg-white\/15,.bg-white\/\[0\.04\],.bg-white\/\[0\.05\],.bg-white\/\[0\.06\],.bg-white\/\[0\.07\],.bg-white\/\[0\.02\],.bg-white\/\[0\.03\]) { background-color: rgba(20,22,28,0.05); }
