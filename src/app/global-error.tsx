@@ -3,7 +3,25 @@
 // Last-resort boundary for errors thrown by the ROOT layout itself (where
 // error.tsx can't help). It must render its own <html>/<body>. Inline styles
 // only — globals.css may not be available at this level.
+import { useEffect } from "react";
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    try {
+      fetch("/api/client-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          source: "react-global",
+          message: error?.message || "Root layout error",
+          stack: error?.stack,
+          path: typeof location !== "undefined" ? location.pathname : undefined,
+        }),
+      }).catch(() => {});
+    } catch { /* never let logging break the error screen */ }
+  }, [error]);
+
   return (
     <html lang="en">
       <body style={{ margin: 0, background: "#000", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif" }}>

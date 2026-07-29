@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { PWARegister } from "@/components/pwa-register";
 import { OfflineBanner } from "@/components/offline-banner";
+import { ErrorLogger } from "@/components/error-logger";
 
 // Sora — primary UI face for the v2 design system. Geometric, extra-bold at
 // display sizes, clean at body sizes. Used everywhere except numerics.
@@ -61,6 +62,7 @@ export default function RootLayout({
     <html lang="en" className={`dark ${sora.variable} ${dmMono.variable}`}>
       <body className="antialiased bg-background text-white">
         <OfflineBanner />
+        <ErrorLogger />
         <AuthProvider>
           {children}
         </AuthProvider>
