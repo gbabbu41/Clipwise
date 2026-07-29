@@ -16,9 +16,16 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div className="max-w-sm">
         <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-3xl">⚠️</div>
         <h1 className="text-xl font-bold text-white mb-2">Something went wrong</h1>
-        <p className="text-sm text-[#8f8f8f] mb-6">
+        <p className="text-sm text-[#8f8f8f] mb-4">
           This screen hit an unexpected error — it&apos;s been logged. Your data is safe. Try again, and if it keeps happening, let us know.
         </p>
+        {/* Temporary diagnostic — shows the real error so we can pinpoint it.
+            Remove once the dashboard black-screen is fixed. */}
+        {(error?.message || error?.digest) && (
+          <pre className="text-left text-[11px] leading-snug text-red-300 bg-red-500/5 border border-red-500/20 rounded-lg p-3 mb-5 overflow-auto max-h-40 whitespace-pre-wrap break-words">
+            {error.message || "(no message)"}{error.digest ? `\n\ndigest: ${error.digest}` : ""}
+          </pre>
+        )}
         <div className="flex gap-3 justify-center">
           <button onClick={() => reset()} className="rounded-xl bg-white text-black font-semibold text-sm px-5 py-2.5 hover:bg-[#eaeaea] transition-colors">
             Try again
