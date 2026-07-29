@@ -46,7 +46,14 @@ type ServiceLite = { id: string; name: string; price: number; duration_minutes: 
 export function Portal({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  return mounted && typeof document !== "undefined" ? createPortal(children, document.body) : null;
+  // Wrap in a `.portal` element so these modals inherit the owner/barber theme
+  // tokens. Portaling to <body> escapes the `.portal` wrapper in the layout, and
+  // the light-theme overrides are scoped to `html[data-theme="light"] .portal` —
+  // so without this the modal always renders with the dark defaults even in light
+  // theme. `display:contents` = no box, so it can't affect the modal's layout.
+  return mounted && typeof document !== "undefined"
+    ? createPortal(<div className="portal" style={{ display: "contents" }}>{children}</div>, document.body)
+    : null;
 }
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
@@ -1474,9 +1481,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       if (addTotalDuration > 0 && m + addTotalDuration > nextBookingAfter(m)) continue;
       opts.push(slot);
     }
-    // A deliberately-tapped empty box stays pickable even if it's outside hours
-    // (the save guard still blocks an actual overrun there).
-    if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)) opts.unshift(addCtx.time);
+    // A deliberately-tapped empty box stays pickable even if it's outside working
+    // HOURS (overtime — the save guard still blocks a real overrun). But never
+    // re-add a slot that's already in the PAST today: you can't book earlier than
+    // now, and this was why a past slot (e.g. 9:00 AM at noon) kept showing + being
+    // pre-selected. Dropping it here lets the effect below default to the next slot.
+    if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)
+        && !(isToday && timeToMinutes(addCtx.time) < nowMin)) {
+      opts.unshift(addCtx.time);
+    }
     return opts;
   }, [addCtx, currentDate, schedules, bookedSlotsFor, blocksFor, appointments, addTotalDuration]);
 
