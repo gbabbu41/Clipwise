@@ -577,7 +577,7 @@ export default function DashboardPage() {
           {filterDateRange[0] === filterDateRange[1]
             ? pillDate(filterDateRange[0])
             : `${pillDate(filterDateRange[0])} — ${pillDate(filterDateRange[1])}`}
-          <Calendar size={14} />
+          <span aria-hidden className="text-[15px] leading-none">📅</span>
         </button>
         {showDatePicker && (
           <>

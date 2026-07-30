@@ -100,10 +100,11 @@ export function StatsCarousel({
                 : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
           ));
         })() : (
-          // Empty state — faint placeholder bars so the hero keeps its shape
-          // (the "No bookings yet today" line above already says there's no data).
+          // Empty state — faint SIGNATURE-BLUE placeholder bars (echo the real
+          // bars) so the hero keeps its shape + a hint of brand color even with
+          // no data. The "No bookings yet today" line above says there's no data.
           Array.from({ length: 7 }).map((_, i) => (
-            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[34px] rounded-t bg-white/[0.05]" />
+            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[34px] rounded-t bg-gradient-to-t from-[#6ea8fe]/20 to-[#6ea8fe]/45" />
           ))
         )}
       </div>
