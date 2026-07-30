@@ -126,7 +126,6 @@ function currentWeekDays(offset = 0): Date[] {
 // Hour-gutter label for the week grid ("9a" / "12p" / "5p").
 const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
 // "Jul 20" pill label for a YYYY-MM-DD date (vs the raw ISO string).
-const pillDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
 
 const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
@@ -572,11 +571,9 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setShowDatePicker(s => !s)}
+          aria-label="Pick a date"
           className={cn("cwd-trigger", showDatePicker && "open")}
         >
-          {filterDateRange[0] === filterDateRange[1]
-            ? pillDate(filterDateRange[0])
-            : `${pillDate(filterDateRange[0])} — ${pillDate(filterDateRange[1])}`}
           <span aria-hidden className="text-[15px] leading-none">📅</span>
         </button>
         {showDatePicker && (
