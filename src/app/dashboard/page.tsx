@@ -545,9 +545,18 @@ export default function DashboardPage() {
       {/* Date filter — compact dropdown (sizes to the selected label) + pill */}
       <div className="cwd-filter">
         <div className="relative">
-          <button type="button" onClick={() => setFilterMenuOpen(o => !o)} className="cwd-select">
+          <button
+            type="button"
+            onClick={() => setFilterMenuOpen(o => !o)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors",
+              filterMenuOpen
+                ? "bg-foreground/10 text-foreground"
+                : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+            )}
+          >
             {DATE_FILTER_LABELS[dateFilter]}
-            <ChevronDown size={15} className="text-grey-muted" />
+            <ChevronDown size={15} />
           </button>
           {filterMenuOpen && (
             <>
@@ -565,10 +574,20 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-        <button type="button" onClick={() => setShowDatePicker(s => !s)} className="cwd-pill">
+        <button
+          type="button"
+          onClick={() => setShowDatePicker(s => !s)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors",
+            showDatePicker
+              ? "bg-foreground/10 text-foreground"
+              : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+          )}
+        >
           {filterDateRange[0] === filterDateRange[1]
             ? pillDate(filterDateRange[0])
             : `${pillDate(filterDateRange[0])} — ${pillDate(filterDateRange[1])}`}
+          <Calendar size={14} />
         </button>
         {showDatePicker && (
           <>
