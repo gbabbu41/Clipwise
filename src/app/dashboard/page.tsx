@@ -548,12 +548,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setFilterMenuOpen(o => !o)}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors",
-              filterMenuOpen
-                ? "bg-foreground/10 text-foreground"
-                : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
-            )}
+            className={cn("cwd-trigger", filterMenuOpen && "open")}
           >
             {DATE_FILTER_LABELS[dateFilter]}
             <ChevronDown size={15} />
@@ -577,12 +572,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setShowDatePicker(s => !s)}
-          className={cn(
-            "inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors",
-            showDatePicker
-              ? "bg-foreground/10 text-foreground"
-              : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
-          )}
+          className={cn("cwd-trigger", showDatePicker && "open")}
         >
           {filterDateRange[0] === filterDateRange[1]
             ? pillDate(filterDateRange[0])

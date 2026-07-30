@@ -1268,6 +1268,23 @@ textarea:focus-visible {
 .cwd-menu button:hover { background:rgba(255,255,255,.05); }
 .cwd-menu button.on { background:rgba(110,168,254,.12); color:#a9c6ff; }
 
+/* Borderless date-filter triggers (the "Today" period dropdown + the date button).
+   Transparent + no border at rest; a subtle foreground-tinted fill on hover/open.
+   color-mix keeps it theme-aware: --foreground is white in dark → white/5·white/10
+   fills; near-black in light → black/5·black/10. */
+.cwd-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border: 0; border-radius: 6px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: transparent;
+  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+  transition: background-color .15s ease, color .15s ease;
+}
+.cwd-trigger:hover { background: color-mix(in srgb, var(--foreground) 5%, transparent); color: var(--foreground); }
+.cwd-trigger.open  { background: color-mix(in srgb, var(--foreground) 10%, transparent); color: var(--foreground); }
+/* Light theme: full near-black text at rest (per request), not the faded 70%. */
+html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); }
+
 .cwd-hero { background:var(--card-raised); border:1px solid var(--border); border-radius:16px; padding:18px 18px 14px; margin-bottom:12px; }
 .cwd-hero .cwd-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
 .cwd-lbl { font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--grey); }
