@@ -152,6 +152,19 @@ html[data-theme="light"] .portal :is(.bg-red-500\/15,.bg-red-500\/10,.bg-red-400
 html[data-theme="light"] .portal :is(.bg-sky-500\/15,.bg-sky-500\/10,.bg-blue-500\/15,.bg-blue-500\/10,.bg-blue-400\/10,.bg-\[\#4a9eff\]\/15) { background-color: #e9f1fb; }
 html[data-theme="light"] .portal :is(.bg-zinc-500\/15,.bg-zinc-500\/10,.bg-gray-500\/20,.bg-gray-500\/15,.bg-slate-500\/15) { background-color: #eef0f2; }
 html[data-theme="light"] .portal :is(.bg-purple-500\/15,.bg-violet-500\/15,.bg-fuchsia-500\/15,.bg-indigo-500\/15) { background-color: #efe9fb; }
+/* A couple of low-opacity brand tints the family maps above didn't reach yet. */
+html[data-theme="light"] .portal .bg-\[\#4a9eff\]\/10 { background-color: #e9f1fb; }
+html[data-theme="light"] .portal .bg-\[\#f5c542\]\/10 { background-color: #faf1de; }
+
+/* SOLID neon-mint (#00e5a0) — the brand accent. Bright + legible on dark, but a
+   loud neon block on the light cards. Re-tone the SOLID fill (not the /opacity
+   tints, which are handled above) to the muted brand-green so primary CTAs, the
+   POS charge button, tip-selected, live dots and the "selected" check badges all
+   read as one clean green. Keep it a solid, high-contrast button — force white on
+   any black text/icon sitting on it (icons use currentColor). Light only. */
+html[data-theme="light"] .portal .bg-\[\#00e5a0\] { background-color: #157a4a; }
+html[data-theme="light"] .portal .bg-\[\#00e5a0\].text-black,
+html[data-theme="light"] .portal .bg-\[\#00e5a0\] .text-black { color: #ffffff; }
 
 /* Colored BORDERS (pills/badges) → soft per family */
 html[data-theme="light"] .portal :is(.border-emerald-500\/30,.border-emerald-500\/20,.border-emerald-400\/40,.border-green-500\/30) { border-color: #bfe3cf; }
@@ -278,6 +291,9 @@ html[data-theme="light"] .portal :is(.text-\[\#444\],.text-\[\#8f8f8f\],.text-\[
 
 /* Darker border-opacity variants (only /50 was mapped) → theme hairline. */
 html[data-theme="light"] .portal :is(.border-\[\#2a2a2a\]\/60,.border-\[\#2a2a2a\]\/80,.hover\:border-\[\#2a2a2a\]\/80:hover) { border-color: var(--border); }
+/* Empty calendar-cell hover border was a hardcoded dark grey → flashes dark on
+   the light canvas. Soften to a visible hairline. */
+html[data-theme="light"] .portal .hover\:border-\[\#4a4a4a\]:hover { border-color: var(--border-strong); }
 
 /* Owner-home filter dropdown menu: pale-blue active text + invisible hover. */
 html[data-theme="light"] .portal .cwd-menu button.on { background: rgba(63,111,178,0.12); color: #3f6fb2; }
@@ -1285,18 +1301,16 @@ textarea:focus-visible {
 /* Light theme: full near-black text at rest (per request), not the faded 70%. */
 html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); }
 
-/* Light theme: appointment-sheet action buttons (DAction). Mirror the dark-theme
-   look — every tone is a soft TINT (light bg + colored border + colored text), so
-   the buttons read as one consistent family instead of one solid block next to two
-   outlines. Colour still carries the meaning: green = go (primary), red = reject.
-   Double class (.cwd-act.cwd-act--x) outranks the generic tint overrides above.
-   Light theme ONLY — dark keeps the Tailwind tints. */
-html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:#e8f5ee; border-color:#bfe0cd; color:#157a4a; }
-html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { background:#d9eee2; border-color:#9fd3b6; }
-html[data-theme="light"] .portal .cwd-act.cwd-act--danger { background:#fdf3f2; border-color:#eecbc6; color:#b23127; }
-html[data-theme="light"] .portal .cwd-act.cwd-act--danger:hover:not(:disabled) { background:#fbeae8; border-color:#e6b8b1; }
-html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:var(--surface-overlay); border-color:var(--border-strong); color:var(--foreground); }
-html[data-theme="light"] .portal .cwd-act.cwd-act--default:hover:not(:disabled) { background:#e0e0e0; }
+/* Light theme: appointment-sheet action buttons (DAction). Solid brand-green
+   PRIMARY (white text) so the main action clearly stands out, outlined red DANGER,
+   outlined neutral DEFAULT. Double class (.cwd-act.cwd-act--x) outranks the generic
+   tint overrides above. Light theme ONLY — dark keeps the Tailwind tints. */
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:#157a4a; border-color:#157a4a; color:#fff; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { background:#12683f; border-color:#12683f; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--danger { background:transparent; border-color:#d9534f; color:#b23127; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--danger:hover:not(:disabled) { background:#fbeae8; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:transparent; border-color:#c2c2c2; color:var(--foreground); }
+html[data-theme="light"] .portal .cwd-act.cwd-act--default:hover:not(:disabled) { background:var(--surface-overlay); }
 html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surface-overlay); border-color:var(--border); color:var(--grey-2); }
 
 .cwd-hero { background:var(--card-raised); border:1px solid var(--border); border-radius:16px; padding:18px 18px 14px; margin-bottom:12px; }
