@@ -116,18 +116,15 @@ export default function PaymentsPage() {
   // a dropdown for extra windows (last 14 days / last week / custom) that
   // override the shown card. ownerExtra "" = pure swipe.
   const [ownerExtra, setOwnerExtra] = useState<"" | "biweekly" | "lastweek" | "custom">("");
-  const [ownerSlide, setOwnerSlide] = useState(0);
-  const ownerRef = useRef<HTMLDivElement>(null);
   const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [showCustomModal, setShowCustomModal] = useState(false); // custom-range date picker popup
-  // When a dropdown override is (de)selected, the visible card/carousel swaps —
-  // snap both carousels back to the first slide so the right card is shown.
+  // When a dropdown override is (de)selected, the visible card swaps — snap the
+  // earnings carousel back to the first slide so the right card is shown.
   useEffect(() => {
-    const oe = ownerRef.current; if (oe) oe.scrollTo({ left: 0 });
     const ne = netRef.current; if (ne) ne.scrollTo({ left: 0 });
-    setOwnerSlide(0); setNetSlide(0);
+    setNetSlide(0);
   }, [ownerExtra]);
 
   // Desktop prev/next for the earnings rail — centers the target card (cards are
