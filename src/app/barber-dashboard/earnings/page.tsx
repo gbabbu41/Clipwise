@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { CreditCard, Banknote, X, ChevronRight, Clock } from "lucide-react";
+import { CreditCard, Banknote, X, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -59,6 +59,15 @@ export default function BarberPaymentsPage() {
   // month → all → custom); the last card opens a from→to date picker.
   const [slide, setSlide] = useState(0);
   const railRef = useRef<HTMLDivElement | null>(null);
+  // Desktop prev/next for the earnings rail — centers the target card (cards are
+  // slightly narrower than the rail, so scroll to its offset, not i*width).
+  const goToRail = (i: number) => {
+    const el = railRef.current; if (!el) return;
+    const cards = el.children;
+    const j = Math.max(0, Math.min(cards.length - 1, i));
+    const card = cards[j] as HTMLElement | undefined;
+    if (card) el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: "smooth" });
+  };
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -297,6 +306,7 @@ export default function BarberPaymentsPage() {
         <span className="cwp-lbl">You earned</span>
         <span className="cwp-hint">‹ swipe periods ›</span>
       </div>
+      <div className="cwp-railwrap">
       <div ref={railRef}
         onScroll={() => { const el = railRef.current; if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
         className="cwp-rail">
@@ -338,6 +348,9 @@ export default function BarberPaymentsPage() {
             <button className="cwp-pick" onClick={() => setShowCustomModal(true)}>Choose dates <ChevronRight size={13} /></button>
           </div>
         )}
+        </div>
+        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToRail(slide - 1)} disabled={slide === 0}><ChevronLeft size={18} /></button>
+        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToRail(slide + 1)} disabled={slide >= basePeriods.length}><ChevronRight size={18} /></button>
       </div>
       <div className="cwp-dots">
         {Array.from({ length: basePeriods.length + 1 }).map((_, i) => (

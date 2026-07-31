@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronRight, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -129,6 +129,16 @@ export default function PaymentsPage() {
     const ne = netRef.current; if (ne) ne.scrollTo({ left: 0 });
     setOwnerSlide(0); setNetSlide(0);
   }, [ownerExtra]);
+
+  // Desktop prev/next for the earnings rail — centers the target card (cards are
+  // slightly narrower than the rail, so scroll to its offset, not i*width).
+  const goToNet = (i: number) => {
+    const el = netRef.current; if (!el) return;
+    const cards = el.children;
+    const j = Math.max(0, Math.min(cards.length - 1, i));
+    const card = cards[j] as HTMLElement | undefined;
+    if (card) el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: "smooth" });
+  };
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -590,6 +600,7 @@ export default function PaymentsPage() {
         <span className="cwp-lbl">Earnings{barberFirst ? ` · ${barberFirst}` : ""}</span>
         <span className="cwp-hint">‹ swipe periods ›</span>
       </div>
+      <div className="cwp-railwrap">
       <div ref={netRef}
         onScroll={() => { const el = netRef.current; if (el) setNetSlide(Math.round(el.scrollLeft / el.clientWidth)); }}
         className="cwp-rail">
@@ -628,6 +639,9 @@ export default function PaymentsPage() {
             <button className="cwp-pick" onClick={() => setShowCustomModal(true)}>Choose dates <ChevronRight size={13} /></button>
           </div>
         )}
+        </div>
+        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToNet(netSlide - 1)} disabled={netSlide === 0}><ChevronLeft size={18} /></button>
+        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToNet(netSlide + 1)} disabled={netSlide >= periodCards.length}><ChevronRight size={18} /></button>
       </div>
       <div className="cwp-dots">
         {Array.from({ length: periodCards.length + 1 }).map((_, i) => (

@@ -1462,6 +1462,19 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwp-dots{display:flex;justify-content:center;gap:6px;margin:12px 0 4px}
 .cwp-dots i{height:6px;width:6px;border-radius:999px;background:#2a2a2e;transition:.2s}
 .cwp-dots i.cwp-on{width:20px;background:#6ea8fe}
+/* Desktop-only prev/next arrows for the cwp earnings rails (payments + barber
+   earnings). Mobile navigates by swipe, so they only appear at >=768px; they sit
+   over the rail edges and fade out (disabled) at the first/last card. Theme-aware
+   so they read on both dark and light. */
+.cwp-railwrap{position:relative}
+.cwp-arrow{display:none}
+@media(min-width:768px){
+  .cwp-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:var(--card);border:1px solid var(--border);color:var(--foreground);box-shadow:0 2px 10px rgba(10,10,12,.22);cursor:pointer;transition:background .15s,opacity .15s;display:flex}
+  .cwp-arrow:hover{background:var(--surface-overlay)}
+  .cwp-arrow:disabled{opacity:0;pointer-events:none}
+  .cwp-arrow--prev{left:2px}
+  .cwp-arrow--next{right:2px}
+}
 .cwp-payout{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px}
 .cwp-next{font-size:11.5px;color:var(--grey-2)}
 .cwp-next b{color:var(--grey);font-weight:600}
