@@ -11,6 +11,7 @@ import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { resolveServiceCharge } from "@/lib/service-pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast } from "@/lib/timezone";
+import { computeRedemption } from "@/lib/loyalty-redeem";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     subtotal?: number;  // pre-discount total, for server-side promo math
     promo_code?: string; // validated + recomputed server-side (never trust the client discount)
     tip_amount?: number; // customer-chosen tip in dollars (immediate full payment only)
+    redeem?: boolean;    // customer chose to spend loyalty points (amount computed server-side)
   };
 
   const { data: shop } = await supabaseAdmin
@@ -147,6 +149,17 @@ export async function POST(request: NextRequest) {
     promoCodeForMeta = promo.code;
   }
 
+  // ── Loyalty redemption (server-authoritative) — applied AFTER any promo, on
+  // the remaining pre-tax total. The client only sends a boolean; the discount +
+  // points are computed here from the customer's real balance. Points are
+  // deducted in /booking-finalize once the appointment exists + payment settles.
+  const redemption = await computeRedemption({
+    shopId: booking.shop_id, plan, bookingSettings: shop.booking_settings,
+    email: booking.client_email, phone: booking.client_phone,
+    preTaxTotal: effectiveTotal, requested: !!booking.redeem,
+  });
+  effectiveTotal = Math.max(0, effectiveTotal - redemption.discount);
+
   // ── Sales tax + tip (server-authoritative — never trust client amounts) ────
   // Tax config lives in the shop's booking_settings. Tax applies to the service
   // amount after discount; tip (immediate full payment only) is added after and
@@ -192,6 +205,7 @@ export async function POST(request: NextRequest) {
     hold: booking.hold ? "1" : "",
     save: booking.saveCard ? "1" : "",
     promo_code: promoCodeForMeta,
+    redeem_points: String(redemption.points),
   };
 
   try {

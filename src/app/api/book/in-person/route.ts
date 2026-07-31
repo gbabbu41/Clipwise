@@ -9,6 +9,9 @@ import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast } from "@/lib/timezone";
+import { effectivePlan } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
+import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -42,6 +45,7 @@ export async function POST(request: NextRequest) {
     pay_in_person?: boolean;         // tag the row as cash/unpaid
     confirmed?: boolean;             // owner-booked → skip the approval queue
     note?: string;                   // extra note (e.g. "outside working hours")
+    redeem?: boolean;                // customer chose to spend loyalty points (amount computed server-side)
   };
 
   if (!b.shop_id || !b.service_id || !b.client_name || !b.date || !b.time_slot) {
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, name, status, booking_settings, owner_id, timezone").eq("id", b.shop_id).maybeSingle();
+    .from("shops").select("id, name, status, booking_settings, owner_id, timezone, subscription_plan, subscription_status").eq("id", b.shop_id).maybeSingle();
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
   }
@@ -102,6 +106,18 @@ export async function POST(request: NextRequest) {
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
     effectiveTotal = Math.max(0, charge.subtotal - promoDiscount(validPromo, charge.subtotal));
   }
+
+  // ── Loyalty redemption (server-authoritative) — applied after any promo. The
+  // client only sends a boolean; the discount + points come from the customer's
+  // real balance. Points are deducted after the appointment is created.
+  await ensurePlansHydrated();
+  const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
+  const redemption = await computeRedemption({
+    shopId: b.shop_id, plan, bookingSettings: shop.booking_settings,
+    email: b.client_email, phone: b.client_phone,
+    preTaxTotal: effectiveTotal, requested: !!b.redeem,
+  });
+  effectiveTotal = Math.max(0, effectiveTotal - redemption.discount);
 
   // Duration → conflict window (server value).
   const startMin = timeToMinutes(b.time_slot);
@@ -176,6 +192,15 @@ export async function POST(request: NextRequest) {
   // records the redemption so this customer can't reuse it). Best-effort.
   if (validPromo) {
     await consumePromo(validPromo, b.shop_id, b.client_email ?? null, b.client_phone ?? null, inserted.data.id);
+  }
+
+  // Spend redeemed loyalty points (discount already reflected in total_amount).
+  // Best-effort — never roll back a real booking over a points-ledger hiccup.
+  if (redemption.points > 0) {
+    await deductRedeemedPoints({
+      shopId: b.shop_id, email: b.client_email, phone: b.client_phone,
+      points: redemption.points, appointmentId: inserted.data.id,
+    });
   }
 
   // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned

@@ -8,6 +8,7 @@ import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { insertNotifications } from "@/lib/notify-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
+import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 
 export type BookingSummary = {
   shopName: string;
@@ -207,6 +208,17 @@ export async function finalizeBookingFromSession(params: {
         total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
       }).then(null, () => null);
     }
+  }
+
+  // Spend redeemed loyalty points now that the appointment exists + payment
+  // settled. The discount was already applied to the charged total in
+  // booking-checkout; this draws the points down. Runs once (the dedup guard
+  // above returns early on a repeat finalize). Best-effort.
+  if (Number(m.redeem_points ?? 0) > 0) {
+    await deductRedeemedPoints({
+      shopId: m.shop_id, email: m.client_email, phone: m.client_phone,
+      points: Number(m.redeem_points), appointmentId: appt.id,
+    });
   }
 
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();

@@ -171,6 +171,11 @@ export default function BookingPage() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  // Loyalty: returning customers recognized by email/phone can spend points.
+  // `loyalty` is what the shop says they're eligible for; `redeemPoints` is their
+  // choice. The discount amount is always recomputed server-side at checkout.
+  const [loyalty, setLoyalty] = useState<{ eligible: boolean; points: number; value: number } | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [paidThankYou, setPaidThankYou] = useState(false); // post-booking payment-link return
   const [bookingPending, setBookingPending] = useState(false); // in-person booking awaiting shop approval
@@ -637,6 +642,31 @@ export default function BookingPage() {
   }, [shop?.id, loadTimeFirstSlots, loadBarberFirstSlots, loadBarberWorkDays, loadShopWorkDays, loadBarberTimeOff]);
 
 
+  // Recognize returning customers: look up their redeemable points by the
+  // email/phone they've entered (debounced). The server decides eligibility
+  // (loyalty on-plan + enabled + worth ≥ $5). Reset the choice if it changes.
+  useEffect(() => {
+    const email = clientInfo.email.trim();
+    const phone = clientInfo.phone.trim();
+    if (!shop || (!email.includes("@") && phone.replace(/\D/g, "").length < 7)) {
+      setLoyalty(null); setRedeemPoints(false); return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/loyalty/lookup", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id, email, phone }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.eligible) setLoyalty(data);
+        else { setLoyalty(null); setRedeemPoints(false); }
+      } catch { if (!cancelled) setLoyalty(null); }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [shop, clientInfo.email, clientInfo.phone]);
+
   // ── Apply promo code ───────────────────────────────────────────────────────
   const applyPromo = async () => {
     if (!promoCode.trim() || !shop) return;
@@ -692,7 +722,12 @@ export default function BookingPage() {
         ? totalPrice * promoApplied.discount_value / 100
         : promoApplied.discount_value
       : 0;
-    const total = Math.max(0, totalPrice - discount);
+    // Loyalty (server recomputes the real discount + point spend at checkout).
+    const wantsRedeem = redeemPoints && !!loyalty?.eligible;
+    const loyaltyDisc = wantsRedeem
+      ? Math.min(loyalty!.value, Math.max(0, totalPrice - discount))
+      : 0;
+    const total = Math.max(0, totalPrice - discount - loyaltyDisc);
 
     // The authoritative pay choice for this run: whatever a caller handed in,
     // else the state (for the initial "Confirm" click, before any choice).
@@ -788,6 +823,7 @@ export default function BookingPage() {
             hold: useHold,
             saveCard: useSaveCard,
             tip_amount: tipAmount, // optional tip; server caps + only applies online
+            redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
           }),
         });
         const pay = await res.json();
@@ -841,6 +877,7 @@ export default function BookingPage() {
         subtotal: totalPrice,
         promo_code: promoApplied?.code ?? undefined,
         pay_in_person: method === "in_person",
+        redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
       }),
     }).catch(() => null);
     if (!res) { setSaving(false); showToast("Connection error. Please try again.", false); return; }
@@ -933,7 +970,12 @@ export default function BookingPage() {
       ? totalPrice * promoApplied.discount_value / 100
       : promoApplied.discount_value
     : 0;
-  const total = Math.max(0, totalPrice - discount);
+  // Loyalty discount preview (server recomputes authoritatively at checkout).
+  // Capped at whatever's left after the promo so the total can't go negative.
+  const loyaltyDiscount = (redeemPoints && loyalty?.eligible)
+    ? Math.min(loyalty!.value, Math.max(0, totalPrice - discount))
+    : 0;
+  const total = Math.max(0, totalPrice - discount - loyaltyDiscount);
 
   // Whether THIS shop can actually take money online right now. Requires the
   // paid plan (Starter = pay-in-person only) AND a finished Stripe Connect setup
@@ -1871,6 +1913,22 @@ export default function BookingPage() {
                 </span>
               </div>
             )}
+
+            {/* Loyalty — only shown to a recognized returning customer with
+                enough points (server-decided). One tap to spend them. */}
+            {loyalty?.eligible && (
+              <button type="button" onClick={() => setRedeemPoints((v) => !v)}
+                className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors mt-2",
+                  redeemPoints ? "bg-emerald-500/10 border-emerald-500/40" : "bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a]")}>
+                <div>
+                  <p className="text-sm font-semibold text-white">⭐ Use your loyalty points</p>
+                  <p className="text-xs text-[#8f8f8f] mt-0.5">{loyalty.points} pts · up to {formatCurrency(loyalty.value)} off this visit</p>
+                </div>
+                <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
+                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
+                </span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1907,6 +1965,12 @@ export default function BookingPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-emerald-400">Discount ({promoApplied.code})</span>
                     <span className="text-emerald-400">-{formatCurrency(discount)}</span>
+                  </div>
+                )}
+                {loyaltyDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-400">Loyalty points</span>
+                    <span className="text-emerald-400">-{formatCurrency(loyaltyDiscount)}</span>
                   </div>
                 )}
                 {taxEnabled && taxLines.map((line) => (
