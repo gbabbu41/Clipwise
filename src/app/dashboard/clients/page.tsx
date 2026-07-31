@@ -93,38 +93,50 @@ export default function ClientsPage() {
       || (c.name && `n:${c.name.toLowerCase()}`)
       || (c.id ?? "");
 
-    const merged = new Map<string, Client>();
-    for (const row of (clientRows ?? []) as Client[]) merged.set(keyOf(row), row);
-
-    // Aggregate per-customer stats from appointments for synthetic rows
-    const apptAgg: Record<string, { visits: number; spent: number; last: string; tag: string }> = {};
+    // ONE source of truth for activity: derive visits / spent / last-visit from
+    // the appointments table, keyed by NORMALIZED name (every appointment and
+    // every client has a name; email/phone are often missing on walk-in
+    // bookings). The profile History tab matches the same way, so the list and
+    // the profile can never disagree — this fixes "3 visits in the list but none
+    // in the profile" (which was an exact, case-sensitive name query).
+    const normName = (s?: string | null) => (s ?? "").trim().toLowerCase();
+    const statsByName: Record<string, { visits: number; spent: number; last: string }> = {};
     for (const a of (apptRows ?? [])) {
-      if (!a.client_name) continue;
-      const k = keyOf({ name: a.client_name, email: a.client_email, phone: a.client_phone });
-      if (merged.has(k)) continue;
-      const agg = apptAgg[k] ?? { visits: 0, spent: 0, last: "", tag: "New" };
-      if (a.status === "completed") {
-        agg.visits++;
-        agg.spent += a.total_amount ?? 0;
-      }
-      if (a.date > agg.last) agg.last = a.date;
-      apptAgg[k] = agg;
+      const nk = normName(a.client_name);
+      if (!nk) continue;
+      const agg = statsByName[nk] ?? { visits: 0, spent: 0, last: "" };
+      if (a.status === "completed") { agg.visits++; agg.spent += a.total_amount ?? 0; }
+      if ((a.date ?? "") > agg.last) agg.last = a.date ?? "";
+      statsByName[nk] = agg;
     }
+    const withStats = (c: Client): Client => {
+      const s = statsByName[normName(c.name)] ?? { visits: 0, spent: 0, last: "" };
+      return { ...c, total_visits: s.visits, total_spent: s.spent, last_visit: s.last || c.last_visit };
+    };
+
+    const merged = new Map<string, Client>();
+    // Real client rows first (they carry loyalty_points, notes, hair profile,
+    // birthday, tag) — with their activity stats overlaid from appointments.
+    for (const row of (clientRows ?? []) as Client[]) merged.set(keyOf(row), withStats(row));
+
+    // Then harvest anyone who booked but was never written to `clients`
+    // (synthetic rows). loyalty_points defaults to 0 so the UI never shows NaN.
     for (const a of (apptRows ?? []) as { client_name: string; client_email?: string | null; client_phone?: string | null }[]) {
       if (!a.client_name) continue;
       const k = keyOf({ name: a.client_name, email: a.client_email, phone: a.client_phone });
       if (merged.has(k)) continue;
-      const agg = apptAgg[k] ?? { visits: 0, spent: 0, last: "", tag: "New" };
+      const s = statsByName[normName(a.client_name)] ?? { visits: 0, spent: 0, last: "" };
       merged.set(k, {
         id: `synthetic:${k}`,
         shop_id: shop.id,
         name: a.client_name,
         email: a.client_email ?? undefined,
         phone: a.client_phone ?? undefined,
-        total_visits: agg.visits,
-        total_spent: agg.spent,
-        last_visit: agg.last || undefined,
-        tag: agg.visits >= 3 ? "Returning" : "New",
+        total_visits: s.visits,
+        total_spent: s.spent,
+        last_visit: s.last || undefined,
+        loyalty_points: 0,
+        tag: s.visits >= 3 ? "Returning" : "New",
       } as unknown as Client);
     }
 
@@ -143,12 +155,41 @@ export default function ClientsPage() {
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
+  // Real-time: refresh when appointments (new booking / completion → visits &
+  // spend) or clients (points/notes edits from another device or barber) change.
+  useEffect(() => {
+    if (!shop) return;
+    const ch = supabase
+      .channel(`clients-live:${shop.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, () => loadClients())
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients", filter: `shop_id=eq.${shop.id}` }, () => loadClients())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [shop, loadClients]);
+
   // Keyboard: Escape closes panel
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedClient(null); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  // Synthetic clients (harvested from appointments, id "synthetic:…") have no row
+  // in the `clients` table, so writes by id silently hit nothing. Materialize into
+  // a real row (deduped by email → phone) before any write, and return the real id.
+  const ensureRealClient = async (client: Client): Promise<string | null> => {
+    if (!client.id.startsWith("synthetic:")) return client.id;
+    if (!shop) return null;
+    try {
+      const res = await fetch("/api/clients/upsert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({ shop_id: shop.id, name: client.name, email: client.email ?? "", phone: client.phone ?? "" }),
+      });
+      const j = await res.json().catch(() => null);
+      return j?.ok ? (j.id as string) : null;
+    } catch { return null; }
+  };
 
   const openClient = async (client: Client) => {
     setSelectedClient(client);
@@ -161,38 +202,49 @@ export default function ClientsPage() {
       .from("appointments")
       .select("id, date, time_slot, total_amount, status, barbers(name), services(name)")
       .eq("shop_id", shop!.id)
-      .eq("client_name", client.name)
+      .ilike("client_name", client.name.trim())
       .order("date", { ascending: false })
-      .limit(10);
+      .limit(50);
     setClientAppointments((data as unknown as AppointmentRow[]) ?? []);
   };
 
   const saveNotes = async () => {
     if (!selectedClient) return;
     setSaving(true);
-    const { error } = await supabase.from("clients").update({ notes }).eq("id", selectedClient.id);
-    if (!error) {
-      setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, notes } : c));
-      showToast("Notes saved!");
-    } else showToast("Error saving notes");
+    const realId = await ensureRealClient(selectedClient);
+    if (!realId) { setSaving(false); showToast("Couldn't save notes — please try again."); return; }
+    const prevId = selectedClient.id;
+    const { error } = await supabase.from("clients").update({ notes }).eq("id", realId);
     setSaving(false);
+    if (error) { showToast("Error saving notes"); return; }
+    setSelectedClient(c => c ? { ...c, id: realId, notes } : c);
+    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, notes } : c));
+    showToast("Notes saved!");
   };
 
   const saveHairProfile = async () => {
     if (!selectedClient) return;
     setSavingHair(true);
-    const { error } = await supabase.from("clients").update({ hair_profile: hairProfile }).eq("id", selectedClient.id);
+    const realId = await ensureRealClient(selectedClient);
+    if (!realId) { setSavingHair(false); showToast("Couldn't save hair profile — please try again."); return; }
+    const { error } = await supabase.from("clients").update({ hair_profile: hairProfile }).eq("id", realId);
     setSavingHair(false);
-    showToast(error ? "Error saving hair profile" : "Hair profile saved!");
+    if (error) { showToast("Error saving hair profile"); return; }
+    setSelectedClient(c => c ? { ...c, id: realId } : c);
+    showToast("Hair profile saved!");
   };
 
   const saveBirthday = async () => {
     if (!selectedClient) return;
     setSavingBirthday(true);
-    const { error } = await supabase.from("clients").update({ birthday }).eq("id", selectedClient.id);
+    const realId = await ensureRealClient(selectedClient);
+    if (!realId) { setSavingBirthday(false); showToast("Couldn't save birthday — please try again."); return; }
+    const prevId = selectedClient.id;
+    const { error } = await supabase.from("clients").update({ birthday }).eq("id", realId);
     setSavingBirthday(false);
     if (error) { showToast("Couldn't save birthday — please try again."); return; }
-    setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, birthday } : c));
+    setSelectedClient(c => c ? { ...c, id: realId, birthday } : c);
+    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, birthday } : c));
     showToast("Birthday saved!");
   };
 
@@ -218,26 +270,50 @@ export default function ClientsPage() {
   };
 
   const addPoints = async () => {
-    if (!addPointsClient) return;
-    const pts = Number(pointsToAdd);
-    const newTotal = addPointsClient.loyalty_points + pts;
-    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", addPointsClient.id);
-    if (!error) {
-      setClients(prev => prev.map(c => c.id === addPointsClient.id ? { ...c, loyalty_points: newTotal } : c));
-      if (selectedClient?.id === addPointsClient.id) setSelectedClient(c => c ? { ...c, loyalty_points: newTotal } : c);
-      showToast(`${pts} points added!`);
-    }
+    if (!addPointsClient || !shop) return;
+    const pts = Math.round(Number(pointsToAdd));
+    if (!Number.isFinite(pts) || pts === 0) { showToast("Enter a valid number of points"); return; }
+    setSaving(true);
+    // Materialize synthetic clients so the points actually persist to a real row.
+    const realId = await ensureRealClient(addPointsClient);
+    if (!realId) { setSaving(false); showToast("Couldn't add points — please try again."); return; }
+    // Read the current balance from the DB (not stale local state / NaN) then add.
+    const { data: row } = await supabase.from("clients").select("loyalty_points").eq("id", realId).maybeSingle();
+    const current = Number(row?.loyalty_points ?? 0);
+    const newTotal = Math.max(0, current + pts);
+    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", realId);
+    setSaving(false);
+    if (error) { showToast("Couldn't add points — please try again."); return; }
+    if (selectedClient?.id === addPointsClient.id) setSelectedClient(c => c ? { ...c, id: realId, loyalty_points: newTotal } : c);
+    showToast(`${pts > 0 ? "+" : ""}${pts} points · now ${newTotal}`);
     setAddPointsClient(null);
+    loadClients();
   };
 
   const addClient = async () => {
-    if (!shop || !newClient.name.trim()) return;
+    if (!shop) return;
+    // A contact needs a name and a phone (this is a call-first contacts list;
+    // phone is how you reach them and the key we dedupe on). Email is optional.
+    const name = newClient.name.trim();
+    const phone = newClient.phone.trim();
+    const email = newClient.email.trim();
+    if (!name) { showToast("Name is required"); return; }
+    if (!phone) { showToast("A phone number is required"); return; }
     setSaving(true);
+    // Don't create a duplicate if this phone/email is already on file.
+    let dupe: { id: string } | null = null;
+    const { data: byPhone } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
+    dupe = byPhone;
+    if (!dupe && email) {
+      const { data: byEmail } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
+      dupe = byEmail;
+    }
+    if (dupe) { setSaving(false); showToast("A client with that phone or email already exists"); return; }
     const { error } = await supabase.from("clients").insert({
       shop_id: shop.id,
-      name: newClient.name.trim(),
-      phone: newClient.phone,
-      email: newClient.email,
+      name,
+      phone,
+      email,
       notes: newClient.notes,
       birthday: newClient.birthday || null,
       total_visits: 0,
@@ -735,9 +811,9 @@ export default function ClientsPage() {
                 <h2 className="text-lg font-bold text-foreground">Add New Client</h2>
                 <button onClick={() => setShowAddModal(false)} className="text-grey hover:text-foreground">✕</button>
               </div>
-              <Input label="Full Name" placeholder="John Doe" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} />
-              <Input label="Phone" placeholder="506-555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
-              <Input label="Email" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
+              <Input label="Full Name *" placeholder="John Doe" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} />
+              <Input label="Phone *" placeholder="506-555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
+              <Input label="Email (optional)" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
               <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
               <div className="space-y-1.5">
                 <label className="text-sm text-grey">Birthday (optional)</label>
