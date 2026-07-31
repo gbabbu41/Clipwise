@@ -628,7 +628,7 @@ export function MobileNav() {
     { href: "/dashboard",              label: "Home",         icon: LayoutDashboard },
     { href: "/dashboard/schedule",     label: "Schedule",     icon: Clock },
     { href: "/dashboard/calendar",     label: "Calendar",     icon: CalendarDays },
-    { href: "/dashboard/pos",          label: "POS",          icon: CreditCard },
+    { href: "/dashboard/clients",      label: "Clients",      icon: Users },
     { href: "/dashboard/payments",     label: "Payments",     icon: Banknote },
   ];
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
