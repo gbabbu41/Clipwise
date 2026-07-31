@@ -429,9 +429,29 @@ function directMessageEmail(data: Record<string, string>) {
 }
 
 function paymentLinkEmail(data: Record<string, string>) {
-  const amt = typeof data.amount === "number"
-    ? `$${(data.amount as unknown as number).toFixed(2)}`
-    : (data.amount?.toString().startsWith("$") ? data.amount : `$${data.amount}`);
+  // Money values arrive as numbers (JSON) or pre-formatted strings — normalise
+  // both to "$X.XX" so the breakdown always reads like a proper receipt.
+  const money = (v: unknown) => {
+    if (typeof v === "number") return `$${v.toFixed(2)}`;
+    const s = (v ?? "").toString().trim();
+    if (!s) return "";
+    return s.startsWith("$") ? s : `$${s}`;
+  };
+  const total = money(data.amount);
+  const taxNum = typeof data.tax === "number"
+    ? (data.tax as unknown as number)
+    : parseFloat(String(data.tax ?? ""));
+  const hasTax = Number.isFinite(taxNum) && taxNum > 0;
+  // Itemise price + tax when the shop charges tax; otherwise a single Amount row
+  // (so a no-tax booking never shows a confusing "$0.00 tax" line). The Total row
+  // is emphasised so it's unmistakable what will be charged.
+  const amountRows = hasTax
+    ? `
+    <div class="row"><span class="label">Subtotal</span><span class="val">${money(data.subtotal)}</span></div>
+    <div class="row"><span class="label">${data.taxLabel || "Tax"}</span><span class="val">${money(data.tax)}</span></div>
+    <div class="row"><span class="label" style="color:#fff;font-weight:700">Total</span><span class="val" style="font-weight:700">${total}</span></div>`
+    : `
+    <div class="row"><span class="label">Amount</span><span class="val">${total}</span></div>`;
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
     <div class="badge">💳 Payment Requested</div>
@@ -441,7 +461,7 @@ function paymentLinkEmail(data: Record<string, string>) {
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
-    <div class="row"><span class="label">Amount</span><span class="val">${amt}</span></div>
+    ${amountRows}
     <hr class="divider">
     <a href="${data.paymentUrl}" class="btn">Pay Now →</a>
     <div class="link-box"><a href="${data.paymentUrl}">${data.paymentUrl}</a></div>

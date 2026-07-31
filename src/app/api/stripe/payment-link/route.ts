@@ -5,7 +5,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { authorizeAppointment } from "@/lib/api-auth";
-import { taxOnAmount, taxLabelFor, type TaxConfig } from "@/lib/pricing";
+import { taxOnAmount, taxLabelFor, taxLinesFor, type TaxConfig } from "@/lib/pricing";
 
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
@@ -95,7 +95,13 @@ export async function POST(request: NextRequest) {
   const preTaxDollars = Math.max(0, Number(appt.total_amount ?? 0) - existingTax);
   const taxDollars = taxOnAmount(preTaxDollars, bs);
   const grossDollars = Math.round((preTaxDollars + taxDollars) * 100) / 100;
-  const taxLabel = taxLabelFor(bs) || "Tax";
+  // Receipt-style label with the rate baked in ("HST (13%)", or "GST (5%) + PST
+  // (7%)" for multi-tax provinces) — shown on both the Stripe page and the email
+  // breakdown so the customer sees exactly what the tax is.
+  const taxLines = taxLinesFor(bs);
+  const taxLabel = taxLines.length
+    ? taxLines.map(l => `${l.label} (${l.rate}%)`).join(" + ")
+    : (taxLabelFor(bs) || "Tax");
 
   // Persist the authoritative amounts so the ledger + receipt (webhook / finalize)
   // read ONE stored truth (total_amount = gross, tax_amount = the tax portion).
@@ -197,7 +203,12 @@ export async function POST(request: NextRequest) {
             shopName: shop.name,
             shopEmail: shop.email ?? "",
             serviceName,
+            // Itemised breakdown so the receipt email shows price + tax, not just
+            // a lump sum. subtotal + tax = amount (the gross total charged).
             amount: grossDollars,
+            subtotal: preTaxDollars,
+            tax: taxDollars,
+            taxLabel,
             paymentUrl: session.url,
             date: appt.date,
             time: appt.time_slot,
