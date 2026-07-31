@@ -458,6 +458,9 @@ function DAction({ icon, label, onClick, disabled, tone = "default" }: {
   return (
     <button type="button" onClick={onClick} disabled={disabled || tone === "muted"}
       className={cn(
+        // `cwd-act cwd-act--<tone>` markers let the light theme restyle these into
+        // solid/outlined buttons (see globals.css) — DARK theme keeps the tints below.
+        "cwd-act", `cwd-act--${tone}`,
         "flex items-center gap-3 w-full px-3.5 py-3 rounded-xl border text-sm font-medium text-left transition-colors disabled:opacity-50",
         tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
           : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"

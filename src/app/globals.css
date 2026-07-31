@@ -1285,6 +1285,19 @@ textarea:focus-visible {
 /* Light theme: full near-black text at rest (per request), not the faded 70%. */
 html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); }
 
+/* Light theme: appointment-sheet action buttons (DAction). The dark-theme tinted
+   fills wash out on the near-white card, so give each tone a defined, high-contrast
+   treatment with clear hierarchy — solid green PRIMARY, outlined red DANGER,
+   outlined neutral DEFAULT. Double class (.cwd-act.cwd-act--x) outranks the generic
+   tint overrides above. Light theme ONLY — dark keeps the Tailwind tints. */
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:#157a4a; border-color:#157a4a; color:#fff; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { background:#12683f; border-color:#12683f; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--danger { background:transparent; border-color:#d9534f; color:#b23127; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--danger:hover:not(:disabled) { background:#fbeae8; }
+html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:transparent; border-color:#c2c2c2; color:var(--foreground); }
+html[data-theme="light"] .portal .cwd-act.cwd-act--default:hover:not(:disabled) { background:var(--surface-overlay); }
+html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surface-overlay); border-color:var(--border); color:var(--grey-2); }
+
 .cwd-hero { background:var(--card-raised); border:1px solid var(--border); border-radius:16px; padding:18px 18px 14px; margin-bottom:12px; }
 .cwd-hero .cwd-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
 .cwd-lbl { font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--grey); }
