@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Info, X } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -41,7 +42,14 @@ export default function LoyaltyPage() {
     appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
   });
   const [settings, setSettings] = useState({ points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
+  const [showHelp, setShowHelp] = useState(false);
   const [newPromo, setNewPromo] = useState(BLANK_PROMO);
+
+  // Live numbers for the help/example text, straight from the current settings so
+  // the owner sees exactly what their program does.
+  const exReward = Math.round(settings.points_per_visit + settings.points_per_dollar * 30); // a $30 visit
+  const centsPerPoint = settings.redemption; // 100 pts = $redemption ⇒ 1 pt ≈ redemption¢
+  const dollarsOf = (pts: number) => (pts / 100) * settings.redemption;
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -213,10 +221,58 @@ export default function LoyaltyPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Loyalty & Marketing</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Loyalty & Marketing</h1>
+            <button type="button" onClick={() => setShowHelp(true)} aria-label="How loyalty points work"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-card-raised transition-colors">
+              <Info size={16} />
+            </button>
+          </div>
           <p className="text-sm text-grey mt-0.5">Retain clients and drive repeat visits</p>
         </div>
       </div>
+
+      {/* How-it-works guide — reads live off the owner's own settings so the
+          numbers always match what their program actually does. */}
+      {showHelp && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[60]" onClick={() => setShowHelp(false)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+            <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-foreground font-bold text-lg">How loyalty points work</h3>
+                <button onClick={() => setShowHelp(false)} className="text-grey hover:text-foreground" aria-label="Close"><X size={18} /></button>
+              </div>
+
+              <div className="space-y-3 text-sm text-grey leading-relaxed">
+                <div>
+                  <p className="text-foreground font-semibold mb-0.5">1. Clients earn automatically</p>
+                  <p>Every time you mark an appointment <span className="text-foreground">Completed</span>, the client earns
+                  {" "}<span className="text-foreground font-medium">{settings.points_per_visit} pts per visit + {settings.points_per_dollar} pt per $1</span> spent.
+                  A <span className="text-foreground">$30</span> visit = <span className="text-foreground font-medium">{exReward} pts</span>.</p>
+                </div>
+                <div>
+                  <p className="text-foreground font-semibold mb-0.5">2. What points are worth</p>
+                  <p><span className="text-foreground font-medium">100 pts = ${settings.redemption.toFixed(2)}</span> off (about {centsPerPoint}¢ per point). You set all three numbers in <span className="text-foreground">Program Settings</span> below.</p>
+                </div>
+                <div>
+                  <p className="text-foreground font-semibold mb-0.5">3. Redeeming</p>
+                  <p>Find the client in the leaderboard → tap <span className="text-foreground">Redeem</span>. It subtracts the points and shows the dollar value — then you take that amount off their bill at checkout.</p>
+                </div>
+                <div className="rounded-xl bg-card-raised border border-border p-3 space-y-1.5">
+                  <p className="text-foreground font-semibold">💡 Tips to get the most out of it</p>
+                  <p>• Lean on <span className="text-foreground">points per visit</span> — it rewards coming back, which is what grows a barbershop.</p>
+                  <p>• Aim so ~5–6 visits earns a meaningful reward — close enough to chase, valuable enough to matter.</p>
+                  <p>• Say it out loud at checkout: <span className="text-foreground">“you’ve got ${dollarsOf(200).toFixed(2)} in points saved up.”</span> That’s what brings them back.</p>
+                  <p>• Points only apply on <span className="text-foreground">Pro/Premium</span> plans, and only for clients in your list (online bookings add them for you).</p>
+                </div>
+              </div>
+
+              <Button className="w-full" onClick={() => setShowHelp(false)}>Got it</Button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
@@ -249,6 +305,10 @@ export default function LoyaltyPage() {
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-grey mb-4 leading-relaxed">
+                💡 With these settings, a <span className="text-foreground">$30</span> visit earns <span className="text-foreground font-medium">{exReward} pts</span>,
+                and <span className="text-foreground font-medium">100 pts = ${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
+              </p>
               <Button loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
             </CardContent>
           </Card>
@@ -300,6 +360,9 @@ export default function LoyaltyPage() {
                                 <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
                               </div>
                             </div>
+                            {client.loyalty_points > 0 && (
+                              <p className="text-[11px] text-grey mt-1">≈ ${dollarsOf(client.loyalty_points).toFixed(2)} value</p>
+                            )}
                           </td>
                           <td className="px-3 py-3 text-sm text-grey">{client.total_visits}</td>
                           <td className="px-3 py-3 text-sm text-grey">{client.last_visit ?? "—"}</td>
