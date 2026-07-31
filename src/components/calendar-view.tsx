@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import {
-  cn, formatDateForDb, friendlyDate, timeAgo, paymentTag,
+  cn, formatCurrency, formatDateForDb, friendlyDate, timeAgo, paymentTag,
   occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
   isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
@@ -631,7 +631,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     : refunded
       ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
-      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amt > 0 ? ` · ${formatCurrency(amt)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
       : awaiting
         ? { text: "Awaiting payment", cls: "bg-sky-400/10 text-sky-400" }
         : appt.status === "pending"
@@ -643,7 +643,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               : appt.status === "no-show"
                 ? { text: "No-show", cls: "bg-white/5 text-grey" }
                 : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
-  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amt > 0 ? `$${amt.toFixed(0)}` : null].filter(Boolean).join(" · ");
+  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amt > 0 ? formatCurrency(amt) : null].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -721,7 +721,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                       <select value={sid} onChange={e => setServiceAt(idx, e.target.value)}
                         className="flex-1 bg-card-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]">
                         <option value="">Select a service</option>
-                        {services.map(s => <option key={s.id} value={s.id}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m</option>)}
+                        {services.map(s => <option key={s.id} value={s.id}>{s.name} · {formatCurrency(Number(s.price))} · {s.duration_minutes}m</option>)}
                       </select>
                       {(editForm.service_ids.length > 1 || !!sid) && (
                         <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
@@ -736,7 +736,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     <Plus size={15} /> Add another service
                   </button>
                   {editForm.service_ids.filter(Boolean).length > 0 && (
-                    <p className="text-xs text-grey">Total: {editTotalDuration} min · ${editTotalPrice.toFixed(0)}</p>
+                    <p className="text-xs text-grey">Total: {editTotalDuration} min · {formatCurrency(editTotalPrice)}</p>
                   )}
                 </div>
               )}
@@ -759,7 +759,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ) : (
                 <>
                   {heldOrSaved && (
-                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amt > 0 ? ` · $${amt.toFixed(0)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amt > 0 ? ` · ${formatCurrency(amt)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
                   <DAction tone="muted" icon="💳" label="Pay here (Tap) · Coming soon" />
                   {!showEmail ? (
@@ -798,7 +798,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <DAction tone="primary" icon="💳" label={`Take Payment · $${amt.toFixed(0)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                <DAction tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {(appt.status === "pending" || appt.status === "confirmed") && (
                 <DAction tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
@@ -1768,7 +1768,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
                 <p className="text-[11px] text-grey truncate">
                   {(c.a.services as { name: string } | null)?.name ?? "—"}
-                  {(c.a.total_amount ?? 0) > 0 ? ` · $${Number(c.a.total_amount).toFixed(0)}` : ""}
+                  {(c.a.total_amount ?? 0) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount))}` : ""}
                 </p>
               </div>
               {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
@@ -1984,7 +1984,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           {height > 64 && (
                             <p className="text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
-                              {(appt.total_amount ?? 0) > 0 ? ` · $${Number(appt.total_amount).toFixed(0)}` : ""}
+                              {(appt.total_amount ?? 0) > 0 ? ` · ${formatCurrency(Number(appt.total_amount))}` : ""}
                             </p>
                           )}
                         </button>
@@ -2606,7 +2606,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           <option value="">Select a service</option>
                           {services.map(s => {
                             const wontFit = s.id !== sid && otherDur + s.duration_minutes > windowLen;
-                            return <option key={s.id} value={s.id} disabled={wontFit}>{s.name} · ${Number(s.price).toFixed(0)} · {s.duration_minutes}m{wontFit ? " — won't fit" : ""}</option>;
+                            return <option key={s.id} value={s.id} disabled={wontFit}>{s.name} · {formatCurrency(Number(s.price))} · {s.duration_minutes}m{wontFit ? " — won't fit" : ""}</option>;
                           })}
                         </Select>
                         {(addForm.service_ids.length > 1 || !!sid) && (
@@ -2624,7 +2624,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <Plus size={15} /> Add another service
                 </button>
                 {addForm.service_ids.filter(Boolean).length > 0 && (
-                  <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · ${addTotalPrice.toFixed(0)}</p>
+                  <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
                 )}
               </div>
               <Select label="Available time" value={addForm.time}
