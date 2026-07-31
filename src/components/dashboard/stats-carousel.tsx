@@ -5,6 +5,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, ResponsiveContainer, Tooltip,
 } from "recharts";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
 
@@ -178,13 +179,29 @@ export function StatsCarousel({
     </div>,
   ];
 
+  const arrowBtn =
+    "hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center " +
+    "rounded-full bg-card border border-border text-foreground shadow-sm transition-all " +
+    "hover:bg-surface-overlay disabled:opacity-0 disabled:pointer-events-none";
+
   return (
     <div className="mb-3">
-      <div ref={ref} onScroll={onScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {slides.map((s, i) => (
-          <div key={i} className="min-w-full snap-center min-h-[180px]">{s}</div>
-        ))}
+      <div className="relative">
+        <div ref={ref} onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {slides.map((s, i) => (
+            <div key={i} className="min-w-full snap-center min-h-[180px]">{s}</div>
+          ))}
+        </div>
+        {/* Desktop-only prev/next — mobile navigates by swipe. Hidden at the ends. */}
+        <button type="button" aria-label="Previous" onClick={() => goTo(idx - 1)} disabled={idx === 0}
+          className={cn(arrowBtn, "left-1.5")}>
+          <ChevronLeft size={18} />
+        </button>
+        <button type="button" aria-label="Next" onClick={() => goTo(idx + 1)} disabled={idx >= slides.length - 1}
+          className={cn(arrowBtn, "right-1.5")}>
+          <ChevronRight size={18} />
+        </button>
       </div>
       <div className="flex justify-center gap-1.5 mt-2">
         {slides.map((_, i) => (
