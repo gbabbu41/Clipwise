@@ -130,7 +130,6 @@ const navSections: NavSection[] = [
   {
     label: "Operations",
     items: [
-      { href: "/dashboard/appointments", label: "Appointments", icon: Calendar },
       { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
       { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
       { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
