@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   // multi-location owner viewing another one), else the owner's most recent shop.
   const { shop_id } = await request.json().catch(() => ({})) as { shop_id?: string };
   let ownerQuery = supabaseAdmin
-    .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected")
+    .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected, booking_settings")
     .eq("owner_id", user.id);
   if (shop_id) ownerQuery = ownerQuery.eq("id", shop_id);
   const { data: ownerShops } = await ownerQuery.order("created_at", { ascending: false }).limit(1);
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       .from("barbers").select("shop_id").eq("user_id", user.id).limit(1).maybeSingle();
     if (barber?.shop_id) {
       const { data: bShop } = await supabaseAdmin
-        .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected")
+        .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected, booking_settings")
         .eq("id", barber.shop_id).maybeSingle();
       shop = bShop ?? null;
     }

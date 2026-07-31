@@ -4,6 +4,7 @@
 // owner/barber alerts ONLY on the real transition, so it can't double-notify.
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
+import type { TaxConfig } from "@/lib/pricing";
 
 export interface PayableAppt {
   id: string;
@@ -22,6 +23,7 @@ export interface PayShop {
   name: string | null;
   email: string | null;
   owner_id: string | null;
+  booking_settings?: TaxConfig | null; // → receipt-style tax label (optional)
 }
 
 export function serviceNameOf(rel: PayableAppt["services"]): string {
@@ -157,6 +159,9 @@ export async function markAppointmentPaid(args: {
     date: appt.date,
     amountCents,
     context: "Payment received",
+    // Itemize price + tax (online payment = gross; subtotal = gross − tax).
+    taxCents: Math.round(taxDollars * 100),
+    taxConfig: shop.booking_settings ?? null,
   });
 
   notifyNoShowCharged({

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { prettyDate } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
+import { taxLabelDetailed, type TaxConfig } from "@/lib/pricing";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send
@@ -17,24 +18,42 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   date?: string | null;
   amountCents: number;
   context: string; // human label, e.g. "Appointment completed" | "No-show fee"
+  // Optional itemisation of amountCents. When taxCents > 0 the receipt shows a
+  // Subtotal / Tax / (Tip) / Amount Paid breakdown instead of a lump sum. The
+  // split must reconcile: subtotal = amountCents − taxCents − tipCents. A no-show
+  // fee passes no taxCents (it carries no tax) → stays a single line.
+  taxCents?: number | null;
+  tipCents?: number | null;
+  taxConfig?: TaxConfig | null; // shop.booking_settings → receipt-style tax label
 }): Promise<void> {
   if (!args.clientEmail || args.amountCents <= 0) return;
+  const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const taxCents = Math.max(0, Math.round(Number(args.taxCents ?? 0)));
+  const tipCents = Math.max(0, Math.round(Number(args.tipCents ?? 0)));
+  const subtotalCents = args.amountCents - taxCents - tipCents;
+  // Only itemise when there's tax to show AND the split reconciles (never render a
+  // breakdown that wouldn't add up to the amount actually charged).
+  const showBreakdown = taxCents > 0 && subtotalCents >= 0;
+  const data: Record<string, string> = {
+    clientEmail: args.clientEmail,
+    clientName: args.clientName ?? "there",
+    shopName: args.shopName ?? "",
+    shopEmail: args.shopEmail ?? "",
+    serviceName: args.serviceName ?? "",
+    date: args.date ?? "",
+    amount: money(args.amountCents),
+    context: args.context,
+  };
+  if (showBreakdown) {
+    data.subtotal = money(subtotalCents);
+    data.tax = money(taxCents);
+    data.taxLabel = taxLabelDetailed(args.taxConfig ?? null);
+    if (tipCents > 0) data.tip = money(tipCents);
+  }
   await fetch(`${baseUrl}/api/send-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "payment_receipt",
-      data: {
-        clientEmail: args.clientEmail,
-        clientName: args.clientName ?? "there",
-        shopName: args.shopName ?? "",
-        shopEmail: args.shopEmail ?? "",
-        serviceName: args.serviceName ?? "",
-        date: args.date ?? "",
-        amount: `$${(args.amountCents / 100).toFixed(2)}`,
-        context: args.context,
-      },
-    }),
+    body: JSON.stringify({ type: "payment_receipt", data }),
   }).catch(() => null);
 }
 

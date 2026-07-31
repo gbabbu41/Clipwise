@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("name, email, owner_id, stripe_account_id, stripe_connected").eq("id", appt.shop_id).maybeSingle();
+    .from("shops").select("name, email, owner_id, stripe_account_id, stripe_connected, booking_settings").eq("id", appt.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   const barberName = Array.isArray(appt.barbers)

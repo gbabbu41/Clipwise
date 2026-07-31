@@ -9,6 +9,7 @@ import { insertNotifications } from "@/lib/notify-server";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
+import type { TaxConfig } from "@/lib/pricing";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
           // first — prevents double-notifying).
           if (paidAppt) {
             const { data: shopRow } = await supabaseAdmin
-              .from("shops").select("name, email, owner_id").eq("id", paidAppt.shop_id).maybeSingle();
+              .from("shops").select("name, email, owner_id, booking_settings").eq("id", paidAppt.shop_id).maybeSingle();
             const svcName = Array.isArray(paidAppt.services)
               ? (paidAppt.services[0]?.name ?? "")
               : ((paidAppt.services as { name?: string } | null)?.name ?? "");
@@ -211,6 +212,9 @@ export async function POST(request: NextRequest) {
                 date: paidAppt.date,
                 amountCents: Math.round((paidAppt.total_amount ?? 0) * 100),
                 context: "Payment received",
+                // Itemize price + tax (online payment = gross; subtotal = gross − tax).
+                taxCents: Math.round(linkTax * 100),
+                taxConfig: shopRow?.booking_settings as TaxConfig | null,
               });
             }
 

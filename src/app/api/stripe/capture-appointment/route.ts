@@ -6,6 +6,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDate, isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { noShowFeeCents, NO_SHOW_MAX_PCT } from "@/lib/validation";
+import type { TaxConfig } from "@/lib/pricing";
 
 /**
  * Capture a previously-authorized (held) PaymentIntent for an appointment.
@@ -214,6 +215,11 @@ export async function POST(request: NextRequest) {
       date: appt.date,
       amountCents: amountReceived,
       context: reason === "no_show" ? "No-show fee" : "Appointment completed",
+      // Same split the ledger row uses (txTax/tipDollars) — a no-show fee has 0
+      // tax so it stays a single line; a completion itemizes price + tax (+ tip).
+      taxCents: Math.round(txTax * 100),
+      tipCents: Math.round(tipDollars * 100),
+      taxConfig: shop.booking_settings as TaxConfig | null,
     });
 
     // In-app/web success alert to owner + assigned barber for BOTH a completion

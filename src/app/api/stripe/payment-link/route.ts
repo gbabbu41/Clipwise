@@ -5,7 +5,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { authorizeAppointment } from "@/lib/api-auth";
-import { taxOnAmount, taxLabelFor, taxLinesFor, type TaxConfig } from "@/lib/pricing";
+import { taxOnAmount, taxLabelDetailed, type TaxConfig } from "@/lib/pricing";
 
 /**
  * Create a Stripe Checkout Session for an *existing, unpaid* appointment
@@ -98,10 +98,7 @@ export async function POST(request: NextRequest) {
   // Receipt-style label with the rate baked in ("HST (13%)", or "GST (5%) + PST
   // (7%)" for multi-tax provinces) — shown on both the Stripe page and the email
   // breakdown so the customer sees exactly what the tax is.
-  const taxLines = taxLinesFor(bs);
-  const taxLabel = taxLines.length
-    ? taxLines.map(l => `${l.label} (${l.rate}%)`).join(" + ")
-    : (taxLabelFor(bs) || "Tax");
+  const taxLabel = taxLabelDetailed(bs);
 
   // Persist the authoritative amounts so the ledger + receipt (webhook / finalize)
   // read ONE stored truth (total_amount = gross, tax_amount = the tax portion).

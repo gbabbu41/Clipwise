@@ -91,6 +91,15 @@ export function taxLabelFor(bs: TaxConfig | null | undefined): string {
   return taxLinesFor(bs).map(l => l.label).join(" + ");
 }
 
+/** Receipt-style label with the rate(s) baked in — "HST (13%)", or
+ *  "GST (5%) + PST (7%)" for multi-tax provinces. Falls back to the plain label,
+ *  then "Tax". The one truth for tax labels on customer emails / Stripe lines. */
+export function taxLabelDetailed(bs: TaxConfig | null | undefined): string {
+  const lines = taxLinesFor(bs);
+  if (lines.length) return lines.map(l => `${l.label} (${l.rate}%)`).join(" + ");
+  return taxLabelFor(bs) || "Tax";
+}
+
 export function taxPresetFor(province: string | null | undefined) {
   if (!province) return null;
   const p = province.trim().toUpperCase();
