@@ -7,6 +7,7 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
+import { Phone } from "lucide-react";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 
@@ -411,14 +412,32 @@ export default function ClientsPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
             <Card key={client.id} className="hover:border-black transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm">
-                  {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              {/* Contact header — tap-to-call button (left), identity, status */}
+              <div className="flex items-center gap-3.5 py-1">
+                {client.phone ? (
+                  <a
+                    href={`tel:${client.phone.replace(/\D/g, "")}`}
+                    onClick={e => e.stopPropagation()}
+                    aria-label={`Call ${client.name}`}
+                    className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all"
+                  >
+                    <Phone size={20} />
+                  </a>
+                ) : (
+                  <div className="w-12 h-12 shrink-0 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm">
+                    {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-foreground font-semibold text-[15px] truncate">{client.name}</h3>
+                  {client.phone
+                    ? <p className="text-sm text-grey truncate">{formatPhone(client.phone)}</p>
+                    : <p className="text-sm text-grey-muted">No phone on file</p>}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
                   {noShowCounts[client.name] > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      ⚠ {noShowCounts[client.name]} no-show{noShowCounts[client.name] > 1 ? "s" : ""}
+                      ⚠ {noShowCounts[client.name]}
                     </span>
                   )}
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
@@ -426,15 +445,24 @@ export default function ClientsPage() {
                   </span>
                 </div>
               </div>
-              <h3 className="text-foreground font-semibold">{client.name}</h3>
-              <p className="text-sm text-grey">{client.phone}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div><p className="text-xs text-grey">Visits</p><p className="text-sm font-semibold text-foreground">{client.total_visits}</p></div>
-                <div><p className="text-xs text-grey">Spent</p><p className="text-sm font-semibold text-foreground">{formatCurrency(client.total_spent)}</p></div>
-                <div><p className="text-xs text-grey">Points</p><p className="text-sm font-semibold text-foreground">{client.loyalty_points}</p></div>
-                <div><p className="text-xs text-grey">Last Visit</p><p className="text-sm font-semibold text-foreground">{client.last_visit ?? "—"}</p></div>
+              {/* Clean glanceable stats — full history lives in View Profile */}
+              <div className="mt-4 flex items-stretch text-center">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{client.total_visits}</p>
+                  <p className="text-[11px] text-grey mt-0.5">Visits</p>
+                </div>
+                <div className="w-px bg-border mx-1" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{formatCurrency(client.total_spent)}</p>
+                  <p className="text-[11px] text-grey mt-0.5">Spent</p>
+                </div>
+                <div className="w-px bg-border mx-1" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground truncate">{client.last_visit ?? "—"}</p>
+                  <p className="text-[11px] text-grey mt-0.5">Last visit</p>
+                </div>
               </div>
-              <Button variant="outline" size="sm" className="w-full mt-3">View Profile</Button>
+              <Button variant="outline" size="sm" className="w-full mt-4">View Profile</Button>
             </Card>
           ))}
         </div>
