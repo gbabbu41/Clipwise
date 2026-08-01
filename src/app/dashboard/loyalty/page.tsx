@@ -41,7 +41,7 @@ export default function LoyaltyPage() {
   const [reminders, setReminders] = useState({
     appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
   });
-  const [settings, setSettings] = useState({ points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
+  const [settings, setSettings] = useState({ enabled: true, points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
   const [showHelp, setShowHelp] = useState(false);
   // Program Settings UX: per-dollar earning is tucked behind an "Advanced"
   // disclosure (most shops only use per-visit), and the worked example below
@@ -72,6 +72,7 @@ export default function LoyaltyPage() {
     const ls = bs?.loyalty;
     if (ls) {
       setSettings({
+        enabled: ls.enabled !== false, // default on; only an explicit false turns it off
         points_per_visit: ls.points_per_visit ?? 10,
         points_per_dollar: ls.points_per_dollar ?? 1,
         redemption: ls.redemption_rate ?? 5,
@@ -90,7 +91,7 @@ export default function LoyaltyPage() {
     const next = {
       ...current,
       loyalty: {
-        enabled: true,
+        enabled: settings.enabled,
         points_per_visit: settings.points_per_visit,
         points_per_dollar: settings.points_per_dollar,
         redemption_rate: settings.redemption,
@@ -301,8 +302,22 @@ export default function LoyaltyPage() {
         <div className="space-y-6">
           {/* Settings Card */}
           <Card>
-            <CardHeader><CardTitle>Program Settings</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Program Settings</CardTitle>
+              <label className="flex items-center gap-2 text-sm text-grey cursor-pointer">
+                {settings.enabled ? "On" : "Off"}
+                <Switch checked={settings.enabled} onChange={() => setSettings(p => ({ ...p, enabled: !p.enabled }))} />
+              </label>
+            </CardHeader>
             <CardContent>
+              {!settings.enabled && (
+                <div className="mb-4 rounded-xl border border-border bg-card-raised px-4 py-3 text-xs text-grey leading-relaxed">
+                  Loyalty is <span className="text-foreground font-medium">paused</span> — no points are earned or redeemed anywhere (dashboard, POS, or online booking). Existing balances are kept, so turning it back on resumes right where you left off.
+                </div>
+              )}
+              {/* Earning rules + example dim out while paused; the toggle above
+                  and Save below stay active so the owner can pause/resume. */}
+              <div className={cn(!settings.enabled && "opacity-40 pointer-events-none select-none")}>
               {/* Plain-English earning rules — same three saved settings, just
                   written as fill-in-the-blank sentences instead of raw boxes. */}
               <div className="space-y-3">
@@ -377,6 +392,7 @@ export default function LoyaltyPage() {
                   {settings.points_per_dollar > 0 ? ` (${settings.points_per_visit} per visit + ${examplePrice} × ${settings.points_per_dollar} per $1)` : ""}.
                   {" "}After about <span className="text-foreground font-medium">{visitsToReward || "—"} visit{visitsToReward === 1 ? "" : "s"}</span> they’ll have <span className="text-foreground font-medium">${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
                 </p>
+              </div>
               </div>
 
               <Button className="mt-4" loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
