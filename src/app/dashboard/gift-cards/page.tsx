@@ -35,14 +35,6 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 12 }, (_, i) => {
-    const c = chars[Math.floor(Math.random() * chars.length)];
-    return i === 4 || i === 8 ? `-${c}` : c;
-  }).join("");
-}
-
 type BlankForm = {
   initial_value: string;
   purchased_by: string;
@@ -50,12 +42,12 @@ type BlankForm = {
   recipient_name: string;
   recipient_email: string;
   note: string;
-  payment_method: "cash" | "card";
+  payment_method: "cash" | "card" | "link";
 };
 const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_email: "", recipient_name: "", recipient_email: "", note: "", payment_method: "cash" };
 
 export default function GiftCardsPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [cards, setCards] = useState<GiftCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -86,6 +78,26 @@ export default function GiftCardsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Finalize a portal "Charge card" purchase when Stripe returns the owner here.
+  useEffect(() => {
+    if (!shop) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") !== "1" || !params.get("session_id")) return;
+    const sid = params.get("session_id")!;
+    (async () => {
+      try {
+        const res = await fetch("/api/stripe/gift-finalize", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sid, shop_slug: shop.slug }),
+        });
+        const j = await res.json();
+        if (j.paid) showToast(`Gift card issued: ${j.code}`);
+      } catch { /* ignore */ }
+      window.history.replaceState({}, "", "/dashboard/gift-cards");
+      load();
+    })();
+  }, [shop, load]);
+
   const filtered = cards.filter(c => {
     const matchFilter = filter === "all" || (filter === "active" ? c.is_active && c.remaining_value > 0 : !c.is_active || c.remaining_value === 0);
     const matchSearch = !search || c.code.toLowerCase().includes(search.toLowerCase())
@@ -98,43 +110,65 @@ export default function GiftCardsPage() {
   const totalOutstanding = cards.filter(c => c.is_active).reduce((s, c) => s + c.remaining_value, 0);
   const totalRedeemed = totalIssued - totalOutstanding - cards.filter(c => !c.is_active).reduce((s, c) => s + c.remaining_value, 0);
 
+  const authHeaders = () => ({ "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) });
+
   const issueCard = async () => {
-    if (!shop || !form.initial_value) return;
-    setSaving(true);
-    const code = generateCode();
+    if (!shop) return;
     const value = parseFloat(form.initial_value) || 0;
-    const { error } = await supabase.from("gift_cards").insert({
-      shop_id: shop.id,
-      code,
-      initial_value: value,
-      remaining_value: value,
-      purchased_by: form.purchased_by.trim() || null,
-      purchased_by_email: form.purchased_by_email.trim() || null,
-      recipient_name: form.recipient_name.trim() || null,
-      recipient_email: form.recipient_email.trim() || null,
-      note: form.note.trim() || null,
-      is_active: true,
-    });
-    if (error) { setSaving(false); showToast("Error issuing gift card"); return; }
-    // Record the sale as revenue so it shows in Payments/reports. Same columns
-    // the POS cash sale uses (no appointment_id). source tags it as a card sale.
-    await supabase.from("transactions").insert({
-      shop_id: shop.id,
-      barber_id: null,
-      client_name: form.purchased_by.trim() || form.recipient_name.trim() || "Gift card",
-      service_name: `Gift Card ${code}`,
-      amount: value,
-      tip: 0,
-      commission_amount: null,
-      payment_method: form.payment_method,
-      type: "product",
-      source: "gift_card_sale",
-    }).then(null, () => null);
-    setSaving(false);
-    setShowAdd(false);
-    setForm(BLANK);
-    showToast(`Gift card issued: ${code}`);
-    load();
+    if (value <= 0) { showToast("Enter a valid amount"); return; }
+    setSaving(true);
+    try {
+      // CASH — real cash collected in person: create + record + email now.
+      if (form.payment_method === "cash") {
+        const res = await fetch("/api/gift-card/issue-cash", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({
+            shop_id: shop.id, amount: value,
+            purchased_by: form.purchased_by, purchased_by_email: form.purchased_by_email,
+            recipient_name: form.recipient_name, recipient_email: form.recipient_email, note: form.note,
+          }),
+        });
+        const j = await res.json();
+        setSaving(false);
+        if (!res.ok || !j.ok) { showToast(j.error ?? "Couldn't issue the gift card"); return; }
+        setShowAdd(false); setForm(BLANK); showToast(`Gift card issued: ${j.code}`); load();
+        return;
+      }
+      // SEND LINK — email the customer a real Stripe payment link.
+      if (form.payment_method === "link") {
+        const sendTo = (form.recipient_email || form.purchased_by_email).trim();
+        if (!sendTo) { setSaving(false); showToast("Add a recipient or purchaser email to send the link"); return; }
+        const res = await fetch("/api/gift-card/send-link", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({
+            shop_id: shop.id, amount: value, send_to: sendTo,
+            purchaser_name: form.purchased_by, recipient_name: form.recipient_name,
+            recipient_email: form.recipient_email, note: form.note,
+          }),
+        });
+        const j = await res.json();
+        setSaving(false);
+        if (!res.ok || !j.ok) { showToast(j.error ?? "Couldn't send the payment link"); return; }
+        setShowAdd(false); setForm(BLANK); showToast(`Payment link sent to ${sendTo}`);
+        return;
+      }
+      // CARD — charge now via Stripe; returns here, then finalizes + emails.
+      const res = await fetch("/api/stripe/gift-checkout", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop_slug: shop.slug, origin: window.location.origin, amount: value,
+          recipient_name: form.recipient_name, recipient_email: form.recipient_email,
+          purchaser_name: form.purchased_by, purchaser_email: form.purchased_by_email,
+          note: form.note, return_path: "/dashboard/gift-cards",
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.url) { setSaving(false); showToast(j.error ?? "Couldn't start card payment"); return; }
+      window.location.href = j.url;
+    } catch {
+      setSaving(false);
+      showToast("Something went wrong — please try again");
+    }
   };
 
   const lookupCard = async () => {
@@ -352,18 +386,27 @@ export default function GiftCardsPage() {
                   className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
               </div>
 
-              {/* How the customer paid — records the sale in your revenue. */}
+              {/* How to collect payment — every option records REAL money. */}
               <div>
-                <label className="text-xs text-grey block mb-2">Paid by</label>
-                <div className="flex gap-2">
-                  {(["cash", "card"] as const).map(m => (
+                <label className="text-xs text-grey block mb-2">Collect payment</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { m: "cash" as const, label: "💵 Cash" },
+                    { m: "card" as const, label: "💳 Card" },
+                    { m: "link" as const, label: "🔗 Send link" },
+                  ]).map(({ m, label }) => (
                     <button key={m} onClick={() => setForm(p => ({ ...p, payment_method: m }))}
-                      className={cn("flex-1 px-3 py-2 text-sm rounded-lg border font-medium capitalize transition-colors",
+                      className={cn("px-2 py-2 text-sm rounded-lg border font-medium transition-colors",
                         form.payment_method === m ? "bg-black/10 border-gray-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
-                      {m === "cash" ? "💵 Cash" : "💳 Card"}
+                      {label}
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-grey mt-1.5">
+                  {form.payment_method === "cash" ? "Records a cash sale and emails the code now."
+                    : form.payment_method === "card" ? "Charge a card now via Stripe — the code is emailed once it's paid."
+                    : "Emails the customer a secure payment link; the code is sent once they pay."}
+                </p>
               </div>
 
               {/* Recipient */}
@@ -392,7 +435,9 @@ export default function GiftCardsPage() {
 
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
-                <Button className="flex-1" loading={saving} onClick={issueCard}>Issue Gift Card</Button>
+                <Button className="flex-1" loading={saving} onClick={issueCard}>
+                  {form.payment_method === "cash" ? "Issue Gift Card" : form.payment_method === "card" ? "Charge Card" : "Send Link"}
+                </Button>
               </div>
             </div>
           </div>

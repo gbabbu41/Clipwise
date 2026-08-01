@@ -1,29 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { createGiftCheckoutSession, generateGiftCode } from "@/lib/gift-card-server";
 
-// Customer buys a gift card online → hosted Stripe Checkout on the shop's
-// connected account. The gift_cards row is NOT created here; it's created on
-// return via /gift-finalize once Stripe confirms payment (so an abandoned
-// checkout never mints a card). Mirrors pos-checkout: Connect required, so the
-// money always lands in the shop's own account.
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < 12; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-    if (i === 3 || i === 7) out += "-";
-  }
-  return out;
-}
-
+// Buy a gift card online → hosted Stripe Checkout on the shop's connected
+// account. The gift_cards row is created on return via /gift-finalize once
+// Stripe confirms payment (so an abandoned checkout never mints a card). Used by
+// the public gift page AND the owner portal ("Charge card" → return_path back to
+// the dashboard). Connect required, so money always lands in the shop's account.
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, "gift-checkout", 12, 60_000);
+  if (limited) return limited;
+
   const b = await request.json() as {
     shop_slug: string; origin: string; amount: number;
     recipient_name?: string; recipient_email?: string;
     purchaser_name?: string; purchaser_email?: string; note?: string;
+    return_path?: string; // where Stripe returns the buyer (defaults to /gift/[slug])
   };
   const amount = Number(b.amount);
   if (!b.shop_slug || !amount || amount <= 0) return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
@@ -38,43 +33,22 @@ export async function POST(request: NextRequest) {
   const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(plan, "loyalty")) return NextResponse.json({ error: "Gift cards aren't available for this shop." }, { status: 403 });
 
-  const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
-  if (!useConnect) return NextResponse.json({ error: "This shop can't sell gift cards online yet." }, { status: 409 });
+  if (!(shop.stripe_account_id && shop.stripe_connected)) {
+    return NextResponse.json({ error: "This shop can't sell gift cards online yet." }, { status: 409 });
+  }
 
   const origin = b.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const code = generateCode();
-
   try {
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        line_items: [{
-          price_data: {
-            currency: "cad",
-            product_data: { name: `${shop.name} — Gift Card` },
-            unit_amount: Math.round(amount * 100),
-          },
-          quantity: 1,
-        }],
-        customer_email: b.purchaser_email || undefined,
-        payment_intent_data: b.purchaser_email ? { receipt_email: b.purchaser_email } : undefined,
-        metadata: {
-          flow: "gift_card_purchase",
-          shop_id: shop.id,
-          code,
-          amount: String(amount),
-          recipient_name: (b.recipient_name ?? "").slice(0, 120),
-          recipient_email: (b.recipient_email ?? "").slice(0, 160),
-          purchaser_name: (b.purchaser_name ?? "").slice(0, 120),
-          purchaser_email: (b.purchaser_email ?? "").slice(0, 160),
-          note: (b.note ?? "").slice(0, 200),
-        },
-        success_url: `${origin}/gift/${shop.slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/gift/${shop.slug}?cancelled=1`,
+    const url = await createGiftCheckoutSession({
+      shop, origin, returnPath: b.return_path,
+      meta: {
+        code: generateGiftCode(), amount,
+        recipient_name: b.recipient_name, recipient_email: b.recipient_email,
+        purchaser_name: b.purchaser_name, purchaser_email: b.purchaser_email, note: b.note,
       },
-      { stripeAccount: shop.stripe_account_id! },
-    );
-    return NextResponse.json({ url: session.url });
+    });
+    if (!url) return NextResponse.json({ error: "Couldn't start checkout." }, { status: 500 });
+    return NextResponse.json({ url });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 500 });
   }

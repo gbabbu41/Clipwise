@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendAppEmail } from "@/lib/emailer";
+import { sendGiftCardEmails } from "@/lib/gift-card-server";
 
 // Called when the customer returns from a paid gift-card checkout. Verifies the
 // payment on the connected account, then creates the gift_cards row (idempotent
@@ -60,35 +60,18 @@ export async function POST(request: NextRequest) {
       payment_method: "card", type: "product", source: "gift_card_sale",
     }).then(null, () => null);
 
-    // Deliver the code (recipient) + a receipt (buyer), best-effort.
+    // Deliver the code (recipient) + a receipt (buyer), best-effort — shared with
+    // the owner cash/portal issuance so every gift card looks identical.
     const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const bookUrl = `${baseUrl}/book/${shop.slug}`;
-    const cardHtml = (heading: string, intro: string) => `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-      <h2 style="color:#111;margin:0 0 8px;">${heading}</h2>
-      <p style="color:#444;line-height:1.6;">${intro}</p>
-      <div style="margin:20px 0;padding:20px;border:2px dashed #bbb;border-radius:14px;text-align:center;">
-        <div style="font-size:12px;color:#888;letter-spacing:1px;">GIFT CARD · ${shop.name}</div>
-        <div style="font-size:28px;font-weight:800;color:#111;margin:8px 0;">$${amount.toFixed(2)}</div>
-        <div style="font-size:20px;font-weight:700;letter-spacing:2px;color:#111;font-family:monospace;">${code}</div>
-      </div>
-      ${m.note ? `<p style="color:#444;font-style:italic;">“${m.note}”</p>` : ""}
-      <a href="${bookUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;">Book an appointment →</a>
-      <p style="margin-top:20px;font-size:12px;color:#999;">Redeemable at ${shop.name}. Present this code at checkout.</p>
-    </div>`;
-
-    // Send in-process (no HTTP hop, no shared secret) so gift-card emails
-    // never silently fail when CRON_SECRET isn't set.
-    const sendMail = async (to: string, subject: string, htmlBody: string) => {
-      await sendAppEmail("marketing_campaign", { to, subject, htmlBody, shopEmail: shop!.email ?? "" }).catch(() => null);
-    };
-    if (m.recipient_email) {
-      await sendMail(m.recipient_email, `You've got a gift card for ${shop.name}! 🎁`,
-        cardHtml(`A gift for you 🎁`, `${m.purchaser_name || "Someone"} sent you a $${amount.toFixed(2)} gift card for ${shop.name}.`));
-    }
-    if (m.purchaser_email && m.purchaser_email !== m.recipient_email) {
-      await sendMail(m.purchaser_email, `Your gift card purchase — ${shop.name}`,
-        cardHtml(`Thanks for your purchase`, `Your $${amount.toFixed(2)} gift card for ${shop.name}${m.recipient_name ? ` for ${m.recipient_name}` : ""} is ready.`));
-    }
+    await sendGiftCardEmails({
+      shop: { name: shop.name, slug: shop.slug, email: shop.email },
+      baseUrl,
+      meta: {
+        code, amount, note: m.note,
+        recipient_name: m.recipient_name, recipient_email: m.recipient_email,
+        purchaser_name: m.purchaser_name, purchaser_email: m.purchaser_email,
+      },
+    });
 
     return NextResponse.json({ paid: true, code, amount });
   } catch (err) {
