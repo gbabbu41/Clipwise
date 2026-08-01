@@ -12,6 +12,7 @@ import { resolveServiceCharge } from "@/lib/service-pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast } from "@/lib/timezone";
 import { computeRedemption } from "@/lib/loyalty-redeem";
+import { findRedeemableGift } from "@/lib/gift-redeem";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     promo_code?: string; // validated + recomputed server-side (never trust the client discount)
     tip_amount?: number; // customer-chosen tip in dollars (immediate full payment only)
     redeem?: boolean;    // customer chose to spend loyalty points (amount computed server-side)
+    gift_code?: string;  // gift card applied like cash to the amount due (server-validated)
   };
 
   const { data: shop } = await supabaseAdmin
@@ -186,6 +188,22 @@ export async function POST(request: NextRequest) {
   // Save-card charges nothing now; hold authorizes service+tax+tip; immediate charges service+tax+tip.
   const chargeNowCents = booking.saveCard ? 0 : appointmentTotalCents + tipAmtCents;
 
+  // Gift card — stored money, applied like CASH on the amount due (after tax +
+  // tip). Server reads the real balance; the client only sends a code. Leaves at
+  // least $0.50 for Stripe to charge (a fully-covered booking is routed to the
+  // in-person/free path by the client). Not applied on the save-card path.
+  let giftAppliedCents = 0;
+  let giftCodeMeta = "";
+  if (booking.gift_code && chargeNowCents >= 100) {
+    const gift = await findRedeemableGift(booking.shop_id, booking.gift_code);
+    if (gift) {
+      giftAppliedCents = Math.min(Math.round(gift.balance * 100), chargeNowCents - 50);
+      if (giftAppliedCents < 0) giftAppliedCents = 0;
+      if (giftAppliedCents > 0) giftCodeMeta = gift.code;
+    }
+  }
+  const chargeAfterGiftCents = chargeNowCents - giftAppliedCents;
+
   // Shared booking details — written to the Checkout session metadata so
   // /booking-finalize can create the appointment on return.
   const metadata = {
@@ -206,6 +224,8 @@ export async function POST(request: NextRequest) {
     save: booking.saveCard ? "1" : "",
     promo_code: promoCodeForMeta,
     redeem_points: String(redemption.points),
+    gift_code: giftCodeMeta,
+    gift_applied: String(giftAppliedCents / 100),
   };
 
   try {
@@ -253,7 +273,7 @@ export async function POST(request: NextRequest) {
                   ? `${booking.service_name} (incl. tax${tipAmtCents > 0 ? " + tip" : ""})`
                   : booking.service_name,
             },
-            unit_amount: chargeNowCents,
+            unit_amount: chargeAfterGiftCents,
           },
           quantity: 1,
         }],

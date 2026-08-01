@@ -176,6 +176,11 @@ export default function BookingPage() {
   // choice. The discount amount is always recomputed server-side at checkout.
   const [loyalty, setLoyalty] = useState<{ eligible: boolean; points: number; value: number } | null>(null);
   const [redeemPoints, setRedeemPoints] = useState(false);
+  // Gift card the customer applies at checkout (stored money → paid like cash).
+  const [giftCodeInput, setGiftCodeInput] = useState("");
+  const [giftCard, setGiftCard] = useState<{ balance: number; code: string } | null>(null);
+  const [giftLoading, setGiftLoading] = useState(false);
+  const [giftError, setGiftError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [paidThankYou, setPaidThankYou] = useState(false); // post-booking payment-link return
   const [bookingPending, setBookingPending] = useState(false); // in-person booking awaiting shop approval
@@ -695,6 +700,22 @@ export default function BookingPage() {
     }
   };
 
+  // ── Apply gift card ──────────────────────────────────────────────────────────
+  const applyGift = async () => {
+    if (!giftCodeInput.trim() || !shop) return;
+    setGiftLoading(true); setGiftError("");
+    try {
+      const res = await fetch("/api/gift-card/lookup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shop.id, code: giftCodeInput }),
+      });
+      const data = await res.json();
+      if (data?.valid) setGiftCard({ balance: data.balance, code: data.code });
+      else { setGiftCard(null); setGiftError("That gift card isn't valid or has no balance left."); }
+    } catch { setGiftCard(null); setGiftError("Couldn't check that code — please try again."); }
+    finally { setGiftLoading(false); }
+  };
+
   // ── Confirm booking ────────────────────────────────────────────────────────
   // `methodOverride` lets a caller pass the pay choice DIRECTLY (the pay-method
   // modal + the single-method auto-route below). Reading `payMethodChoice` from
@@ -729,9 +750,12 @@ export default function BookingPage() {
       : 0;
     const total = Math.max(0, totalPrice - discount - loyaltyDisc);
 
+    // A gift card that covers the whole bill → no online charge needed: book it
+    // free and let the server draw the card down + mark it paid.
+    const giftCoversAll = !!giftCard && amountDue <= 0.5;
     // The authoritative pay choice for this run: whatever a caller handed in,
     // else the state (for the initial "Confirm" click, before any choice).
-    const method = methodOverride ?? payMethodChoice;
+    const method = giftCoversAll ? "in_person" : (methodOverride ?? payMethodChoice);
 
     // ── Pay-method choice gate ──────────────────────────────────────────────
     // The owner's `allow_pay_in_person` toggle is authoritative (see
@@ -824,6 +848,7 @@ export default function BookingPage() {
             saveCard: useSaveCard,
             tip_amount: tipAmount, // optional tip; server caps + only applies online
             redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
+            gift_code: giftCard?.code ?? undefined, // gift card applied to the charge (server-validated)
           }),
         });
         const pay = await res.json();
@@ -878,6 +903,7 @@ export default function BookingPage() {
         promo_code: promoApplied?.code ?? undefined,
         pay_in_person: method === "in_person",
         redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
+        gift_code: giftCoversAll ? (giftCard?.code ?? undefined) : undefined, // covers the whole bill
       }),
     }).catch(() => null);
     if (!res) { setSaving(false); showToast("Connection error. Please try again.", false); return; }
@@ -1008,12 +1034,15 @@ export default function BookingPage() {
   const taxAmount = Math.round(total * taxRatePct) / 100;
   const taxLabel = taxLines.map((l) => l.label).join(" + ") || "tax";
   const grandTotal = total + taxAmount;
+  // Gift card applies like cash to the final amount (after tax + tip, below).
 
   // ── Optional tip (online payment only) — presets off the discounted service
   // subtotal (pre-tax). Server recomputes authoritatively at checkout. ────────
   const tipsEnabledShop = ((shop?.booking_settings ?? {}) as { tips_enabled?: boolean }).tips_enabled !== false;
   const tipAmount = tipPercent > 0 ? Math.round(total * tipPercent) / 100 : 0;
   const grandTotalWithTip = grandTotal + tipAmount;
+  const giftApplied = giftCard ? Math.min(giftCard.balance, grandTotalWithTip) : 0;
+  const amountDue = Math.max(0, grandTotalWithTip - giftApplied);
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
@@ -1929,6 +1958,24 @@ export default function BookingPage() {
                 </span>
               </button>
             )}
+
+            {/* Gift card — stored money, applied like cash to the total. */}
+            <div className="pt-1">
+              <p className="text-sm text-white mb-1.5">Have a gift card?</p>
+              {giftCard ? (
+                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
+                  <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="GIFT CARD CODE" aria-label="Gift card code"
+                    className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                  <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
+                </div>
+              )}
+              {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
+            </div>
           </div>
         )}
 
@@ -1973,6 +2020,12 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(loyaltyDiscount)}</span>
                   </div>
                 )}
+                {giftApplied > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-400">Gift card ({giftCard!.code})</span>
+                    <span className="text-emerald-400">-{formatCurrency(giftApplied)}</span>
+                  </div>
+                )}
                 {taxEnabled && taxLines.map((line) => (
                   <div key={line.label} className="flex justify-between text-sm">
                     <span className="text-[#8f8f8f]">{line.label} ({line.rate}%)</span>
@@ -1983,6 +2036,12 @@ export default function BookingPage() {
                   <span className="text-white">Total</span>
                   <span className="text-white text-lg">{formatCurrency(grandTotal)}</span>
                 </div>
+                {giftApplied > 0 && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-[#8f8f8f]">{amountDue <= 0.5 ? "Paid by gift card" : "Amount due today"}</span>
+                    <span className="text-white font-semibold">{amountDue <= 0.5 ? "$0.00" : formatCurrency(amountDue)}</span>
+                  </div>
+                )}
               </div>
             </div>
             {/* Optional tip — online payment only. Charged with the card after the visit. */}

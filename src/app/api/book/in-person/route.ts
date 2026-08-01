@@ -12,6 +12,7 @@ import { isBookingInPast } from "@/lib/timezone";
 import { effectivePlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
+import { redeemGift } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
 
 /**
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
     confirmed?: boolean;             // owner-booked → skip the approval queue
     note?: string;                   // extra note (e.g. "outside working hours")
     redeem?: boolean;                // customer chose to spend loyalty points (amount computed server-side)
+    gift_code?: string;              // gift card that covers this booking (applied server-side)
   };
 
   if (!b.shop_id || !b.service_id || !b.client_name || !b.date || !b.time_slot) {
@@ -210,6 +212,17 @@ export async function POST(request: NextRequest) {
   const linkedClientId = await ensureClientRow(b.shop_id, { name: b.client_name, email: b.client_email, phone: b.client_phone });
   if (linkedClientId) {
     await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
+  }
+
+  // Gift card that covers the whole booking (routed here as a $0 online booking):
+  // draw it down and mark the appointment paid by gift card. Best-effort.
+  if (b.gift_code && effectiveTotal > 0) {
+    const applied = await redeemGift(b.shop_id, b.gift_code, effectiveTotal);
+    if (applied >= effectiveTotal - 0.001) {
+      await supabaseAdmin.from("appointments")
+        .update({ payment_status: "paid", payment_method: "gift_card" })
+        .eq("id", inserted.data.id).then(null, () => null);
+    }
   }
 
   // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned

@@ -9,6 +9,7 @@ import { insertNotifications } from "@/lib/notify-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
+import { redeemGift } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
 
 export type BookingSummary = {
@@ -209,6 +210,12 @@ export async function finalizeBookingFromSession(params: {
     });
   }
 
+  // Draw down a gift card applied to this booking (the discount was already
+  // taken off the Stripe charge). Runs once via the dedup guard. Best-effort.
+  if (Number(m.gift_applied ?? 0) > 0 && m.gift_code) {
+    await redeemGift(m.shop_id, m.gift_code, Number(m.gift_applied));
+  }
+
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();
   const friendly = prettyDate(m.date);
   if (shopRow?.owner_id) {
@@ -265,13 +272,17 @@ export async function finalizeBookingFromSession(params: {
     if (!isSave && !isHold && paymentIntentId) {
       const taxDollars = Number(m.tax_amount ?? 0);
       const tipDollars = Number(m.tip_amount ?? 0);
+      // Record only REAL money as revenue. A gift card was pre-paid (and already
+      // counted as income when it was sold), so subtract the gift portion here to
+      // avoid double-counting the same dollars.
+      const giftApplied = Number(m.gift_applied ?? 0);
       await recordOnlinePaymentTx({
         appointmentId: appt.id,
         shopId: m.shop_id,
         barberId: m.barber_id || null,
         clientName: m.client_name ?? null,
         serviceName: summaryServiceName,
-        amountDollars: Math.max(0, Number(m.total_amount ?? 0) - taxDollars),
+        amountDollars: Math.max(0, Number(m.total_amount ?? 0) - taxDollars - giftApplied),
         taxDollars,
         tipDollars,
         paymentIntentId,
