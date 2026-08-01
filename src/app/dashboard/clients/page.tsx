@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Phone } from "lucide-react";
+import { groupClients, sameIdentity } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 
@@ -91,62 +92,14 @@ export default function ClientsPage() {
 
     if (clientErr || apptErr) showToast("Couldn't load clients — please refresh.");
 
-    const keyOf = (c: { id?: string; email?: string | null; phone?: string | null; name?: string | null }) =>
-      (c.email && `e:${c.email.toLowerCase()}`)
-      || (c.phone && `p:${c.phone.replace(/\D/g, "")}`)
-      || (c.name && `n:${c.name.toLowerCase()}`)
-      || (c.id ?? "");
-
-    // ONE source of truth for activity: derive visits / spent / last-visit from
-    // the appointments table, keyed by NORMALIZED name (every appointment and
-    // every client has a name; email/phone are often missing on walk-in
-    // bookings). The profile History tab matches the same way, so the list and
-    // the profile can never disagree — this fixes "3 visits in the list but none
-    // in the profile" (which was an exact, case-sensitive name query).
-    const normName = (s?: string | null) => (s ?? "").trim().toLowerCase();
-    const statsByName: Record<string, { visits: number; spent: number; last: string }> = {};
-    for (const a of (apptRows ?? [])) {
-      const nk = normName(a.client_name);
-      if (!nk) continue;
-      const agg = statsByName[nk] ?? { visits: 0, spent: 0, last: "" };
-      if (a.status === "completed") { agg.visits++; agg.spent += a.total_amount ?? 0; }
-      if ((a.date ?? "") > agg.last) agg.last = a.date ?? "";
-      statsByName[nk] = agg;
-    }
-    const withStats = (c: Client): Client => {
-      const s = statsByName[normName(c.name)] ?? { visits: 0, spent: 0, last: "" };
-      return { ...c, total_visits: s.visits, total_spent: s.spent, last_visit: s.last || c.last_visit };
-    };
-
-    const merged = new Map<string, Client>();
-    // Real client rows first (they carry loyalty_points, notes, hair profile,
-    // birthday, tag) — with their activity stats overlaid from appointments.
-    for (const row of (clientRows ?? []) as Client[]) merged.set(keyOf(row), withStats(row));
-
-    // Then harvest anyone who booked but was never written to `clients`
-    // (synthetic rows). loyalty_points defaults to 0 so the UI never shows NaN.
-    for (const a of (apptRows ?? []) as { client_name: string; client_email?: string | null; client_phone?: string | null }[]) {
-      if (!a.client_name) continue;
-      const k = keyOf({ name: a.client_name, email: a.client_email, phone: a.client_phone });
-      if (merged.has(k)) continue;
-      const s = statsByName[normName(a.client_name)] ?? { visits: 0, spent: 0, last: "" };
-      merged.set(k, {
-        id: `synthetic:${k}`,
-        shop_id: shop.id,
-        name: a.client_name,
-        email: a.client_email ?? undefined,
-        phone: a.client_phone ?? undefined,
-        total_visits: s.visits,
-        total_spent: s.spent,
-        last_visit: s.last || undefined,
-        loyalty_points: 0,
-        tag: s.visits >= 3 ? "Returning" : "New",
-      } as unknown as Client);
-    }
-
-    const list = Array.from(merged.values()).sort(
-      (a, b) => (b.total_visits ?? 0) - (a.total_visits ?? 0)
-    );
+    // De-dupe + attribute activity by IDENTITY (shared email/phone), not name —
+    // so two people named "ABC" stay separate, and the same person with a typo'd
+    // name or reformatted number stays as one. See lib/client-identity.ts.
+    const list = groupClients({
+      shopId: shop.id,
+      clientRows: (clientRows ?? []) as Client[],
+      apptRows: (apptRows ?? []),
+    });
     setClients(list);
 
     if (nsData) {
@@ -203,14 +156,32 @@ export default function ClientsPage() {
     const hp = (client as Client & { hair_profile?: HairProfile }).hair_profile;
     setHairProfile(hp ?? BLANK_HAIR);
     setBirthday(client.birthday ?? "");
-    const { data } = await supabase
-      .from("appointments")
-      .select("id, date, time_slot, total_amount, status, barbers(name), services(name)")
-      .eq("shop_id", shop!.id)
-      .ilike("client_name", client.name.trim())
-      .order("date", { ascending: false })
-      .limit(50);
-    setClientAppointments((data as unknown as AppointmentRow[]) ?? []);
+    // Pull this person's appointments by ALL of their identifiers (name, email,
+    // phone), then keep only the ones that truly share their identity — so the
+    // history matches the visit count exactly (and a same-name stranger's
+    // appointments never leak in). See lib/client-identity.ts.
+    const FIELDS = "id, date, time_slot, total_amount, status, client_email, client_phone, client_name, barbers(name), services(name)";
+    const sid = shop!.id;
+    const queries = [
+      supabase.from("appointments").select(FIELDS).eq("shop_id", sid).ilike("client_name", client.name.trim()).order("date", { ascending: false }).limit(100),
+    ];
+    if (client.email?.trim())
+      queries.push(supabase.from("appointments").select(FIELDS).eq("shop_id", sid).ilike("client_email", client.email.trim()).order("date", { ascending: false }).limit(100));
+    if (client.phone?.trim())
+      queries.push(supabase.from("appointments").select(FIELDS).eq("shop_id", sid).eq("client_phone", client.phone.trim()).order("date", { ascending: false }).limit(100));
+    const results = await Promise.all(queries);
+    const seen = new Set<string>();
+    const merged: (AppointmentRow & { client_email?: string | null; client_phone?: string | null; client_name?: string | null })[] = [];
+    for (const { data } of results) {
+      for (const a of ((data as unknown as (AppointmentRow & { client_email?: string | null; client_phone?: string | null; client_name?: string | null })[]) ?? [])) {
+        if (!seen.has(a.id)) { seen.add(a.id); merged.push(a); }
+      }
+    }
+    const rows = merged
+      .filter(a => sameIdentity(client, { email: a.client_email, phone: a.client_phone, name: a.client_name }))
+      .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+      .slice(0, 50);
+    setClientAppointments(rows as unknown as AppointmentRow[]);
   };
 
   const saveNotes = async () => {
