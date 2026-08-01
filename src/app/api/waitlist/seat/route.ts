@@ -4,6 +4,7 @@ import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { isBookingInPast } from "@/lib/timezone";
+import { ensureClientRow } from "@/lib/ensure-client";
 
 /**
  * Seat a WALK-IN queue entry (the `waitlist` table) onto today's schedule.
@@ -107,6 +108,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That slot was just taken — pick another." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't seat the walk-in. Try again." }, { status: 500 });
+  }
+
+  // Stamp the permanent client link (phase 36) — best-effort.
+  const linkedClientId = await ensureClientRow(wl.shop_id, { name: wl.client_name, email: clientEmail, phone: wl.client_phone });
+  if (linkedClientId) {
+    await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
   }
 
   await supabaseAdmin.from("waitlist")

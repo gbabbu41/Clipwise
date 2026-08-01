@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 import { isBookingInPast } from "@/lib/timezone";
+import { ensureClientRow } from "@/lib/ensure-client";
 
 /**
  * Accept a smart-waitlist request and assign it to an open calendar slot.
@@ -103,6 +104,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That slot was just taken — pick another." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't book the appointment. Try again." }, { status: 500 });
+  }
+
+  // Stamp the permanent client link (phase 36) — best-effort.
+  const linkedClientId = await ensureClientRow(wl.shop_id, { name: wl.client_name, email: wl.client_email, phone: wl.client_phone });
+  if (linkedClientId) {
+    await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
   }
 
   await supabaseAdmin.from("appointment_waitlist").update({ status: "converted" }).eq("id", wl.id);

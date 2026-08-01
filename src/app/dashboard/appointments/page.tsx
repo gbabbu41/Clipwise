@@ -850,7 +850,28 @@ export default function AppointmentsPage() {
       }
     }
 
-    const { error } = await supabase.from("appointments").insert(rows);
+    // Resolve/create the client (by phone) so the appointment carries the
+    // permanent client_id link (phase 36). Best-effort; the public upsert route
+    // dedupes so it won't create a duplicate.
+    let addClientId: string | null = null;
+    if (addForm.client_phone?.trim()) {
+      try {
+        const r = await fetch("/api/clients/upsert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id, name: addForm.client_name, phone: addForm.client_phone }),
+        });
+        const j = await r.json();
+        if (j?.ok) addClientId = j.id;
+      } catch { /* best-effort */ }
+    }
+    const rowsToInsert = addClientId ? rows.map(r => ({ ...r, client_id: addClientId })) : rows;
+    let ins = await supabase.from("appointments").insert(rowsToInsert);
+    // Fall back if the client_id column isn't present yet (migration not run).
+    if (ins.error && addClientId && /client_id/.test(ins.error.message)) {
+      ins = await supabase.from("appointments").insert(rows);
+    }
+    const { error } = ins;
     setSavingAdd(false);
     if (error) {
       const taken = (error as { code?: string }).code === "23505";
