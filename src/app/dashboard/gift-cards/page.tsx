@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Gift, Plus, Search, Check, X, Copy, DollarSign } from "lucide-react";
+import { Gift, Plus, Search, Check, X, Copy, DollarSign, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -212,6 +212,21 @@ export default function GiftCardsPage() {
     navigator.clipboard.writeText(code).then(() => showToast("Code copied!")).catch(() => null);
   };
 
+  // Re-send a card's code to a customer (email confirmed/edited via a prompt).
+  const resendCode = async (card: GiftCard) => {
+    if (!shop) return;
+    const to = window.prompt("Send this gift card code to which email?", card.recipient_email || card.purchased_by_email || "");
+    if (to === null) return;
+    if (!to.trim()) { showToast("Enter an email address"); return; }
+    const res = await fetch("/api/gift-card/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      body: JSON.stringify({ gift_card_id: card.id, email: to.trim() }),
+    });
+    const j = await res.json().catch(() => ({ ok: false }));
+    showToast(j.ok ? `Gift card sent to ${to.trim()}` : (j.error ?? "Couldn't send — try again"));
+  };
+
   const deactivate = async (id: string) => {
     await supabase.from("gift_cards").update({ is_active: false }).eq("id", id);
     setCards(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
@@ -343,11 +358,16 @@ export default function GiftCardsPage() {
                           {new Date(card.created_at).toLocaleDateString("en-CA")}
                         </td>
                         <td className="px-3 py-3">
-                          {!isUsed && (
-                            <button onClick={() => deactivate(card.id)} className="text-xs text-grey hover:text-red-400 transition-colors">
-                              <X size={14} className="inline" /> Void
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => resendCode(card)} className="text-xs text-grey hover:text-foreground transition-colors" title="Email this code to a customer">
+                              <Mail size={14} className="inline" /> Resend
                             </button>
-                          )}
+                            {!isUsed && (
+                              <button onClick={() => deactivate(card.id)} className="text-xs text-grey hover:text-red-400 transition-colors">
+                                <X size={14} className="inline" /> Void
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { prettyDate } from "@/lib/utils";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Shared email engine. This holds the templates + the actual Resend send so it
 // can be called TWO ways:
@@ -930,6 +931,18 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
   const sendArgs: Parameters<typeof resend.emails.send>[0] = { from: FROM, to, subject, html };
   if (replyTo) sendArgs.replyTo = replyTo;
   const { error } = await resend.emails.send(sendArgs);
-  if (error) return { error };
+  if (error) {
+    // Never let an email fail silently — surface it to Vercel logs AND the CEO
+    // error panel so a delivery problem (any type: barber invite, gift card,
+    // receipt, …) is visible instead of guessed at. Best-effort logging.
+    const msg = typeof error === "string" ? error : ((error as { message?: string })?.message ?? JSON.stringify(error));
+    console.error("[email-send-failed]", JSON.stringify({ type, to, subject, error: msg }));
+    supabaseAdmin.from("error_logs").insert({
+      level: "error", source: "email",
+      message: `Email failed (${type} → ${to}): ${msg}`.slice(0, 1000),
+      path: `/email/${type}`,
+    }).then(null, () => null);
+    return { error };
+  }
   return { success: true };
 }
