@@ -2020,12 +2020,6 @@ export default function BookingPage() {
                     <span className="text-emerald-400">-{formatCurrency(loyaltyDiscount)}</span>
                   </div>
                 )}
-                {giftApplied > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-emerald-400">Gift card ({giftCard!.code})</span>
-                    <span className="text-emerald-400">-{formatCurrency(giftApplied)}</span>
-                  </div>
-                )}
                 {taxEnabled && taxLines.map((line) => (
                   <div key={line.label} className="flex justify-between text-sm">
                     <span className="text-[#8f8f8f]">{line.label} ({line.rate}%)</span>
@@ -2037,10 +2031,19 @@ export default function BookingPage() {
                   <span className="text-white text-lg">{formatCurrency(grandTotal)}</span>
                 </div>
                 {giftApplied > 0 && (
-                  <div className="flex justify-between text-sm pt-1">
-                    <span className="text-[#8f8f8f]">{amountDue <= 0.5 ? "Paid by gift card" : "Amount due today"}</span>
-                    <span className="text-white font-semibold">{amountDue <= 0.5 ? "$0.00" : formatCurrency(amountDue)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-emerald-400">Gift card ({giftCard!.code})</span>
+                      <span className="text-emerald-400">-{formatCurrency(giftApplied)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold pt-1 border-t border-[#2a2a2a]/50">
+                      <span className="text-white">Amount due today</span>
+                      <span className="text-white text-lg">{formatCurrency(amountDue)}</span>
+                    </div>
+                    {amountDue <= 0.5 && (
+                      <p className="text-xs text-emerald-400 text-right">✓ Fully covered by your gift card</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
