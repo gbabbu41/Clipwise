@@ -15,7 +15,7 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, chartData, appointments, completed, barbers,
+  revenue, taxCollected = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
 }: {
   revenue: number;
   taxCollected?: number;   // GST/HST + PST collected (shown as a "+ tax" note)
@@ -23,6 +23,7 @@ export function StatsCarousel({
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
   barbers: Barber[];
+  periodLabel?: string;    // active date-filter label ("Today", "This Week", …)
 }) {
   const [idx, setIdx] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -79,7 +80,7 @@ export function StatsCarousel({
     // 1 — Revenue (area)
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · Today</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · {periodLabel}</p>
         <span className="text-[11px] text-grey-muted whitespace-nowrap">‹ swipe ›</span>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
@@ -87,7 +88,7 @@ export function StatsCarousel({
         {taxCollected > 0 && <span className="text-[13px] font-medium text-grey-muted"> + {formatCurrency(taxCollected)} tax</span>}
       </p>
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
-        {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet today"}
+        {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}
       </p>
       <div className="flex-1 min-h-[96px] mt-3 flex items-end justify-center gap-1.5">
         {chartData.length > 0 ? (() => {
