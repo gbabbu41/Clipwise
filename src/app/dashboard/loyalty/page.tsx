@@ -43,6 +43,12 @@ export default function LoyaltyPage() {
   });
   const [settings, setSettings] = useState({ points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
   const [showHelp, setShowHelp] = useState(false);
+  // Program Settings UX: per-dollar earning is tucked behind an "Advanced"
+  // disclosure (most shops only use per-visit), and the worked example below
+  // recalculates off an editable sample visit price so the owner sees exactly
+  // what the next customer earns at their own prices.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [examplePrice, setExamplePrice] = useState(30);
   const [newPromo, setNewPromo] = useState(BLANK_PROMO);
 
   // Live numbers for the help/example text, straight from the current settings so
@@ -50,6 +56,12 @@ export default function LoyaltyPage() {
   const exReward = Math.round(settings.points_per_visit + settings.points_per_dollar * 30); // a $30 visit
   const centsPerPoint = settings.redemption; // 100 pts = $redemption ⇒ 1 pt ≈ redemption¢
   const dollarsOf = (pts: number) => (pts / 100) * settings.redemption;
+
+  // Live worked-example numbers, driven by the editable sample visit price.
+  const inlineNum = "w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-center text-base font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-black/20";
+  const exVisitPts = Math.round(settings.points_per_visit + settings.points_per_dollar * (examplePrice || 0));
+  const exVisitValue = dollarsOf(exVisitPts);
+  const visitsToReward = exVisitPts > 0 ? Math.ceil(100 / exVisitPts) : 0;
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -291,25 +303,83 @@ export default function LoyaltyPage() {
           <Card>
             <CardHeader><CardTitle>Program Settings</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4 mb-4">
-                {[
-                  { label: "Points per Visit", key: "points_per_visit" as const },
-                  { label: "Points per Dollar", key: "points_per_dollar" as const },
-                  { label: "100 pts = $X", key: "redemption" as const },
-                ].map(s => (
-                  <div key={s.key} className="p-4 bg-card-raised rounded-xl border border-border">
-                    <p className="text-xs text-grey mb-2">{s.label}</p>
-                    <input type="number" value={settings[s.key]}
-                      onChange={e => setSettings(p => ({ ...p, [s.key]: Number(e.target.value) }))}
-                      className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20 text-center text-lg font-bold" />
+              {/* Plain-English earning rules — same three saved settings, just
+                  written as fill-in-the-blank sentences instead of raw boxes. */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
+                  <span>Clients earn</span>
+                  <input type="number" min={0} value={settings.points_per_visit}
+                    onChange={e => setSettings(p => ({ ...p, points_per_visit: Number(e.target.value) }))}
+                    className={inlineNum} />
+                  <span>points every visit.</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
+                  <span>Every 100 points =</span>
+                  <span className="text-grey">$</span>
+                  <input type="number" min={0} value={settings.redemption}
+                    onChange={e => setSettings(p => ({ ...p, redemption: Number(e.target.value) }))}
+                    className={inlineNum} />
+                  <span>off their bill.</span>
+                </div>
+
+                {/* Advanced: points-per-dollar. It stays applied even when
+                    collapsed, so the toggle line states the active rate to keep
+                    the example honest. */}
+                {showAdvanced ? (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
+                    <span>Plus</span>
+                    <input type="number" min={0} value={settings.points_per_dollar}
+                      onChange={e => setSettings(p => ({ ...p, points_per_dollar: Number(e.target.value) }))}
+                      className={inlineNum} />
+                    <span>point per $1 spent.</span>
+                    <button type="button" onClick={() => setShowAdvanced(false)}
+                      className="text-xs text-grey hover:text-foreground underline ml-1">hide</button>
                   </div>
-                ))}
+                ) : (
+                  <button type="button" onClick={() => setShowAdvanced(true)}
+                    className="text-xs text-grey hover:text-foreground underline">
+                    Advanced · {settings.points_per_dollar > 0
+                      ? `also earning ${settings.points_per_dollar} pt per $1 spent`
+                      : "also earn points per dollar spent"}
+                  </button>
+                )}
               </div>
-              <p className="text-xs text-grey mb-4 leading-relaxed">
-                💡 With these settings, a <span className="text-foreground">$30</span> visit earns <span className="text-foreground font-medium">{exReward} pts</span>,
-                and <span className="text-foreground font-medium">100 pts = ${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
-              </p>
-              <Button loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
+
+              {/* Worked example — recalculates live off an editable sample visit
+                  price so the owner sees exactly what the next customer earns. */}
+              <div className="mt-5 rounded-xl bg-card-raised border border-border p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-sm font-semibold text-foreground">What the next customer earns</p>
+                  <label className="flex items-center gap-1.5 text-xs text-grey whitespace-nowrap">
+                    Visit price <span>$</span>
+                    <input type="number" min={0} value={examplePrice}
+                      onChange={e => setExamplePrice(Number(e.target.value))}
+                      className="w-14 rounded-lg border border-border bg-card px-2 py-1 text-center font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-black/20" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-card p-3">
+                    <p className="text-lg font-bold text-foreground">{exVisitPts}</p>
+                    <p className="text-[11px] text-grey mt-0.5">pts earned</p>
+                  </div>
+                  <div className="rounded-lg bg-card p-3">
+                    <p className="text-lg font-bold text-foreground">${exVisitValue.toFixed(2)}</p>
+                    <p className="text-[11px] text-grey mt-0.5">value earned</p>
+                  </div>
+                  <div className="rounded-lg bg-card p-3">
+                    <p className="text-lg font-bold text-foreground">{visitsToReward || "—"}</p>
+                    <p className="text-[11px] text-grey mt-0.5">visits to ${settings.redemption.toFixed(2)} off</p>
+                  </div>
+                </div>
+                <p className="text-xs text-grey mt-3 leading-relaxed">
+                  💡 A <span className="text-foreground">${examplePrice}</span> visit earns{" "}
+                  <span className="text-foreground font-medium">{exVisitPts} pts</span>
+                  {settings.points_per_dollar > 0 ? ` (${settings.points_per_visit} per visit + ${examplePrice} × ${settings.points_per_dollar} per $1)` : ""}.
+                  {" "}After about <span className="text-foreground font-medium">{visitsToReward || "—"} visit{visitsToReward === 1 ? "" : "s"}</span> they’ll have <span className="text-foreground font-medium">${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
+                </p>
+              </div>
+
+              <Button className="mt-4" loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
             </CardContent>
           </Card>
 
