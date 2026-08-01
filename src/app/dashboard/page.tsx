@@ -449,6 +449,8 @@ export default function DashboardPage() {
             onClose={() => setSelectedAppt(null)}
             actions={apptActions}
             busy={detailBusy}
+            tz={(shop as { timezone?: string } | null)?.timezone}
+            noShowFeePercent={(shop?.booking_settings as { no_show_fee_percent?: number } | null)?.no_show_fee_percent}
           />
         </Portal>
       )}

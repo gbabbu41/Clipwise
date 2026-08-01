@@ -13,6 +13,7 @@ import {
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
+import { noShowFeeDollars, NO_SHOW_GRACE_MINUTES } from "@/lib/validation";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -244,6 +245,7 @@ export type ApptActions = {
   cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
   sendLink: (a: AppointmentWithDetails, email: string) => void;
   reject: (a: AppointmentWithDetails) => void;
+  noShow: (a: AppointmentWithDetails, amountCents: number) => void; // mark no-show (+ charge fee when amountCents > 0 and a card is on file)
   edit: (a: AppointmentWithDetails, fields: ApptEditFields) => void; // change time/day/client/barber
 };
 
@@ -447,6 +449,34 @@ export function makeApptActions(opts: {
       onDone();
       toast("Rejected" + (appt.client_email ? " · Email sent" : ""));
     },
+    // Manual no-show. amountCents > 0 AND a card on file → charge the no-show fee
+    // (capture-appointment handles the money + receipt + owner alert); otherwise
+    // just flag it. Always marks the appointment "no-show" (frees the slot).
+    noShow: async (appt, amountCents) => {
+      if (!shop) return;
+      const hasCard = appt.payment_status === "held" || appt.payment_status === "saved";
+      setBusy("noshow");
+      let charged = false;
+      if (hasCard && accessToken && amountCents > 0) {
+        const res = await fetch("/api/stripe/capture-appointment", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id, reason: "no_show", amount_cents: amountCents }),
+        });
+        const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+        if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
+        charged = true;
+      }
+      const { error } = await supabase.from("appointments").update({ status: "no-show" }).eq("id", appt.id);
+      if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
+      patch(appt.id, charged
+        ? { status: "no-show", payment_status: "captured", paid_at: new Date().toISOString() }
+        : { status: "no-show" });
+      notifyFreedSlot(appt, shop, "No-show");
+      setBusy("");
+      onDone();
+      toast(charged ? "No-show fee charged · receipt emailed" : "Marked no-show");
+    },
   };
 }
 
@@ -474,9 +504,11 @@ function DAction({ icon, label, onClick, disabled, tone = "default" }: {
 }
 
 // ── Appointment detail — a bottom sheet / drawer that slides up on tap ──────────
-export function ApptDetail({ appt, barbers, services, onClose, actions, busy, readOnly = false }: {
+export function ApptDetail({ appt, barbers, services, onClose, actions, busy, readOnly = false, tz, noShowFeePercent }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
+  tz?: string;                    // shop timezone → decides when a no-show can be marked
+  noShowFeePercent?: number;      // shop's no-show fee % → the amount charged
   // Optional — when given, the edit form lets you change / add services, and the
   // time list only offers slots where the combined duration actually fits.
   services?: { id: string; name: string; price: number; duration_minutes: number }[];
@@ -490,6 +522,21 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
   // The email field only appears after tapping "Send payment link".
   const [showEmail, setShowEmail] = useState(false);
+  const [noShowMode, setNoShowMode] = useState(false);
+
+  // No-show can only be marked once the start time (+ a short grace) has passed,
+  // judged in the SHOP's timezone. Charging a fee needs a card on file.
+  const startedForNoShow = (() => {
+    const t = safeTz(tz);
+    if (!appt.date) return false;
+    const today = todayInTz(t);
+    if (appt.date < today) return true;
+    if (appt.date > today) return false;
+    return timeToMinutes(appt.time_slot ?? "12:00 AM") + NO_SHOW_GRACE_MINUTES <= nowMinutesInTz(t);
+  })();
+  const hasCardOnFile = appt.payment_status === "held" || appt.payment_status === "saved";
+  const noShowFee = noShowFeeDollars(appt.total_amount ?? 0, noShowFeePercent);
+  const noShowFeeCents = Math.round(noShowFee * 100);
 
   // Inline edit — change the time / day / client info / barber / service(s)
   // before checking out. Time comes from the 15-min slot grid (never free-form);
@@ -786,6 +833,22 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               )}
               <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
             </div>
+          ) : noShowMode ? (
+            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+              {hasCardOnFile ? (
+                <>
+                  <p className="text-sm text-grey px-0.5">Charge a no-show fee to the card on file, or just mark it.</p>
+                  <DAction tone="danger" icon="⚠️" label={busy === "noshow" ? "Charging…" : `Charge no-show fee · ${formatCurrency(noShowFee)}`} disabled={!!busy || noShowFeeCents <= 0} onClick={() => actions.noShow(appt, noShowFeeCents)} />
+                  <DAction icon="○" label={busy === "noshow" ? "Marking…" : "Mark no-show · no charge"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-grey px-0.5">No card on file — you can mark this as a no-show (no fee can be charged).</p>
+                  <DAction tone="danger" icon="⚠️" label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                </>
+              )}
+              <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => setNoShowMode(false)}>Cancel</button>
+            </div>
           ) : (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
               {/* Edit — change the time / day / client / barber before checkout. */}
@@ -797,6 +860,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               )}
               {appt.status === "confirmed" && (
                 <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+              )}
+              {/* No-show — only once the slot's start time (+ grace) has passed. */}
+              {appt.status === "confirmed" && startedForNoShow && (
+                <DAction icon="⚠️" label="No-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
                 <DAction tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
@@ -2502,6 +2569,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             actions={apptActions}
             busy={actionBusy}
             readOnly={!canManage}
+            tz={safeTz((shop as { timezone?: string } | null)?.timezone)}
+            noShowFeePercent={(shop?.booking_settings as { no_show_fee_percent?: number } | null)?.no_show_fee_percent}
           />
         </Portal>
       )}

@@ -335,6 +335,8 @@ export default function BarberOverviewPage() {
             actions={apptActions}
             busy={detailBusy}
             readOnly={!canManage}
+            tz={(shop as { timezone?: string } | null)?.timezone}
+            noShowFeePercent={(shop?.booking_settings as { no_show_fee_percent?: number } | null)?.no_show_fee_percent}
           />
         </Portal>
       )}
