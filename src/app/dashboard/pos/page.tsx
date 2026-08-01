@@ -294,9 +294,18 @@ export default function POSPage() {
   const dueAfterGift = Math.max(0, total - giftApplied);
 
   const applyPromo = () => {
-    const found = promoCodes.find(p => p.code === promoCode.toUpperCase() && p.is_active);
-    if (found) { setPromoApplied(found); showToast(`Promo ${found.code} applied!`); }
-    else showToast("Invalid or expired promo code");
+    const found = promoCodes.find(p => p.code === promoCode.trim().toUpperCase() && p.is_active);
+    if (!found) { showToast("Invalid or expired promo code"); return; }
+    // The list is loaded by is_active only, so depleted/expired codes are still
+    // in it — enforce the cap + expiry here so the owner gets a real reason
+    // instead of a silent "applied!".
+    if (found.expires_at && found.expires_at.slice(0, 10) < new Date().toISOString().slice(0, 10)) {
+      showToast("This promo code has expired."); return;
+    }
+    if (found.uses_left != null && found.uses_left <= 0) {
+      showToast("This promo code has reached its usage limit."); return;
+    }
+    setPromoApplied(found); showToast(`Promo ${found.code} applied!`);
   };
 
   const applyGift = async () => {
