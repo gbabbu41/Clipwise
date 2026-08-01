@@ -12,6 +12,7 @@ import { isBookingInPast } from "@/lib/timezone";
 import { effectivePlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
+import { ensureClientRow } from "@/lib/ensure-client";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -201,6 +202,14 @@ export async function POST(request: NextRequest) {
       shopId: b.shop_id, email: b.client_email, phone: b.client_phone,
       points: redemption.points, appointmentId: inserted.data.id,
     });
+  }
+
+  // Resolve/create the client (when we have an email/phone) and stamp the
+  // appointment with a permanent client_id link (phase 36). Best-effort — a
+  // no-op if the column isn't there yet or it's a name-only walk-in.
+  const linkedClientId = await ensureClientRow(b.shop_id, { name: b.client_name, email: b.client_email, phone: b.client_phone });
+  if (linkedClientId) {
+    await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
   }
 
   // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned

@@ -9,6 +9,7 @@ import { insertNotifications } from "@/lib/notify-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
+import { ensureClientRow } from "@/lib/ensure-client";
 
 export type BookingSummary = {
   shopName: string;
@@ -189,25 +190,12 @@ export async function finalizeBookingFromSession(params: {
     if (promo) await consumePromo(promo, m.shop_id, m.client_email ?? null, m.client_phone ?? null, appt.id);
   }
 
-  // Auto-register the customer in the shop's client book (deduped email → phone).
-  {
-    const email = (m.client_email ?? "").trim();
-    const phone = (m.client_phone ?? "").trim();
-    let existingClient: { id: string } | null = null;
-    if (email) {
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", m.shop_id).ilike("email", email).maybeSingle();
-      existingClient = data;
-    }
-    if (!existingClient && phone) {
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", m.shop_id).eq("phone", phone).maybeSingle();
-      existingClient = data;
-    }
-    if (!existingClient && m.client_name) {
-      await supabaseAdmin.from("clients").insert({
-        shop_id: m.shop_id, name: m.client_name, email, phone,
-        total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
-      }).then(null, () => null);
-    }
+  // Register/resolve the client (deduped email → phone) and stamp the
+  // appointment with a permanent client_id link (phase 36). The update is
+  // best-effort so it's a no-op if that column isn't there yet.
+  const linkedClientId = await ensureClientRow(m.shop_id, { name: m.client_name, email: m.client_email, phone: m.client_phone });
+  if (linkedClientId) {
+    await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", appt.id).then(null, () => null);
   }
 
   // Spend redeemed loyalty points now that the appointment exists + payment

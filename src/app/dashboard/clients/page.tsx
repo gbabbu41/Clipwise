@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Phone } from "lucide-react";
-import { groupClients, sameIdentity } from "@/lib/client-identity";
+import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 
@@ -80,15 +80,29 @@ export default function ClientsPage() {
   const loadClients = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: clientRows, error: clientErr }, { data: apptRows, error: apptErr }, { data: nsData }] = await Promise.all([
+    const [{ data: clientRows, error: clientErr }, { data: nsData }] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false }),
-      supabase
+      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
+    ]);
+    // Appointments incl. the phase-36 client_id link. Fall back without it if the
+    // migration hasn't been run yet, so the page never breaks in that window.
+    type ApptLite = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
+    let apptRows: ApptLite[] = [];
+    let apptErr: unknown = null;
+    const withCid = await supabase
+      .from("appointments")
+      .select("client_id, client_name, client_email, client_phone, date, status, total_amount")
+      .eq("shop_id", shop.id).order("date", { ascending: false });
+    if (withCid.error) {
+      const noCid = await supabase
         .from("appointments")
         .select("client_name, client_email, client_phone, date, status, total_amount")
-        .eq("shop_id", shop.id)
-        .order("date", { ascending: false }),
-      supabase.from("appointments").select("client_name").eq("shop_id", shop.id).eq("status", "no-show"),
-    ]);
+        .eq("shop_id", shop.id).order("date", { ascending: false });
+      apptRows = (noCid.data as unknown as ApptLite[]) ?? [];
+      apptErr = noCid.error;
+    } else {
+      apptRows = (withCid.data as unknown as ApptLite[]) ?? [];
+    }
 
     if (clientErr || apptErr) showToast("Couldn't load clients — please refresh.");
 
@@ -103,8 +117,13 @@ export default function ClientsPage() {
     setClients(list);
 
     if (nsData) {
+      // Attribute each no-show to the right person by IDENTITY, keyed on the
+      // grouped client's id — so a same-name stranger isn't blamed for it.
       const counts: Record<string, number> = {};
-      for (const r of nsData) counts[r.client_name] = (counts[r.client_name] ?? 0) + 1;
+      for (const r of nsData as { client_name?: string | null; client_email?: string | null; client_phone?: string | null }[]) {
+        const match = list.find(c => sameIdentity(c, { email: r.client_email, phone: r.client_phone, name: r.client_name }));
+        if (match) counts[match.id] = (counts[match.id] ?? 0) + 1;
+      }
       setNoShowCounts(counts);
     }
     setLoading(false);
@@ -162,23 +181,31 @@ export default function ClientsPage() {
     // appointments never leak in). See lib/client-identity.ts.
     const FIELDS = "id, date, time_slot, total_amount, status, client_email, client_phone, client_name, barbers(name), services(name)";
     const sid = shop!.id;
-    const queries = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const queries: any[] = [
       supabase.from("appointments").select(FIELDS).eq("shop_id", sid).ilike("client_name", client.name.trim()).order("date", { ascending: false }).limit(100),
     ];
     if (client.email?.trim())
       queries.push(supabase.from("appointments").select(FIELDS).eq("shop_id", sid).ilike("client_email", client.email.trim()).order("date", { ascending: false }).limit(100));
     if (client.phone?.trim())
       queries.push(supabase.from("appointments").select(FIELDS).eq("shop_id", sid).eq("client_phone", client.phone.trim()).order("date", { ascending: false }).limit(100));
+    // Also pull anything hard-linked by the phase-36 client_id (catches a person
+    // who later changed BOTH their email and phone). Best-effort — this query
+    // just returns nothing if the migration isn't run yet.
+    if (!client.id.startsWith("synthetic:"))
+      queries.push(supabase.from("appointments").select(`${FIELDS}, client_id`).eq("shop_id", sid).eq("client_id", client.id).order("date", { ascending: false }).limit(100));
     const results = await Promise.all(queries);
+    type Row = AppointmentRow & { client_id?: string | null; client_email?: string | null; client_phone?: string | null; client_name?: string | null };
     const seen = new Set<string>();
-    const merged: (AppointmentRow & { client_email?: string | null; client_phone?: string | null; client_name?: string | null })[] = [];
+    const merged: Row[] = [];
     for (const { data } of results) {
-      for (const a of ((data as unknown as (AppointmentRow & { client_email?: string | null; client_phone?: string | null; client_name?: string | null })[]) ?? [])) {
+      for (const a of ((data as unknown as Row[]) ?? [])) {
         if (!seen.has(a.id)) { seen.add(a.id); merged.push(a); }
       }
     }
+    const me = clientToId(client);
     const rows = merged
-      .filter(a => sameIdentity(client, { email: a.client_email, phone: a.client_phone, name: a.client_name }))
+      .filter(a => sameIdentity(me, apptToId(a)))
       .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
       .slice(0, 50);
     setClientAppointments(rows as unknown as AppointmentRow[]);
@@ -510,9 +537,9 @@ export default function ClientsPage() {
                     : <p className="text-sm text-grey-muted">No phone on file</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  {noShowCounts[client.name] > 0 && (
+                  {noShowCounts[client.id] > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      ⚠ {noShowCounts[client.name]}
+                      ⚠ {noShowCounts[client.id]}
                     </span>
                   )}
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
@@ -560,9 +587,9 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
-                      {noShowCounts[client.name] > 0 && (
+                      {noShowCounts[client.id] > 0 && (
                         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                          ⚠ {noShowCounts[client.name]}
+                          ⚠ {noShowCounts[client.id]}
                         </span>
                       )}
                     </div>
@@ -597,9 +624,9 @@ export default function ClientsPage() {
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
                     {selectedClient.tag}
                   </span>
-                  {noShowCounts[selectedClient.name] > 0 && (
+                  {noShowCounts[selectedClient.id] > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      ⚠ {noShowCounts[selectedClient.name]} no-show{noShowCounts[selectedClient.name] > 1 ? "s" : ""}
+                      ⚠ {noShowCounts[selectedClient.id]} no-show{noShowCounts[selectedClient.id] > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>

@@ -25,35 +25,42 @@ export const normPhone = (p?: string | null): string => {
  *  original spelling). */
 export const normName = (n?: string | null): string => (n ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
-type IdRecord = { email?: string | null; phone?: string | null; name?: string | null };
+type IdRecord = { clientId?: string | null; email?: string | null; phone?: string | null; name?: string | null };
 
 /** The strong identity tokens a record carries (email/phone). Empty for a
  *  name-only walk-in. */
 function strongTokens(r: IdRecord): string[] {
   const t: string[] = [];
+  const cid = (r.clientId ?? "").trim();
+  if (cid && !cid.startsWith("synthetic:")) t.push(`c:${cid}`); // the permanent link (phase 36)
   const e = normEmail(r.email); if (e) t.push(`e:${e}`);
   const p = normPhone(r.phone); if (p) t.push(`p:${p}`);
   return t;
 }
 
-/** Do two records belong to the same person? Shared email/phone → yes. When
- *  NEITHER side has a strong id, fall back to an exact normalized-name match
- *  (best we can do for two anonymous walk-ins). A name-only record never merges
- *  into an email/phone person. */
+/** Do two records belong to the same person? A shared client_id (the permanent
+ *  link) is definitive; else shared email/phone. When NEITHER side has any
+ *  strong id, fall back to an exact normalized-name match (best we can do for two
+ *  anonymous walk-ins). A name-only record never merges into an id'd person. */
 export function sameIdentity(a: IdRecord, b: IdRecord): boolean {
+  const ac = (a.clientId ?? "").trim(), bc = (b.clientId ?? "").trim();
+  if (ac && bc && !ac.startsWith("synthetic:") && ac === bc) return true;
   const ae = normEmail(a.email), be = normEmail(b.email);
   if (ae && be && ae === be) return true;
   const ap = normPhone(a.phone), bp = normPhone(b.phone);
   if (ap && bp && ap === bp) return true;
-  const aStrong = !!(ae || ap), bStrong = !!(be || bp);
+  const aStrong = !!(ac || ae || ap), bStrong = !!(bc || be || bp);
   if (!aStrong && !bStrong) { const an = normName(a.name), bn = normName(b.name); return !!an && an === bn; }
   return false;
 }
 
-type ApptRow = { client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
+type ApptRow = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
 
 /** Appointments store contact info as client_* fields — map to the common shape. */
-const apptToId = (a: ApptRow): IdRecord => ({ email: a.client_email, phone: a.client_phone, name: a.client_name });
+export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, email: a.client_email, phone: a.client_phone, name: a.client_name });
+
+/** A client row's own id is its identity anchor. */
+export const clientToId = (c: Client): IdRecord => ({ clientId: c.id, email: c.email, phone: c.phone, name: c.name });
 
 /**
  * Build the de-duplicated client list with activity (visits/spend/last-visit)
@@ -79,7 +86,7 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
   };
   const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
 
-  for (const rec of [...(clientRows as IdRecord[]), ...apptRows.map(apptToId)]) {
+  for (const rec of [...clientRows.map(clientToId), ...apptRows.map(apptToId)]) {
     const t = strongTokens(rec);
     t.forEach(add);
     for (let i = 1; i < t.length; i++) union(t[0], t[i]);
@@ -108,7 +115,7 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
   // ── Representative real row per component (most points wins on dupes) ──
   const rep = new Map<string, Client>();
   for (const row of clientRows) {
-    const key = compOf(row); if (!key) continue;
+    const key = compOf(clientToId(row)); if (!key) continue;
     const cur = rep.get(key);
     if (!cur || (row.loyalty_points ?? 0) > (cur.loyalty_points ?? 0)) rep.set(key, row);
   }
