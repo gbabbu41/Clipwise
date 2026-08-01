@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
+import { collectedTotals, type RevTx } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -159,6 +160,9 @@ export default function DashboardPage() {
   const [loadingAppts, setLoadingAppts] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
+  // Transactions (POS / gift-card / walk-in sales) for the active range — so the
+  // revenue headline includes non-appointment income and matches Payments.
+  const [txns, setTxns] = useState<RevTx[]>([]);
   // Appointments fetched specifically for the calendar-selected date, so
   // clicking a day outside the active dateFilter range still surfaces the
   // bookings underneath (the main `appointments` array is bound to dateFilter).
@@ -277,8 +281,23 @@ export default function DashboardPage() {
     if (profile?.role === "barber" && myBarberId) {
       q = q.eq("barber_id", myBarberId);
     }
-    const { data, error } = await q;
+    // POS / gift-card / walk-in transactions in the same window. Owner-only:
+    // these sales aren't barber-attributed, so a barber's revenue view stays
+    // appointment-scoped (mirrors the Payments page's per-barber behaviour).
+    // Recent transactions (matches the Payments page's 250-row cap). We filter
+    // to the active window by LOCAL date at compute time — same as Payments — so
+    // late-evening sales land on the right day regardless of the server's UTC.
+    const txReq = (profile?.role === "barber")
+      ? Promise.resolve({ data: [] as RevTx[] })
+      : supabase
+          .from("transactions")
+          .select("client_name, service_name, amount, tip, tax, payment_method, created_at, stripe_session_id, source, refunded")
+          .eq("shop_id", shop.id)
+          .order("created_at", { ascending: false })
+          .limit(250);
+    const [{ data, error }, { data: txData }] = await Promise.all([q, txReq]);
     setAppointments((data ?? []) as AppointmentWithDetails[]);
+    setTxns((txData ?? []) as RevTx[]);
     setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
     setLoadingAppts(false);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
@@ -392,6 +411,16 @@ export default function DashboardPage() {
   const paidCompleted = completed.filter((a) => a.payment_status !== "refunded");
   const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const taxCollected = paidCompleted.reduce((s, a) => s + (a.tax_amount ?? 0), 0);
+  // Headline revenue = everything COLLECTED in the window — appointments PLUS
+  // POS / gift-card / walk-in transactions (incl. cash) — so it matches the
+  // Payments page. `revenue`/`taxCollected` above stay appointment-only because
+  // they feed Avg Ticket + the trend chart (per-completed-visit metrics).
+  const [rangeStart, rangeEnd] = getDateRange(dateFilter, customStart, customEnd);
+  const txnsInRange = txns.filter((t) => {
+    const d = formatDateForDb(new Date(t.created_at)); // LOCAL date, matches Payments
+    return d >= rangeStart && d <= rangeEnd;
+  });
+  const collected = collectedTotals(appointments, txnsInRange);
   const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
@@ -612,7 +641,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={revenue} taxCollected={taxCollected} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.preTax} taxCollected={collected.tax} cashIncluded={collected.cash} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             <div className="cwd-kpis">
               <div className="cwd-kpi">

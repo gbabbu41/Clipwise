@@ -15,10 +15,11 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
+  revenue, taxCollected = 0, cashIncluded = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
 }: {
   revenue: number;
   taxCollected?: number;   // GST/HST + PST collected (shown as a "+ tax" note)
+  cashIncluded?: number;   // cash portion of the total (shown as an "incl. cash" note)
   chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
@@ -87,6 +88,9 @@ export function StatsCarousel({
         {formatCurrency(revenue)}
         {taxCollected > 0 && <span className="text-[13px] font-medium text-grey-muted"> + {formatCurrency(taxCollected)} tax</span>}
       </p>
+      {cashIncluded > 0 && (
+        <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
+      )}
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}
       </p>
