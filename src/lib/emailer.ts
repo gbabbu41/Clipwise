@@ -73,6 +73,61 @@ function wrap(content: string) {
 </div></body></html>`;
 }
 
+// Customer-facing emails lead with the SHOP's name (it's the shop's email to
+// their client), with a small "Powered by ClipWise" line so the platform stays
+// present but the brand out front is the barbershop. Owner/barber/admin/platform
+// emails keep the ClipWise logo instead (they're from the platform to its users).
+function shopHeader(shopName?: string) {
+  const name = shopName || "Your shop";
+  return `<div style="font-size:22px;font-weight:800;color:#F5F0E6;letter-spacing:-0.3px;margin-bottom:2px">${name}</div>
+    <div style="font-size:11px;color:#4B5563;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:26px">Powered by ClipWise</div>`;
+}
+
+// A "Location" row + a Google Maps "Get directions" link. Values are resolved
+// centrally in sendAppEmail (from shopId) so callers only pass shopId, not the
+// whole address. Returns "" when there's no address on file, so the email just
+// omits the block cleanly.
+function addressBlock(addressLine?: string, directionsUrl?: string) {
+  const addr = (addressLine ?? "").trim();
+  if (!addr) return "";
+  const link = directionsUrl
+    ? `\n    <p style="margin:8px 0 0;text-align:right"><a href="${directionsUrl}" style="color:#F5F0E6;font-size:13px;text-decoration:none">📍 Get directions →</a></p>`
+    : "";
+  return `<div class="row"><span class="label">Location</span><span class="val" style="text-align:right;max-width:62%">${addr}</span></div>${link}`;
+}
+
+// Resolve a shop's display address + a reliable Google Maps directions URL from
+// its id. Mirrors the booking page's directionsUrl logic: prefer the exact
+// place_id pin, strip a leading Canadian unit prefix so the geocoder doesn't
+// misread "106-630" as a civic number, and include the postal code. Best-effort
+// — any failure just yields no address block, never a broken email.
+async function resolveShopLocation(shopId: string): Promise<{ line: string; url: string }> {
+  try {
+    const { data: shop } = await supabaseAdmin
+      .from("shops")
+      .select("name, address, city, province, postal_code, google_place_id")
+      .eq("id", shopId).maybeSingle();
+    if (!shop) return { line: "", url: "" };
+    const line = [shop.address, shop.city, shop.province, shop.postal_code]
+      .map(s => (s ?? "").toString().trim()).filter(Boolean).join(", ");
+    const street = (shop.address ?? "")
+      .replace(/^\s*(?:unit|apt|apartment|suite|ste|#)\.?\s*\d+\s*[-,]\s*/i, "")
+      .replace(/^\s*\d+\s*-\s*(?=\d)/, "")
+      .trim();
+    const dest = [street, shop.city, shop.province, shop.postal_code]
+      .map(s => (s ?? "").toString().trim()).filter(Boolean).join(", ");
+    const q = encodeURIComponent(dest || shop.name || "");
+    const url = q
+      ? (shop.google_place_id
+          ? `https://www.google.com/maps/dir/?api=1&destination=${q}&destination_place_id=${shop.google_place_id}`
+          : `https://www.google.com/maps/dir/?api=1&destination=${q}`)
+      : "";
+    return { line: escapeHtml(line), url };
+  } catch {
+    return { line: "", url: "" };
+  }
+}
+
 // ── Email templates ───────────────────────────────────────────────────────────
 
 function adminNewApplication(data: Record<string, string>) {
@@ -163,7 +218,7 @@ function reviewRequest(data: Record<string, string>) {
     ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
     : null;
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="green-badge">🌟 How was your visit?</div>
     <h1>Thanks for visiting, ${data.clientName}!</h1>
     <p>We hope you loved your experience at <span class="highlight">${data.shopName}</span>. Your feedback means everything to us and helps other clients find the best barbers.</p>
@@ -176,55 +231,56 @@ function reviewRequest(data: Record<string, string>) {
     <p style="font-size:12px;color:#4B5563;margin-top:8px">Takes 30 seconds and makes a huge difference!</p>` : `<a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
     <p style="font-size:12px;color:#4B5563;margin-top:8px">Only takes 30 seconds!</p>`}
     <hr class="divider">
-    <p style="color:#4B5563">— The ClipWise Team</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
 }
 
 function appointmentReminder(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">⏰ Appointment Tomorrow</div>
     <h1>See you tomorrow, ${data.clientName}!</h1>
     <p>This is a reminder for your appointment at <span class="highlight">${data.shopName}</span> tomorrow.</p>
     <hr class="divider">
     <div class="row"><span class="label">Booking ID</span><span class="val">${data.bookingId}</span></div>
-    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
-    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    ${data.barberName ? `<div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>` : ""}
+    ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
-    <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    ${data.total ? `<div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>` : ""}
+    ${addressBlock(data.shopAddressLine, data.shopDirectionsUrl)}
     <hr class="divider">
     <p style="font-size:12px;color:#6B7280">Need to cancel? Please contact the shop as soon as possible.</p>
-    <p style="color:#4B5563">— The ClipWise Team</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
 }
 
 function bookingConfirmation(data: Record<string, string>) {
   const manageUrl = data.appointmentId ? `${BASE_URL}/my-booking/${data.appointmentId}` : null;
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="green-badge">✓ Booking Confirmed</div>
     <h1>Hi ${data.clientName},</h1>
     <p>Your appointment at <span class="highlight">${data.shopName}</span> is confirmed!</p>
     <hr class="divider">
     <div class="row"><span class="label">Booking ID</span><span class="val">${data.bookingId}</span></div>
-    <div class="row"><span class="label">Shop</span><span class="val">${data.shopName}</span></div>
     <div class="row"><span class="label">Barber</span><span class="val">${data.barberName || "Any Available"}</span></div>
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
+    ${addressBlock(data.shopAddressLine, data.shopDirectionsUrl)}
     <hr class="divider">
     ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
     <p style="font-size:12px;color:#4B5563;margin-top:8px">You can reschedule or cancel from the link above.</p>
     <hr class="divider">` : ""}
-    <p style="color:#4B5563">— The ClipWise Team</p>
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
 }
 
 function rebookingReminder(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">✂️ Time for a Fresh Cut?</div>
     <h1>Hey ${data.clientName}, it's been a while!</h1>
     <p>We haven't seen you at <span class="highlight">${data.shopName}</span> for a while. Your hair might be telling you something…</p>
@@ -239,7 +295,7 @@ function rebookingReminder(data: Record<string, string>) {
 
 function noShowFollowUp(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">👋 We Missed You!</div>
     <h1>Hey ${data.clientName}, we missed you!</h1>
     <p>It looks like you weren't able to make it to your appointment at <span class="highlight">${data.shopName}</span>. No worries — life happens!</p>
@@ -286,7 +342,7 @@ function subscriptionCancelled(data: Record<string, string>) {
 
 function birthdayWish(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="green-badge">🎂 Happy Birthday!</div>
     <h1>Happy Birthday, ${data.clientName}!</h1>
     <p>Everyone at <span class="highlight">${data.shopName}</span> is wishing you a fantastic birthday today.</p>
@@ -341,7 +397,7 @@ function newBookingBarber(data: Record<string, string>) {
 
 function appointmentRejected(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="red-badge">Appointment Cancelled</div>
     <h1>Hi ${data.clientName},</h1>
     <p>Unfortunately, your appointment at <span class="highlight">${data.shopName}</span> has been cancelled by the shop.</p>
@@ -385,7 +441,7 @@ function paymentReceipt(data: Record<string, string>) {
 
 function refundIssued(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="green-badge">💳 Refund Issued</div>
     <h1>Hi ${data.clientName},</h1>
     <p>A refund has been issued for your cancelled appointment at <span class="highlight">${data.shopName}</span>.</p>
@@ -420,10 +476,10 @@ function directMessageEmail(data: Record<string, string>) {
     .replace(/>/g, "&gt;")
     .replace(/\n/g, "<br>");
   const senderLine = data.senderName
-    ? `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">${data.senderName} · ${data.shopName}</p>`
-    : `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">${data.shopName}</p>`;
+    ? `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">From ${data.senderName}</p>`
+    : "";
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     ${senderLine}
     <h1 style="font-size:18px">Hi ${data.clientName},</h1>
     <div style="background:#111;border:1px solid #2D2D2D;border-radius:12px;padding:16px;margin:16px 0;font-size:15px;line-height:1.55;color:#E5E7EB">
@@ -459,7 +515,7 @@ function paymentLinkEmail(data: Record<string, string>) {
     : `
     <div class="row"><span class="label">Amount</span><span class="val">${total}</span></div>`;
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">💳 Payment Requested</div>
     <h1>Hi ${data.clientName},</h1>
     <p><span class="highlight">${data.shopName}</span> has sent you a secure payment link for your appointment.</p>
@@ -538,7 +594,7 @@ function timeOffDecision(data: Record<string, string>) {
 
 function bookingRequestReceived(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">⏳ Request received</div>
     <h1>Thanks, ${data.clientName}!</h1>
     <p>Your booking request at <span class="highlight">${data.shopName}</span> has been received and is <strong style="color:#fff">waiting for the shop to confirm</strong>. We'll email you as soon as it's approved.</p>
@@ -670,7 +726,7 @@ function shopOwnerNewBarberRequest(data: Record<string, string>) {
 
 function waitlistSlotOpen(data: Record<string, string>) {
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
+    ${shopHeader(data.shopName)}
     <div class="badge">🎉 A Spot Opened Up</div>
     <h1>Hi ${data.clientName},</h1>
     <p>Good news — a spot just opened at <span class="highlight">${data.shopName}</span> on the day you were waiting for. Spots go fast, so book now to grab it.</p>
@@ -731,6 +787,16 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
     for (const k of Object.keys(data)) {
       if (HTML_FREETEXT_FIELDS.has(k) && typeof data[k] === "string") data[k] = escapeHtml(data[k]);
     }
+  }
+
+  // Booking confirmations + reminders show the shop's address and a Google Maps
+  // "Get directions" link so customers can actually find the shop. Resolve it
+  // once, centrally, from shopId — callers only need to pass shopId. Best-effort:
+  // no address on file (or any error) simply omits the location block.
+  if ((type === "booking_confirmation" || type === "appointment_reminder") && data?.shopId && !data.shopAddressLine) {
+    const loc = await resolveShopLocation(data.shopId);
+    data.shopAddressLine = loc.line;
+    data.shopDirectionsUrl = loc.url;
   }
 
   let to = "";

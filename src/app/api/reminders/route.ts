@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   // Fetch all pending/confirmed appointments for tomorrow with shop info
   const { data: appointments, error } = await supabaseAdmin
     .from("appointments")
-    .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, shops(name, email, slug), barbers(name), services(name)")
+    .select("id, shop_id, client_name, client_email, client_phone, date, time_slot, total_amount, shops(name, email, slug), barbers(name), services(name)")
     .eq("date", tomorrowStr)
     .in("status", ["pending", "confirmed"]);
 
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 
   const appts = (appointments ?? []) as unknown as Array<{
     id: string;
+    shop_id: string;
     client_name: string;
     client_email: string;
     client_phone: string | null;
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
           data: {
             clientName: appt.client_name,
             clientEmail: appt.client_email,
+            shopId: appt.shop_id,
             shopName: appt.shops.name,
             shopEmail: appt.shops.email ?? "",
             barberName: appt.barbers?.name ?? "Your barber",

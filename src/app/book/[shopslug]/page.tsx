@@ -940,6 +940,7 @@ export default function BookingPage() {
       clientName: clientInfo.name,
       clientEmail: clientInfo.email || "—",
       clientPhone: clientInfo.phone || "—",
+      shopId: shop.id,
       shopName: shop.name,
       shopEmail: shop.email ?? "",
       shopSlug: shop.slug,

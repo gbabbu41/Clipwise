@@ -115,7 +115,7 @@ async function run() {
         if (a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment at ${shop.name} is tomorrow${when ? ` at ${when}` : ""}. See you then!`, shop.name); texts++; sends++; }
         if (a.client_email) {
           await sendEmail("appointment_reminder", {
-            clientEmail: a.client_email, clientName: a.client_name ?? "there", shopName: shop.name,
+            clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,
             shopEmail: shop.email, bookingId: a.id.slice(0, 8).toUpperCase(), barberName: "",
             serviceName: "", date: prettyDate(tomorrow), time: when, total: "",
           });

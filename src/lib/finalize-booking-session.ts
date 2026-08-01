@@ -290,7 +290,7 @@ export async function finalizeBookingFromSession(params: {
     }
     const bookingData = {
       clientName: m.client_name, clientEmail: m.client_email || "—", clientPhone: m.client_phone || "—",
-      shopName: shopRow?.name ?? "", shopEmail: shopRow?.email ?? "", shopSlug: shopRow?.slug ?? "",
+      shopId: m.shop_id, shopName: shopRow?.name ?? "", shopEmail: shopRow?.email ?? "", shopSlug: shopRow?.slug ?? "",
       barberName: barber?.name ?? "Any Available",
       serviceName: service?.name ?? "Service",
       date: m.date, time: m.time_slot,

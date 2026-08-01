@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         type: "booking_confirmation",
         data: {
           clientName: wl.client_name, clientEmail: wl.client_email,
-          shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+          shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
           serviceName, date: wl.desired_date, time: b.time_slot,
           total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
           bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,

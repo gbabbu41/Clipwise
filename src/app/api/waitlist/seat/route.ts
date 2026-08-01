@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         type: "booking_confirmation",
         data: {
           clientName: wl.client_name, clientEmail,
-          shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+          shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
           barberName, serviceName: serviceName || "Walk-in",
           date: prettyDate(today), time: b.time_slot,
           total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",

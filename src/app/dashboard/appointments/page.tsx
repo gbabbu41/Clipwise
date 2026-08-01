@@ -372,6 +372,7 @@ export default function AppointmentsPage() {
             data: {
               clientName: appt.client_name,
               clientEmail: appt.client_email,
+              shopId: shop.id,
               shopName: shop.name,
               shopEmail: shop.email ?? "",
               shopSlug: shop.slug,
