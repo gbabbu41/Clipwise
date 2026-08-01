@@ -13,6 +13,7 @@ import { effectivePlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
+import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
 
 /**
@@ -214,14 +215,24 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
   }
 
-  // Gift card that covers the whole booking (routed here as a $0 online booking):
-  // draw it down and mark the appointment paid by gift card. Best-effort.
+  // Gift card that covers this online-intent booking (routed here as a $0 Stripe
+  // booking): store the GROSS (service + tax, like the online path), draw the
+  // card down by the gross, and mark it PAID by gift card. payment_status is
+  // plain text and total_amount always exists, so set those together (must
+  // stick); tax_amount/paid_at and the CHECK-constrained payment_method go in
+  // best-effort follow-ups (payment_method needs the phase37 migration).
   if (b.gift_code && effectiveTotal > 0) {
-    const applied = await redeemGift(b.shop_id, b.gift_code, effectiveTotal);
-    if (applied >= effectiveTotal - 0.001) {
+    const bs = (shop.booking_settings ?? {}) as TaxConfig;
+    const taxAmt = taxCents(Math.round(effectiveTotal * 100), combinedTaxRate(bs)) / 100;
+    const gross = Math.round((effectiveTotal + taxAmt) * 100) / 100;
+    const applied = await redeemGift(b.shop_id, b.gift_code, gross);
+    if (applied >= gross - 0.001) {
       await supabaseAdmin.from("appointments")
-        .update({ payment_status: "paid", payment_method: "gift_card" })
-        .eq("id", inserted.data.id).then(null, () => null);
+        .update({ total_amount: gross, payment_status: "paid" }).eq("id", inserted.data.id);
+      await supabaseAdmin.from("appointments")
+        .update({ tax_amount: taxAmt, paid_at: new Date().toISOString() }).eq("id", inserted.data.id).then(null, () => null);
+      await supabaseAdmin.from("appointments")
+        .update({ payment_method: "gift_card" }).eq("id", inserted.data.id).then(null, () => null);
     }
   }
 

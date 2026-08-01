@@ -625,7 +625,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
 
   // Header bits — one meta line + a single status/payment badge (demo look).
   const serviceName = (appt.services as { name: string } | null)?.name ?? "—";
-  const methodWord = appt.payment_method === "cash" ? "Cash" : appt.payment_method === "online" ? "Online" : "Card";
+  const pm = appt.payment_method as string | null | undefined;
+  const methodWord = pm === "cash" ? "Cash" : pm === "online" ? "Online" : pm === "gift_card" ? "Gift card" : "Card";
   const badge = paid
     ? { text: `Paid · ${methodWord}`, cls: "bg-[#00e5a0]/10 text-[#00e5a0]" }
     : refunded

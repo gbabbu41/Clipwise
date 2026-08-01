@@ -901,7 +901,7 @@ export default function BookingPage() {
         total_amount: total, // combined total (discount already applied)
         subtotal: totalPrice,
         promo_code: promoApplied?.code ?? undefined,
-        pay_in_person: method === "in_person",
+        pay_in_person: giftCoversAll ? false : (method === "in_person"), // gift-covered = paid, not pay-in-person
         redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
         gift_code: giftCoversAll ? (giftCard?.code ?? undefined) : undefined, // covers the whole bill
       }),
