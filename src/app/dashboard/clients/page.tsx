@@ -62,6 +62,10 @@ export default function ClientsPage() {
   const [birthday, setBirthday] = useState("");
   const [savingBirthday, setSavingBirthday] = useState(false);
   const [sendingBirthday, setSendingBirthday] = useState(false);
+  // Inline add/edit of the profile's phone/email tiles.
+  const [editField, setEditField] = useState<null | "phone" | "email">(null);
+  const [fieldDraft, setFieldDraft] = useState("");
+  const [savingField, setSavingField] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -195,6 +199,7 @@ export default function ClientsPage() {
     setSelectedClient(client);
     setNotes(client.notes ?? "");
     setActiveTab("overview");
+    setEditField(null);
     const hp = (client as Client & { hair_profile?: HairProfile }).hair_profile;
     setHairProfile(hp ?? BLANK_HAIR);
     setBirthday(client.birthday ?? "");
@@ -246,6 +251,29 @@ export default function ClientsPage() {
     setSelectedClient(c => c ? { ...c, id: realId, birthday } : c);
     setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, birthday } : c));
     showToast("Birthday saved!");
+  };
+
+  const startEditField = (field: "phone" | "email") => {
+    setFieldDraft((field === "phone" ? selectedClient?.phone : selectedClient?.email) ?? "");
+    setEditField(field);
+  };
+
+  const saveContactField = async () => {
+    if (!selectedClient || !editField) return;
+    const field = editField;
+    const val = field === "phone" ? formatPhone(fieldDraft.trim()) : fieldDraft.trim();
+    setSavingField(true);
+    const realId = await ensureRealClient(selectedClient);
+    if (!realId) { setSavingField(false); showToast("Couldn't save — please try again."); return; }
+    const prevId = selectedClient.id;
+    const patch = field === "phone" ? { phone: val } : { email: val };
+    const { error } = await supabase.from("clients").update(patch).eq("id", realId);
+    setSavingField(false);
+    if (error) { showToast("Couldn't save — please try again."); return; }
+    setSelectedClient(c => c ? { ...c, id: realId, ...patch } : c);
+    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, ...patch } : c));
+    setEditField(null);
+    showToast(field === "phone" ? "Phone saved!" : "Email saved!");
   };
 
   const sendBirthdayEmail = async () => {
@@ -621,9 +649,44 @@ export default function ClientsPage() {
             {activeTab === "overview" && (
               <>
                 <div className="grid grid-cols-2 gap-3">
+                  {(["phone", "email"] as const).map(field => {
+                    const label = field === "phone" ? "Phone" : "Email";
+                    const val = field === "phone" ? selectedClient.phone : selectedClient.email;
+                    const isEditing = editField === field;
+                    return (
+                      <div key={field} className="p-3 bg-card-raised rounded-xl border border-border">
+                        <p className="text-xs text-grey">{label}</p>
+                        {isEditing ? (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <input
+                              autoFocus
+                              type={field === "email" ? "email" : "tel"}
+                              value={fieldDraft}
+                              onChange={e => setFieldDraft(field === "phone" ? formatPhone(e.target.value) : e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") saveContactField(); if (e.key === "Escape") setEditField(null); }}
+                              placeholder={field === "phone" ? "506-555-0000" : "name@email.com"}
+                              className="flex-1 min-w-0 bg-card border border-border rounded-lg px-2 py-1 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-black/20"
+                            />
+                            <button onClick={saveContactField} disabled={savingField} aria-label="Save"
+                              className="shrink-0 text-sm font-bold text-foreground disabled:opacity-50">✓</button>
+                            <button onClick={() => setEditField(null)} aria-label="Cancel"
+                              className="shrink-0 text-sm text-grey hover:text-foreground">✕</button>
+                          </div>
+                        ) : val ? (
+                          <button onClick={() => startEditField(field)}
+                            className="mt-0.5 block w-full text-left text-sm text-foreground break-all hover:underline underline-offset-2">
+                            {val}
+                          </button>
+                        ) : (
+                          <button onClick={() => startEditField(field)}
+                            className="mt-0.5 text-sm text-accent-soft hover:text-foreground text-left">
+                            + Add {label.toLowerCase()}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                   {[
-                    { label: "Phone", value: selectedClient.phone ?? "—" },
-                    { label: "Email", value: selectedClient.email ?? "—" },
                     { label: "Total Visits", value: String(selectedClient.total_visits) },
                     { label: "Total Spent", value: formatCurrency(selectedClient.total_spent) },
                     { label: "Loyalty Points", value: String(selectedClient.loyalty_points) },
