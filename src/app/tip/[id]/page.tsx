@@ -32,10 +32,22 @@ export default function TipPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search);
-      if (q.get("paid")) setPaid(true);
       if (q.get("cancelled")) setCancelled(true);
+      if (q.get("paid")) {
+        setPaid(true);
+        // Record the tip on return — the safety net for the Stripe webhook, so
+        // the barber + owner see it even if the connected-account event never
+        // fires. Idempotent server-side, so it's harmless if the webhook won.
+        const sessionId = q.get("session_id");
+        if (sessionId && id) {
+          fetch("/api/stripe/tip-finalize", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, appointment_id: id }),
+          }).catch(() => null);
+        }
+      }
     }
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }

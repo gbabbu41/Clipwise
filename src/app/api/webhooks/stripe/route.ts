@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
+import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
 import { insertNotifications } from "@/lib/notify-server";
 import { ensurePlansHydrated } from "@/lib/plans-server";
@@ -36,40 +37,20 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         // ── Post-visit tip ─────────────────────────────────────────────────────
-        // A customer left a tip via their tip link. Purely additive: record the
-        // tip transaction + bump the appointment's tip total + notify the shop.
+        // A customer left a tip via their tip link. Purely additive; the exact
+        // same recording runs from the customer-return tip-finalize route, so a
+        // tip lands even if this connected-account webhook never arrives. Shared
+        // helper + PaymentIntent dedup ⇒ whichever fires second is a no-op.
         if (session.metadata?.flow === "tip" && session.metadata?.appointment_id) {
-          const apptId = session.metadata.appointment_id;
-          const tipDollars = Number(session.metadata.tip_amount ?? 0);
           const tipPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
-          if (tipDollars > 0 && tipPi) {
-            const { data: dup } = await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", tipPi).limit(1);
-            if ((dup?.length ?? 0) === 0) {
-              await recordOnlinePaymentTx({
-                appointmentId: apptId,
-                shopId: session.metadata.shop_id,
-                barberId: session.metadata.barber_id || null,
-                clientName: session.metadata.client_name || null,
-                serviceName: "Tip",
-                amountDollars: 0,
-                tipDollars,
-                paymentIntentId: tipPi,
-              });
-              const { data: cur } = await supabaseAdmin.from("appointments").select("tip_amount").eq("id", apptId).maybeSingle();
-              if (cur) {
-                await supabaseAdmin.from("appointments")
-                  .update({ tip_amount: Number(cur.tip_amount ?? 0) + tipDollars }).eq("id", apptId).then(null, () => null);
-              }
-              const { data: tipShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", session.metadata.shop_id).maybeSingle();
-              if (tipShop?.owner_id) {
-                insertNotifications({
-                  user_id: tipShop.owner_id, shop_id: session.metadata.shop_id, title: "Tip received",
-                  message: `${session.metadata.client_name || "A customer"} left a $${tipDollars.toFixed(2)} tip. 🎉`,
-                  type: "system",
-                });
-              }
-            }
-          }
+          await recordTipFromCheckout({
+            appointmentId: session.metadata.appointment_id,
+            shopId: session.metadata.shop_id,
+            barberId: session.metadata.barber_id || null,
+            clientName: session.metadata.client_name || null,
+            tipDollars: Number(session.metadata.tip_amount ?? 0),
+            paymentIntentId: tipPi,
+          });
           break;
         }
 

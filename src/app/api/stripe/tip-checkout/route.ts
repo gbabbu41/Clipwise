@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
           client_name: appt.client_name ?? "",
           tip_amount: String(tipCents / 100),
         },
-        success_url: `${origin}/tip/${appt.id}?paid=1`,
+        success_url: `${origin}/tip/${appt.id}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/tip/${appt.id}?cancelled=1`,
       },
       acctOpts,
