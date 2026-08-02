@@ -10,6 +10,12 @@ import { stripe } from "./stripe";
 // $30/mo CAD per extra location.
 export const LOCATION_ADDON_CENTS = 3000;
 
+// $15/mo CAD for the AI phone / ClipWise Business Number add-on. CAD (not USD)
+// because it rides the owner's existing CAD subscription — Stripe can't mix
+// currencies on one subscription. Change this one constant to reprice.
+export const AI_PHONE_ADDON_CENTS = 1500;
+export const AI_PHONE_ADDON_LOOKUP_KEY = "clipwise_ai_phone_monthly_cad";
+
 // Stable lookup key so we find-or-create ONE reusable price (per Stripe mode).
 // Exported so other routes (e.g. the billing summary) can distinguish the
 // plan line item from this add-on item.
@@ -73,6 +79,62 @@ export async function reconcileLocationAddon(
       subscription: subscriptionId,
       price: priceId,
       quantity: qty,
+      proration_behavior: proration,
+    });
+  }
+}
+
+/** The reusable recurring Price for the AI phone add-on, created lazily the
+ *  first time it's needed (works in test + live with no dashboard step). */
+async function getAiPhoneAddonPriceId(): Promise<string> {
+  const found = await stripe.prices.list({ lookup_keys: [AI_PHONE_ADDON_LOOKUP_KEY], active: true, limit: 1 });
+  if (found.data[0]) return found.data[0].id;
+  try {
+    const price = await stripe.prices.create({
+      currency: "cad",
+      unit_amount: AI_PHONE_ADDON_CENTS,
+      recurring: { interval: "month" },
+      lookup_key: AI_PHONE_ADDON_LOOKUP_KEY,
+      product_data: { name: "ClipWise — AI Phone / Business Number" },
+    });
+    return price.id;
+  } catch {
+    const retry = await stripe.prices.list({ lookup_keys: [AI_PHONE_ADDON_LOOKUP_KEY], active: true, limit: 1 });
+    if (retry.data[0]) return retry.data[0].id;
+    throw new Error("Could not resolve the AI phone add-on price");
+  }
+}
+
+/**
+ * Turn the AI phone add-on ON (one $15/mo line item) or OFF for the owner's
+ * subscription. Idempotent — mirrors reconcileLocationAddon but as a boolean.
+ * `opts.invoiceNow` charges the prorated amount immediately (used when the owner
+ * provisions their number, so it's billed today, not only next cycle).
+ * Throws on Stripe error so the caller can roll back the number provisioning.
+ */
+export async function reconcileAiPhoneAddon(
+  subscriptionId: string,
+  enabled: boolean,
+  opts?: { invoiceNow?: boolean },
+): Promise<void> {
+  const proration = opts?.invoiceNow ? ("always_invoice" as const) : ("create_prorations" as const);
+  const priceId = await getAiPhoneAddonPriceId();
+  const sub = await stripe.subscriptions.retrieve(subscriptionId);
+  const item = sub.items.data.find((i) => i.price?.id === priceId);
+
+  if (!enabled) {
+    if (item) await stripe.subscriptionItems.del(item.id, { proration_behavior: "create_prorations" });
+    return;
+  }
+  if (item) {
+    if (item.quantity !== 1) {
+      await stripe.subscriptionItems.update(item.id, { quantity: 1, proration_behavior: proration });
+    }
+  } else {
+    await stripe.subscriptionItems.create({
+      subscription: subscriptionId,
+      price: priceId,
+      quantity: 1,
       proration_behavior: proration,
     });
   }
