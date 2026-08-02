@@ -37,10 +37,15 @@ export async function POST(request: NextRequest) {
   const email = authUser?.user?.email;
   if (!email) return NextResponse.json({ error: "No login email found for this barber" }, { status: 400 });
 
+  // Origin-first (real live domain) over NEXT_PUBLIC_APP_URL: unset in prod, the
+  // old code produced "undefined/barber-dashboard" and self-fetched localhost —
+  // so the reset link AND the email both silently died.
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
     email,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/barber-dashboard` },
+    options: { redirectTo: `${baseUrl}/barber-dashboard` },
   });
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });
@@ -54,7 +59,6 @@ export async function POST(request: NextRequest) {
   if (link) {
     const { data: shopRow } = await supabaseAdmin
       .from("shops").select("name, email").eq("id", barber.shop_id).maybeSingle();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     try {
       const res = await fetch(`${baseUrl}/api/send-email`, {
         method: "POST",

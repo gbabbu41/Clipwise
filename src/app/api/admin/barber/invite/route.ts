@@ -112,7 +112,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, barber, manual: true });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  // Prefer the request's origin (the real domain the owner is on, e.g.
+  // https://clipwise.ca) over NEXT_PUBLIC_APP_URL, which can be unset/stale in
+  // prod — in which case every emailed link would point at localhost and die on
+  // the barber's device. Same origin-first pattern the Stripe routes use.
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
   const redirectTo = `${baseUrl}/accept-invite`;
 
   // New user → an invite link (sets their password + links this barber row).
