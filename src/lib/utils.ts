@@ -6,12 +6,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
+  // Clean whole dollars ("$30"), but always show both cents when there are any
+  // ("$3.90", not "$3.9"). Round to cents first so float noise (30.0000001)
+  // still reads as a whole dollar.
+  const rounded = Math.round((Number(amount) || 0) * 100) / 100;
+  const hasCents = rounded % 1 !== 0;
   return new Intl.NumberFormat("en-CA", {
     style: "currency",
     currency: "CAD",
-    minimumFractionDigits: 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(rounded);
 }
 
 export function formatDate(dateStr: string): string {
