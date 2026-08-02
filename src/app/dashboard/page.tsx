@@ -19,7 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { useAuth } from "@/lib/auth-context";
-import { collectedTotals, type RevTx } from "@/lib/revenue";
+import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -163,6 +163,9 @@ export default function DashboardPage() {
   // Transactions (POS / gift-card / walk-in sales) for the active range — so the
   // revenue headline includes non-appointment income and matches Payments.
   const [txns, setTxns] = useState<RevTx[]>([]);
+  // Exact Stripe net/fees per charge (same source the Payments page uses) so the
+  // dashboard headline shows NET after fees, not gross.
+  const [stripeByPi, setStripeByPi] = useState<ByPi>({});
   // Appointments fetched specifically for the calendar-selected date, so
   // clicking a day outside the active dateFilter range still surfaces the
   // bookings underneath (the main `appointments` array is bound to dateFilter).
@@ -291,7 +294,7 @@ export default function DashboardPage() {
       ? Promise.resolve({ data: [] as RevTx[] })
       : supabase
           .from("transactions")
-          .select("client_name, service_name, amount, tip, tax, payment_method, created_at, stripe_session_id, source, refunded")
+          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded")
           .eq("shop_id", shop.id)
           .order("created_at", { ascending: false })
           .limit(250);
@@ -301,6 +304,23 @@ export default function DashboardPage() {
     setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
     setLoadingAppts(false);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
+
+  // Live Stripe net/fees (same endpoint the Payments page uses — the money source
+  // of truth). Bearer-authorized; owner or active barber of the shop. Lets the
+  // dashboard headline show NET after Stripe fees instead of gross.
+  useEffect(() => {
+    if (!shop || !accessToken) return;
+    let active = true;
+    fetch("/api/stripe/payments-summary", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d && !d.error) setStripeByPi(d.byPi ?? {}); })
+      .catch(() => { /* transient — keep gross fallback */ });
+    return () => { active = false; };
+  }, [shop, accessToken]);
 
   // ── Load the current week's appointments (for the compact calendar) ─────────
   const loadWeekAppts = useCallback(async () => {
@@ -420,7 +440,7 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(t.created_at)); // LOCAL date, matches Payments
     return d >= rangeStart && d <= rangeEnd;
   });
-  const collected = collectedTotals(appointments, txnsInRange);
+  const collected = collectedTotals(appointments, txnsInRange, stripeByPi);
   const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
@@ -641,7 +661,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.preTax} taxCollected={collected.tax} cashIncluded={collected.cash} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             <div className="cwd-kpis">
               <div className="cwd-kpi">

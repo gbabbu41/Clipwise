@@ -15,11 +15,12 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
 }: {
-  revenue: number;
-  taxCollected?: number;   // GST/HST + PST collected (shown as a "+ tax" note)
+  revenue: number;         // NET after Stripe fees (incl. tax + cash)
+  taxCollected?: number;   // GST/HST + PST portion of the net (shown as an "incl. tax" note)
   cashIncluded?: number;   // cash portion of the total (shown as an "incl. cash" note)
+  feesPaid?: number;       // Stripe processing fees deducted (shown as a "− fees" note)
   chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
@@ -81,15 +82,22 @@ export function StatsCarousel({
     // 1 — Revenue (area)
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Revenue · {periodLabel}</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Net · {periodLabel}</p>
         <span className="text-[11px] text-grey-muted whitespace-nowrap">‹ swipe ›</span>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
-        {taxCollected > 0 && <span className="text-[13px] font-medium text-grey-muted"> + {formatCurrency(taxCollected)} tax</span>}
       </p>
-      {cashIncluded > 0 && (
-        <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
+      {(taxCollected > 0 || cashIncluded > 0) && (
+        <p className="text-[11px] text-grey-muted mt-1">
+          incl. {[
+            taxCollected > 0 ? `${formatCurrency(taxCollected)} tax` : null,
+            cashIncluded > 0 ? `${formatCurrency(cashIncluded)} cash` : null,
+          ].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      {feesPaid > 0 && (
+        <p className="text-[11px] text-grey-muted mt-0.5">− {formatCurrency(feesPaid)} Stripe fees</p>
       )}
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
         {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}

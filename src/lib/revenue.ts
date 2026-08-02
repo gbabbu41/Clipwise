@@ -1,13 +1,14 @@
-// Shared "collected revenue" math so the Dashboard headline matches the
-// Payments page to the penny. This MIRRORS the feed/de-dup logic in
-// src/app/dashboard/payments/page.tsx (the source of truth, which is wired to
-// Stripe + the transactions ledger). If that logic changes, update both.
+// Shared "collected revenue" math so the Dashboard and the Payments page agree
+// to the penny. This MIRRORS the feed/de-dup logic in
+// src/app/dashboard/payments/page.tsx (the source of truth, wired to Stripe +
+// the transactions ledger). If that logic changes, update both.
 //
 // Model: gross COLLECTED = settled appointments (paid/captured) + settled POS
 // transactions (gift-card sales, product/walk-in sales, no-show fees), with
 // transactions de-duped against appointments so a card charge isn't counted
-// twice. Gross includes tax + tips; `tax` is broken back out for the "+ tax"
-// note, and `cash` is the cash portion for the "incl. cash" note.
+// twice. Given the Stripe `byPi` map (paymentIntent -> {gross, fee, net}) it
+// also returns the exact NET after Stripe fees and the total fees paid. Cash
+// never touches Stripe, so it carries no fee (net === gross for cash).
 
 export type RevAppt = {
   client_name: string | null;
@@ -15,6 +16,7 @@ export type RevAppt = {
   tax_amount?: number | null;
   payment_status?: string | null;
   payment_method?: string | null;
+  payment_intent_id?: string | null;
   status: string;
 };
 
@@ -26,26 +28,33 @@ export type RevTx = {
   tax?: number | null;
   payment_method: string | null;
   created_at: string;
+  payment_intent_id?: string | null;
   stripe_session_id?: string | null;
   source?: string | null;
   refunded?: boolean | null;
 };
 
+// paymentIntent id -> exact figures from Stripe balance transactions.
+export type ByPi = Record<string, { gross: number; fee: number; net: number }>;
+
 const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
 const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
 
 export type CollectedTotals = {
-  gross: number;   // everything collected, incl. tax + tips
-  tax: number;     // tax portion of gross (for the "+ tax" note)
-  cash: number;    // cash portion of gross (for the "incl. cash" note)
-  preTax: number;  // gross − tax (the headline "revenue" number)
+  gross: number;   // everything collected, incl. tax + tips, before Stripe fees
+  fees: number;    // total Stripe processing fees (card only)
+  net: number;     // gross − fees (what actually lands; cash unaffected)
+  tax: number;     // tax portion of gross (informational — owed to govt)
+  cash: number;    // cash portion of gross (no fee)
+  preTax: number;  // gross − tax
 };
 
 /**
  * Total collected across appointments + transactions for whatever slice the
- * caller passes in (already date-filtered). Mirrors the Payments page's feed.
+ * caller passes in (already date-filtered). Pass the Stripe `byPi` map to get
+ * exact net/fees; omit it and net === gross (fees 0).
  */
-export function collectedTotals(appts: RevAppt[], txs: RevTx[]): CollectedTotals {
+export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): CollectedTotals {
   // De-dup transactions against paid appointments (same client|amount) and drop
   // completion-source txs — the appointment already represents that charge.
   const paidSig = new Set(
@@ -58,15 +67,24 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[]): CollectedTotals
     return true;
   });
 
-  let gross = 0, tax = 0, cash = 0;
+  // Net + fee for one card/cash line, mirroring the Payments page's netOf/feeOf:
+  // a card charge with a matching Stripe balance-txn uses the exact net/fee;
+  // everything else (cash, or not-yet-synced) nets to its gross with no fee.
+  const lineNetFee = (pi: string | null | undefined, gross: number) => {
+    const b = pi && byPi ? byPi[pi] : undefined;
+    return b ? { net: b.net, fee: b.fee } : { net: gross, fee: 0 };
+  };
 
-  // Settled appointments — exclude paid no-shows (a no-show is represented by its
-  // own transaction row so it isn't double-counted).
+  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0;
+
+  // Settled appointments — exclude paid no-shows (represented by a tx row so it
+  // isn't double-counted).
   for (const a of appts) {
     if (!isPaid(a.payment_status)) continue;
     if (a.status === "no-show") continue;
     const amt = a.total_amount ?? 0;
-    gross += amt;
+    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, amt);
+    gross += amt; net += n; fees += f;
     tax += a.tax_amount ?? 0;
     if (a.payment_method === "cash") cash += amt;
   }
@@ -75,10 +93,11 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[]): CollectedTotals
   for (const t of posTxs) {
     if (t.refunded) continue;
     const amt = (t.amount ?? 0) + (t.tip ?? 0);
-    gross += amt;
+    const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt);
+    gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;
     if (t.payment_method === "cash") cash += amt;
   }
 
-  return { gross, tax, cash, preTax: Math.max(0, gross - tax) };
+  return { gross, fees, net, tax, cash, preTax: Math.max(0, gross - tax) };
 }

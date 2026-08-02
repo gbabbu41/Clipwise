@@ -148,16 +148,20 @@ export default function PaymentsPage() {
   // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
   // can re-sync it on its own cadence (Stripe state doesn't fire Supabase events).
   const syncStripe = useCallback(async () => {
-    if (!shop) return;
+    if (!shop || !accessToken) return;
     try {
+      // payments-summary is gated by authorizeShop (Bearer token). Without this
+      // header it 401s, stripeNet stays null, and net/fees/payout silently vanish
+      // (net falls back to gross, the Stripe-fee row never renders).
       const r = await fetch("/api/stripe/payments-summary", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ shop_id: shop.id }),
       });
       const d = r.ok ? await r.json() : null;
       if (d && !d.error) setStripeNet(d);
     } catch { /* transient/offline — keep last known figures */ }
-  }, [shop]);
+  }, [shop, accessToken]);
 
   const loadData = useCallback(async () => {
     if (!shop) return;
@@ -517,7 +521,10 @@ export default function PaymentsPage() {
   // + cash); the three presets + a Custom card are the swipeable cards. ──────
   const periodCards = baseSlides.map(s => ({
     label: s.label, range: s.range,
-    collected: s.scope.gross + s.scope.cash,
+    // NET headline = card net (after Stripe fees) + cash. Falls back to gross
+    // when Stripe figures haven't loaded (net === gross, fees 0).
+    collected: s.scope.net + s.scope.cash,
+    fees: s.scope.fees,
     cash: s.scope.cash, count: s.scope.count, avg: s.scope.avg, data: s.scope.data,
   }));
   const customFromTs = customFrom ? new Date(customFrom + "T00:00:00").getTime() : null;
@@ -610,7 +617,7 @@ export default function PaymentsPage() {
             <div className="cwp-amt">{formatCurrency(p.collected)}</div>
             <div className={cn("cwp-meta", p.count === 0 && "cwp-flat")}>
               {p.count > 0
-                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}</span></>
+                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}{p.fees > 0 ? ` · after ${formatCurrency(p.fees)} fees` : ""}</span></>
                 : "No cuts in this period"}
             </div>
             <Spark data={p.data} />
@@ -623,7 +630,7 @@ export default function PaymentsPage() {
               <span className="cwp-pname">Custom</span>
               <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
             </div>
-            <div className="cwp-amt">{formatCurrency(customScope.gross + customScope.cash)}</div>
+            <div className="cwp-amt">{formatCurrency(customScope.net + customScope.cash)}</div>
             <div className={cn("cwp-meta", customScope.count === 0 && "cwp-flat")}>
               {customLabel}{customScope.count > 0 ? <span className="cwp-muted"> · {customScope.count} cut{customScope.count !== 1 ? "s" : ""}</span> : ""}
             </div>
