@@ -17,6 +17,7 @@ interface ApptRow {
   date: string;
   time_slot: string;
   total_amount: number | null;
+  tax_amount: number | null;
   payment_status: string | null;
   payment_method: string | null;
   payment_intent_id: string | null;
@@ -32,6 +33,7 @@ interface TxRow {
   service_name: string | null;
   amount: number;
   tip: number;
+  tax: number | null;
   payment_method: string | null;
   type: string;
   created_at: string;
@@ -168,10 +170,10 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
+        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
+        .select("id, client_name, service_name, amount, tip, tax, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -232,7 +234,7 @@ export default function PaymentsPage() {
   const apptDateMs = (a: ApptRow) => new Date(a.date + "T00:00:00").getTime() + timeToMinutes(a.time_slot) * 60000;
 
   type FeedItem = {
-    key: string; name: string; sub: string; amount: number;
+    key: string; name: string; sub: string; amount: number; tax: number;
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
     pi: string | null; method: string | null; refunded: boolean;
@@ -259,7 +261,7 @@ export default function PaymentsPage() {
         return {
           key: `a${a.id}`, name: a.client_name,
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
-          amount: a.total_amount ?? 0,
+          amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
           settled: paid, tsIso,
@@ -274,7 +276,7 @@ export default function PaymentsPage() {
       return {
         key: `t${t.id}`, name: t.client_name || "Walk-in",
         sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"} · POS`,
-        amount: (t.amount ?? 0) + (t.tip ?? 0),
+        amount: (t.amount ?? 0) + (t.tip ?? 0), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
         tone: refunded ? "muted" : "good",
         settled: !refunded, tsIso: t.created_at,
@@ -317,29 +319,6 @@ export default function PaymentsPage() {
     if (key === "month") { const d = new Date(); return `${fmtDay(startOf("month"))} – ${fmtDay(new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime())}`; }
     return ""; // all time — no fixed range
   };
-  const sumNet = (from: number) => cardSettled.filter(i => i.ts >= from).reduce((s, i) => s + netOf(i), 0);
-  const sumCash = (from: number) => cashSettled.filter(i => i.ts >= from).reduce((s, i) => s + i.amount, 0);
-  const todayNet = sumNet(startOf("today"));
-  const todayCash = sumCash(startOf("today"));
-
-  const bucketsFor = (from: number, monthly: boolean) => {
-    const m = new Map<string, { order: number; net: number }>();
-    cardSettled.filter(i => i.ts >= from).forEach(i => {
-      const dt = new Date(i.ts);
-      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
-      const label = monthly
-        ? dt.toLocaleDateString("en-CA", { month: "short" })
-        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-      const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += netOf(i); m.set(label, cur);
-    });
-    return Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
-  };
-  const netPeriods = [
-    { key: "week", label: "This week", from: startOf("week"), monthly: false },
-    { key: "month", label: "This month", from: startOf("month"), monthly: false },
-    { key: "all", label: "All time", from: 0, monthly: true },
-  ].map(p => ({ ...p, range: rangeFor(p.key as "week" | "month" | "all"), net: sumNet(p.from), cash: sumCash(p.from), data: bucketsFor(p.from, p.monthly) }));
 
   // ── Per-barber window (collected revenue) — same presets + Custom range as the
   // barber's own earnings page, so a single barber's pay-cycle is easy to read.
@@ -353,11 +332,12 @@ export default function PaymentsPage() {
     const cash = cashIn.reduce((s, i) => s + i.amount, 0);
     const gross = cardIn.reduce((s, i) => s + i.amount, 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
+    const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     const count = cardIn.length + cashIn.length;
     const m = new Map<string, { order: number; net: number }>();
-    // Chart the COLLECTED amount per bucket — card gross + cash — so the
-    // sparkline reflects the same total as the card's headline. A cash-only
-    // period now draws bars instead of the empty/grey placeholder.
+    // Chart the NET COLLECTED per bucket — card net (after fees) + cash — so the
+    // sparkline matches the card's net headline. netOf() returns gross for cash
+    // (no fee), so cash-only periods still draw bars.
     [...cardIn, ...cashIn].forEach(i => {
       const dt = new Date(i.ts);
       const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
@@ -365,10 +345,10 @@ export default function PaymentsPage() {
         ? dt.toLocaleDateString("en-CA", { month: "short" })
         : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += i.amount; m.set(label, cur);
+      cur.net += netOf(i); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
-    return { net, cash, gross, fees, count, data, avg: count ? (gross + cash) / count : 0 };
+    return { net, cash, gross, fees, tax, count, data, avg: count ? (gross + cash) / count : 0 };
   };
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
@@ -524,7 +504,7 @@ export default function PaymentsPage() {
     // NET headline = card net (after Stripe fees) + cash. Falls back to gross
     // when Stripe figures haven't loaded (net === gross, fees 0).
     collected: s.scope.net + s.scope.cash,
-    fees: s.scope.fees,
+    fees: s.scope.fees, tax: s.scope.tax,
     cash: s.scope.cash, count: s.scope.count, avg: s.scope.avg, data: s.scope.data,
   }));
   const customFromTs = customFrom ? new Date(customFrom + "T00:00:00").getTime() : null;
@@ -617,7 +597,7 @@ export default function PaymentsPage() {
             <div className="cwp-amt">{formatCurrency(p.collected)}</div>
             <div className={cn("cwp-meta", p.count === 0 && "cwp-flat")}>
               {p.count > 0
-                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}{p.fees > 0 ? ` · after ${formatCurrency(p.fees)} fees` : ""}</span></>
+                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.tax > 0 ? ` · incl. ${formatCurrency(p.tax)} tax` : ""}{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}{p.fees > 0 ? ` · after ${formatCurrency(p.fees)} fees` : ""}</span></>
                 : "No cuts in this period"}
             </div>
             <Spark data={p.data} />
