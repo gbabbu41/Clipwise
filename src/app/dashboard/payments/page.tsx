@@ -678,6 +678,12 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      {/* ── Tax collected (own page) ───────────────────────────────────────── */}
+      <a href="/dashboard/payments/tax" className="cwp-payout" style={{ textDecoration: "none", marginTop: 10 }}>
+        <span className="cwp-next">🏛️ Tax collected · this year</span>
+        <span className="cwp-stripe">View →</span>
+      </a>
+
       {/* ── Statement ──────────────────────────────────────────────────────── */}
       <div className="cwp-txhead"><h2>Transactions</h2></div>
       <div className="cwp-seg">
