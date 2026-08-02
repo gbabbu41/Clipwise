@@ -634,11 +634,13 @@ export default function PaymentsPage() {
       </div>
       <div className="cwp-payout">
         <span className="cwp-next">
-          {stripeNet?.nextPayoutAmount != null && stripeNet?.nextPayoutDate
-            ? <>Next payout <b>{formatCurrency(stripeNet.nextPayoutAmount)}</b> · {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</>
-            : payout > 0
-              ? <>Balance <b>{formatCurrency(payout)}</b> settling to your bank</>
-              : <>Payouts settle straight to your bank</>}
+          {stripeNet?.connected === false
+            ? <>Connect Stripe to see live fees &amp; payouts</>
+            : stripeNet?.nextPayoutAmount != null && stripeNet?.nextPayoutDate
+              ? <>Next payout <b>{formatCurrency(stripeNet.nextPayoutAmount)}</b> · {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</>
+              : payout > 0
+                ? <>Balance <b>{formatCurrency(payout)}</b> settling to your bank</>
+                : <>Payouts settle straight to your bank</>}
         </span>
         <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
           {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />

@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
   const shop = auth.shop as { stripe_account_id?: string | null; stripe_connected?: boolean | null };
   const connected = !!(shop?.stripe_account_id && shop.stripe_connected);
   if (!connected) {
+    // The #1 reason fees + payout go blank: this shop isn't fully Stripe-
+    // connected, so there's no balance/fee data to show. Log it so it's not a
+    // silent mystery.
+    console.log("[payments-summary] not connected", {
+      shop_id, hasAccount: !!shop?.stripe_account_id, connectedFlag: !!shop?.stripe_connected,
+    });
     return NextResponse.json({ connected: false, byPi: {}, available: 0, pending: 0 });
   }
   const opts = { stripeAccount: shop!.stripe_account_id! };
@@ -115,8 +121,22 @@ export async function POST(req: NextRequest) {
       startingAfter = list.data[list.data.length - 1]?.id;
     }
 
+    console.log("[payments-summary] ok", {
+      shop_id, byPi: Object.keys(byPi).length, available, pending, inTransit, nextPayoutDate, nextPayoutAmount,
+    });
     return NextResponse.json({ connected: true, byPi, available, pending, inTransit, nextPayoutDate, nextPayoutAmount, lastPayout });
   } catch (err) {
-    return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: err instanceof Error ? err.message : "stripe error" });
+    // A Stripe error here (e.g. the connected account id belongs to a different
+    // Stripe mode than the current key, or a permissions issue) makes fees +
+    // payout silently vanish — the page ignores `error` responses. Surface it to
+    // the Vercel logs AND the CEO error panel so the real cause is visible.
+    const msg = err instanceof Error ? err.message : "stripe error";
+    console.error("[payments-summary] stripe error", { shop_id, msg });
+    supabaseAdmin.from("error_logs").insert({
+      level: "error", source: "payments-summary",
+      message: `payments-summary Stripe error (shop ${shop_id ?? "?"}): ${msg}`.slice(0, 1000),
+      path: "/api/stripe/payments-summary",
+    }).then(null, () => null);
+    return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: msg });
   }
 }
