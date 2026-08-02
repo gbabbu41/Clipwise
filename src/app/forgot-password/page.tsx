@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Mail, AlertCircle, Check } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -16,15 +15,22 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    // Always show the same "check your inbox" confirmation — never reveal
-    // whether the email exists (only surface true rate-limit / network errors).
-    if (err && /rate|too many|network|timeout/i.test(err.message)) {
-      setError("Too many attempts — please wait a moment and try again.");
-    } else {
-      setSent(true);
+    // Branded reset via our own Resend email (from clipwise.ca), not Supabase's
+    // built-in mail. Always show the same "check your inbox" confirmation — never
+    // reveal whether the email exists (only surface rate-limit / network errors).
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.status === 429) {
+        setError("Too many attempts — please wait a moment and try again.");
+      } else {
+        setSent(true);
+      }
+    } catch {
+      setError("Couldn't send right now — check your connection and try again.");
     }
     setLoading(false);
   };

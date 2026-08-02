@@ -16,7 +16,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // recipient, or a login/invite URL). Only the HTTP route enforces this — a
 // direct in-process caller is already trusted server code.
 export const PRIVILEGED_EMAIL_TYPES = new Set([
-  "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset",
+  "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset", "password_reset",
   // Link-bearing / customer-recipient types — gated so the HTTP endpoint can't
   // be an open phishing/spam relay (attacker sets the recipient + a payment/
   // booking URL). Legit HTTP callers pass a staff token or x-internal-secret.
@@ -686,6 +686,23 @@ function barberPasswordReset(data: Record<string, string>) {
   `);
 }
 
+// Generic self-service password reset (owner / barber / customer). Sent through
+// our own branded Resend email instead of Supabase's built-in mail, so it comes
+// from clipwise.ca, isn't rate-limited by Supabase's shared SMTP, and doesn't
+// land in spam. Platform-level account action → keeps the ClipWise brand.
+function passwordReset(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">🔑 Password Reset</div>
+    <h1>Reset your password</h1>
+    <p>We received a request to reset the password on your ClipWise account. Click below to choose a new one.</p>
+    <a href="${data.resetLink}" class="btn">Reset My Password →</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
+    <hr class="divider">
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function barberAppointmentChange(data: Record<string, string>) {
   const isNoShow = (data.statusLabel ?? "").toLowerCase().includes("no-show");
   return wrap(`
@@ -943,6 +960,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.barberEmail;
       subject = `Reset your password — ${data.shopName}`;
       html = barberPasswordReset(data);
+      break;
+    case "password_reset":
+      to = data.email;
+      subject = "Reset your ClipWise password";
+      html = passwordReset(data);
       break;
     case "subscription_started":
       to = data.ownerEmail;
