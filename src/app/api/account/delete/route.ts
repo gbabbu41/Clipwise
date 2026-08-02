@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { stripe } from "@/lib/stripe";
+import { cleanupOrphanedBarberAccounts } from "@/lib/barber-cleanup";
 
 /**
  * Permanent, self-service account + data deletion (privacy / right-to-erasure).
@@ -34,9 +35,21 @@ export async function POST(request: NextRequest) {
     await stripe.subscriptions.cancel(sub).catch(() => {});
   }
 
+  // Capture the barbers across all of this owner's shops BEFORE the delete —
+  // the cascade wipes their rows. Used below to remove the logins of barbers
+  // left with no shop at all (unless they also work at someone else's shop).
+  const shopIds = (shops ?? []).map(s => s.id);
+  const { data: shopBarbers } = shopIds.length
+    ? await supabaseAdmin.from("barbers").select("user_id").in("shop_id", shopIds).not("user_id", "is", null)
+    : { data: [] as { user_id: string | null }[] };
+
   // Delete all owned shops — cascades to every shop-scoped row via FK.
   const { error: delErr } = await supabaseAdmin.from("shops").delete().eq("owner_id", user.id);
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+  // Remove the logins of barbers whose only shop(s) just vanished. excludeUserId
+  // is the owner — already handled by the explicit teardown below.
+  await cleanupOrphanedBarberAccounts((shopBarbers ?? []).map(b => b.user_id), user.id);
 
   // Unlink any barber rows this user still holds on OTHER shops so the auth-user
   // delete isn't blocked by an FK reference.
