@@ -111,6 +111,12 @@ export default function SettingsPage() {
   const [addingLocation, setAddingLocation] = useState(false);
   const [confirmingAddon, setConfirmingAddon] = useState(false);
 
+  // AI phone / ClipWise Business Number state.
+  const [aiNum, setAiNum] = useState<string | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiConfirm, setAiConfirm] = useState(false);
+
   const [profile, setProfile] = useState({
     name: "", address: "", city: "", province: "", postal_code: "",
     phone: "", email: "", description: "",
@@ -132,6 +138,51 @@ export default function SettingsPage() {
   const [savingTemplates, setSavingTemplates] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  // Load the shop's current Business Number state. Errors (e.g. pre-phase39
+  // schema) leave the default "no number yet" — the section still renders.
+  useEffect(() => {
+    if (!shop?.id) return;
+    supabase.from("shops").select("twilio_phone_number, ai_phone_enabled").eq("id", shop.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data) { setAiNum(data.twilio_phone_number ?? null); setAiEnabled(!!data.ai_phone_enabled); }
+      });
+  }, [shop?.id]);
+
+  const getBusinessNumber = async () => {
+    if (!shop) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/ai-phone/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+        body: JSON.stringify({ shop_id: shop.id, agree_addon: true }),
+      });
+      const j = await res.json().catch(() => ({})) as { number?: string; error?: string };
+      if (!res.ok) { showToast(j.error ?? "Couldn't get a number"); return; }
+      setAiNum(j.number ?? null); setAiEnabled(true); setAiConfirm(false);
+      showToast(`Your number ${j.number} is live! Share it with clients.`);
+      await refreshShop();
+    } catch { showToast("Something went wrong — try again."); }
+    finally { setAiBusy(false); }
+  };
+
+  const cancelBusinessNumber = async () => {
+    if (!shop) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/ai-phone/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+        body: JSON.stringify({ shop_id: shop.id }),
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})) as { error?: string }; showToast(j.error ?? "Couldn't cancel"); return; }
+      setAiNum(null); setAiEnabled(false);
+      showToast("Business number cancelled.");
+      await refreshShop();
+    } catch { showToast("Something went wrong — try again."); }
+    finally { setAiBusy(false); }
+  };
 
   const uploadLogo = async (file: File) => {
     if (!shop) return;
@@ -852,6 +903,54 @@ export default function SettingsPage() {
                 <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>
                   {activePlanKey === "premium" ? "View Plans" : "Upgrade Plan"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border">
+              <CardHeader>
+                <div>
+                  <CardTitle>Business Phone</CardTitle>
+                  <p className="text-sm text-grey mt-1">A ClipWise Business Number your clients call to book.</p>
+                </div>
+                {aiNum && <Badge variant="gold">Active</Badge>}
+              </CardHeader>
+              <CardContent>
+                {aiNum ? (
+                  <div className="space-y-3">
+                    <p className="text-2xl font-bold text-foreground">{aiNum}</p>
+                    <p className="text-sm text-grey">
+                      {aiEnabled
+                        ? "AI answers 24/7 and books appointments. "
+                        : "Calls currently go straight to a missed-call text. "}
+                      Missed calls auto-text a booking link. Billed at $15/mo on your subscription.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" size="sm" loading={aiBusy} onClick={cancelBusinessNumber}>
+                        Cancel number
+                      </Button>
+                      <a href="/dashboard/phone" className="text-sm text-gold hover:underline">View call activity →</a>
+                    </div>
+                  </div>
+                ) : aiConfirm ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-foreground">Add a ClipWise Business Number for <span className="text-gold">$15/mo</span>?</p>
+                    <p className="text-xs text-grey">A local number that answers 24/7, books appointments, texts missed callers a booking link, and keeps your personal number private. Added to your existing subscription.</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" loading={aiBusy} onClick={getBusinessNumber}>Confirm — $15/mo</Button>
+                      <Button variant="outline" size="sm" onClick={() => setAiConfirm(false)} disabled={aiBusy}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <ul className="space-y-1.5 text-sm text-grey">
+                      <li>✅ AI answers 24/7 &amp; auto-books</li>
+                      <li>✅ Missed-call text with a booking link</li>
+                      <li>✅ Call logs on your dashboard</li>
+                      <li>✅ Your personal number stays private</li>
+                    </ul>
+                    <Button size="sm" onClick={() => setAiConfirm(true)}>Get My Business Number — $15/mo →</Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
