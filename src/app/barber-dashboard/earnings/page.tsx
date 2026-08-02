@@ -440,7 +440,16 @@ export default function BarberPaymentsPage() {
                       <div className="cwp-a cwp-apos">{formatCurrency(earnedOf(t))}</div>
                       <div className="cwp-m">
                         <span className="cwp-method">{cash ? "Cash" : "Card"}</span>
-                        {isOwner && pct >= 100 && !cash && feeOf(t) > 0 ? ` · after ${formatCurrency(feeOf(t))} fee` : ""}
+                        {(() => {
+                          if (cash) return "";
+                          const fee = feeOf(t);
+                          if (fee <= 0) return "";
+                          // Owner keeping 100% bears the whole fee; everyone else
+                          // pays half (the 50/50 split with the shop).
+                          const ownerFull = isOwner && pct >= 100;
+                          const barberFee = ownerFull ? fee : fee / 2;
+                          return ` · after ${formatCurrency(barberFee)} card fee${ownerFull ? "" : " (your ½)"}`;
+                        })()}
                       </div>
                     </div>
                   </div>
