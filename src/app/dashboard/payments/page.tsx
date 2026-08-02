@@ -591,16 +591,22 @@ export default function PaymentsPage() {
               <span className="cwp-pname">{p.label}</span>
               {p.range && <span className="cwp-prange">{p.range}</span>}
             </div>
+            <div className="cwp-caplbl">Net collected</div>
             <div className="cwp-amt">{formatCurrency(p.collected)}</div>
-            <div className={cn("cwp-meta", p.count === 0 && "cwp-flat")}>
+            <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
               {p.count > 0
-                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{(p.tax > 0 || p.cash > 0) ? ` · incl. ${[p.tax > 0 ? `${formatCurrency(p.tax)} tax` : null, p.cash > 0 ? `${formatCurrency(p.cash)} cash` : null].filter(Boolean).join(" · ")}` : ""}</span></>
+                ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
                 : "No cuts in this period"}
             </div>
-            {p.count > 0 && p.fees > 0 && (
-              <div className="cwp-meta"><span className="cwp-muted">{formatCurrency(p.collected + p.fees)} gross · {formatCurrency(p.fees)} Stripe fees</span></div>
-            )}
             <Spark data={p.data} />
+            {p.count > 0 && (
+              <div className="cwp-ledger">
+                <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.collected + p.fees)}</span></div>
+                {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
+                {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
+                <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(p.collected)}</span></div>
+              </div>
+            )}
           </div>
         ))}
         {/* Custom range card — last in the rail */}
@@ -610,11 +616,22 @@ export default function PaymentsPage() {
               <span className="cwp-pname">Custom</span>
               <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
             </div>
+            <div className="cwp-caplbl">Net collected</div>
             <div className="cwp-amt">{formatCurrency(customScope.net + customScope.cash)}</div>
-            <div className={cn("cwp-meta", customScope.count === 0 && "cwp-flat")}>
-              {customLabel}{customScope.count > 0 ? <span className="cwp-muted"> · {customScope.count} cut{customScope.count !== 1 ? "s" : ""}</span> : ""}
+            <div className={cn("cwp-sub", customScope.count === 0 && "cwp-flat")}>
+              {customScope.count > 0
+                ? <>{customLabel} · {customScope.count} cut{customScope.count !== 1 ? "s" : ""}{customScope.cash > 0 ? ` · incl. ${formatCurrency(customScope.cash)} cash` : ""}</>
+                : customLabel}
             </div>
             <Spark data={customScope.data} />
+            {customScope.count > 0 && (
+              <div className="cwp-ledger">
+                <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(customScope.net + customScope.cash + customScope.fees)}</span></div>
+                {customScope.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(customScope.tax)}</span></div>}
+                {customScope.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(customScope.fees)}</span></div>}
+                <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(customScope.net + customScope.cash)}</span></div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="cwp-ecard cwp-ghost">

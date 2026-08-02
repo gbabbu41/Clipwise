@@ -83,49 +83,46 @@ export function StatsCarousel({
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Net · {periodLabel}</p>
-        <span className="text-[11px] text-grey-muted whitespace-nowrap">‹ swipe ›</span>
+        <span className={cn("text-[11px] font-medium whitespace-nowrap", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
+          {hasCompleted ? `${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "‹ swipe ›"}
+        </span>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
-      {/* What's INSIDE the net figure (tax to be remitted + cash collected). */}
-      {(taxCollected > 0 || cashIncluded > 0) && (
-        <p className="text-[11px] text-grey-muted mt-1">
-          incl. {[
-            taxCollected > 0 ? `${formatCurrency(taxCollected)} tax` : null,
-            cashIncluded > 0 ? `${formatCurrency(cashIncluded)} cash` : null,
-          ].filter(Boolean).join(" · ")}
-        </p>
+      {/* Cash included in the net (already in hand). */}
+      {cashIncluded > 0 && (
+        <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
       )}
-      {/* The before-fees view: gross taken in, and what Stripe kept. */}
-      {feesPaid > 0 && (
-        <p className="text-[11px] text-grey-muted mt-0.5">
-          {formatCurrency(revenue + feesPaid)} gross · {formatCurrency(feesPaid)} Stripe fees
-        </p>
-      )}
-      <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
-        {hasCompleted ? `↑ ${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}
-      </p>
-      <div className="flex-1 min-h-[96px] mt-3 flex items-end justify-center gap-1.5">
+      {/* Slim revenue strip. */}
+      <div className="h-9 mt-3 flex items-end justify-center gap-1.5">
         {chartData.length > 0 ? (() => {
           const max = Math.max(...chartData.map(d => d.revenue), 1);
           const peak = chartData.reduce((mi, d, i, arr) => (d.revenue > arr[mi].revenue ? i : mi), 0);
           return chartData.map((d, i) => (
             <span key={i} title={`${d.day}: ${formatCurrency(d.revenue)}`}
-              style={{ height: `${Math.max(6, (d.revenue / max) * 100)}%` }}
-              className={cn("flex-1 max-w-[34px] rounded-t min-h-[6px]", i === peak
+              style={{ height: `${Math.max(8, (d.revenue / max) * 100)}%` }}
+              className={cn("flex-1 max-w-[30px] rounded-t min-h-[6px]", i === peak
                 ? "bg-gradient-to-t from-[#3f6fb2] to-[#6ea8fe]"
                 : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
           ));
         })() : (
-          // Empty state — faint SIGNATURE-BLUE placeholder bars (echo the real
-          // bars) so the hero keeps its shape + a hint of brand color even with
-          // no data. The "No bookings yet today" line above says there's no data.
           Array.from({ length: 7 }).map((_, i) => (
-            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[34px] rounded-t bg-gradient-to-t from-[#6ea8fe]/20 to-[#6ea8fe]/45" />
+            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[30px] rounded-t bg-gradient-to-t from-[#6ea8fe]/20 to-[#6ea8fe]/45" />
           ))
         )}
       </div>
+      {/* Receipt ledger — same shape as the Payments page, so both screens match. */}
+      {revenue + feesPaid > 0 ? (
+        <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
+          <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
+          {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tax</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(taxCollected)}</span></div>}
+          {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
+          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">You keep</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
+        </div>
+      ) : (
+        <p className="text-xs mt-3 font-medium text-amber-500">No bookings yet</p>
+      )}
     </div>,
 
     // 2 — Bookings (bars)
