@@ -293,6 +293,15 @@ still takes no card. Needs the `phase2_save_card.sql` migration (section 2) run.
 - [ ] Richer client "memory": hair profile surfaced in POS + appointment view.
 - [ ] Marketing/SMS campaigns (broadcast offers, birthdays — birthday email exists, automate it).
 - [ ] Google Business review sync (Place ID field exists).
+- [ ] **Tax collected report + set-aside (CRA)** — a "Taxes" view showing GST/HST
+      **collected this year + by quarter**, plus a running "set aside $X" figure so the
+      owner doesn't spend the government's share. Frame it as *collected* (output tax),
+      not *owed* — the amount remitted is netted against input tax credits, which we
+      don't have. IMPORTANT: sales tax always stays with the shop and is remitted on
+      their own filing schedule — it never goes to CRA per-sale, even with future
+      integration. Future add-ons: filing-due reminders, NETFILE / pre-filled return.
+      Placement leaning: **Payments** (money/compliance), reached as its own tax view —
+      not Analytics. Data already exists: `transactions.tax` + `appointments.tax_amount`.
 
 ### 4b. Tap to Pay / card-present (when wrapped in Capacitor)
 Decision (Session 17): take **native Tap to Pay** once ClipWise is wrapped as a
