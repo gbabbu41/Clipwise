@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     }
 
     const tax = Number(m.tax ?? 0);
+    const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
+    // Real Stripe fee for this card sale (split 50/50 barber/shop at read time).
+    // Best-effort → 0.
+    const stripeFee = (await stripeFeeCents(piId, useConnect ? shop.stripe_account_id : null)) / 100;
     const fullRow: Record<string, unknown> = {
       shop_id,
       barber_id: m.barber_id || null,
@@ -48,20 +52,23 @@ export async function POST(request: NextRequest) {
       amount: subtotal,
       tip,
       tax,
+      stripe_fee: stripeFee,
       commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
       payment_method: "card",
       type: m.type || "service",
       stripe_session_id: session_id,
-      payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+      payment_intent_id: piId,
       source: "pos",
     };
     // Insert; progressively drop columns that don't exist yet (tax = phase30,
-    // payment_intent_id = phase16) so a POS sale is never lost pre-migration.
+    // payment_intent_id = phase16, stripe_fee = phase38) so a POS sale is never
+    // lost pre-migration.
     const attempt = (row: Record<string, unknown>) => supabaseAdmin.from("transactions").insert(row).select("id").single();
     let ins = await attempt(fullRow);
-    for (let i = 0; i < 2 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
+    for (let i = 0; i < 3 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
       const trimmed = { ...fullRow };
       if (/tax/.test(ins.error.message)) delete trimmed.tax;
+      if (/stripe_fee/.test(ins.error.message)) delete trimmed.stripe_fee;
       if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
       ins = await attempt(trimmed);
     }

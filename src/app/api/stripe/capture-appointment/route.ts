@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { sendSmsBestEffort } from "@/lib/twilio";
@@ -198,13 +198,21 @@ export async function POST(request: NextRequest) {
       payment_intent_id: pi.id ?? appt.payment_intent_id ?? null,
       source: reason === "no_show" ? "no_show" : "completion",
     };
+    // Real Stripe fee for this capture (split 50/50 barber/shop at read time).
+    // Same connected-account context the charge used. Best-effort → 0.
+    const feeDollars = (await stripeFeeCents(pi.id ?? appt.payment_intent_id, useConnect ? shop.stripe_account_id : null)) / 100;
+    const txAmount = Math.max(0, amountReceived / 100 - tipDollars - txTax);
     const txRes = await supabaseAdmin.from("transactions")
-      .insert({ ...txBase, amount: Math.max(0, amountReceived / 100 - tipDollars - txTax), tax: txTax });
-    if (txRes.error && /tax/.test(txRes.error.message) && /column|does not exist|schema cache/i.test(txRes.error.message)) {
-      // Pre-phase30 schema (no tax column) — fall back to a tax-inclusive amount
-      // so the row + totals still reconcile.
-      await supabaseAdmin.from("transactions")
-        .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+      .insert({ ...txBase, amount: txAmount, tax: txTax, stripe_fee: feeDollars });
+    if (txRes.error && /column|does not exist|schema cache/i.test(txRes.error.message)) {
+      // `stripe_fee` (phase38) or `tax` (phase30) may lag on prod — drop the
+      // missing column(s) and retry so the row + totals still reconcile.
+      const res2 = await supabaseAdmin.from("transactions")
+        .insert({ ...txBase, amount: txAmount, tax: txTax });
+      if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
+        await supabaseAdmin.from("transactions")
+          .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+      }
     }
     sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,

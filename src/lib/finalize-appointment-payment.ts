@@ -4,6 +4,7 @@
 // owner/barber alerts ONLY on the real transition, so it can't double-notify.
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
+import { stripeFeeCents } from "@/lib/stripe";
 import type { TaxConfig } from "@/lib/pricing";
 
 export interface PayableAppt {
@@ -67,6 +68,16 @@ export async function recordOnlinePaymentTx(args: {
     ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", paymentIntentId).limit(1)
     : await supabaseAdmin.from("transactions").select("id").eq("appointment_id", appointmentId).eq("source", "completion").limit(1);
   if ((dupe.data?.length ?? 0) > 0) return;
+  // Real Stripe processing fee for this card payment (split 50/50 barber/shop at
+  // read time). Read from the charge's balance_transaction on the shop's
+  // connected account. Best-effort — a fee-lookup miss just stores 0.
+  let feeDollars = 0;
+  if (paymentIntentId) {
+    const { data: sh } = await supabaseAdmin
+      .from("shops").select("stripe_account_id, stripe_connected").eq("id", shopId).maybeSingle();
+    const acct = sh?.stripe_account_id && sh?.stripe_connected ? sh.stripe_account_id : null;
+    feeDollars = (await stripeFeeCents(paymentIntentId, acct)) / 100;
+  }
   const base = {
     shop_id: shopId,
     barber_id: barberId || null,
@@ -80,11 +91,15 @@ export async function recordOnlinePaymentTx(args: {
     payment_intent_id: paymentIntentId ?? null,
     source: "completion",
   };
-  // `tax` column arrives in phase30 — fall back if it isn't there yet so the
-  // revenue row is never lost.
-  const res = await supabaseAdmin.from("transactions").insert({ ...base, tax: taxDollars });
-  if (res.error && /tax/.test(res.error.message) && /column|does not exist|schema cache/i.test(res.error.message)) {
-    await supabaseAdmin.from("transactions").insert(base).then(null, () => null);
+  // `tax` (phase30) + `stripe_fee` (phase38) may lag on prod until the migration
+  // runs — drop the missing column(s) and retry so the revenue row is never lost.
+  const full = { ...base, tax: taxDollars, stripe_fee: feeDollars };
+  const res = await supabaseAdmin.from("transactions").insert(full);
+  if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
+    const res2 = await supabaseAdmin.from("transactions").insert({ ...base, tax: taxDollars });
+    if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
+      await supabaseAdmin.from("transactions").insert(base).then(null, () => null);
+    }
   }
 }
 

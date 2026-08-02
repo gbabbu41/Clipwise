@@ -17,6 +17,7 @@ interface Tx {
   commission_amount?: number | null;
   payment_method?: string | null;
   payment_intent_id?: string | null;
+  stripe_fee?: number | null;
   created_at: string;
 }
 
@@ -99,21 +100,23 @@ export default function BarberPaymentsPage() {
 
   useEffect(() => { loadEarnings(); syncStripe(); }, [loadEarnings, syncStripe]);
 
-  // Card payments lose a Stripe fee (not stored locally). An owner keeping 100%
-  // nets gross − fee; a staff barber keeps their commission on the service
-  // amount and the shop bears the processing fee.
-  const feeOf = useCallback((t: Tx) =>
-    (t.payment_method !== "cash" && t.payment_intent_id && stripeNet?.byPi[t.payment_intent_id])
-      ? stripeNet.byPi[t.payment_intent_id].fee : 0, [stripeNet]);
+  // Real Stripe fee for a card payment. Prefer the stored per-transaction fee
+  // (phase38); fall back to the live Stripe summary for rows taken before the
+  // column existed. Cash has no fee.
+  const feeOf = useCallback((t: Tx) => {
+    if (typeof t.stripe_fee === "number" && t.stripe_fee > 0) return t.stripe_fee;
+    return (t.payment_method !== "cash" && t.payment_intent_id && stripeNet?.byPi[t.payment_intent_id])
+      ? stripeNet.byPi[t.payment_intent_id].fee : 0;
+  }, [stripeNet]);
   const earnedOf = useCallback((t: Tx) => {
     const tipAmt = t.tip ?? 0;
     // An owner keeping 100% nets gross − processing fee (it's all theirs, they
-    // bear the fee). Anyone on a partial cut (staff, or an owner who set < 100%
-    // to split barber wage vs business) takes their commission + tips; the fee is
-    // a business cost.
+    // bear the whole fee).
     if (isOwner && pct >= 100) return grossOf(t) - feeOf(t);
+    // Staff (or an owner on a partial cut): commission on the service + all tips,
+    // minus HALF the card fee — the barber and shop split processing 50/50.
     const commission = t.commission_amount ?? (t.amount * pct) / 100;
-    return commission + tipAmt;
+    return commission + tipAmt - feeOf(t) / 2;
   }, [isOwner, pct, feeOf]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {

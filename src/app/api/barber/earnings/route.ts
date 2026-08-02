@@ -64,10 +64,15 @@ export async function GET(request: NextRequest) {
   // rate. For an owner at 100% this equals the whole service amount (unchanged);
   // an owner who sets e.g. 50% keeps half here and the rest is business profit.
   const commission = list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * commissionPercent) / 100), 0);
-  // Take-home = service commission + all tips. The remainder is the shop/business
-  // cut (for the owner, that's still their money — it's their business profit).
-  const youKeep = commission + tips;
-  const shopKeeps = Math.max(0, revenue - youKeep);
+  // Card processing fee is split 50/50 with the shop. Real fee stored per card
+  // transaction (phase38); cash sales have 0. The barber covers half.
+  const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const barberFeeShare = stripeFee / 2;
+  // Take-home = service commission + all tips − the barber's half of the card fee.
+  // The remainder (service minus commission minus the shop's own half of the fee)
+  // is the shop/business cut.
+  const youKeep = Math.max(0, commission + tips - barberFeeShare);
+  const shopKeeps = Math.max(0, serviceAmount - commission - barberFeeShare);
 
   return NextResponse.json({
     transactions: list,
@@ -75,6 +80,8 @@ export async function GET(request: NextRequest) {
       revenue,
       commission,
       tips,
+      stripeFee,
+      barberFeeShare,
       youKeep,
       shopKeeps,
       isOwner,

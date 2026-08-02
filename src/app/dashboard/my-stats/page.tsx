@@ -23,6 +23,7 @@ export default function MyStatsPage() {
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [commissionRate, setCommissionRate] = useState(50);
+  const [feeTotal, setFeeTotal] = useState(0); // real Stripe fees for the period
 
   // Resolve barber ID
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function MyStatsPage() {
     setLoading(true);
     const [from, to] = getRange(period);
 
-    const [apptRes, hoursRes, revRes] = await Promise.all([
+    const [apptRes, hoursRes, revRes, feeRes] = await Promise.all([
       supabase
         .from("appointments")
         .select("*, services(id, name, price, category), barbers(id, name)")
@@ -80,11 +81,22 @@ export default function MyStatsPage() {
         .eq("barber_id", barberId)
         .order("created_at", { ascending: false })
         .limit(20),
+      // Real card fees for the period (barber pays half). Errors on a pre-phase38
+      // schema → falls back to 0.
+      supabase
+        .from("transactions")
+        .select("stripe_fee, refunded, created_at")
+        .eq("barber_id", barberId)
+        .gte("created_at", from)
+        .lte("created_at", `${to}T23:59:59`),
     ]);
 
     setAppointments((apptRes.data ?? []) as AppointmentWithDetails[]);
     setHours(hoursRes.data ?? []);
     setReviews(revRes.data ?? []);
+    const fees = ((feeRes.data ?? []) as { stripe_fee: number | null; refunded: boolean | null }[])
+      .reduce((s, t) => s + (t.refunded ? 0 : (t.stripe_fee ?? 0)), 0);
+    setFeeTotal(fees);
     setLoading(false);
   }, [barberId, period]);
 
@@ -96,7 +108,9 @@ export default function MyStatsPage() {
   // (total_amount includes GST/HST) so revenue + commission match the rest of the
   // app — a barber doesn't earn commission on tax.
   const revenue = completed.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-  const commission = revenue * (commissionRate / 100);
+  // Barber pays half the real card processing fee (50/50 split with the shop) —
+  // matches the Earnings-page take-home.
+  const commission = Math.max(0, revenue * (commissionRate / 100) - feeTotal / 2);
   const noShows = appointments.filter(a => a.status === "no-show").length;
   const totalHours = hours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
   const avgRating = reviews.length > 0

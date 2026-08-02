@@ -80,15 +80,27 @@ export default function PayrollPage() {
     setLoading(true);
     const { from, to } = getDateRange(period);
 
-    const [{ data: bData }, { data: apptData }, { data: hoursData }] = await Promise.all([
+    const [{ data: bData }, { data: apptData }, { data: hoursData }, txRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", from).lte("date", to).eq("status", "completed"),
       supabase.from("staff_hours").select("*").eq("shop_id", shop.id).gte("date", from).lte("date", to),
+      // Real card fees for the period, to net the barber's half out of commission.
+      // Selecting stripe_fee errors on a pre-phase38 schema → falls back to no fee.
+      supabase.from("transactions").select("barber_id, stripe_fee, refunded, created_at")
+        .eq("shop_id", shop.id).gte("created_at", from).lte("created_at", `${to}T23:59:59`),
     ]);
 
     const barberList = (bData ?? []) as Barber[];
     const appts = (apptData ?? []) as Appointment[];
     const hours = (hoursData ?? []) as StaffHour[];
+
+    // Sum each barber's real Stripe fees for the period (skip refunded). Empty
+    // until the phase38 migration runs — then commission nets the barber's half.
+    const feeByBarber = new Map<string, number>();
+    for (const t of (txRes.data ?? []) as { barber_id: string | null; stripe_fee: number | null; refunded: boolean | null }[]) {
+      if (t.refunded || !t.barber_id) continue;
+      feeByBarber.set(t.barber_id, (feeByBarber.get(t.barber_id) ?? 0) + (t.stripe_fee ?? 0));
+    }
 
     const result: BarberPayroll[] = barberList.map(b => {
       // A refunded appointment keeps status "completed" (only payment_status
@@ -99,7 +111,10 @@ export default function PayrollPage() {
       // and a barber doesn't earn commission on tax (it's remitted to the govt).
       // Matches the barber Earnings page, which also computes on pre-tax amounts.
       const serviceRevenue = bAppts.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-      const commissionEarned = serviceRevenue * (b.commission_percent / 100);
+      // Barber and shop split the card processing fee 50/50 — subtract the
+      // barber's half so this matches their Earnings-page take-home.
+      const feeShare = (feeByBarber.get(b.id) ?? 0) / 2;
+      const commissionEarned = Math.max(0, serviceRevenue * (b.commission_percent / 100) - feeShare);
       const bHours = hours.filter(h => h.barber_id === b.id);
       const hoursWorked = bHours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
       return { barber: b, appointments: bAppts, serviceRevenue, commissionEarned, hoursWorked };
