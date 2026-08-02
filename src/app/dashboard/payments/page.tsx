@@ -7,6 +7,7 @@ import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
+import { countablePosTxs, isNoShowTx, isPaid, lineNetFee } from "@/lib/revenue";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -230,7 +231,6 @@ export default function PaymentsPage() {
     return () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); supabase.removeChannel(ch); };
   }, [shop, loadData]);
 
-  const isPaid = (s: string | null) => s === "paid" || s === "captured";
   const apptDateMs = (a: ApptRow) => new Date(a.date + "T00:00:00").getTime() + timeToMinutes(a.time_slot) * 60000;
 
   type FeedItem = {
@@ -241,14 +241,9 @@ export default function PaymentsPage() {
     appt?: ApptRow;
   };
 
-  const paidSig = new Set(appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`));
-  const isNoShowTx = (t: TxRow) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
-  const posTxs = txs.filter(t => {
-    if (isNoShowTx(t)) return true;
-    if (t.source === "completion") return false;
-    if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
-    return true;
-  });
+  // Which transactions count as income — the SAME shared rule the Dashboard uses
+  // (src/lib/revenue.ts), so the two can never disagree.
+  const posTxs = countablePosTxs(appts, txs);
 
   const feedAll: FeedItem[] = [
     ...appts
@@ -286,8 +281,10 @@ export default function PaymentsPage() {
     }),
   ];
 
-  const netOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].net : i.amount;
-  const feeOf = (i: FeedItem) => (i.pi && stripeNet?.byPi[i.pi]) ? stripeNet.byPi[i.pi].fee : 0;
+  // Net + fee per charge — the SAME shared helper the Dashboard's revenue math
+  // uses, so Stripe fees are applied identically in both places.
+  const netOf = (i: FeedItem) => lineNetFee(i.pi, i.amount, stripeNet?.byPi).net;
+  const feeOf = (i: FeedItem) => lineNetFee(i.pi, i.amount, stripeNet?.byPi).fee;
 
   // Barber scope — when a specific barber is picked, every earnings figure
   // (carousel + cards) reflects only their appointments. POS / walk-in sales

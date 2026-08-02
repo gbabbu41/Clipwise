@@ -17,7 +17,7 @@ export type RevAppt = {
   payment_status?: string | null;
   payment_method?: string | null;
   payment_intent_id?: string | null;
-  status: string;
+  status?: string | null;
 };
 
 export type RevTx = {
@@ -37,8 +37,36 @@ export type RevTx = {
 // paymentIntent id -> exact figures from Stripe balance transactions.
 export type ByPi = Record<string, { gross: number; fee: number; net: number }>;
 
-const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
-const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
+export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
+export const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
+
+/**
+ * The ONE rule for which transactions count as income (used by both the
+ * Dashboard and the Payments page so they can never disagree). De-dups txs
+ * against paid appointments (same client|amount) and drops completion-source
+ * txs — the appointment already represents that charge.
+ */
+export function countablePosTxs<T extends RevTx>(appts: RevAppt[], txs: T[]): T[] {
+  const paidSig = new Set(
+    appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`),
+  );
+  return txs.filter(t => {
+    if (isNoShowTx(t)) return true;
+    if (t.source === "completion") return false;
+    if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
+    return true;
+  });
+}
+
+/**
+ * Net + fee for one charge line, the ONE place Stripe fees are applied. A card
+ * charge with a matching Stripe balance-txn uses the exact net/fee; everything
+ * else (cash, or not-yet-synced) nets to its gross with no fee.
+ */
+export function lineNetFee(pi: string | null | undefined, gross: number, byPi?: ByPi): { net: number; fee: number } {
+  const b = pi && byPi ? byPi[pi] : undefined;
+  return b ? { net: b.net, fee: b.fee } : { net: gross, fee: 0 };
+}
 
 export type CollectedTotals = {
   gross: number;   // everything collected, incl. tax + tips, before Stripe fees
@@ -55,25 +83,8 @@ export type CollectedTotals = {
  * exact net/fees; omit it and net === gross (fees 0).
  */
 export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): CollectedTotals {
-  // De-dup transactions against paid appointments (same client|amount) and drop
-  // completion-source txs — the appointment already represents that charge.
-  const paidSig = new Set(
-    appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`),
-  );
-  const posTxs = txs.filter(t => {
-    if (isNoShowTx(t)) return true;
-    if (t.source === "completion") return false;
-    if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
-    return true;
-  });
-
-  // Net + fee for one card/cash line, mirroring the Payments page's netOf/feeOf:
-  // a card charge with a matching Stripe balance-txn uses the exact net/fee;
-  // everything else (cash, or not-yet-synced) nets to its gross with no fee.
-  const lineNetFee = (pi: string | null | undefined, gross: number) => {
-    const b = pi && byPi ? byPi[pi] : undefined;
-    return b ? { net: b.net, fee: b.fee } : { net: gross, fee: 0 };
-  };
+  // Same income rule the Payments page uses (shared, so they can't disagree).
+  const posTxs = countablePosTxs(appts, txs);
 
   let gross = 0, fees = 0, net = 0, tax = 0, cash = 0;
 
@@ -83,7 +94,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     if (!isPaid(a.payment_status)) continue;
     if (a.status === "no-show") continue;
     const amt = a.total_amount ?? 0;
-    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, amt);
+    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += a.tax_amount ?? 0;
     if (a.payment_method === "cash") cash += amt;
@@ -93,7 +104,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
   for (const t of posTxs) {
     if (t.refunded) continue;
     const amt = (t.amount ?? 0) + (t.tip ?? 0);
-    const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt);
+    const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;
     if (t.payment_method === "cash") cash += amt;
