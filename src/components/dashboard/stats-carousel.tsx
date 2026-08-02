@@ -88,15 +88,19 @@ export function StatsCarousel({
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
-      {taxCollected > 0 && (
-        <p className="text-[11px] text-emerald-500 mt-1">+ {formatCurrency(taxCollected)} tax collected</p>
-      )}
-      {(cashIncluded > 0 || feesPaid > 0) && (
-        <p className="text-[11px] text-grey-muted mt-0.5">
-          {[
+      {/* What's INSIDE the net figure (tax to be remitted + cash collected). */}
+      {(taxCollected > 0 || cashIncluded > 0) && (
+        <p className="text-[11px] text-grey-muted mt-1">
+          incl. {[
+            taxCollected > 0 ? `${formatCurrency(taxCollected)} tax` : null,
             cashIncluded > 0 ? `${formatCurrency(cashIncluded)} cash` : null,
-            feesPaid > 0 ? `${formatCurrency(feesPaid)} Stripe fees` : null,
           ].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      {/* The before-fees view: gross taken in, and what Stripe kept. */}
+      {feesPaid > 0 && (
+        <p className="text-[11px] text-grey-muted mt-0.5">
+          {formatCurrency(revenue + feesPaid)} gross · {formatCurrency(feesPaid)} Stripe fees
         </p>
       )}
       <p className={cn("text-xs mt-1.5 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>

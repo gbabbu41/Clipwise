@@ -597,9 +597,12 @@ export default function PaymentsPage() {
             <div className="cwp-amt">{formatCurrency(p.collected)}</div>
             <div className={cn("cwp-meta", p.count === 0 && "cwp-flat")}>
               {p.count > 0
-                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{p.tax > 0 ? ` · incl. ${formatCurrency(p.tax)} tax` : ""}{p.cash > 0 ? ` · ${formatCurrency(p.cash)} cash` : ""}{p.fees > 0 ? ` · after ${formatCurrency(p.fees)} fees` : ""}</span></>
+                ? <>↑ {p.count} cut{p.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(p.avg)} avg{(p.tax > 0 || p.cash > 0) ? ` · incl. ${[p.tax > 0 ? `${formatCurrency(p.tax)} tax` : null, p.cash > 0 ? `${formatCurrency(p.cash)} cash` : null].filter(Boolean).join(" · ")}` : ""}</span></>
                 : "No cuts in this period"}
             </div>
+            {p.count > 0 && p.fees > 0 && (
+              <div className="cwp-meta"><span className="cwp-muted">{formatCurrency(p.collected + p.fees)} gross · {formatCurrency(p.fees)} Stripe fees</span></div>
+            )}
             <Spark data={p.data} />
           </div>
         ))}
@@ -704,7 +707,8 @@ export default function PaymentsPage() {
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
                           : <>
                               <span className="cwp-method">{isCash ? "Cash" : "Card"}</span>
-                              {ago ? ` · ${ago}` : (i.method !== "cash" && feeOf(i) > 0 ? ` · after ${formatCurrency(feeOf(i))} fee` : "")}
+                              {ago ? ` · ${ago}` : ""}
+                              {i.method !== "cash" && feeOf(i) > 0 ? ` · ${formatCurrency(feeOf(i))} fee` : ""}
                             </>}
                       </div>
                     </div>
