@@ -1015,6 +1015,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Barber-column pagination for the all-barbers day view (arrows / swipe).
   const [colPage, setColPage] = useState(0);
   const [colWrapW, setColWrapW] = useState(0);
+  // Visible height of the day-timeline scroll area — the hour rows stretch to
+  // fill it so there's never a dark void below the grid on tall desktops.
+  const [dayColH, setDayColH] = useState(0);
   const colWrapRef = useRef<HTMLDivElement>(null);
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
@@ -1222,6 +1225,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     setColWrapW(el.getBoundingClientRect().width);
     return () => ro.disconnect();
   }, [view, barberFilter, isMobile]);
+
+  // Measure the day-timeline scroll viewport's height. The hour rows stretch to
+  // fill it (see rowH in renderDayView) so a short day never leaves a dark band
+  // below the grid on a tall desktop monitor. clientHeight is set by the flex
+  // layout, not the content, so measuring it can't feed back into itself.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => setDayColH(entries[0].contentRect.height));
+    ro.observe(el);
+    setDayColH(el.clientHeight);
+    return () => ro.disconnect();
+  }, [view, dayLayout, barberFilter, isMobile, showUnscheduled]);
 
 
   const showToast = useCallback((msg: string) => {
@@ -1908,6 +1924,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const hours: number[] = [];
     for (let h = winStart; h < winEnd; h++) hours.push(h);
 
+    // Stretch the hour rows so the grid always fills the visible scroll area —
+    // on a tall desktop a short day would otherwise end mid-screen and leave a
+    // dark void below. On laptops/phones the natural 62px wins (no change). One
+    // shared rowH drives the gridlines AND the absolute-positioned cards, so
+    // everything stays aligned.
+    const rowH = dayColH > 0 && hours.length > 0
+      ? Math.max(ROW_PX, Math.ceil(dayColH / hours.length))
+      : ROW_PX;
+
     return (
       <div ref={colWrapRef} className="flex flex-col h-full">
         {renderWeekStrip()}
@@ -1951,7 +1976,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${ROW_PX}px` }}>
+              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${rowH}px` }}>
                 <div className="relative text-right pr-2">
                   <span className="text-[10px] text-grey">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -1979,8 +2004,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {/* Free slots — quiet dark space (tap to add; no "+" chrome).
                         In-hours = subtle #141414 fill; outside-hours = bare. */}
                     {empties.map(({ slot, minutes }) => {
-                      const top = (parseTime(slot) - winStart) * ROW_PX;
-                      const height = Math.max(16, (minutes / 60) * ROW_PX - 4);
+                      const top = (parseTime(slot) - winStart) * rowH;
+                      const height = Math.max(16, (minutes / 60) * rowH - 4);
                       const outside = isOutsideSchedule(b.id, slot);
                       return (
                         <button key={`e${slot}`}
@@ -1995,8 +2020,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     })}
                     {/* Blocked-hours bands — hatched; tap to remove (if allowed) */}
                     {colBlocks.map(bl => {
-                      const top = (bl.startMin / 60 - winStart) * ROW_PX;
-                      const height = Math.max(16, ((bl.endMin - bl.startMin) / 60) * ROW_PX - 4);
+                      const top = (bl.startMin / 60 - winStart) * rowH;
+                      const height = Math.max(16, ((bl.endMin - bl.startMin) / 60) * rowH - 4);
                       return (
                         <button key={`blk${bl.id}`}
                           title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
@@ -2013,9 +2038,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     })}
                     {/* Booked blocks — height ∝ duration; overlaps sit side-by-side */}
                     {laid.map(({ a: appt, lane, lanes }) => {
-                      const top = (parseTime(appt.time_slot) - winStart) * ROW_PX;
+                      const top = (parseTime(appt.time_slot) - winStart) * rowH;
                       const duration = apptDuration(appt);
-                      const height = Math.max(28, (duration / 60) * ROW_PX - 4);
+                      const height = Math.max(28, (duration / 60) * rowH - 4);
                       const dimmed = isDimmed(appt.status);
                       const widthPct = 100 / lanes;
                       return (
@@ -2067,7 +2092,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const now = new Date();
               const currentH = now.getHours() + now.getMinutes() / 60;
               if (currentH < winStart || currentH > winEnd) return null;
-              const top = (currentH - winStart) * ROW_PX;
+              const top = (currentH - winStart) * rowH;
               return (
                 <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                   <div className="flex items-center">
