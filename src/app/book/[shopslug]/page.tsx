@@ -203,7 +203,6 @@ export default function BookingPage() {
   // Optional tip the customer adds at booking (online payment only). Percent of
   // the discounted service subtotal; charged with the card on completion.
   const [tipPercent, setTipPercent] = useState(0);
-  const [showPayChoiceModal, setShowPayChoiceModal] = useState(false);
   /** The customer's acceptance of the no-show charge disclaimer. Required
    *  before any card is taken (held ≤7 days, or saved >7 days) when the shop
    *  has no-show protection on. In-person bookings never need it. */
@@ -758,28 +757,23 @@ export default function BookingPage() {
     const method = giftCoversAll ? "in_person" : (methodOverride ?? payMethodChoice);
 
     // ── Pay-method choice gate ──────────────────────────────────────────────
-    // The owner's `allow_pay_in_person` toggle is authoritative (see
-    // canPayInPersonNow above). Online is available only when the shop can
-    // actually charge (paid plan + finished Stripe Connect).
-    //   • both  → let the customer choose (modal)
-    //   • online only → straight to Stripe (modal only if a card + no-show
-    //                    consent is required, so the consent box is shown)
-    //   • in-person only → book in-person
-    //   • neither → in-person is off AND the shop can't charge online yet;
-    //               there's no way to take payment, so tell the customer.
+    // The method is normally chosen inline on the Confirm step (selector for
+    // both-available shops; the sole method otherwise) and passed in, so this is
+    // a safety net. If it's ever missing on a payable booking, auto-route when
+    // only one method is possible, else nudge the customer to pick.
     if (total > 0 && !method) {
-      if (canPayOnlineNow && canPayInPersonNow) {
-        setShowPayChoiceModal(true);
-        return;
-      }
-      if (canPayOnlineNow) {
-        if (cardForNoShow && !noShowConsent) { setShowPayChoiceModal(true); return; }
+      if (canPayOnlineNow && !canPayInPersonNow) {
+        if (cardForNoShow && !noShowConsent) { showToast("Please accept the no-show policy to continue.", false); return; }
         setPayMethodChoice("online");
         return confirmBooking("online");
       }
-      if (canPayInPersonNow) {
+      if (canPayInPersonNow && !canPayOnlineNow) {
         setPayMethodChoice("in_person");
         return confirmBooking("in_person");
+      }
+      if (canPayOnlineNow && canPayInPersonNow) {
+        showToast("Please choose how you'd like to pay.", false);
+        return;
       }
       showToast("This shop requires online payment, which isn't available yet. Please contact the shop to book.", false);
       return;
@@ -1014,6 +1008,19 @@ export default function BookingPage() {
   const allowInPerson = !cardRequired && ((shop?.allow_pay_in_person ?? true) || !shopCanCharge);
   const canPayOnlineNow = total > 0 && shopCanCharge;
   const canPayInPersonNow = total > 0 && allowInPerson;
+
+  // Payment method for the confirm step. When BOTH online + in-person are
+  // offered, the customer picks inline (payMethodChoice); when only one is
+  // possible, that's the sole method. `effectiveMethod` is what the confirm
+  // step reflects (tip + no-show consent are online-only) and what Confirm
+  // submits. For a $0 booking neither is "payable", so it stays null and the
+  // free/no-charge path runs.
+  const soleMethod: "online" | "in_person" | null =
+    canPayOnlineNow && !canPayInPersonNow ? "online"
+      : canPayInPersonNow && !canPayOnlineNow ? "in_person"
+        : null;
+  const bothMethods = canPayOnlineNow && canPayInPersonNow;
+  const effectiveMethod = payMethodChoice ?? soleMethod;
 
   // ── Sales tax (from the shop's booking_settings JSON) — display only; the
   // server recomputes it authoritatively at checkout. Tax applies to the
@@ -1374,29 +1381,29 @@ export default function BookingPage() {
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
   const noShowConsentBox = (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
+    <div className="rounded-2xl border border-[#2a2a2a] bg-black overflow-hidden">
       <div className="flex items-start gap-3 p-4">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-400">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900">Reserve with a card</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-gray-500">
+          <p className="text-sm font-semibold text-white">Reserve with a card</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#9a9a9a]">
             {willSaveCard ? (
-              <>Your visit is more than 7 days away, so your card is securely <span className="font-medium text-gray-900">saved</span> now — not charged. You&apos;ll pay after your appointment.</>
+              <>Your visit is more than 7 days away, so your card is securely <span className="font-medium text-white">saved</span> now — not charged. You&apos;ll pay after your appointment.</>
             ) : (
-              <>Your card is securely <span className="font-medium text-gray-900">held</span> now — not charged. You&apos;ll pay after your appointment.</>
+              <>Your card is securely <span className="font-medium text-white">held</span> now — not charged. You&apos;ll pay after your appointment.</>
             )}
-            {" "}If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-gray-900">up to the full price</span> of your service.
+            {" "}If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-white">up to the full price</span> of your service.
           </p>
         </div>
       </div>
-      <label className="flex items-center gap-2.5 px-4 py-3 border-t border-gray-200 bg-white cursor-pointer">
+      <label className="flex items-center gap-2.5 px-4 py-3 border-t border-[#2a2a2a] bg-[#0d0d0d] cursor-pointer">
         <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
-          className="h-[18px] w-[18px] rounded accent-sky-600 flex-shrink-0" />
-        <span className="text-[13px] font-medium text-gray-900">I understand and accept the no-show policy</span>
+          className="h-[18px] w-[18px] rounded accent-sky-500 flex-shrink-0" />
+        <span className="text-[13px] font-medium text-white">I understand and accept the no-show policy</span>
       </label>
     </div>
   );
@@ -2065,8 +2072,34 @@ export default function BookingPage() {
                 )}
               </div>
             </div>
-            {/* Optional tip — online payment only. Charged with the card after the visit. */}
-            {canPayOnlineNow && tipsEnabledShop && (
+            {/* Choose how to pay FIRST (when both are possible) so the tip + card
+                consent below only appear for the online path — a pay-in-person
+                customer is never shown a tip picker or asked for a card. */}
+            {bothMethods && (
+              <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
+                <p className="text-sm font-semibold text-white mb-3">How would you like to pay?</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <button type="button" onClick={() => setPayMethodChoice("online")}
+                    className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
+                      payMethodChoice === "online" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                    <span className="text-lg leading-none">💳</span>
+                    <span className="flex-1 text-sm font-semibold">Pay online now
+                      <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "online" ? "text-black/60" : "text-[#8f8f8f]")}>Secure card · add a tip</span>
+                    </span>
+                  </button>
+                  <button type="button" onClick={() => { setPayMethodChoice("in_person"); setTipPercent(0); }}
+                    className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
+                      payMethodChoice === "in_person" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                    <span className="text-lg leading-none">🏪</span>
+                    <span className="flex-1 text-sm font-semibold">Pay at the shop
+                      <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>No card needed · pay after your cut</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* Optional tip — online only, shown once "Pay online" is the chosen (or sole) method. */}
+            {effectiveMethod === "online" && tipsEnabledShop && (
               <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold text-white">Add a tip</span>
@@ -2089,12 +2122,15 @@ export default function BookingPage() {
                 )}
               </div>
             )}
-            {canPayInPersonNow
-              ? <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
-              : <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
+            {/* No-show consent — inline, only for the online/card path. */}
+            {effectiveMethod === "online" && cardForNoShow && noShowConsentBox}
+            {/* Footer reassurance, matched to the chosen method. */}
+            {effectiveMethod === "in_person"
+              ? <p className="text-xs text-[#999] text-center">Pay at the shop · reserved as pending until the shop confirms · Free cancellation 24h before</p>
+              : effectiveMethod === "online"
+                ? <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
+                : <p className="text-xs text-[#999] text-center">Free cancellation 24h before</p>
             }
-            {/* The no-show policy is now shown as the "I accept" consent card in
-                the pay-method step — the old amber heads-up here was redundant. */}
           </div>
           );
         })()}
@@ -2147,8 +2183,10 @@ export default function BookingPage() {
           ) : (
             <button
               type="button"
-              disabled={saving}
-              onClick={() => confirmBooking()}
+              disabled={saving
+                || (bothMethods && !payMethodChoice)
+                || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
+              onClick={() => confirmBooking(effectiveMethod ?? undefined)}
               className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               {saving ? (
@@ -2159,58 +2197,15 @@ export default function BookingPage() {
               ) : (
                 <Check size={16} />
               )}
-              Confirm
+              {bothMethods && !payMethodChoice ? "Choose payment" : (effectiveMethod === "in_person" ? "Book" : "Confirm")}
             </button>
           )}
         </div>
       </div>
 
-      {/* Pay-method choice modal — only ever opens when both online and
-          in-person are valid options for this shop. Once a button is
-          clicked we re-enter confirmBooking with the choice in state. */}
-      {showPayChoiceModal && (
-        <>
-          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowPayChoiceModal(false)} />
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-white border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-5 shadow-xl">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  {canPayInPersonNow ? "How would you like to pay?" : "Secure your booking"}
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {canPayInPersonNow ? "You can pay now or settle up at the shop." : "This shop takes payment online at booking."}
-                </p>
-              </div>
-
-              {/* No-show consent — required only for the online (card) path.
-                  Paying in person stays available without it, so the customer
-                  can always avoid handing over a card. */}
-              {cardForNoShow && noShowConsentBox}
-
-              {canPayOnlineNow && (
-                <button type="button" className="btn btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed" style={{ padding: "1rem" }}
-                  disabled={cardForNoShow && !noShowConsent}
-                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("online"); confirmBooking("online"); }}>
-                  💳 Pay online now (secure · Stripe)
-                </button>
-              )}
-
-              {canPayInPersonNow && (
-                <button type="button" className="btn btn-outline-dark w-full" style={{ padding: "1rem" }}
-                  onClick={() => { setShowPayChoiceModal(false); setPayMethodChoice("in_person"); confirmBooking("in_person"); }}>
-                  🏪 Pay in person at the shop
-                </button>
-              )}
-
-              {canPayInPersonNow && (
-                <p className="text-xs text-[#8f8f8f] text-center">
-                  Paying in person? Your booking is reserved as pending until the shop confirms.
-                </p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+      {/* Pay-method choice is now inline on the Confirm step (selector +
+          online-only tip + inline consent), so the old pop-up modal was
+          removed. */}
 
       {/* Smart-waitlist signup modal */}
       {showWaitlistModal && (
