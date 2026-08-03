@@ -1018,10 +1018,14 @@ export default function BookingPage() {
   // `allow_pay_in_person` toggle is AUTHORITATIVE: when it's off, in-person is
   // never offered (previously it was force-enabled whenever the shop couldn't
   // charge online, which silently ignored the toggle).
-  // Owner's toggle is authoritative — EXCEPT when the shop can't actually charge
-  // a card (Stripe not finished / not on a paid plan). Then always allow
-  // in-person, so a "card required" shop can never become unbookable.
-  const allowInPerson = (shop?.allow_pay_in_person ?? true) || !shopCanCharge;
+  // Merged model: a shop either REQUIRES a card (no-show protection, and it can
+  // actually charge) OR offers pay-in-person — never both. no_show_protection is
+  // the "requires a card" signal and takes precedence over the (possibly stale)
+  // allow_pay_in_person flag, so turning card-required on always hides in-person.
+  // If a shop wants a card but can't charge yet (Stripe unfinished), fall back to
+  // in-person so booking is never impossible.
+  const cardRequired = !!(shop?.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection && shopCanCharge && total > 0;
+  const allowInPerson = !cardRequired && ((shop?.allow_pay_in_person ?? true) || !shopCanCharge);
   const canPayOnlineNow = total > 0 && shopCanCharge;
   const canPayInPersonNow = total > 0 && allowInPerson;
 
@@ -2115,7 +2119,7 @@ export default function BookingPage() {
               <p className="text-xs text-amber-200/90 text-center bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
                 ⓘ <span className="font-semibold">No-show policy:</span> if you pay online, your card is{" "}
                 {willSaveCard ? <>securely <span className="font-semibold">saved</span> (not charged now)</> : <>securely <span className="font-semibold">held</span></>}{" "}
-                and charged after your visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if you don&apos;t show up. Paying in person takes no card.
+                and charged after your visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if you don&apos;t show up.{canPayInPersonNow ? " Paying in person takes no card." : ""}
               </p>
             )}
           </div>
