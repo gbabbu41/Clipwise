@@ -455,7 +455,8 @@ export default function AppointmentsPage() {
 
   const saveNotes = async () => {
     if (!selectedApt) return;
-    await supabase.from("appointments").update({ notes }).eq("id", selectedApt.id);
+    const { error } = await supabase.from("appointments").update({ notes }).eq("id", selectedApt.id);
+    if (error) { showToast(`Couldn't save note: ${error.message}`); return; }
     setAppointments(prev => prev.map(a => a.id === selectedApt.id ? { ...a, notes } : a));
     showToast("Notes saved");
   };
@@ -1253,8 +1254,10 @@ export default function AppointmentsPage() {
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => showToast("Barber assigned")}>Assign</Button>
                         <Button size="sm" variant="danger" onClick={async () => {
-                          await supabase.from("waitlist").delete().eq("id", wl.id);
+                          const { error } = await supabase.from("waitlist").delete().eq("id", wl.id);
+                          if (error) { showToast(`Couldn't remove: ${error.message}`); return; }
                           setWaitlist(prev => prev.filter(w => w.id !== wl.id));
+                          showToast("Removed from waitlist");
                         }}>Remove</Button>
                       </div>
                     </div>

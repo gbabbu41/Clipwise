@@ -336,6 +336,14 @@ export function makeApptActions(opts: {
       const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
       if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
       await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      // Expire any open checkout link so the customer can't ALSO pay it after the
+      // card was just captured (double-charge path). Matches cashComplete.
+      if (appt.stripe_checkout_session_id) {
+        fetch("/api/stripe/cancel-payment-link", {
+          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id }),
+        }).catch(() => {});
+      }
       patch(appt.id, { status: "completed", payment_status: "captured", paid_at: new Date().toISOString() });
       await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
       setBusy("");
@@ -1455,19 +1463,28 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     });
     const data = await res.json().catch(() => ({ ok: false }));
     setBlockBusy(false);
-    if (!res.ok || !data.ok) return;
+    if (!res.ok || !data.ok) {
+      // Surface the failure — a silent return left the owner thinking time was
+      // blocked (e.g. lunch) when it never saved, risking a booking over it.
+      showToast(`Couldn't block that time: ${data.error ?? "please try again"}`);
+      return;
+    }
     setAddCtx(null);
+    showToast("Time blocked");
     load();
   };
 
   const removeBlock = async (b: BlockRow) => {
     if (!shop || !accessToken) return;
     if (typeof window !== "undefined" && !window.confirm("Remove this block?")) return;
-    await fetch("/api/calendar/block", {
+    const res = await fetch("/api/calendar/block", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action: "remove", shop_id: shop.id, request_id: b.id }),
     }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({ ok: false })) : { ok: false };
+    if (!res || !res.ok || !data.ok) { showToast(`Couldn't remove the block: ${data.error ?? "please try again"}`); return; }
+    showToast("Block removed");
     load();
   };
 

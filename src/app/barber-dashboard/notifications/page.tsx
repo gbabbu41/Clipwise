@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { X, Check, Calendar, CalendarX2, AlertTriangle, Info, Bell, Star, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
@@ -42,9 +43,19 @@ function notifTime(dateStr: string) {
   return `${friendlyDate(date)}, ${t}`;
 }
 
+// Where an actionable notification should take the barber so "Review ›" actually
+// does something (it used to only mark the row read). Keyed off the classify badge.
+const destForBadge = (badge: string): string | null => {
+  if (badge === "Waitlist") return "/barber-dashboard/waitlist";
+  if (badge === "Pending" || badge === "Booking" || badge === "Confirmed") return "/barber-dashboard/calendar";
+  if (badge === "Request" || badge === "Schedule") return "/barber-dashboard/time-off";
+  return null;
+};
+
 export default function BarberNotificationsPage() {
   const { user } = useAuth();
   const { shop } = useBarber();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -158,7 +169,13 @@ export default function BarberNotificationsPage() {
           const card = (notif: Notification) => {
             const c = classify(notif);
             return (
-              <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
+              <div key={notif.id} onClick={() => {
+                  if (!notif.is_read) markRead(notif.id);
+                  // Actionable rows now actually go somewhere the barber can act,
+                  // instead of only marking themselves read.
+                  const dest = c.actionable ? destForBadge(c.badge) : null;
+                  if (dest) router.push(dest);
+                }}
                 style={{ borderLeftColor: c.accent }}
                 className={cn("group relative flex items-start gap-3 p-4 rounded-2xl border border-l-[3px] transition-all cursor-pointer",
                   notif.is_read ? "bg-card border-border hover:bg-card-raised" : "bg-white/[0.04] border-border hover:border-white/30")}>

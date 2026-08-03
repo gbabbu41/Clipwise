@@ -228,11 +228,9 @@ export default function BarberOverviewPage() {
             <Link href="/barber-dashboard/calendar" className="block bg-card-raised border border-border rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
               <div className="flex items-center justify-between px-3.5 py-3 border-b border-border">
                 <p className="text-sm font-bold text-foreground">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
-                <div className="flex bg-card border border-border rounded-lg overflow-hidden text-[11px]">
-                  <span className="px-2.5 py-1 text-grey">Day</span>
-                  <span className="px-2.5 py-1 bg-white text-black font-bold">Week</span>
-                  <span className="px-2.5 py-1 text-grey">Month</span>
-                </div>
+                {/* The whole card links to the full calendar — an honest hint,
+                    not a fake Day/Week/Month switcher that did nothing. */}
+                <span className="text-[11px] font-medium text-grey">Open calendar →</span>
               </div>
               <div className="overflow-x-auto">
                 <div className="min-w-[620px]">
