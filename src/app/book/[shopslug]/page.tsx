@@ -966,24 +966,10 @@ export default function BookingPage() {
       }).catch(() => null);
     }
 
-    // Notification email to shop owner
-    if (shop.email) {
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "new_booking_owner", data: { ...bookingData, ownerEmail: shop.email } }),
-      }).catch(() => null);
-    }
-
-    // Notification email to assigned barber
-    const assignedBarber = barbers.find(b => b.id === finalBarberId);
-    if (assignedBarber?.email) {
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "new_booking_barber", data: { ...bookingData, barberEmail: assignedBarber.email, barberName: assignedBarber.name } }),
-      }).catch(() => null);
-    }
+    // The owner + assigned-barber "new booking" emails are sent SERVER-SIDE by
+    // /api/book/in-person (it can look up their real addresses — this public
+    // page never loads owner/barber emails, so its old client-side attempt
+    // always silently skipped both).
   };
 
   // ── Computed values ────────────────────────────────────────────────────────

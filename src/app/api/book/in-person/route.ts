@@ -15,6 +15,7 @@ import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
+import { sendNewBookingStaffEmails } from "@/lib/notify-booking-emails";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -272,6 +273,10 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({ appointment_id: inserted.data.id, notify_owner: true }),
       }).catch(() => null);
     }
+    // Owner + barber "new booking" EMAILS — sent here (service role can look up
+    // their real addresses) because the public page can't. Awaited so the
+    // serverless invocation doesn't freeze before they go out.
+    await sendNewBookingStaffEmails(inserted.data.id);
   }
 
   // Text the customer their confirmation (server-side, best-effort). Only for
