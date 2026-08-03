@@ -81,16 +81,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Notify the shop owner (fire-and-forget).
-  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();
-  if (shopRow?.owner_id) {
-    insertNotifications({
-      user_id: shopRow.owner_id,
-      shop_id: appt.shop_id,
-      title: `New ${rating}-Star Review`,
-      message: `${appt.client_name} left a ${rating}-star review${trimmed ? `: "${trimmed.slice(0, 60)}"` : ""}`,
-      type: "review",
-    });
+  // Notify the shop owner AND the barber whose work was reviewed (fire-and-forget).
+  // The barber used to be left out even though the review is about them.
+  const [{ data: shopRow }, { data: revBarber }] = await Promise.all([
+    supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single(),
+    appt.barber_id
+      ? supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle()
+      : Promise.resolve({ data: null as { user_id: string | null } | null }),
+  ]);
+  const title = `New ${rating}-Star Review`;
+  const message = `${appt.client_name} left a ${rating}-star review${trimmed ? `: "${trimmed.slice(0, 60)}"` : ""}`;
+  const recipients = Array.from(new Set([shopRow?.owner_id, revBarber?.user_id].filter(Boolean))) as string[];
+  for (const uid of recipients) {
+    insertNotifications({ user_id: uid, shop_id: appt.shop_id, title, message, type: "review" });
   }
 
   return NextResponse.json({ ok: true });

@@ -309,7 +309,13 @@ export default function StaffPage() {
   const toggleActive = async (barberId: string) => {
     const newVal = !activeMap[barberId];
     setActiveMap((prev) => ({ ...prev, [barberId]: newVal }));
-    await supabase.from("barbers").update({ is_active: newVal }).eq("id", barberId);
+    const { error } = await supabase.from("barbers").update({ is_active: newVal }).eq("id", barberId);
+    if (error) {
+      // Revert the optimistic flip so the UI never claims a state the DB rejected.
+      setActiveMap((prev) => ({ ...prev, [barberId]: !newVal }));
+      showToast(`Couldn't update: ${error.message}`);
+      return;
+    }
     showToast(newVal ? "Barber reactivated" : "Barber deactivated");
   };
 
@@ -482,8 +488,9 @@ export default function StaffPage() {
   // ── Remove barber ───────────────────────────────────────────────────────────
   const removeBarber = async (barber: BarberWithSchedule) => {
     setRemovingId(barber.id);
-    await supabase.from("barbers").delete().eq("id", barber.id);
+    const { error } = await supabase.from("barbers").delete().eq("id", barber.id);
     setRemovingId(null);
+    if (error) { showToast(`Couldn't remove ${barber.name}: ${error.message}`); return; }
     setConfirmRemove(null);
     showToast(`${barber.name} removed from staff`);
     loadBarbers();

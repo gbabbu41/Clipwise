@@ -40,12 +40,18 @@ export async function POST(request: NextRequest) {
   // submit time-off as someone else).
   const { data: barber } = await supabaseAdmin
     .from("barbers")
-    .select("id, name, shop_id")
+    .select("id, name, shop_id, permissions")
     .eq("id", body.barber_id)
     .eq("user_id", user.id)
     .single();
   if (!barber || barber.shop_id !== body.shop_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // Enforce the owner's "request time off" permission server-side — the nav only
+  // hides the page, so without this a barber whose toggle is off could still POST.
+  // Undefined = allowed (matches the nav default).
+  if ((barber.permissions as { request_time_off?: boolean } | null)?.request_time_off === false) {
+    return NextResponse.json({ error: "Time-off requests are turned off for your account." }, { status: 403 });
   }
 
   // 1) Insert the request

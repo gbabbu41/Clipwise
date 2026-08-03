@@ -10,12 +10,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const shopId = searchParams.get("shop_id");
-  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, permissions").eq("user_id", user.id);
+  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, permissions, is_active").eq("user_id", user.id);
   if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
   const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
   const barber = barberRows?.[0];
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
+  // A suspended barber (is_active=false) is walled off the UI client-side; enforce
+  // it here too so they can't still pull their client data via the API.
+  if (barber.is_active === false) return NextResponse.json({ error: "Account suspended" }, { status: 403 });
 
   // Enforce the owner's "view clients" permission toggle server-side — this route
   // backs the barber's My Clients page, and the nav only hides it, so without this

@@ -13,15 +13,16 @@ async function authorize(token: string | undefined, barberId: string) {
   // getUser and the barber lookup don't depend on each other — run them together.
   const [{ data: { user } }, { data: barber }] = await Promise.all([
     supabaseAdmin.auth.getUser(token),
-    supabaseAdmin.from("barbers").select("id, shop_id, user_id, name, email").eq("id", barberId).maybeSingle(),
+    supabaseAdmin.from("barbers").select("id, shop_id, user_id, name, email, permissions").eq("id", barberId).maybeSingle(),
   ]);
   if (!user) return { error: "Unauthorized", status: 401 as const };
   if (!barber) return { error: "Barber not found", status: 404 as const };
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, owner_id, name").eq("id", barber.shop_id).maybeSingle();
-  const allowed = barber.user_id === user.id || (!!shop && shop.owner_id === user.id);
+  const isOwner = !!shop && shop.owner_id === user.id;
+  const allowed = barber.user_id === user.id || isOwner;
   if (!allowed) return { error: "Forbidden", status: 403 as const };
-  return { barber, shop };
+  return { barber, shop, isOwner };
 }
 
 // ── Load a barber's weekly schedule (working hours + recurring breaks) ──────────
@@ -54,7 +55,14 @@ export async function POST(request: NextRequest) {
   if (!body.barber_id) return NextResponse.json({ error: "Missing barber_id" }, { status: 400 });
   const auth = await authorize(token, body.barber_id);
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { barber, shop } = auth;
+  const { barber, shop, isOwner } = auth;
+
+  // Enforce the owner's "edit schedule" permission — a barber whose toggle is off
+  // can't rewrite their hours server-side (the owner always can). Matches the
+  // barber/availability route. Undefined = allowed.
+  if (!isOwner && (barber!.permissions as { edit_schedule?: boolean } | null)?.edit_schedule === false) {
+    return NextResponse.json({ error: "Editing your schedule is turned off for your account." }, { status: 403 });
+  }
 
   // Replace working hours (time_slots) — open days only.
   const slotRows = (body.days ?? [])

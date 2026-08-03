@@ -10,12 +10,14 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const shopId = searchParams.get("shop_id");
-  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent, permissions").eq("user_id", user.id);
+  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent, permissions, is_active").eq("user_id", user.id);
   if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
   const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
   const barber = barberRows?.[0];
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
+  // Suspended barbers can't pull earnings via the API either (not just the UI).
+  if (barber.is_active === false) return NextResponse.json({ error: "Account suspended" }, { status: 403 });
 
   // Is this person the shop owner? Kept for LABELLING only now — an owner who
   // cuts uses their own configured commission (default 100%, editable on the

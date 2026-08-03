@@ -7,6 +7,7 @@ import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -110,13 +111,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ appointment_id: id }),
     }).catch(() => null);
-    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
+    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email").eq("id", appt.shop_id).maybeSingle();
     if (shopRow?.owner_id) {
       insertNotifications({
         user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment Cancelled",
         message: `${appt.client_name} cancelled their appointment (was ${appt.date} at ${appt.time_slot})`,
         type: "cancellation",
       });
+    }
+    // Email the owner too (in-app alone misses them when they're out of the app).
+    // Sent server-side via sendAppEmail (no HTTP relay hop). The barber gets their
+    // own email via notify-cancellation above.
+    if (shopRow?.email) {
+      const [{ data: bRow }, { data: sRow }] = await Promise.all([
+        appt.barber_id ? supabaseAdmin.from("barbers").select("name").eq("id", appt.barber_id).maybeSingle() : Promise.resolve({ data: null as { name: string } | null }),
+        appt.service_id ? supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle() : Promise.resolve({ data: null as { name: string } | null }),
+      ]);
+      sendAppEmail("appointment_cancelled", {
+        ownerEmail: shopRow.email,
+        shopName: shopRow.name ?? "",
+        clientName: appt.client_name ?? "A client",
+        serviceName: sRow?.name ?? "Service",
+        barberName: bRow?.name ?? "—",
+        date: appt.date ?? "",
+        time: appt.time_slot ?? "",
+      }).catch(() => null);
     }
     return NextResponse.json({ ok: true, status: "cancelled" });
   }
