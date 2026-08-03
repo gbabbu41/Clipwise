@@ -133,6 +133,7 @@ export function sendRejectionEmail(appt: AppointmentWithDetails, shop: Shop, rea
     body: JSON.stringify({
       type: "appointment_rejected",
       data: {
+        shopId: shop.id,
         clientName: appt.client_name,
         clientEmail: appt.client_email,
         shopName: shop.name,

@@ -819,6 +819,38 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
     data.shopDirectionsUrl = loc.url;
   }
 
+  // Owner-customized templates (Settings → Notifications, stored in
+  // shops.notification_templates). If the shop saved a custom subject/body for
+  // this email type, use it — with {placeholder} substitution — instead of the
+  // built-in copy. Falls back to the built-in when absent/empty or the shop
+  // can't be resolved. Only these three types are editable in Settings.
+  let customTpl: { subject?: string; body?: string } | null = null;
+  const TEMPLATED = new Set(["booking_confirmation", "appointment_reminder", "appointment_rejected"]);
+  if (TEMPLATED.has(type) && data?.shopId) {
+    try {
+      const { data: shopRow } = await supabaseAdmin
+        .from("shops").select("notification_templates").eq("id", data.shopId).maybeSingle();
+      const tpls = (shopRow?.notification_templates ?? null) as Record<string, { subject?: string; body?: string }> | null;
+      const t = tpls?.[type];
+      if (t && (t.subject?.trim() || t.body?.trim())) customTpl = t;
+    } catch { /* fall back to the built-in template */ }
+  }
+  // Substitute the editor's placeholders with the (already HTML-escaped) values.
+  const fillTpl = (s: string) => (s || "")
+    .replace(/\{shopName\}/g, String(data.shopName ?? ""))
+    .replace(/\{clientName\}/g, String(data.clientName ?? ""))
+    .replace(/\{serviceName\}/g, String(data.serviceName ?? ""))
+    .replace(/\{barberName\}/g, String(data.barberName ?? ""))
+    .replace(/\{date\}/g, String(data.date ?? ""))
+    .replace(/\{time\}/g, String(data.time ?? ""));
+  // Use the custom template when present, else the built-in subject + html.
+  const applyCustom = (fallbackSubject: string, fallbackHtml: () => string): { subject: string; html: string } => {
+    if (!customTpl) return { subject: fallbackSubject, html: fallbackHtml() };
+    const subj = customTpl.subject?.trim() ? fillTpl(customTpl.subject) : fallbackSubject;
+    const bodyHtml = customTpl.body?.trim() ? fillTpl(customTpl.body).replace(/\n/g, "<br>") : "";
+    return { subject: subj, html: bodyHtml ? wrap(`<div style="font-size:15px;line-height:1.65;color:#333;">${bodyHtml}</div>`) : fallbackHtml() };
+  };
+
   let to = "";
   let subject = "";
   let html = "";
@@ -844,16 +876,18 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       subject = "Application Update — ClipWise";
       html = ownerRejected(data);
       break;
-    case "booking_confirmation":
+    case "booking_confirmation": {
       to = data.clientEmail;
-      subject = `Booking Confirmed — ${data.shopName}`;
-      html = bookingConfirmation(data);
+      const r = applyCustom(`Booking Confirmed — ${data.shopName}`, () => bookingConfirmation(data));
+      subject = r.subject; html = r.html;
       break;
-    case "appointment_reminder":
+    }
+    case "appointment_reminder": {
       to = data.clientEmail;
-      subject = `Reminder: Your appointment tomorrow at ${data.shopName}`;
-      html = appointmentReminder(data);
+      const r = applyCustom(`Reminder: Your appointment tomorrow at ${data.shopName}`, () => appointmentReminder(data));
+      subject = r.subject; html = r.html;
       break;
+    }
     case "review_request":
       to = data.clientEmail;
       subject = `How was your visit to ${data.shopName}? ⭐`;
@@ -909,11 +943,12 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       subject = `New appointment — ${data.clientName} on ${data.date}`;
       html = newBookingBarber(data);
       break;
-    case "appointment_rejected":
+    case "appointment_rejected": {
       to = data.clientEmail;
-      subject = `Your appointment at ${data.shopName} has been cancelled`;
-      html = appointmentRejected(data);
+      const r = applyCustom(`Your appointment at ${data.shopName} has been cancelled`, () => appointmentRejected(data));
+      subject = r.subject; html = r.html;
       break;
+    }
     case "refund_issued":
       to = data.clientEmail;
       subject = `Refund issued — ${data.shopName}`;
