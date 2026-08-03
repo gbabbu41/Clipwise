@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
 import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
-import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, noShowFeeDollars } from "@/lib/validation";
+import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
 
@@ -1055,10 +1055,8 @@ export default function BookingPage() {
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
   const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
   const noShowProtection = !!bookingSettings?.no_show_protection;
-  // The fee is a % of the booked total (capped at 80%) — show the customer the
-  // real dollar amount for THIS booking so the policy is concrete.
-  const noShowFeeAmount = noShowFeeDollars(total, bookingSettings?.no_show_fee_percent);
-  const noShowFeeLabel = formatCurrency(noShowFeeAmount);
+  // The consent card uses generic "up to the full price" language (the fee % is
+  // no longer owner-configurable), so no per-booking fee amount is computed here.
   // Days until the appointment — drives hold (≤7d) vs save-card (>7d).
   const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
   const willSaveCard = daysOut > 7; // beyond the ~7-day card-hold window
@@ -1405,7 +1403,7 @@ export default function BookingPage() {
             ) : (
               <>Your card is securely <span className="font-medium text-gray-900">held</span> now — not charged. You&apos;ll pay after your appointment.</>
             )}
-            {" "}A <span className="font-medium text-gray-900">{noShowFeeLabel}</span> no-show fee applies only if you don&apos;t show up or cancel late.
+            {" "}If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-gray-900">up to the full price</span> of your service.
           </p>
         </div>
       </div>
@@ -2109,19 +2107,8 @@ export default function BookingPage() {
               ? <p className="text-xs text-[#999] text-center">Payment collected at the shop · Free cancellation 24h before</p>
               : <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
             }
-
-            {/* No-show policy heads-up — always shown when this shop has no-show
-                protection on and there's a balance, so the customer sees the
-                charge policy before booking. The mandatory CONSENT checkbox
-                still lives in the pay-method modal (only the online/card path
-                needs to accept it); an in-person booker is never forced to. */}
-            {cardForNoShow && (
-              <p className="text-xs text-amber-200/90 text-center bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
-                ⓘ <span className="font-semibold">No-show policy:</span> if you pay online, your card is{" "}
-                {willSaveCard ? <>securely <span className="font-semibold">saved</span> (not charged now)</> : <>securely <span className="font-semibold">held</span></>}{" "}
-                and charged after your visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if you don&apos;t show up.{canPayInPersonNow ? " Paying in person takes no card." : ""}
-              </p>
-            )}
+            {/* The no-show policy is now shown as the "I accept" consent card in
+                the pay-method step — the old amber heads-up here was redundant. */}
           </div>
           );
         })()}
