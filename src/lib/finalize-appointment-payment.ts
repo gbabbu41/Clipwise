@@ -5,6 +5,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 import { stripeFeeCents } from "@/lib/stripe";
+import { runServerCompletionEffects } from "@/lib/completion-server";
 import type { TaxConfig } from "@/lib/pricing";
 
 export interface PayableAppt {
@@ -205,6 +206,13 @@ export async function markAppointmentPaid(args: {
         },
       }),
     }).catch(() => null);
+  }
+
+  // Checkout-link payment finished the visit → run the same completion effects a
+  // manual "Complete" does (loyalty + client stats + review email). The atomic
+  // claim above means this runs at most once. Skipped for a plain confirm-on-pay.
+  if (completeOnPaid) {
+    await runServerCompletionEffects({ appointmentId: appt.id, baseUrl }).catch(() => null);
   }
 
   return true;

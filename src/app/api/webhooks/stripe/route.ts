@@ -8,6 +8,7 @@ import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
 import { insertNotifications } from "@/lib/notify-server";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { runServerCompletionEffects } from "@/lib/completion-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
 import type { TaxConfig } from "@/lib/pricing";
@@ -234,6 +235,17 @@ export async function POST(request: NextRequest) {
                   },
                 }),
               }).catch(() => null);
+            }
+
+            // Paying a checkout link finishes the visit → run the SAME completion
+            // effects a manual "Complete" does (loyalty points + client visit/spend
+            // stats + review-request email). Without this, a visit finished by the
+            // customer paying the link silently earned no points and got no review
+            // nudge, unlike one finished by the barber tapping Complete. Idempotent
+            // (loyalty guarded by loyalty_awarded; runs once via the paid-transition
+            // claim above), gated to the checkout-completion flow.
+            if (completeOnPaid) {
+              await runServerCompletionEffects({ appointmentId: apptId, baseUrl: BASE_URL }).catch(() => null);
             }
           }
           break;
