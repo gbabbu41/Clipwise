@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // The booking itself — display fields only (never client email/phone).
   const { data } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, client_name, date, time_slot, status, total_amount, payment_status, duration_minutes, barbers(id, name), services(id, name, price, duration_minutes), shops(id, name, slug, address, city, province, phone)")
+    .select("id, shop_id, barber_id, client_name, date, time_slot, status, total_amount, payment_status, duration_minutes, barbers(id, name), services(id, name, price, duration_minutes), shops(id, name, slug, address, city, province, phone, timezone, booking_settings)")
     .eq("id", id).maybeSingle();
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ booking: data });

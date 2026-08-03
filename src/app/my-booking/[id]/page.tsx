@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
+import { hoursUntilBooking } from "@/lib/timezone";
 
 // Customer "manage my booking" screen. appointments RLS is stakeholder-only, so
 // the anon browser client can't read the row — everything here goes through the
@@ -22,7 +23,11 @@ interface AppointmentDetail {
   barber_id: string | null;
   barbers?: { id: string; name: string } | null;
   services?: { id: string; name: string; price: number; duration_minutes: number } | null;
-  shops?: { id: string; name: string; slug: string; address: string; city: string; province: string; phone: string } | null;
+  shops?: {
+    id: string; name: string; slug: string; address: string; city: string; province: string; phone: string;
+    timezone?: string | null;
+    booking_settings?: { cancellation_hours?: number } | null;
+  } | null;
 }
 
 interface SlotRow { slot: string; available: boolean }
@@ -156,6 +161,14 @@ export default function MyBookingPage() {
   const isCancellable = ["pending", "confirmed"].includes(appt.status);
   const isReschedulable = ["pending", "confirmed"].includes(appt.status);
   const isUpcoming = appt.date >= formatDateForDb(new Date());
+  // Cancellation-notice policy (shop's booking_settings.cancellation_hours). The
+  // server is authoritative (it 403s a late cancel/reschedule), but we mirror it
+  // here so we don't offer a "Yes, Cancel" button that will just fail — instead we
+  // show the policy and point the customer to the shop. Judged in the shop's tz.
+  const cancelHours = Number(appt.shops?.booking_settings?.cancellation_hours ?? 0);
+  const hrsUntil = hoursUntilBooking(appt.date, appt.time_slot, appt.shops?.timezone ?? null);
+  const withinNoticeWindow = cancelHours > 0 && hrsUntil < cancelHours;
+  const noticeLabel = cancelHours % 24 === 0 ? `${cancelHours / 24} day${cancelHours / 24 === 1 ? "" : "s"}` : `${cancelHours} hour${cancelHours === 1 ? "" : "s"}`;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const calendarDays = Array.from({ length: 28 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i + 1); return d; });
 
@@ -284,14 +297,15 @@ export default function MyBookingPage() {
               </Button>
             )}
 
-            {/* Actions */}
-            {isUpcoming && isReschedulable && (
+            {/* Actions — hidden inside the shop's cancellation-notice window, since
+                a self-serve cancel/reschedule that late would be rejected anyway. */}
+            {isUpcoming && isReschedulable && !withinNoticeWindow && (
               <Button variant="outline" className="w-full" onClick={() => { setRescheduleError(""); setView("reschedule"); }}>
                 <RefreshCw size={15} /> Reschedule Appointment
               </Button>
             )}
 
-            {isUpcoming && isCancellable && (
+            {isUpcoming && isCancellable && !withinNoticeWindow && (
               <>
                 {!showCancelConfirm ? (
                   <button
@@ -313,6 +327,23 @@ export default function MyBookingPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {/* Inside the notice window: explain the policy instead of offering a
+                cancel/reschedule that the server would reject. */}
+            {isUpcoming && isCancellable && withinNoticeWindow && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-2">
+                <p className="text-sm font-semibold text-amber-400">This appointment can no longer be changed online</p>
+                <p className="text-xs text-[#8f8f8f]">
+                  {appt.shops?.name ?? "This shop"} requires at least {noticeLabel} notice to cancel or reschedule.
+                  To change this booking, please contact the shop directly.
+                </p>
+                {appt.shops?.phone && (
+                  <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-gold hover:text-white transition-colors pt-1">
+                    <Phone size={14} /> {appt.shops.phone}
+                  </a>
+                )}
+              </div>
             )}
 
             <div className="text-center">
