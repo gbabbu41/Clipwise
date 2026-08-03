@@ -11,6 +11,7 @@ import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
+import { sendAppEmail } from "@/lib/emailer";
 
 export type BookingSummary = {
   shopName: string;
@@ -304,14 +305,16 @@ export async function finalizeBookingFromSession(params: {
         : "Paid online",
       bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
     };
-    const send = (type: string, extra: Record<string, unknown>) =>
-      fetch(`${baseUrl}/api/send-email`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, data: { ...bookingData, ...extra } }),
-      }).catch(() => null);
+    // Send the confirmation emails DIRECTLY (no self-fetch to /api/send-email —
+    // that HTTP hop can silently drop on serverless). Log any failure so a
+    // missing email is visible in the logs instead of vanishing.
+    const send = (type: string, extra: Record<string, string>) =>
+      sendAppEmail(type, { ...bookingData, ...extra })
+        .then(r => { if ("error" in r) console.warn(`[booking-email] ${type} → not sent:`, r.error); })
+        .catch(e => console.warn(`[booking-email] ${type} threw:`, e));
     if (m.client_email) send("booking_confirmation", { clientEmail: m.client_email });
     if (shopRow?.email) send("new_booking_owner", { ownerEmail: shopRow.email });
-    if (barber?.email) send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name });
+    if (barber?.email) send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name ?? "" });
   } catch { /* never block the booking on email */ }
 
   return {
