@@ -62,6 +62,15 @@ function PlanPageInner() {
   const [step, setStep] = useState<"pick" | "redirecting" | "verifying" | "success">("pick");
   const [error, setError] = useState("");
 
+  // Plan the user picked on the homepage (/signup?plan=… → carried here). Spotlight
+  // and scroll to it so their choice isn't silently forgotten.
+  const preselected = searchParams.get("plan") || "";
+  useEffect(() => {
+    if (!preselected) return;
+    const el = document.getElementById(`plan-${preselected}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [preselected]);
+
   // Handle return from Stripe Checkout
   useEffect(() => {
     const status = searchParams.get("status");
@@ -158,11 +167,18 @@ function PlanPageInner() {
             const isFree = plan.price_cents === 0;
             const cta = isFree ? "Get Started Free" : `Start ${plan.name} — 21 days free`;
             return (
-              <div key={plan.id} className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent)}
+              <div key={plan.id} id={`plan-${plan.id}`}
+                className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent,
+                  preselected === plan.id && "ring-2 ring-gold ring-offset-2 ring-offset-background")}
                 onClick={() => selectPlan(plan.id)}>
                 {plan.badge && (
                   <div className={cn("absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full", st.badgeBg)}>
                     {plan.badge}
+                  </div>
+                )}
+                {preselected === plan.id && (
+                  <div className="absolute -top-3 right-3 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white">
+                    Your pick
                   </div>
                 )}
 

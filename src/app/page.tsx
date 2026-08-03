@@ -21,9 +21,9 @@ const features = [
   { t: "Inventory, waitlist & kiosk", d: "Track stock, run a live walk-in queue, offer tablet self check-in.", i: '<path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 12h8"/>' },
 ];
 const plans = [
-  { n: "Starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
-  { n: "Premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
+  { n: "Starter", plan: "starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
+  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
+  { n: "Premium", plan: "premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
 ];
 // Comparison claims cross-checked against Squire's & Booksy's own current
 // materials (2026): $0 fees / no marketplace / free plan / Canadian are the
@@ -304,7 +304,7 @@ export default function LandingPage() {
                 {p.yes.map((y) => <div key={y}><Check c="#37d987" /><span>{y}</span></div>)}
                 {p.no.map((n) => <div className="no" key={n}><Ex c="#74747e" /><span>{n}</span></div>)}
               </div>
-              <Link className={`btn ${p.pop ? "btn-primary" : "btn-ghost"} mag`} href="/signup" style={{ width: "100%", justifyContent: "center" }}>{p.cta}</Link>
+              <Link className={`btn ${p.pop ? "btn-primary" : "btn-ghost"} mag`} href={`/signup?plan=${p.plan}`} style={{ width: "100%", justifyContent: "center" }}>{p.cta}</Link>
             </div>
           ))}
         </div>
@@ -347,7 +347,7 @@ export default function LandingPage() {
 
 const CSS = `
   :root{--bg:#08080a;--bg2:#0e0e12;--panel:#131318;--raised:#17171d;--line:#24242c;--line2:#31313a;--ink:#f6f6f8;--ink2:#a6a6b0;--ink3:#74747e;--accent:#6ea8fe;--good:#37d987;--sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
-  html{overflow-x:hidden}
+  html{overflow-x:hidden;scroll-padding-top:70px}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;letter-spacing:-.012em;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100vw}
   body img,body svg,body table{max-width:100%}
   body ::selection{background:var(--ink);color:#000}
@@ -497,7 +497,7 @@ const CSS = `
   /* ── phone polish (most visitors) ── */
   @media(max-width:640px){
     .wrap,.wide{padding:0 18px}
-    .nav-cta .btn-primary{display:none}
+    .nav-cta{gap:7px}.nav-cta .btn{padding:7px 12px;font-size:12.5px}
     section{padding:60px 0}
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}

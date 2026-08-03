@@ -21,7 +21,18 @@ export default function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [emailSent, setEmailSent] = useState(false);
   const [signupsPaused, setSignupsPaused] = useState(false);
+  const [plan, setPlan] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+
+  // Arriving from a pricing card (/signup?plan=pro) → they're a barber/owner, so
+  // skip the role picker and carry their plan choice into onboarding.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("plan");
+    if (p && ["starter", "pro", "premium"].includes(p)) {
+      setPlan(p);
+      setSelectedRole("shop_owner");
+    }
+  }, []);
 
   const pwStrength = getPasswordStrength(form.password);
 
@@ -84,7 +95,8 @@ export default function SignupPage() {
         .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
         .eq("id", data.user.id);
       if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
-      router.push(selectedRole === "shop_owner" ? "/onboarding/plan" : "/");
+      const planQ = plan ? `?plan=${plan}` : "";
+      router.push(selectedRole === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
     } else if (data.user && !data.session) {
       setEmailSent(true);
       setLoading(false);
