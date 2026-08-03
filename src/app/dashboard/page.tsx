@@ -13,7 +13,7 @@ import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view"
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
@@ -844,25 +844,26 @@ export default function DashboardPage() {
 
         {/* Right column */}
         <div className="cwd-col">
-          {/* Staff Status */}
+          {/* Staff Status — activity-ledger rows (Option C) */}
           <div className="cwd-card">
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
-            <div className="cwd-cardb">
+            <div className="cwd-cardb cwd-ledgerb">
               {barbers.length === 0 ? (
                 <p className="text-sm text-grey text-center py-4">No active staff</p>
-              ) : barbers.map((b) => (
-                <div key={b.id} className="cwd-staff">
-                  <div className="cwd-sav">
-                    {b.photo ? <img src={b.photo} alt={b.name} className="w-full h-full object-cover" /> : b.name[0]}
-                    <i />
+              ) : barbers.map((b) => {
+                const cnt = todayAppts.filter((a) => a.barber_id === b.id).length;
+                return (
+                  <div key={b.id} className="cwd-lrow">
+                    <span className={cn("cwd-led", cnt > 0 ? "on" : "off")} />
+                    <div className="cwd-lgrow">
+                      <div className="cwd-l1">
+                        <span className="cwd-lnm">{b.name}</span>
+                        <span className="cwd-lright cwd-num">{cnt} today</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="cwd-snm">
-                    <div className="cwd-sn">{b.name}</div>
-                    <div className="cwd-sp">{todayAppts.filter((a) => a.barber_id === b.id).length} appts today</div>
-                  </div>
-                  <span className="cwd-sst">Active</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -872,21 +873,32 @@ export default function DashboardPage() {
               <span className="cwd-ct">Recent Alerts</span>
               <Link href="/dashboard/notifications" className="cwd-ca">See all ({notifications.filter((n) => !n.is_read).length})</Link>
             </div>
-            <div className="cwd-cardb" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="cwd-cardb cwd-ledgerb">
               {notifications.length === 0 ? (
                 <p className="text-sm text-grey text-center py-4">No notifications</p>
               ) : notifications.map((n) => {
-                const kind = n.type === "no-show" ? "warn" : n.type === "review" ? "rev" : /payment|paid|charged|collected|refund/i.test(`${n.title} ${n.message}`) ? "pay" : "book";
+                const text = `${n.title} ${n.message}`;
+                const kind = n.type === "no-show" ? "warn" : n.type === "review" ? "rev" : /payment|paid|charged|collected|refund/i.test(text) ? "pay" : "book";
+                // Pull an amount out of the title (or message), show it aligned
+                // right in tabular figures; strip it from the shown text so it
+                // isn't duplicated. Payments read green with a "+".
+                const money = /\$[\d,]+(?:\.\d{1,2})?/;
+                const amt = (n.title.match(money) || n.message.match(money) || [])[0] || null;
+                const title = n.title.replace(/\s*·?\s*\$[\d,]+(?:\.\d{1,2})?\s*$/, "").trim() || n.title;
+                const message = amt ? n.message.replace(amt, "").replace(/\s{2,}/g, " ").replace(/\(\s+/g, "(").trim() : n.message;
                 return (
-                  <div key={n.id} className={cn("cwd-alert", !n.is_read && "unread")}>
-                    <div className={cn("cwd-aic", kind)}>
-                      {kind === "pay" ? <Banknote size={13} /> : kind === "rev" ? <Star size={13} /> : kind === "warn" ? <AlertCircle size={13} /> : <Calendar size={13} />}
+                  <div key={n.id} className={cn("cwd-lrow", n.is_read && "read")}>
+                    <span className={cn("cwd-led", kind)} />
+                    <div className="cwd-lgrow">
+                      <div className="cwd-l1">
+                        <span className="cwd-lnm">{title}</span>
+                        {amt && <span className={cn("cwd-lamt cwd-num", kind === "pay" ? "pay" : "hold")}>{kind === "pay" ? `+${amt}` : amt}</span>}
+                      </div>
+                      <div className="cwd-l2">
+                        <span className="cwd-lam">{message}</span>
+                        <span className="cwd-lrt">{timeAgo(n.created_at)}</span>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <div className="cwd-at">{n.title}</div>
-                      <div className="cwd-am line-clamp-2">{n.message}</div>
-                    </div>
-                    {!n.is_read && <span className="cwd-udot" />}
                   </div>
                 );
               })}
