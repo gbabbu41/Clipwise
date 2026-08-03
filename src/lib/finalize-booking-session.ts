@@ -264,8 +264,8 @@ export async function finalizeBookingFromSession(params: {
   try {
     const [{ data: barber }, { data: service }] = await Promise.all([
       m.barber_id
-        ? supabaseAdmin.from("barbers").select("name, email").eq("id", m.barber_id).maybeSingle()
-        : Promise.resolve({ data: null as { name: string; email: string | null } | null }),
+        ? supabaseAdmin.from("barbers").select("name, email, user_id").eq("id", m.barber_id).maybeSingle()
+        : Promise.resolve({ data: null as { name: string; email: string | null; user_id: string | null } | null }),
       m.service_id
         ? supabaseAdmin.from("services").select("name").eq("id", m.service_id).maybeSingle()
         : Promise.resolve({ data: null as { name: string } | null }),
@@ -315,10 +315,26 @@ export async function finalizeBookingFromSession(params: {
       sendAppEmail(type, { ...bookingData, ...extra })
         .then(r => { if ("error" in r) console.warn(`[booking-email] ${type} → not sent:`, r.error); })
         .catch(e => console.warn(`[booking-email] ${type} threw:`, e));
+    // Resolve the owner + barber recipient with a fallback to their ACCOUNT
+    // (login) email. The shops.email / barbers.email contact columns are often
+    // blank, which was silently skipping the owner + barber booking alerts even
+    // though the customer's went out fine.
+    let ownerEmail = shopRow?.email || "";
+    if (!ownerEmail && shopRow?.owner_id) {
+      const { data: ownerUser } = await supabaseAdmin.from("users").select("email").eq("id", shopRow.owner_id).maybeSingle();
+      ownerEmail = ownerUser?.email || "";
+    }
+    let barberEmail = barber?.email || "";
+    if (!barberEmail && barber?.user_id) {
+      const { data: barberUser } = await supabaseAdmin.from("users").select("email").eq("id", barber.user_id).maybeSingle();
+      barberEmail = barberUser?.email || "";
+    }
+
     const emailJobs: Promise<void>[] = [];
     if (m.client_email) emailJobs.push(send("booking_confirmation", { clientEmail: m.client_email }));
-    if (shopRow?.email) emailJobs.push(send("new_booking_owner", { ownerEmail: shopRow.email }));
-    if (barber?.email) emailJobs.push(send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name ?? "" }));
+    if (ownerEmail) emailJobs.push(send("new_booking_owner", { ownerEmail }));
+    // Don't email the barber their own booking twice when the owner IS the barber.
+    if (barberEmail && barberEmail !== ownerEmail) emailJobs.push(send("new_booking_barber", { barberEmail, barberName: barber?.name ?? "" }));
     await Promise.all(emailJobs);
   } catch { /* never block the booking on email */ }
 
