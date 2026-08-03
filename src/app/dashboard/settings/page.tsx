@@ -70,6 +70,12 @@ const PLAN_INFO: PlanInfo[] = [
 type NewLocation = { name: string; address: string; city: string; province: string; phone: string };
 const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "" };
 
+// Snapshot keys for "unsaved changes" detection. allow_pay_in_person is edited on
+// the Booking tab (the Require-a-card toggle) and saved by saveBooking, so it's
+// tracked with the booking snapshot and excluded from the profile one.
+const profileKeyOf = (p: Record<string, unknown>) => JSON.stringify({ ...p, allow_pay_in_person: undefined });
+const bookingKeyOf = (bk: BookingSettings, allowPIP: boolean) => JSON.stringify({ ...bk, _allowPIP: allowPIP });
+
 export default function SettingsPage() {
   const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
   const [tab, setTab] = useState("profile");
@@ -136,6 +142,12 @@ export default function SettingsPage() {
   type TemplateKey = keyof typeof DEFAULT_TEMPLATES;
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [savingTemplates, setSavingTemplates] = useState(false);
+  // "Unsaved changes" tracking — a snapshot of each section as last loaded/saved.
+  // allow_pay_in_person lives in `profile` but is edited on the Booking tab (the
+  // "Require a card" toggle) and saved by saveBooking, so it's tracked with the
+  // booking snapshot and excluded from the profile one.
+  const [baseline, setBaseline] = useState({ profile: "", booking: "", templates: "" });
+  const [baselineReady, setBaselineReady] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -281,7 +293,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!shop) return;
-    setProfile({
+    const profileObj = {
       name: shop.name ?? "",
       address: shop.address ?? "",
       city: shop.city ?? "",
@@ -298,47 +310,55 @@ export default function SettingsPage() {
       google_place_id: shop.google_place_id ?? "",
       allow_pay_in_person: shop.allow_pay_in_person ?? true,
       timezone: shop.timezone ?? DEFAULT_TZ,
-    });
+    };
+    setProfile(profileObj);
 
-    // Load booking settings + notification templates — try Supabase first, fall back to localStorage
+    // Load booking settings + notification templates — Supabase first, fall back
+    // to localStorage — then capture a baseline snapshot so the "Unsaved changes"
+    // indicators start clean and only appear once the owner actually edits.
     (async () => {
+      let loadedBooking: BookingSettings = DEFAULT_BOOKING;
+      let loadedTemplates = DEFAULT_TEMPLATES;
       try {
-        const { data, error } = await supabase
-          .from("shops")
-          .select("*")
-          .eq("id", shop.id)
-          .single();
+        const { data, error } = await supabase.from("shops").select("*").eq("id", shop.id).single();
         const row = data as Record<string, unknown> | null;
-
         if (!error && row) {
           if (row.booking_settings && typeof row.booking_settings === "object") {
-            // Merge over defaults so newly-added fields (e.g. slot_interval_minutes)
-            // always have a value even for shops saved before they existed.
-            setBooking({ ...DEFAULT_BOOKING, ...(row.booking_settings as Partial<BookingSettings>) });
+            // Merge over defaults so newly-added fields always have a value.
+            loadedBooking = { ...DEFAULT_BOOKING, ...(row.booking_settings as Partial<BookingSettings>) };
           } else {
             const cached = localStorage.getItem(`booking_${shop.id}`);
-            if (cached) setBooking(JSON.parse(cached) as BookingSettings);
+            if (cached) loadedBooking = JSON.parse(cached) as BookingSettings;
           }
           if (row.notification_templates) {
-            setTemplates(prev => ({ ...prev, ...(row.notification_templates as typeof DEFAULT_TEMPLATES) }));
+            loadedTemplates = { ...DEFAULT_TEMPLATES, ...(row.notification_templates as typeof DEFAULT_TEMPLATES) };
           }
         } else {
           const cachedB = localStorage.getItem(`booking_${shop.id}`);
-          if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
+          if (cachedB) loadedBooking = JSON.parse(cachedB) as BookingSettings;
         }
       } catch {
         const cachedB = localStorage.getItem(`booking_${shop.id}`);
-        if (cachedB) setBooking(JSON.parse(cachedB) as BookingSettings);
+        if (cachedB) loadedBooking = JSON.parse(cachedB) as BookingSettings;
       }
+      setBooking(loadedBooking);
+      setTemplates(loadedTemplates);
+      setBaseline({
+        profile: profileKeyOf(profileObj),
+        booking: bookingKeyOf(loadedBooking, profileObj.allow_pay_in_person),
+        templates: JSON.stringify(loadedTemplates),
+      });
+      setBaselineReady(true);
     })();
   }, [shop]);
 
   const saveTemplates = async () => {
     if (!shop) return;
     setSavingTemplates(true);
-    await supabase.from("shops").update({ notification_templates: templates }).eq("id", shop.id);
+    const { error } = await supabase.from("shops").update({ notification_templates: templates }).eq("id", shop.id);
     setSavingTemplates(false);
-    showToast("Templates saved!");
+    if (!error) setBaseline(b => ({ ...b, templates: JSON.stringify(templates) }));
+    showToast(error ? "Failed to save templates." : "Templates saved!");
   };
 
   const saveProfile = async () => {
@@ -358,6 +378,7 @@ export default function SettingsPage() {
       timezone: profile.timezone || DEFAULT_TZ,
     }).eq("id", shop.id);
     setSaving(false);
+    if (!error) setBaseline(b => ({ ...b, profile: profileKeyOf(profile) }));
     showToast(error ? "Failed to save profile." : "Profile saved!");
   };
 
@@ -395,6 +416,9 @@ export default function SettingsPage() {
       setSaving(false);
       return;
     }
+    // DB write for this tab succeeded (booking_settings + allow_pay_in_person) —
+    // clear the "unsaved" flag now; the GST cross-location sync below is best-effort.
+    setBaseline(b => ({ ...b, booking: bookingKeyOf(booking, profile.allow_pay_in_person) }));
     // The GST/HST number is ONE number for all the owner's shops, so propagate it
     // to every location (not just the active shop). Sync only a valid number (or
     // empty to clear it); when tax is on it's guaranteed valid by the gate above.
@@ -411,6 +435,13 @@ export default function SettingsPage() {
     }
     setSaving(false);
   };
+
+  // "Unsaved changes" flags — compare the live section state against the snapshot
+  // taken on load / last successful save. Gated on baselineReady so the indicators
+  // never flash before the initial load completes.
+  const profileDirty = baselineReady && profileKeyOf(profile) !== baseline.profile;
+  const bookingDirty = baselineReady && bookingKeyOf(booking, profile.allow_pay_in_person) !== baseline.booking;
+  const templatesDirty = baselineReady && JSON.stringify(templates) !== baseline.templates;
 
   const addLocation = async () => {
     if (!newLocation.name.trim() || !accessToken) return;
@@ -567,7 +598,15 @@ export default function SettingsPage() {
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
-            <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving…" : "Save Profile"}</Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving…" : "Save Profile"}</Button>
+              {profileDirty && (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -854,12 +893,20 @@ export default function SettingsPage() {
                 To save with tax on, add a valid GST/HST number and a rate above 0% — or turn off &ldquo;Charge GST/HST&rdquo;.
               </p>
             )}
-            <Button
-              disabled={saving || (booking.tax_enabled && (!isValidGstNumber(booking.tax_number) || !(Number(booking.tax_rate) > 0)))}
-              onClick={saveBooking}
-            >
-              {saving ? "Saving…" : "Save Settings"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                disabled={saving || (booking.tax_enabled && (!isValidGstNumber(booking.tax_number) || !(Number(booking.tax_rate) > 0)))}
+                onClick={saveBooking}
+              >
+                {saving ? "Saving…" : "Save Settings"}
+              </Button>
+              {bookingDirty && (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -998,7 +1045,15 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           ))}
-          <Button loading={savingTemplates} onClick={saveTemplates}>Save Templates</Button>
+          <div className="flex items-center gap-3">
+            <Button loading={savingTemplates} onClick={saveTemplates}>Save Templates</Button>
+            {templatesDirty && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Unsaved changes
+              </span>
+            )}
+          </div>
         </div>
       )}
 
