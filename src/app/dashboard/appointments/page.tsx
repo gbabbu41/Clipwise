@@ -166,6 +166,9 @@ export default function AppointmentsPage() {
   const [selectedApt, setSelectedApt] = useState<AppointmentWithDetails | null>(null);
   const [notes, setNotes] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  // When assigning a waitlist entry, remember its id so the row is removed once
+  // the appointment is actually created (the "Assign" button used to only toast).
+  const [assignWaitlistId, setAssignWaitlistId] = useState<string | null>(null);
   // Pull-down-to-dismiss for the detail panel + add modal (scroll-aware).
   const detailSheetRef = useRef<HTMLDivElement | null>(null);
   const detailDrag = useSheetDrag(detailSheetRef, () => setSelectedApt(null), { enabled: !!selectedApt });
@@ -910,6 +913,13 @@ export default function AppointmentsPage() {
       showToast(taken ? "That barber already has a booking at this time" : "Failed to add appointment");
       return;
     }
+    // If this was an assignment from the waitlist, remove that entry now that the
+    // booking exists (best-effort; realtime + loadData keep everyone in sync).
+    if (assignWaitlistId) {
+      await supabase.from("waitlist").delete().eq("id", assignWaitlistId).then(null, () => null);
+      setWaitlist(prev => prev.filter(w => w.id !== assignWaitlistId));
+      setAssignWaitlistId(null);
+    }
     setShowAddModal(false);
     setAddForm({ client_name: "", client_phone: "", barber_id: "", service_id: "", date: formatDateForDb(new Date()), time_slot: "9:00 AM", repeat: "none" });
     showToast(rows.length > 1 ? `${rows.length} appointments added!` : "Appointment added!");
@@ -974,7 +984,7 @@ export default function AppointmentsPage() {
 
       <DashboardHeader title="Appointments" subtitle="Manage bookings and waitlist"
         action={
-          <button onClick={() => setShowAddModal(true)} aria-label="Add appointment"
+          <button onClick={() => { setAssignWaitlistId(null); setShowAddModal(true); }} aria-label="Add appointment"
             className="w-[38px] h-[38px] rounded-full bg-white text-black flex items-center justify-center text-2xl leading-none hover:opacity-90 transition-opacity flex-shrink-0">
             +
           </button>
@@ -1282,7 +1292,22 @@ export default function AppointmentsPage() {
                         <p className="text-xs text-grey mt-1">Added: {new Date(wl.added_at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => showToast("Barber assigned")}>Assign</Button>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          // Open the Add-Appointment sheet prefilled from this waitlist
+                          // entry; the row is deleted once the booking is created.
+                          setAssignWaitlistId(wl.id);
+                          setAddForm(f => ({
+                            ...f,
+                            client_name: wl.client_name ?? "",
+                            client_phone: wl.client_phone ?? "",
+                            service_id: wl.service_id ?? "",
+                            barber_id: wl.barber_id ?? "",
+                            date: formatDateForDb(new Date()),
+                            time_slot: "9:00 AM",
+                            repeat: "none",
+                          }));
+                          setShowAddModal(true);
+                        }}>Assign</Button>
                         <Button size="sm" variant="danger" onClick={async () => {
                           const { error } = await supabase.from("waitlist").delete().eq("id", wl.id);
                           if (error) { showToast(`Couldn't remove: ${error.message}`); return; }
