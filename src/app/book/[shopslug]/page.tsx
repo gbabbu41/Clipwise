@@ -1018,7 +1018,10 @@ export default function BookingPage() {
   // `allow_pay_in_person` toggle is AUTHORITATIVE: when it's off, in-person is
   // never offered (previously it was force-enabled whenever the shop couldn't
   // charge online, which silently ignored the toggle).
-  const allowInPerson = shop?.allow_pay_in_person ?? true;
+  // Owner's toggle is authoritative — EXCEPT when the shop can't actually charge
+  // a card (Stripe not finished / not on a paid plan). Then always allow
+  // in-person, so a "card required" shop can never become unbookable.
+  const allowInPerson = (shop?.allow_pay_in_person ?? true) || !shopCanCharge;
   const canPayOnlineNow = total > 0 && shopCanCharge;
   const canPayInPersonNow = total > 0 && allowInPerson;
 
@@ -1383,17 +1386,31 @@ export default function BookingPage() {
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
   const noShowConsentBox = (
-    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50 cursor-pointer">
-      <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
-        className="mt-0.5 h-4 w-4 accent-amber-600 flex-shrink-0" />
-      <span className="text-xs text-amber-900 leading-relaxed">
-        {willSaveCard ? (
-          <>This booking is more than 7 days away, so my card will be securely <span className="font-semibold">saved</span> now (not charged) and charged after my visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if I don&apos;t show up. I accept this no-show policy.</>
-        ) : (
-          <>My card will be securely <span className="font-semibold">held</span> now and charged after my visit — or a no-show fee of <span className="font-semibold">{noShowFeeLabel}</span> if I don&apos;t show up. I accept this no-show policy.</>
-        )}
-      </span>
-    </label>
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
+      <div className="flex items-start gap-3 p-4">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900">Reserve with a card</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-gray-500">
+            {willSaveCard ? (
+              <>Your visit is more than 7 days away, so your card is securely <span className="font-medium text-gray-900">saved</span> now — not charged. You&apos;ll pay after your appointment.</>
+            ) : (
+              <>Your card is securely <span className="font-medium text-gray-900">held</span> now — not charged. You&apos;ll pay after your appointment.</>
+            )}
+            {" "}A <span className="font-medium text-gray-900">{noShowFeeLabel}</span> no-show fee applies only if you don&apos;t show up or cancel late.
+          </p>
+        </div>
+      </div>
+      <label className="flex items-center gap-2.5 px-4 py-3 border-t border-gray-200 bg-white cursor-pointer">
+        <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
+          className="h-[18px] w-[18px] rounded accent-sky-600 flex-shrink-0" />
+        <span className="text-[13px] font-medium text-gray-900">I understand and accept the no-show policy</span>
+      </label>
+    </div>
   );
 
   return (

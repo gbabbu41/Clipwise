@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_MAX_PCT, NO_SHOW_DEFAULT_PCT, clampNoShowPct } from "@/lib/validation";
+import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
 import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -670,60 +670,63 @@ export default function SettingsPage() {
               <Input label="Cancellation Notice Required (hours)" type="number" value={String(booking.cancellation_hours)}
                 onChange={e => setBooking(p => ({ ...p, cancellation_hours: Number(e.target.value) }))} />
             </div>
-            <div className="flex items-center justify-between p-4 bg-card-raised rounded-xl border border-border">
-              <div>
-                <p className="text-sm font-medium text-foreground">No-Show Protection</p>
-                <p className="text-xs text-grey">Hold (or save, for bookings 7+ days out) the client&apos;s card at booking. If they don&apos;t show, you or the barber charge the no-show fee — it&apos;s never charged automatically.</p>
-              </div>
-              <Toggle value={booking.no_show_protection} onChange={() => setBooking(p => ({ ...p, no_show_protection: !p.no_show_protection }))} />
-            </div>
-            {booking.no_show_protection && (
-              <div>
-                <Input label={`No-Show Fee (% of the booking · max ${NO_SHOW_MAX_PCT}%)`} type="number" min={0} max={NO_SHOW_MAX_PCT}
-                  value={String(booking.no_show_fee_percent ?? NO_SHOW_DEFAULT_PCT)}
-                  onChange={e => setBooking(p => ({ ...p, no_show_fee_percent: clampNoShowPct(Number(e.target.value)) }))} />
-                <p className="text-xs text-grey mt-1">Charged from the card held (or saved) at booking. Capped at {NO_SHOW_MAX_PCT}% — to collect the full price, complete the appointment instead.</p>
-              </div>
-            )}
+            {/* One decision replaces the old pay-in-person + no-show-protection
+                toggles: does the customer hold the spot with a card? Card
+                required → no-show protection on + no pay-in-person. Card not
+                needed → pay in person, no no-show charge. The legacy fields
+                (booking.no_show_protection + shops.allow_pay_in_person) are kept
+                in sync underneath so the rest of the app is unchanged. */}
+            {(() => {
+              const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+              const cardCapable = planHasFeature(plan, "payments");
+              const canRequireCard = !isFreePlan && cardCapable;
+              const requireCard = canRequireCard && booking.no_show_protection;
+              const setRequireCard = (on: boolean) => {
+                setBooking(p => ({ ...p, no_show_protection: on }));
+                setProfile(p => ({ ...p, allow_pay_in_person: !on }));
+              };
+              return (
+                <div className={cn("p-4 bg-card-raised rounded-xl border border-border", !canRequireCard && "opacity-80")}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="pr-1">
+                      <p className="text-sm font-medium text-foreground">Require a card to book</p>
+                      <p className="text-xs text-grey mt-0.5">
+                        {requireCard
+                          ? "Customers hold the spot with a card — never charged unless they no-show or cancel late, then you or the barber charge the fee. No “pay in person” option is shown."
+                          : "Customers book without a card and pay in person. Bookings are marked Cash · Unpaid until you collect, and no-show fees can’t be charged."}
+                      </p>
+                      {isFreePlan && (
+                        <p className="text-xs text-gold mt-1">The free plan can’t take cards, so booking stays no-card. Upgrade to Pro to require a card and enable no-show protection.</p>
+                      )}
+                      {!isFreePlan && !cardCapable && (
+                        <p className="text-xs text-gold mt-1">Requiring a card needs online payments — available on Pro and Premium.</p>
+                      )}
+                    </div>
+                    <Toggle value={requireCard} disabled={!canRequireCard} onChange={() => setRequireCard(!requireCard)} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Auto-confirm — only meaningful when a card ISN'T required (i.e.
+                pay-in-person bookings). Online/prepaid bookings always confirm
+                on payment. */}
             <div className={cn(
               "flex items-center justify-between p-4 bg-card-raised rounded-xl border border-border",
               !(isFreePlan || profile.allow_pay_in_person) && "opacity-50"
             )}>
               <div className="pr-4">
-                <p className="text-sm font-medium text-foreground">Auto-Confirm In-Person Bookings</p>
+                <p className="text-sm font-medium text-foreground">Auto-confirm no-card bookings</p>
                 <p className="text-xs text-grey">
                   {(isFreePlan || profile.allow_pay_in_person)
-                    ? "When on, pay-in-person bookings are confirmed automatically — no manual approval needed. Online (prepaid) bookings always confirm on payment."
-                    : "Only applies when “Allow pay-in-person” is on. Online bookings already confirm automatically when paid."}
+                    ? "When on, pay-in-person bookings confirm automatically — no manual approval. Online (prepaid) bookings always confirm on payment."
+                    : "Applies when a card isn’t required. Online bookings already confirm automatically when paid."}
                 </p>
               </div>
               <Toggle
                 value={(isFreePlan || profile.allow_pay_in_person) && booking.auto_confirm}
                 disabled={!(isFreePlan || profile.allow_pay_in_person)}
                 onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
-            </div>
-
-            {/* Pay-in-person — controls whether the customer booking page
-                offers "Pay in person at the shop" alongside online payment.
-                Lives in the Profile-level `allow_pay_in_person` column on
-                shops (separate from booking_settings JSON), but rendered
-                here so the owner finds it among the other payment-flow
-                toggles. Saving still goes through `saveProfile`. */}
-            <div className="flex items-center justify-between p-4 bg-card-raised rounded-xl border border-border">
-              <div className="pr-4">
-                <p className="text-sm font-medium text-foreground">Allow pay-in-person</p>
-                <p className="text-xs text-grey">Customers can choose to pay at the shop instead of online. Bookings made this way are marked Cash · Unpaid until you collect.</p>
-                {isFreePlan && (
-                  <p className="text-xs text-gold mt-1">
-                    On the free plan this is your only payment method, so it stays on. Upgrade to Pro to accept online payments and require prepayment.
-                  </p>
-                )}
-              </div>
-              <Toggle
-                value={isFreePlan ? true : profile.allow_pay_in_person}
-                disabled={isFreePlan}
-                onChange={() => setProfile(p => ({ ...p, allow_pay_in_person: !p.allow_pay_in_person }))}
-              />
             </div>
 
             {/* ── Tips ─────────────────────────────────────────────────── */}
