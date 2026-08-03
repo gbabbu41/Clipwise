@@ -34,6 +34,16 @@ const PLAN_STYLE: Record<string, {
 };
 const styleFor = (id: string) => PLAN_STYLE[id] ?? PLAN_STYLE.premium;
 
+// Plain-language "who is this for" line under each plan, so a solo barber
+// renting a chair knows Pro is their sweet spot — and that they can add a shop
+// + team later without switching accounts. Keyed by plan id; unknown custom
+// plans simply show no tagline.
+const PLAN_GUIDANCE: Record<string, string> = {
+  starter: "Best for a solo barber just getting started.",
+  pro: "Best for solo barbers & small shops — start solo, add your shop and up to 4 chairs anytime.",
+  premium: "Best for established shops with a bigger team.",
+};
+
 // Shown until /api/plans resolves (and if it ever fails) — mirrors the seeded tiers.
 const FALLBACK_PLANS: PlanRow[] = [
   { id: "starter", name: "Starter", price_cents: 0, barber_limit: 1, features: [], badge: null, description: null, is_active: true, sort_order: 0,
@@ -131,7 +141,7 @@ function PlanPageInner() {
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
-          <p className="text-[#8f8f8f] mt-2">Start free — Pro &amp; Premium include a 21-day free trial, no card needed.</p>
+          <p className="text-[#8f8f8f] mt-2">Solo barber or a full shop — pick what fits today, upgrade anytime. Pro &amp; Premium include a 21-day free trial, no card needed.</p>
         </div>
 
         {error && (
@@ -161,7 +171,10 @@ function PlanPageInner() {
                     <Icon size={20} className={st.iconColor} />
                   </div>
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
-                  <div className="flex items-baseline gap-1 mt-1">
+                  {PLAN_GUIDANCE[plan.id] && (
+                    <p className="text-xs text-[#8f8f8f] mt-1 leading-snug">{PLAN_GUIDANCE[plan.id]}</p>
+                  )}
+                  <div className="flex items-baseline gap-1 mt-2">
                     <span className="text-3xl font-bold text-white">{formatPlanPrice(plan.price_cents)}</span>
                     <span className="text-[#8f8f8f] text-sm">{isFree ? "forever" : "/month"}</span>
                   </div>

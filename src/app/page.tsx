@@ -21,9 +21,9 @@ const features = [
   { t: "Inventory, waitlist & kiosk", d: "Track stock, run a live walk-in queue, offer tablet self check-in.", i: '<path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 12h8"/>' },
 ];
 const plans = [
-  { n: "Starter", p: "Free", per: "forever", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", p: "$23", per: "/mo", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
-  { n: "Premium", p: "$79", per: "/mo", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
+  { n: "Starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
+  { n: "Pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
+  { n: "Premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
 ];
 // Comparison claims cross-checked against Squire's & Booksy's own current
 // materials (2026): $0 fees / no marketplace / free plan / Canadian are the
@@ -298,6 +298,7 @@ export default function LandingPage() {
             <div className={`pc ${p.pop ? "pop" : ""}`} key={p.n}>
               {p.pop && <span className="badge">Most popular</span>}
               <h3>{p.n}</h3>
+              <p className="pfor">{p.forWho}</p>
               <div className="pr"><span className="amt">{p.p}</span><span className="per">{p.per}</span></div>
               <div className="pl">
                 {p.yes.map((y) => <div key={y}><Check c="#37d987" /><span>{y}</span></div>)}
@@ -463,7 +464,7 @@ const CSS = `
   .pc{border:1px solid var(--line);border-radius:22px;padding:30px;background:var(--panel);display:flex;flex-direction:column;transition:transform .25s,border-color .25s}
   .pc:hover{transform:translateY(-6px);border-color:var(--line2)}.pc.pop{border-color:var(--accent);background:linear-gradient(180deg,rgba(110,168,254,.08),var(--panel))}
   .badge{align-self:flex-start;font-size:11px;font-weight:650;padding:5px 12px;border-radius:980px;background:var(--accent);color:#00122e;margin-bottom:14px}
-  .pc h3{font-size:20px;font-weight:650;color:var(--ink)}.pr{margin:14px 0 22px;display:flex;align-items:baseline;gap:5px}.pr .amt{font-size:46px;font-weight:700;letter-spacing:-.04em;color:var(--ink)}.pr .per{font-size:14px;color:var(--ink3)}
+  .pc h3{font-size:20px;font-weight:650;color:var(--ink)}.pfor{margin-top:6px;font-size:12.5px;line-height:1.4;color:var(--ink3);min-height:35px}.pr{margin:10px 0 22px;display:flex;align-items:baseline;gap:5px}.pr .amt{font-size:46px;font-weight:700;letter-spacing:-.04em;color:var(--ink)}.pr .per{font-size:14px;color:var(--ink3)}
   .pl{display:flex;flex-direction:column;gap:12px;flex:1;margin-bottom:24px}.pl div{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink2)}.pl svg{flex:none;margin-top:2px}.pl .no{color:var(--ink3)}
   @media(max-width:860px){.price{grid-template-columns:1fr;max-width:420px}}
   .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:18px;background:var(--panel);max-width:100%}

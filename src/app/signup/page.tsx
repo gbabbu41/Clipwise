@@ -104,7 +104,7 @@ export default function SignupPage() {
   ];
 
   const roleOptions = [
-    { role: "shop_owner" as SelectedRole, icon: Store, title: "I own a barbershop", desc: "Set up your shop and start accepting bookings", accent: "border-gold/40 hover:border-gold/70", iconBg: "bg-gold/15", iconColor: "text-gold" },
+    { role: "shop_owner" as SelectedRole, icon: Store, title: "I'm a barber or shop owner", desc: "Take bookings and get paid — solo or with a team. Pick your plan next.", accent: "border-gold/40 hover:border-gold/70", iconBg: "bg-gold/15", iconColor: "text-gold" },
     { role: "customer" as SelectedRole, icon: Calendar, title: "I'm looking to book", desc: "Find and book appointments at nearby barbershops", accent: "border-border hover:border-gray-500", iconBg: "bg-surface-raised", iconColor: "text-gray-300" },
   ];
 
@@ -172,11 +172,6 @@ export default function SignupPage() {
                 </div>
               </button>
             ))}
-            <div className="text-center pt-2">
-              <p className="text-xs text-[#8f8f8f]">Are you a barber looking to join a shop?{" "}
-                <Link href="/signup/barber" className="text-gold hover:underline">Sign up as a barber →</Link>
-              </p>
-            </div>
             <p className="text-center text-sm text-[#8f8f8f] pt-2">
               Already have an account?{" "}
               <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
