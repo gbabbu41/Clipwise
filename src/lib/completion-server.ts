@@ -91,14 +91,25 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
 
   // Bump client visit/spend stats (email → phone), mirroring the client path.
   if (appt.client_email || appt.client_phone) {
-    const matchField = appt.client_email ? "email" : "phone";
-    const matchVal = (appt.client_email || appt.client_phone) as string;
-    const { data: clientRow } = await supabaseAdmin
-      .from("clients")
-      .select("id, total_visits, total_spent")
-      .eq("shop_id", shop.id)
-      .eq(matchField, matchVal)
-      .maybeSingle();
+    const emailMatch = (appt.client_email ?? "").trim();
+    const phoneMatch = (appt.client_phone ?? "").trim();
+    // Match email case-INSENSITIVELY (ilike) — the SAME way awardLoyaltyForAppointment
+    // finds the client. A case-sensitive .eq here meant a client whose stored email
+    // differed only in case earned points but never got their visit/spend bumped,
+    // skewing VIP/At-Risk tagging. Fall back to phone (exact) when there's no email.
+    const { data: clientRow } = emailMatch
+      ? await supabaseAdmin
+          .from("clients")
+          .select("id, total_visits, total_spent")
+          .eq("shop_id", shop.id)
+          .ilike("email", emailMatch)
+          .maybeSingle()
+      : await supabaseAdmin
+          .from("clients")
+          .select("id, total_visits, total_spent")
+          .eq("shop_id", shop.id)
+          .eq("phone", phoneMatch)
+          .maybeSingle();
     if (clientRow) {
       await supabaseAdmin.from("clients").update({
         total_visits: (clientRow.total_visits ?? 0) + 1,

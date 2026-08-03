@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
       barber_id: m.barber_id || null,
       client_name: m.client_name || "Walk-in",
       service_name: m.service_name || "Sale",
-      amount: subtotal,
+      // Ledger the amount actually COLLECTED for the service (net of any POS
+      // discount), not the pre-discount subtotal — otherwise every discounted
+      // card sale overstates revenue by the discount in Payments/analytics.
+      amount: Math.max(0, subtotal - discount),
       tip,
       tax,
       stripe_fee: stripeFee,

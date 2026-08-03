@@ -33,14 +33,18 @@ export async function POST(request: NextRequest) {
 
   if (appt.payment_status === "refunded") return NextResponse.json({ error: "This appointment was already refunded." }, { status: 400 });
 
+  // Report the amount actually refunded (a no-show fee refund returns only the
+  // fee, not the full booked total).
+  let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
   try {
     // Real Stripe refund when there's a captured payment on the connected account
     if (appt.payment_intent_id && shop.stripe_account_id) {
       try {
-        await stripe.refunds.create(
+        const refund = await stripe.refunds.create(
           { payment_intent: appt.payment_intent_id },
           { stripeAccount: shop.stripe_account_id }
         );
+        if (typeof refund.amount === "number") refundedCents = refund.amount;
       } catch (e) {
         // If Stripe says this charge is ALREADY refunded (e.g. an earlier attempt
         // succeeded on Stripe but our record drifted back to "paid"), that's a
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
       barberId: appt.barber_id,
       shopId: appt.shop_id,
       clientName: appt.client_name,
-      amountCents: Math.round((appt.total_amount ?? 0) * 100),
+      amountCents: refundedCents,
       date: appt.date,
     });
 
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest) {
             shopSlug: shop.slug,
             serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
             date: appt.date,
-            total: `$${(appt.total_amount ?? 0).toFixed(2)}`,
+            total: `$${(refundedCents / 100).toFixed(2)}`,
           },
         }),
       }).catch(() => null);

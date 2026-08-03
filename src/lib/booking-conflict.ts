@@ -42,6 +42,13 @@ async function barberIntervals(barber_id: string, date: string, excludeId?: stri
       .eq("barber_id", barber_id)
       .eq("date", date)
       .in("status", OCCUPYING_STATUSES);
+    // A missing `duration_minutes` column trips the first query and the fallback
+    // recovers. But if the FALLBACK also errors (transient DB blip, pool
+    // exhaustion), we genuinely can't see this barber's schedule — throw so the
+    // caller fails CLOSED (rejects the booking) instead of treating an errored
+    // query as an empty schedule and letting a double-booking through. The read
+    // path (/api/availability) already fails closed the same way.
+    if (fallback.error) throw new Error(`conflict-check query failed: ${fallback.error.message}`);
     rows = (fallback.data ?? []) as (ApptRow & { id: string })[];
   } else {
     rows = (withDur.data ?? []) as (ApptRow & { id: string })[];
@@ -69,7 +76,15 @@ export async function barberHasConflict(
   excludeId?: string | null,   // appointment to ignore (e.g. the one being edited)
 ): Promise<boolean> {
   if (!barber_id) return false;
-  const intervals = await barberIntervals(barber_id, date, excludeId);
+  let intervals: [number, number][];
+  try {
+    intervals = await barberIntervals(barber_id, date, excludeId);
+  } catch {
+    // Couldn't read the barber's schedule — fail CLOSED (report a conflict) so a
+    // transient DB error can never open a double-booking window. Better a rare
+    // spurious "pick another time" than a real overbooking.
+    return true;
+  }
   return intervals.some(([s, e]) => startMin < e && s < endMin);
 }
 
@@ -105,6 +120,10 @@ export async function findAvailableBarber(
       .from("appointments")
       .select("barber_id, time_slot, payment_status, services(duration_minutes)")
       .in("barber_id", ordered).eq("date", date).in("status", OCCUPYING_STATUSES);
+    // Fallback also errored — we can't confirm ANY barber is actually free, so
+    // fail CLOSED: return no barber and let the caller reject rather than hand out
+    // a chair that might already be booked.
+    if (fallback.error) return null;
     allRows = (fallback.data ?? []) as RowWithBarber[];
   } else {
     allRows = (withDur.data ?? []) as RowWithBarber[];

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
 
   const { data: appt } = await supabaseAdmin.from("appointments")
-    .select("id, shop_id, barber_id, service_id, client_name, total_amount, payment_status, payment_method")
+    .select("id, shop_id, barber_id, service_id, client_name, total_amount, tax_amount, payment_status, payment_method")
     .eq("id", appointment_id).maybeSingle();
   if (!appt) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -41,18 +41,39 @@ export async function POST(request: NextRequest) {
     ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
     : { data: null as { name: string } | null };
 
-  await supabaseAdmin.from("transactions").insert({
+  // Split tax out so `amount` is PRE-tax service revenue and `tax` is stored
+  // separately — matching the card (capture-appointment) and POS ledger rows.
+  // total_amount is GROSS (tax-inclusive), so pre-tax = total − tax. Without this
+  // split, cash completions overstated pre-tax revenue and reported $0 tax
+  // collected (corrupting the barber Payments view + the GST/tax report).
+  const taxAmt = Math.max(0, Number(appt.tax_amount ?? 0));
+  const row: Record<string, unknown> = {
     shop_id: appt.shop_id,
     barber_id: appt.barber_id || null,
     client_name: appt.client_name || null,
     service_name: svc?.name ?? "Service",
-    amount: appt.total_amount ?? 0,
+    amount: Math.max(0, (appt.total_amount ?? 0) - taxAmt),
     tip: 0,
+    tax: taxAmt,
     payment_method: appt.payment_method || "cash",
     type: "service",
     appointment_id,
     source: "completion",
-  }).then(null, () => null);
+  };
+  const { error: insErr } = await supabaseAdmin.from("transactions").insert(row);
+  if (insErr) {
+    // `tax` column may lag a migration — retry without it (keeping GROSS in
+    // `amount` so no revenue is lost) rather than dropping the ledger row. Any
+    // other error is surfaced in logs instead of being silently swallowed.
+    if (/tax|column|schema cache/i.test(insErr.message)) {
+      delete row.tax;
+      row.amount = appt.total_amount ?? 0;
+      const { error: e2 } = await supabaseAdmin.from("transactions").insert(row);
+      if (e2) console.warn("[record-cash] ledger insert failed:", e2.message);
+    } else {
+      console.warn("[record-cash] ledger insert failed:", insErr.message);
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

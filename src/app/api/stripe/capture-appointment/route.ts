@@ -145,7 +145,16 @@ export async function POST(request: NextRequest) {
         payment_method: appt.stripe_payment_method_id!,
         off_session: true,
         confirm: true,
-      }, opts);
+      }, {
+        ...(opts ?? {}),
+        // Collapse a double-submit / retry into ONE charge. Unlike the held-card
+        // path (capture rejects a second call), create() would happily charge the
+        // saved card again. Keying by appointment + reason + amount makes Stripe
+        // return the ORIGINAL PaymentIntent instead of creating a second charge if
+        // this runs twice (double-click, mobile retry, or a retry after the Stripe
+        // charge succeeded but our DB write threw).
+        idempotencyKey: `capture-${appointment_id}-${reason ?? "completed"}-${chargeCents}`,
+      });
     } else {
       // Held card: capture the existing authorization.
       const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};

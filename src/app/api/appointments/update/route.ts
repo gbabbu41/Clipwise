@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
+import { authorizeAppointment } from "@/lib/api-auth";
 import { timeToMinutes } from "@/lib/utils";
 
 /**
@@ -24,34 +25,22 @@ const EDITABLE = [
 ] as const;
 
 export async function POST(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const body = await request.json() as { appointment_id?: string; fields?: Record<string, unknown> };
   const { appointment_id, fields } = body;
   if (!appointment_id || !fields || typeof fields !== "object") {
     return NextResponse.json({ error: "Missing appointment_id or fields" }, { status: 400 });
   }
 
-  const { data: appt } = await supabaseAdmin
-    .from("appointments")
-    .select("id, shop_id, barber_id, date, time_slot, duration_minutes, service_id, status")
-    .eq("id", appointment_id).maybeSingle();
-  if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-
-  // Authorize: shop owner OR an active barber of this shop.
-  const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, owner_id").eq("id", appt.shop_id).maybeSingle();
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
-  let allowed = shop.owner_id === user.id;
-  if (!allowed) {
-    const { data: barberRow } = await supabaseAdmin
-      .from("barbers").select("id").eq("shop_id", appt.shop_id).eq("user_id", user.id).eq("is_active", true).maybeSingle();
-    allowed = !!barberRow;
-  }
-  if (!allowed) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+  // Authorize: shop owner OR a barber with manage_appointments — the SAME gate as
+  // capture-appointment / payment-link. This route can change total_amount (which
+  // feeds a later saved-card charge at completion) and reassign / move the booking,
+  // so a barber whose manage_appointments is OFF must not be able to reach it.
+  const auth = await authorizeAppointment(request, appointment_id, { permission: "manage_appointments" });
+  if ("error" in auth) return auth.error;
+  const appt = auth.appointment as {
+    id: string; shop_id: string; barber_id: string | null; date: string;
+    time_slot: string; duration_minutes: number | null; service_id: string | null; status: string;
+  };
 
   // Resolve the would-be window.
   const newBarber = (fields.barber_id !== undefined ? fields.barber_id : appt.barber_id) as string | null;

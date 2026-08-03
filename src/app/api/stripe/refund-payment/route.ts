@@ -47,12 +47,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No card charge to refund (e.g. cash). Refund it in person." }, { status: 400 });
     }
 
+    // Report the amount ACTUALLY refunded, not the full booked total. A no-show
+    // fee refund only returns the fee (e.g. $10 on a $60 booking) — telling the
+    // customer "$60.00 refunded" is wrong and pollutes the audit trail.
+    let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
     try {
-      await stripe.refunds.create({ payment_intent: appt.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+      const refund = await stripe.refunds.create({ payment_intent: appt.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+      if (typeof refund.amount === "number") refundedCents = refund.amount;
     } catch (err) {
       if (!isAlreadyRefunded(err)) {
         return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
       }
+      // Already refunded on Stripe — read the true captured amount off the PI so
+      // we still report the right figure rather than the full total.
+      try {
+        const pi = await stripe.paymentIntents.retrieve(appt.payment_intent_id, undefined, { stripeAccount: shop.stripe_account_id });
+        if (typeof pi.amount_received === "number" && pi.amount_received > 0) refundedCents = pi.amount_received;
+      } catch { /* keep the total_amount fallback */ }
     }
 
     // Free the chair only when the service HASN'T happened yet: an upcoming
@@ -67,8 +78,12 @@ export async function POST(request: NextRequest) {
     // Flag the completion/no-show ledger row too, so barber earnings + analytics
     // correct immediately instead of relying on the charge.refunded webhook.
     if (appt.payment_intent_id) {
-      await supabaseAdmin.from("transactions")
-        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).then(null, () => null);
+      const { error: txErr } = await supabaseAdmin.from("transactions")
+        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id);
+      // A silent failure here (e.g. a lagging `refunded` column) means the money
+      // is refunded on Stripe but the row keeps counting as revenue/commission —
+      // log it so the drift is visible instead of vanishing.
+      if (txErr) console.warn("[refund-payment] failed to flag transaction refunded:", txErr.message);
     }
     if (!served) {
       fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
@@ -83,7 +98,7 @@ export async function POST(request: NextRequest) {
       barberId: appt.barber_id,
       shopId: appt.shop_id,
       clientName: appt.client_name,
-      amountCents: Math.round((appt.total_amount ?? 0) * 100),
+      amountCents: refundedCents,
       date: appt.date,
     });
 
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest) {
             clientName: appt.client_name, clientEmail: appt.client_email,
             shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
             serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-            date: appt.date, total: `$${(appt.total_amount ?? 0).toFixed(2)}`,
+            date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
           },
         }),
       }).catch(() => null);
@@ -117,8 +132,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No card charge to refund (e.g. cash). Refund it in person." }, { status: 400 });
   }
 
+  let refundedCents = Math.round((tx.amount ?? 0) * 100);
   try {
-    await stripe.refunds.create({ payment_intent: tx.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+    const refund = await stripe.refunds.create({ payment_intent: tx.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+    if (typeof refund.amount === "number") refundedCents = refund.amount;
   } catch (err) {
     if (!isAlreadyRefunded(err)) {
       return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
@@ -130,7 +147,7 @@ export async function POST(request: NextRequest) {
     barberId: tx.barber_id,
     shopId: tx.shop_id,
     clientName: tx.client_name,
-    amountCents: Math.round((tx.amount ?? 0) * 100),
+    amountCents: refundedCents,
     date: typeof tx.created_at === "string" ? tx.created_at.slice(0, 10) : null,
   });
   return NextResponse.json({ ok: true });
