@@ -191,7 +191,7 @@ export default function BookingPage() {
   // renders from this when present (online path).
   const [confirmedSummary, setConfirmedSummary] = useState<{
     shopName: string; barberName: string; serviceName: string;
-    date: string; time: string; total: number; clientEmail: string; paymentNote: string;
+    date: string; time: string; total: number; tip?: number; clientEmail: string; paymentNote: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
@@ -1308,9 +1308,21 @@ export default function BookingPage() {
                 <span className="text-white font-medium">{value}</span>
               </div>
             ))}
+            {(confirmedSummary?.tip ?? 0) > 0 && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#8f8f8f]">Subtotal</span>
+                  <span className="text-white font-medium">{formatCurrency(dispTotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#8f8f8f]">Tip</span>
+                  <span className="text-white font-medium">{formatCurrency(confirmedSummary!.tip!)}</span>
+                </div>
+              </>
+            )}
             <div className="border-t border-[#2a2a2a] pt-3 flex justify-between font-bold">
               <span className="text-white">Total</span>
-              <span className="text-white text-lg">{formatCurrency(dispTotal)}</span>
+              <span className="text-white text-lg">{formatCurrency(dispTotal + (confirmedSummary?.tip ?? 0))}</span>
             </div>
             {confirmedSummary?.paymentNote && (
               <p className="text-xs text-[#8f8f8f] text-center pt-1">{confirmedSummary.paymentNote}</p>

@@ -659,6 +659,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     && appt.payment_status !== "refunded" && !heldOrSaved;
 
   const amt = Number(appt.total_amount ?? 0);
+  // Tip is stored separately (total_amount = service + tax only). For anything
+  // that shows the money the customer actually paid / will be charged, add it in
+  // — a held card captures total + tip, and a paid booking already took it.
+  const tipAmt = Number(appt.tip_amount ?? 0);
+  const amtPaid = amt + tipAmt;
   // A checkout link is out and the customer hasn't paid yet — keep the Check out
   // button but surface that we're waiting (paying the link auto-completes).
   const awaiting = !paid && !refunded && !!appt.stripe_checkout_session_id;
@@ -679,7 +684,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     : refunded
       ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
-      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amt > 0 ? ` · ${formatCurrency(amt)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
       : awaiting
         ? { text: "Awaiting payment", cls: "bg-sky-400/10 text-sky-400" }
         : appt.status === "pending"
@@ -691,7 +696,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               : appt.status === "no-show"
                 ? { text: "No-show", cls: "bg-white/5 text-grey" }
                 : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
-  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amt > 0 ? formatCurrency(amt) : null].filter(Boolean).join(" · ");
+  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amtPaid > 0 ? formatCurrency(amtPaid) : null].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -807,7 +812,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ) : (
                 <>
                   {heldOrSaved && (
-                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amt > 0 ? ` · ${formatCurrency(amt)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
                   <DAction tone="muted" icon="💳" label="Pay here (Tap) · Coming soon" />
                   {!showEmail ? (
@@ -1852,7 +1857,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
                 <p className="text-[11px] text-grey truncate">
                   {(c.a.services as { name: string } | null)?.name ?? "—"}
-                  {(c.a.total_amount ?? 0) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount))}` : ""}
+                  {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
                 </p>
               </div>
               {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
@@ -2077,7 +2082,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           {height > 64 && (
                             <p className="text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
-                              {(appt.total_amount ?? 0) > 0 ? ` · ${formatCurrency(Number(appt.total_amount))}` : ""}
+                              {(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0))}` : ""}
                             </p>
                           )}
                         </button>

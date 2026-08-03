@@ -18,7 +18,8 @@ export type BookingSummary = {
   serviceName: string;
   date: string;
   time: string;
-  total: number;
+  total: number;   // service + tax (the stored appointment total, excl. tip)
+  tip: number;     // tip the customer added (0 if none) — shown as its own line
   clientEmail: string;
   paymentNote: string;
 };
@@ -219,7 +220,9 @@ export async function finalizeBookingFromSession(params: {
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();
   const friendly = prettyDate(m.date);
   if (shopRow?.owner_id) {
-    const amountStr = `$${Number(m.total_amount ?? 0).toFixed(0)}`;
+    // Show what the customer actually paid (service + tax + tip), so the alert
+    // matches the Stripe charge rather than under-reporting by the tip.
+    const amountStr = `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(0)}`;
     const bookingTitle = isSave ? `New Booking · card on file · ${amountStr}`
       : isHold ? `New Booking · card held · ${amountStr}`
       : `New Paid Booking · ${amountStr}`;
@@ -294,7 +297,8 @@ export async function finalizeBookingFromSession(params: {
       barberName: barber?.name ?? "Any Available",
       serviceName: service?.name ?? "Service",
       date: m.date, time: m.time_slot,
-      total: `$${Number(m.total_amount ?? 0).toFixed(2)}`,
+      // Grand total the customer paid — service + tax + tip (matches the charge).
+      total: `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(2)}`,
       paymentNote: isSave ? "Card saved — charged after your visit"
         : isHold ? "Card on hold — charged after your visit"
         : "Paid online",
@@ -320,6 +324,7 @@ export async function finalizeBookingFromSession(params: {
       date: m.date,
       time: m.time_slot,
       total: Number(m.total_amount ?? 0),
+      tip: Number(m.tip_amount ?? 0),
       clientEmail: m.client_email ?? "",
       paymentNote: isSave ? "Card saved — charged after your visit"
         : isHold ? "Card held — charged after your visit"
@@ -334,7 +339,7 @@ export async function finalizeBookingFromSession(params: {
 async function buildSummary(appointmentId: string, isSave: boolean, isHold: boolean): Promise<BookingSummary | null> {
   const { data: a } = await supabaseAdmin
     .from("appointments")
-    .select("date, time_slot, total_amount, client_email, payment_status, shops(name), barbers(name), services(name)")
+    .select("date, time_slot, total_amount, tip_amount, client_email, payment_status, shops(name), barbers(name), services(name)")
     .eq("id", appointmentId).maybeSingle();
   if (!a) return null;
   const rel = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -350,6 +355,7 @@ async function buildSummary(appointmentId: string, isSave: boolean, isHold: bool
     date: a.date as string,
     time: a.time_slot as string,
     total: Number(a.total_amount ?? 0),
+    tip: Number(a.tip_amount ?? 0),
     clientEmail: (a.client_email as string) ?? "",
     paymentNote: saved ? "Card saved — charged after your visit"
       : held ? "Card held — charged after your visit"

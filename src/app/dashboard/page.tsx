@@ -821,7 +821,7 @@ export default function DashboardPage() {
                             <div className="cwd-ws">{apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}</div>
                           </div>
                           <div className="cwd-rt">
-                            <div className="cwd-amt cwd-mono">{formatCurrency(apt.total_amount)}</div>
+                            <div className="cwd-amt cwd-mono">{formatCurrency(Number(apt.total_amount ?? 0) + Number(apt.tip_amount ?? 0))}</div>
                             <PaymentTag appt={apt} />
                           </div>
                         </button>

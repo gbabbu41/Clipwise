@@ -1109,7 +1109,7 @@ export default function AppointmentsPage() {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(apt.total_amount)}</p>
+                    <p className="text-sm font-bold font-mono text-emerald-400 leading-none">{formatCurrency(Number(apt.total_amount ?? 0) + Number(apt.tip_amount ?? 0))}</p>
                     <StatusPill status={apt.status} />
                   </div>
                 </div>
@@ -1200,7 +1200,7 @@ export default function AppointmentsPage() {
                           <StatusPill status={apt.status} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(apt.total_amount)}</p>
+                          <p className="text-sm font-mono font-semibold text-emerald-400">{formatCurrency(Number(apt.total_amount ?? 0) + Number(apt.tip_amount ?? 0))}</p>
                           {(() => { const p = paymentBadge(apt); return p ? <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md whitespace-nowrap mt-1", p.bsClass)}>{p.label}</span> : null; })()}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -1294,7 +1294,7 @@ export default function AppointmentsPage() {
                   { label: "Date", value: formatFriendlyDate(selectedApt.date) },
                   { label: "Time", value: selectedApt.time_slot },
                   { label: "Duration", value: apptDuration(selectedApt) ? `${apptDuration(selectedApt)} min` : "—" },
-                  { label: "Amount", value: formatCurrency(selectedApt.total_amount) },
+                  { label: "Amount", value: formatCurrency(Number(selectedApt.total_amount ?? 0) + Number(selectedApt.tip_amount ?? 0)) },
                   { label: "Status", value: statusLabel(selectedApt.status) },
                 ].map(item => (
                   <div key={item.label} className="p-3 bg-card-raised rounded-xl border border-border">
@@ -1378,7 +1378,7 @@ export default function AppointmentsPage() {
                   "take payment" here, or it would double-charge. */}
               {selectedApt.payment_status === "held" && selectedApt.status !== "no-show" && (
                 <div className="rounded-xl border border-border bg-card-raised p-3 text-xs text-grey">
-                  💳 Card on hold · <span className="text-foreground font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
+                  💳 Card on hold · <span className="text-foreground font-semibold">{formatCurrency(Number(selectedApt.total_amount ?? 0) + Number(selectedApt.tip_amount ?? 0))}</span>
                   <span className="block text-grey mt-0.5">Charged automatically when you mark this Complete.</span>
                 </div>
               )}
@@ -1386,7 +1386,7 @@ export default function AppointmentsPage() {
                   file rather than authorized). Charged off-session on Complete. */}
               {selectedApt.payment_status === "saved" && selectedApt.status !== "no-show" && (
                 <div className="rounded-xl border border-border bg-card-raised p-3 text-xs text-grey">
-                  💳 Card on file · <span className="text-foreground font-semibold">{formatCurrency(selectedApt.total_amount)}</span>
+                  💳 Card on file · <span className="text-foreground font-semibold">{formatCurrency(Number(selectedApt.total_amount ?? 0) + Number(selectedApt.tip_amount ?? 0))}</span>
                   <span className="block text-grey mt-0.5">Booked &gt;7 days out — charged when you mark this Complete (or as a no-show fee).</span>
                 </div>
               )}
