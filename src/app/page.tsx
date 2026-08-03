@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import * as THREE from "three";
@@ -56,6 +56,8 @@ const cell = (v: string | boolean) => typeof v === "boolean" ? (v ? <Check c="#3
 
 export default function LandingPage() {
   const threeRef = useRef<HTMLDivElement | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
     const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
@@ -189,10 +191,28 @@ export default function LandingPage() {
 
       <nav>
         <div className="wide nav-in">
-          <Link href="/"><Logo size="sm" className="cw-grad" /></Link>
+          <Link href="/" onClick={closeMenu}><Logo size="sm" className="cw-grad" /></Link>
           <div className="nav-links"><a href="#features">Features</a><a href="#tour">Product</a><a href="#pricing">Pricing</a><a href="#compare">Compare</a><Link href="/shops">Find a Barber</Link></div>
-          <div className="nav-cta"><Link className="btn btn-ghost btn-sm" href="/login">Log in</Link><Link className="btn btn-primary btn-sm mag" href="/signup">Get Started</Link></div>
+          <div className="nav-cta">
+            <Link className="btn btn-ghost btn-sm" href="/login">Log in</Link>
+            <Link className="btn btn-primary btn-sm mag" href="/signup">Get Started</Link>
+            <button className="nav-burger" aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                {menuOpen ? <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></> : <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>}
+              </svg>
+            </button>
+          </div>
         </div>
+        {menuOpen && (
+          <div className="mobmenu">
+            <a href="#features" onClick={closeMenu}>Features</a>
+            <a href="#tour" onClick={closeMenu}>Product</a>
+            <a href="#pricing" onClick={closeMenu}>Pricing</a>
+            <a href="#compare" onClick={closeMenu}>Compare</a>
+            <Link href="/shops" onClick={closeMenu}>Find a Barber</Link>
+            <Link href="/login" onClick={closeMenu} className="mm-login">Log in</Link>
+          </div>
+        )}
       </nav>
 
       <header className="hero">
@@ -352,8 +372,8 @@ const CSS = `
   body img,body svg,body table{max-width:100%}
   body ::selection{background:var(--ink);color:#000}
   nav :focus-visible,header :focus-visible,section :focus-visible,footer :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
-  .wide{max-width:1240px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 max(24px,env(safe-area-inset-right)) 0 max(24px,env(safe-area-inset-left))}
+  .wide{max-width:1240px;margin:0 auto;padding:0 max(24px,env(safe-area-inset-right)) 0 max(24px,env(safe-area-inset-left))}
   .display{font-weight:700;letter-spacing:-.035em;line-height:1.05;color:var(--ink)}
   h2.display{font-size:clamp(30px,4.7vw,54px)}
   .eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
@@ -363,11 +383,17 @@ const CSS = `
   .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink);border-color:var(--line2);backdrop-filter:blur(6px)}.btn-ghost:hover{border-color:var(--ink);background:rgba(255,255,255,.1)}
   .btn-sm{padding:9px 17px;font-size:14px}
   .arrow svg{width:16px;height:16px;transition:transform .25s}.arrow:hover svg{transform:translateX(4px)}
-  nav{position:sticky;top:0;z-index:70;background:rgba(8,8,10,.66);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+  nav{position:sticky;top:0;z-index:70;background:rgba(8,8,10,.66);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
   .nav-in{height:58px;display:flex;align-items:center;justify-content:space-between}
   .nav-links{display:flex;gap:30px;font-size:13.5px;color:var(--ink2)}.nav-links a{color:var(--ink2);text-decoration:none}.nav-links a:hover{color:var(--ink)}
   .nav-cta{display:flex;gap:10px;align-items:center}
-  @media(max-width:860px){.nav-links{display:none}}
+  .nav-burger{display:none;align-items:center;justify-content:center;width:40px;height:40px;flex:none;border:1px solid var(--line2);border-radius:11px;background:rgba(255,255,255,.05);color:var(--ink);cursor:pointer}
+  .mobmenu{display:flex;flex-direction:column;padding:6px max(24px,env(safe-area-inset-left)) 16px max(24px,env(safe-area-inset-right));background:rgba(8,8,10,.97);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+  .mobmenu a{padding:14px 4px;color:var(--ink2);text-decoration:none;font-size:15.5px;border-bottom:1px solid var(--line)}
+  .mobmenu a:active{color:var(--ink)}.mobmenu a:last-child{border-bottom:0}
+  .mobmenu .mm-login{color:var(--ink);font-weight:600}
+  @media(max-width:860px){.nav-links{display:none}.nav-burger{display:inline-flex}.nav-cta .btn-ghost{display:none}}
+  @media(min-width:861px){.mobmenu{display:none}}
   .hero{position:relative;text-align:center;padding:56px 0 92px;overflow:hidden;isolation:isolate;box-sizing:border-box;min-height:calc(100svh - 58px);min-height:var(--hero-h,calc(100svh - 58px));display:flex;flex-direction:column;justify-content:center}
   .three-host{position:absolute;inset:0;z-index:-1;opacity:.9;pointer-events:none}
   .three-host canvas{width:100%!important;height:100%!important;display:block}
@@ -496,8 +522,8 @@ const CSS = `
   @media(max-width:860px){.fg{grid-template-columns:1fr 1fr}}
   /* ── phone polish (most visitors) ── */
   @media(max-width:640px){
-    .wrap,.wide{padding:0 18px}
-    .nav-cta{gap:7px}.nav-cta .btn{padding:7px 12px;font-size:12.5px}
+    .wrap,.wide{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}
+    .nav-cta{gap:8px}.nav-cta .btn{padding:10px 15px;font-size:13px}
     section{padding:60px 0}
     .center{margin:0 auto 34px}
     h2.display{font-size:clamp(25px,7.4vw,34px)}
