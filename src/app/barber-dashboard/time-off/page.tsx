@@ -136,7 +136,20 @@ export default function BarberTimeOffPage() {
   };
 
   const cancelRequest = async (id: string) => {
-    await supabase.from("time_off_requests").delete().eq("id", id).eq("barber_id", barber?.id ?? "");
+    // Only a still-pending request can be withdrawn; check what actually got
+    // deleted before pruning local state. A failed/no-op delete (e.g. the owner
+    // already approved it) used to vanish from the UI and silently reappear on
+    // refresh — now it stays and the barber is told to contact the owner.
+    const { data, error } = await supabase
+      .from("time_off_requests").delete()
+      .eq("id", id).eq("barber_id", barber?.id ?? "").eq("status", "pending")
+      .select("id");
+    if (error) { showToast(`Couldn't cancel: ${error.message}`); return; }
+    if (!data || data.length === 0) {
+      showToast("This request can't be cancelled here — it may already be approved. Contact your shop owner.");
+      loadRequests();
+      return;
+    }
     setRequests(prev => prev.filter(r => r.id !== id));
     showToast("Request cancelled.");
   };
