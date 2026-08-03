@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const shopId = searchParams.get("shop_id");
-  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent").eq("user_id", user.id);
+  let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent, permissions").eq("user_id", user.id);
   if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
   const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
   const barber = barberRows?.[0];
@@ -27,6 +27,16 @@ export async function GET(request: NextRequest) {
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", effShopId).maybeSingle();
     isOwner = shopRow?.owner_id === user.id;
   }
+
+  // Enforce the owner's "view earnings" permission toggle server-side — the nav
+  // only hides the tab, so without this a barber could hit this route (or swipe
+  // to /earnings) and read their pay data after the owner turned it off. The
+  // owner themselves is never restricted. Undefined = allowed (matches the nav).
+  const perms = barber.permissions as { view_earnings?: boolean } | null;
+  if (!isOwner && perms?.view_earnings === false) {
+    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+  }
+
   const commissionPercent = barber.commission_percent;
 
   const period = searchParams.get("period") ?? "month";

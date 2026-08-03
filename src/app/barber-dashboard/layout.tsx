@@ -17,6 +17,22 @@ const BARBER_SWIPE_ORDER = [
   "/barber-dashboard/earnings",
 ];
 
+// Swipe wrapper that drops tabs the owner has turned off for this barber, so a
+// swipe never lands on a permission-blocked page (Payments hides when
+// view_earnings is off — matching the bottom nav). Rendered under BarberProvider.
+function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: React.ReactNode }) {
+  const { barber } = useBarber();
+  const perms = barber?.permissions;
+  const order = BARBER_SWIPE_ORDER.filter(h =>
+    h !== "/barber-dashboard/earnings" || perms?.view_earnings !== false,
+  );
+  return (
+    <SwipeNavigator order={order}>
+      {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
+    </SwipeNavigator>
+  );
+}
+
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
 
@@ -97,9 +113,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
               pt-14 reserves the mobile top-bar height. The full-bleed calendar
               pins its own sunken canvas, so the top spacer matches it there. */}
           <main className={`lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 pb-24 lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
-            <SwipeNavigator order={BARBER_SWIPE_ORDER}>
-              {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
-            </SwipeNavigator>
+            <BarberSwipe isCalendar={isCalendar}>{children}</BarberSwipe>
           </main>
           <BarberMobileNav />
         </div>

@@ -49,6 +49,8 @@ export default function BarberPaymentsPage() {
   const { accessToken, profile } = useAuth();
   const { shop, barber } = useBarber();
   const canManage = profile?.role === "shop_owner" || barber?.permissions?.manage_appointments === true;
+  // The owner can hide this page per-barber (view_earnings). Undefined = allowed.
+  const notPermitted = barber?.permissions?.view_earnings === false;
 
   const [txs, setTxs] = useState<Tx[]>([]);
   const [pct, setPct] = useState(0);
@@ -77,13 +79,13 @@ export default function BarberPaymentsPage() {
 
   // ── All-time transactions in one call; the window is applied client-side ──
   const loadEarnings = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken || notPermitted) { setLoading(false); return; }
     const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
     const r = await fetch(`/api/barber/earnings?period=all${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const d = r.ok ? await r.json() : null;
     if (d) { setTxs((d.transactions ?? []) as Tx[]); setPct(d.summary?.commissionPercent ?? 0); setIsOwner(d.summary?.isOwner ?? false); }
     setLoading(false);
-  }, [accessToken, shop?.id]);
+  }, [accessToken, shop?.id, notPermitted]);
 
   // Exact Stripe net/fees per card payment (fees aren't stored in our DB).
   const syncStripe = useCallback(async () => {
@@ -287,6 +289,18 @@ export default function BarberPaymentsPage() {
   })();
   const showUnpaid = txFilter === "unpaid";
   const statementEmpty = showUnpaid ? unpaidGroups.length === 0 : txGroups.length === 0;
+
+  if (notPermitted) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto">
+        <div className="mt-10 rounded-2xl border border-border bg-surface p-8 text-center">
+          <Banknote size={32} className="text-grey mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-foreground">Payments not available</h1>
+          <p className="text-grey text-sm mt-1.5">Your shop hasn&apos;t enabled the payments view for your account. Ask the owner if you need access.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">

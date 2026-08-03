@@ -20,8 +20,11 @@ export default function BarberClientsPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // The owner can hide this page per-barber (view_clients). Undefined = allowed.
+  const notPermitted = barber?.permissions?.view_clients === false;
+
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken || notPermitted) { setLoading(false); return; }
     // Aggregate clients from appointments
     const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
     fetch(`/api/barber/appointments${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -52,12 +55,24 @@ export default function BarberClientsPage() {
         setClients(Array.from(map.values()).sort((a, b) => b.visits - a.visits));
       })
       .finally(() => setLoading(false));
-  }, [accessToken, shop?.id]);
+  }, [accessToken, shop?.id, notPermitted]);
 
   const filtered = clients.filter(c =>
     c.client_name.toLowerCase().includes(query.toLowerCase()) ||
     c.client_phone.includes(query)
   );
+
+  if (notPermitted) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="mt-10 rounded-2xl border border-border bg-surface p-8 text-center">
+          <Users size={32} className="text-grey mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-foreground">Client list not available</h1>
+          <p className="text-grey text-sm mt-1.5">Your shop hasn&apos;t enabled the client list for your account. Ask the owner if you need access.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
