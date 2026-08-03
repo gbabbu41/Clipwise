@@ -1223,21 +1223,31 @@ export default function StaffPage() {
                   {[
                     { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true, maxLength: 40 },
                     { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true, maxLength: 120 },
-                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 5 },
-                  ].map(({ key, label, placeholder, type, required, maxLength }) => (
+                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 3 },
+                  ].map(({ key, label, placeholder, type, required, maxLength }) => {
+                    const isPct = key === "commission_percent";
+                    return (
                     <div key={key} className="space-y-1.5">
                       <label className="text-sm text-grey">{label}</label>
                       <input
                         type={type}
+                        // Hard-limit commission to 0–100 as you type (a number
+                        // input's max attribute doesn't block typed values).
+                        {...(isPct ? { min: 0, max: 100, step: 1, inputMode: "numeric" as const } : {})}
                         value={addForm[key]}
-                        onChange={(e) => setAddForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                        onChange={(e) => {
+                          let v = e.target.value;
+                          if (isPct && v !== "") v = String(Math.min(100, Math.max(0, Math.round(Number(v) || 0))));
+                          setAddForm((prev) => ({ ...prev, [key]: v }));
+                        }}
                         placeholder={placeholder}
                         required={required}
                         maxLength={maxLength}
                         className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                       />
                     </div>
-                  ))}
+                    );
+                  })}
 
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Cancel</Button>
