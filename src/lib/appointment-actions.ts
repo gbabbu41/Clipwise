@@ -124,6 +124,28 @@ export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, status
   }).catch(() => null);
 }
 
+/** Customer "we missed you — book again" email, fired when an appointment is
+ *  marked no-show. Fire-and-forget. Kept here so every surface (calendar, barber
+ *  portal, appointments page) sends the same follow-up. */
+export function sendNoShowFollowup(appt: AppointmentWithDetails, shop: Shop) {
+  if (!appt.client_email) return;
+  fetch("/api/send-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "no_show_followup",
+      data: {
+        clientName: appt.client_name,
+        clientEmail: appt.client_email,
+        shopId: shop.id,
+        shopName: shop.name,
+        shopEmail: shop.email ?? "",
+        bookingUrl: `${origin()}/book/${shop.slug}`,
+      },
+    }),
+  }).catch(() => null);
+}
+
 /** Customer "appointment rejected" email. Fire-and-forget. */
 export function sendRejectionEmail(appt: AppointmentWithDetails, shop: Shop, reason: string) {
   if (!appt.client_email) return;

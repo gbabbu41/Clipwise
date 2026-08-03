@@ -162,21 +162,25 @@ export function effectivePlan(plan: string | undefined, subscriptionStatus: stri
 }
 
 // ── No-show fee ──────────────────────────────────────────────────────────────
-// The no-show fee is a PERCENTAGE of the booked total, capped at 80%. A barber
-// who wants the full amount just completes the appointment instead — so the
-// no-show charge is intentionally a partial one. Fees are never auto-charged;
-// a barber (or the owner) triggers them manually after the grace window.
-export const NO_SHOW_MAX_PCT = 80;
+// The no-show fee is a PERCENTAGE of the booked total, chosen per-appointment by
+// the barber/owner at the moment they mark the no-show (a 0–100% slider), and
+// defaulting to the shop's configured percentage. Fees are never auto-charged;
+// a barber (or the owner) triggers them manually.
+export const NO_SHOW_MAX_PCT = 100;
 export const NO_SHOW_DEFAULT_PCT = 50;
-// Minutes past the appointment start before the "charge no-show" option appears.
+// How long BEFORE the appointment start the "No-show" action becomes available,
+// judged in the shop's timezone (owner asked for a 1-hour lead). Once the slot's
+// start is within this window (or has passed) the barber can mark a no-show.
+export const NO_SHOW_LEAD_MINUTES = 60;
+// (Retained for back-compat; no longer gates the no-show action.)
 export const NO_SHOW_GRACE_MINUTES = 15;
 
-/** Clamp a configured no-show percentage into the allowed 0–80 range. */
+/** Clamp a no-show percentage into the allowed 0–100 range. */
 export function clampNoShowPct(pct: number | undefined | null): number {
   return Math.min(Math.max(Math.round(pct ?? NO_SHOW_DEFAULT_PCT), 0), NO_SHOW_MAX_PCT);
 }
 
-/** Dollar no-show fee for a booked total at the configured percentage (0–80),
+/** Dollar no-show fee for a booked total at the given percentage (0–100),
  *  rounded to cents. */
 export function noShowFeeDollars(total: number, pct: number | undefined | null): number {
   return Math.round((total ?? 0) * clampNoShowPct(pct)) / 100;

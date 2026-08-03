@@ -13,7 +13,7 @@ import {
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
-import { noShowFeeDollars, NO_SHOW_GRACE_MINUTES } from "@/lib/validation";
+import { clampNoShowPct, NO_SHOW_LEAD_MINUTES } from "@/lib/validation";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -35,6 +35,7 @@ import {
   runCompletionEffects,
   notifyFreedSlot,
   sendRejectionEmail,
+  sendNoShowFollowup,
 } from "@/lib/appointment-actions";
 import type { AppointmentWithDetails, Barber, Shop } from "@/lib/database.types";
 
@@ -472,6 +473,10 @@ export function makeApptActions(opts: {
       patch(appt.id, charged
         ? { status: "no-show", payment_status: "captured", paid_at: new Date().toISOString() }
         : { status: "no-show" });
+      // "We missed you — book again" email to the customer (every surface), and
+      // free the slot / ping the waitlist. NOT the review email — a no-show must
+      // never ask "how was your visit?".
+      sendNoShowFollowup(appt, shop);
       notifyFreedSlot(appt, shop, "No-show");
       setBusy("");
       onDone();
@@ -524,19 +529,23 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const [showEmail, setShowEmail] = useState(false);
   const [noShowMode, setNoShowMode] = useState(false);
 
-  // No-show can only be marked once the start time (+ a short grace) has passed,
-  // judged in the SHOP's timezone. Charging a fee needs a card on file.
+  // No-show can be marked from NO_SHOW_LEAD_MINUTES before the start time onward
+  // (owner asked for a 1-hour lead), judged in the SHOP's timezone. Charging a
+  // fee needs a card on file.
   const startedForNoShow = (() => {
     const t = safeTz(tz);
     if (!appt.date) return false;
     const today = todayInTz(t);
     if (appt.date < today) return true;
     if (appt.date > today) return false;
-    return timeToMinutes(appt.time_slot ?? "12:00 AM") + NO_SHOW_GRACE_MINUTES <= nowMinutesInTz(t);
+    return timeToMinutes(appt.time_slot ?? "12:00 AM") - NO_SHOW_LEAD_MINUTES <= nowMinutesInTz(t);
   })();
   const hasCardOnFile = appt.payment_status === "held" || appt.payment_status === "saved";
-  const noShowFee = noShowFeeDollars(appt.total_amount ?? 0, noShowFeePercent);
-  const noShowFeeCents = Math.round(noShowFee * 100);
+  // No-show charge is chosen at the moment of marking via a 0–100% slider,
+  // defaulting to the shop's configured percentage.
+  const [noShowPct, setNoShowPct] = useState(() => clampNoShowPct(noShowFeePercent));
+  const noShowFee = ((appt.total_amount ?? 0) * clampNoShowPct(noShowPct)) / 100;
+  const noShowFeeCents = Math.round((appt.total_amount ?? 0) * clampNoShowPct(noShowPct));
 
   // Inline edit — change the time / day / client info / barber / service(s)
   // before checking out. Time comes from the 15-min slot grid (never free-form);
@@ -842,9 +851,29 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
               {hasCardOnFile ? (
                 <>
-                  <p className="text-sm text-grey px-0.5">Charge a no-show fee to the card on file, or just mark it.</p>
-                  <DAction tone="danger" icon="⚠️" label={busy === "noshow" ? "Charging…" : `Charge no-show fee · ${formatCurrency(noShowFee)}`} disabled={!!busy || noShowFeeCents <= 0} onClick={() => actions.noShow(appt, noShowFeeCents)} />
-                  <DAction icon="○" label={busy === "noshow" ? "Marking…" : "Mark no-show · no charge"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                  <p className="text-sm text-grey px-0.5">Slide to set the no-show fee, then charge the card on file. Set it to 0% to mark the no-show without charging.</p>
+                  <div className="px-0.5 pt-0.5 pb-1">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-grey">No-show fee</span>
+                      <span className="text-sm font-semibold text-foreground">{clampNoShowPct(noShowPct)}% · {formatCurrency(noShowFee)}</span>
+                    </div>
+                    <input
+                      type="range" min={0} max={100} step={5} value={noShowPct}
+                      onChange={e => setNoShowPct(Number(e.target.value))}
+                      disabled={!!busy}
+                      className="w-full accent-[#ff6b6b] cursor-pointer"
+                      aria-label="No-show fee percentage"
+                    />
+                    <div className="flex justify-between text-[10px] text-grey-muted mt-0.5"><span>0%</span><span>50%</span><span>100%</span></div>
+                  </div>
+                  <DAction
+                    tone="danger" icon="⚠️"
+                    label={busy === "noshow"
+                      ? (noShowFeeCents > 0 ? "Charging…" : "Marking…")
+                      : (noShowFeeCents > 0 ? `Charge ${formatCurrency(noShowFee)} · mark no-show` : "Mark no-show · no charge")}
+                    disabled={!!busy}
+                    onClick={() => actions.noShow(appt, noShowFeeCents)}
+                  />
                 </>
               ) : (
                 <>
