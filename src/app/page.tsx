@@ -279,7 +279,7 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="center rv"><h2 className="display">Built around your business — not ours.</h2></div>
           <div className="three-cards rv stagger">
-            <div className="cell"><div className="big">$0</div><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book. Squire adds $1–5 per booking; we add nothing.</p></div>
+            <div className="cell"><div className="big">$0</div><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book. Squire adds a per-booking fee; we add nothing.</p></div>
             <div className="cell"><div className="big">0%</div><h3>Commission</h3><p>Every client you bring in stays 100% yours. No 30% cut on your own followers, ever.</p></div>
             <div className="cell"><div className="big">100%</div><h3>Of every tip</h3><p>Tips go straight to your Stripe account — collected online or from a post-visit link.</p></div>
           </div>
