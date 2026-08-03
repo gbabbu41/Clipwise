@@ -73,6 +73,37 @@ function timeToMinutesLocal(slot: string): number | null {
   return h * 60 + min;
 }
 
+const ymdToUtcMs = (s: string): number => {
+  const [y, m, d] = s.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+/**
+ * Hours from now until a booking start (date + timeSlot), judged in the SHOP's
+ * timezone. Negative when the start is already in the past. Used to enforce the
+ * cancellation-notice window server-side (cancel/reschedule inside the window
+ * is rejected). Unparseable slot → treated as start-of-day for that date.
+ */
+export function hoursUntilBooking(date: string, timeSlot: string | null | undefined, tz: string | null | undefined): number {
+  const zone = safeTz(tz);
+  const dayDiff = Math.round((ymdToUtcMs(date) - ymdToUtcMs(todayInTz(zone))) / 86400000);
+  const slotMin = timeToMinutesLocal(timeSlot ?? "") ?? 0;
+  const minutesUntil = dayDiff * 1440 + slotMin - nowMinutesInTz(zone);
+  return minutesUntil / 60;
+}
+
+/**
+ * Is `date` (YYYY-MM-DD) beyond the shop's advance-booking window
+ * (today + advanceDays), judged in the SHOP's timezone? The server guard that
+ * mirrors the booking page's client-side max-date cap, so a crafted request
+ * can't book past the shop's window.
+ */
+export function isBeyondAdvanceWindow(date: string, advanceDays: number, tz: string | null | undefined): boolean {
+  const zone = safeTz(tz);
+  const max = shiftYmd(todayInTz(zone), Math.max(0, Math.floor(advanceDays || 0)));
+  return date > max; // string compare is valid for YYYY-MM-DD
+}
+
 /** Shift a YYYY-MM-DD calendar date by N days (pure date math — DST-safe). */
 export function shiftYmd(ymd: string, days: number): string {
   const [y, m, d] = ymd.split("-").map(Number);

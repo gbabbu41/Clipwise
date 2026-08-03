@@ -8,8 +8,8 @@ import { resolveServiceCharge } from "@/lib/service-pricing";
 import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { isBookingInPast } from "@/lib/timezone";
-import { effectivePlan } from "@/lib/validation";
+import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, name, status, booking_settings, owner_id, timezone, subscription_plan, subscription_status").eq("id", b.shop_id).maybeSingle();
+    .from("shops").select("id, name, status, booking_settings, owner_id, timezone, subscription_plan, subscription_status, allow_pay_in_person, stripe_connected, stripe_account_id").eq("id", b.shop_id).maybeSingle();
   if (!shop || (shop.status !== "approved")) {
     return NextResponse.json({ error: "This shop isn't accepting bookings." }, { status: 403 });
   }
@@ -123,6 +123,26 @@ export async function POST(request: NextRequest) {
     preTaxTotal: effectiveTotal, requested: !!b.redeem,
   });
   effectiveTotal = Math.max(0, effectiveTotal - redemption.discount);
+
+  // ── Server enforcement of the shop's pay-model + advance window ────────────
+  // These are enforced on the client booking page too, but a crafted/replayed
+  // POST could bypass that — so re-check here (the server is the source of truth).
+  // Staff-added walk-ins (callerIsStaff) are exempt from both.
+  const shopCanCharge = planHasFeature(plan, "payments")
+    && !!(shop as { stripe_connected?: boolean | null }).stripe_connected
+    && !!(shop as { stripe_account_id?: string | null }).stripe_account_id;
+  const noShowProtection = !!(shop.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection;
+  const cardRequired = noShowProtection && shopCanCharge && effectiveTotal > 0;
+  const allowInPerson = !cardRequired
+    && ((shop as { allow_pay_in_person?: boolean | null }).allow_pay_in_person !== false || !shopCanCharge);
+  if (!callerIsStaff && b.pay_in_person && !allowInPerson) {
+    return NextResponse.json({ error: "This shop requires a card to book online." }, { status: 403 });
+  }
+  // Advance-booking window — can't book past today + advance_days (shop tz).
+  const advanceDays = Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15);
+  if (!callerIsStaff && isBeyondAdvanceWindow(b.date, advanceDays, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That date is beyond this shop's booking window." }, { status: 400 });
+  }
 
   // Duration → conflict window (server value).
   const startMin = timeToMinutes(b.time_slot);

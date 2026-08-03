@@ -5,7 +5,7 @@ import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
-import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast } from "@/lib/timezone";
+import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
@@ -67,6 +67,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!appt) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (appt.status === "cancelled" || appt.status === "completed" || appt.status === "no-show") {
     return NextResponse.json({ error: "This booking can no longer be changed." }, { status: 400 });
+  }
+
+  // ── Cancellation-notice window (server-authoritative) ──────────────────────
+  // A customer can't self-cancel OR reschedule inside the shop's required notice
+  // (booking_settings.cancellation_hours), judged in the shop's timezone. 0 = no
+  // restriction. This is the actual enforcement of the "24h notice" policy — the
+  // UI also hides the buttons, but the server is the source of truth.
+  const { data: shopCfg } = await supabaseAdmin
+    .from("shops").select("timezone, booking_settings").eq("id", appt.shop_id).maybeSingle();
+  const cancelHours = Number((shopCfg?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 0);
+  if (cancelHours > 0 && (body.action === "cancel" || body.action === "reschedule")) {
+    const hrs = hoursUntilBooking(appt.date, appt.time_slot, (shopCfg as { timezone?: string | null } | null)?.timezone ?? null);
+    if (hrs < cancelHours) {
+      const noun = body.action === "cancel" ? "Cancellations" : "Reschedules";
+      return NextResponse.json({
+        error: `${noun} require at least ${cancelHours}h notice. Please contact the shop directly to change this booking.`,
+      }, { status: 403 });
+    }
   }
 
   const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";

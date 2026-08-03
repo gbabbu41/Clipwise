@@ -10,7 +10,7 @@ import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { resolveServiceCharge } from "@/lib/service-pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { isBookingInPast } from "@/lib/timezone";
+import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { computeRedemption } from "@/lib/loyalty-redeem";
 import { findRedeemableGift } from "@/lib/gift-redeem";
 
@@ -58,6 +58,11 @@ export async function POST(request: NextRequest) {
   // money, so a customer can never pay for a slot that's already passed.
   if (isBookingInPast(booking.date, booking.time_slot, (shop as { timezone?: string | null }).timezone)) {
     return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
+  }
+  // Advance-booking window (server guard; the client caps the calendar too).
+  const advanceDays = Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15);
+  if (isBeyondAdvanceWindow(booking.date, advanceDays, (shop as { timezone?: string | null }).timezone)) {
+    return NextResponse.json({ error: "That date is beyond this shop's booking window." }, { status: 400 });
   }
 
   // Emergency pause — owner flipped the kill switch; stop taking bookings.
