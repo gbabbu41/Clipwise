@@ -27,7 +27,7 @@ type BookingSettings = {
   advance_days: number;
   cancellation_hours: number;
   no_show_protection: boolean;
-  no_show_fee_percent: number; // % of the booked total to charge a no-show (0–80)
+  no_show_fee_percent: number; // default % of the booked total for a no-show (0–100)
   auto_confirm: boolean;
   slot_interval_minutes: number; // booking-window granularity: 15 or 30
   tips_enabled: boolean;          // offer a tip picker at online payment

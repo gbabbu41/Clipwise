@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   }
 
   // No-show fee: a PERCENTAGE of the booked total (booking_settings
-  // .no_show_fee_percent), always capped at 80% — the full amount is only ever
+  // .no_show_fee_percent), capped at NO_SHOW_MAX_PCT (100%) — the barber picks the
   // collected by completing the appointment instead. A "completed" capture
   // leaves feeCents = 0 and captures the whole hold.
   const totalCents = Math.round((appt.total_amount ?? 0) * 100);
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const capCents = noShowFeeCents(totalCents, NO_SHOW_MAX_PCT);
     const configuredCents = noShowFeeCents(totalCents, bs?.no_show_fee_percent);
     // Honor an explicit amount from the barber (including 0 = release the hold);
-    // fall back to the configured fee when none was sent. Always cap at 80%.
+    // fall back to the configured fee when none was sent. Always cap at the max.
     const requested = typeof amount_cents === "number" ? amount_cents : configuredCents;
     feeCents = Math.min(Math.max(0, requested), capCents);
   }

@@ -184,7 +184,7 @@ export default function AppointmentsPage() {
   const [noShowModal, setNoShowModal] = useState<{ appt: AppointmentWithDetails; mode: "mark" | "charge" } | null>(null);
   const [savingNoShow, setSavingNoShow] = useState(false);
   // Editable no-show charge ($) shown in the confirm dialog — defaults to the
-  // shop's configured fee, adjustable by the barber from $0 up to the 80% cap.
+  // shop's configured fee, adjustable by the barber from $0 up to the full amount.
   const [noShowAmt, setNoShowAmt] = useState("");
   /** Opened when the owner clicks "Complete" on an unpaid appointment.
    *  Lets them either record a cash payment or email the customer a
@@ -491,6 +491,29 @@ export default function AppointmentsPage() {
         setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : a));
         if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : null);
         fetch("/api/appointments/notify-cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }) }).catch(() => null);
+        // Also send the decline email carrying the owner's reason. The refund
+        // route only sends a "money back" notice — without this, a customer who
+        // PAID never learns WHY they were declined (unpaid rejections do get it).
+        if (appt.client_email) {
+          fetch("/api/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "appointment_rejected",
+              data: {
+                clientName: appt.client_name,
+                clientEmail: appt.client_email,
+                shopName: shop.name,
+                shopEmail: shop.email ?? "",
+                shopSlug: shop.slug,
+                serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+                date: appt.date,
+                time: appt.time_slot,
+                reason: reason || "",
+              },
+            }),
+          }).catch(() => null);
+        }
         showToast("Appointment rejected · Refund issued to customer");
         return;
       }
@@ -634,15 +657,14 @@ export default function AppointmentsPage() {
   };
 
   // What the card will actually be charged for a no-show — mirrors the server:
-  // the shop's configured percentage of the booked total, capped at 80%. Keeps
+  // the shop's configured percentage of the booked total, capped at 100%. Keeps
   // the button labels and confirm honest.
   const noShowFeeFor = (appt: AppointmentWithDetails) => {
     return noShowFeeDollars(appt.total_amount ?? 0, shop?.booking_settings?.no_show_fee_percent);
   };
 
-  // The 80% ceiling in dollars for a given booking — the barber can't charge
-  // more than this via the no-show path (they'd complete the appointment for
-  // the full amount instead).
+  // The no-show ceiling in dollars for a booking — the barber can charge up to
+  // the full booked amount (NO_SHOW_MAX_PCT = 100%) via the no-show path.
   const noShowMaxFor = (appt: AppointmentWithDetails) => noShowFeeDollars(appt.total_amount ?? 0, NO_SHOW_MAX_PCT);
 
   // Seed the editable amount whenever the confirm dialog opens.
@@ -701,9 +723,17 @@ export default function AppointmentsPage() {
     if (error) { showToast(`Failed: ${error.message}`); return; }
     setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, ...patch } as AppointmentWithDetails : a));
     if (selectedApt?.id === apptId) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
-    // Settled by cash → expire any open payment link so it can't be paid too.
+    // Settled by cash → expire any open payment link so it can't be paid too,
+    // and LEDGER the cash sale so it shows in Payments / analytics. Without the
+    // record-cash call, cash completed from this page silently never hit the
+    // transactions ledger (the barber Payments view reads only that) — the exact
+    // drift the calendar's cashComplete already avoided. Idempotent server-side.
     if (accessToken) {
       fetch("/api/stripe/cancel-payment-link", {
+        method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: apptId }),
+      }).catch(() => {});
+      fetch("/api/calendar/record-cash", {
         method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ appointment_id: apptId }),
       }).catch(() => {});
