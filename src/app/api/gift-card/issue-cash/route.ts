@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     payment_method: "cash", type: "product", source: "gift_card_sale",
   }).then(null, () => null);
 
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   await sendGiftCardEmails({
     shop: { name: shop.name, slug: shop.slug, email: shop.email },
     baseUrl,

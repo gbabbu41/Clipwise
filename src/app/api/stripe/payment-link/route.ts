@@ -20,7 +20,7 @@ import { taxOnAmount, taxLabelDetailed, type TaxConfig } from "@/lib/pricing";
  * their Stripe balance (0% platform fee, same as initial bookings).
  */
 export async function POST(request: NextRequest) {
-  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const { appointment_id, send_email, send_sms, email, phone, complete_on_paid } = await request.json() as {
     appointment_id: string;
     send_email?: boolean;

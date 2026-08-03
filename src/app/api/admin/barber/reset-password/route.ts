@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   // Origin-first (real live domain) over NEXT_PUBLIC_APP_URL: unset in prod, the
   // old code produced "undefined/barber-dashboard" and self-fetched localhost —
   // so the reset link AND the email both silently died.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",

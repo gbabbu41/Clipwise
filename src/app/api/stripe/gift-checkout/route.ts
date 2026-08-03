@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This shop can't sell gift cards online yet." }, { status: 409 });
   }
 
-  const origin = b.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = b.origin || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   try {
     const url = await createGiftCheckoutSession({
       shop, origin, returnPath: b.return_path,

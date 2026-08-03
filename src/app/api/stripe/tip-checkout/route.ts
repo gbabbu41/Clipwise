@@ -8,7 +8,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 // runs on the shop's connected account (0% platform fee) and is recorded via the
 // webhook (flow=tip). No appointment state changes — it's purely additive.
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const { appointment_id, tip_amount } = await request.json() as { appointment_id?: string; tip_amount?: number };
   if (!appointment_id) return NextResponse.json({ error: "Missing booking." }, { status: 400 });
 

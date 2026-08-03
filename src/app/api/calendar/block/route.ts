@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(shop.owner_id);
     const ownerEmail = ownerUser?.user?.email ?? shop.email ?? "";
     if (ownerEmail) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
       await fetch(`${baseUrl}/api/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

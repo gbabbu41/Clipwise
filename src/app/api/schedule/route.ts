@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 type DayIn = { day_of_week: number; is_open: boolean; start_time: string; end_time: string };
 type BreakIn = { day_of_week: number; start_time: string; end_time: string; label?: string | null };

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   // Return URL from the live request origin so the redirect back from Stripe
   // works on any port/domain (NEXT_PUBLIC_APP_URL can be stale, e.g. :3001).
-  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const booking = await request.json() as {
     shop_id: string;
     shop_slug: string;

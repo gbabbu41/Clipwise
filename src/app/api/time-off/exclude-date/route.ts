@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (barber?.email) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
     await fetch(`${baseUrl}/api/send-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   const sendTo = b.send_to.trim();
-  const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   try {
     const url = await createGiftCheckoutSession({
       shop, origin,

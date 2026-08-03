@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     await stripe.customers.update(customerId, { name: shops[0].name }).catch(() => null);
   }
 
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,

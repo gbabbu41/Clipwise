@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
       || request.headers.get("origin")
-      || "http://localhost:3000";
+      || "https://clipwise.ca";
     const bookingUrl = `${baseUrl}/book/${shop.slug}`;
     const niceDate = new Date(`${date}T12:00:00`).toLocaleDateString("en-CA", {
       weekday: "long", month: "short", day: "numeric",

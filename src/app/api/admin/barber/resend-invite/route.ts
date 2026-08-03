@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   // Origin-first (real live domain) over NEXT_PUBLIC_APP_URL, which can be
   // unset/stale in prod and would make the emailed link point at localhost.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const redirectTo = `${baseUrl}/accept-invite`;
 
   // New user → invite link. Existing user → NO magic/login link (that would be

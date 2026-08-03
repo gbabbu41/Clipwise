@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const origin = body.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = body.origin || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 
   try {
     const session = await stripe.checkout.sessions.create(

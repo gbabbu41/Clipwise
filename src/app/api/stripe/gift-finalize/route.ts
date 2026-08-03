@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Deliver the code (recipient) + a receipt (buyer), best-effort — shared with
     // the owner cash/portal issuance so every gift card looks identical.
-    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
     await sendGiftCardEmails({
       shop: { name: shop.name, slug: shop.slug, email: shop.email },
       baseUrl,

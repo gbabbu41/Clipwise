@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   if (!appts || appts.length === 0) return NextResponse.json({ ok: true, updated: 0 });
 
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   let updated = 0;
   for (const appt of appts) {
     const sessionId = (appt as { stripe_checkout_session_id?: string }).stripe_checkout_session_id;

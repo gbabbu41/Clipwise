@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "This booking can no longer be changed." }, { status: 400 });
   }
 
-  const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 
   if (body.action === "cancel") {
     await supabaseAdmin.from("appointments").update({ status: "cancelled" }).eq("id", id);

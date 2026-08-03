@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     services: { name: string } | null;
   }>;
 
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
   let sent = 0;
   let skipped = 0;
 

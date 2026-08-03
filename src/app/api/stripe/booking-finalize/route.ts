@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       undefined,
       useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined,
     );
-    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
     const result = await finalizeBookingFromSession({
       session, useConnect, stripeAccountId: shop.stripe_account_id ?? null, baseUrl,
     });

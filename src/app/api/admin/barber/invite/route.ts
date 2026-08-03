@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
   // https://clipwise.ca) over NEXT_PUBLIC_APP_URL, which can be unset/stale in
   // prod — in which case every emailed link would point at localhost and die on
   // the barber's device. Same origin-first pattern the Stripe routes use.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const redirectTo = `${baseUrl}/accept-invite`;
 
   // New user → an invite link (sets their password + links this barber row).

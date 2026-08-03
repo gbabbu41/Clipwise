@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Welcome / confirmation email to the shop owner (best-effort).
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const { data: planRow } = planId
     ? await supabaseAdmin.from("plans").select("name").eq("id", planId).maybeSingle()
     : { data: null as { name: string } | null };

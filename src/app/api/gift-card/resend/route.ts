@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   // Show the CURRENT balance (remaining), not the original — accurate on a
   // partially-used card.
   const amount = Math.max(0, Number(card.remaining_value ?? card.initial_value ?? 0));
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const html = giftCardEmailHtml(
     shop.name, `${baseUrl}/book/${shop.slug}`,
     { code: card.code, amount, note: card.note },

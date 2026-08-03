@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   ]);
   if (!barber?.email) return NextResponse.json({ ok: true, skipped: "no barber email" });
 
-  const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   await fetch(`${base}/api/send-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

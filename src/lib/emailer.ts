@@ -37,7 +37,10 @@ const HTML_FREETEXT_FIELDS = new Set([
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@clipwise.ca";
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+// Fall back to the real production domain (NOT localhost) — email links must
+// work even if NEXT_PUBLIC_APP_URL isn't set in the environment. A localhost
+// fallback silently produced dead links in every email.
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 // ── Shared email wrapper ──────────────────────────────────────────────────────
 function wrap(content: string) {

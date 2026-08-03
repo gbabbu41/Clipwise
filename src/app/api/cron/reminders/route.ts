@@ -26,7 +26,7 @@ import { processTrials } from "@/lib/process-trials";
  * metadata that powers the marketing segments): VIP (10+ visits), At Risk
  * (no visit in 60+ days), Returning (2+ visits), else New.
  */
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 const MAX_SENDS = 300; // safety cap per run (Twilio trial / Resend limits)
 
 function authorized(req: NextRequest): boolean {

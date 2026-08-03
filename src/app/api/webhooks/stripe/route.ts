@@ -12,7 +12,7 @@ import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
 import type { TaxConfig } from "@/lib/pricing";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 export async function POST(request: NextRequest) {
   // Trim — a stray space in the env value silently breaks signature checks.
