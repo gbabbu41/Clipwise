@@ -306,15 +306,20 @@ export async function finalizeBookingFromSession(params: {
       bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
     };
     // Send the confirmation emails DIRECTLY (no self-fetch to /api/send-email —
-    // that HTTP hop can silently drop on serverless). Log any failure so a
-    // missing email is visible in the logs instead of vanishing.
+    // that HTTP hop can silently drop on serverless) and AWAIT them before this
+    // function returns. On Vercel a serverless function freezes the moment it
+    // returns its response, so a fire-and-forget send can be killed before it
+    // runs — the real reason booking emails never arrived. Await + log so they
+    // actually go out and any failure is visible instead of vanishing.
     const send = (type: string, extra: Record<string, string>) =>
       sendAppEmail(type, { ...bookingData, ...extra })
         .then(r => { if ("error" in r) console.warn(`[booking-email] ${type} → not sent:`, r.error); })
         .catch(e => console.warn(`[booking-email] ${type} threw:`, e));
-    if (m.client_email) send("booking_confirmation", { clientEmail: m.client_email });
-    if (shopRow?.email) send("new_booking_owner", { ownerEmail: shopRow.email });
-    if (barber?.email) send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name ?? "" });
+    const emailJobs: Promise<void>[] = [];
+    if (m.client_email) emailJobs.push(send("booking_confirmation", { clientEmail: m.client_email }));
+    if (shopRow?.email) emailJobs.push(send("new_booking_owner", { ownerEmail: shopRow.email }));
+    if (barber?.email) emailJobs.push(send("new_booking_barber", { barberEmail: barber.email, barberName: barber.name ?? "" }));
+    await Promise.all(emailJobs);
   } catch { /* never block the booking on email */ }
 
   return {
