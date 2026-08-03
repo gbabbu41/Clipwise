@@ -87,6 +87,17 @@ export default function SignupPage() {
       return;
     }
 
+    // Existing-email case when Supabase "email enumeration protection" is ON: it
+    // returns NO error but an obfuscated user with an EMPTY identities array (and
+    // no session). Without this we'd wrongly show "check your email" for an email
+    // that already has an account. Detect it and show the real "already in use".
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setFieldErrors({ email: "Email already in use." });
+      setError("already_registered");
+      setLoading(false);
+      return;
+    }
+
     if (data.user && data.session) {
       // Happy path (no email confirmation): set the role now. Errors are logged,
       // not swallowed silently — but the trigger metadata is the real backstop.
