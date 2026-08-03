@@ -25,6 +25,8 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   taxCents?: number | null;
   tipCents?: number | null;
   taxConfig?: TaxConfig | null; // shop.booking_settings → receipt-style tax label
+  noShow?: boolean;             // lead the email with a "we missed you" note + rebook CTA
+  bookingUrl?: string | null;   // rebook link for the no-show variant
 }): Promise<void> {
   if (!args.clientEmail || args.amountCents <= 0) return;
   const money = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -44,6 +46,10 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
     amount: money(args.amountCents),
     context: args.context,
   };
+  if (args.noShow) {
+    data.noShow = "1";
+    if (args.bookingUrl) data.bookingUrl = args.bookingUrl;
+  }
   if (showBreakdown) {
     data.subtotal = money(subtotalCents);
     data.tax = money(taxCents);

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: shop, error: shopErr } = await supabaseAdmin
-    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings, timezone").eq("id", appt.shop_id).maybeSingle();
+    .from("shops").select("owner_id, name, email, slug, stripe_account_id, stripe_connected, booking_settings, timezone").eq("id", appt.shop_id).maybeSingle();
   if (shopErr || !shop) {
     console.warn("[capture-appointment] shop NOT FOUND", { appointment_id, shop_id: appt.shop_id, shopErr: shopErr?.message });
     return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
@@ -237,6 +237,11 @@ export async function POST(request: NextRequest) {
       taxCents: Math.round(txTax * 100),
       tipCents: Math.round(tipDollars * 100),
       taxConfig: shop.booking_settings as TaxConfig | null,
+      // No-show → lead the SAME email with a warm "we missed you" note + a
+      // rebook link, so the customer gets empathy + receipt in one message
+      // (not a cold fee receipt on its own).
+      noShow: reason === "no_show",
+      bookingUrl: shop.slug ? `${baseUrl}/book/${shop.slug}` : undefined,
     });
 
     // In-app/web success alert to owner + assigned barber for BOTH a completion

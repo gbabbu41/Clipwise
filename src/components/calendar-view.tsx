@@ -328,12 +328,22 @@ export function makeApptActions(opts: {
       if (checkoutBlocked(appt)) return;
       setBusy("capture");
       toast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
-      const res = await fetch("/api/stripe/capture-appointment", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, reason: "completed" }),
-      });
-      const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      let data: { ok?: boolean; error?: string };
+      try {
+        const res = await fetch("/api/stripe/capture-appointment", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id, reason: "completed" }),
+        });
+        data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      } catch {
+        // Response never came back (dropped mobile connection). The charge may
+        // have gone through; the server is idempotent, so guide a refresh instead
+        // of a raw "Load failed" that invites a blind retry.
+        setBusy("");
+        toast("Network dropped — the charge may have gone through. Refresh to check before charging again.");
+        return;
+      }
       if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
       await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
       // Expire any open checkout link so the customer can't ALSO pay it after the
@@ -467,12 +477,23 @@ export function makeApptActions(opts: {
       setBusy("noshow");
       let charged = false;
       if (hasCard && accessToken && amountCents > 0) {
-        const res = await fetch("/api/stripe/capture-appointment", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ appointment_id: appt.id, reason: "no_show", amount_cents: amountCents }),
-        });
-        const data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+        let data: { ok?: boolean; error?: string };
+        try {
+          const res = await fetch("/api/stripe/capture-appointment", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ appointment_id: appt.id, reason: "no_show", amount_cents: amountCents }),
+          });
+          data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+        } catch {
+          // The request left the phone but the response never came back (flaky
+          // mobile connection — Safari reports this as "Load failed"). The charge
+          // may well have gone through; the server is idempotent, so don't panic-
+          // retry blindly — tell the owner to refresh and check first.
+          setBusy("");
+          toast("Network dropped — the charge may have gone through. Refresh to check before charging again.");
+          return;
+        }
         if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
         charged = true;
       }
@@ -481,10 +502,11 @@ export function makeApptActions(opts: {
       patch(appt.id, charged
         ? { status: "no-show", payment_status: "captured", paid_at: new Date().toISOString() }
         : { status: "no-show" });
-      // "We missed you — book again" email to the customer (every surface), and
-      // free the slot / ping the waitlist. NOT the review email — a no-show must
-      // never ask "how was your visit?".
-      sendNoShowFollowup(appt, shop);
+      // Free the slot / ping the waitlist. For the customer email: when we CHARGED
+      // a fee, the receipt already leads with a warm "we missed you" note + rebook
+      // link (one combined email), so only send the standalone "we missed you"
+      // follow-up when there was NO charge. Never the review email on a no-show.
+      if (!charged) sendNoShowFollowup(appt, shop);
       notifyFreedSlot(appt, shop, "No-show");
       setBusy("");
       onDone();

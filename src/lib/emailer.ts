@@ -419,12 +419,24 @@ function appointmentRejected(data: Record<string, string>) {
 }
 
 function paymentReceipt(data: Record<string, string>) {
-  return wrap(`
-    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
+  const isNoShow = data.noShow === "1";
+  // No-show → warm "we missed you" opener + receipt + rebook, all in one email.
+  // Otherwise → the standard payment receipt.
+  const opener = isNoShow
+    ? `${shopHeader(data.shopName)}
+    <div class="badge">👋 We Missed You</div>
+    <h1>Hey ${data.clientName}, we missed you!</h1>
+    <p>You weren't able to make it to your appointment at <span class="highlight">${data.shopName}</span> — no worries, life happens. As noted when you booked, a no-show fee was applied; your receipt is below, and we'd love to see you next time.</p>`
+    : `<div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
     <div style="font-size:12px;color:#6B7280;margin-bottom:22px">Receipt from ${data.shopName}</div>
     <div class="green-badge">💳 Payment Received</div>
     <h1>Hi ${data.clientName},</h1>
-    <p>Thanks for your payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}. ${data.shopName} is the seller for this purchase — your receipt is below.</p>
+    <p>Thanks for your payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}. ${data.shopName} is the seller for this purchase — your receipt is below.</p>`;
+  const rebook = isNoShow && data.bookingUrl
+    ? `<hr class="divider"><a href="${data.bookingUrl}" class="btn">Book Again →</a>`
+    : "";
+  return wrap(`
+    ${opener}
     <hr class="divider">
     <div class="row"><span class="label">Sold by</span><span class="val">${data.shopName}</span></div>
     ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
@@ -436,6 +448,7 @@ function paymentReceipt(data: Record<string, string>) {
     ${data.tip ? `<div class="row"><span class="label">Tip</span><span class="val">${data.tip}</span></div>` : ""}
     <div class="row"><span class="label" style="color:#fff;font-weight:700">Amount Paid</span><span class="val" style="font-weight:700">${data.amount}</span></div>`
     : `<div class="row"><span class="label">Amount Paid</span><span class="val">${data.amount}</span></div>`}
+    ${rebook}
     <hr class="divider">
     <p style="font-size:13px;color:#6B7280">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
     <p style="font-size:12px;color:#4B5563">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
@@ -956,7 +969,7 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       break;
     case "payment_receipt":
       to = data.clientEmail;
-      subject = `Payment received — ${data.shopName}`;
+      subject = data.noShow === "1" ? `We missed you — receipt from ${data.shopName}` : `Payment received — ${data.shopName}`;
       html = paymentReceipt(data);
       break;
     case "barber_appointment_change":
