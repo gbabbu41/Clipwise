@@ -157,6 +157,15 @@ export async function POST(request: NextRequest) {
   // still respect the shop's auto-confirm setting.
   const status = (confirmed || autoConfirm) ? "confirmed" : "pending";
   const noteParts = [b.note, b.service_names ? `Services: ${b.service_names}` : null].filter(Boolean);
+  // Store the GROSS total (service + sales tax) like the card + gift-card paths,
+  // so the shop portal shows the real amount the customer owes at the shop — not
+  // the pre-tax subtotal. tax is 0 for shops that aren't tax-registered
+  // (combinedTaxRate returns 0 then). tax_amount is stamped best-effort after the
+  // insert (mirrors the gift path) so a pre-tax-column prod can never fail the
+  // booking.
+  const inPersonTaxCfg = (shop.booking_settings ?? {}) as TaxConfig;
+  const inPersonTax = taxCents(Math.round(effectiveTotal * 100), combinedTaxRate(inPersonTaxCfg)) / 100;
+  const grossTotal = Math.round((effectiveTotal + inPersonTax) * 100) / 100;
   const baseRow = {
     shop_id: b.shop_id,
     barber_id: barberId,
@@ -167,7 +176,7 @@ export async function POST(request: NextRequest) {
     date: b.date,
     time_slot: b.time_slot,
     status,
-    total_amount: effectiveTotal,
+    total_amount: grossTotal,
     deposit_paid: false,
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
@@ -190,6 +199,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That time was just booked — please pick another slot." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't create the booking. Please try again." }, { status: 500 });
+  }
+
+  // Stamp the tax portion best-effort (total_amount already includes it). Kept
+  // separate so a prod without the tax_amount column can never fail the insert.
+  if (inPersonTax > 0) {
+    await supabaseAdmin.from("appointments")
+      .update({ tax_amount: inPersonTax }).eq("id", inserted.data.id).then(null, () => null);
   }
 
   // Consume the promo now that the appointment exists (draws down the cap +
