@@ -10,6 +10,25 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendAppEmail } from "@/lib/emailer";
 
+/**
+ * The reliable email for a user account. Tries the public `users` mirror first,
+ * then falls back to Supabase AUTH (the real login email) — the mirror column is
+ * sometimes null for barber/owner accounts, which is why the alert emails were
+ * resolving empty and getting skipped. Returns "" only when there's genuinely
+ * no address anywhere.
+ */
+export async function resolveAccountEmail(userId: string | null | undefined): Promise<string> {
+  if (!userId) return "";
+  const { data: u } = await supabaseAdmin.from("users").select("email").eq("id", userId).maybeSingle();
+  if (u?.email) return u.email;
+  try {
+    const { data: authU } = await supabaseAdmin.auth.admin.getUserById(userId);
+    return authU?.user?.email ?? "";
+  } catch { return ""; }
+}
+
+const maskEmail = (e: string) => (e ? e.replace(/^(.).*(@.*)$/, "$1***$2") : "");
+
 export async function sendNewBookingStaffEmails(appointmentId: string): Promise<void> {
   try {
     const { data: appt } = await supabaseAdmin
@@ -22,12 +41,9 @@ export async function sendNewBookingStaffEmails(appointmentId: string): Promise<
       .from("shops").select("name, email, slug, owner_id").eq("id", appt.shop_id).maybeSingle();
     if (!shop) return;
 
-    // Owner recipient: contact column → account (login) email fallback.
+    // Owner recipient: contact column → account (login/auth) email fallback.
     let ownerEmail = shop.email || "";
-    if (!ownerEmail && shop.owner_id) {
-      const { data: ou } = await supabaseAdmin.from("users").select("email").eq("id", shop.owner_id).maybeSingle();
-      ownerEmail = ou?.email || "";
-    }
+    if (!ownerEmail) ownerEmail = await resolveAccountEmail(shop.owner_id);
 
     // Barber recipient + name: contact column → account email fallback.
     let barberName = "Any Available";
@@ -37,11 +53,13 @@ export async function sendNewBookingStaffEmails(appointmentId: string): Promise<
         .from("barbers").select("name, email, user_id").eq("id", appt.barber_id).maybeSingle();
       barberName = barber?.name || "Any Available";
       barberEmail = barber?.email || "";
-      if (!barberEmail && barber?.user_id) {
-        const { data: bu } = await supabaseAdmin.from("users").select("email").eq("id", barber.user_id).maybeSingle();
-        barberEmail = bu?.email || "";
-      }
+      if (!barberEmail) barberEmail = await resolveAccountEmail(barber?.user_id);
     }
+
+    console.log("[booking-email] in-person recipients:", JSON.stringify({
+      appt: appt.id.slice(0, 8), barberId: appt.barber_id || null,
+      owner: maskEmail(ownerEmail) || null, barber: maskEmail(barberEmail) || null,
+    }));
 
     const serviceName = Array.isArray(appt.services)
       ? (appt.services[0]?.name ?? "Service")

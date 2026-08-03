@@ -12,6 +12,7 @@ import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { sendAppEmail } from "@/lib/emailer";
+import { resolveAccountEmail } from "@/lib/notify-booking-emails";
 
 export type BookingSummary = {
   shopName: string;
@@ -316,19 +317,21 @@ export async function finalizeBookingFromSession(params: {
         .then(r => { if ("error" in r) console.warn(`[booking-email] ${type} → not sent:`, r.error); })
         .catch(e => console.warn(`[booking-email] ${type} threw:`, e));
     // Resolve the owner + barber recipient with a fallback to their ACCOUNT
-    // (login) email. The shops.email / barbers.email contact columns are often
-    // blank, which was silently skipping the owner + barber booking alerts even
-    // though the customer's went out fine.
+    // email. The shops.email / barbers.email contact columns are often blank AND
+    // the public users mirror can be null, so resolveAccountEmail also checks
+    // Supabase auth — otherwise these alerts silently resolved empty and were
+    // skipped even though the customer's went out fine.
     let ownerEmail = shopRow?.email || "";
-    if (!ownerEmail && shopRow?.owner_id) {
-      const { data: ownerUser } = await supabaseAdmin.from("users").select("email").eq("id", shopRow.owner_id).maybeSingle();
-      ownerEmail = ownerUser?.email || "";
-    }
+    if (!ownerEmail) ownerEmail = await resolveAccountEmail(shopRow?.owner_id);
     let barberEmail = barber?.email || "";
-    if (!barberEmail && barber?.user_id) {
-      const { data: barberUser } = await supabaseAdmin.from("users").select("email").eq("id", barber.user_id).maybeSingle();
-      barberEmail = barberUser?.email || "";
-    }
+    if (!barberEmail) barberEmail = await resolveAccountEmail(barber?.user_id);
+
+    console.log("[booking-email] online recipients:", JSON.stringify({
+      appt: appt.id.slice(0, 8), barberId: m.barber_id || null,
+      customer: m.client_email ? "yes" : "no",
+      owner: ownerEmail ? ownerEmail.replace(/^(.).*(@.*)$/, "$1***$2") : null,
+      barber: barberEmail ? barberEmail.replace(/^(.).*(@.*)$/, "$1***$2") : null,
+    }));
 
     const emailJobs: Promise<void>[] = [];
     if (m.client_email) emailJobs.push(send("booking_confirmation", { clientEmail: m.client_email }));
