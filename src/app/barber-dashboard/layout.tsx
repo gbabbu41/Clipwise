@@ -1,7 +1,9 @@
 "use client";
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { NotificationListener } from "@/components/notification-listener";
@@ -35,6 +37,20 @@ function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: 
 
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
+  const { profile } = useAuth();
+  const router = useRouter();
+
+  // A shop OWNER who doesn't cut hair (no linked barber row) has no place in the
+  // barber portal — send them to their own dashboard instead of the nav-less
+  // "not linked" screen below (which they'd otherwise be trapped on, e.g. after
+  // clicking a /barber-dashboard link from an email).
+  useEffect(() => {
+    if (!loading && (error || !barber) && profile?.role === "shop_owner") {
+      router.replace("/dashboard");
+    }
+  }, [loading, error, barber, profile, router]);
+
+  const signOut = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
   if (loading) {
     return (
@@ -46,11 +62,16 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
 
   if (error || !barber) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">✂️</div>
           <h2 className="text-xl font-bold text-foreground mb-2">Account not linked</h2>
           <p className="text-grey text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
+          {/* Never a dead end — always a way out. */}
+          <div className="flex items-center justify-center gap-4 mt-6">
+            <Link href="/" className="text-sm text-grey hover:text-foreground underline underline-offset-2">Back to home</Link>
+            <button onClick={signOut} className="text-sm text-gold hover:underline">Sign out</button>
+          </div>
         </div>
       </div>
     );
@@ -58,13 +79,14 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
 
   if (!barber.is_active) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔒</span>
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Account suspended</h2>
           <p className="text-grey text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
+          <button onClick={signOut} className="text-sm text-gold hover:underline mt-6 inline-block">Sign out</button>
         </div>
       </div>
     );

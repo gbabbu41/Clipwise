@@ -20,15 +20,22 @@ export default function AuthCallbackPage() {
     const route = async (token: string) => {
       if (done) return;
       done = true;
-      // Always navigate — never sit on the blank "Signing you in…" screen if
-      // /api/profile is slow or errors.
+      // Honor a `next` deep link when it's internal AND belongs to the resolved
+      // role's portal (same guard as /login) — otherwise fall back to the role
+      // home. Never sit on the blank "Signing you in…" screen if /api/profile is
+      // slow or errors.
+      const p = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+      const raw = p.get("next");
+      const internal = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+      const destFor = (prefixes: string[]) =>
+        internal && prefixes.some(pf => internal === pf || internal.startsWith(pf + "/")) ? internal : null;
       try {
         const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } });
         const { profile, shop } = res.ok ? await res.json() : { profile: null, shop: null };
-        if (profile?.role === "super_admin") router.replace("/admin");
-        else if (profile?.role === "barber") router.replace("/barber-dashboard");
-        else if (profile?.role === "shop_owner") router.replace(shop ? "/dashboard" : "/onboarding/plan");
-        else router.replace("/dashboard"); // logged in; let the dashboard shell resolve role/shop
+        if (profile?.role === "super_admin") router.replace(destFor(["/admin"]) ?? "/admin");
+        else if (profile?.role === "barber") router.replace(destFor(["/barber-dashboard"]) ?? "/barber-dashboard");
+        else if (profile?.role === "shop_owner") router.replace(shop ? (destFor(["/dashboard", "/onboarding"]) ?? "/dashboard") : "/onboarding/plan");
+        else router.replace(internal ?? "/dashboard"); // logged in; let the dashboard shell resolve role/shop
       } catch {
         router.replace("/dashboard");
       }

@@ -4,7 +4,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Star, Check, Scissors } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
 import { cn, prettyDate } from "@/lib/utils";
 
 interface AppointmentInfo {
@@ -41,33 +40,21 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   const load = useCallback(async () => {
     if (!bookingId) { setNotFound(true); setLoading(false); return; }
     setLoading(true); setNotFound(false); setLoadError(false);
-    // maybeSingle + explicit error handling: `.single()` returns {data:null}
-    // for BOTH a genuine 0-row miss AND any transient network/DB error, so a
-    // valid review link hit during a blip would falsely read as "invalid".
-    const { data, error } = await supabase
-      .from("appointments")
-      .select("id, client_name, client_email, date, time_slot, shop_id, barber_id, service_id, barbers(name), services(name), shops(name, slug)")
-      .eq("id", bookingId)
-      .maybeSingle();
-
-    if (error) { setLoadError(true); setLoading(false); return; }
-    if (!data) { setNotFound(true); setLoading(false); return; }
-
-    const apptData = data as unknown as AppointmentInfo;
-
-    // Verify slug matches
-    if (apptData.shops?.slug !== shopslug) { setNotFound(true); setLoading(false); return; }
-
-    // Check if already reviewed
-    const { data: existingReview } = await supabase
-      .from("reviews")
-      .select("id")
-      .eq("shop_id", apptData.shop_id)
-      .eq("client_id", bookingId)
-      .maybeSingle();
-
-    if (existingReview) { setAlreadyReviewed(true); }
-    setAppt(apptData);
+    // Load via the service-role API — appointments RLS is stakeholder-only, so a
+    // direct anon query always returned null and made this page a dead "invalid
+    // link" for EVERY customer. The endpoint also returns the already-reviewed
+    // flag and distinguishes a real miss (404) from a transient error (retry).
+    try {
+      const res = await fetch(`/api/reviews/appointment?booking=${encodeURIComponent(bookingId)}&shopslug=${encodeURIComponent(shopslug)}`);
+      if (res.status === 404) { setNotFound(true); setLoading(false); return; }
+      if (!res.ok) { setLoadError(true); setLoading(false); return; }
+      const data = await res.json();
+      if (!data?.appointment) { setNotFound(true); setLoading(false); return; }
+      if (data.alreadyReviewed) setAlreadyReviewed(true);
+      setAppt(data.appointment as AppointmentInfo);
+    } catch {
+      setLoadError(true);
+    }
     setLoading(false);
   }, [bookingId, shopslug]);
 

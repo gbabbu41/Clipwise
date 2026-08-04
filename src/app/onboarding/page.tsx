@@ -26,6 +26,19 @@ export default function OnboardingPage() {
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState("");
 
+  // Only shop owners belong in the setup wizard. A barber or customer who lands
+  // here (a stale link, or a role-mismatched redirect) is sent to their own home
+  // instead of seeing the owner-only shop-creation flow.
+  useEffect(() => {
+    if (profile && profile.role !== "shop_owner") {
+      router.replace(
+        profile.role === "barber" ? "/barber-dashboard"
+        : profile.role === "super_admin" ? "/admin"
+        : "/",
+      );
+    }
+  }, [profile, router]);
+
   const confetti = Array.from({ length: 40 }, (_, i) => ({
     left: `${(i * 2.5) % 100}%`,
     delay: `${(i * 0.05) % 2}s`,

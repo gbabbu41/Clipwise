@@ -49,5 +49,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/barber-dashboard/:path*"],
+  // /admin/login is in publicPaths above, so it stays reachable; every other
+  // /admin page now gets the same auth gate + destination memory as the portals.
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/barber-dashboard/:path*", "/admin/:path*"],
 };

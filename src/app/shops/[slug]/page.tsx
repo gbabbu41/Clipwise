@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Phone, Star, Scissors, Clock, ChevronRight, Mail, Users, MessageSquare, Globe } from "lucide-react";
@@ -40,23 +40,29 @@ export default function ShopProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<"services" | "barbers" | "reviews">("services");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!slug) return;
-    (async () => {
-      const { data: shopData } = await supabase
-        .from("shops")
-        // Public/anon read — explicit columns only (never select("*"), which
-        // would leak Stripe ids + owner_id to any visitor).
-        .select("id, name, slug, status, logo, description, address, city, province, postal_code, phone, email, website, facebook, instagram, tiktok, youtube")
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .single();
-      if (!shopData) { setNotFound(true); setLoading(false); return; }
-      setShop(shopData as Shop);
+    setLoading(true); setNotFound(false); setLoadError(false);
+    // maybeSingle (not single): `.single()` returns {data:null} for BOTH a real
+    // 0-row miss AND any transient network/DB error, so a valid shop hit during
+    // a blip would falsely read as "Shop not found". Split the two.
+    const { data: shopData, error: shopErr } = await supabase
+      .from("shops")
+      // Public/anon read — explicit columns only (never select("*"), which
+      // would leak Stripe ids + owner_id to any visitor).
+      .select("id, name, slug, status, logo, description, address, city, province, postal_code, phone, email, website, facebook, instagram, tiktok, youtube")
+      .eq("slug", slug)
+      .eq("status", "approved")
+      .maybeSingle();
+    if (shopErr) { setLoadError(true); setLoading(false); return; }
+    if (!shopData) { setNotFound(true); setLoading(false); return; }
+    setShop(shopData as Shop);
 
+    {
       const [{ data: b }, { data: s }, { data: r }] = await Promise.all([
         // Public shop page — no staff PII / commission / user_id (see booking page).
         supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true).order("name"),
@@ -67,13 +73,27 @@ export default function ShopProfilePage() {
       setServices((s ?? []) as Service[]);
       setReviews((r ?? []) as unknown as Review[]);
       setLoading(false);
-    })();
+    }
   }, [slug]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center px-4">
+        <Logo size="md" className="justify-center mb-8" />
+        <Scissors size={40} className="text-[#999] mb-4" />
+        <h1 className="text-xl font-bold text-white mb-2">Couldn&apos;t load this shop</h1>
+        <p className="text-[#6e6e6e] text-sm mb-6">Check your connection and try again.</p>
+        <Button onClick={() => load()}>Try again</Button>
       </div>
     );
   }
@@ -84,7 +104,7 @@ export default function ShopProfilePage() {
         <Logo size="md" className="justify-center mb-8" />
         <Scissors size={40} className="text-[#999] mb-4" />
         <h1 className="text-xl font-bold text-white mb-2">Shop not found</h1>
-        <p className="text-[#6e6e6e] text-sm mb-6">This shop doesn't exist or is no longer active.</p>
+        <p className="text-[#6e6e6e] text-sm mb-6">This shop doesn&apos;t exist or is no longer active.</p>
         <Link href="/shops"><Button variant="outline">Browse Shops</Button></Link>
       </div>
     );

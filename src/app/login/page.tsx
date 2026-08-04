@@ -56,22 +56,26 @@ export default function LoginPage() {
         const { profile, shop } = res.ok ? await res.json() : { profile: null, shop: null };
 
         // Where were they headed before login bounced them here? Honor it, but
-        // ONLY an internal relative path (starts with a single "/") so this
-        // can't be abused as an open redirect to an external site.
+        // ONLY an internal relative path (single leading "/", no "//") — guards
+        // against open redirects — AND only when that path belongs to THIS
+        // user's own portal, so a link meant for one role can't drop another
+        // role onto a page that traps them (e.g. an owner on /barber-dashboard).
         const raw = typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("redirect")
           : null;
-        const dest = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+        const internal = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+        const destFor = (prefixes: string[]) =>
+          internal && prefixes.some(p => internal === p || internal.startsWith(p + "/")) ? internal : null;
 
         if (profile?.role === "super_admin") {
-          router.push(dest ?? "/admin");
+          router.push(destFor(["/admin"]) ?? "/admin");
         } else if (profile?.role === "shop_owner") {
           // An owner without a shop must finish onboarding first — ignore the deep link.
-          router.push(shop ? (dest ?? "/dashboard") : "/onboarding/plan");
+          router.push(shop ? (destFor(["/dashboard", "/onboarding"]) ?? "/dashboard") : "/onboarding/plan");
         } else if (profile?.role === "barber") {
-          router.push(dest ?? "/barber-dashboard");
+          router.push(destFor(["/barber-dashboard"]) ?? "/barber-dashboard");
         } else {
-          router.push(dest ?? "/");
+          router.push(internal ?? "/");
         }
       } else {
         // No session came back (edge case) — don't leave the button spinning.
@@ -90,10 +94,13 @@ export default function LoginPage() {
     setGoogleLoading(true);
     // Surface failures instead of silently doing nothing — the usual cause of
     // "Google does nothing" is the provider not being enabled in Supabase.
+    // Carry any deep-link destination through OAuth so the callback can honor it.
+    const raw = new URLSearchParams(window.location.search).get("redirect");
+    const internal = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       // Land on the role-aware router, not a hard-coded /dashboard.
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback${internal ? `?next=${encodeURIComponent(internal)}` : ""}` },
     });
     if (oauthError) {
       // On success the browser redirects away, so we only reset on failure.
