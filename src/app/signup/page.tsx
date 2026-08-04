@@ -61,56 +61,85 @@ export default function SignupPage() {
     setFieldErrors({});
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      // Carry the intended role in metadata so it survives the email-confirmation
-      // path (no session yet → the client-side role update can't run). The
-      // handle_new_user trigger reads raw_user_meta_data.role on account create.
-      // emailRedirectTo sends the confirmation link back to /auth/callback, which
-      // establishes the session + routes by role (owner → onboarding).
-      options: {
-        data: { name: form.name, phone: form.phone, role: selectedRole || "customer" },
-        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
-      },
-    });
+    // Never let the button spin forever. On a flaky connection the account can be
+    // created + the confirmation email sent server-side, yet the response never
+    // reaches the browser (a lost reply) — a bare `await` would then hang for good.
+    // This timeout + the try/catch below always release the button and tell the
+    // user what likely happened.
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setLoading(false);
+      setError("This is taking longer than expected. Your account may already be created — check your email for a confirmation link, or try signing in.");
+    }, 12000);
 
-    if (authError) {
-      if (authError.message.toLowerCase().includes("already registered") || authError.message.toLowerCase().includes("already in use")) {
+    try {
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        // Carry the intended role in metadata so it survives the email-confirmation
+        // path (no session yet → the client-side role update can't run). The
+        // handle_new_user trigger reads raw_user_meta_data.role on account create.
+        // emailRedirectTo sends the confirmation link back to /auth/callback, which
+        // establishes the session + routes by role (owner → onboarding).
+        options: {
+          data: { name: form.name, phone: form.phone, role: selectedRole || "customer" },
+          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+        },
+      });
+      if (settled) return; // timeout already fired — don't double-handle
+      settled = true;
+      clearTimeout(timeout);
+
+      if (authError) {
+        if (authError.message.toLowerCase().includes("already registered") || authError.message.toLowerCase().includes("already in use")) {
+          setFieldErrors({ email: "Email already in use." });
+          setError("already_registered");
+        } else {
+          // Don't surface raw provider errors.
+          setError("Couldn't create your account. Please try again.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Existing-email case when Supabase "email enumeration protection" is ON: it
+      // returns NO error but an obfuscated user with an EMPTY identities array (and
+      // no session). Without this we'd wrongly show "check your email" for an email
+      // that already has an account. Detect it and show the real "already in use".
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         setFieldErrors({ email: "Email already in use." });
         setError("already_registered");
-      } else {
-        // Don't surface raw provider errors.
-        setError("Couldn't create your account. Please try again.");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    // Existing-email case when Supabase "email enumeration protection" is ON: it
-    // returns NO error but an obfuscated user with an EMPTY identities array (and
-    // no session). Without this we'd wrongly show "check your email" for an email
-    // that already has an account. Detect it and show the real "already in use".
-    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      setFieldErrors({ email: "Email already in use." });
-      setError("already_registered");
+      if (data.user && data.session) {
+        // Happy path (no email confirmation): set the role now. Errors are logged,
+        // not swallowed silently — but the trigger metadata is the real backstop.
+        const { error: roleErr } = await supabase
+          .from("users")
+          .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
+          .eq("id", data.user.id);
+        if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
+        const planQ = plan ? `?plan=${plan}` : "";
+        router.push(selectedRole === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
+      } else if (data.user && !data.session) {
+        // Account created, email-confirmation pending → show "check your email".
+        setEmailSent(true);
+        setLoading(false);
+      } else {
+        // No user and no error (rare edge case) — never leave the button spinning.
+        setError("Couldn't create your account. Please try again.");
+        setLoading(false);
+      }
+    } catch {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       setLoading(false);
-      return;
-    }
-
-    if (data.user && data.session) {
-      // Happy path (no email confirmation): set the role now. Errors are logged,
-      // not swallowed silently — but the trigger metadata is the real backstop.
-      const { error: roleErr } = await supabase
-        .from("users")
-        .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
-        .eq("id", data.user.id);
-      if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
-      const planQ = plan ? `?plan=${plan}` : "";
-      router.push(selectedRole === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
-    } else if (data.user && !data.session) {
-      setEmailSent(true);
-      setLoading(false);
+      setError("This is taking longer than expected. Your account may already be created — check your email for a confirmation link, or try signing in.");
     }
   };
 
