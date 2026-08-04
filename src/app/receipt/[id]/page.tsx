@@ -4,7 +4,6 @@ import { useParams } from "next/navigation";
 import { Check, Scissors, Share2, Printer } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
 
@@ -26,17 +25,31 @@ export default function ReceiptPage() {
   const load = useCallback(async () => {
     if (!id) { setNotFound(true); setLoading(false); return; }
     setLoading(true); setNotFound(false); setLoadError(false);
-    // maybeSingle + explicit error handling: `.single()` returns {data:null}
-    // for BOTH a genuine 0-row miss AND any transient network/DB error, so a
-    // valid receipt hit during a blip would falsely read as "invalid link".
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*, shops(name, address, city, province, phone, booking_settings), barbers(name)")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) { setLoadError(true); setLoading(false); return; }
-    if (!data) { setNotFound(true); setLoading(false); return; }
-    setTx(data as unknown as ReceiptRow);
+    // Load via the service-role API — transactions RLS is owner-only, so a
+    // direct anon query made a SHARED receipt link dead-end ("Not Found") for
+    // the customer it was sent to. The API returns only receipt-safe fields and
+    // splits a real miss (404) from a transient error (retry).
+    try {
+      const res = await fetch(`/api/receipt/${id}`);
+      if (res.status === 404) { setNotFound(true); setLoading(false); return; }
+      if (!res.ok) { setLoadError(true); setLoading(false); return; }
+      const { receipt } = await res.json();
+      if (!receipt) { setNotFound(true); setLoading(false); return; }
+      // Reshape into the row shape the receipt renders (keeps the JSX unchanged).
+      setTx({
+        ...receipt,
+        shops: receipt.shop ? {
+          name: receipt.shop.name, address: receipt.shop.address, city: receipt.shop.city,
+          province: receipt.shop.province, phone: receipt.shop.phone,
+          booking_settings: {
+            tax_number: receipt.shop.tax_number, pst_number: receipt.shop.pst_number, tax_label: receipt.shop.tax_label,
+          },
+        } : null,
+        barbers: receipt.barber ? { name: receipt.barber.name } : null,
+      } as unknown as ReceiptRow);
+    } catch {
+      setLoadError(true);
+    }
     setLoading(false);
   }, [id]);
 
