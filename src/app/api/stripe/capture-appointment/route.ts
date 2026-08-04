@@ -156,8 +156,23 @@ export async function POST(request: NextRequest) {
         idempotencyKey: `capture-${appointment_id}-${reason ?? "completed"}-${chargeCents}`,
       });
     } else {
-      // Held card: capture the existing authorization.
-      const captureParams = feeCents > 0 ? { amount_to_capture: feeCents } : {};
+      // Held card: capture the existing authorization. NEVER request more than
+      // Stripe actually authorized. The real hold can be smaller than the stored
+      // total_amount (an older booking authorized a different amount, the total
+      // was edited up after booking, a gift/loyalty reduced the card portion, or
+      // the auth was partially captured). Requesting more throws Stripe's
+      // "requested capture amount is greater than the amount you can capture" and
+      // shows the owner a scary "Card charge failed". So read the true capturable
+      // amount and cap the fee to it.
+      const held = await stripe.paymentIntents.retrieve(appt.payment_intent_id!, undefined, opts);
+      const capturable = held.amount_capturable ?? 0;
+      if (capturable <= 0) {
+        return NextResponse.json({ ok: false, error: "This card hold is no longer chargeable (it may have expired or already been settled). Please take payment another way." }, { status: 400 });
+      }
+      const captureCents = feeCents > 0 ? Math.min(feeCents, capturable) : capturable;
+      // Omit amount_to_capture when taking the whole hold — Stripe captures the
+      // full authorization by default (and releases nothing extra).
+      const captureParams = captureCents < capturable ? { amount_to_capture: captureCents } : {};
       pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
     }
     // Mark settled with the columns that always exist. `paid_at` is written
