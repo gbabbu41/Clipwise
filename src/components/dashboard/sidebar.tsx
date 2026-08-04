@@ -24,7 +24,7 @@ const notifHref = (n: { title: string; message: string; type: string }) => {
   if (/block|hours|time.?off|vacation|day off/.test(s)) return "/dashboard/calendar";
   if (n.type === "review" || /review/.test(s)) return "/dashboard/reviews";
   if (n.type === "inventory" || /inventory|stock/.test(s)) return "/dashboard/inventory";
-  if (n.type === "booking" || n.type === "cancellation" || n.type === "no-show" || /book(ed|ing)|appointment/.test(s)) return "/dashboard/appointments";
+  if (n.type === "booking" || n.type === "cancellation" || n.type === "no-show" || /book(ed|ing)|appointment/.test(s)) return "/dashboard/calendar";
   return "/dashboard/notifications";
 };
 // Strip any leading emoji/symbols the stored title carries (e.g. "✅ Paid") so

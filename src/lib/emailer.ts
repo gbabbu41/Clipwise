@@ -324,7 +324,7 @@ function appointmentCancelled(data: Record<string, string>) {
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     <hr class="divider">
     <p style="font-size:13px;color:#6B7280">This time slot is now available for new bookings.</p>
-    <a href="${BASE_URL}/dashboard/appointments" class="btn">View Appointments →</a>
+    <a href="${BASE_URL}/dashboard/calendar" class="btn">Open Calendar →</a>
     <p style="color:#4B5563">— The ClipWise Team</p>
   `);
 }
@@ -374,7 +374,7 @@ function newBookingOwner(data: Record<string, string>) {
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     <div class="row"><span class="label">Booking ID</span><span class="val">#${data.bookingId}</span></div>
     <hr class="divider">
-    <a href="${BASE_URL}/dashboard/appointments" class="btn">View in Dashboard →</a>
+    <a href="${BASE_URL}/dashboard/calendar" class="btn">Open Calendar →</a>
     <p style="color:#4B5563">— The ClipWise Team</p>
   `);
 }
