@@ -133,6 +133,12 @@ export default function SettingsPage() {
   });
 
   const [booking, setBooking] = useState<BookingSettings>(DEFAULT_BOOKING);
+  // Raw text for the "Advance Booking Limit" field so it can be cleared/edited
+  // freely. Clamping to 1–60 on every keystroke snapped an in-progress empty
+  // field to 1, which made the value impossible to change (it "stuck at 1").
+  // We commit the clamped number into `booking` only on blur.
+  const [advanceDaysStr, setAdvanceDaysStr] = useState(String(DEFAULT_BOOKING.advance_days));
+  useEffect(() => { setAdvanceDaysStr(String(booking.advance_days)); }, [booking.advance_days]);
 
   const DEFAULT_TEMPLATES = {
     booking_confirmation: { subject: "Booking Confirmed — {shopName}", body: "Hi {clientName},\n\nYour appointment at {shopName} is confirmed!\n\nService: {serviceName}\nBarber: {barberName}\nDate: {date}\nTime: {time}\n\nSee you soon!" },
@@ -401,12 +407,17 @@ export default function SettingsPage() {
       return;
     }
     setSaving(true);
+    // Defensively clamp advance_days at save time — on mobile a blur may not
+    // fire before the Save tap, so don't rely solely on the input's onBlur.
+    const advanceDays = Math.min(60, Math.max(1, Math.round(Number(advanceDaysStr) || booking.advance_days || 15)));
+    const bookingToSave = { ...booking, advance_days: advanceDays };
+    if (advanceDays !== booking.advance_days) setBooking(bookingToSave);
     // Save both the JSON `booking_settings` blob and the top-level
     // `allow_pay_in_person` column in one update — they're both shown in
     // this tab, so it would be confusing to have separate save buttons.
     const { error } = await supabase.from("shops").update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      booking_settings: booking as any,
+      booking_settings: bookingToSave as any,
       allow_pay_in_person: isFreePlan ? true : profile.allow_pay_in_person,
     }).eq("id", shop.id);
     if (error) {
@@ -418,7 +429,7 @@ export default function SettingsPage() {
     }
     // DB write for this tab succeeded (booking_settings + allow_pay_in_person) —
     // clear the "unsaved" flag now; the GST cross-location sync below is best-effort.
-    setBaseline(b => ({ ...b, booking: bookingKeyOf(booking, profile.allow_pay_in_person) }));
+    setBaseline(b => ({ ...b, booking: bookingKeyOf(bookingToSave, profile.allow_pay_in_person) }));
     // The GST/HST number is ONE number for all the owner's shops, so propagate it
     // to every location (not just the active shop). Sync only a valid number (or
     // empty to clear it); when tax is on it's guaranteed valid by the gate above.
@@ -701,8 +712,13 @@ export default function SettingsPage() {
           <CardHeader><CardTitle>Booking Settings</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div>
-              <Input label="Advance Booking Limit (days)" type="number" min={1} max={60} value={String(booking.advance_days)}
-                onChange={e => setBooking(p => ({ ...p, advance_days: Math.min(60, Math.max(1, Number(e.target.value) || 1)) }))} />
+              <Input label="Advance Booking Limit (days)" type="number" min={1} max={60} value={advanceDaysStr}
+                onChange={e => setAdvanceDaysStr(e.target.value)}
+                onBlur={() => {
+                  const clamped = Math.min(60, Math.max(1, Math.round(Number(advanceDaysStr) || 0)));
+                  setAdvanceDaysStr(String(clamped));
+                  setBooking(p => ({ ...p, advance_days: clamped }));
+                }} />
               <p className="text-xs text-grey mt-1">How far in advance clients can book (max 60 days)</p>
             </div>
             <div>

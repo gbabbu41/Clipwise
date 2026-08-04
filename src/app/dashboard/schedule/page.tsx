@@ -157,20 +157,24 @@ function PauseBookingsToggle({ barberId, barberName, paused, onChanged }: { barb
 function BookingWindowCard() {
   const { shop, refreshShop } = useAuth();
   const current = Number((shop?.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15);
-  const [days, setDays] = useState(current);
+  const [val, setVal] = useState(String(current)); // raw text so the field can be cleared while editing
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { setDays(current); }, [current]);
+  useEffect(() => { setVal(String(current)); }, [current]);
 
-  const dirty = days !== current && days > 0;
+  // Clamp to 1–60 only for saving / the dirty check — NOT on every keystroke.
+  // Clamping mid-type snapped an in-progress empty field to 1, which made the
+  // value impossible to change (it "stuck at 1").
+  const parsed = Math.max(1, Math.min(60, Math.round(Number(val) || 0)));
+  const dirty = val.trim() !== "" && parsed !== current;
   const save = async () => {
     if (!shop || !dirty) return;
     setSaving(true);
-    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), advance_days: days };
+    const merged = { ...((shop.booking_settings as Record<string, unknown>) ?? {}), advance_days: parsed };
     const { error } = await supabase.from("shops").update({ booking_settings: merged }).eq("id", shop.id);
     setSaving(false);
-    if (!error) { await refreshShop(); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+    if (!error) { setVal(String(parsed)); await refreshShop(); setSaved(true); setTimeout(() => setSaved(false), 2500); }
   };
 
   return (
@@ -181,8 +185,9 @@ function BookingWindowCard() {
       </div>
       <p className="text-xs text-grey-muted mt-1">How far ahead customers can book online.</p>
       <div className="mt-3 flex items-center gap-2">
-        <input type="number" min={1} max={60} value={days}
-          onChange={e => setDays(Math.max(1, Math.min(60, Number(e.target.value) || 0)))}
+        <input type="number" min={1} max={60} value={val}
+          onChange={e => setVal(e.target.value)}
+          onBlur={() => setVal(val.trim() === "" ? String(current) : String(parsed))}
           className="w-20 rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white" />
         <span className="text-sm text-grey">days in advance</span>
         <button onClick={save} disabled={!dirty || saving}
