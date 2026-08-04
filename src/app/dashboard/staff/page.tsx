@@ -487,12 +487,20 @@ export default function StaffPage() {
 
   // ── Remove barber ───────────────────────────────────────────────────────────
   const removeBarber = async (barber: BarberWithSchedule) => {
+    if (!accessToken) return;
     setRemovingId(barber.id);
-    const { error } = await supabase.from("barbers").delete().eq("id", barber.id);
+    // Server-side: deletes the staff link AND frees the barber's login when it's
+    // now orphaned (no other shop), so their email is released for a fresh signup.
+    const res = await fetch("/api/staff/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ barber_id: barber.id }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
     setRemovingId(null);
-    if (error) { showToast(`Couldn't remove ${barber.name}: ${error.message}`); return; }
+    if (!res || !res.ok) { showToast(data.error || `Couldn't remove ${barber.name}`); return; }
     setConfirmRemove(null);
-    showToast(`${barber.name} removed from staff`);
+    showToast(data.accountFreed ? `${barber.name} removed — their email is now free` : `${barber.name} removed from staff`);
     loadBarbers();
   };
 
@@ -1144,7 +1152,7 @@ export default function StaffPage() {
                 </div>
                 <h2 className="text-lg font-bold text-foreground">Remove Barber?</h2>
                 <p className="text-sm text-grey mt-1">
-                  This will remove <span className="text-foreground font-medium">{confirmRemove.name}</span> from your staff. Their appointments and history will remain. Their login account is not deleted.
+                  This will remove <span className="text-foreground font-medium">{confirmRemove.name}</span> from your staff. Past appointments and payment history stay on record. Their login is freed (their email can sign up fresh) unless they also work at another shop.
                 </p>
               </div>
               <div className="flex gap-3">
