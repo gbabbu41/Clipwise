@@ -160,6 +160,12 @@ export function isCheckoutAllowed(
   nowYmd: string,
   nowMin: number,
 ): boolean {
+  // TEMP (testing): check-out / completion is allowed ANYTIME — the "from
+  // CHECKOUT_LEAD_HOURS before the appointment start" barrier is disabled so the
+  // owner/barber can check out early during testing. Restore the gate by flipping
+  // BARRIER_ENABLED back to true (the original logic is below, unchanged).
+  const BARRIER_ENABLED = false as boolean;
+  if (!BARRIER_ENABLED) return true;
   if (!date) return true; // no date → don't block
   const startMin = timeSlot ? timeToMinutes(timeSlot) : 0;
   const dayDiff = Math.round((Date.parse(date + "T00:00:00Z") - Date.parse(nowYmd + "T00:00:00Z")) / 86400000);

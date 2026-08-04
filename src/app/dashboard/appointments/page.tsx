@@ -679,6 +679,10 @@ export default function AppointmentsPage() {
   // A no-show can only be marked/charged once the appointment start time has
   // passed by the grace window — you can't no-show a slot that hasn't happened.
   const isNoShowReady = (appt: AppointmentWithDetails) => {
+    // TEMP (testing): a no-show can be marked/charged ANYTIME. Flip GATE back to
+    // true to restore the "only after the slot's start (+ grace)" barrier.
+    const NO_SHOW_TIME_GATE = false as boolean;
+    if (!NO_SHOW_TIME_GATE) return true;
     const m = (appt.time_slot ?? "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
     if (!appt.date || !m) return false;
     let h = Number(m[1]) % 12;

@@ -566,7 +566,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   // No-show can be marked from NO_SHOW_LEAD_MINUTES before the start time onward
   // (owner asked for a 1-hour lead), judged in the SHOP's timezone. Charging a
   // fee needs a card on file.
-  const startedForNoShow = (() => {
+  // TEMP (testing): the no-show option is available ANYTIME, not just after the
+  // slot's start (+ grace). Flip NO_SHOW_TIME_GATE back to true to restore the
+  // gate (the original logic below is kept intact).
+  const NO_SHOW_TIME_GATE = false as boolean;
+  const startedForNoShow = !NO_SHOW_TIME_GATE || (() => {
     const t = safeTz(tz);
     if (!appt.date) return false;
     const today = todayInTz(t);
@@ -931,7 +935,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               )}
               {/* No-show — only once the slot's start time (+ grace) has passed. */}
               {appt.status === "confirmed" && startedForNoShow && (
-                <DAction icon="⚠️" label="No-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+                <DAction icon="⚠️" label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
                 <DAction tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
