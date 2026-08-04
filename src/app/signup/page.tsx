@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, CheckCircle, Store, Calendar } from "lucide-react";
+import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, ShieldCheck, Store, Calendar } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -11,18 +12,29 @@ import { formatPhone, validatePhone, validateEmail, getPasswordStrength } from "
 
 type SelectedRole = "" | "shop_owner" | "customer";
 
+// Set NEXT_PUBLIC_TURNSTILE_SITE_KEY in Vercel to switch CAPTCHA on. Until then
+// the widget doesn't render and the server skips verification, so signup works.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+interface TurnstileApi { render: (el: HTMLElement, opts: Record<string, unknown>) => string; reset: (id?: string) => void }
+
 export default function SignupPage() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<SelectedRole>("");
+  const [step, setStep] = useState<"form" | "code">("form");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [emailSent, setEmailSent] = useState(false);
   const [signupsPaused, setSignupsPaused] = useState(false);
   const [plan, setPlan] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [code, setCode] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+  const widgetRendered = useRef(false);
 
   // Arriving from a pricing card (/signup?plan=pro) → they're a barber/owner, so
   // skip the role picker and carry their plan choice into onboarding.
@@ -44,11 +56,54 @@ export default function SignupPage() {
       .catch(() => null);
   }, []);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  // Render the Turnstile widget on the form step, once the script is present.
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || step !== "form") return;
+    const iv = setInterval(() => {
+      const w = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+      if (w && turnstileRef.current && !widgetRendered.current) {
+        widgetRendered.current = true;
+        w.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (t: string) => setCaptchaToken(t),
+          "error-callback": () => setCaptchaToken(""),
+          "expired-callback": () => setCaptchaToken(""),
+        });
+        clearInterval(iv);
+      }
+    }, 300);
+    return () => clearInterval(iv);
+  }, [step]);
+
+  const resetCaptcha = () => {
+    setCaptchaToken("");
+    try { (window as unknown as { turnstile?: TurnstileApi }).turnstile?.reset(); } catch { /* noop */ }
+  };
+
+  // Guard every network call so the button can never spin forever.
+  const withTimeout = async <T,>(fn: () => Promise<T>, onTimeout: () => void): Promise<T | null> => {
+    let settled = false;
+    const t = setTimeout(() => { if (!settled) { settled = true; setLoading(false); onTimeout(); } }, 15000);
+    try {
+      const r = await fn();
+      if (settled) return null;
+      settled = true; clearTimeout(t);
+      return r;
+    } catch {
+      if (settled) return null;
+      settled = true; clearTimeout(t);
+      setLoading(false);
+      onTimeout();
+      return null;
+    }
+  };
+
+  // ── Step 1: validate the form, then request an email verification code. No
+  //    account is created yet — the server only stores {email, code} + emails it.
+  const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     const errors: Record<string, string> = {};
-
     if (!form.name.trim()) errors.name = "Full name is required";
     const emailErr = validateEmail(form.email);
     if (emailErr) errors.email = emailErr;
@@ -56,92 +111,69 @@ export default function SignupPage() {
     if (phoneErr) errors.phone = phoneErr;
     if (pwStrength.issues.length > 0) errors.password = pwStrength.issues.join(" · ");
     if (form.confirmPassword !== form.password) errors.confirmPassword = "Passwords do not match";
-
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
+    if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the “I'm human” check."); return; }
     setFieldErrors({});
     setLoading(true);
 
-    // Never let the button spin forever. On a flaky connection the account can be
-    // created + the confirmation email sent server-side, yet the response never
-    // reaches the browser (a lost reply) — a bare `await` would then hang for good.
-    // This timeout + the try/catch below always release the button and tell the
-    // user what likely happened.
-    let settled = false;
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      setLoading(false);
-      setError("This is taking longer than expected. Your account may already be created — check your email for a confirmation link, or try signing in.");
-    }, 12000);
+    const res = await withTimeout(
+      () => fetch("/api/auth/request-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim().toLowerCase(), role: selectedRole || "customer", captchaToken }),
+      }),
+      () => setError("This is taking a while — check your connection and try again."),
+    );
+    resetCaptcha();
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
 
-    try {
-      const { data, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        // Carry the intended role in metadata so it survives the email-confirmation
-        // path (no session yet → the client-side role update can't run). The
-        // handle_new_user trigger reads raw_user_meta_data.role on account create.
-        // emailRedirectTo sends the confirmation link back to /auth/callback, which
-        // establishes the session + routes by role (owner → onboarding).
-        options: {
-          data: { name: form.name, phone: form.phone, role: selectedRole || "customer" },
-          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
-        },
-      });
-      if (settled) return; // timeout already fired — don't double-handle
-      settled = true;
-      clearTimeout(timeout);
-
-      if (authError) {
-        if (authError.message.toLowerCase().includes("already registered") || authError.message.toLowerCase().includes("already in use")) {
-          setFieldErrors({ email: "Email already in use." });
-          setError("already_registered");
-        } else {
-          // Don't surface raw provider errors.
-          setError("Couldn't create your account. Please try again.");
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Existing-email case when Supabase "email enumeration protection" is ON: it
-      // returns NO error but an obfuscated user with an EMPTY identities array (and
-      // no session). Without this we'd wrongly show "check your email" for an email
-      // that already has an account. Detect it and show the real "already in use".
-      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        setFieldErrors({ email: "Email already in use." });
-        setError("already_registered");
-        setLoading(false);
-        return;
-      }
-
-      if (data.user && data.session) {
-        // Happy path (no email confirmation): set the role now. Errors are logged,
-        // not swallowed silently — but the trigger metadata is the real backstop.
-        const { error: roleErr } = await supabase
-          .from("users")
-          .update({ role: selectedRole || "customer", name: form.name, phone: form.phone })
-          .eq("id", data.user.id);
-        if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
-        const planQ = plan ? `?plan=${plan}` : "";
-        router.push(selectedRole === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
-      } else {
-        // No session, and either a user object (email-confirmation pending) OR no
-        // user echoed back — but NO error. Verified in prod: this still means the
-        // account was created and the confirmation email sent; Supabase just
-        // doesn't always return the user on the confirm-email path. Show "check
-        // your email" rather than a false "couldn't create" that contradicts the
-        // email the customer actually receives.
-        setEmailSent(true);
-        setLoading(false);
-      }
-    } catch {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      setLoading(false);
-      setError("This is taking longer than expected. Your account may already be created — check your email for a confirmation link, or try signing in.");
+    if (res.status === 409 || data.error === "already_registered") {
+      setFieldErrors({ email: "Email already in use." });
+      setError("already_registered");
+      return;
     }
+    if (!res.ok) { setError(data.error || "Couldn't send your code. Please try again."); return; }
+    setCode("");
+    setStep("code");
+  };
+
+  // ── Step 2: verify the code. THIS is where the account is created (server-side,
+  //    already email-confirmed), then we sign in and route on.
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!/^\d{6}$/.test(code.trim())) { setError("Enter the 6-digit code from your email."); return; }
+    setLoading(true);
+
+    const res = await withTimeout(
+      () => fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email.trim().toLowerCase(), code: code.trim(), password: form.password,
+          name: form.name.trim(), phone: form.phone.trim(), role: selectedRole || "customer",
+        }),
+      }),
+      () => setError("This is taking a while — check your connection and try again."),
+    );
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 409 || data.error === "already_registered") {
+      setLoading(false);
+      setError("That email already has an account. Please sign in instead.");
+      return;
+    }
+    if (!res.ok) { setLoading(false); setError(data.error || "Couldn't verify your code. Please try again."); return; }
+
+    // Account created + confirmed → sign in to get a session, then route on.
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
+    setLoading(false);
+    if (signInErr) { router.push("/login"); return; }
+    const planQ = plan ? `?plan=${plan}` : "";
+    router.push((selectedRole || "customer") === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
   };
 
   const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,18 +211,21 @@ export default function SignupPage() {
     );
   }
 
+  const onCodeStep = selectedRole && step === "code";
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+      {TURNSTILE_SITE_KEY && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer strategy="afterInteractive" />}
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
-          {!selectedRole && !emailSent && (
+          {!selectedRole && (
             <>
               <h1 className="text-2xl font-bold text-white">Join ClipWise</h1>
               <p className="text-[#8f8f8f] text-sm mt-1">How are you planning to use ClipWise?</p>
             </>
           )}
-          {selectedRole && !emailSent && (
+          {selectedRole && step === "form" && (
             <>
               <h1 className="text-2xl font-bold text-white">Create your account</h1>
               <p className="text-[#8f8f8f] text-sm mt-1">
@@ -200,21 +235,55 @@ export default function SignupPage() {
           )}
         </div>
 
-        {emailSent && (
-          <div className="bg-surface border border-border rounded-2xl p-8 text-center space-y-4">
-            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto">
-              <CheckCircle size={28} className="text-emerald-400" />
+        {/* ── Code entry step ── */}
+        {onCodeStep && (
+          <div className="bg-surface border border-border rounded-2xl p-8">
+            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck size={28} className="text-emerald-400" />
             </div>
-            <h2 className="text-xl font-bold text-white">Check your email</h2>
-            <p className="text-sm text-[#8f8f8f]">We sent a confirmation link to <span className="text-white font-medium">{form.email}</span>. Click it to activate your account, then come back to sign in.</p>
-            <Link href="/login" className="block mt-2 text-gold hover:underline text-sm font-medium">Go to Sign In →</Link>
+            <h2 className="text-xl font-bold text-white text-center">Verify your email</h2>
+            <p className="text-sm text-[#8f8f8f] text-center mt-1">
+              We emailed a 6-digit code to <span className="text-white font-medium">{form.email}</span>. Enter it to finish — your account is created only after this step.
+            </p>
+
+            {error && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mt-5">
+                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleVerify} className="space-y-4 mt-5">
+              <input
+                inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="••••••"
+                className="w-full bg-surface-raised border border-border rounded-xl py-3 text-center text-2xl tracking-[0.5em] font-semibold text-white placeholder:text-[#3a3a3a] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+              />
+              <Button type="submit" className="w-full" size="lg" loading={loading}>
+                {loading ? "Verifying…" : "Verify & create account"}
+              </Button>
+            </form>
+
+            <div className="flex items-center justify-between mt-5 text-sm">
+              <button onClick={() => { setStep("form"); setError(""); }} className="text-[#8f8f8f] hover:text-gold">← Edit details</button>
+              <button
+                onClick={() => handleRequestCode(new Event("submit") as unknown as React.FormEvent)}
+                disabled={loading}
+                className="text-gold hover:underline disabled:opacity-50"
+              >
+                Resend code
+              </button>
+            </div>
           </div>
         )}
 
-        {!emailSent && !selectedRole && (
+        {/* ── Role picker ── */}
+        {!selectedRole && (
           <div className="space-y-3">
             {roleOptions.map(({ role, icon: Icon, title, desc, accent, iconBg, iconColor }) => (
-              <button key={role} onClick={() => setSelectedRole(role)}
+              <button key={role} onClick={() => { setSelectedRole(role); setStep("form"); }}
                 className={cn("w-full flex items-center gap-4 bg-surface border rounded-2xl p-5 text-left transition-all", accent)}>
                 <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", iconBg)}>
                   <Icon size={22} className={iconColor} />
@@ -232,7 +301,8 @@ export default function SignupPage() {
           </div>
         )}
 
-        {!emailSent && selectedRole && (
+        {/* ── Details form step ── */}
+        {selectedRole && step === "form" && (
           <div className="bg-surface border border-border rounded-2xl p-8">
             <button onClick={() => setSelectedRole("")} className="text-xs text-[#8f8f8f] hover:text-gold mb-4 flex items-center gap-1">
               ← Back
@@ -245,7 +315,7 @@ export default function SignupPage() {
               </div>
             )}
 
-            <form onSubmit={handleSignup} className="space-y-4">
+            <form onSubmit={handleRequestCode} className="space-y-4">
               {fields.map(({ key, label, placeholder, icon: Icon, type }) => (
                 <div key={key} className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-300">{label}</label>
@@ -310,6 +380,8 @@ export default function SignupPage() {
                 {fieldErrors.confirmPassword && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} /> {fieldErrors.confirmPassword}</p>}
               </div>
 
+              {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="flex justify-center" />}
+
               <p className="text-xs text-[#8f8f8f] leading-relaxed">
                 By signing up, you agree to our{" "}
                 <Link href="/terms" className="text-gold hover:underline">Terms of Service</Link> and{" "}
@@ -317,7 +389,7 @@ export default function SignupPage() {
               </p>
 
               <Button type="submit" className="w-full" size="lg" loading={loading}>
-                {loading ? "Creating account..." : selectedRole === "shop_owner" ? "Create Account" : "Create Account"}
+                {loading ? "Sending code…" : "Continue"}
               </Button>
             </form>
 

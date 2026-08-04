@@ -805,6 +805,17 @@ function trialEnded(data: Record<string, string>) {
   `);
 }
 
+function signupCode(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">🔐 Verify your email</div>
+    <h1>Your verification code</h1>
+    <p>Enter this code to finish creating your ClipWise account:</p>
+    <div style="font-size:34px;font-weight:800;letter-spacing:10px;color:#fff;background:#1C1C1E;border:1px solid #2D2D2D;border-radius:14px;padding:22px;text-align:center;margin:18px 0;font-family:ui-monospace,Menlo,monospace">${data.code}</div>
+    <p style="font-size:13px;color:#6B7280">This code expires in ${data.expiryMinutes || "10"} minutes. If you didn't request it, you can safely ignore this email — no account is created until the code is entered.</p>
+  `);
+}
+
 export async function sendAppEmail(type: string, data: Record<string, string>): Promise<SendResult> {
   if (!process.env.RESEND_API_KEY) {
     return { error: "RESEND_API_KEY not configured" };
@@ -1046,6 +1057,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = `Your ClipWise ${data.planName} trial has ended`;
       html = trialEnded(data);
+      break;
+    case "signup_code":
+      to = data.email;
+      subject = "Your ClipWise verification code";
+      html = signupCode(data);
       break;
     default:
       return { error: "Unknown email type" };
