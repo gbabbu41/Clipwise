@@ -125,13 +125,14 @@ export default function SignupPage() {
         if (roleErr) console.warn("[signup] role update failed:", roleErr.message);
         const planQ = plan ? `?plan=${plan}` : "";
         router.push(selectedRole === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
-      } else if (data.user && !data.session) {
-        // Account created, email-confirmation pending → show "check your email".
-        setEmailSent(true);
-        setLoading(false);
       } else {
-        // No user and no error (rare edge case) — never leave the button spinning.
-        setError("Couldn't create your account. Please try again.");
+        // No session, and either a user object (email-confirmation pending) OR no
+        // user echoed back — but NO error. Verified in prod: this still means the
+        // account was created and the confirmation email sent; Supabase just
+        // doesn't always return the user on the confirm-email path. Show "check
+        // your email" rather than a false "couldn't create" that contradicts the
+        // email the customer actually receives.
+        setEmailSent(true);
         setLoading(false);
       }
     } catch {
