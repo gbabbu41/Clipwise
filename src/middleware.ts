@@ -36,9 +36,13 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Not authenticated → redirect to login
+  // Not authenticated → redirect to login, REMEMBERING where they were headed
+  // (e.g. a /dashboard/appointments link from an email) so login can send them
+  // back there instead of dumping them on the dashboard home.
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
   }
 
   return response;

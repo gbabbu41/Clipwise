@@ -55,14 +55,23 @@ export default function LoginPage() {
         });
         const { profile, shop } = res.ok ? await res.json() : { profile: null, shop: null };
 
+        // Where were they headed before login bounced them here? Honor it, but
+        // ONLY an internal relative path (starts with a single "/") so this
+        // can't be abused as an open redirect to an external site.
+        const raw = typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("redirect")
+          : null;
+        const dest = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+
         if (profile?.role === "super_admin") {
-          router.push("/admin");
+          router.push(dest ?? "/admin");
         } else if (profile?.role === "shop_owner") {
-          router.push(shop ? "/dashboard" : "/onboarding/plan");
+          // An owner without a shop must finish onboarding first — ignore the deep link.
+          router.push(shop ? (dest ?? "/dashboard") : "/onboarding/plan");
         } else if (profile?.role === "barber") {
-          router.push("/barber-dashboard");
+          router.push(dest ?? "/barber-dashboard");
         } else {
-          router.push("/");
+          router.push(dest ?? "/");
         }
       } else {
         // No session came back (edge case) — don't leave the button spinning.
