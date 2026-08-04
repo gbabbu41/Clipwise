@@ -167,7 +167,16 @@ export async function POST(request: NextRequest) {
       const held = await stripe.paymentIntents.retrieve(appt.payment_intent_id!, undefined, opts);
       const capturable = held.amount_capturable ?? 0;
       if (capturable <= 0) {
-        return NextResponse.json({ ok: false, error: "This card hold is no longer chargeable (it may have expired or already been settled). Please take payment another way." }, { status: 400 });
+        // The authorization is gone (expired, released, or never fully authorized
+        // — e.g. an old/abandoned booking). Don't dead-end the owner: for a
+        // NO-SHOW, clear the stale hold and let them still record the no-show with
+        // no charge (there's nothing to collect anyway). A COMPLETION genuinely
+        // needs payment, so surface that as a failure to collect another way.
+        if (reason === "no_show") {
+          await supabaseAdmin.from("appointments").update({ payment_status: null }).eq("id", appointment_id).then(null, () => null);
+          return NextResponse.json({ ok: true, amount: 0, holdExpired: true });
+        }
+        return NextResponse.json({ ok: false, error: "This card hold is no longer chargeable (it may have expired). Please take payment another way." }, { status: 400 });
       }
       const captureCents = feeCents > 0 ? Math.min(feeCents, capturable) : capturable;
       // Omit amount_to_capture when taking the whole hold — Stripe captures the

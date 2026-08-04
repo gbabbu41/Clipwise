@@ -476,8 +476,9 @@ export function makeApptActions(opts: {
       const hasCard = appt.payment_status === "held" || appt.payment_status === "saved";
       setBusy("noshow");
       let charged = false;
+      let holdExpired = false;
       if (hasCard && accessToken && amountCents > 0) {
-        let data: { ok?: boolean; error?: string };
+        let data: { ok?: boolean; error?: string; amount?: number; holdExpired?: boolean };
         try {
           const res = await fetch("/api/stripe/capture-appointment", {
             method: "POST",
@@ -495,7 +496,10 @@ export function makeApptActions(opts: {
           return;
         }
         if (!data.ok) { setBusy(""); toast(`Charge failed: ${data.error ?? "try again"}`); return; }
-        charged = true;
+        // Hold expired → the server recorded no charge but the no-show should
+        // still be marked. Otherwise a real fee was captured.
+        holdExpired = !!data.holdExpired;
+        charged = (data.amount ?? 0) > 0;
       }
       const { error } = await supabase.from("appointments").update({ status: "no-show" }).eq("id", appt.id);
       if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
@@ -510,7 +514,7 @@ export function makeApptActions(opts: {
       notifyFreedSlot(appt, shop, "No-show");
       setBusy("");
       onDone();
-      toast(charged ? "No-show fee charged · receipt emailed" : "Marked no-show");
+      toast(charged ? "No-show fee charged · receipt emailed" : holdExpired ? "Marked no-show — card hold had expired, nothing charged" : "Marked no-show");
     },
   };
 }
