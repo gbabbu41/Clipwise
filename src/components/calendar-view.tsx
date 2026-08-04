@@ -207,20 +207,18 @@ const STATUS_CHIP_DARK: Record<string, string> = {
 const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-surface-overlay text-foreground border-l-[3px] border-[#00e5a0]";
 const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
 
-// Appointment "box" style — #141414 surface + a 3px left accent, coloured by
-// payment/status: pending → yellow, no-show → red, cancelled → muted,
-// done/settled (completed OR paid/captured OR card held/saved) → blue, and an
-// upcoming unpaid confirmed booking → green.
+// Appointment "box" style — surface + a 3px left accent, coloured by STATUS:
+// pending → yellow, no-show → red, cancelled/refunded → muted, completed → blue,
+// everything else active (booked/confirmed) → green. Blue means COMPLETED only —
+// a booking stays green even after it's paid or a card is held; payment shows in
+// the separate "Paid / Card held" tag, not the block colour.
 const apptBlock = (a: { status?: string | null; payment_status?: string | null }) => {
-  const held = a.payment_status === "held" || a.payment_status === "saved";
-  const paid = a.payment_status === "paid" || a.payment_status === "captured";
-  // Refunded (or cancelled) → muted grey + faded, regardless of prior status, so
-  // a completed-then-refunded booking doesn't keep its active blue accent.
+  // Refunded (or cancelled) → muted grey + faded, regardless of prior status.
   const inactive = a.payment_status === "refunded" || a.status === "cancelled";
   const border = inactive ? "border-border-strong"
     : a.status === "no-show" ? "border-[#ff6b6b]"
     : a.status === "pending" ? "border-[#f5c542]"
-    : (a.status === "completed" || paid || held) ? "border-[#4a9eff]"
+    : a.status === "completed" ? "border-[#4a9eff]"
     : "border-[#00e5a0]";
   return cn("bg-card-raised border-l-[3px] text-foreground", border, inactive && "opacity-60");
 };
