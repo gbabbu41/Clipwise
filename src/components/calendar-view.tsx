@@ -1944,11 +1944,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : c.k === "freed" ? (
             <button key={`freed-${c.a.id}`} onClick={() => openAdd(barber.id, barber.name, c.a.time_slot, apptDuration(c.a))}
-              className={cn("relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed transition-colors",
-                c.a.status === "no-show" ? "border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10" : "border-border-strong bg-white/[0.04] hover:bg-white/[0.07]")}>
+              className="relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 transition-colors">
               <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
-                <p className={cn("text-sm font-semibold truncate", c.a.status === "no-show" ? "text-[#ff8a8a]" : "text-grey line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
+                <p className={cn("text-sm font-semibold truncate text-[#ff8a8a]", c.a.status !== "no-show" && "line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
                 <p className="text-[11px] text-grey-muted truncate">{c.a.client_name}</p>
               </div>
               <span className="text-[10px] font-semibold text-grey-muted">Open — tap to book again</span>
@@ -2225,13 +2224,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
                             style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                             onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
-                            className={cn(
-                              "rounded-lg border border-dashed px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors",
-                              noShow ? "border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10"
-                                     : "border-border-strong bg-white/[0.04] hover:bg-white/[0.07]",
-                            )}>
-                            <p className={cn("text-[10px] font-semibold leading-tight truncate", noShow ? "text-[#ff8a8a]" : "text-grey line-through")}>
-                              {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal"> · {fa.client_name}</span>
+                            className="rounded-lg border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors">
+                            <p className={cn("text-[10px] font-semibold leading-tight truncate text-[#ff8a8a]", !noShow && "line-through")}>
+                              {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal no-underline"> · {fa.client_name}</span>
                             </p>
                             {height > 30 && <p className="text-[8px] text-grey-muted leading-tight no-underline">Open — tap to book again</p>}
                             <span role="button" tabIndex={0} aria-label="Dismiss"
