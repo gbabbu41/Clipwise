@@ -22,7 +22,14 @@ const classify = (n: { title: string; message: string; type: string }) => {
   if (/block|hours|time.?off|vacation|day off/.test(s)) { const act = /request/.test(s); return k(Clock, act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "Request" : "Schedule", act ? "bg-amber-500/15 text-amber-300" : "bg-sky-500/15 text-sky-300", act ? "#f59e0b" : "#38bdf8", act); }
   if (n.type === "review" || /review|\bstar\b/.test(s)) return k(Star, "bg-yellow-500/15 text-yellow-300", "Review", "bg-yellow-500/15 text-yellow-300", "#eab308");
   if (/approved|confirmed/.test(s)) return k(CheckCircle2, "bg-emerald-500/15 text-emerald-300", "Confirmed", "bg-emerald-500/15 text-emerald-300", "#10b981");
-  if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) { const p = /pending|approval|request|awaiting/.test(s) || n.type === "booking"; return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "var(--border-strong)", p); }
+  if (n.type === "booking" || /book(ed|ing)|appointment/.test(s)) {
+    // "Pending / needs your Review" ONLY when the booking actually needs owner
+    // approval (its notification says so). A card-secured / paid / confirmed
+    // booking is NOT action-required — flagging every booking pending was a
+    // false alarm. Card-hold/paid are matched by earlier branches anyway.
+    const p = /needs approval|tap to approve|pending|approval|approve|awaiting|requested/.test(s);
+    return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "var(--border-strong)", p);
+  }
   return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "var(--border-strong)");
 };
 const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
@@ -208,27 +215,28 @@ export default function NotificationsPage() {
                 return (
                   <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
                     style={{ borderLeftColor: c.accent }}
-                    className={cn("group relative flex items-start gap-3 p-4 rounded-2xl border border-l-[3px] transition-all cursor-pointer",
-                      notif.is_read ? "bg-card border-border hover:bg-card-raised" : "bg-white/[0.04] border-border hover:border-white/30")}>
+                    className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
+                      notif.is_read ? "bg-card border-border" : "bg-white/[0.05] border-border")}>
                     <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
                       <c.Icon size={16} />
                     </div>
-                    <div className="flex-1 min-w-0 pr-6">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-sm leading-tight truncate", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {!notif.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
+                        <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
                         <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
                       </div>
-                      <p className="text-sm text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
+                      <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-grey">{notifTime(notif.created_at)}</span>
+                        <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
                         {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
                       </div>
                     </div>
-                    {!notif.is_read && <span className="absolute top-3.5 right-9 w-2 h-2 rounded-full bg-accent" />}
+                    {/* Always-visible dismiss — a hover-only X is invisible on touch (iPad/iPhone). */}
                     <button type="button" aria-label="Dismiss notification"
                       onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-grey hover:text-foreground hover:border-white opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X size={13} />
+                      className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
+                      <X size={16} />
                     </button>
                   </div>
                 );
