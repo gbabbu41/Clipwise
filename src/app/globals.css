@@ -1383,18 +1383,18 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-cal:hover { box-shadow:0 1px 2px rgba(0,0,0,.3), 0 22px 46px -22px rgba(0,0,0,.7); }
 .cwd-caltop { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--cwd-div); }
 .cwd-calm { font-size:13px; font-weight:700; color:var(--foreground); }
-.cwd-seg { display:flex; background:var(--card); border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+.cwd-seg { display:flex; background:var(--card); border:1px solid var(--cwd-div); border-radius:9px; overflow:hidden; }
 .cwd-seg span { font-size:11px; padding:5px 11px; color:var(--grey); }
 .cwd-seg span.on { background:var(--foreground); color:var(--background); font-weight:700; }
 .cwd-calscroll { overflow-x:auto; }
 .cwd-calgrid { display:grid; min-width:0; }
-.cwd-hd { text-align:center; padding:8px 0; border-bottom:1px solid var(--border); }
+.cwd-hd { text-align:center; padding:8px 0; border-bottom:1px solid var(--cwd-div); }
 .cwd-hdw { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--grey-2); }
 .cwd-hd.today .cwd-hdw { color:#a9c6ff; font-weight:700; }
 .cwd-hdn { display:inline-flex; align-items:center; justify-content:center; font-size:14px; color:var(--foreground); margin-top:2px; }
 .cwd-hd.today .cwd-hdn { width:24px; height:24px; border-radius:999px; background:#6ea8fe; font-weight:700; }
-.cwd-tcell { font-size:9.5px; color:var(--grey-2); text-align:right; padding:6px 6px 0 0; border-right:1px solid var(--border); }
-.cwd-cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-height:34px; min-width:0; padding:3px; }
+.cwd-tcell { font-size:9.5px; color:var(--grey-2); text-align:right; padding:6px 6px 0 0; border-right:1px solid var(--cwd-div); }
+.cwd-cell { border-right:1px solid var(--cwd-div); border-bottom:1px solid var(--cwd-div); min-height:34px; min-width:0; padding:3px; }
 .cwd-cell.todaycol { background:rgba(110,168,254,.12); }
 .cwd-ev { border-radius:6px; font-size:9.5px; padding:3px 5px; line-height:1.2; color:#c9f7e8; border-left:2px solid #00e5a0; background:rgba(0,229,160,.12); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
 .cwd-ev.pend { color:#ffe6bd; border-left-color:#f59e0b; background:rgba(245,158,11,.12); }
