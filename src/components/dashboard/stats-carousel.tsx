@@ -121,7 +121,7 @@ export function StatsCarousel({
           <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">You keep</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
         </div>
       ) : (
-        <p className="text-xs mt-3 font-medium text-amber-500">No bookings yet</p>
+        <p className="text-xs mt-3 font-medium text-grey">{totalBookings > 0 ? "Nothing collected yet" : "No bookings yet"}</p>
       )}
     </div>,
 
@@ -129,8 +129,10 @@ export function StatsCarousel({
     <div key="bk" className={card}>
       <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Bookings</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">{totalBookings}</p>
-      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-amber-500")}>
-        {hasCompleted ? `${completed.length} completed` : "No bookings yet"}
+      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-grey")}>
+        {hasCompleted
+          ? `${completed.length} completed`
+          : totalBookings > 0 ? "None completed yet" : "No bookings yet"}
       </p>
       <div className="flex-1 min-h-[96px] mt-2 -mx-1">
         {bookingsByDay.length > 0 ? (
