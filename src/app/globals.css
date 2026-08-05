@@ -1319,11 +1319,13 @@ textarea:focus-visible {
 }
 .cwd-trigger:hover { background: var(--surface-overlay); border-color: var(--border-strong); }
 .cwd-trigger.open  { background: var(--surface-overlay); border-color: var(--border-strong); }
-/* Light theme: near-black text + a stronger border so the pill reads clearly on
-   white (card-raised alone is near-white → no visible edge). */
-html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); border-color: var(--border-strong); }
+/* Light theme: match the WHITE card surface the carousel/KPI cards use (they're
+   forced to var(--card) above) instead of the greyer --card-raised, so the pill
+   reads as the same card colour — near-black text + a stronger border so it's
+   still clearly outlined on white. */
+html[data-theme="light"] .portal .cwd-trigger { background: var(--card); color: var(--foreground); border-color: var(--border-strong); }
 html[data-theme="light"] .portal .cwd-trigger:hover,
-html[data-theme="light"] .portal .cwd-trigger.open { border-color: #c2c2c2; }
+html[data-theme="light"] .portal .cwd-trigger.open { background: var(--card-raised); border-color: #c2c2c2; }
 
 /* Light theme: appointment-sheet action buttons (DAction). Solid brand-green
    PRIMARY (white text) so the main action clearly stands out, outlined red DANGER,
