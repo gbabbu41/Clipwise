@@ -1890,6 +1890,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const endDb = sched?.end ?? "22:00:00";
     const dayAppts = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id && !freesSlot(a));
     const dayBlocks = blocksFor(barber.id, dateStr);
+    // Cancelled / no-show whose slot is free again — shown as faded, dismissible
+    // "book again" cards (matches the timeline). Hidden once the slot is rebooked
+    // (an active booking overlaps) or the owner taps ✕.
+    const freedCells = appointments.filter(a => a.date === dateStr && a.barber_id === barber.id
+      && (a.status === "cancelled" || a.status === "no-show") && !dismissedFreed.has(a.id))
+      .filter(fa => { const s = timeToMinutes(fa.time_slot), e = s + apptDuration(fa);
+        return !dayAppts.some(act => { const as = timeToMinutes(act.time_slot); return as < e && as + apptDuration(act) > s; }); });
     // Drop any free slot that falls inside a block window (so it can't be booked
     // over, and the grid shows the block instead).
     const emptySlots = windowEmpties(barber.id, dateStr, { start: startDb, end: endDb })
@@ -1898,13 +1905,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     type Cell =
       | { k: "appt"; a: AppointmentWithDetails }
       | { k: "empty"; s: string; minutes: number }
-      | { k: "block"; b: (typeof dayBlocks)[number] };
+      | { k: "block"; b: (typeof dayBlocks)[number] }
+      | { k: "freed"; a: AppointmentWithDetails };
     const cells: Cell[] = [
       ...emptySlots.map(e => ({ k: "empty", s: e.slot, minutes: e.minutes } as Cell)),
       ...dayAppts.map(a => ({ k: "appt", a } as Cell)),
       ...dayBlocks.map(b => ({ k: "block", b } as Cell)),
+      ...freedCells.map(a => ({ k: "freed", a } as Cell)),
     ];
-    const cellStart = (c: Cell) => c.k === "appt" ? timeToMinutes(c.a.time_slot) : c.k === "empty" ? timeToMinutes(c.s) : c.b.startMin;
+    const cellStart = (c: Cell) => (c.k === "appt" || c.k === "freed") ? timeToMinutes(c.a.time_slot) : c.k === "empty" ? timeToMinutes(c.s) : c.b.startMin;
     cells.sort((x, y) => cellStart(x) - cellStart(y));
 
     return (
@@ -1931,6 +1940,22 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
               <span className={cn("text-[10px] font-semibold", c.b.status === "pending" ? "text-amber-400" : "text-grey")}>
                 {c.b.status === "pending" ? "Pending approval" : canBlock ? "Tap to remove" : "Blocked"}
+              </span>
+            </button>
+          ) : c.k === "freed" ? (
+            <button key={`freed-${c.a.id}`} onClick={() => openAdd(barber.id, barber.name, c.a.time_slot, apptDuration(c.a))}
+              className={cn("relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed transition-colors",
+                c.a.status === "no-show" ? "border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10" : "border-border-strong bg-white/[0.04] hover:bg-white/[0.07]")}>
+              <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
+              <div className="min-w-0">
+                <p className={cn("text-sm font-semibold truncate", c.a.status === "no-show" ? "text-[#ff8a8a]" : "text-grey line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
+                <p className="text-[11px] text-grey-muted truncate">{c.a.client_name}</p>
+              </div>
+              <span className="text-[10px] font-semibold text-grey-muted">Open — tap to book again</span>
+              <span role="button" tabIndex={0} aria-label="Dismiss"
+                onClick={(e) => { e.stopPropagation(); dismissFreed(c.a.id); }}
+                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/10">
+                <X size={13} />
               </span>
             </button>
           ) : (
@@ -2203,7 +2228,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             className={cn(
                               "rounded-lg border border-dashed px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors",
                               noShow ? "border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10"
-                                     : "border-border-strong bg-white/[0.02] hover:bg-white/[0.06] opacity-70 [filter:blur(0.2px)]",
+                                     : "border-border-strong bg-white/[0.04] hover:bg-white/[0.07]",
                             )}>
                             <p className={cn("text-[10px] font-semibold leading-tight truncate", noShow ? "text-[#ff8a8a]" : "text-grey line-through")}>
                               {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal"> · {fa.client_name}</span>
