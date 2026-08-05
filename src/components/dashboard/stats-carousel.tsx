@@ -94,6 +94,11 @@ export function StatsCarousel({
       {cashIncluded > 0 && (
         <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
       )}
+      {/* Nothing in yet → say so right under the total, above the chart (matches
+          the Bookings slide's note placement). */}
+      {revenue + feesPaid <= 0 && (
+        <p className="text-xs mt-1 font-medium text-grey">{totalBookings > 0 ? "Nothing collected yet" : "No bookings yet"}</p>
+      )}
       {/* Slim revenue strip. */}
       <div className="h-9 mt-3 flex items-end justify-center gap-1.5">
         {chartData.length > 0 ? (() => {
@@ -113,15 +118,13 @@ export function StatsCarousel({
         )}
       </div>
       {/* Receipt ledger — same shape as the Payments page, so both screens match. */}
-      {revenue + feesPaid > 0 ? (
+      {revenue + feesPaid > 0 && (
         <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
           <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
           {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tax</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(taxCollected)}</span></div>}
           {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
           <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">You keep</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
         </div>
-      ) : (
-        <p className="text-xs mt-3 font-medium text-grey">{totalBookings > 0 ? "Nothing collected yet" : "No bookings yet"}</p>
       )}
     </div>,
 
