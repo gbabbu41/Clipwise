@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
   ChevronRight, ChevronLeft, AlertCircle, TrendingUp, UserX, Bell, Banknote,
+  CreditCard, BarChart3,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -625,7 +626,7 @@ export default function DashboardPage() {
           aria-label="Pick a date"
           className={cn("cwd-trigger", showDatePicker && "open")}
         >
-          <span aria-hidden className="text-[15px] leading-none">📅</span>
+          <Calendar size={15} />
         </button>
         {showDatePicker && (
           <>
@@ -688,10 +689,10 @@ export default function DashboardPage() {
 
             <div className="cwd-qahdr">Quick Actions</div>
             <div className="cwd-qa">
-              <button type="button" onClick={() => setShowAddWalkin(true)}><span className="cwd-qic">➕</span><span className="cwd-qlb">Walk In</span></button>
-              <Link href="/dashboard/pos"><span className="cwd-qic">💳</span><span className="cwd-qlb">POS</span></Link>
-              <Link href="/dashboard/appointments"><span className="cwd-qic">📅</span><span className="cwd-qlb">Appointments</span></Link>
-              <Link href="/dashboard/analytics"><span className="cwd-qic">📊</span><span className="cwd-qlb">Reports</span></Link>
+              <button type="button" onClick={() => setShowAddWalkin(true)}><span className="cwd-qic"><Plus size={22} /></span><span className="cwd-qlb">Walk In</span></button>
+              <Link href="/dashboard/pos"><span className="cwd-qic"><CreditCard size={21} /></span><span className="cwd-qlb">POS</span></Link>
+              <Link href="/dashboard/appointments"><span className="cwd-qic"><Calendar size={21} /></span><span className="cwd-qlb">Appointments</span></Link>
+              <Link href="/dashboard/analytics"><span className="cwd-qic"><BarChart3 size={21} /></span><span className="cwd-qlb">Reports</span></Link>
             </div>
           </>
         );
