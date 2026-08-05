@@ -1089,6 +1089,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // fill it so there's never a dark void below the grid on tall desktops.
   const [dayColH, setDayColH] = useState(0);
   const colWrapRef = useRef<HTMLDivElement>(null);
+  // Cancelled / no-show appointments linger on the timeline as faded "open to
+  // book again" markers until the owner taps ✕ to clear them. Dismissals are
+  // remembered per-device (localStorage) so a cleared slot looks empty again.
+  const [dismissedFreed, setDismissedFreed] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    try { const raw = localStorage.getItem("cw_dismissed_freed"); if (raw) setDismissedFreed(new Set(JSON.parse(raw))); } catch { /* ignore */ }
+  }, []);
+  const dismissFreed = useCallback((id: string) => {
+    setDismissedFreed(prev => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("cw_dismissed_freed", JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -2162,6 +2176,47 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         </button>
                       );
                     })}
+
+                    {/* Cancelled / no-show markers — the slot is already free to
+                        book again; they linger as a faded, dismissible reminder
+                        of what happened. No-show is tinted red, a customer
+                        cancel is blurred grey. Hidden once the slot is rebooked
+                        (an active booking overlaps) or the owner taps ✕. */}
+                    {appointments
+                      .filter(fa => fa.date === dateStr
+                        && (barbers.length === 0 || fa.barber_id === b.id)
+                        && (fa.status === "cancelled" || fa.status === "no-show")
+                        && !dismissedFreed.has(fa.id))
+                      .filter(fa => {
+                        const s = timeToMinutes(fa.time_slot), e = s + apptDuration(fa);
+                        return !colAppts.some(act => { const as = timeToMinutes(act.time_slot); return as < e && as + apptDuration(act) > s; });
+                      })
+                      .map(fa => {
+                        const top = (parseTime(fa.time_slot) - winStart) * rowH;
+                        const height = Math.max(22, (apptDuration(fa) / 60) * rowH - 4);
+                        const noShow = fa.status === "no-show";
+                        return (
+                          <button key={`freed-${fa.id}`}
+                            title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
+                            style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
+                            onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
+                            className={cn(
+                              "rounded-lg border border-dashed px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors",
+                              noShow ? "border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10"
+                                     : "border-border-strong bg-white/[0.02] hover:bg-white/[0.06] opacity-70 [filter:blur(0.2px)]",
+                            )}>
+                            <p className={cn("text-[10px] font-semibold leading-tight truncate", noShow ? "text-[#ff8a8a]" : "text-grey line-through")}>
+                              {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal"> · {fa.client_name}</span>
+                            </p>
+                            {height > 30 && <p className="text-[8px] text-grey-muted leading-tight no-underline">Open — tap to book again</p>}
+                            <span role="button" tabIndex={0} aria-label="Dismiss"
+                              onClick={(e) => { e.stopPropagation(); dismissFreed(fa.id); }}
+                              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/10">
+                              <X size={11} />
+                            </span>
+                          </button>
+                        );
+                      })}
                   </div>
                 );
               })}
