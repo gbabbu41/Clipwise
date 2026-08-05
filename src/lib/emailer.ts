@@ -281,6 +281,35 @@ function bookingConfirmation(data: Record<string, string>) {
   `);
 }
 
+// Sent to the CUSTOMER when the shop edits their booking (time moved and/or a
+// different barber assigned). Shows the new details and — crucially — the same
+// /my-booking/{id} manage link, which always reflects the booking's current
+// state, so even if this email is missed the link is the single source of truth.
+function appointmentUpdated(data: Record<string, string>) {
+  const manageUrl = data.appointmentId ? `${BASE_URL}/my-booking/${data.appointmentId}` : null;
+  const changed = data.changedSummary
+    ? `<p style="font-size:13px;color:#6B7280">What changed: ${data.changedSummary}</p>`
+    : "";
+  return wrap(`
+    ${shopHeader(data.shopName)}
+    <div class="badge">📝 Appointment Updated</div>
+    <h1>Hi ${data.clientName},</h1>
+    <p>Your appointment at <span class="highlight">${data.shopName}</span> has been updated by the shop. Here are your latest details:</p>
+    ${changed}
+    <hr class="divider">
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName || "Any Available"}</span></div>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${data.total ? `<div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>` : ""}
+    <hr class="divider">
+    ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
+    <p style="font-size:12px;color:#4B5563;margin-top:8px">This link always shows your booking's latest details — you can reschedule or cancel from there.</p>
+    <hr class="divider">` : ""}
+    <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
+  `);
+}
+
 function rebookingReminder(data: Record<string, string>) {
   return wrap(`
     ${shopHeader(data.shopName)}
@@ -912,6 +941,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       subject = r.subject; html = r.html;
       break;
     }
+    case "appointment_updated":
+      to = data.clientEmail;
+      subject = `Your appointment at ${data.shopName} was updated`;
+      html = appointmentUpdated(data);
+      break;
     case "review_request":
       to = data.clientEmail;
       subject = `How was your visit to ${data.shopName}? ⭐`;

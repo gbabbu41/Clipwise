@@ -64,7 +64,7 @@ export default function MyBookingPage() {
     if (!id) { setNotFound(true); setLoading(false); return; }
     (async () => {
       try {
-        const res = await fetch(`/api/my-booking/${id}`);
+        const res = await fetch(`/api/my-booking/${id}`, { cache: "no-store" });
         if (!res.ok) { setNotFound(true); setLoading(false); return; }
         const { booking } = await res.json();
         if (!booking) { setNotFound(true); setLoading(false); return; }

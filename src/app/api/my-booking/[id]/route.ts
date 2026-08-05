@@ -15,6 +15,14 @@ import { sendAppEmail } from "@/lib/emailer";
 // returns ONLY display fields (no client email/phone) and handles cancel /
 // reschedule, with a server-side conflict check.
 
+// This link is the single source of truth for the customer — it must ALWAYS
+// reflect the booking's current state (e.g. after the shop moves the time or
+// reassigns the barber). Force dynamic + no-store so neither Vercel's edge nor
+// the browser can serve a stale snapshot of a since-edited booking.
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
+
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
   const slotsDate = new URL(req.url).searchParams.get("slots");
@@ -23,14 +31,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (slotsDate) {
     const { data: appt } = await supabaseAdmin
       .from("appointments").select("barber_id, time_slot, shop_id, shops(timezone, booking_settings)").eq("id", id).maybeSingle();
-    if (!appt?.barber_id) return NextResponse.json({ slots: [] });
+    if (!appt?.barber_id) return NextResponse.json({ slots: [] }, { headers: NO_STORE });
     const dow = new Date(slotsDate + "T00:00:00").getDay();
     // A barber can have MULTIPLE rows for one day (split shift) — aggregate to the
     // widest window rather than .maybeSingle() (which errors on >1 row → no slots).
     const { data: tsRows } = await supabaseAdmin
       .from("time_slots").select("start_time, end_time")
       .eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true);
-    if (!tsRows || tsRows.length === 0) return NextResponse.json({ slots: [] });
+    if (!tsRows || tsRows.length === 0) return NextResponse.json({ slots: [] }, { headers: NO_STORE });
     const startTime = tsRows.reduce((m, r) => (r.start_time < m ? r.start_time : m), tsRows[0].start_time);
     const endTime = tsRows.reduce((m, r) => (r.end_time > m ? r.end_time : m), tsRows[0].end_time);
     const { data: booked } = await supabaseAdmin
@@ -47,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Honor the shop's slot granularity (15 or 30) instead of hardcoding 30.
     const interval = Number(shopObj?.booking_settings?.slot_interval_minutes) === 15 ? 15 : 30;
     const nowOverride = { todayStr: todayInTz(tz), nowMinutes: nowMinutesInTz(tz) };
-    return NextResponse.json({ slots: getSlotsInRange(startTime, endTime, new Date(slotsDate + "T00:00:00"), bookedSlots, interval, nowOverride) });
+    return NextResponse.json({ slots: getSlotsInRange(startTime, endTime, new Date(slotsDate + "T00:00:00"), bookedSlots, interval, nowOverride) }, { headers: NO_STORE });
   }
 
   // The booking itself — display fields only (never client email/phone).
@@ -55,8 +63,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .from("appointments")
     .select("id, shop_id, barber_id, client_name, date, time_slot, status, total_amount, payment_status, duration_minutes, barbers(id, name), services(id, name, price, duration_minutes), shops(id, name, slug, address, city, province, phone, timezone, booking_settings)")
     .eq("id", id).maybeSingle();
-  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ booking: data });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404, headers: NO_STORE });
+  return NextResponse.json({ booking: data }, { headers: NO_STORE });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

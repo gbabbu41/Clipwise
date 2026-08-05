@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { authorizeAppointment } from "@/lib/api-auth";
-import { timeToMinutes } from "@/lib/utils";
+import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
+import { sendAppEmail } from "@/lib/emailer";
+import { insertNotifications } from "@/lib/notify-server";
 
 /**
  * Edit an appointment with an authoritative double-booking guard.
@@ -98,6 +100,95 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That overlaps another booking for this barber — pick another time or shorten the service." }, { status: 409 });
     }
     return NextResponse.json({ error: "Couldn't save the changes. Try again." }, { status: 500 });
+  }
+
+  // ── Tell the customer + affected barbers when the booking actually moved or
+  // was reassigned ───────────────────────────────────────────────────────────
+  // A name/notes/price-only edit doesn't notify the customer. When the time or
+  // barber changes, the customer gets an "updated" email (with the manage link,
+  // which is the live source of truth), the newly-assigned barber gets a
+  // heads-up, and the barber it moved away from is told it left their column.
+  // Awaited (best-effort, never fails the save) so the email reliably sends
+  // before this serverless function returns.
+  const barberChanged = "barber_id" in update && (update.barber_id ?? null) !== (appt.barber_id ?? null);
+  const dateChanged = "date" in update && update.date !== appt.date;
+  const timeChanged = "time_slot" in update && update.time_slot !== appt.time_slot;
+  if (barberChanged || dateChanged || timeChanged) {
+    try {
+      const { data: full } = await supabaseAdmin
+        .from("appointments")
+        .select("client_name, client_email, date, time_slot, total_amount, barber_id, service_id, shop_id")
+        .eq("id", appointment_id).maybeSingle();
+      if (full) {
+        const [{ data: shopRow }, { data: svc }] = await Promise.all([
+          supabaseAdmin.from("shops").select("name, owner_id").eq("id", full.shop_id).maybeSingle(),
+          full.service_id
+            ? supabaseAdmin.from("services").select("name").eq("id", full.service_id).maybeSingle()
+            : Promise.resolve({ data: null as { name: string } | null }),
+        ]);
+        const [{ data: newBarber }, { data: oldBarber }] = await Promise.all([
+          full.barber_id
+            ? supabaseAdmin.from("barbers").select("name, user_id, email").eq("id", full.barber_id).maybeSingle()
+            : Promise.resolve({ data: null as { name: string; user_id: string | null; email: string | null } | null }),
+          barberChanged && appt.barber_id
+            ? supabaseAdmin.from("barbers").select("name, user_id").eq("id", appt.barber_id).maybeSingle()
+            : Promise.resolve({ data: null as { name: string; user_id: string | null } | null }),
+        ]);
+
+        const prettyWhen = `${prettyDate(full.date)} at ${full.time_slot}`;
+        const changes: string[] = [];
+        if (dateChanged || timeChanged) changes.push(`new time — ${prettyWhen}`);
+        if (barberChanged) changes.push(`barber — ${newBarber?.name ?? "Any Available"}`);
+        const changedSummary = changes.join("; ");
+
+        // 1) Customer — the "your appointment was updated" email that was missing.
+        if (full.client_email) {
+          await sendAppEmail("appointment_updated", {
+            clientEmail: full.client_email,
+            clientName: full.client_name ?? "there",
+            shopName: shopRow?.name ?? "",
+            barberName: newBarber?.name ?? "Any Available",
+            serviceName: svc?.name ?? "Service",
+            date: prettyDate(full.date),
+            time: full.time_slot ?? "",
+            total: full.total_amount ? formatCurrency(full.total_amount) : "",
+            appointmentId: appointment_id,
+            changedSummary,
+          }).catch(() => null);
+        }
+
+        // 2) Newly-assigned barber — in-app alert + email so they see the new job.
+        if (barberChanged && newBarber?.user_id) {
+          await insertNotifications({
+            user_id: newBarber.user_id, shop_id: full.shop_id, type: "booking",
+            title: "Appointment assigned to you",
+            message: `${full.client_name ?? "A client"} — ${prettyWhen}`,
+          });
+          if (newBarber.email) {
+            await sendAppEmail("new_booking_barber", {
+              barberEmail: newBarber.email,
+              barberName: newBarber.name ?? "there",
+              shopName: shopRow?.name ?? "",
+              clientName: full.client_name ?? "A client",
+              clientPhone: "",
+              serviceName: svc?.name ?? "Service",
+              date: prettyDate(full.date),
+              time: full.time_slot ?? "",
+              total: full.total_amount ? formatCurrency(full.total_amount) : "",
+            }).catch(() => null);
+          }
+        }
+
+        // 3) Barber it moved away from — told it left their column.
+        if (barberChanged && oldBarber?.user_id) {
+          await insertNotifications({
+            user_id: oldBarber.user_id, shop_id: full.shop_id, type: "booking",
+            title: "Appointment reassigned",
+            message: `${full.client_name ?? "A client"}'s appointment (${prettyWhen}) was moved to another barber.`,
+          });
+        }
+      }
+    } catch { /* notifications are best-effort — the save already succeeded */ }
   }
 
   return NextResponse.json({ ok: true, applied: update });
