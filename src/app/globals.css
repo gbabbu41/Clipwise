@@ -1356,7 +1356,9 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-klbl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--grey); }
 .cwd-kval { font-size:26px; font-weight:700; margin-top:8px; letter-spacing:-.02em; line-height:1; color:var(--foreground); }
 .cwd-ksub { font-size:11px; margin-top:9px; color:var(--grey); }
-.cwd-ksub.up { color:#00e5a0; }
+/* KPI trend notes stay neutral grey (calm) — colour is reserved for real
+   alerts. Only a genuine warning (no-shows to follow up) keeps a hue. */
+.cwd-ksub.up { color:var(--grey); }
 .cwd-ksub.down { color:#f43f5e; }
 
 .cwd-qahdr { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--grey-2); margin:14px 2px 9px; }

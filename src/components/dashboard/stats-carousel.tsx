@@ -99,23 +99,26 @@ export function StatsCarousel({
       {revenue + feesPaid <= 0 && (
         <p className="text-xs mt-1 font-medium text-grey">{totalBookings > 0 ? "Nothing collected yet" : "No bookings yet"}</p>
       )}
-      {/* Slim revenue strip. */}
-      <div className="h-9 mt-3 flex items-end justify-center gap-1.5">
-        {chartData.length > 0 ? (() => {
-          const max = Math.max(...chartData.map(d => d.revenue), 1);
-          const peak = chartData.reduce((mi, d, i, arr) => (d.revenue > arr[mi].revenue ? i : mi), 0);
-          return chartData.map((d, i) => (
-            <span key={i} title={`${d.day}: ${formatCurrency(d.revenue)}`}
-              style={{ height: `${Math.max(8, (d.revenue / max) * 100)}%` }}
-              className={cn("flex-1 max-w-[30px] rounded-t min-h-[6px]", i === peak
-                ? "bg-gradient-to-t from-[#3f6fb2] to-[#6ea8fe]"
-                : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
-          ));
-        })() : (
-          Array.from({ length: 7 }).map((_, i) => (
-            <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[30px] rounded-t bg-gradient-to-t from-[#6ea8fe]/20 to-[#6ea8fe]/45" />
-          ))
-        )}
+      {/* Slim revenue strip — vertically centered in the card so the (common)
+          empty state isn't top-heavy: balanced space above and below. */}
+      <div className="flex-1 flex items-center mt-3 min-h-[44px]">
+        <div className="w-full h-9 flex items-end justify-center gap-1.5">
+          {chartData.length > 0 ? (() => {
+            const max = Math.max(...chartData.map(d => d.revenue), 1);
+            const peak = chartData.reduce((mi, d, i, arr) => (d.revenue > arr[mi].revenue ? i : mi), 0);
+            return chartData.map((d, i) => (
+              <span key={i} title={`${d.day}: ${formatCurrency(d.revenue)}`}
+                style={{ height: `${Math.max(8, (d.revenue / max) * 100)}%` }}
+                className={cn("flex-1 max-w-[30px] rounded-t min-h-[6px]", i === peak
+                  ? "bg-gradient-to-t from-[#3f6fb2] to-[#6ea8fe]"
+                  : "bg-gradient-to-t from-[rgba(110,168,254,0.35)] to-[#6ea8fe]")} />
+            ));
+          })() : (
+            Array.from({ length: 7 }).map((_, i) => (
+              <span key={i} style={{ height: `${28 + (i % 3) * 14}%` }} className="flex-1 max-w-[30px] rounded-t bg-gradient-to-t from-[#6ea8fe]/20 to-[#6ea8fe]/45" />
+            ))
+          )}
+        </div>
       </div>
       {/* Receipt ledger — same shape as the Payments page, so both screens match. */}
       {revenue + feesPaid > 0 && (
