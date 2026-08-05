@@ -1305,22 +1305,25 @@ textarea:focus-visible {
 .cwd-menu button:hover { background:rgba(255,255,255,.05); }
 .cwd-menu button.on { background:rgba(110,168,254,.12); color:#a9c6ff; }
 
-/* Borderless date-filter triggers (the "Today" period dropdown + the date button).
-   Transparent + no border at rest; a subtle foreground-tinted fill on hover/open.
-   color-mix keeps it theme-aware: --foreground is white in dark → white/5·white/10
-   fills; near-black in light → black/5·black/10. */
+/* Date-filter triggers (the "Today" period dropdown + the 📅 date button): a
+   raised, BORDERED pill. The fill (card-raised → surface-overlay on hover/open)
+   defines it in dark; the border is what makes it read on the white theme, where
+   card-raised is nearly the page colour. Border strengthens on hover/open. */
 .cwd-trigger {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 9px 14px; border: 0; border-radius: 12px;
+  padding: 9px 14px; border: 1px solid var(--border); border-radius: 12px;
   font-size: 13px; font-weight: 600; cursor: pointer;
   background: var(--card-raised);
   color: var(--foreground);
-  transition: background-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
 }
-.cwd-trigger:hover { background: var(--surface-overlay); }
-.cwd-trigger.open  { background: var(--surface-overlay); }
-/* Light theme: full near-black text at rest (per request), not the faded 70%. */
-html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); }
+.cwd-trigger:hover { background: var(--surface-overlay); border-color: var(--border-strong); }
+.cwd-trigger.open  { background: var(--surface-overlay); border-color: var(--border-strong); }
+/* Light theme: near-black text + a stronger border so the pill reads clearly on
+   white (card-raised alone is near-white → no visible edge). */
+html[data-theme="light"] .portal .cwd-trigger { color: var(--foreground); border-color: var(--border-strong); }
+html[data-theme="light"] .portal .cwd-trigger:hover,
+html[data-theme="light"] .portal .cwd-trigger.open { border-color: #c2c2c2; }
 
 /* Light theme: appointment-sheet action buttons (DAction). Solid brand-green
    PRIMARY (white text) so the main action clearly stands out, outlined red DANGER,
