@@ -58,13 +58,13 @@
 html[data-theme="light"] .portal {
   color-scheme: light;
   /* Exact values sampled from the reference screenshot (neutral, no tint). */
-  --background:     #f1f1f1;  /* reference PAGE grey */
+  --background:     #eceef1;  /* canvas — a touch greyer so white cards float clearly */
   --foreground:     #1a1a1a;  /* crisp near-black text */
-  --card:           #f9f9f9;  /* reference CARD near-white (lifted by shadow, borderless) */
-  --card-raised:    #efefef;  /* subtle nested chips/pills */
-  --surface:        #f9f9f9;
-  --surface-raised: #efefef;
-  --surface-overlay:#eaeaea;  /* hover fills / menus */
+  --card:           #ffffff;  /* pure-white cards — clean lift off the grey canvas */
+  --card-raised:    #eef0f2;  /* subtle nested chips/pills */
+  --surface:        #ffffff;
+  --surface-raised: #eef0f2;
+  --surface-overlay:#e7e9ec;  /* hover fills / menus */
   --surface-sunken: #ebebeb;  /* recessed (calendar canvas) */
   --border:         #e6e6e6;  /* soft neutral — cards read borderless; inputs/dividers show it faintly */
   --border-strong:  #d6d6d6;
