@@ -39,14 +39,18 @@
 .portal {
   --background:     #0e0f12;  /* off-black — kills the pure-#000 glare */
   --foreground:     #ededee;  /* soft white — easier on the eyes than #fff */
-  --card:           #16181c;  /* tier 1 — gently lifted so it reads as elevated */
-  --card-raised:    #1d2025;  /* tier 2 */
-  --surface:        #16181c;
-  --surface-raised: #1d2025;
-  --surface-overlay:#262a30;  /* tier 3 (hover fills, menus) */
-  --surface-sunken: #101215;  /* recessed */
-  --border:         #212429;  /* softer hairline — lets space separate, not lines */
-  --border-strong:  #31353c;
+  /* Surface ramp raised so tier-1 `bg-card` panels lift clearly off the page
+     (was #16181c, only ~8 levels up → flat). Tier 2 + overlay nudged up in step
+     so the two-tier hierarchy (a card-raised chip inside a card panel) still
+     reads, and the redesigned cards (which use tier 2) barely shift. */
+  --card:           #1b1e24;  /* tier 1 (cards, sidebars, raw bg-card panels) */
+  --card-raised:    #22262d;  /* tier 2 (chips, inner pills, redesigned cards) */
+  --surface:        #1b1e24;
+  --surface-raised: #22262d;
+  --surface-overlay:#2c313a;  /* tier 3 (hover fills, menus) */
+  --surface-sunken: #101215;  /* recessed (below tier 1) */
+  --border:         #262b32;  /* hairline — visible on the lifted surfaces */
+  --border-strong:  #363c45;
   --grey:           #9aa0aa;  /* secondary text */
   --grey-2:         #6b7079;  /* muted / tertiary text */
 }
