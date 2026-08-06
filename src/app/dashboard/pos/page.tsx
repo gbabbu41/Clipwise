@@ -70,6 +70,9 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
   const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
+  // Checkout is a 2-step flow: staff reviews the cart + picks the tender, THEN
+  // the screen hands to the customer to choose a tip and continue to pay.
+  const [checkoutStep, setCheckoutStep] = useState<"review" | "tip">("review");
   // Pull-down-to-dismiss for the mobile bottom sheets (scroll-aware).
   const cartSheetRef = useRef<HTMLDivElement | null>(null);
   const cartDrag = useSheetDrag(cartSheetRef, () => setCartOpen(false), { enabled: cartOpen });
@@ -432,7 +435,7 @@ export default function POSPage() {
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
     setGiftCode(""); setGiftCard(null);
-    setPaymentMethod("card"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
+    setPaymentMethod("card"); setCheckoutStep("review"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
     setAddName(""); setAddPhone(""); setAddEmail(""); setCartOpen(false);
@@ -557,58 +560,98 @@ export default function POSPage() {
     </div>
   );
 
+  // Empty cart always shows the review step (never a stale tip screen).
+  const step: "review" | "tip" = cart.length > 0 ? checkoutStep : "review";
+  const barberFirst = (barbers.find(b => b.id === barberId)?.name ?? "").split(" ")[0];
+
   const cartFooter = (
     <div className="shrink-0 px-4 pt-3 pb-4 border-t border-border space-y-3">
-      <div className="flex justify-between text-sm"><span className="text-grey-muted">Subtotal</span><span className="text-foreground">{formatCurrency(subtotal)}</span></div>
-      {promoCodes.length > 0 && (
-        <div className="flex gap-2">
-          <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
-          <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
-        </div>
-      )}
-      {/* Gift card as tender */}
-      {giftCard ? (
-        <div className="flex items-center justify-between rounded-lg border border-[#00e5a0]/40 bg-[#00e5a0]/10 px-3 py-2">
-          <span className="text-xs text-foreground">🎁 {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
-          <button onClick={() => { setGiftCard(null); setGiftCode(""); }} className="text-grey hover:text-foreground"><X size={14} /></button>
-        </div>
+      {step === "review" ? (
+        <>
+          {/* ── STEP 1 (staff): review + choose how they're paying ── */}
+          <div className="flex justify-between text-sm"><span className="text-grey-muted">Subtotal</span><span className="text-foreground">{formatCurrency(subtotal)}</span></div>
+          {promoCodes.length > 0 && (
+            <div className="flex gap-2">
+              <Input placeholder="Promo code" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="flex-1 text-xs" />
+              <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
+            </div>
+          )}
+          {/* Gift card as tender */}
+          {giftCard ? (
+            <div className="flex items-center justify-between rounded-lg border border-[#00e5a0]/40 bg-[#00e5a0]/10 px-3 py-2">
+              <span className="text-xs text-foreground">🎁 {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
+              <button onClick={() => { setGiftCard(null); setGiftCode(""); }} className="text-grey hover:text-foreground"><X size={14} /></button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" />
+              <Button variant="outline" size="sm" onClick={applyGift}>Apply</Button>
+            </div>
+          )}
+          {discount > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+          {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">{taxLabel} ({posTaxRate}%)</span><span className="text-foreground">{formatCurrency(taxAmt)}</span></div>}
+          {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
+          <div className="flex justify-between items-baseline border-t border-border pt-2">
+            <span className="text-sm font-bold text-foreground">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
+            <span className="text-xl font-extrabold text-foreground">{formatCurrency(dueAfterGift)}</span>
+          </div>
+          <p className="text-[11px] text-grey-muted text-center pt-0.5">Pick a payment method — the customer adds a tip next</p>
+          <div className="grid grid-cols-3 gap-2">
+            {(["card","cash","online"] as PM[]).map(m => (
+              <button key={m} onClick={() => { setPaymentMethod(m); setCheckoutStep("tip"); }}
+                className="py-3 rounded-[12px] text-xs font-semibold border border-border bg-surface-overlay text-foreground hover:border-[#00e5a0]/60 active:scale-95 transition-all flex flex-col items-center gap-1">
+                <span className="text-lg leading-none">{m === "card" ? "💳" : m === "cash" ? "💵" : "🌐"}</span>
+                {m === "card" ? "Card / Tap" : m === "cash" ? "Cash" : "Link"}
+              </button>
+            ))}
+          </div>
+        </>
       ) : (
-        <div className="flex gap-2">
-          <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" />
-          <Button variant="outline" size="sm" onClick={applyGift}>Apply</Button>
-        </div>
+        <>
+          {/* ── STEP 2 (customer-facing): choose a tip, then continue to pay ── */}
+          <button type="button" onClick={() => setCheckoutStep("review")} className="text-xs text-grey-muted hover:text-foreground">← Back</button>
+          <div className="text-center py-1">
+            <p className="text-base font-semibold text-foreground">Add a tip{barberFirst ? ` for ${barberFirst}` : ""}?</p>
+            <p className="text-[11px] text-grey-muted mt-0.5">on {formatCurrency(subtotal)}</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[10,15,20].map(t => {
+              const on = tipPercent === t;
+              return (
+                <button key={t} onClick={() => { setTipPercent(t); setCustomTip(""); }}
+                  className={cn("py-3 rounded-xl border font-bold transition-all active:scale-95 flex flex-col items-center", on ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-surface-overlay text-foreground border-border")}>
+                  <span className="text-base leading-none">{t}%</span>
+                  <span className={cn("text-[11px] mt-0.5", on ? "text-black/70" : "text-grey-muted")}>{formatCurrency(subtotal * t / 100)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-1 rounded-xl border border-border bg-surface-overlay px-3">
+              <span className="text-grey-muted text-sm">$</span>
+              <input type="number" inputMode="decimal" placeholder="Custom tip" value={customTip}
+                onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
+                className="w-full bg-transparent py-2.5 text-sm text-foreground focus:outline-none placeholder:text-grey-muted" />
+            </div>
+            <button type="button" onClick={() => { setTipPercent(null); setCustomTip(""); }}
+              className={cn("px-4 rounded-xl border text-sm font-semibold transition-colors", (tipPercent === null && !customTip) ? "border-[#00e5a0]/60 bg-surface-overlay text-foreground" : "border-border bg-surface-overlay text-grey")}>
+              No tip
+            </button>
+          </div>
+          {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Tip</span><span className="text-foreground">{formatCurrency(tipAmt)}</span></div>}
+          <div className="flex justify-between items-baseline border-t border-border pt-2">
+            <span className="text-sm font-bold text-foreground">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
+            <span className="text-xl font-extrabold text-foreground">{formatCurrency(dueAfterGift)}</span>
+          </div>
+          <button type="button" onClick={charge} disabled={charging || cart.length === 0}
+            className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
+            {charging ? "Processing…"
+              : paymentMethod === "cash" ? `Complete cash · ${formatCurrency(dueAfterGift)}`
+              : paymentMethod === "online" ? `Send payment link · ${formatCurrency(dueAfterGift)}`
+              : `Continue to tap card · ${formatCurrency(dueAfterGift)}`}
+          </button>
+        </>
       )}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-grey-muted mr-1 shrink-0">Tip</span>
-        {[10,15,20].map(t => (
-          <button key={t} onClick={() => { setTipPercent(tipPercent === t ? null : t); setCustomTip(""); }}
-            className={cn("flex-1 py-2 rounded-lg text-xs font-medium border transition-colors", tipPercent === t ? "bg-[#00e5a0] text-black border-[#00e5a0]" : "bg-surface-overlay text-grey border-border")}>
-            {t}%
-          </button>
-        ))}
-        <input type="number" placeholder="$" value={customTip} onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
-          className="w-14 shrink-0 rounded-lg border border-border bg-surface-overlay px-1 py-2 text-xs text-foreground text-center focus:outline-none focus:border-[#00e5a0]/50" />
-      </div>
-      {tipAmt > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Tip amount</span><span className="text-foreground">{formatCurrency(tipAmt)}</span></div>}
-      {discount > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
-      {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">{taxLabel} ({posTaxRate}%)</span><span className="text-foreground">{formatCurrency(taxAmt)}</span></div>}
-      {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
-      <div className="flex justify-between items-baseline border-t border-border pt-2">
-        <span className="text-sm font-bold text-foreground">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
-        <span className="text-xl font-extrabold text-foreground">{formatCurrency(dueAfterGift)}</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {(["card","cash","online"] as PM[]).map(m => (
-          <button key={m} onClick={() => setPaymentMethod(m)}
-            className={cn("py-2.5 rounded-[10px] text-xs font-medium capitalize border transition-colors", paymentMethod === m ? "bg-surface-overlay text-foreground border-[#00e5a0]" : "bg-surface-overlay text-grey border-border")}>
-            {m === "card" ? "💳 Card" : m === "cash" ? "💵 Cash" : "🌐 Online"}
-          </button>
-        ))}
-      </div>
-      <button type="button" onClick={charge} disabled={charging || cart.length === 0}
-        className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
-        {charging ? "Processing…" : `CHARGE ${formatCurrency(dueAfterGift)}`}
-      </button>
     </div>
   );
 
@@ -624,7 +667,7 @@ export default function POSPage() {
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
           bar + drawer. PC (lg): order summary as a side panel on the RIGHT
           (flex-row-reverse keeps DOM order but renders the panel last). */}
-      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-68px-env(safe-area-inset-top))] md:h-screen overflow-hidden">
+      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-68px-env(safe-area-inset-top))] lg:h-screen overflow-hidden">
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
@@ -769,9 +812,9 @@ export default function POSPage() {
       {/* 3 ─ STICKY CART BAR — mobile/tablet only (lg uses the side panel).
           Above the bottom nav on mobile; flush bottom on md. */}
       {cart.length > 0 && !cartOpen && (
-        <div className="lg:hidden fixed left-0 md:left-64 right-0 bottom-[68px] md:bottom-0 z-40 p-3 bg-surface-sunken/95 backdrop-blur-xl border-t border-border">
+        <div className="lg:hidden fixed left-0 right-0 bottom-[68px] z-40 p-3 bg-surface-sunken/95 backdrop-blur-xl border-t border-border">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setCartOpen(true)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
+            <button type="button" onClick={() => { setCheckoutStep("review"); setCartOpen(true); }} className="flex-1 min-w-0 flex items-center gap-2 text-left">
               <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
               <span className="text-sm text-foreground truncate">
                 <span className="font-semibold">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
@@ -782,7 +825,7 @@ export default function POSPage() {
             </button>
             {/* Checkout opens the summary drawer to review, pick tender + tip,
                 then charge — no more one-tap charging straight from the grid. */}
-            <button type="button" onClick={() => setCartOpen(true)}
+            <button type="button" onClick={() => { setCheckoutStep("review"); setCartOpen(true); }}
               className="shrink-0 flex items-center gap-1.5 rounded-[10px] bg-[#00e5a0] text-black font-bold text-sm px-5 py-2.5 active:scale-95 transition-transform">
               Checkout<span aria-hidden>→</span>
             </button>
@@ -796,7 +839,7 @@ export default function POSPage() {
           <div className="lg:hidden fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
           <div ref={cartSheetRef}
             style={{ transform: cartDrag.dragY ? `translate3d(0,${cartDrag.dragY}px,0)` : undefined, transition: cartDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="lg:hidden fixed left-0 md:left-64 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-card-raised rounded-t-[20px] border-t border-border animate-slide-up">
+            className="lg:hidden fixed left-0 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-card-raised rounded-t-[20px] border-t border-border animate-slide-up">
             <div onClick={() => setCartOpen(false)} className="shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>
