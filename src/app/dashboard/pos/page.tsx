@@ -442,7 +442,7 @@ export default function POSPage() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-card flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-3xl mb-3">💳</p>
           <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
@@ -460,7 +460,7 @@ export default function POSPage() {
 
   if (success && lastCharge) {
     return (
-      <div className="min-h-screen bg-card flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-md space-y-6 text-center">
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto">
             <span className="text-4xl">✓</span>
@@ -628,7 +628,7 @@ export default function POSPage() {
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
-        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-card border-l border-border">
+        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-card-raised border-l border-border">
           <div className="shrink-0 px-4 py-3 border-b border-border">
             <h2 className="text-base font-bold text-foreground">Order Summary</h2>
             <p className="text-xs text-grey-muted truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
