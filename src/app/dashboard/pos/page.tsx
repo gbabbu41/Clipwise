@@ -73,6 +73,11 @@ export default function POSPage() {
   // Checkout is a 2-step flow: staff reviews the cart + picks the tender, THEN
   // the screen hands to the customer to choose a tip and continue to pay.
   const [checkoutStep, setCheckoutStep] = useState<"review" | "tip">("review");
+  // A customer must be chosen BEFORE checkout (step 1). When someone tries to
+  // check out with none, this flips the "Select customer" button red + opens
+  // the picker; it clears itself the moment a customer is set.
+  const [needCustomer, setNeedCustomer] = useState(false);
+  useEffect(() => { if (client.trim()) setNeedCustomer(false); }, [client]);
   // Pull-down-to-dismiss for the mobile bottom sheets (scroll-aware).
   const cartSheetRef = useRef<HTMLDivElement | null>(null);
   const cartDrag = useSheetDrag(cartSheetRef, () => setCartOpen(false), { enabled: cartOpen });
@@ -598,7 +603,7 @@ export default function POSPage() {
           <p className="text-[11px] text-grey-muted text-center pt-0.5">Pick a payment method — the customer adds a tip next</p>
           <div className="grid grid-cols-3 gap-2">
             {(["card","cash","online"] as PM[]).map(m => (
-              <button key={m} onClick={() => { setPaymentMethod(m); setCheckoutStep("tip"); }}
+              <button key={m} onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } setPaymentMethod(m); setCheckoutStep("tip"); }}
                 className="py-3 rounded-[12px] text-xs font-semibold border border-border bg-surface-overlay text-foreground hover:border-[#00e5a0]/60 active:scale-95 transition-all flex flex-col items-center gap-1">
                 <span className="text-lg leading-none">{m === "card" ? "💳" : m === "cash" ? "💵" : "🌐"}</span>
                 {m === "card" ? "Card / Tap" : m === "cash" ? "Cash" : "Link"}
@@ -691,10 +696,10 @@ export default function POSPage() {
         <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
           <button type="button" onClick={() => { setAddOpen(false); setPickerOpen(true); }}
             className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-card-raised px-3 text-sm text-left transition-colors",
-              client ? "border-border" : "border-[#00e5a0]/40")}>
-            <User size={15} className="text-grey-muted shrink-0" />
+              client ? "border-border" : needCustomer ? "border-red-500 bg-red-500/10 animate-pulse" : "border-[#00e5a0]/40")}>
+            <User size={15} className={cn("shrink-0", needCustomer && !client ? "text-red-400" : "text-grey-muted")} />
             <span className="flex-1 min-w-0 leading-tight">
-              <span className={cn("block truncate", client ? "text-foreground" : "text-grey-muted")}>{client || "Select customer"}</span>
+              <span className={cn("block truncate", client ? "text-foreground" : needCustomer ? "text-red-400 font-semibold" : "text-grey-muted")}>{client || "Select customer"}</span>
               {client && (custEmail || custPhone) && <span className="block text-[10px] text-grey-muted truncate">{custEmail || custPhone}</span>}
             </span>
             <Search size={13} className="text-grey-muted shrink-0" />
@@ -814,7 +819,7 @@ export default function POSPage() {
       {cart.length > 0 && !cartOpen && (
         <div className="lg:hidden fixed left-0 right-0 bottom-[68px] z-40 p-3 bg-surface-sunken/95 backdrop-blur-xl border-t border-border">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => { setCheckoutStep("review"); setCartOpen(true); }} className="flex-1 min-w-0 flex items-center gap-2 text-left">
+            <button type="button" onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } setCheckoutStep("review"); setCartOpen(true); }} className="flex-1 min-w-0 flex items-center gap-2 text-left">
               <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
               <span className="text-sm text-foreground truncate">
                 <span className="font-semibold">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
@@ -825,7 +830,7 @@ export default function POSPage() {
             </button>
             {/* Checkout opens the summary drawer to review, pick tender + tip,
                 then charge — no more one-tap charging straight from the grid. */}
-            <button type="button" onClick={() => { setCheckoutStep("review"); setCartOpen(true); }}
+            <button type="button" onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } setCheckoutStep("review"); setCartOpen(true); }}
               className="shrink-0 flex items-center gap-1.5 rounded-[10px] bg-[#00e5a0] text-black font-bold text-sm px-5 py-2.5 active:scale-95 transition-transform">
               Checkout<span aria-hidden>→</span>
             </button>
