@@ -158,7 +158,7 @@ export default function KioskPage() {
 
   return (
     <div className={cn(
-      "min-h-screen bg-card flex flex-col",
+      "min-h-screen bg-background flex flex-col",
       isFullscreen && "fixed inset-0 z-[200]"
     )}>
       {/* Fullscreen toggle bar */}

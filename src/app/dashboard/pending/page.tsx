@@ -43,7 +43,7 @@ export default function PendingPage() {
   const Icon = config?.icon ?? Clock;
 
   return (
-    <div className="min-h-screen bg-card flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <Logo size="md" className="justify-center mb-8" />
 
