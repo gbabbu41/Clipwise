@@ -540,7 +540,7 @@ export default function PaymentsPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-card px-4 sm:px-6 max-w-2xl mx-auto pb-28">
+    <div className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl mx-auto pb-28">
       {toast && (
         <div className={cn("fixed bottom-24 right-4 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-medium",
           toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300")}>
