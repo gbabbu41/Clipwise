@@ -247,12 +247,14 @@ export async function finalizeBookingFromSession(params: {
     body: JSON.stringify({ appointment_id: appt.id, notify_owner: false }),
   }).catch(() => null);
 
-  // Text the customer a confirmation (best-effort).
+  // Text the customer a confirmation (best-effort). AWAITED — a fire-and-forget
+  // send can be killed when the serverless function returns, so the text never
+  // goes out (and never logs). sendSmsBestEffort never throws.
   {
     const payNote = isSave ? " Card saved — charged after your visit."
       : isHold ? " Card held — charged after your visit."
       : " Paid online.";
-    sendSmsBestEffort(
+    await sendSmsBestEffort(
       m.client_phone,
       `Your appointment on ${friendly} at ${m.time_slot} is confirmed.${payNote} Booking #${appt.id.slice(0, 8).toUpperCase()}. Manage: ${baseUrl}/my-booking/${appt.id}`,
       shopRow?.name,

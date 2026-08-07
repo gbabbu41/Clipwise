@@ -83,7 +83,11 @@ export async function sendSmsBestEffort(
     ? `${shopName}: ${body}`
     : body;
   try {
-    await twilio.messages.create({ to: e164, body: prefixed, ...sender });
+    const res = await twilio.messages.create({ to: e164, body: prefixed, ...sender });
+    // Confirm it left the app (Twilio queued it). Delivery status after this is
+    // in the Twilio Console message logs — a "queued/accepted" here + no arrival
+    // usually means trial/carrier filtering, not an app problem.
+    console.log("[sms] sent:", JSON.stringify({ sid: res.sid, status: res.status, via: sender.messagingServiceSid ? "messaging_service" : "from_number" }));
   } catch (err) {
     // Surface the real Twilio reason (trial-unverified recipient, number not in the
     // Messaging Service sender pool, unregistered, quota, etc.) instead of vanishing.
