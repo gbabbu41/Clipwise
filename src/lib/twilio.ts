@@ -68,13 +68,26 @@ export async function sendSmsBestEffort(
   const twilio = getTwilio();
   const sender = twilioSender();
   const e164 = toE164(to);
-  if (!twilio || !sender || !e164) return;
+  if (!twilio || !sender || !e164) {
+    // Log WHY it was skipped (never the recipient number) so a "no SMS" report is
+    // diagnosable: no client = SID/token missing; no sender = both
+    // MESSAGING_SERVICE_SID and FROM_NUMBER blank; !validTo = unusable number.
+    console.warn("[sms] skipped:", JSON.stringify({
+      hasClient: !!twilio,
+      sender: sender ? (sender.messagingServiceSid ? "messaging_service" : "from_number") : "none",
+      validTo: !!e164,
+    }));
+    return;
+  }
   const prefixed = shopName && !body.toLowerCase().startsWith(shopName.toLowerCase())
     ? `${shopName}: ${body}`
     : body;
   try {
     await twilio.messages.create({ to: e164, body: prefixed, ...sender });
-  } catch {
-    /* trial-mode unverified number, quota, etc. — best-effort only */
+  } catch (err) {
+    // Surface the real Twilio reason (trial-unverified recipient, number not in the
+    // Messaging Service sender pool, unregistered, quota, etc.) instead of vanishing.
+    const e = err as { message?: string; code?: number };
+    console.warn("[sms] send failed:", JSON.stringify({ code: e?.code, message: e?.message ?? String(err) }));
   }
 }
