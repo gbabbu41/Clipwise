@@ -257,7 +257,7 @@ export default function BookingPage() {
           // ship stripe_customer_id / stripe_subscription_id / owner_id to any
           // visitor. (stripe_account_id + stripe_connected are needed here to
           // decide if online pay is available and are non-secret identifiers.)
-          .select("id, name, slug, status, logo, address, city, province, postal_code, phone, email, website, instagram, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
+          .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, tiktok, facebook, youtube, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
           .eq("slug", shopslug)
           .maybeSingle();
         if (error) { setLoadError(true); setPageLoading(false); return; }
@@ -1433,15 +1433,23 @@ export default function BookingPage() {
               {[shop.city, shop.province].filter(Boolean).join(", ")}
             </p>
           )}
+          {/* About / description */}
+          {shop.description && (
+            <p className="text-[14px] text-[#b5b5b5] mt-3 leading-relaxed whitespace-pre-line">{shop.description}</p>
+          )}
           {/* Contact rows */}
           {(() => {
             const ig = shop.instagram ? igHandle(shop.instagram) : "";
-            const hasContacts = shop.phone || ig || shop.website;
+            const hasContacts = shop.phone || ig || shop.website || shop.email || shop.tiktok || shop.facebook || shop.youtube;
             if (!hasContacts) return null;
             return (
               <div className="mt-4 space-y-2">
                 {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
+                {shop.email && <ContactRow icon="📧" text={shop.email} href={`mailto:${shop.email}`} />}
                 {ig && <ContactRow icon={<InstagramIcon />} text={`@${ig}`} href={`https://instagram.com/${ig}`} />}
+                {shop.tiktok && <ContactRow icon="🎵" text={displayUrl(shop.tiktok)} href={ensureHttp(shop.tiktok)} />}
+                {shop.facebook && <ContactRow icon="📘" text={displayUrl(shop.facebook)} href={ensureHttp(shop.facebook)} />}
+                {shop.youtube && <ContactRow icon="▶️" text={displayUrl(shop.youtube)} href={ensureHttp(shop.youtube)} />}
                 {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
               </div>
             );
