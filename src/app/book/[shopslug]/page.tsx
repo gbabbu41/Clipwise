@@ -1546,17 +1546,6 @@ export default function BookingPage() {
         {!lockedBarber && step === isBarberFirstStep(0) && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
-            <button
-              onClick={() => setSelectedBarber("any")}
-              className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === "any" ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
-            >
-              <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#2a2a2a] flex items-center justify-center text-2xl">✨</div>
-              <div>
-                <p className="font-semibold text-white">No Preference</p>
-                <p className="text-sm text-[#8f8f8f]">Next available barber</p>
-              </div>
-              {selectedBarber === "any" && <Check size={18} className="ml-auto text-gold" />}
-            </button>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
                 className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
@@ -1568,9 +1557,11 @@ export default function BookingPage() {
                 <div className="flex-1">
                   <p className="font-semibold text-white">{b.name}</p>
                   {b.bio && <p className="text-xs text-[#8f8f8f] mt-0.5 line-clamp-1">{b.bio}</p>}
-                  <span className="flex items-center gap-1 text-xs text-white mt-1">
-                    <Star size={11} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} reviews)
-                  </span>
+                  {(b.total_reviews ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-white mt-1">
+                      <Star size={11} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} review{b.total_reviews === 1 ? "" : "s"})
+                    </span>
+                  )}
                 </div>
                 {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-gold" />}
               </button>
@@ -1911,7 +1902,7 @@ export default function BookingPage() {
                               }
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-white">{b.name}</p>
-                                <p className="text-xs text-white flex items-center gap-0.5"><Star size={10} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} reviews)</p>
+                                {(b.total_reviews ?? 0) > 0 && <p className="text-xs text-white flex items-center gap-0.5"><Star size={10} className="fill-amber-400 text-amber-400" /> {b.rating} ({b.total_reviews} review{b.total_reviews === 1 ? "" : "s"})</p>}
                               </div>
                               <ChevronRight size={16} className="text-[#8f8f8f]" />
                             </button>
