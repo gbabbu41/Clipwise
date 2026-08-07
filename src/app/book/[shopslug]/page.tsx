@@ -75,6 +75,16 @@ function InstagramIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+function MailIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/90" aria-hidden>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 6-9.24 6.6a1.9 1.9 0 0 1-2.12 0L2 6" />
+    </svg>
+  );
+}
+
 // One tappable contact row — icon tile + text (iOS-list style, no chevron).
 function ContactRow({ icon, text, href }: { icon: ReactNode; text: string; href: string }) {
   return (
@@ -257,7 +267,7 @@ export default function BookingPage() {
           // ship stripe_customer_id / stripe_subscription_id / owner_id to any
           // visitor. (stripe_account_id + stripe_connected are needed here to
           // decide if online pay is available and are non-secret identifiers.)
-          .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, tiktok, facebook, youtube, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
+          .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
           .eq("slug", shopslug)
           .maybeSingle();
         if (error) { setLoadError(true); setPageLoading(false); return; }
@@ -1440,16 +1450,13 @@ export default function BookingPage() {
           {/* Contact rows */}
           {(() => {
             const ig = shop.instagram ? igHandle(shop.instagram) : "";
-            const hasContacts = shop.phone || ig || shop.website || shop.email || shop.tiktok || shop.facebook || shop.youtube;
+            const hasContacts = shop.phone || ig || shop.website || shop.email;
             if (!hasContacts) return null;
             return (
               <div className="mt-4 space-y-2">
                 {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
-                {shop.email && <ContactRow icon="📧" text={shop.email} href={`mailto:${shop.email}`} />}
+                {shop.email && <ContactRow icon={<MailIcon />} text={shop.email} href={`mailto:${shop.email}`} />}
                 {ig && <ContactRow icon={<InstagramIcon />} text={`@${ig}`} href={`https://instagram.com/${ig}`} />}
-                {shop.tiktok && <ContactRow icon="🎵" text={displayUrl(shop.tiktok)} href={ensureHttp(shop.tiktok)} />}
-                {shop.facebook && <ContactRow icon="📘" text={displayUrl(shop.facebook)} href={ensureHttp(shop.facebook)} />}
-                {shop.youtube && <ContactRow icon="▶️" text={displayUrl(shop.youtube)} href={ensureHttp(shop.youtube)} />}
                 {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
               </div>
             );

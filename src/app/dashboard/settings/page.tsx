@@ -613,7 +613,6 @@ export default function SettingsPage() {
               <p className="text-sm font-medium text-grey mb-3">Social Media & Website</p>
               <div className="space-y-3">
                 <Input label="Instagram" placeholder="yourshop  (handle or profile link)" value={profile.instagram} onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))} />
-                <Input label="TikTok URL" placeholder="https://tiktok.com/@yourshop" value={profile.tiktok} onChange={e => setProfile(p => ({ ...p, tiktok: e.target.value }))} />
                 <Input label="Website URL" placeholder="https://yourshop.com" value={profile.website} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} />
               </div>
             </div>
