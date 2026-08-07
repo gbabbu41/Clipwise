@@ -662,7 +662,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             <div className="cwd-kpis">
               <div className="cwd-kpi">

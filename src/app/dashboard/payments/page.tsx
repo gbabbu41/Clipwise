@@ -245,6 +245,15 @@ export default function PaymentsPage() {
   // (src/lib/revenue.ts), so the two can never disagree.
   const posTxs = countablePosTxs(appts, txs);
 
+  // PaymentIntents of paid appointments — a booking tip rides the appointment's
+  // OWN intent, so its money is already inside that appointment row. Post-visit
+  // tips (the tip-link flow) have their own intent and are dropped by
+  // countablePosTxs, so they'd otherwise be counted nowhere on the owner side
+  // (they only showed in the barber portal). Mirrors collectedTotals() exactly.
+  const apptPiSet = new Set(
+    appts.filter(a => isPaid(a.payment_status) && a.payment_intent_id).map(a => a.payment_intent_id as string),
+  );
+
   const feedAll: FeedItem[] = [
     ...appts
       .filter(a => !(a.status === "no-show" && isPaid(a.payment_status)))
@@ -279,6 +288,23 @@ export default function PaymentsPage() {
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded,
       };
     }),
+    // Post-visit tips (tip-link flow). `completion` txns are dropped by
+    // countablePosTxs, but a post-visit tip is real money that hit the shop's
+    // Stripe on its OWN intent — surface it as its own line so the owner sees it.
+    // Skip booking tips (pi shares a paid appointment's intent → already counted).
+    ...txs
+      .filter(t => t.source === "completion" && !t.refunded && (t.tip ?? 0) > 0
+        && !(t.payment_intent_id && apptPiSet.has(t.payment_intent_id)))
+      .map((t): FeedItem => ({
+        key: `tip${t.id}`, name: t.client_name || "Client",
+        sub: "Tip · post-visit",
+        amount: t.tip ?? 0, tax: 0,
+        statusLabel: t.payment_method === "cash" ? "Tip · Cash" : "Tip · Card",
+        tone: "good",
+        settled: true, tsIso: t.created_at,
+        ts: new Date(t.created_at).getTime(),
+        pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false,
+      })),
   ];
 
   // Net + fee per charge — the SAME shared helper the Dashboard's revenue math

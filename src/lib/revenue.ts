@@ -74,6 +74,7 @@ export type CollectedTotals = {
   net: number;     // gross − fees (what actually lands; cash unaffected)
   tax: number;     // tax portion of gross (informational — owed to govt)
   cash: number;    // cash portion of gross (no fee)
+  tips: number;    // tips collected (the barber's money, but it landed in the shop's Stripe)
   preTax: number;  // gross − tax
 };
 
@@ -86,7 +87,11 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
   // Same income rule the Payments page uses (shared, so they can't disagree).
   const posTxs = countablePosTxs(appts, txs);
 
-  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0;
+  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0;
+
+  // PaymentIntents already fully accounted for by the appointment loop (their
+  // byPi net includes any tip charged on the SAME intent — booking tips).
+  const apptPis = new Set<string>();
 
   // Settled appointments — exclude paid no-shows (represented by a tx row so it
   // isn't double-counted).
@@ -98,17 +103,39 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     gross += amt; net += n; fees += f;
     tax += a.tax_amount ?? 0;
     if (a.payment_method === "cash") cash += amt;
+    if (a.payment_intent_id) apptPis.add(a.payment_intent_id);
   }
 
-  // Settled POS / gift-card / walk-in transactions (skip refunded).
+  // Settled POS / gift-card / walk-in transactions (skip refunded). POS tips are
+  // part of `amount + tip` here.
   for (const t of posTxs) {
     if (t.refunded) continue;
     const amt = (t.amount ?? 0) + (t.tip ?? 0);
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;
+    tips += t.tip ?? 0;
     if (t.payment_method === "cash") cash += amt;
   }
 
-  return { gross, fees, net, tax, cash, preTax: Math.max(0, gross - tax) };
+  // Post-visit tips (the tip-link flow). These are `completion` transactions
+  // that countablePosTxs drops, so the tip — real money that hit the shop's
+  // Stripe — was previously counted NOWHERE on the owner side (it only showed in
+  // the barber portal). A post-visit tip has its OWN PaymentIntent (not one of a
+  // counted appointment), so we can add it to gross + net cleanly. A booking tip
+  // shares the appointment's intent (pi ∈ apptPis) and is already inside that
+  // appointment's net, so we skip it here to avoid double-counting.
+  for (const t of txs) {
+    if (t.source !== "completion" || t.refunded) continue;
+    const tip = t.tip ?? 0;
+    if (tip <= 0) continue;
+    const pi = t.payment_intent_id ?? null;
+    if (pi && apptPis.has(pi)) continue; // booking tip — already in the appt net
+    gross += tip; tips += tip;
+    const { net: n, fee: f } = lineNetFee(pi, tip, byPi);
+    net += n; fees += f;
+    if (t.payment_method === "cash") cash += tip;
+  }
+
+  return { gross, fees, net, tax, cash, tips, preTax: Math.max(0, gross - tax) };
 }
