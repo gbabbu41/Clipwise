@@ -679,7 +679,14 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
       barber_id: editForm.barber_id || null,
     };
     const ids = editForm.service_ids.filter(Boolean);
-    if (services && ids.length > 0) {
+    // Only touch the service / price / duration when the owner ACTUALLY changed
+    // the service selection. Moving the date, time, or barber must NOT silently
+    // recompute the amount — that would clobber the booked price (tips, a
+    // multi-service combo the form only shows the primary of, or a since-changed
+    // list price). Preserve the original unless the services were edited.
+    const origIds = appt.service_id ? [appt.service_id] : [];
+    const servicesChanged = !!services && (ids.length !== origIds.length || ids.some((id, i) => id !== origIds[i]));
+    if (services && servicesChanged && ids.length > 0) {
       const svcs = ids.map(id => svcById(id)).filter(Boolean) as { name: string; price: number; duration_minutes: number }[];
       fields.service_id = ids[0];
       fields.total_amount = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
@@ -923,7 +930,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
               {/* Edit — change the time / day / client / barber before checkout. */}
               {appt.status !== "completed" && appt.status !== "cancelled" && (
-                <DAction icon="✏️" label="Edit details" disabled={!!busy} onClick={openEdit} />
+                <DAction icon="✏️" label="Edit appointment" disabled={!!busy} onClick={openEdit} />
               )}
               {appt.status === "pending" && (
                 <DAction tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
