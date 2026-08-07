@@ -78,6 +78,20 @@ export default function POSPage() {
   // the picker; it clears itself the moment a customer is set.
   const [needCustomer, setNeedCustomer] = useState(false);
   useEffect(() => { if (client.trim()) setNeedCustomer(false); }, [client]);
+  // The card/online charge hands off to hosted Stripe. If that opens in a new
+  // tab (or the owner hits back to change their mind) the original tab would
+  // otherwise sit stuck on "Processing…" forever. Unfreeze the button whenever
+  // this tab becomes visible again or is restored from the back-forward cache.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") setCharging(false); };
+    const onShow = () => setCharging(false);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onShow);
+    };
+  }, []);
   // Pull-down-to-dismiss for the mobile bottom sheets (scroll-aware).
   const cartSheetRef = useRef<HTMLDivElement | null>(null);
   const cartDrag = useSheetDrag(cartSheetRef, () => setCartOpen(false), { enabled: cartOpen });
