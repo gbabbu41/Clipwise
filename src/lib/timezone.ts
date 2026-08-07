@@ -15,6 +15,36 @@ export const CANADA_TIMEZONES: { value: string; label: string }[] = [
   { value: "America/Vancouver", label: "Pacific (BC, YT)" },
 ];
 
+// Canadian provinces/territories for the shop-settings dropdown, each mapped to
+// its timezone (one of the CANADA_TIMEZONES values above, so the auto-filled
+// timezone always matches a picker option). Picking a province auto-fills the
+// timezone so owners never have to know IANA zones.
+export const CANADA_PROVINCES: { value: string; label: string; tz: string }[] = [
+  { value: "AB", label: "Alberta", tz: "America/Edmonton" },
+  { value: "BC", label: "British Columbia", tz: "America/Vancouver" },
+  { value: "MB", label: "Manitoba", tz: "America/Winnipeg" },
+  { value: "NB", label: "New Brunswick", tz: "America/Halifax" },
+  { value: "NL", label: "Newfoundland and Labrador", tz: "America/St_Johns" },
+  { value: "NS", label: "Nova Scotia", tz: "America/Halifax" },
+  { value: "NT", label: "Northwest Territories", tz: "America/Edmonton" },
+  { value: "NU", label: "Nunavut", tz: "America/Toronto" },
+  { value: "ON", label: "Ontario", tz: "America/Toronto" },
+  { value: "PE", label: "Prince Edward Island", tz: "America/Halifax" },
+  { value: "QC", label: "Quebec", tz: "America/Toronto" },
+  { value: "SK", label: "Saskatchewan", tz: "America/Winnipeg" },
+  { value: "YT", label: "Yukon", tz: "America/Vancouver" },
+];
+
+/** Map a province code OR full name → its IANA timezone (null if unrecognized). */
+export function tzForProvince(province: string | null | undefined): string | null {
+  if (!province) return null;
+  const p = province.trim().toLowerCase();
+  const found = CANADA_PROVINCES.find(
+    (x) => x.value.toLowerCase() === p || x.label.toLowerCase() === p,
+  );
+  return found?.tz ?? null;
+}
+
 const KNOWN = new Set(CANADA_TIMEZONES.map((t) => t.value));
 
 /** Normalize/validate an IANA tz string, falling back to the default. */

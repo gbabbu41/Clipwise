@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
-import { CANADA_TIMEZONES, DEFAULT_TZ } from "@/lib/timezone";
+import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -574,7 +574,23 @@ export default function SettingsPage() {
             <Input label="Address" value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-2"><Input label="City" value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))} /></div>
-              <Input label="Province" value={profile.province} onChange={e => setProfile(p => ({ ...p, province: e.target.value }))} />
+              <div>
+                <label className="text-sm font-medium text-gray-300">Province</label>
+                <select
+                  value={CANADA_PROVINCES.some(p => p.value === profile.province) ? profile.province : ""}
+                  onChange={e => {
+                    const prov = e.target.value;
+                    // Auto-fill the timezone from the province so owners never
+                    // have to know IANA zones — still overridable below.
+                    const tz = tzForProvince(prov);
+                    setProfile(p => ({ ...p, province: prov, ...(tz ? { timezone: tz } : {}) }));
+                  }}
+                  className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-gold/50"
+                >
+                  <option value="">Select…</option>
+                  {CANADA_PROVINCES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
             </div>
             <Input label="Postal Code" value={profile.postal_code} onChange={e => setProfile(p => ({ ...p, postal_code: e.target.value }))} />
             <div>
@@ -586,7 +602,7 @@ export default function SettingsPage() {
               >
                 {CANADA_TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
-              <p className="text-[11px] text-grey mt-1">Used for booking times, reminders, and same-day availability.</p>
+              <p className="text-[11px] text-grey mt-1">Set automatically from your province — change only if your shop is in a different zone. Drives booking times, reminders &amp; same-day availability.</p>
             </div>
             <Input label="Phone" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
             <Input label="Email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
