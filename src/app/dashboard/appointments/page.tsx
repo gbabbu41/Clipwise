@@ -428,7 +428,7 @@ export default function AppointmentsPage() {
       fetch("/api/appointments/notify-cancellation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: id, statusLabel: status === "no-show" ? "No-show" : "Cancelled" }),
+        body: JSON.stringify({ appointment_id: id, statusLabel: status === "no-show" ? "No-show" : "Cancelled", notifyCustomer: true }),
       }).catch(() => null);
 
       // Smart waitlist: a slot just freed — ping anyone waiting for that day.
@@ -494,7 +494,7 @@ export default function AppointmentsPage() {
         setRejectModal(null);
         setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : a));
         if (selectedApt?.id === appt.id) setSelectedApt(prev => prev ? { ...prev, status: "cancelled", payment_status: "refunded", notes: updatedNotes } : null);
-        fetch("/api/appointments/notify-cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }) }).catch(() => null);
+        fetch("/api/appointments/notify-cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled", notifyCustomer: true }) }).catch(() => null);
         // Also send the decline email carrying the owner's reason. The refund
         // route only sends a "money back" notice — without this, a customer who
         // PAID never learns WHY they were declined (unpaid rejections do get it).
@@ -561,11 +561,11 @@ export default function AppointmentsPage() {
       }).catch(() => null);
     }
 
-    // Notify the assigned barber their slot is free again.
+    // Notify the assigned barber their slot is free again + text the customer.
     fetch("/api/appointments/notify-cancellation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
+      body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled", notifyCustomer: true }),
     }).catch(() => null);
 
     // Smart waitlist: ping customers waiting for this now-free day.

@@ -116,7 +116,9 @@ export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, status
   fetch("/api/appointments/notify-cancellation", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ appointment_id: appt.id, statusLabel }),
+    // notifyCustomer: the SHOP freed this slot (reject/cancel), so text the
+    // customer. The route ignores it for no-show, so it's safe to always send.
+    body: JSON.stringify({ appointment_id: appt.id, statusLabel, notifyCustomer: true }),
   }).catch(() => null);
   fetch("/api/waitlist/slot-opened", {
     method: "POST",

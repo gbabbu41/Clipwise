@@ -441,7 +441,7 @@ export function makeApptActions(opts: {
           // just tell the barber the slot freed (no second waitlist ping).
           fetch("/api/appointments/notify-cancellation", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled" }),
+            body: JSON.stringify({ appointment_id: appt.id, statusLabel: "Cancelled", notifyCustomer: true }),
           }).catch(() => null);
           setBusy(""); onDone();
           toast("Rejected · Refund issued");
