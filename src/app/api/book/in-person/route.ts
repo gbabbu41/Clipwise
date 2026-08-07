@@ -304,13 +304,15 @@ export async function POST(request: NextRequest) {
   // behavior). Sent here, not from the public page, so /api/twilio/send-sms can
   // require auth (no open SMS relay).
   if (!callerIsStaff && b.client_phone) {
-    const ref = inserted.data.id.slice(0, 8).toUpperCase();
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
     const manageLink = `${origin}/my-booking/${inserted.data.id}`;
     const shopName = (shop as { name?: string }).name ?? "the shop";
+    // Keep it short + GSM-7 only (no em dash, which forces UCS-2 and triples the
+    // segment count). Shop name is added by sendSmsBestEffort's prefix; the manage
+    // link carries the booking id, so no separate ref needed.
     const smsBody = inserted.data.status === "pending"
-      ? `Thanks! Your booking request at ${shopName} for ${b.date} at ${b.time_slot} was received — we'll text you once it's confirmed. Ref #${ref}. Manage: ${manageLink}`
-      : `Your appointment on ${b.date} at ${b.time_slot} is confirmed. Booking #${ref}. Manage: ${manageLink}`;
+      ? `Thanks! Your request for ${b.date} at ${b.time_slot} was received. We'll text you when it's confirmed. Manage: ${manageLink}`
+      : `You're booked for ${b.date} at ${b.time_slot}. Manage: ${manageLink}`;
     await sendSmsBestEffort(b.client_phone, smsBody, shopName);
   }
 

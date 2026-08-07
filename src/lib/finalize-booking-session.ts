@@ -250,16 +250,13 @@ export async function finalizeBookingFromSession(params: {
   // Text the customer a confirmation (best-effort). AWAITED — a fire-and-forget
   // send can be killed when the serverless function returns, so the text never
   // goes out (and never logs). sendSmsBestEffort never throws.
-  {
-    const payNote = isSave ? " Card saved — charged after your visit."
-      : isHold ? " Card held — charged after your visit."
-      : " Paid online.";
-    await sendSmsBestEffort(
-      m.client_phone,
-      `Your appointment on ${friendly} at ${m.time_slot} is confirmed.${payNote} Booking #${appt.id.slice(0, 8).toUpperCase()}. Manage: ${baseUrl}/my-booking/${appt.id}`,
-      shopRow?.name,
-    );
-  }
+  // Kept to ONE SMS segment: short wording + GSM-7 only (NO em dash, which forces
+  // UCS-2 and splits into 3). Payment detail + booking # live in the email/link.
+  await sendSmsBestEffort(
+    m.client_phone,
+    `You're booked for ${friendly} at ${m.time_slot}. Manage: ${baseUrl}/my-booking/${appt.id}`,
+    shopRow?.name,
+  );
 
   // Ledger + confirmation emails (customer + owner + barber). Never block on these.
   let summaryBarberName = "Any Available";
