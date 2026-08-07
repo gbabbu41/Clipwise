@@ -5,6 +5,7 @@ import { authorizeAppointment } from "@/lib/api-auth";
 import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
 import { sendAppEmail } from "@/lib/emailer";
 import { insertNotifications } from "@/lib/notify-server";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 /**
  * Edit an appointment with an authoritative double-booking guard.
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: full } = await supabaseAdmin
         .from("appointments")
-        .select("client_name, client_email, date, time_slot, total_amount, barber_id, service_id, shop_id")
+        .select("client_name, client_email, client_phone, date, time_slot, total_amount, barber_id, service_id, shop_id")
         .eq("id", appointment_id).maybeSingle();
       if (full) {
         const [{ data: shopRow }, { data: svc }] = await Promise.all([
@@ -155,6 +156,20 @@ export async function POST(request: NextRequest) {
             appointmentId: appointment_id,
             changedSummary,
           }).catch(() => null);
+        }
+
+        // 1b) Customer SMS — the reschedule text. An "important" event (their
+        // appointment moved), so it's one of the few that get an SMS. Kept to a
+        // single GSM-7 segment (no em dash / curly quotes; shop name is added by
+        // sendSmsBestEffort, not duplicated in the body) and awaited so a
+        // serverless freeze can't drop it.
+        if (full.client_phone) {
+          const base = process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+          await sendSmsBestEffort(
+            full.client_phone,
+            `Your appointment is now ${prettyDate(full.date)} at ${full.time_slot}. Manage: ${base}/my-booking/${appointment_id}`,
+            shopRow?.name,
+          );
         }
 
         // 2) Newly-assigned barber — in-app alert + email so they see the new job.

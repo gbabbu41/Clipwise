@@ -4,7 +4,7 @@ import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
-import { safeTz, todayInTz, shiftYmd } from "@/lib/timezone";
+import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 
@@ -122,6 +122,67 @@ async function run() {
           emails++; sends++;
         }
       }
+    }
+
+    // ── 2-hour reminder (SMS + email, ~2h before the appointment) ────────────
+    // On Vercel Hobby this cron only runs daily, so this block stays DORMANT (a
+    // daily run's "gap since last run" is ~24h → the frequency gate below is
+    // false). It AUTO-ACTIVATES the moment the cron starts running often — a
+    // Vercel Pro "*/15" schedule, or any external scheduler hitting this
+    // endpoint every 15–30 min with x-cron-secret. No code change, no toggle, no
+    // redeploy needed: the owner just tightens the schedule and it turns on.
+    //
+    // Idempotent by a per-shop checkpoint (booking_settings.reminders._h2_last_ms):
+    // each appointment's "2h before" instant is crossed by exactly ONE run's
+    // window (2 − gap < h ≤ 2), so the customer is texted once even under a
+    // 15-min cron. Defaults to follow the day-before toggle, so a shop that has
+    // reminders on gets this for free once the schedule is frequent.
+    const rm = reminders as Record<string, unknown>;
+    const want2h = (rm.appointment_2h as boolean | undefined) ?? reminders.appointment_24h;
+    if (want2h) {
+      const nowMs = Date.now();
+      const lastMs = Number(rm._h2_last_ms ?? 0);
+      const gapH = lastMs ? (nowMs - lastMs) / 3_600_000 : Infinity;
+      // "Frequent enough" = the previous run was within ~100 min. A daily cron's
+      // ~24h gap fails this, keeping the whole block dormant until upgrade.
+      if (gapH <= 100 / 60 && sends < MAX_SENDS) {
+        const { data: soon } = await supabaseAdmin
+          .from("appointments")
+          .select("id, client_name, client_email, client_phone, time_slot, date")
+          .eq("shop_id", shop.id).in("date", [today, tomorrow]).in("status", ["pending", "confirmed"]);
+        for (const a of soon ?? []) {
+          if (sends >= MAX_SENDS) break;
+          const h = hoursUntilBooking(a.date, a.time_slot, tz);
+          // Fire once, when "2h before" fell between the last run and now:
+          // 2 − gap < h ≤ 2, never for a past appointment. Window width = the
+          // cron gap, so consecutive runs tile the timeline without overlap.
+          if (h > 0 && h <= 2 && h > 2 - gapH) {
+            const when = a.time_slot ?? "";
+            // shop name is prepended by sendSmsBestEffort, so it's not repeated
+            // in the body; one GSM-7 segment.
+            if (a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment is coming up at ${when}. See you soon!`, shop.name); texts++; sends++; }
+            if (a.client_email) {
+              await sendEmail("appointment_reminder", {
+                clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,
+                shopEmail: shop.email, bookingId: a.id.slice(0, 8).toUpperCase(), barberName: "",
+                serviceName: "", date: prettyDate(a.date), time: when, total: "",
+              });
+              emails++; sends++;
+            }
+          }
+        }
+      }
+      // Advance the checkpoint every run the feature is enabled (even when
+      // dormant / nothing due) so "gap since last run" stays meaningful and the
+      // first frequent run after an upgrade doesn't blast a backlog. Re-read the
+      // row's settings right before writing so a concurrent settings save from
+      // the owner isn't clobbered by the stale snapshot from the top of the run.
+      const { data: fresh } = await supabaseAdmin.from("shops").select("booking_settings").eq("id", shop.id).maybeSingle();
+      const bs = ((fresh?.booking_settings ?? shop.booking_settings) as Record<string, unknown> | null) ?? {};
+      const freshRm = (bs.reminders as Record<string, unknown> | null) ?? {};
+      await supabaseAdmin.from("shops").update({
+        booking_settings: { ...bs, reminders: { ...freshRm, _h2_last_ms: nowMs } },
+      }).eq("id", shop.id).then(null, () => null);
     }
 
     // Rebooking (30d) + win-back (60d) — reuse existing templates

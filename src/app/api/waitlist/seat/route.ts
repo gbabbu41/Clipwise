@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { sendAppEmail } from "@/lib/emailer";
 import { isBookingInPast } from "@/lib/timezone";
 import { ensureClientRow } from "@/lib/ensure-client";
 
@@ -125,20 +126,15 @@ export async function POST(request: NextRequest) {
   const barberName = barberRow?.name ?? "your barber";
   await sendSmsBestEffort(wl.client_phone ?? null, `You're up at ${shop.name}! ${barberName} can see you at ${b.time_slot}. See you soon.`, shop.name);
   if (clientEmail) {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || "";
-    fetch(`${origin}/api/send-email`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "booking_confirmation",
-        data: {
-          clientName: wl.client_name, clientEmail,
-          shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-          barberName, serviceName: serviceName || "Walk-in",
-          date: prettyDate(today), time: b.time_slot,
-          total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
-          bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
-        },
-      }),
+    // Direct + awaited (not a fire-and-forget HTTP hop) so a serverless freeze
+    // can't drop the confirmation and it never depends on an origin header.
+    await sendAppEmail("booking_confirmation", {
+      clientName: wl.client_name, clientEmail,
+      shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+      barberName, serviceName: serviceName || "Walk-in",
+      date: prettyDate(today), time: b.time_slot,
+      total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
+      bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
     }).catch(() => null);
   }
 
