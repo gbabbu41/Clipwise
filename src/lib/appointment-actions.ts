@@ -102,6 +102,7 @@ export async function runCompletionEffects(
           barberName: (appt.barbers as { name: string } | null)?.name ?? "Your barber",
           serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
           reviewUrl: `${origin()}/book/${shop.slug}/review?booking=${appt.id}`,
+          appointmentId: appt.id,
           googlePlaceId: shop.google_place_id ?? "",
         },
       }),

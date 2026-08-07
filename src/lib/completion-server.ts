@@ -136,6 +136,7 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
           barberName,
           serviceName: svcName || "Your service",
           reviewUrl: `${baseUrl}/book/${shop.slug}/review?booking=${appt.id}`,
+          appointmentId: appt.id,
           googlePlaceId: shop.google_place_id ?? "",
         },
       }),

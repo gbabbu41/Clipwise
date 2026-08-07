@@ -357,6 +357,7 @@ export default function AppointmentsPage() {
               barberName: (appt.barbers as { name: string } | null)?.name ?? "Your barber",
               serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
               reviewUrl: `${window.location.origin}/book/${shop.slug}/review?booking=${id}`,
+              appointmentId: id,
               googlePlaceId: shop.google_place_id ?? "",
             },
           }),

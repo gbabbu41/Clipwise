@@ -845,9 +845,50 @@ function signupCode(data: Record<string, string>) {
   `);
 }
 
+/**
+ * Has this appointment's customer already left a review for the shop? Mirrors the
+ * dedup in /api/reviews/submit (resolve the client by email → phone, else match
+ * by name) so we never email a review link to someone who already reviewed.
+ * Best-effort: any lookup miss/error returns false (send proceeds).
+ */
+async function reviewAlreadyLeft(appointmentId: string): Promise<boolean> {
+  try {
+    const { data: appt } = await supabaseAdmin
+      .from("appointments").select("shop_id, client_email, client_phone, client_name").eq("id", appointmentId).maybeSingle();
+    if (!appt?.shop_id) return false;
+    let clientId: string | null = null;
+    if (appt.client_email) {
+      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).ilike("email", appt.client_email).maybeSingle();
+      clientId = data?.id ?? null;
+    }
+    if (!clientId && appt.client_phone) {
+      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).eq("phone", appt.client_phone).maybeSingle();
+      clientId = data?.id ?? null;
+    }
+    if (clientId) {
+      const { data } = await supabaseAdmin.from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_id", clientId).limit(1);
+      return (data?.length ?? 0) > 0;
+    }
+    if (appt.client_name) {
+      const { data } = await supabaseAdmin.from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_name", appt.client_name).limit(1);
+      return (data?.length ?? 0) > 0;
+    }
+  } catch { /* best-effort — never block a send on the dedup check */ }
+  return false;
+}
+
 export async function sendAppEmail(type: string, data: Record<string, string>): Promise<SendResult> {
   if (!process.env.RESEND_API_KEY) {
     return { error: "RESEND_API_KEY not configured" };
+  }
+
+  // Never nag a customer for a review they've ALREADY left. review_request carries
+  // the appointment (an appointmentId field, or booking=<id> inside reviewUrl);
+  // if a review already exists for this shop+client, skip the send silently.
+  if (type === "review_request") {
+    const apptId = data?.appointmentId
+      || (data?.reviewUrl ? decodeURIComponent(data.reviewUrl.match(/[?&]booking=([^&]+)/)?.[1] ?? "") : "");
+    if (apptId && await reviewAlreadyLeft(apptId)) return { success: true };
   }
 
   // Normalize raw "YYYY-MM-DD" dates to a human-readable label once, here —
