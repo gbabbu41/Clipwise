@@ -52,14 +52,26 @@ const inApp = typeof navigator !== "undefined" && navigator.userAgent.includes("
    iOS 16.7+; paid Apple Developer account. **Android**: NFC device, Android 11+.
 3. **Stripe**: enable Terminal; create a **Location** object per shop; charges
    run on each shop's **connected account** (same Connect model as today).
-4. **Backend (build when starting Tap to Pay — platform-agnostic, reused by the
-   plugin):**
-   - `POST /api/stripe/terminal/connection-token` — Terminal connection token on
-     the connected account.
-   - card-present **PaymentIntent** create + capture
-     (`payment_method_types: ["card_present"]`), then insert the SAME
-     `transactions` row POS writes today (`payment_method: "card"`) so it shows
+4. **Backend — ✅ BUILT (on `main`, dormant; nothing on the web calls it).**
+   The platform-agnostic routes the native plugin will call. SAME server code
+   serves a Bluetooth WisePad 3 AND Tap to Pay — only the native SDK connection
+   differs. All auth-gated (owner/barber), require the payments plan + completed
+   Connect, charge on the shop's connected account (0% platform fee):
+   - `POST /api/stripe/terminal/connection-token` — connection token +
+     (best-effort) the shop's Terminal Location id. Location logic in
+     `src/lib/terminal.ts` (`ensureTerminalLocation`).
+   - `POST /api/stripe/terminal/create-intent` — card-present PaymentIntent
+     (`payment_method_types:["card_present"]`, manual capture). Sale details are
+     stamped into PI metadata server-side.
+   - `POST /api/stripe/terminal/capture` — captures after the reader collects,
+     then inserts the SAME `transactions` row POS writes (`payment_method:"card"`,
+     `source:"pos"`, real Stripe fee), idempotent on `payment_intent_id`. Shows
      live in Payments + receipts with **zero feed changes**.
+   - Migration: `phase41_terminal_location.sql` (adds `shops.stripe_terminal_location_id`).
+   - **Still TODO for a working tap:** the native plugin (§1) + Apple entitlement
+     (§2) + enable Terminal on Stripe (§3) + a native UI toggle so the shop picks
+     "WisePad 3" vs "Tap to Pay". The native app loads `clipwise.ca`, so these
+     prod routes are what it calls — nothing else is needed server-side.
 
 A Tap to Pay sale is just another card transaction — UI, transactions table,
 Payments realtime feed, and receipts all stay identical.
