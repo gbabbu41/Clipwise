@@ -71,6 +71,11 @@ export async function POST(request: NextRequest) {
     const notifyUserIds = new Set<string>();
     if (notify_owner && shop.owner_id) notifyUserIds.add(shop.owner_id);
     if (barberUserId) notifyUserIds.add(barberUserId);
+    // When the caller already sent the owner a richer notification
+    // (notify_owner=false), make sure the owner isn't notified again here — even
+    // when the owner IS the assigned barber (owner-as-barber), which otherwise
+    // re-added them via barberUserId and produced a duplicate booking alert.
+    if (!notify_owner && shop.owner_id) notifyUserIds.delete(shop.owner_id);
     if (notifyUserIds.size > 0) {
       // Entity-link each notification to the appointment so the bell/sheet can
       // render inline Approve/Decline buttons, and stamp shop_id so a multi-shop
