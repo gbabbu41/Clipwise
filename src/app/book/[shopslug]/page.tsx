@@ -1443,9 +1443,12 @@ export default function BookingPage() {
               {[shop.city, shop.province].filter(Boolean).join(", ")}
             </p>
           )}
-          {/* About / description */}
+          {/* About */}
           {shop.description && (
-            <p className="text-[14px] text-[#b5b5b5] mt-3 leading-relaxed whitespace-pre-line">{shop.description}</p>
+            <div className="mt-4">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#6e6e6e] mb-1.5">About</p>
+              <p className="text-[14.5px] text-[#c4c4c4] leading-[1.6] whitespace-pre-line">{shop.description}</p>
+            </div>
           )}
           {/* Contact rows */}
           {(() => {
