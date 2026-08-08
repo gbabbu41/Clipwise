@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlanPrice } from "@/lib/plans";
+import { effectivePlan } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -134,31 +135,41 @@ export default function BillingPage() {
     );
   }
 
-  const isStarter = !billing || billing.plan === "starter";
-  const isExpired = billing?.subscriptionStatus === "cancelled" || billing?.subscriptionStatus === "past_due";
-  const currentPlanId = billing?.plan ?? shop?.subscription_plan ?? "starter";
-  const currentPlan = plans.find(p => p.id === currentPlanId);
-  const currentPlanName = PLAN_LABEL[currentPlanId] ?? currentPlan?.name ?? currentPlanId;
-  // What the CURRENT plan includes — shown right on the subscription card so the
-  // owner sees what they're on, not only what they could switch to. Starter has
-  // no highlights row in the plans table; fall back to a sensible baseline line.
-  const currentHighlights = (currentPlan?.highlights && currentPlan.highlights.length > 0)
-    ? currentPlan.highlights
-    : (currentPlanId === "starter" ? ["Online booking page", "Appointment calendar", "Up to 1 barber"] : []);
-  // Every active PAID plan the owner can move to (all tiers except their current
-  // one) — driven by the admin-editable plans table, so any middle tier shows.
-  const otherPaidPlans = plans.filter(p => p.is_active && p.price_cents > 0 && p.id !== currentPlanId);
-  // Current plan price → so each option reads "Upgrade" (higher) or "Downgrade"
-  // (lower) rather than a vague "Switch". Starter/expired = fresh "Choose".
-  const currentPrice = plans.find(p => p.id === currentPlanId)?.price_cents ?? 0;
   // On a no-card trial: subscription_status is "active" but there's no Stripe
-  // subscription yet (trial_ends_at set). The page must offer "add card to keep
-  // your CURRENT plan" — otherwise a Pro-trial owner has no way to stay on Pro
-  // (the plan list excludes their current plan) and the Stripe portal would fail.
+  // subscription yet (trial_ends_at set). The page offers "add card to keep your
+  // CURRENT plan" — otherwise a Pro-trial owner has no way to stay on Pro.
   const isTrial = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
   const trialDaysLeft = isTrial
     ? Math.max(0, Math.ceil((new Date(shop!.trial_ends_at as string).getTime() - Date.now()) / 86_400_000))
     : 0;
+
+  // currentPlanId = the plan on RECORD (what checkout/loading target uses).
+  const currentPlanId = billing?.plan ?? shop?.subscription_plan ?? "starter";
+  // activePlan = what they're ENTITLED to right now — the SAME gate the rest of
+  // the app uses (effectivePlan). A lapsed/cancelled/past-due paid plan resolves
+  // to "starter" here, so Billing agrees with what features are actually unlocked.
+  // Without this, an expired-TRIAL shop (plan still "pro", status "inactive") was
+  // shown as "Pro" with no way to restart Pro and a dead "Manage subscription"
+  // button — while every feature was already locked to Starter.
+  const activePlan = effectivePlan(currentPlanId, billing?.subscriptionStatus);
+  const onFreePlan = activePlan === "starter";              // effectively Starter (fresh OR lapsed)
+  const isLapsed = onFreePlan && currentPlanId !== "starter" && !isTrial; // had a paid plan that lapsed
+  // Show the plan they're effectively on (a lapsed Pro reads as Starter, not Pro).
+  const displayPlanId = onFreePlan ? "starter" : currentPlanId;
+  const displayPlan = plans.find(p => p.id === displayPlanId);
+  const currentPlanName = PLAN_LABEL[displayPlanId] ?? displayPlan?.name ?? displayPlanId;
+  // What the effective plan includes — so the card says what they're really on.
+  // Starter has no highlights row in the plans table; fall back to a baseline.
+  const currentHighlights = (displayPlan?.highlights && displayPlan.highlights.length > 0)
+    ? displayPlan.highlights
+    : (displayPlanId === "starter" ? ["Online booking page", "Appointment calendar", "Up to 1 barber"] : []);
+  // Paid plans to offer. When effectively on Starter (fresh OR lapsed) show ALL
+  // paid tiers so they can (re)start any — including the plan they just lapsed
+  // from. When on an active paid plan, exclude the current one (up/downgrade only).
+  const otherPaidPlans = plans.filter(p => p.is_active && p.price_cents > 0 && (onFreePlan || p.id !== currentPlanId));
+  // Current plan price → so each option reads "Upgrade" (higher) or "Downgrade"
+  // (lower) rather than a vague "Switch". On free = fresh "Choose".
+  const currentPrice = onFreePlan ? 0 : (plans.find(p => p.id === currentPlanId)?.price_cents ?? 0);
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -169,10 +180,15 @@ export default function BillingPage() {
         <p className="text-sm text-grey mt-0.5">Manage your subscription and payouts</p>
       </div>
 
-      {isExpired && (
-        <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
-          <AlertTriangle size={18} className="text-orange-400 flex-shrink-0" />
-          <p className="text-sm text-orange-300">Your subscription has {billing?.subscriptionStatus === "past_due" ? "a past-due payment" : "expired"}. Premium features are locked until you reactivate.</p>
+      {isLapsed && (
+        <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
+          <AlertTriangle size={18} className="text-orange-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-orange-300">
+            {billing?.subscriptionStatus === "past_due"
+              ? "Your last payment didn't go through, so your shop is on the free Starter plan and paid features are locked."
+              : "Your free trial ended, so your shop is on the free Starter plan and paid features are locked."}{" "}
+            Choose a plan below to switch them back on — your data and settings are all still here.
+          </p>
         </div>
       )}
 
@@ -205,8 +221,8 @@ export default function BillingPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 mb-5">
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isStarter ? "bg-card-raised" : "bg-black/10")}>
-              <Crown size={22} className={isStarter ? "text-grey" : "text-foreground"} />
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", onFreePlan ? "bg-card-raised" : "bg-black/10")}>
+              <Crown size={22} className={onFreePlan ? "text-grey" : "text-foreground"} />
             </div>
             <div>
               <p className="text-lg font-bold text-foreground">{currentPlanName}</p>
@@ -229,7 +245,7 @@ export default function BillingPage() {
             </div>
           )}
 
-          {!isStarter && (billing?.nextBilling || billing?.cardLast4 ? (
+          {!onFreePlan && (billing?.nextBilling || billing?.cardLast4 ? (
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="p-3 bg-card-raised rounded-xl border border-border">
                 <p className="text-xs text-grey">Next billing date</p>
@@ -254,7 +270,7 @@ export default function BillingPage() {
 
           {otherPaidPlans.length > 0 && (
             <div className="space-y-3 mb-4">
-              <p className="text-xs font-medium text-grey uppercase tracking-wider">{isStarter || isExpired ? "Choose a plan" : "Change plan"}</p>
+              <p className="text-xs font-medium text-grey uppercase tracking-wider">{onFreePlan ? "Choose a plan" : "Change plan"}</p>
               {otherPaidPlans.map(p => (
                 <div key={p.id} className="p-4 bg-card-raised rounded-xl border border-border space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -265,8 +281,8 @@ export default function BillingPage() {
                         {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
                       </p>
                     </div>
-                    <Button size="sm" variant={!isStarter && !isExpired && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
-                      {isStarter || isExpired
+                    <Button size="sm" variant={!onFreePlan && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                      {onFreePlan
                         ? <><ArrowUpRight size={14} /> Choose</>
                         : p.price_cents < currentPrice
                           ? <><ArrowDownRight size={14} /> Downgrade</>
@@ -290,7 +306,7 @@ export default function BillingPage() {
               </p>
             </div>
           )}
-          {!isStarter && !isTrial && (
+          {!onFreePlan && !isTrial && (
             <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
               <CreditCard size={15} /> Manage subscription
             </Button>
