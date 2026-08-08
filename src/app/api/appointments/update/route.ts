@@ -202,6 +202,30 @@ export async function POST(request: NextRequest) {
             message: `${full.client_name ?? "A client"}'s appointment (${prettyWhen}) was moved to another barber.`,
           });
         }
+
+        // 4) Same barber, only the time/day moved → tell that barber their
+        // appointment shifted. Previously ONLY a reassignment notified a barber,
+        // so a pure time change never reached them (in-app or email).
+        if (!barberChanged && (dateChanged || timeChanged) && newBarber?.user_id) {
+          await insertNotifications({
+            user_id: newBarber.user_id, shop_id: full.shop_id, type: "booking",
+            title: "Appointment rescheduled",
+            message: `${full.client_name ?? "A client"} moved to ${prettyWhen}`,
+          });
+          if (newBarber.email) {
+            await sendAppEmail("barber_appointment_change", {
+              barberEmail: newBarber.email,
+              barberName: newBarber.name ?? "there",
+              shopName: shopRow?.name ?? "",
+              shopEmail: "",
+              clientName: full.client_name ?? "A client",
+              serviceName: svc?.name ?? "Service",
+              date: full.date,
+              time: full.time_slot ?? "",
+              statusLabel: "Rescheduled",
+            }).catch(() => null);
+          }
+        }
       }
     } catch { /* notifications are best-effort — the save already succeeded */ }
   }

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
-import { getSlotsInRange, timeToMinutes } from "@/lib/utils";
+import { getSlotsInRange, timeToMinutes, prettyDate } from "@/lib/utils";
 import { barberHasConflict } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
 import { stripe } from "@/lib/stripe";
 import { sendAppEmail } from "@/lib/emailer";
+import { sendSmsBestEffort } from "@/lib/twilio";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -72,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json() as { action?: "cancel" | "reschedule"; date?: string; time_slot?: string };
 
   const { data: appt } = await supabaseAdmin
-    .from("appointments").select("id, shop_id, barber_id, client_name, date, time_slot, status, service_id, duration_minutes, payment_status, payment_intent_id").eq("id", id).maybeSingle();
+    .from("appointments").select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, status, service_id, duration_minutes, payment_status, payment_intent_id").eq("id", id).maybeSingle();
   if (!appt) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (appt.status === "cancelled" || appt.status === "completed" || appt.status === "no-show") {
     return NextResponse.json({ error: "This booking can no longer be changed." }, { status: 400 });
@@ -188,15 +189,45 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ shop_id: appt.shop_id, date: oldDate, barber_id: appt.barber_id }),
     }).catch(() => null);
-    // Informational notice to owner + barber that the time moved (NOT a re-approval).
-    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
-    let barberUserId: string | null = null;
-    if (appt.barber_id) {
-      const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
-      barberUserId = (b as { user_id?: string } | null)?.user_id ?? null;
+    // Tell everyone the time moved — the CUSTOMER (email + SMS confirmation), the
+    // BARBER (in-app + email), and the owner (in-app). Mirrors the shop-side edit
+    // so a reschedule from either side reaches the same people (NOT a re-approval).
+    const [{ data: shopRow }, { data: bRow }, { data: sRow }] = await Promise.all([
+      supabaseAdmin.from("shops").select("owner_id, name, email").eq("id", appt.shop_id).maybeSingle(),
+      appt.barber_id
+        ? supabaseAdmin.from("barbers").select("name, email, user_id").eq("id", appt.barber_id).maybeSingle()
+        : Promise.resolve({ data: null as { name: string; email: string | null; user_id: string | null } | null }),
+      appt.service_id
+        ? supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
+        : Promise.resolve({ data: null as { name: string } | null }),
+    ]);
+    const whenNice = `${prettyDate(body.date)} at ${body.time_slot}`;
+
+    // Customer confirmation — same "your appointment was updated" notice the
+    // shop-side edit sends. Awaited (best-effort) so a serverless freeze can't drop it.
+    if (appt.client_email) {
+      await sendAppEmail("appointment_updated", {
+        clientEmail: appt.client_email, clientName: appt.client_name ?? "there",
+        shopName: shopRow?.name ?? "", barberName: bRow?.name ?? "Your barber",
+        serviceName: sRow?.name ?? "Service", date: prettyDate(body.date), time: body.time_slot,
+        total: "", appointmentId: id, changedSummary: `New time: ${whenNice}`,
+      }).catch(() => null);
     }
+    if (appt.client_phone) {
+      await sendSmsBestEffort(appt.client_phone, `Your appointment is now ${whenNice}. Manage: ${base}/my-booking/${id}`, shopRow?.name);
+    }
+    // Barber email so they see the new time even when they're out of the app.
+    if (bRow?.email) {
+      await sendAppEmail("barber_appointment_change", {
+        barberEmail: bRow.email, barberName: bRow.name ?? "there",
+        shopName: shopRow?.name ?? "", shopEmail: shopRow?.email ?? "",
+        clientName: appt.client_name ?? "A client", serviceName: sRow?.name ?? "Service",
+        date: body.date, time: body.time_slot, statusLabel: "Rescheduled",
+      }).catch(() => null);
+    }
+    // In-app pop-up for owner + barber.
     const msg = `${appt.client_name} rescheduled to ${body.date} at ${body.time_slot} (was ${appt.date} at ${appt.time_slot})`;
-    const targets = Array.from(new Set([shopRow?.owner_id, barberUserId].filter(Boolean))) as string[];
+    const targets = Array.from(new Set([shopRow?.owner_id, bRow?.user_id].filter(Boolean))) as string[];
     for (const uid of targets) {
       insertNotifications({
         user_id: uid, shop_id: appt.shop_id, title: "Appointment Rescheduled", message: msg, type: "booking",

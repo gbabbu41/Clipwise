@@ -658,11 +658,19 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   }, [services, editAvail, editTotalDuration, editForm.date, ownSlot, curSnapped]);
 
   // If the chosen time stops fitting (e.g. a longer service was added), snap it
-  // to the first slot that does.
+  // to the first slot that does — but NEVER silently bounce a deliberate new pick
+  // back to the original. Only runs once real availability has loaded: while it's
+  // still fetching (barber just changed) OR the barber has no hours that day,
+  // editSlots collapses to just the original time, and snapping then was reverting
+  // a rescheduled time. When a re-snap is genuinely needed, land on the first real
+  // opening, not the original slot. The server conflict check is the final guard.
   useEffect(() => {
     if (!editMode || !services) return;
-    if (editSlots.length && !editSlots.includes(editForm.time)) setEditForm(f => ({ ...f, time: editSlots[0] }));
-  }, [editMode, services, editSlots, editForm.time]);
+    if (!editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return;
+    if (editSlots.includes(editForm.time)) return;
+    const target = editSlots.find(s => s !== curSnapped) ?? editSlots[0];
+    if (target) setEditForm(f => ({ ...f, time: target }));
+  }, [editMode, services, editAvail, editSlots, editForm.time, curSnapped]);
 
   const setServiceAt = (idx: number, id: string) => setEditForm(f => { const next = [...f.service_ids]; if (idx >= next.length) next.push(id); else next[idx] = id; return { ...f, service_ids: next }; });
   const addServiceRow = () => setEditForm(f => ({ ...f, service_ids: [...f.service_ids, ""] }));
