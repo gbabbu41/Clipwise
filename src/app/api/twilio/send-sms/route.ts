@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
 import { authorizeShop } from "@/lib/api-auth";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
   // Customer booking confirmations are sent server-side from /api/book/in-person.
   const auth = await authorizeShop(request, shop_id);
   if ("error" in auth) return auth.error;
+
+  // SMS is a paid-plan feature — free (Starter) shops communicate by email only.
+  // Callers are fire-and-forget, so skip quietly rather than erroring.
+  const s = auth.shop as { subscription_plan?: string | null; subscription_status?: string | null };
+  if (!isPaidPlan(effectivePlan(s.subscription_plan ?? undefined, s.subscription_status ?? undefined))) {
+    return NextResponse.json({ ok: false, skipped: "SMS is available on paid plans." });
+  }
 
   if (!to || !body) {
     return NextResponse.json({ error: "Missing `to` or `body`." }, { status: 400 });

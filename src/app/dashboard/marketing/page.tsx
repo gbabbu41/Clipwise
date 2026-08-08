@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Megaphone, Mail, Users, Tag, TrendingUp, Send, Clock, CheckCircle2, Plus, ChevronRight, Zap } from "lucide-react";
 import type { Client } from "@/lib/database.types";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -177,6 +179,10 @@ export default function MarketingPage() {
   };
 
   const totalEmailsSent = campaigns.reduce((s, c) => s + (c.recipients ?? 0), 0);
+
+  if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
+    return <FeatureLock title="Marketing" description="Email marketing & campaigns are available on the Pro plan and up." />;
+  }
 
   return (
     <div className="p-6 space-y-6">

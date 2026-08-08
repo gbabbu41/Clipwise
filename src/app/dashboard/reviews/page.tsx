@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { Review, Barber } from "@/lib/database.types";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -79,6 +81,9 @@ export default function ReviewsPage() {
     setSaving(false);
   };
 
+  if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
+    return <FeatureLock title="Reviews" description="Customer reviews are available on the Pro plan and up." />;
+  }
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">

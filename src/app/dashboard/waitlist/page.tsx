@@ -10,6 +10,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { WaitlistAssignSheet } from "@/components/waitlist-assign-sheet";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import type { WaitlistEntry, Barber, Service, AppointmentWithDetails } from "@/lib/database.types";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 
 // Walk-in appointments are tagged with this note when seated from the queue, so
 // we can match a queue row back to its appointment (for the time + checkout).
@@ -244,6 +246,10 @@ export default function WaitlistPage() {
     : 0;
 
   void now; // used for re-renders
+
+  if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
+    return <FeatureLock title="Waitlist" description="Walk-in queue & waitlist are available on the Pro plan and up." />;
+  }
 
   return (
     <div className="p-6 space-y-6">

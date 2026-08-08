@@ -95,7 +95,7 @@ const isToday = (iso: string) => {
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, fetchShopUnreadCount } from "@/lib/notify";
-import { effectivePlan, planHasFeature, type PlanFeature } from "@/lib/validation";
+import { effectivePlan, planHasFeature, isPaidPlan, type PlanFeature } from "@/lib/validation";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
 import { sendApprovalNotifications, sendRejectionEmail, notifyFreedSlot } from "@/lib/appointment-actions";
@@ -109,6 +109,7 @@ interface NavItem {
   badge?: boolean;
   ownerOnly?: boolean;
   feature?: PlanFeature;
+  paidOnly?: boolean; // hidden on the free Starter plan (reviews, marketing, analytics, waitlist…)
 }
 
 interface NavSection {
@@ -148,18 +149,18 @@ const navSections: NavSection[] = [
     label: "Business",
     items: [
       { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
-      { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList },
-      { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true },
-      { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true },
+      { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
+      { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
+      { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
       { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
-      { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
-      { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true },
+      { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
+      { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
       { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
       { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
       { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
       { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
-      { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true },
+      { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
       { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
     ],
   },
@@ -540,6 +541,7 @@ export function Sidebar() {
               ...section,
               items: section.items.filter(item => {
                 if (item.ownerOnly && profile?.role === "barber") return false;
+                if (item.paidOnly && !isPaidPlan(plan)) return false;
                 if (item.feature) return planHasFeature(plan, item.feature);
                 return true;
               }),

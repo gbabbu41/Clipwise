@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
@@ -219,7 +220,7 @@ export async function finalizeBookingFromSession(params: {
     await redeemGift(m.shop_id, m.gift_code, Number(m.gift_applied));
   }
 
-  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug").eq("id", m.shop_id).single();
+  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug, subscription_plan, subscription_status").eq("id", m.shop_id).single();
   const friendly = prettyDate(m.date);
   if (shopRow?.owner_id) {
     // Show what the customer actually paid (service + tax + tip), so the alert
@@ -252,11 +253,14 @@ export async function finalizeBookingFromSession(params: {
   // goes out (and never logs). sendSmsBestEffort never throws.
   // Kept to ONE SMS segment: short wording + GSM-7 only (NO em dash, which forces
   // UCS-2 and splits into 3). Payment detail + booking # live in the email/link.
-  await sendSmsBestEffort(
-    m.client_phone,
-    `You're booked for ${friendly} at ${m.time_slot}. Manage: ${baseUrl}/my-booking/${appt.id}`,
-    shopRow?.name,
-  );
+  // SMS is a paid-plan feature — free (Starter) shops confirm by email only.
+  if (m.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
+    await sendSmsBestEffort(
+      m.client_phone,
+      `You're booked for ${friendly} at ${m.time_slot}. Manage: ${baseUrl}/my-booking/${appt.id}`,
+      shopRow?.name,
+    );
+  }
 
   // Ledger + confirmation emails (customer + owner + barber). Never block on these.
   let summaryBarberName = "Any Available";

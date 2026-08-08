@@ -6,6 +6,7 @@ import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
 import { sendAppEmail } from "@/lib/emailer";
 import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 
 /**
  * Edit an appointment with an authoritative double-booking guard.
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
         .eq("id", appointment_id).maybeSingle();
       if (full) {
         const [{ data: shopRow }, { data: svc }] = await Promise.all([
-          supabaseAdmin.from("shops").select("name, owner_id").eq("id", full.shop_id).maybeSingle(),
+          supabaseAdmin.from("shops").select("name, owner_id, subscription_plan, subscription_status").eq("id", full.shop_id).maybeSingle(),
           full.service_id
             ? supabaseAdmin.from("services").select("name").eq("id", full.service_id).maybeSingle()
             : Promise.resolve({ data: null as { name: string } | null }),
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
         // single GSM-7 segment (no em dash / curly quotes; shop name is added by
         // sendSmsBestEffort, not duplicated in the body) and awaited so a
         // serverless freeze can't drop it.
-        if (full.client_phone) {
+        if (full.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
           const base = process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
           await sendSmsBestEffort(
             full.client_phone,

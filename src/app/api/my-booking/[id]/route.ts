@@ -9,6 +9,7 @@ import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking }
 import { stripe } from "@/lib/stripe";
 import { sendAppEmail } from "@/lib/emailer";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -193,7 +194,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // BARBER (in-app + email), and the owner (in-app). Mirrors the shop-side edit
     // so a reschedule from either side reaches the same people (NOT a re-approval).
     const [{ data: shopRow }, { data: bRow }, { data: sRow }] = await Promise.all([
-      supabaseAdmin.from("shops").select("owner_id, name, email").eq("id", appt.shop_id).maybeSingle(),
+      supabaseAdmin.from("shops").select("owner_id, name, email, subscription_plan, subscription_status").eq("id", appt.shop_id).maybeSingle(),
       appt.barber_id
         ? supabaseAdmin.from("barbers").select("name, email, user_id").eq("id", appt.barber_id).maybeSingle()
         : Promise.resolve({ data: null as { name: string; email: string | null; user_id: string | null } | null }),
@@ -213,7 +214,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         total: "", appointmentId: id, changedSummary: `New time: ${whenNice}`,
       }).catch(() => null);
     }
-    if (appt.client_phone) {
+    if (appt.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
       await sendSmsBestEffort(appt.client_phone, `Your appointment is now ${whenNice}. Manage: ${base}/my-booking/${id}`, shopRow?.name);
     }
     // Barber email so they see the new time even when they're out of the app.

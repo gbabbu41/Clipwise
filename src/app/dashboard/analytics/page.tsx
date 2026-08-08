@@ -10,6 +10,8 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -238,6 +240,9 @@ export default function AnalyticsPage() {
     { label: "Tax Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + (t.tax ?? 0), 0)), sub: "GST/HST + PST to remit", color: "text-foreground" },
   ];
 
+  if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
+    return <FeatureLock title="Analytics" description="Business analytics are available on the Pro plan and up." />;
+  }
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">

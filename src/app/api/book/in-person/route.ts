@@ -9,7 +9,7 @@ import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
-import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
@@ -303,7 +303,7 @@ export async function POST(request: NextRequest) {
   // customer self-bookings — staff-added walk-ins don't auto-text (unchanged
   // behavior). Sent here, not from the public page, so /api/twilio/send-sms can
   // require auth (no open SMS relay).
-  if (!callerIsStaff && b.client_phone) {
+  if (!callerIsStaff && b.client_phone && isPaidPlan(plan)) {
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
     const manageLink = `${origin}/my-booking/${inserted.data.id}`;
     const shopName = (shop as { name?: string }).name ?? "the shop";

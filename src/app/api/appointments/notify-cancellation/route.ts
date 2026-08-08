@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 
 // Notify the assigned barber that one of their appointments changed state
 // (cancelled by the customer, rejected by the shop, or marked no-show). The
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     appt.barber_id
       ? supabaseAdmin.from("barbers").select("name, email, user_id").eq("id", appt.barber_id).maybeSingle()
       : Promise.resolve({ data: null as { name: string; email: string | null; user_id: string | null } | null }),
-    supabaseAdmin.from("shops").select("name, email").eq("id", appt.shop_id).maybeSingle(),
+    supabaseAdmin.from("shops").select("name, email, subscription_plan, subscription_status").eq("id", appt.shop_id).maybeSingle(),
     appt.service_id
       ? supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
       : Promise.resolve({ data: null as { name: string } | null }),
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   // cancellation they didn't initiate. Skipped for no-show and for customer
   // self-cancels (those don't pass notifyCustomer). Short + GSM-7 (one segment);
   // awaited so a serverless freeze can't drop it. This was the missing text.
-  if (notifyCustomer && !isNoShow && appt.client_phone) {
+  if (notifyCustomer && !isNoShow && appt.client_phone && isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status))) {
     await sendSmsBestEffort(
       appt.client_phone,
       `Your appointment on ${appt.date} at ${appt.time_slot} has been cancelled. Please contact us to rebook.`,

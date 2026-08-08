@@ -21,8 +21,8 @@ const features = [
   { t: "Inventory, waitlist & kiosk", d: "Track stock, run a live walk-in queue, offer tablet self check-in.", i: '<path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 12h8"/>' },
 ];
 const plans = [
-  { n: "Starter", plan: "starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"], no: ["Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "Tips & tax", "Loyalty program", "Advanced analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
+  { n: "Starter", plan: "starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Email confirmations & reminders"], no: ["SMS / text alerts", "Reviews & loyalty", "Marketing & analytics", "Walk-in & waitlist", "Customer payments", "POS system"], cta: "Get started free" },
+  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "SMS reminders & alerts", "Reviews, loyalty & marketing", "Walk-in & waitlist", "Tips, tax & analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
   { n: "Premium", plan: "premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
 ];
 // Comparison claims cross-checked against Squire's & Booksy's own current

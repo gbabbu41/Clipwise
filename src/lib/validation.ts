@@ -154,6 +154,18 @@ export function planHasFeature(plan: string | undefined, feature: PlanFeature): 
   return (planConfig[key]?.features ?? DEFAULT_PLAN_CONFIG[key]?.features ?? []).includes(feature);
 }
 
+/**
+ * Is this a PAID plan (anything above the free Starter tier)? Gates the extras
+ * that free shops don't get but that aren't tied to a specific feature flag:
+ * customer SMS, reviews, marketing, analytics, walk-in/waitlist. Free = book +
+ * basic customer emails only. Pass an already-resolved `effectivePlan(...)` so an
+ * expired/cancelled paid plan (which downgrades to starter) is correctly treated
+ * as free.
+ */
+export function isPaidPlan(plan: string | undefined): boolean {
+  return (plan ?? "starter") !== "starter";
+}
+
 // A subscription that is cancelled/past_due/inactive means the shop falls back to starter
 export function effectivePlan(plan: string | undefined, subscriptionStatus: string | undefined): string {
   if (plan === "starter" || !plan) return "starter";
