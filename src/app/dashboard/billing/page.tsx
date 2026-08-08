@@ -28,6 +28,10 @@ interface Billing {
 
 const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pro", premium: "Premium" };
 
+// Matches TRIAL_DAYS in /api/shops/create — the no-card trial length. Used only
+// to show "Day X of 21" + the progress bar; the real expiry is trial_ends_at.
+const TRIAL_DAYS = 21;
+
 export default function BillingPage() {
   const { accessToken, refreshShop, plans, shop } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
@@ -133,7 +137,14 @@ export default function BillingPage() {
   const isStarter = !billing || billing.plan === "starter";
   const isExpired = billing?.subscriptionStatus === "cancelled" || billing?.subscriptionStatus === "past_due";
   const currentPlanId = billing?.plan ?? shop?.subscription_plan ?? "starter";
-  const currentPlanName = PLAN_LABEL[currentPlanId] ?? plans.find(p => p.id === currentPlanId)?.name ?? currentPlanId;
+  const currentPlan = plans.find(p => p.id === currentPlanId);
+  const currentPlanName = PLAN_LABEL[currentPlanId] ?? currentPlan?.name ?? currentPlanId;
+  // What the CURRENT plan includes — shown right on the subscription card so the
+  // owner sees what they're on, not only what they could switch to. Starter has
+  // no highlights row in the plans table; fall back to a sensible baseline line.
+  const currentHighlights = (currentPlan?.highlights && currentPlan.highlights.length > 0)
+    ? currentPlan.highlights
+    : (currentPlanId === "starter" ? ["Online booking page", "Appointment calendar", "Up to 1 barber"] : []);
   // Every active PAID plan the owner can move to (all tiers except their current
   // one) — driven by the admin-editable plans table, so any middle tier shows.
   const otherPaidPlans = plans.filter(p => p.is_active && p.price_cents > 0 && p.id !== currentPlanId);
@@ -170,6 +181,14 @@ export default function BillingPage() {
           <AlertTriangle size={18} className="text-sky-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-sky-300">You&apos;re on a {currentPlanName} free trial — {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} left</p>
+            {/* Slim progress bar so the 21-day window reads at a glance. */}
+            <div className="mt-2 mb-1.5">
+              <div className="h-1.5 rounded-full bg-sky-500/20 overflow-hidden">
+                <div className="h-full rounded-full bg-sky-400 transition-all"
+                  style={{ width: `${Math.min(100, Math.max(4, ((TRIAL_DAYS - trialDaysLeft) / TRIAL_DAYS) * 100))}%` }} />
+              </div>
+              <p className="text-[11px] text-sky-200/70 mt-1">Day {Math.min(TRIAL_DAYS, TRIAL_DAYS - trialDaysLeft + 1)} of your {TRIAL_DAYS}-day free trial</p>
+            </div>
             <p className="text-xs text-sky-200/80 mt-0.5">Add a card to keep {currentPlanName} after your trial ends. No charge until you subscribe; cancel anytime. If you do nothing, your shop drops to the free Starter plan.</p>
             <Button size="sm" className="mt-2" loading={actionLoading === currentPlanId} onClick={() => startCheckoutUpgrade(currentPlanId)}>
               <CreditCard size={14} /> Add card &amp; keep {currentPlanName}
@@ -194,6 +213,21 @@ export default function BillingPage() {
               {billing?.amount != null && <p className="text-sm text-grey">${billing.amount}/month</p>}
             </div>
           </div>
+
+          {/* What the owner's CURRENT plan includes — so the card says what they're
+              on, not just its name. Kept compact (max 6). */}
+          {currentHighlights.length > 0 && (
+            <div className="mb-5">
+              <p className="text-xs font-medium text-grey uppercase tracking-wider mb-2">What&apos;s included</p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                {currentHighlights.slice(0, 6).map(h => (
+                  <li key={h} className="flex items-start gap-2 text-xs text-gray-300">
+                    <Check size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" /> {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {!isStarter && (billing?.nextBilling || billing?.cardLast4 ? (
             <div className="grid grid-cols-2 gap-3 mb-5">

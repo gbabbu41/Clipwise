@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 // Shared chrome for the legal pages (Terms / Privacy / Cookies). Server
 // component — pure content, no interactivity.
@@ -21,15 +21,6 @@ export function LegalShell({
       <main className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold text-white">{title}</h1>
         <p className="text-sm text-[#8f8f8f] mt-1">Last updated: {updated}</p>
-
-        {/* Template disclaimer — this is not a substitute for legal advice. */}
-        <div className="mt-5 flex items-start gap-2.5 bg-gold/10 border border-gold/25 rounded-xl px-4 py-3">
-          <AlertTriangle size={16} className="text-gold flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-gold/90 leading-relaxed">
-            This document is a starting-point template. Have it reviewed by a qualified lawyer in your
-            jurisdiction before relying on it. It does not constitute legal advice.
-          </p>
-        </div>
 
         <div className="legal-body mt-8 space-y-6 text-sm text-gray-300 leading-relaxed">
           {children}
