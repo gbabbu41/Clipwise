@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTwilio, twilioSender, toE164 } from "@/lib/twilio";
-import { getUserFromReq } from "@/lib/api-auth";
+import { authorizeShop } from "@/lib/api-auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
@@ -18,19 +18,22 @@ import { enforceRateLimit } from "@/lib/rate-limit";
  * alongside the email send — so the message stays in-app even if SMS fails.
  */
 export async function POST(request: NextRequest) {
-  // Staff-only. This sends SMS on the shop's Twilio account — an open relay is
-  // direct toll-fraud/spam. Customer booking confirmations are sent server-side
-  // from /api/book/in-person, so this endpoint requires an authenticated user.
-  const user = await getUserFromReq(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const limited = enforceRateLimit(request, "send-sms", 20, 60_000);
   if (limited) return limited;
 
-  const { to, body, shopName } = await request.json() as {
+  const { to, body, shopName, shop_id } = await request.json() as {
     to: string;
     body: string;
     shopName?: string;
+    shop_id?: string;
   };
+
+  // Staff-only, scoped to a SPECIFIC shop: the caller must be the owner or an
+  // active barber of `shop_id`. It used to accept ANY authenticated account,
+  // which made it an open SMS relay on the platform's Twilio (toll-fraud/spam).
+  // Customer booking confirmations are sent server-side from /api/book/in-person.
+  const auth = await authorizeShop(request, shop_id);
+  if ("error" in auth) return auth.error;
 
   if (!to || !body) {
     return NextResponse.json({ error: "Missing `to` or `body`." }, { status: 400 });

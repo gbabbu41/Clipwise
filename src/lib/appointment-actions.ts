@@ -48,6 +48,7 @@ export function sendApprovalNotifications(appt: AppointmentWithDetails, shop: Sh
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
         to: appt.client_phone,
+        shop_id: shop.id,
         shopName: shop.name,
         body: `Good news! Your appointment at ${shop.name} on ${prettyDate(appt.date)} at ${appt.time_slot} is confirmed. Booking #${id.slice(0, 8).toUpperCase()}.${origin() ? ` Manage: ${origin()}/my-booking/${id}` : ""}`,
       }),

@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 async function getBarber(token: string, shopId: string | null) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return null;
-  let query = supabaseAdmin.from("barbers").select("id").eq("user_id", user.id);
+  let query = supabaseAdmin.from("barbers").select("id").eq("user_id", user.id).eq("is_active", true);
   if (shopId) query = query.eq("shop_id", shopId);
   const { data: rows } = await query.order("created_at", { ascending: true }).limit(1);
   return rows?.[0] ?? null;

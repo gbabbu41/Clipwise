@@ -1213,7 +1213,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     const [{ data: appts }, { data: bs }, { data: blk }] = await Promise.all([
       q,
-      supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+      supabase.from("barbers").select("id, shop_id, user_id, name, bio, photo, is_active, rating, total_reviews, created_at").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       blocksQ,
     ]);
 

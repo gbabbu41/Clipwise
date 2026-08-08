@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
   // anyone could read any shop's Stripe balance, payouts, and revenue.
   const auth = await authorizeShop(req, shop_id);
   if ("error" in auth) return auth.error;
+  const isOwner = auth.isOwner;
   const shop = auth.shop as { stripe_account_id?: string | null; stripe_connected?: boolean | null };
   const connected = !!(shop?.stripe_account_id && shop.stripe_connected);
   if (!connected) {
@@ -124,7 +125,14 @@ export async function POST(req: NextRequest) {
     console.log("[payments-summary] ok", {
       shop_id, byPi: Object.keys(byPi).length, available, pending, inTransit, nextPayoutDate, nextPayoutAmount,
     });
-    return NextResponse.json({ connected: true, byPi, available, pending, inTransit, nextPayoutDate, nextPayoutAmount, lastPayout });
+    // Shop-wide balance + payout schedule are OWNER-only. A barber gets just the
+    // per-payment fee map (byPi) — enough to net fees on their own cuts, never the
+    // shop's balance or payouts.
+    return NextResponse.json(
+      isOwner
+        ? { connected: true, byPi, available, pending, inTransit, nextPayoutDate, nextPayoutAmount, lastPayout }
+        : { connected: true, byPi },
+    );
   } catch (err) {
     // A Stripe error here (e.g. the connected account id belongs to a different
     // Stripe mode than the current key, or a permissions issue) makes fees +

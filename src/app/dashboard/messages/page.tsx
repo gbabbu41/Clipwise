@@ -155,9 +155,10 @@ export default function MessagesPage() {
     if (clientPhone) {
       fetch("/api/twilio/send-sms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
         body: JSON.stringify({
           to: clientPhone,
+          shop_id: shop.id,
           body: content,
           shopName: shop.name,
         }),
@@ -297,9 +298,10 @@ export default function MessagesPage() {
       if (composeClient.phone) {
         fetch("/api/twilio/send-sms", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
           body: JSON.stringify({
             to: composeClient.phone,
+            shop_id: shop.id,
             body: trimmed,
             shopName: shop.name,
           }),

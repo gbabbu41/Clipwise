@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).maybeSingle();
   let allowed = shop?.owner_id === user.id;
   if (!allowed) {
-    const { data: b } = await supabaseAdmin.from("barbers").select("id").eq("shop_id", appt.shop_id).eq("user_id", user.id).maybeSingle();
+    const { data: b } = await supabaseAdmin.from("barbers").select("id").eq("shop_id", appt.shop_id).eq("user_id", user.id).eq("is_active", true).maybeSingle();
     allowed = !!b;
   }
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

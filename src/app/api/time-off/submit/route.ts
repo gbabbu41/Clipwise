@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     .select("id, name, shop_id, permissions")
     .eq("id", body.barber_id)
     .eq("user_id", user.id)
+    .eq("is_active", true)
     .single();
   if (!barber || barber.shop_id !== body.shop_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
