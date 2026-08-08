@@ -141,8 +141,8 @@ const navSections: NavSection[] = [
     label: "People",
     items: [
       { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
-      { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true },
-      { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true },
+      { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
+      { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true, paidOnly: true },
     ],
   },
   {

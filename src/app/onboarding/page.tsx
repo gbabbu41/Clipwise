@@ -367,8 +367,8 @@ export default function OnboardingPage() {
 
         {step === 2 && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-xl font-bold text-white">Add your barbers</h2>
-            <p className="text-[#8f8f8f] text-sm">Add yourself if you cut hair, and invite your team. You can always do this later from Staff.</p>
+            <h2 className="text-xl font-bold text-white">{planLimit === 1 ? "You're the barber" : "Add your barbers"}</h2>
+            <p className="text-[#8f8f8f] text-sm">{planLimit === 1 ? "On the free plan it's just you — add yourself and you're ready. Upgrade anytime to add your team." : "Add yourself if you cut hair, and invite your team. You can always do this later from Staff."}</p>
 
             {barberError && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
