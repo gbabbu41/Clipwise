@@ -34,13 +34,30 @@ export async function POST(request: NextRequest) {
   // webhook can cancel it once the new plan activates.
   let oldSubscriptionId = "";
   let customerId: string | undefined;
+  // When the owner is on a no-card trial and adds a card to keep their plan, we
+  // save the card now but defer the FIRST charge to the original trial end — so
+  // they keep every remaining free day instead of being billed on the spot.
+  let trialEndUnix: number | undefined;
   if (upgrade) {
     const { data: shops } = await supabaseAdmin
-      .from("shops").select("name, stripe_subscription_id, stripe_customer_id")
+      .from("shops").select("name, stripe_subscription_id, stripe_customer_id, trial_ends_at, subscription_status")
       .eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
     oldSubscriptionId = shops?.[0]?.stripe_subscription_id ?? "";
     customerId = shops?.[0]?.stripe_customer_id ?? undefined;
     const shopName = shops?.[0]?.name ?? "";
+
+    // Honor the remaining trial. Only for a genuine active no-card trial (a
+    // trial_ends_at in the future, no existing Stripe subscription — so a paid
+    // subscriber switching plans can't mint themselves a fresh free trial).
+    // Stripe requires trial_end ≥ 48h out; inside that window we just bill now
+    // (they're at the tail of the trial anyway) rather than risk an API error.
+    const rawTrialEnd = shops?.[0]?.trial_ends_at ? new Date(shops[0].trial_ends_at as string).getTime() : 0;
+    const MIN_LEAD_MS = 48 * 3600 * 1000;
+    if (!oldSubscriptionId
+      && shops?.[0]?.subscription_status === "active"
+      && rawTrialEnd - Date.now() >= MIN_LEAD_MS) {
+      trialEndUnix = Math.floor(rawTrialEnd / 1000);
+    }
     // Label the Stripe customer with the shop's BUSINESS name so subscription
     // invoices read "To: <Shop>" instead of the cardholder's personal name.
     try {
@@ -67,7 +84,11 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       }],
       metadata: { user_id: user.id, plan, old_subscription_id: oldSubscriptionId },
-      subscription_data: { metadata: { user_id: user.id, plan, old_subscription_id: oldSubscriptionId } },
+      subscription_data: {
+        metadata: { user_id: user.id, plan, old_subscription_id: oldSubscriptionId },
+        // Defer the first charge to the original trial end when honoring a trial.
+        ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
+      },
       success_url: upgrade
         ? `${BASE_URL}/dashboard/billing?upgraded=1&session_id={CHECKOUT_SESSION_ID}`
         : `${BASE_URL}/onboarding/plan?status=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,

@@ -205,7 +205,7 @@ export default function BillingPage() {
               </div>
               <p className="text-[11px] text-sky-200/70 mt-1">Day {Math.min(TRIAL_DAYS, TRIAL_DAYS - trialDaysLeft + 1)} of your {TRIAL_DAYS}-day free trial</p>
             </div>
-            <p className="text-xs text-sky-200/80 mt-0.5">Add a card to keep {currentPlanName} after your trial ends. No charge until you subscribe; cancel anytime. If you do nothing, your shop drops to the free Starter plan.</p>
+            <p className="text-xs text-sky-200/80 mt-0.5">Add a card to keep {currentPlanName} after your trial ends. {trialDaysLeft >= 2 ? `Your card isn't charged until your trial ends — you keep all ${trialDaysLeft} remaining free days` : "Your card is charged when your trial ends"}; cancel anytime. If you do nothing, your shop drops to the free Starter plan.</p>
             <Button size="sm" className="mt-2" loading={actionLoading === currentPlanId} onClick={() => startCheckoutUpgrade(currentPlanId)}>
               <CreditCard size={14} /> Add card &amp; keep {currentPlanName}
             </Button>
