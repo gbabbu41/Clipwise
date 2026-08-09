@@ -372,9 +372,10 @@ export default function OnboardingPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">Description (optional)</label>
-              <textarea value={shop.description} onChange={(e) => setShop({ ...shop, description: e.target.value })}
-                placeholder="Tell clients what makes your shop special..." rows={3}
+              <textarea value={shop.description} onChange={(e) => setShop({ ...shop, description: e.target.value.slice(0, 500) })}
+                placeholder="Tell clients what makes your shop special..." rows={3} maxLength={500}
                 className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
+              <p className="text-xs text-[#8f8f8f] text-right">{shop.description.length}/500</p>
             </div>
           </div>
         )}

@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     postal_code: body.postal_code ?? null,
     phone: body.phone ?? null,
     email: body.email ?? null,
-    description: body.description ?? null,
+    description: body.description ? body.description.slice(0, 500) : null,
     ...(body.logo ? { logo: body.logo } : {}),
     status,
     subscription_plan: plan,

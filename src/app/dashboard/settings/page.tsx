@@ -385,7 +385,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from("shops").update({
       name: profile.name, address: profile.address, city: profile.city,
       province: profile.province, postal_code: profile.postal_code,
-      phone: profile.phone, email: profile.email, description: profile.description,
+      phone: profile.phone, email: profile.email, description: (profile.description ?? "").slice(0, 500),
       instagram: profile.instagram || null,
       tiktok: profile.tiktok || null,
       facebook: profile.facebook || null,
@@ -618,7 +618,8 @@ export default function SettingsPage() {
             </div>
             <Input label="Phone" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
             <Input label="Email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
-            <Textarea label="Description" value={profile.description} onChange={e => setProfile(p => ({ ...p, description: e.target.value }))} rows={3} />
+            <Textarea label="Description" value={profile.description} onChange={e => setProfile(p => ({ ...p, description: e.target.value.slice(0, 500) }))} rows={3} maxLength={500} />
+            <p className="text-xs text-grey text-right -mt-1">{(profile.description ?? "").length}/500</p>
 
             {/* Social Media */}
             <div>
