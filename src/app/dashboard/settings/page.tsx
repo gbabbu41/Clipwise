@@ -109,6 +109,10 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  // Account phone (users.phone) — the owner's personal number from signup, used
+  // for their booking SMS alerts. Editable here so they can change it.
+  const [accountPhone, setAccountPhone] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
@@ -308,6 +312,7 @@ export default function SettingsPage() {
   }, [shop?.logo]);
 
   useEffect(() => { if (authProfile?.avatar) setAvatarPreview(authProfile.avatar); }, [authProfile?.avatar]);
+  useEffect(() => { setAccountPhone(authProfile?.phone ?? ""); }, [authProfile?.phone]);
 
   useEffect(() => {
     if (!shop) return;
@@ -523,6 +528,26 @@ export default function SettingsPage() {
     setToast("Password updated.");
   };
 
+  const saveAccountPhone = async () => {
+    if (!accessToken) { setToast("Couldn't verify your account. Please sign in again."); return; }
+    setSavingPhone(true);
+    try {
+      const res = await fetch("/api/account/update-phone", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: accountPhone.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setToast(data.error || "Couldn't update your phone. Please try again."); return; }
+      await refreshShop(); // re-fetches the profile so the new number sticks on reload
+      setToast("Phone number updated.");
+    } catch {
+      setToast("Connection error — please try again.");
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
   // The shared Bootstrap form-switch wraps all of these; this local alias
   // keeps the existing call signature (`<Toggle value={..} onChange={..} />`).
   const Toggle = ({ value, onChange, disabled }: { value: boolean; onChange: () => void; disabled?: boolean }) => (
@@ -698,6 +723,24 @@ export default function SettingsPage() {
               <div className="bg-card-raised border border-border rounded-xl px-4 py-3 text-sm text-foreground">
                 {authProfile?.name ?? "—"}
               </div>
+            </div>
+
+            <div className="pt-2 border-t border-border space-y-3">
+              <div>
+                <p className="text-sm font-medium text-grey">Phone number</p>
+                <p className="text-xs text-grey mt-0.5">Your personal number for booking alerts. This is private — it&apos;s never shown to customers (your public shop phone lives under the Profile tab).</p>
+              </div>
+              <Input
+                label="Phone"
+                type="tel"
+                value={accountPhone}
+                maxLength={30}
+                onChange={e => setAccountPhone(e.target.value.slice(0, 30))}
+                placeholder="(506) 555-0123"
+              />
+              <Button onClick={saveAccountPhone} disabled={savingPhone || accountPhone.trim() === (authProfile?.phone ?? "").trim()}>
+                {savingPhone ? "Saving…" : "Save phone number"}
+              </Button>
             </div>
 
             <div className="pt-2 border-t border-border space-y-3">
