@@ -145,10 +145,12 @@ export function OnboardingBanner({ shop }: Props) {
               {step.done ? <Check size={12} /> : i + 1}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium", step.done ? "text-grey line-through" : "text-foreground")}>{step.label}</p>
+              <p className={cn("text-sm font-medium", step.done ? "text-foreground/70" : "text-foreground")}>{step.label}</p>
               <p className="text-xs text-grey truncate">{step.description}</p>
             </div>
-            {!step.done && <ArrowRight size={14} className="text-grey group-hover:text-gold transition-colors flex-shrink-0" />}
+            {step.done
+              ? <span className="text-[11px] font-semibold text-emerald-400 flex-shrink-0">Done</span>
+              : <ArrowRight size={14} className="text-grey group-hover:text-gold transition-colors flex-shrink-0" />}
           </Link>
         ))}
       </div>
