@@ -41,6 +41,7 @@ export default function BillingPage() {
   const [toast, setToast] = useState("");
   const [actionLoading, setActionLoading] = useState("");
   const [showCancel, setShowCancel] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
@@ -180,6 +181,27 @@ export default function BillingPage() {
 
   const fmtDate = (iso: string | null | undefined) =>
     iso ? new Date(iso).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "the end of your period";
+
+  // Redeem an admin comp coupon → free Pro/Premium days (no card).
+  const redeemCoupon = async () => {
+    if (!accessToken || !couponCode.trim()) return;
+    setActionLoading("coupon");
+    const res = await fetch("/api/coupons/redeem", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ code: couponCode.trim(), shop_id: shop?.id }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res && res.ok) {
+      setCouponCode("");
+      await refreshShop();
+      await load();
+      showToast(`🎉 Coupon applied — ${data.days} free days of ${data.plan}!`);
+    } else {
+      showToast((data as { error?: string }).error ?? "Couldn't apply that coupon.");
+    }
+    setActionLoading("");
+  };
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -391,6 +413,25 @@ export default function BillingPage() {
             <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
               <CreditCard size={15} /> Manage subscription
             </Button>
+          )}
+
+          {/* Redeem a comp coupon → free Pro/Premium days. Shown to free/trial
+              shops (a paid card sub can't use it — the server says so). */}
+          {(onFreePlan || isTrial) && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs font-medium text-grey uppercase tracking-wider mb-2">Have a coupon?</p>
+              <div className="flex gap-2">
+                <input
+                  value={couponCode}
+                  onChange={e => setCouponCode(e.target.value.toUpperCase().slice(0, 40))}
+                  onKeyDown={e => { if (e.key === "Enter") redeemCoupon(); }}
+                  placeholder="COMP-XXXXXXXX"
+                  className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50 font-mono"
+                />
+                <Button size="sm" loading={actionLoading === "coupon"} disabled={!couponCode.trim()} onClick={redeemCoupon}>Apply</Button>
+              </div>
+              <p className="text-[11px] text-grey mt-1.5">Redeem a code from ClipWise for free Pro or Premium days — no card needed.</p>
+            </div>
           )}
 
           {/* Cancel already scheduled → show the end date + a way to undo it. */}

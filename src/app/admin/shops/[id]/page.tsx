@@ -66,6 +66,8 @@ export default function AdminShopDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [freePlan, setFreePlan] = useState("pro");
+  const [givingDays, setGivingDays] = useState(0); // the days-value currently applying (0 = idle)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -113,6 +115,21 @@ export default function AdminShopDetailPage() {
     if (!res.ok) { showToast("Failed to change plan", false); return; }
     setShop(prev => prev ? { ...prev, subscription_plan: planChoice as Shop["subscription_plan"] } : prev);
     showToast(`Plan changed to ${plans.find(p => p.id === planChoice)?.name ?? planChoice}`);
+  };
+
+  // Comp free days — extends the shop's no-card trial (bypasses payment).
+  const giveFreeDays = async (days: number) => {
+    if (!shop) return;
+    setGivingDays(days);
+    const res = await fetch("/api/admin/coupons/apply", {
+      method: "POST", headers: auth(),
+      body: JSON.stringify({ shop_id: shop.id, plan: freePlan, days }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setGivingDays(0);
+    if (!res.ok) { showToast(d.error ?? "Couldn't apply free days", false); return; }
+    showToast(`Gave ${days} free days of ${freePlan}`);
+    load();
   };
 
   const saveNote = async () => {
@@ -207,6 +224,26 @@ export default function AdminShopDetailPage() {
               </div>
               <p className="text-[10px] text-[#8f8f8f] mt-1">Overrides billing — use to comp or upgrade a shop manually.</p>
             </div>
+
+            {/* Comp free days — extends the shop's no-card trial (bypasses payment).
+                Blocked for shops on a real card subscription (server enforces it). */}
+            <div className="border-t border-border pt-4">
+              <p className="text-xs text-[#8f8f8f] mb-1.5">Give free days (no card)</p>
+              <div className="flex items-center gap-2">
+                <select value={freePlan} onChange={e => setFreePlan(e.target.value)}
+                  className="bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 capitalize">
+                  <option value="pro">Pro</option>
+                  <option value="premium">Premium</option>
+                </select>
+                {[10, 20, 30].map(dd => (
+                  <Button key={dd} size="sm" variant="outline" loading={givingDays === dd} disabled={givingDays > 0} onClick={() => giveFreeDays(dd)}>
+                    +{dd} days
+                  </Button>
+                ))}
+              </div>
+              <p className="text-[10px] text-[#8f8f8f] mt-1">Adds onto any days they already have. Trial-based, so it reverts to Starter when it runs out unless they add a card.</p>
+            </div>
+
             <Field icon={CreditCard} label="Subscription status">
               <span className="capitalize">{shop.subscription_status ?? "inactive"}</span>
             </Field>
