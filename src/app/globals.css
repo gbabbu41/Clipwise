@@ -1419,7 +1419,6 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-hd.today .cwd-hdn { width:24px; height:24px; border-radius:999px; background:#6ea8fe; font-weight:700; }
 .cwd-tcell { font-size:9.5px; color:var(--grey-2); text-align:right; padding:6px 6px 0 0; border-right:1px solid var(--cwd-div); }
 .cwd-cell { border-right:1px solid var(--cwd-div); border-bottom:1px solid var(--cwd-div); min-height:34px; min-width:0; padding:3px; }
-.cwd-cell.todaycol { background:rgba(110,168,254,.12); }
 .cwd-ev { border-radius:6px; font-size:9.5px; padding:3px 5px; line-height:1.2; color:#c9f7e8; border-left:2px solid #00e5a0; background:rgba(0,229,160,.12); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
 .cwd-ev.pend { color:#ffe6bd; border-left-color:#f59e0b; background:rgba(245,158,11,.12); }
 

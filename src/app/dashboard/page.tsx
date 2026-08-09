@@ -762,10 +762,9 @@ export default function DashboardPage() {
                         <div className="cwd-tcell">{hourLabel(h)}</div>
                         {weekDays.map(d => {
                           const dk = formatDateForDb(d);
-                          const isToday = dk === todayKey;
                           const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
                           return (
-                            <div key={dk} className={cn("cwd-cell", isToday && "todaycol")}>
+                            <div key={dk} className="cwd-cell">
                               {evs.map(a => (
                                 <Link
                                   key={a.id}
