@@ -110,6 +110,7 @@ interface NavItem {
   ownerOnly?: boolean;
   feature?: PlanFeature;
   paidOnly?: boolean; // hidden on the free Starter plan (reviews, marketing, analytics, waitlist…)
+  hidden?: boolean;   // temporarily hidden from the nav on ALL plans (page/logic kept)
 }
 
 interface NavSection {
@@ -152,7 +153,10 @@ const navSections: NavSection[] = [
       { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
       { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
       { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
+      // Messages: temporarily hidden from the nav on ALL plans — page + send logic
+      // are kept intact. `paidOnly` keeps it off Starter permanently; delete
+      // `hidden: true` to bring it back for Pro/Premium.
+      { href: "/dashboard/messages", label: "Messages", icon: MessageSquare, paidOnly: true, hidden: true },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
       { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
       { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
@@ -540,6 +544,7 @@ export function Sidebar() {
             .map(section => ({
               ...section,
               items: section.items.filter(item => {
+                if (item.hidden) return false;
                 if (item.ownerOnly && profile?.role === "barber") return false;
                 if (item.paidOnly && !isPaidPlan(plan)) return false;
                 if (item.feature) return planHasFeature(plan, item.feature);
