@@ -331,9 +331,13 @@ export async function POST(request: NextRequest) {
     // Keep it short + GSM-7 only (no em dash, which forces UCS-2 and triples the
     // segment count). Shop name is added by sendSmsBestEffort's prefix; the manage
     // link carries the booking id, so no separate ref needed.
+    // Cancellation policy (shop's notice window; default 2h). Appended to the
+    // confirmed text so the customer knows the rule up front. GSM-7, kept short.
+    const cancelHrs = Number((shop.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
+    const policy = cancelHrs > 0 ? ` Cancel/reschedule ${cancelHrs}h+ ahead.` : "";
     const smsBody = inserted.data.status === "pending"
       ? `Thanks! Your request for ${b.date} at ${b.time_slot} was received. We'll text you when it's confirmed. Manage: ${manageLink}`
-      : `You're booked for ${b.date} at ${b.time_slot}. Manage: ${manageLink}`;
+      : `You're booked for ${b.date} at ${b.time_slot}.${policy} Manage: ${manageLink}`;
     await sendSmsBestEffort(b.client_phone, smsBody, shopName);
   }
 

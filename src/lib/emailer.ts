@@ -283,6 +283,7 @@ function bookingConfirmation(data: Record<string, string>) {
     ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
     <p style="font-size:12px;color:#4B5563;margin-top:8px">You can reschedule or cancel from the link above.</p>
     <hr class="divider">` : ""}
+    ${data.cancellationHours && Number(data.cancellationHours) > 0 ? `<p style="font-size:12px;color:#9CA3AF"><strong style="color:#fff">Cancellation policy:</strong> please cancel or reschedule at least ${data.cancellationHours} hour${data.cancellationHours === "1" ? "" : "s"} before your appointment.</p>` : ""}
     <p style="color:#4B5563">— ${data.shopName} via ClipWise</p>
   `);
 }
@@ -917,6 +918,17 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
     const loc = await resolveShopLocation(data.shopId);
     data.shopAddressLine = loc.line;
     data.shopDirectionsUrl = loc.url;
+  }
+
+  // Booking confirmations carry the shop's cancellation policy so the customer
+  // knows the notice window up front. Resolved from shopId (like the address);
+  // best-effort — 0/unavailable just omits the line. Default 2h when unset.
+  if (type === "booking_confirmation" && data?.shopId && data.cancellationHours == null) {
+    try {
+      const { data: s } = await supabaseAdmin.from("shops").select("booking_settings").eq("id", data.shopId).maybeSingle();
+      const h = Number((s?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
+      data.cancellationHours = String(Number.isFinite(h) ? h : 2);
+    } catch { /* omit the policy line if it can't be resolved */ }
   }
 
   // Owner-customized templates (Settings → Notifications, stored in

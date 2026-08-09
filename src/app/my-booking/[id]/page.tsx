@@ -165,7 +165,7 @@ export default function MyBookingPage() {
   // server is authoritative (it 403s a late cancel/reschedule), but we mirror it
   // here so we don't offer a "Yes, Cancel" button that will just fail — instead we
   // show the policy and point the customer to the shop. Judged in the shop's tz.
-  const cancelHours = Number(appt.shops?.booking_settings?.cancellation_hours ?? 0);
+  const cancelHours = Number(appt.shops?.booking_settings?.cancellation_hours ?? 2);
   const hrsUntil = hoursUntilBooking(appt.date, appt.time_slot, appt.shops?.timezone ?? null);
   const withinNoticeWindow = cancelHours > 0 && hrsUntil < cancelHours;
   const noticeLabel = cancelHours % 24 === 0 ? `${cancelHours / 24} day${cancelHours / 24 === 1 ? "" : "s"}` : `${cancelHours} hour${cancelHours === 1 ? "" : "s"}`;

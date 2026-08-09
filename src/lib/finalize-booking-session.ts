@@ -220,7 +220,7 @@ export async function finalizeBookingFromSession(params: {
     await redeemGift(m.shop_id, m.gift_code, Number(m.gift_applied));
   }
 
-  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug, subscription_plan, subscription_status").eq("id", m.shop_id).single();
+  const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug, subscription_plan, subscription_status, booking_settings").eq("id", m.shop_id).single();
   const friendly = prettyDate(m.date);
   if (shopRow?.owner_id) {
     // Show what the customer actually paid (service + tax + tip), so the alert
@@ -255,9 +255,11 @@ export async function finalizeBookingFromSession(params: {
   // UCS-2 and splits into 3). Payment detail + booking # live in the email/link.
   // SMS is a paid-plan feature — free (Starter) shops confirm by email only.
   if (m.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
+    const cancelHrs = Number((shopRow?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
+    const policy = cancelHrs > 0 ? ` Cancel/reschedule ${cancelHrs}h+ ahead.` : "";
     await sendSmsBestEffort(
       m.client_phone,
-      `You're booked for ${friendly} at ${m.time_slot}. Manage: ${baseUrl}/my-booking/${appt.id}`,
+      `You're booked for ${friendly} at ${m.time_slot}.${policy} Manage: ${baseUrl}/my-booking/${appt.id}`,
       shopRow?.name,
     );
   }

@@ -82,12 +82,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // ── Cancellation-notice window (server-authoritative) ──────────────────────
   // A customer can't self-cancel OR reschedule inside the shop's required notice
-  // (booking_settings.cancellation_hours), judged in the shop's timezone. 0 = no
-  // restriction. This is the actual enforcement of the "24h notice" policy — the
-  // UI also hides the buttons, but the server is the source of truth.
+  // (booking_settings.cancellation_hours), judged in the shop's timezone. Default
+  // 2 hours when unset (0 = the owner explicitly turned the restriction off). This
+  // is the actual enforcement — the UI also hides the buttons, but the server is
+  // the source of truth.
   const { data: shopCfg } = await supabaseAdmin
     .from("shops").select("timezone, booking_settings").eq("id", appt.shop_id).maybeSingle();
-  const cancelHours = Number((shopCfg?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 0);
+  const cancelHours = Number((shopCfg?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
   if (cancelHours > 0 && (body.action === "cancel" || body.action === "reschedule")) {
     const hrs = hoursUntilBooking(appt.date, appt.time_slot, (shopCfg as { timezone?: string | null } | null)?.timezone ?? null);
     if (hrs < cancelHours) {
