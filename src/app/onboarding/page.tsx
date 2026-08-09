@@ -25,6 +25,9 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState("");
+  // Message shown in the footer when a greyed "Continue" is tapped while the step
+  // isn't complete (e.g. Starter must add themselves as a barber first).
+  const [blockHint, setBlockHint] = useState("");
 
   // Only shop owners belong in the setup wizard. A barber or customer who lands
   // here (a stale link, or a role-mismatched redirect) is sent to their own home
@@ -121,6 +124,15 @@ export default function OnboardingPage() {
     if (step === 2 && planLimit === 1) return selfAdded;
     if (step === 4) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
+  };
+
+  // Plain-language reason the current step can't continue yet — shown by the
+  // (greyed) Continue button when it's tapped while blocked.
+  const blockReason = (): string => {
+    if (step === 0) return "Add your shop name, address, and city to continue.";
+    if (step === 2 && planLimit === 1 && !selfAdded) return "Add yourself as a barber to continue — tap the card above.";
+    if (step === 4) return "Add at least one service (with a name and price) to continue.";
+    return "Please finish this step to continue.";
   };
 
   const toDbTime = (display: string): string => {
@@ -282,6 +294,7 @@ export default function OnboardingPage() {
       setCreatedBarberIds((prev) => [...prev, data.barber.id]);
       setShowAddOther(false);
       setOtherBarber({ name: "", email: "", commission: "" });
+      setBlockHint(""); // added a barber → clear the "add yourself" nudge
     } catch {
       setBarberError("Connection error — please try again.");
     } finally {
@@ -605,12 +618,25 @@ export default function OnboardingPage() {
 
       {step < 5 && (
         <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 py-3">
-          <div className="max-w-lg mx-auto flex gap-3">
-            {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
-            <Button className="flex-1" disabled={!canProceed() || saving} loading={saving} onClick={step === 1 ? handleLogoStep : handleNext}>
+          <div className="max-w-lg mx-auto">
+            {blockHint && (
+              <p className="text-xs text-red-400 text-center mb-2">{blockHint}</p>
+            )}
+            <div className="flex gap-3">
+            {step > 0 && <Button variant="outline" onClick={() => { setBlockHint(""); setStep(step - 1); }} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
+            {/* Greyed but still tappable when the step isn't done, so tapping can
+                explain WHY (a truly-disabled button gives no feedback). */}
+            <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving}
+              onClick={() => {
+                if (saving) return;
+                if (!canProceed()) { setBlockHint(blockReason()); return; }
+                setBlockHint("");
+                (step === 1 ? handleLogoStep : handleNext)();
+              }}>
               {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : (step === 2 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
+            </div>
           </div>
         </div>
       )}
