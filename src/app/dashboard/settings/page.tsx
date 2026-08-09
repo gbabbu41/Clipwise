@@ -99,6 +99,9 @@ export default function SettingsPage() {
   // A Starter owner who has NEVER trialed can start the no-card 21-day trial right
   // from the upgrade cards (one free trial ever — the server enforces the same).
   const trialEligible = isFreePlan && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  // Cancel-flow state of the current shop.
+  const onTrialSub = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  const hasStripeSub = !!shop?.stripe_subscription_id;
   // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
   const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
   // Locations INCLUDED in the plan (Premium = 2); beyond that each is a $30/mo
@@ -119,6 +122,8 @@ export default function SettingsPage() {
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
+  const [showCancelSub, setShowCancelSub] = useState(false);
+  const [cancellingSub, setCancellingSub] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -571,6 +576,31 @@ export default function SettingsPage() {
       showToast("Connection error. Please try again.");
     } finally {
       setStartingTrial(false);
+    }
+  };
+
+  // Cancel / downgrade to free — right here, no bouncing to Billing. immediate=true
+  // switches to free now (trial or comp); false keeps a paid plan until period end.
+  const cancelSubscription = async (immediate: boolean) => {
+    if (!accessToken) { showToast("Please sign in again"); return; }
+    setCancellingSub(true);
+    try {
+      const res = await fetch("/api/stripe/cancel-subscription", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ immediate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast(data.error || "Couldn't cancel. Please try again."); return; }
+      setShowCancelSub(false);
+      await refreshShop();
+      if (data.immediate) showToast("You're back on the free Starter plan.");
+      else if (data.scheduled) showToast("Cancelled — you keep your plan until it ends, then it's free.");
+      else showToast("Cancelled — you keep your plan until your trial ends, then it's free.");
+    } catch {
+      showToast("Connection error. Please try again.");
+    } finally {
+      setCancellingSub(false);
     }
   };
 
@@ -1088,21 +1118,26 @@ export default function SettingsPage() {
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>
+                <Button variant="gold" onClick={() => setShowUpgradeModal(true)}>
                   {activePlanKey === "premium" ? "View Plans" : "Upgrade Plan"}
                 </Button>
                 {trialEligible && (
                   <p className="text-xs text-emerald-400 mt-2">Try Pro or Premium free for 21 days — no card required.</p>
                 )}
-                {/* Paid/trial only — cancel & downgrade live on the Billing page
-                    (one place for all subscription actions). Starter is already
-                    free, so there's nothing to cancel and this stays hidden. */}
+                {/* Paid/trial only — cancel happens right here (no bouncing to
+                    Billing). Starter is already free, so this stays hidden. */}
                 {!isFreePlan && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <Button variant="outline" size="sm" onClick={() => { window.location.href = "/dashboard/billing"; }}>
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <Button variant="outline-danger" size="sm" onClick={() => setShowCancelSub(true)}>
                       Cancel or downgrade plan
                     </Button>
-                    <p className="text-[11px] text-grey mt-1.5">Cancel keeps your plan until it ends, then drops to the free Starter plan.</p>
+                    <p className="text-[11px] text-grey mt-1.5">
+                      {hasStripeSub
+                        ? "Cancel keeps your plan until the billing period ends, then drops to free Starter."
+                        : onTrialSub
+                        ? "You keep it until your trial ends, then it's free Starter — or switch to free now."
+                        : "Switches you to the free Starter plan."}
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -1503,6 +1538,45 @@ export default function SettingsPage() {
                     );
                   });
                 })()}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Cancel / downgrade-to-free confirmation (in Settings, no bouncing) */}
+      {showCancelSub && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowCancelSub(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <h2 className="text-lg font-bold text-foreground">Cancel your plan?</h2>
+              {onTrialSub ? (
+                <p className="text-sm text-grey">
+                  You&apos;re on a free trial — you won&apos;t be charged. You can keep it until{" "}
+                  <span className="text-foreground font-medium">{shop?.trial_ends_at ? new Date(shop.trial_ends_at).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "it ends"}</span>, then it becomes the free Starter plan. Or switch to free now.
+                </p>
+              ) : hasStripeSub ? (
+                <p className="text-sm text-grey">
+                  You&apos;ll keep your plan until the end of your current billing period, then move to the free Starter plan. No more charges, and no refund for the unused days.
+                </p>
+              ) : (
+                <p className="text-sm text-grey">This moves you to the free Starter plan. You can upgrade again anytime.</p>
+              )}
+              <div className="flex flex-col gap-2 pt-1">
+                {onTrialSub ? (
+                  <>
+                    <Button variant="danger" loading={cancellingSub} onClick={() => cancelSubscription(true)}>Switch to free now</Button>
+                    <Button variant="outline" onClick={() => setShowCancelSub(false)}>Keep my trial</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="danger" loading={cancellingSub} onClick={() => cancelSubscription(!hasStripeSub)}>
+                      {hasStripeSub ? "Cancel at period end" : "Switch to free"}
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowCancelSub(false)}>Keep my plan</Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
