@@ -15,7 +15,7 @@ import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
-import { sendNewBookingStaffEmails } from "@/lib/notify-booking-emails";
+import { sendNewBookingStaffEmails, sendCustomerBookingEmail } from "@/lib/notify-booking-emails";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -311,6 +311,12 @@ export async function POST(request: NextRequest) {
     // serverless invocation doesn't freeze before they go out.
     await sendNewBookingStaffEmails(inserted.data.id);
   }
+
+  // Customer confirmation EMAIL — for BOTH portal (staff-added) and self-bookings
+  // whenever there's an email on file. Email isn't plan-gated (Starter is
+  // email-only), so this is the customer's confirmation regardless of plan/SMS.
+  // Server-side (service role) so it works even from the anonymous booking page.
+  await sendCustomerBookingEmail(inserted.data.id);
 
   // Text the customer their confirmation (server-side, best-effort). Only for
   // customer self-bookings — staff-added walk-ins don't auto-text (unchanged

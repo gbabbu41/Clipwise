@@ -131,11 +131,14 @@ export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, status
 /** Customer "we missed you — book again" email, fired when an appointment is
  *  marked no-show. Fire-and-forget. Kept here so every surface (calendar, barber
  *  portal, appointments page) sends the same follow-up. */
-export function sendNoShowFollowup(appt: AppointmentWithDetails, shop: Shop) {
+export function sendNoShowFollowup(appt: AppointmentWithDetails, shop: Shop, accessToken?: string | null) {
   if (!appt.client_email) return;
+  // no_show_followup is a PRIVILEGED email type (link-bearing / customer-recipient),
+  // so /api/send-email requires a staff token — without it the request 401s and the
+  // email is silently dropped. Pass the caller's token so the follow-up actually sends.
   fetch("/api/send-email", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
     body: JSON.stringify({
       type: "no_show_followup",
       data: {

@@ -508,7 +508,7 @@ export function makeApptActions(opts: {
       // a fee, the receipt already leads with a warm "we missed you" note + rebook
       // link (one combined email), so only send the standalone "we missed you"
       // follow-up when there was NO charge. Never the review email on a no-show.
-      if (!charged) sendNoShowFollowup(appt, shop);
+      if (!charged) sendNoShowFollowup(appt, shop, accessToken);
       notifyFreedSlot(appt, shop, "No-show");
       setBusy("");
       onDone();
