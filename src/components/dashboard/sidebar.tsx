@@ -595,8 +595,10 @@ export function Sidebar() {
           ));
         })()}
 
-        {/* Owner-also-barber: prominent switch to barber view */}
-        {isAlsoBarber && (
+        {/* Owner-also-barber: prominent switch to barber view. Paid plans only —
+            a solo Starter owner has ONE view (the barber portal bounces them back
+            anyway), so showing this link would just be a dead-end loop. */}
+        {isAlsoBarber && isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status)) && (
           <Link href="/barber-dashboard"
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-grey hover:text-foreground hover:bg-card-raised mt-4 pt-4 border-t border-border">
             <Scissors size={18} className="text-grey group-hover:text-foreground" />
