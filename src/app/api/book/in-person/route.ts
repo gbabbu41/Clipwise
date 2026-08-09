@@ -196,7 +196,9 @@ export async function POST(request: NextRequest) {
   // insert (mirrors the gift path) so a pre-tax-column prod can never fail the
   // booking.
   const inPersonTaxCfg = (shop.booking_settings ?? {}) as TaxConfig;
-  const inPersonTax = taxCents(Math.round(effectiveTotal * 100), combinedTaxRate(inPersonTaxCfg)) / 100;
+  // Tax is a paid-plan feature — a Starter (cash-only) shop never charges it, no
+  // matter what's stored in booking_settings (kept intact for when they upgrade).
+  const inPersonTax = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(inPersonTaxCfg) : 0) / 100;
   const grossTotal = Math.round((effectiveTotal + inPersonTax) * 100) / 100;
   const baseRow = {
     shop_id: b.shop_id,
@@ -273,7 +275,7 @@ export async function POST(request: NextRequest) {
   // best-effort follow-ups (payment_method needs the phase37 migration).
   if (b.gift_code && effectiveTotal > 0) {
     const bs = (shop.booking_settings ?? {}) as TaxConfig;
-    const taxAmt = taxCents(Math.round(effectiveTotal * 100), combinedTaxRate(bs)) / 100;
+    const taxAmt = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(bs) : 0) / 100;
     const gross = Math.round((effectiveTotal + taxAmt) * 100) / 100;
     const applied = await redeemGift(b.shop_id, b.gift_code, gross);
     if (applied >= gross - 0.001) {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
 import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
-import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature } from "@/lib/validation";
+import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
 
@@ -1054,12 +1054,16 @@ export default function BookingClient() {
   // server recomputes it authoritatively at checkout. Tax applies to the
   // service amount after any discount. ───────────────────────────────────────
   const taxCfg = (shop?.booking_settings ?? null) as TaxConfig | null;
+  // Tax is a paid-plan feature. Starter is cash-only and never shows or charges
+  // tax — no matter what's stored (the stored setting is preserved for when they
+  // upgrade). The server (book/in-person) enforces the same, authoritatively.
+  const taxAllowed = isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status));
   // Mirror the server rule so the shown total matches what's charged: tax only
   // when registered (valid GST/HST number on file). Show GST/HST + any PST as
   // their own lines; the total uses the combined rate.
-  const taxEnabled = shopChargesTax(taxCfg);
-  const taxLines = taxLinesFor(taxCfg);
-  const taxRatePct = combinedTaxRate(taxCfg);
+  const taxEnabled = taxAllowed && shopChargesTax(taxCfg);
+  const taxLines = taxAllowed ? taxLinesFor(taxCfg) : [];
+  const taxRatePct = taxAllowed ? combinedTaxRate(taxCfg) : 0;
   const taxAmount = Math.round(total * taxRatePct) / 100;
   const taxLabel = taxLines.map((l) => l.label).join(" + ") || "tax";
   const grandTotal = total + taxAmount;
