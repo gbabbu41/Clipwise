@@ -11,6 +11,7 @@ import { SwipeNavigator } from "@/components/swipe-navigator";
 import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 
 // Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
@@ -23,13 +24,14 @@ const OWNER_SWIPE_ORDER = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, shop, loading, refreshShop } = useAuth();
+  const { user, profile, shop, loading, refreshShop, accessToken } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const triedRefresh = useRef(false);
   const [recovering, setRecovering] = useState(false);
   const [stuck, setStuck] = useState(false);
   const initialUidRef = useRef<string | null | undefined>(undefined);
+  const ensuredBarberRef = useRef(false);
 
   // A shop owner whose shop hasn't loaded into context yet (e.g. just finished
   // onboarding) would otherwise fall through to the "No shop found" page. Try a
@@ -77,6 +79,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       initialUidRef.current = uid;
     }
   }, [user, loading]);
+
+  // Self-heal: a solo Starter owner IS their own barber. If they reach the
+  // dashboard without a barber row (e.g. abandoned onboarding before the "add
+  // yourself" step), create it now — Staff is hidden on Starter, so this is the
+  // only way back. Runs once, Starter-only; paid shops manage barbers via Staff.
+  useEffect(() => {
+    if (loading || !user || !shop || profile?.role !== "shop_owner") return;
+    if (ensuredBarberRef.current) return;
+    if (isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) return;
+    ensuredBarberRef.current = true;
+    (async () => {
+      const { data: mine } = await supabase
+        .from("barbers").select("id").eq("shop_id", shop.id).eq("user_id", user.id).maybeSingle();
+      if (mine) return; // already their own barber — nothing to do
+      await fetch("/api/admin/barber/invite", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken ?? ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profile?.name || user.email?.split("@")[0] || "Me",
+          email: user.email,
+          commission_percent: 100,
+          shop_id: shop.id,
+        }),
+      }).catch(() => null);
+    })();
+  }, [loading, user, shop, profile, accessToken]);
 
   // Show the spinner (not the "no shop" page) while we (re)fetch a shop-owner's
   // shop — both on the first render before the effect fires and during the fetch.
