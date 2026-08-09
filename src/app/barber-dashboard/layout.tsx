@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
@@ -37,18 +38,22 @@ function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: 
 
 function BarberGuard({ children }: { children: React.ReactNode }) {
   const { barber, loading, error } = useBarber();
-  const { profile } = useAuth();
+  const { profile, shop } = useAuth();
   const router = useRouter();
 
-  // A shop OWNER always belongs in the owner dashboard — never the barber portal,
-  // even if they added themselves as a barber (which a solo owner does so their
-  // own appointments have someone to sit under). One person = one view; this
-  // stops a solo owner from bouncing between two separate "income" portals.
+  // Where a shop OWNER goes when they land on the barber portal:
+  //  • no barber row → dashboard (nothing here for them) — original behavior.
+  //  • free/Starter plan → dashboard (solo = ONE view, no separate barber portal).
+  //  • Pro/Premium owner who cuts hair → stays; the full multi-barber portal +
+  //    commission system is UNCHANGED for paid plans.
+  // The plan check waits for `shop` to load so a paid owner is never wrongly bounced.
   useEffect(() => {
-    if (!loading && profile?.role === "shop_owner") {
+    if (loading || profile?.role !== "shop_owner") return;
+    if (error || !barber) { router.replace("/dashboard"); return; }
+    if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
       router.replace("/dashboard");
     }
-  }, [loading, profile, router]);
+  }, [loading, profile, shop, error, barber, router]);
 
   const signOut = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 

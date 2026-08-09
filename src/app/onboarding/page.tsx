@@ -268,9 +268,10 @@ export default function OnboardingPage() {
 
   const addSelfAsBarber = () => {
     if (!user?.email) { setBarberError("Your account email is missing — try signing in again."); return; }
-    // The owner keeps 100% of their own cuts — a commission split only makes sense
-    // for employed barbers (paid plans). One person = all theirs.
-    inviteBarber(profile?.name || user.email.split("@")[0], user.email, 100);
+    // Starter is solo → the owner keeps 100% (no split, one person). On paid plans
+    // the multi-barber commission system is unchanged; the owner sets his own split
+    // afterward in Staff (e.g. to show himself as a working barber for tax).
+    inviteBarber(profile?.name || user.email.split("@")[0], user.email, chosenPlan === "starter" ? 100 : 50);
   };
 
   const addOtherBarber = () => {
