@@ -10,6 +10,7 @@ import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
+import { shareLink } from "@/lib/share";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -214,7 +215,12 @@ export function BarberSidebar() {
           name={displayName}
           photo={barber?.photo}
           roleLabel={profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}
-          items={barberMenuItems(barber?.permissions?.view_earnings === true)}
+          items={barberMenuItems(
+            barber?.permissions?.view_earnings === true,
+            shop?.slug && barber?.id
+              ? () => void shareLink(`${window.location.origin}/book/${shop.slug}?barber=${barber.id}`, `Book with ${barber.name ?? "me"}`)
+              : undefined,
+          )}
           triggerClassName="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 overflow-hidden"
         />
       </div>

@@ -9,6 +9,7 @@ import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
+import { shareLink } from "@/lib/share";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -43,6 +44,17 @@ export default function BarberOverviewPage() {
   const [detailBusy, setDetailBusy] = useState("");
 
   const showToast = useCallback((m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); }, []);
+
+  // Share this barber's PERSONAL booking link (books only them). Reused by the
+  // big button below and the account-menu "Share my link" item.
+  const shareMyLink = useCallback(() => {
+    if (!shop?.slug || !barber?.id) return;
+    void shareLink(
+      `${window.location.origin}/book/${shop.slug}?barber=${barber.id}`,
+      `Book with ${barber.name ?? "me"}`,
+      (r) => { if (r === "copied") showToast("Booking link copied — share it anywhere!"); else if (r === "failed") showToast("Couldn't copy the link."); },
+    );
+  }, [shop?.slug, barber?.id, barber?.name, showToast]);
 
   const today = new Date();
   const todayStr = formatDateForDb(today);
@@ -139,7 +151,7 @@ export default function BarberOverviewPage() {
             name={barber?.name ?? "Account"}
             photo={barber?.photo}
             roleLabel={isOwner ? "Owner · Barber" : "Barber"}
-            items={barberMenuItems(barber?.permissions?.view_earnings === true)}
+            items={barberMenuItems(barber?.permissions?.view_earnings === true, shop?.slug && barber?.id ? shareMyLink : undefined)}
             className="hidden lg:block"
             triggerClassName="w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] inline-flex items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           />
@@ -150,14 +162,7 @@ export default function BarberOverviewPage() {
       {shop?.slug && barber?.id && (
         <button
           type="button"
-          onClick={async () => {
-            const url = `${window.location.origin}/book/${shop.slug}?barber=${barber.id}`;
-            if (typeof navigator !== "undefined" && navigator.share) {
-              try { await navigator.share({ title: `Book with ${barber.name}`, url }); return; } catch { /* dismissed */ }
-            }
-            try { await navigator.clipboard.writeText(url); showToast("Booking link copied — share it anywhere!"); }
-            catch { showToast("Couldn't copy the link."); }
-          }}
+          onClick={shareMyLink}
           className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-2xl border border-border bg-card text-foreground text-sm font-semibold hover:border-gray-500 transition-colors"
         >
           🔗 Share my booking link

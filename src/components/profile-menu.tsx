@@ -2,12 +2,18 @@
 import Link from "next/link";
 import { useState, useRef, useEffect, type ElementType } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Settings, CreditCard, Bell, User, DollarSign } from "lucide-react";
+import { LogOut, Settings, CreditCard, Bell, User, DollarSign, Share2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn } from "@/lib/utils";
 
-export type ProfileMenuItem = { label: string; href: string; icon: ElementType };
+/** A menu row is either a link (href) or an action (onClick), never both. */
+export type ProfileMenuItem = {
+  label: string;
+  icon: ElementType;
+  href?: string;
+  onClick?: () => void;
+};
 
 /**
  * Universal account dropdown — tapping the profile avatar reveals a menu with
@@ -81,20 +87,18 @@ export function ProfileMenu({
               </div>
             </div>
 
-            {/* Quick links */}
+            {/* Quick links / actions */}
             <div className="py-1.5">
-              {items.map(({ label, href, icon: Icon }) => (
-                <Link
-                  key={href + label}
-                  href={href}
-                  onClick={() => setOpen(false)}
-                  role="menuitem"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-foreground/5 transition-colors"
-                >
-                  <Icon size={16} className="text-grey flex-shrink-0" />
-                  <span className="truncate">{label}</span>
-                </Link>
-              ))}
+              {items.map(({ label, href, icon: Icon, onClick }) => {
+                const cls = "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-foreground/5 transition-colors text-left";
+                const inner = (<><Icon size={16} className="text-grey flex-shrink-0" /><span className="truncate">{label}</span></>);
+                return href ? (
+                  <Link key={label} href={href} onClick={() => setOpen(false)} role="menuitem" className={cls}>{inner}</Link>
+                ) : (
+                  <button key={label} type="button" role="menuitem" className={cls}
+                    onClick={() => { setOpen(false); onClick?.(); }}>{inner}</button>
+                );
+              })}
             </div>
 
             {/* Log out */}
@@ -116,16 +120,22 @@ export function ProfileMenu({
   );
 }
 
-/** Owner-portal account menu — same links everywhere it appears. */
+/** Owner-portal account menu — same links everywhere it appears. The Share page
+ *  shows the shop's booking link (which, for a solo/Starter shop, auto-locks to
+ *  the one barber — so it's effectively that barber's personal link). */
 export const OWNER_MENU_ITEMS: ProfileMenuItem[] = [
+  { label: "Share booking link", href: "/dashboard/share", icon: Share2 },
   { label: "Account & settings", href: "/dashboard/settings", icon: Settings },
   { label: "Billing & plan", href: "/dashboard/billing", icon: CreditCard },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
 ];
 
-/** Barber-portal account menu — Payments only when the barber may see earnings. */
-export function barberMenuItems(canSeeEarnings: boolean): ProfileMenuItem[] {
+/** Barber-portal account menu. `onShare`, when given, adds a "Share my link"
+ *  action (the barber's personal ?barber= link). Payments shows only when the
+ *  barber may see earnings. */
+export function barberMenuItems(canSeeEarnings: boolean, onShare?: () => void): ProfileMenuItem[] {
   return [
+    ...(onShare ? [{ label: "Share my link", icon: Share2, onClick: onShare }] : []),
     { label: "Profile", href: "/barber-dashboard/profile", icon: User },
     ...(canSeeEarnings ? [{ label: "Payments", href: "/barber-dashboard/earnings", icon: DollarSign }] : []),
     { label: "Notifications", href: "/barber-dashboard/notifications", icon: Bell },
