@@ -32,7 +32,6 @@ export default function SharePage() {
 
   const BASE_URL = typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca";
   const bookingUrl = `${BASE_URL}/book/${shop.slug}`;
-  const profileUrl = `${BASE_URL}/shops/${shop.slug}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(bookingUrl)}&bgcolor=1C1C1E&color=C9A84C&margin=20`;
 
   const copy = async (text: string, label = "Copied!") => {
@@ -104,15 +103,10 @@ export default function SharePage() {
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
-          <div className="flex gap-3 mt-3">
-            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+          <div className="mt-3">
+            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="block">
               <Button variant="outline" className="w-full" size="sm">
                 <ExternalLink size={14} /> Preview Booking Page
-              </Button>
-            </a>
-            <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-              <Button variant="ghost" className="w-full" size="sm">
-                <ExternalLink size={14} /> View Shop Profile
               </Button>
             </a>
           </div>
