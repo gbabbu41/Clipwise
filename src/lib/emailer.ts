@@ -46,8 +46,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 function wrap(content: string) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
 <style>
-  body{margin:0;padding:0;background:#0A0A0A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#E5E7EB}
+  :root{color-scheme:dark}
+  body{margin:0;padding:0;background:#0A0A0A;color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#E5E7EB}
   .container{max-width:560px;margin:0 auto;padding:32px 16px}
   .card{background:#1C1C1E;border:1px solid #2D2D2D;border-radius:16px;padding:32px}
   .logo{font-size:22px;font-weight:800;color:#F5F0E6;letter-spacing:-0.5px;margin-bottom:28px}
@@ -55,21 +58,21 @@ function wrap(content: string) {
   h1{font-size:22px;font-weight:700;color:#fff;margin:0 0 8px}
   p{font-size:14px;line-height:1.6;color:#9CA3AF;margin:0 0 12px}
   .highlight{color:#fff}
-  .badge{display:inline-block;background:#F5F0E620;border:1px solid #F5F0E640;color:#F5F0E6;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
+  .badge{display:inline-block;background:#374151;border:1px solid #6B7280;color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
   .btn{display:inline-block;background:#F5F0E6;color:#000;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;margin:16px 0}
   .link-box{background:#111;border:1px solid #2D2D2D;border-radius:10px;padding:12px 16px;margin:16px 0}
   .link-box a{color:#F5F0E6;font-size:13px;text-decoration:none;word-break:break-all}
   .divider{border:0;border-top:1px solid #2D2D2D;margin:24px 0}
   .steps{list-style:none;padding:0;margin:16px 0}
   .steps li{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:14px;color:#9CA3AF}
-  .step-num{background:#F5F0E620;border:1px solid #F5F0E640;color:#F5F0E6;width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+  .step-num{background:#F5F0E6;border:1px solid #F5F0E6;color:#1C1C1E;width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
   .footer{text-align:center;margin-top:24px;font-size:12px;color:#4B5563}
   .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2D2D2D;font-size:13px}
   .row:last-child{border-bottom:0}
   .row .label{color:#6B7280}
   .row .val{color:#fff;font-weight:500}
-  .green-badge{display:inline-block;background:#10B98120;border:1px solid #10B98140;color:#10B981;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
-  .red-badge{display:inline-block;background:#EF444420;border:1px solid #EF444440;color:#EF4444;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
+  .green-badge{display:inline-block;background:#065F46;border:1px solid #10B981;color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
+  .red-badge{display:inline-block;background:#B91C1C;border:1px solid #EF4444;color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;margin-bottom:20px}
 </style></head>
 <body><div class="container"><div class="card">${content}</div>
 <div class="footer">© ClipWise · <a href="${BASE_URL}" style="color:#F5F0E6;text-decoration:none">clipwise.ca</a></div>
