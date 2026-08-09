@@ -318,25 +318,45 @@ export default function BillingPage() {
       <Card>
         <CardHeader>
           <CardTitle>Payouts (Stripe Connect)</CardTitle>
-          {billing?.connect.connected
+          {/* No "Not connected" warning on Starter — online payments aren't part of
+              that plan, so there's nothing for them to set up. */}
+          {onFreePlan
+            ? null
+            : billing?.connect.connected
             ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border bg-emerald-500/15 text-emerald-400 border-emerald-500/30"><Check size={11} /> Connected</span>
             : <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border bg-orange-500/15 text-orange-400 border-orange-500/30"><AlertTriangle size={11} /> Not connected</span>}
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center">
-              <Building2 size={18} className="text-foreground" />
+          {onFreePlan ? (
+            // Starter is cash-only — don't offer Stripe setup (connecting would do
+            // nothing since online payments are locked). Point them to upgrade.
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center flex-shrink-0">
+                <Building2 size={18} className="text-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-grey">Taking card payments online is a <span className="text-foreground font-medium">Pro &amp; Premium</span> feature. Your shop is on Starter, so bookings are cash / in-person only.</p>
+                <p className="text-xs text-gold mt-1">Choose a plan above to connect your bank and accept cards.</p>
+              </div>
             </div>
-            <p className="text-sm text-grey">
-              {billing?.connect.connected
-                ? "Your bank account is connected. Customer payments are deposited directly to you."
-                : "Connect your bank account to receive customer payments directly via Stripe."}
-            </p>
-          </div>
-          {!billing?.connect.connected && (
-            <Button loading={actionLoading === "connect"} onClick={completeConnect}>
-              <Building2 size={15} /> Complete Setup
-            </Button>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center">
+                  <Building2 size={18} className="text-foreground" />
+                </div>
+                <p className="text-sm text-grey">
+                  {billing?.connect.connected
+                    ? "Your bank account is connected. Customer payments are deposited directly to you."
+                    : "Connect your bank account to receive customer payments directly via Stripe."}
+                </p>
+              </div>
+              {!billing?.connect.connected && (
+                <Button loading={actionLoading === "connect"} onClick={completeConnect}>
+                  <Building2 size={15} /> Complete Setup
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

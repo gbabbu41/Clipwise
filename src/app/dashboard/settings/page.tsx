@@ -1200,7 +1200,7 @@ export default function SettingsPage() {
               </p>
             </div>
             {!canMultiLocation ? (
-              <Button size="sm" variant="outline" onClick={() => setTab("subscription")}>
+              <Button size="sm" variant="outline" onClick={() => { showToast("Multiple locations are a Premium feature. Upgrade to Premium to add another location."); setTab("subscription"); }}>
                 <Plus size={14} /> Add Location · Premium
               </Button>
             ) : atLocationLimit ? (
