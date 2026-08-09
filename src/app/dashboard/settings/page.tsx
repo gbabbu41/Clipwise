@@ -55,7 +55,7 @@ type PlanInfo = { key: string; name: string; priceLabel: string; priceSuffix: st
 const PLAN_INFO: PlanInfo[] = [
   {
     key: "starter", name: "Starter", priceLabel: "Free", priceSuffix: "forever",
-    features: ["1 barber", "Online booking page", "Appointment management", "Basic analytics", "SMS reminders"],
+    features: ["1 barber", "Online booking page", "Appointment management", "Email confirmations & reminders"],
   },
   {
     key: "pro", name: "Pro", priceLabel: "$23", priceSuffix: "/month",

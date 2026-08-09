@@ -47,7 +47,7 @@ const PLAN_GUIDANCE: Record<string, string> = {
 // Shown until /api/plans resolves (and if it ever fails) — mirrors the seeded tiers.
 const FALLBACK_PLANS: PlanRow[] = [
   { id: "starter", name: "Starter", price_cents: 0, barber_limit: 1, features: [], badge: null, description: null, is_active: true, sort_order: 0,
-    highlights: ["1 barber", "Online booking page", "Appointment management", "SMS reminders", "Basic analytics"] },
+    highlights: ["1 barber", "Online booking page", "Appointment management", "Email confirmations & reminders"] },
   { id: "pro", name: "Pro", price_cents: 2300, barber_limit: 4, features: ["payments", "loyalty"], badge: "Most Popular", description: null, is_active: true, sort_order: 1,
     highlights: ["Up to 4 barbers", "Online booking + customer payments", "Loyalty program", "Advanced analytics", "Stripe Connect for payouts", "Instant approval"] },
   { id: "premium", name: "Premium", price_cents: 7900, barber_limit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], badge: "Full Suite", description: null, is_active: true, sort_order: 2,
