@@ -70,11 +70,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!plans.some(p => p.id === body.subscription_plan)) {
       return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
     }
-    const { error } = await supabaseAdmin.from("shops").update({ subscription_plan: body.subscription_plan }).eq("id", id);
+    // Also set subscription_status so the plan actually TAKES EFFECT: the app
+    // gates features (and the cancel option) on effectivePlan, which only counts
+    // a plan when status === 'active'. Setting the plan alone left shops "Pro on
+    // paper" but locked to Starter. A paid override → active; Starter → inactive
+    // (and clear any trial clock).
+    const newPlan = body.subscription_plan as string;
+    const planUpdate: Record<string, unknown> = { subscription_plan: newPlan };
+    planUpdate.subscription_status = newPlan === "starter" ? "inactive" : "active";
+    if (newPlan === "starter") planUpdate.trial_ends_at = null;
+    const { error } = await supabaseAdmin.from("shops").update(planUpdate).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await logAdminAction(admin, {
       action: "shop.plan_change", target_type: "shop", target_id: id, target_label: shop.name,
-      meta: { from: shop.subscription_plan, to: body.subscription_plan },
+      meta: { from: shop.subscription_plan, to: newPlan },
     });
   }
 

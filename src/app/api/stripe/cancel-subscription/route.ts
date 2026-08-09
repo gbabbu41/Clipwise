@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
 
   const onTrial = !!shop.trial_ends_at && !shop.stripe_subscription_id;
   const hasPaidSub = !!shop.stripe_subscription_id;
-  if (!hasPaidSub && !onTrial) {
+  const planOnRecord = (shop.subscription_plan ?? "starter");
+  if (planOnRecord === "starter" && !hasPaidSub && !onTrial) {
     return NextResponse.json({ error: "You're already on the free plan — nothing to cancel." }, { status: 400 });
   }
 
@@ -51,13 +52,22 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Paid: cancel at period end (keep access until then) ───────────────────
-    const sub = await stripe.subscriptions.update(shop.stripe_subscription_id, { cancel_at_period_end: true }) as unknown as Stripe.Subscription & { current_period_end?: number };
-    const periodEnd = (sub.items?.data?.[0] as { current_period_end?: number } | undefined)?.current_period_end ?? sub.current_period_end;
-    return NextResponse.json({
-      ok: true,
-      scheduled: true,
-      endsAt: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    });
+    if (hasPaidSub) {
+      const sub = await stripe.subscriptions.update(shop.stripe_subscription_id, { cancel_at_period_end: true }) as unknown as Stripe.Subscription & { current_period_end?: number };
+      const periodEnd = (sub.items?.data?.[0] as { current_period_end?: number } | undefined)?.current_period_end ?? sub.current_period_end;
+      return NextResponse.json({
+        ok: true,
+        scheduled: true,
+        endsAt: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      });
+    }
+
+    // ── Admin-comped plan (active, no Stripe sub, no trial clock): nothing to
+    //    "keep until", so just move them to the free Starter plan now. ─────────
+    await supabaseAdmin.from("shops")
+      .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null })
+      .eq("id", shop.id);
+    return NextResponse.json({ ok: true, immediate: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't cancel — please try again." }, { status: 500 });
   }
