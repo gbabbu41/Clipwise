@@ -1095,12 +1095,15 @@ export default function SettingsPage() {
                   <p className="text-xs text-emerald-400 mt-2">Try Pro or Premium free for 21 days — no card required.</p>
                 )}
                 {/* Paid/trial only — cancel & downgrade live on the Billing page
-                    (one place for all subscription actions). Starter has nothing
-                    to cancel, so this stays hidden there. */}
+                    (one place for all subscription actions). Starter is already
+                    free, so there's nothing to cancel and this stays hidden. */}
                 {!isFreePlan && (
-                  <a href="/dashboard/billing" className="block text-xs text-grey hover:text-red-400 transition-colors mt-3">
-                    Cancel or downgrade your plan →
-                  </a>
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <Button variant="outline" size="sm" onClick={() => { window.location.href = "/dashboard/billing"; }}>
+                      Cancel or downgrade plan
+                    </Button>
+                    <p className="text-[11px] text-grey mt-1.5">Cancel keeps your plan until it ends, then drops to the free Starter plan.</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
