@@ -109,7 +109,7 @@ export default function OnboardingPage() {
   }, [user, createdShopId]);
 
   const canProceed = () => {
-    if (step === 0) return shop.name && shop.address && shop.city && shop.phone;
+    if (step === 0) return shop.name && shop.address && shop.city;
     // Step 2 (barbers) is always skippable — adds happen inline via the invite route.
     if (step === 3) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
@@ -328,17 +328,18 @@ export default function OnboardingPage() {
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Tell us about your shop</h2>
-            {[
+            {([
               { key: "name", label: "Shop Name *", placeholder: "Fresh Cutz Barbershop" },
               { key: "address", label: "Street Address *", placeholder: "123 Main Street" },
               { key: "city", label: "City *", placeholder: "Moncton" },
-              { key: "phone", label: "Phone Number *", placeholder: "(506) 555-0123" },
+              { key: "phone", label: "Phone Number", placeholder: "(506) 555-0123", note: "Optional — shown publicly on your booking page. Leave blank to keep it private." },
               { key: "postal_code", label: "Postal Code", placeholder: "E1C 1A1" },
-            ].map(({ key, label, placeholder }) => (
+            ] as { key: string; label: string; placeholder: string; note?: string }[]).map(({ key, label, placeholder, note }) => (
               <div key={key} className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">{label}</label>
                 <input value={shop[key as keyof typeof shop]} onChange={(e) => setShop({ ...shop, [key]: e.target.value })} placeholder={placeholder}
                   className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                {note && <p className="text-xs text-[#8f8f8f]">{note}</p>}
               </div>
             ))}
             <div className="space-y-1.5">
