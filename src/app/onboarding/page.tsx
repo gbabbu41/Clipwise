@@ -128,7 +128,9 @@ export default function OnboardingPage() {
     setError("");
     setSaving(true);
     try {
-      if (step === 0) {
+      if (step === 0 && !createdShopId) {
+        // Skip if a shop already exists for this owner (restored on resume, or a
+        // re-click) — the server also guards this, so no duplicate shop is created.
         // Shop creation is server-side now: the API forces status='pending' /
         // plan='starter' and only grants a paid plan + auto-approval after
         // VERIFYING the Stripe subscription belongs to this user. The plan/

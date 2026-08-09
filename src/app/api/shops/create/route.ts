@@ -24,6 +24,21 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // One-shop guard + idempotency. This route creates the owner's FIRST shop, and
+  // it mints a fresh random slug on EVERY call — so a second call (double-submit,
+  // resumed/abandoned onboarding, browser back) would create a DUPLICATE shop
+  // (the Starter "two shops, one email" bug). If the owner already has a shop,
+  // return it instead of creating another. Additional locations go through
+  // /api/shops/add-location, which enforces the multi-location (Premium) gate.
+  {
+    const { data: existing } = await supabaseAdmin
+      .from("shops").select("id, slug, status, subscription_plan")
+      .eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ ok: true, shop: existing[0], existing: true });
+    }
+  }
+
   const body = await request.json() as {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string;
     phone?: string; email?: string; description?: string; logo?: string;
