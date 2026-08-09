@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const { data: appt } = await supabaseAdmin
       .from("appointments")
-      .select("id, shop_id, barber_id, client_name, date, time_slot, payment_status, services(name)")
+      .select("id, shop_id, barber_id, client_name, date, time_slot, status, payment_status, services(name)")
       .eq("id", appointment_id)
       .maybeSingle();
     if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
@@ -38,8 +38,16 @@ export async function POST(request: NextRequest) {
       : ((appt.services as { name?: string } | null)?.name ?? "a service");
     const friendly = prettyDateWithContext(appt.date);
 
-    // Unpaid/null = a pay-in-person booking that still needs the owner/barber to Approve.
-    const needsApproval = !appt.payment_status || appt.payment_status === "unpaid";
+    // A booking needs approval ONLY while it's still pending. Auto-confirm (and any
+    // online-paid booking) creates it already 'confirmed', so no Approve action
+    // should appear. Basing this on payment_status alone was the bug: a cash /
+    // no-card booking is always 'unpaid', so an auto-confirmed one still said
+    // "needs approval · tap to approve" and every notification surface showed a
+    // bogus Approve. Trust the appointment status; fall back to the old payment
+    // heuristic only if status is somehow missing.
+    const needsApproval = appt.status
+      ? appt.status === "pending"
+      : (!appt.payment_status || appt.payment_status === "unpaid");
     const title = needsApproval ? "New booking — needs approval" : "New booking";
     const message = `${appt.client_name} — ${serviceName} on ${friendly} at ${appt.time_slot}${needsApproval ? " · tap to approve" : ""}`;
 
