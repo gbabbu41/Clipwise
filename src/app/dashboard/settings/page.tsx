@@ -77,7 +77,19 @@ const profileKeyOf = (p: Record<string, unknown>) => JSON.stringify({ ...p, allo
 const bookingKeyOf = (bk: BookingSettings, allowPIP: boolean) => JSON.stringify({ ...bk, _allowPIP: allowPIP });
 
 export default function SettingsPage() {
-  const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken } = useAuth();
+  const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken, plans } = useAuth();
+  // Plan cards come from the admin-editable `plans` DB table — ONE source of truth
+  // shared with the signup step + feature gating. PLAN_INFO is only a fallback for
+  // the brief moment before /api/plans resolves (or if it fails).
+  const planCards: PlanInfo[] = (plans && plans.length)
+    ? plans.filter(p => p.is_active).map(p => ({
+        key: p.id,
+        name: p.name,
+        priceLabel: p.price_cents === 0 ? "Free" : `$${p.price_cents / 100}`,
+        priceSuffix: p.price_cents === 0 ? "forever" : "/month",
+        features: p.highlights ?? [],
+      }))
+    : PLAN_INFO;
   const [tab, setTab] = useState("profile");
 
   // Free (Starter) shops can't charge online, so pay-in-person is their ONLY
@@ -952,7 +964,7 @@ export default function SettingsPage() {
 
       {tab === "subscription" && (() => {
         const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
-        const activePlan = PLAN_INFO.find(p => p.key === activePlanKey) ?? PLAN_INFO[0];
+        const activePlan = planCards.find(p => p.key === activePlanKey) ?? planCards[0];
         const downgraded = shop?.subscription_plan && shop.subscription_plan !== "starter" && activePlanKey === "starter";
         return (
           <div className="space-y-4 max-w-3xl">
@@ -1340,7 +1352,7 @@ export default function SettingsPage() {
               <div className="grid md:grid-cols-3 gap-4">
                 {(() => {
                   const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
-                  return PLAN_INFO.map(plan => {
+                  return planCards.map(plan => {
                     const isCurrent = plan.key === activePlanKey;
                     return (
                       <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-black bg-black/5" : "border-border")}>

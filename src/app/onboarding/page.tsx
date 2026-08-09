@@ -417,7 +417,9 @@ export default function OnboardingPage() {
                   </button>
                 )}
 
-                {!showAddOther ? (
+                {/* "Add someone else" is a paid-plan (multi-barber) option — hidden on
+                    solo Starter (planLimit 1), shown on Pro/Premium. */}
+                {planLimit > 1 && (!showAddOther ? (
                   <button type="button" onClick={() => { setShowAddOther(true); setBarberError(""); }}
                     className="w-full flex items-center gap-3 bg-surface border border-border hover:border-gray-500 rounded-2xl p-4 text-left transition-all">
                     <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#8f8f8f]" /></div>
@@ -440,7 +442,7 @@ export default function OnboardingPage() {
                       className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <Button className="w-full" loading={addingBarber} onClick={addOtherBarber}>Send invite</Button>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
