@@ -1083,7 +1083,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => clearTimeout(t);
   }, [addCtx]);
   const closeAdd = () => { setAddShown(false); setTimeout(() => setAddCtx(null), 260); };
-  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", service_ids: [] as string[], time: "" });
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", client_email: "", service_ids: [] as string[], time: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   // Blocked-hours state. The tap modal carries an Appointment/Block toggle
   // (addMode); blockForm holds the block's time range + reason.
@@ -1486,7 +1486,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // as long as the user can do at least one; defaults to whichever they can.
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false) => {
     if (!canManage && !canBlock) return;
-    setAddForm({ client_name: "", client_phone: "", service_ids: [], time });
+    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time });
     const startMin = timeToMinutes(time);
     setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
     setAddMode(canManage ? "appt" : "block");
@@ -1578,6 +1578,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         service_ids: chosenIds,
         service_names: svcs.length > 1 ? svcs.map(s => s.name).join(" + ") : undefined,
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
+        client_email: addForm.client_email.trim() || undefined,
         date: formatDateForDb(currentDate), time_slot: time,
         total_amount: price, duration_minutes: duration, pay_in_person: true,
         confirmed: true,
@@ -1588,7 +1589,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     setSavingAdd(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
-    setAddForm({ client_name: "", client_phone: "", service_ids: [], time: "" });
+    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time: "" });
     showToast(outside ? "Booked · outside working hours" : "Booked");
     load();
   };
@@ -2857,6 +2858,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone}
                 onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
+              <Input label="Email" type="email" value={addForm.client_email}
+                onChange={e => setAddForm(p => ({ ...p, client_email: e.target.value }))} placeholder="name@email.com"
+                hint="Optional — we'll email them a booking confirmation" />
               {/* Services first — dropdown rows; "+" adds another for a combined appointment */}
               <div>
                 <label className="block text-xs font-medium text-grey mb-1">Services * <span className="text-grey-muted font-normal">(add one or more)</span></label>
