@@ -373,7 +373,7 @@ export default function BillingPage() {
             </div>
           ) : !onFreePlan ? (
             <div className="mb-5">
-              <Button variant="outline-danger" size="sm" onClick={() => setShowCancel(true)}>
+              <Button variant="danger" size="sm" onClick={() => setShowCancel(true)}>
                 {isTrial ? "Cancel trial · switch to free" : "Cancel plan · switch to free"}
               </Button>
             </div>

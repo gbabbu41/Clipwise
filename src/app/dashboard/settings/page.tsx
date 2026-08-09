@@ -1128,7 +1128,7 @@ export default function SettingsPage() {
                     Billing). Starter is already free, so this stays hidden. */}
                 {!isFreePlan && (
                   <div className="mt-4 pt-4 border-t border-border">
-                    <Button variant="outline-danger" size="sm" onClick={() => setShowCancelSub(true)}>
+                    <Button variant="danger" size="sm" onClick={() => setShowCancelSub(true)}>
                       Cancel or downgrade plan
                     </Button>
                     <p className="text-[11px] text-grey mt-1.5">
