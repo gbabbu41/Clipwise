@@ -57,6 +57,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Cap every free-text field from this PUBLIC / anonymous route. SQL injection
+  // isn't possible here — Supabase sends values as parameters, never concatenated
+  // into SQL — so a "code" in a name is just stored as literal text. The real
+  // abuse vector is an UNBOUNDED payload (someone POSTing megabytes of text to
+  // bloat the DB), so bound the length before anything touches the database.
+  b.client_name = String(b.client_name).slice(0, 100);
+  if (b.client_email) b.client_email = String(b.client_email).slice(0, 200);
+  if (b.client_phone) b.client_phone = String(b.client_phone).slice(0, 30);
+  if (b.note) b.note = String(b.note).slice(0, 500);
+  if (b.service_names) b.service_names = String(b.service_names).slice(0, 200);
+
   // Shop must exist + be live; read auto-confirm fresh (server is the source of truth).
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, name, status, booking_settings, owner_id, timezone, subscription_plan, subscription_status, allow_pay_in_person, stripe_connected, stripe_account_id").eq("id", b.shop_id).maybeSingle();
@@ -201,7 +212,7 @@ export async function POST(request: NextRequest) {
     deposit_paid: false,
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
-    notes: noteParts.length ? noteParts.join(" · ") : null,
+    notes: noteParts.length ? noteParts.join(" · ").slice(0, 1000) : null,
   };
 
   // Insert with duration_minutes; if the column doesn't exist yet (pre-phase14),
