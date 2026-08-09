@@ -701,7 +701,7 @@ export default function ClientsPage() {
                   <label className="text-xs font-medium text-grey">Birthday</label>
                   <div className="flex gap-2">
                     <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
-                      className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-black/20" />
+                      className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-black/20 [color-scheme:dark]" />
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
                   {selectedClient.email && birthday && (
@@ -876,11 +876,9 @@ export default function ClientsPage() {
               <Input label="Phone *" placeholder="506-555-0000" value={newClient.phone} onChange={e => setNewClient(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
               <Input label="Email (optional)" placeholder="john@email.com" value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} />
               <Textarea label="Notes" placeholder="Any notes about this client..." rows={2} value={newClient.notes} onChange={e => setNewClient(p => ({ ...p, notes: e.target.value }))} />
-              <div className="space-y-1.5">
-                <label className="text-sm text-grey">Birthday (optional)</label>
-                <input type="date" value={newClient.birthday} onChange={e => setNewClient(p => ({ ...p, birthday: e.target.value }))}
-                  className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-black" />
-              </div>
+              <Input label="Birthday (optional)" type="date" value={newClient.birthday}
+                onChange={e => setNewClient(p => ({ ...p, birthday: e.target.value }))}
+                className="[color-scheme:dark]" />
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={addClient}>Add Client</Button>
