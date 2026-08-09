@@ -27,6 +27,9 @@ export function AddSelfBarberBanner() {
   const isOwner = profile?.role === "shop_owner";
   const isStarter =
     !!shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status));
+  // The public-facing name customers will see — the account/signup name (no
+  // editable field, to keep the two portals from showing different names).
+  const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "you";
 
   // Look for a barber row already linked to this owner. Only relevant on Starter;
   // paid owners have the Staff page for this.
@@ -96,8 +99,10 @@ export function AddSelfBarberBanner() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-amber-300">You&apos;re not set up as a barber yet</p>
           <p className="text-xs text-amber-200/80 mt-0.5">
-            On the free plan it&apos;s just you. Add yourself as a barber so customers can book
-            you and you show up on the calendar. Takes one tap — no invite needed.
+            On the free plan it&apos;s just you. Add yourself so customers can book you and you
+            show up on the calendar — you&apos;ll appear as{" "}
+            <span className="font-semibold text-amber-100">{selfBarberName}</span> on your booking
+            page. Takes one tap, no invite needed.
           </p>
           {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
           <button

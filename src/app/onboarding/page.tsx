@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { generate24hSlots, cn } from "@/lib/utils";
 import { validateEmail, getPlanLimit } from "@/lib/validation";
 
-const STEPS = ["Shop Details", "Logo", "Barbers", "Services", "Hours", "Done!"];
+const STEPS = ["Shop Details", "Logo", "Barbers", "Hours", "Services", "Done!"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_SLOTS = generate24hSlots();
 const SERVICE_CATEGORIES = ["Hair", "Beard", "Packages", "Kids"];
@@ -115,7 +115,7 @@ export default function OnboardingPage() {
     // skipping it strands them with a shop but no bookable barber. Paid plans keep
     // the step optional (they can add/manage barbers later from Staff).
     if (step === 2 && planLimit === 1) return selfAdded;
-    if (step === 3) return services.length > 0 && services.every((s) => s.name && s.price);
+    if (step === 4) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
   };
 
@@ -158,16 +158,11 @@ export default function OnboardingPage() {
       }
 
       if (step === 3) {
-        const { error: err } = await supabase.from("services").insert(
-          services.map((s) => ({ shop_id: createdShopId, name: s.name, price: parseFloat(s.price), duration_minutes: parseInt(s.duration), category: s.category, is_active: true }))
-        );
-        if (err) throw err;
-      }
-
-      if (step === 4) {
-        // Apply the chosen business hours to EVERY barber added during onboarding.
-        // Self-heal: if the in-memory list is empty (refresh), look them up. If
-        // the owner skipped adding anyone, there's simply nothing to do here.
+        // Hours → apply the chosen working hours to EVERY barber added so far.
+        // These live on each barber (time_slots), NOT the shop — a barber's
+        // schedule is what actually opens appointments, so this step follows
+        // "add barbers" directly. Self-heal: if the in-memory list is empty
+        // (refresh), look the barbers up. If none were added, nothing to do.
         let barberIds = createdBarberIds;
         if (barberIds.length === 0 && createdShopId) {
           const { data: existing } = await supabase
@@ -188,6 +183,12 @@ export default function OnboardingPage() {
       }
 
       if (step === 4) {
+        const { error: err } = await supabase.from("services").insert(
+          services.map((s) => ({ shop_id: createdShopId, name: s.name, price: parseFloat(s.price), duration_minutes: parseInt(s.duration), category: s.category, is_active: true }))
+        );
+        if (err) throw err;
+
+        // Last setup step → submit the shop for approval (fire the emails).
         const emailData = {
           shopName: shop.name,
           ownerName: profile?.name || user?.email || "Shop Owner",
@@ -243,6 +244,10 @@ export default function OnboardingPage() {
   const planLimit = getPlanLimit(chosenPlan);
   const selfAdded = !!user?.email && addedBarbers.some((b) => b.self || b.email.toLowerCase() === user.email!.toLowerCase());
   const atBarberLimit = addedBarbers.length >= planLimit;
+  // The public-facing barber name for "add yourself" — the account/signup name
+  // (no editable field: a different name here would confuse the two portals). We
+  // show it up front so the owner knows exactly how they'll appear to customers.
+  const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "Me";
 
   const inviteBarber = async (name: string, email: string, commission_percent: number) => {
     if (!createdShopId) { setBarberError("Please finish step 1 first."); return; }
@@ -277,7 +282,7 @@ export default function OnboardingPage() {
     // Starter is solo → the owner keeps 100% (no split, one person). On paid plans
     // the multi-barber commission system is unchanged; the owner sets his own split
     // afterward in Staff (e.g. to show himself as a working barber for tax).
-    inviteBarber(profile?.name || user.email.split("@")[0], user.email, chosenPlan === "starter" ? 100 : 50);
+    inviteBarber(selfBarberName, user.email, chosenPlan === "starter" ? 100 : 50);
   };
 
   const addOtherBarber = () => {
@@ -419,7 +424,7 @@ export default function OnboardingPage() {
                     <div className="w-10 h-10 rounded-xl bg-gold/15 flex items-center justify-center flex-shrink-0"><User size={18} className="text-gold" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">Add yourself as a barber</p>
-                      <p className="text-xs text-[#8f8f8f] truncate">{profile?.name || user?.email} · instant, no invite needed</p>
+                      <p className="text-xs text-[#8f8f8f] truncate">You&apos;ll appear as <span className="text-gold font-medium">{selfBarberName}</span> on your booking page</p>
                     </div>
                   </button>
                 )}
@@ -455,7 +460,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Add your services</h2>
             <div className="space-y-3">
@@ -501,10 +506,12 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-xl font-bold text-white">Set your business hours</h2>
-            <p className="text-[#8f8f8f] text-sm">Full 24-hour scheduling — customers can only book within these hours.</p>
+            <h2 className="text-xl font-bold text-white">{planLimit === 1 ? "Set your working hours" : "Set working hours"}</h2>
+            <p className="text-[#8f8f8f] text-sm">{planLimit === 1
+              ? "When can customers book you? Appointments only open during these hours — you can change them anytime."
+              : "These hours apply to everyone you just added, to get you started. You can fine-tune each barber's schedule later from Staff."}</p>
             <div className="space-y-2">
               {DAYS.map((day, i) => (
                 <div key={day} className={cn("p-3 rounded-xl border transition-all", hours[i].open ? "border-gold/20 bg-gold/5" : "border-border bg-surface-raised")}>
