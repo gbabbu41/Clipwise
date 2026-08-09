@@ -134,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isCalendar = pathname === "/dashboard/calendar";
   return (
     <PortalThemeProvider>
-    <div className="portal min-h-screen bg-background">
+    <div className="portal min-h-[100dvh] bg-background">
       <ModalChrome />
       <NotificationListener />
       <Sidebar />

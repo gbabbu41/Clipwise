@@ -131,7 +131,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
     <PortalThemeProvider>
     <BarberProvider>
       <BarberGuard>
-        <div className="portal min-h-screen bg-background">
+        <div className="portal min-h-[100dvh] bg-background">
           <ModalChrome />
           <NotificationListener />
           <BarberSidebar />
