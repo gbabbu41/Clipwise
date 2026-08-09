@@ -367,7 +367,13 @@ export default function BookingClient() {
   // "Barber" step is skipped, and a header shows who you're booking with. An
   // invalid/missing param → the normal full-shop page (graceful).
   const lockedBarberId = searchParams.get("barber");
-  const lockedBarber = lockedBarberId ? barbers.find((b) => b.id === lockedBarberId) ?? null : null;
+  // Lock to a barber when the link names one (?barber=…) OR when the shop has a
+  // single barber (e.g. a solo/Starter owner who added himself). A one-barber
+  // shop then shows "Booking with <name>" + his photo and skips the pointless
+  // "Choose your barber" step, instead of making the customer pick the only option.
+  const lockedBarber =
+    (lockedBarberId ? barbers.find((b) => b.id === lockedBarberId) ?? null : null) ??
+    (barbers.length === 1 ? barbers[0] : null);
   useEffect(() => {
     if (!lockedBarber) return;
     setFlow("barber-first");
