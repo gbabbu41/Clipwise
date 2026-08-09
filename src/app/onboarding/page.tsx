@@ -110,7 +110,11 @@ export default function OnboardingPage() {
 
   const canProceed = () => {
     if (step === 0) return shop.name && shop.address && shop.city;
-    // Step 2 (barbers) is always skippable — adds happen inline via the invite route.
+    // Starter is solo — the owner MUST add themselves as a barber before moving on.
+    // Staff is hidden on Starter, so this step is their one chance to get set up;
+    // skipping it strands them with a shop but no bookable barber. Paid plans keep
+    // the step optional (they can add/manage barbers later from Staff).
+    if (step === 2 && planLimit === 1) return selfAdded;
     if (step === 3) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
   };
@@ -580,7 +584,7 @@ export default function OnboardingPage() {
           <div className="max-w-lg mx-auto flex gap-3">
             {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
             <Button className="flex-1" disabled={!canProceed() || saving} loading={saving} onClick={step === 1 ? handleLogoStep : handleNext}>
-              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : (step === 2 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
+              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : (step === 2 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
           </div>

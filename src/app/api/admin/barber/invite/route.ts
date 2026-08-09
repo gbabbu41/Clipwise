@@ -63,12 +63,30 @@ export async function POST(request: NextRequest) {
   // Check if a barber with this email is already on the team (case-insensitive)
   const { data: existing } = await supabaseAdmin
     .from("barbers")
-    .select("id")
+    .select("id, user_id")
     .eq("shop_id", shop.id)
     .ilike("email", email)
     .maybeSingle();
 
-  if (existing) return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
+  if (existing) {
+    // Owner claiming their own row: never 409 them out of it. If the row exists
+    // but isn't linked to their account yet (e.g. a stale onboarding row), link
+    // it now; if it's already linked, just return it. Makes self-add idempotent
+    // so the in-dashboard "Add yourself" prompt always succeeds.
+    if (isOwnerSelf) {
+      if (!existing.user_id) {
+        const { data: linked } = await supabaseAdmin
+          .from("barbers")
+          .update({ user_id: user.id, is_active: true, ...(callerProfile.avatar ? { photo: callerProfile.avatar } : {}) })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        return NextResponse.json({ ok: true, barber: linked ?? existing, ownerSelf: true, linked: true });
+      }
+      return NextResponse.json({ ok: true, barber: existing, ownerSelf: true, already: true });
+    }
+    return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
+  }
 
   // Create the barber record. For owner self-add, link user_id immediately so
   // they can hop into the barber view right away — no invite acceptance needed.
