@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
     if (dupes && dupes.length) return NextResponse.json({ ok: true, alreadyReviewed: true });
   }
 
-  const trimmed = (comment ?? "").trim();
+  // Public route — bound the comment length so a caller can't store a giant
+  // payload (the DB has a matching backstop constraint).
+  const trimmed = (comment ?? "").trim().slice(0, 1000);
   const { error } = await supabaseAdmin.from("reviews").insert({
     shop_id: appt.shop_id,
     barber_id: appt.barber_id ?? null,

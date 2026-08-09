@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
   if (!b.shop_id || !b.client_name || !b.client_phone || !b.date || !b.time) {
     return NextResponse.json({ error: "Missing required booking details" }, { status: 400 });
   }
+  // Bound free-text length (defense-in-depth; the DB has matching backstops).
+  b.client_name = String(b.client_name).slice(0, 100);
+  b.client_phone = String(b.client_phone).slice(0, 30);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date)) {
     return NextResponse.json({ error: "Date must be YYYY-MM-DD" }, { status: 400 });
   }

@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
       shop_id: shopId,
       barber_id: b.barber_id || null,
       service_id: b.service_id || null,
-      client_name: b.client_name.trim(),
-      client_email: b.client_email?.trim() || null,
-      client_phone: b.client_phone?.trim() || null,
+      client_name: b.client_name.trim().slice(0, 100),
+      client_email: b.client_email?.trim().slice(0, 200) || null,
+      client_phone: b.client_phone?.trim().slice(0, 30) || null,
       desired_date: b.desired_date,
       status: "waiting",
     }).select("id").single();

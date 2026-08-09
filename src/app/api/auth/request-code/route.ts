@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const email = (body.email || "").trim().toLowerCase();
   const role = body.role === "shop_owner" || body.role === "barber" ? body.role : "customer";
-  if (!EMAIL_RE.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+  if (!EMAIL_RE.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
 
   // Bot gate — skipped until TURNSTILE_SECRET_KEY is set, enforced once it is.
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
