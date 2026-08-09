@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock, Phone, Mail, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
-import { clampNoShowPct, NO_SHOW_LEAD_MINUTES } from "@/lib/validation";
+import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -791,6 +791,34 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
+          {/* Customer contact — tap the phone to call, or email/text directly. */}
+          {(appt.client_phone || appt.client_email) && (
+            <div className="px-[18px] py-3 border-b border-border flex flex-col gap-2">
+              {appt.client_phone && (
+                <div className="flex items-center gap-2.5">
+                  <a href={`tel:${appt.client_phone}`} aria-label={`Call ${appt.client_name}`}
+                    className="w-9 h-9 flex-shrink-0 rounded-full bg-[#00e5a0]/12 text-[#00e5a0] flex items-center justify-center hover:bg-[#00e5a0]/20 active:opacity-70 transition-colors">
+                    <Phone size={16} />
+                  </a>
+                  <a href={`tel:${appt.client_phone}`} className="text-sm font-medium text-foreground hover:underline truncate">{formatPhone(appt.client_phone)}</a>
+                  <a href={`sms:${appt.client_phone}`} aria-label={`Text ${appt.client_name}`}
+                    className="ml-auto w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
+                    <MessageSquare size={15} />
+                  </a>
+                </div>
+              )}
+              {appt.client_email && (
+                <div className="flex items-center gap-2.5">
+                  <a href={`mailto:${appt.client_email}`} aria-label={`Email ${appt.client_name}`}
+                    className="w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
+                    <Mail size={15} />
+                  </a>
+                  <a href={`mailto:${appt.client_email}`} className="text-sm text-foreground hover:underline truncate">{appt.client_email}</a>
+                </div>
+              )}
+            </div>
+          )}
+
           {appt.notes && (
             <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">{appt.notes}</div>
           )}
@@ -874,7 +902,6 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   {heldOrSaved && (
                     <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
-                  <DAction tone="muted" icon="💳" label="Pay here (Tap) · Coming soon" />
                   {!showEmail ? (
                     <DAction icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
                   ) : (
