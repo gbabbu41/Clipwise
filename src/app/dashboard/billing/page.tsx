@@ -359,6 +359,26 @@ export default function BillingPage() {
             </div>
           ))}
 
+          {/* Cancel / downgrade — right under the CURRENT plan (not buried at the
+              bottom). Paid/trial only; Starter has nothing to cancel. */}
+          {!onFreePlan && billing?.cancelAtPeriodEnd ? (
+            <div className="mb-5 flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl p-3">
+              <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-amber-200">Your plan ends on <span className="font-semibold text-amber-100">{fmtDate(billing?.nextBilling)}</span>, then switches to the free Starter plan. No more charges.</p>
+                <button onClick={resumePlan} disabled={actionLoading === "resume"} className="text-xs font-semibold text-amber-300 hover:text-amber-200 mt-1.5 disabled:opacity-60">
+                  {actionLoading === "resume" ? "Resuming…" : "Resume plan"}
+                </button>
+              </div>
+            </div>
+          ) : !onFreePlan ? (
+            <div className="mb-5">
+              <Button variant="outline-danger" size="sm" onClick={() => setShowCancel(true)}>
+                {isTrial ? "Cancel trial · switch to free" : "Cancel plan · switch to free"}
+              </Button>
+            </div>
+          ) : null}
+
           {otherPaidPlans.length > 0 && (
             <div className="space-y-3 mb-4">
               <p className="text-xs font-medium text-grey uppercase tracking-wider">{onFreePlan ? "Choose a plan" : "Change plan"}</p>
@@ -434,26 +454,6 @@ export default function BillingPage() {
             </div>
           )}
 
-          {/* Cancel already scheduled → show the end date + a way to undo it. */}
-          {!onFreePlan && billing?.cancelAtPeriodEnd && (
-            <div className="mt-3 flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl p-3">
-              <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-amber-200">Your plan ends on <span className="font-semibold text-amber-100">{fmtDate(billing?.nextBilling)}</span>, then switches to the free Starter plan. No more charges.</p>
-                <button onClick={resumePlan} disabled={actionLoading === "resume"} className="text-xs font-semibold text-amber-300 hover:text-amber-200 mt-1.5 disabled:opacity-60">
-                  {actionLoading === "resume" ? "Resuming…" : "Resume plan"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Cancel / downgrade to Free — paid or trial only (never Starter), and
-              not when a cancel is already scheduled. */}
-          {!onFreePlan && !billing?.cancelAtPeriodEnd && (
-            <button type="button" onClick={() => setShowCancel(true)} className="mt-3 block text-xs text-grey hover:text-red-400 transition-colors">
-              {isTrial ? "Cancel trial · switch to free" : "Cancel plan · switch to free"}
-            </button>
-          )}
         </CardContent>
       </Card>
 
