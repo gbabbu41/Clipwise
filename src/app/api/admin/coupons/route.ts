@@ -8,7 +8,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 // `days` free days of `plan` when redeemed by a shop (via /api/coupons/redeem).
 const PAID = new Set(["pro", "premium", "business"]);
 
-const genCode = () => "COMP-" + crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. COMP-9F3A1C22
+const genCode = () => "GIFT-" + crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. GIFT-9F3A1C22 (customer-facing — reads like a gift, not "comp")
 
 // GET — list coupons (newest first) with usage.
 export async function GET(req: NextRequest) {

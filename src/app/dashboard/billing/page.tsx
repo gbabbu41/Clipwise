@@ -196,7 +196,7 @@ export default function BillingPage() {
       setCouponCode("");
       await refreshShop();
       await load();
-      showToast(`🎉 Coupon applied — ${data.days} free days of ${data.plan}!`);
+      showToast(`🎁 Gift applied — ${data.days} days of ${data.plan} unlocked!`);
     } else {
       showToast((data as { error?: string }).error ?? "Couldn't apply that coupon.");
     }
@@ -419,18 +419,18 @@ export default function BillingPage() {
               shops (a paid card sub can't use it — the server says so). */}
           {(onFreePlan || isTrial) && (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs font-medium text-grey uppercase tracking-wider mb-2">Have a coupon?</p>
+              <p className="text-xs font-medium text-grey uppercase tracking-wider mb-2">Have a gift code?</p>
               <div className="flex gap-2">
                 <input
                   value={couponCode}
                   onChange={e => setCouponCode(e.target.value.toUpperCase().slice(0, 40))}
                   onKeyDown={e => { if (e.key === "Enter") redeemCoupon(); }}
-                  placeholder="COMP-XXXXXXXX"
+                  placeholder="Enter your code"
                   className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50 font-mono"
                 />
-                <Button size="sm" loading={actionLoading === "coupon"} disabled={!couponCode.trim()} onClick={redeemCoupon}>Apply</Button>
+                <Button size="sm" loading={actionLoading === "coupon"} disabled={!couponCode.trim()} onClick={redeemCoupon}>Redeem</Button>
               </div>
-              <p className="text-[11px] text-grey mt-1.5">Redeem a code from ClipWise for free Pro or Premium days — no card needed.</p>
+              <p className="text-[11px] text-grey mt-1.5">Enter your ClipWise gift code to unlock Pro or Premium.</p>
             </div>
           )}
 
