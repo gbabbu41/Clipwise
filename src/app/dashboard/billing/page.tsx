@@ -90,6 +90,28 @@ export default function BillingPage() {
     else { showToast(data.error ?? "Could not start upgrade"); setActionLoading(""); }
   };
 
+  // Start the no-card 21-day trial (no checkout / no card up front). Only offered
+  // to a Starter shop that hasn't trialed before; the daily cron reverts it to
+  // Starter if no card is added before it ends.
+  const startTrial = async (planId: string) => {
+    if (!accessToken) return;
+    setActionLoading(planId);
+    const res = await fetch("/api/shops/start-trial", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: planId, shop_id: shop?.id }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res && res.ok) {
+      await refreshShop();
+      await load();
+      showToast("Your 21-day free trial is on — no card needed. Add a card anytime to keep it.");
+    } else {
+      showToast((data as { error?: string }).error ?? "Couldn't start your trial. Please try again.");
+    }
+    setActionLoading("");
+  };
+
   const completeConnect = async () => {
     if (!accessToken) return;
     setActionLoading("connect");
@@ -154,6 +176,10 @@ export default function BillingPage() {
   const activePlan = effectivePlan(currentPlanId, billing?.subscriptionStatus);
   const onFreePlan = activePlan === "starter";              // effectively Starter (fresh OR lapsed)
   const isLapsed = onFreePlan && currentPlanId !== "starter" && !isTrial; // had a paid plan that lapsed
+  // Eligible for the no-card 21-day trial: on Starter, never trialed before, and
+  // no live subscription. Lets them upgrade WITHOUT a card up front (server
+  // enforces the same — one free trial ever).
+  const trialEligible = onFreePlan && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
   // Show the plan they're effectively on (a lapsed Pro reads as Starter, not Pro).
   const displayPlanId = onFreePlan ? "starter" : currentPlanId;
   const displayPlan = plans.find(p => p.id === displayPlanId);
@@ -280,14 +306,21 @@ export default function BillingPage() {
                         <span className="text-foreground font-semibold">{formatPlanPrice(p.price_cents)}</span>/month
                         {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
                       </p>
+                      {trialEligible && <p className="text-[11px] font-semibold text-emerald-400 mt-1">21-day free trial · no card</p>}
                     </div>
-                    <Button size="sm" variant={!onFreePlan && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
-                      {onFreePlan
-                        ? <><ArrowUpRight size={14} /> Choose</>
-                        : p.price_cents < currentPrice
-                          ? <><ArrowDownRight size={14} /> Downgrade</>
-                          : <><ArrowUpRight size={14} /> Upgrade</>}
-                    </Button>
+                    {trialEligible ? (
+                      <Button size="sm" variant="primary" loading={actionLoading === p.id} onClick={() => startTrial(p.id)}>
+                        <ArrowUpRight size={14} /> Start free trial
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant={!onFreePlan && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                        {onFreePlan
+                          ? <><ArrowUpRight size={14} /> Choose</>
+                          : p.price_cents < currentPrice
+                            ? <><ArrowDownRight size={14} /> Downgrade</>
+                            : <><ArrowUpRight size={14} /> Upgrade</>}
+                      </Button>
+                    )}
                   </div>
                   {p.highlights && p.highlights.length > 0 && (
                     <ul className="space-y-1">
@@ -297,6 +330,11 @@ export default function BillingPage() {
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {trialEligible && (
+                    <button type="button" onClick={() => startCheckoutUpgrade(p.id)} className="text-[11px] text-grey hover:text-foreground transition-colors">
+                      or subscribe now with a card
+                    </button>
                   )}
                 </div>
               ))}

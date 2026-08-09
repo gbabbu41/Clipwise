@@ -534,9 +534,9 @@ export default function OnboardingPage() {
 
         {step === 3 && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-xl font-bold text-white">{planLimit === 1 ? "Set your working hours" : "Set working hours"}</h2>
+            <h2 className="text-xl font-bold text-white">{planLimit === 1 ? `Set hours for ${addedBarbers[0]?.name || selfBarberName}` : "Set working hours"}</h2>
             <p className="text-[#8f8f8f] text-sm">{planLimit === 1
-              ? "When can customers book you? Appointments only open during these hours — you can change them anytime."
+              ? `These are the hours customers can book ${addedBarbers[0]?.name || "you"}. Appointments only open during these hours — you can change them anytime.`
               : "These hours apply to everyone you just added, to get you started. You can fine-tune each barber's schedule later from Staff."}</p>
             <div className="space-y-2">
               {DAYS.map((day, i) => (
