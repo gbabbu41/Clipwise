@@ -899,6 +899,11 @@ export default function SettingsPage() {
                 onChange={() => setBooking(p => ({ ...p, auto_confirm: !p.auto_confirm }))} />
             </div>
 
+            {/* Tips + Sales tax are hidden on Starter: it's solo & cash-only, so
+                there's no online payment to tip on, and we keep its tax setup out
+                to stay dead-simple. Shown on Pro/Premium. */}
+            {!isFreePlan && (
+            <>
             {/* ── Tips ─────────────────────────────────────────────────── */}
             <div className="flex items-center justify-between p-4 bg-card-raised rounded-xl border border-border">
               <div className="pr-4">
@@ -1023,6 +1028,8 @@ export default function SettingsPage() {
               <p className="text-[11px] text-red-400 -mb-1">
                 To save with tax on, add a valid GST/HST number and a rate above 0% — or turn off &ldquo;Charge GST/HST&rdquo;.
               </p>
+            )}
+            </>
             )}
             <div className="flex items-center gap-3">
               <Button
