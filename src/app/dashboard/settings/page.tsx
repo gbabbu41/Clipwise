@@ -96,6 +96,9 @@ export default function SettingsPage() {
   // possible payment method — the toggle is locked ON for them (turning it off
   // would leave customers with no way to pay, bricking the booking page).
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
+  // A Starter owner who has NEVER trialed can start the no-card 21-day trial right
+  // from the upgrade cards (one free trial ever — the server enforces the same).
+  const trialEligible = isFreePlan && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
   // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
   const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
   // Locations INCLUDED in the plan (Premium = 2); beyond that each is a $30/mo
@@ -115,6 +118,7 @@ export default function SettingsPage() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [toast, setToast] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -546,6 +550,46 @@ export default function SettingsPage() {
     } finally {
       setSavingPhone(false);
     }
+  };
+
+  // Start the no-card 21-day trial for an existing Starter shop (no checkout).
+  const startTrial = async (planKey: string) => {
+    if (!accessToken) { showToast("Please sign in again"); return; }
+    setStartingTrial(true);
+    try {
+      const res = await fetch("/api/shops/start-trial", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey, shop_id: shop?.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast(data.error || "Couldn't start your trial. Please try again."); return; }
+      setShowUpgradeModal(false);
+      await refreshShop();
+      showToast("Your 21-day free trial is on — no card needed. Add a card from Billing anytime to keep it.");
+    } catch {
+      showToast("Connection error. Please try again.");
+    } finally {
+      setStartingTrial(false);
+    }
+  };
+
+  // Card-first upgrade (Stripe checkout). Shared by the "subscribe now" paths.
+  const startCheckout = async (planKey: string) => {
+    setShowUpgradeModal(false);
+    if (!accessToken) { showToast("Please sign in again"); return; }
+    if (planKey === "starter") { showToast("To move to Starter, cancel your plan from Billing."); return; }
+    showToast("Opening secure checkout…");
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey, upgrade: true }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else showToast(data.error || "Could not start checkout");
+    } catch { showToast("Connection error. Please try again."); }
   };
 
   // The shared Bootstrap form-switch wraps all of these; this local alias
@@ -1040,6 +1084,9 @@ export default function SettingsPage() {
                 <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>
                   {activePlanKey === "premium" ? "View Plans" : "Upgrade Plan"}
                 </Button>
+                {trialEligible && (
+                  <p className="text-xs text-emerald-400 mt-2">Try Pro or Premium free for 21 days — no card required.</p>
+                )}
               </CardContent>
             </Card>
 
@@ -1404,35 +1451,36 @@ export default function SettingsPage() {
                           <h3 className="font-bold text-foreground">{plan.name}</h3>
                           {isCurrent && <Badge variant="gold">Current</Badge>}
                         </div>
-                        <p className="mb-3">
+                        <p className="mb-1">
                           <span className="text-xl font-bold text-foreground">{plan.priceLabel}</span>
                           <span className="text-xs text-grey ml-1">{plan.priceSuffix}</span>
                         </p>
+                        {trialEligible && plan.key !== "starter" && (
+                          <p className="text-[11px] font-semibold text-emerald-400 mb-3">21-day free trial · no card</p>
+                        )}
                         <div className="space-y-1 mb-4">
                           {plan.features.map(f => (
                             <p key={f} className="text-xs text-grey flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
                           ))}
                         </div>
-                        <Button variant={isCurrent ? "secondary" : "gold"} size="sm" className="w-full"
-                          disabled={isCurrent}
-                          onClick={async () => {
-                            setShowUpgradeModal(false);
-                            if (!accessToken) { showToast("Please sign in again"); return; }
-                            if (plan.key === "starter") { showToast("To move to Starter, cancel your plan from Billing."); return; }
-                            showToast("Opening secure checkout…");
-                            try {
-                              const res = await fetch("/api/stripe/checkout", {
-                                method: "POST",
-                                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                                body: JSON.stringify({ plan: plan.key, upgrade: true }),
-                              });
-                              const data = await res.json();
-                              if (data.url) window.location.href = data.url;
-                              else showToast(data.error || "Could not start checkout");
-                            } catch { showToast("Connection error. Please try again."); }
-                          }}>
-                          {isCurrent ? "Current Plan" : `Switch to ${plan.name}`}
-                        </Button>
+                        {isCurrent ? (
+                          <Button variant="secondary" size="sm" className="w-full" disabled>Current Plan</Button>
+                        ) : trialEligible && plan.key !== "starter" ? (
+                          <div className="space-y-1.5">
+                            <Button variant="gold" size="sm" className="w-full" loading={startingTrial}
+                              onClick={() => startTrial(plan.key)}>
+                              Start 21-day free trial
+                            </Button>
+                            <button type="button" onClick={() => startCheckout(plan.key)}
+                              className="w-full text-[11px] text-grey hover:text-foreground transition-colors">
+                              or subscribe now with a card
+                            </button>
+                          </div>
+                        ) : (
+                          <Button variant="gold" size="sm" className="w-full" onClick={() => startCheckout(plan.key)}>
+                            Switch to {plan.name}
+                          </Button>
+                        )}
                       </div>
                     );
                   });
