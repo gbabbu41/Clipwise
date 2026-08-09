@@ -9,6 +9,7 @@ import { cn, timeAgo } from "@/lib/utils";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
 import { AvatarImage } from "@/components/ui/avatar-image";
+import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -207,17 +208,15 @@ export function BarberSidebar() {
             </span>
           )}
         </button>
-        {/* Account avatar — hidden on the profile page itself (you're already
-            there) so it doesn't double up with the page's own avatar. */}
-        {pathname !== "/barber-dashboard/profile" && (
-          <Link
-            href="/barber-dashboard/profile"
-            aria-label="Account"
-            className="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 overflow-hidden"
-          >
-            <AvatarImage src={barber?.photo} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
-          </Link>
-        )}
+        {/* Account menu — tap the avatar for a dropdown (profile / payments /
+            notifications / log out). Shown on every page, including Profile. */}
+        <ProfileMenu
+          name={displayName}
+          photo={barber?.photo}
+          roleLabel={profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}
+          items={barberMenuItems(barber?.permissions?.view_earnings === true)}
+          triggerClassName="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 overflow-hidden"
+        />
       </div>
 
       {/* Notification sheet — slides up from the bottom (mirrors the owner

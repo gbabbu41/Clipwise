@@ -13,6 +13,7 @@ import {
 import { cn, timeAgo } from "@/lib/utils";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
+import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
 // notification is actually about (NOT "/dashboard/pending" — that's the shop's
@@ -349,13 +350,12 @@ export function Sidebar() {
             </span>
           )}
         </button>
-        <Link
-          href="/dashboard/settings"
-          aria-label="Account"
-          className="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity overflow-hidden"
-        >
-          <AvatarImage src={profile?.avatar || ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
-        </Link>
+        <ProfileMenu
+          name={displayName}
+          photo={profile?.avatar || ownerPhoto}
+          items={OWNER_MENU_ITEMS}
+          triggerClassName="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity overflow-hidden"
+        />
       </div>
       )}
 

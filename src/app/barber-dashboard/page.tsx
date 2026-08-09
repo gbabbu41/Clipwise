@@ -8,7 +8,7 @@ import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils"
 import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
-import { AvatarImage } from "@/components/ui/avatar-image";
+import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -135,14 +135,14 @@ export default function BarberOverviewPage() {
           >
             <Bell size={15} />
           </Link>
-          <Link
-            href="/barber-dashboard/profile"
-            aria-label="Account"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
-          >
-            <AvatarImage src={barber?.photo} alt={barber?.name ?? "Account"} className="w-full h-full object-cover"
-              fallback={<>{(barber?.name ?? "U").charAt(0).toUpperCase()}</>} />
-          </Link>
+          <ProfileMenu
+            name={barber?.name ?? "Account"}
+            photo={barber?.photo}
+            roleLabel={isOwner ? "Owner · Barber" : "Barber"}
+            items={barberMenuItems(barber?.permissions?.view_earnings === true)}
+            className="hidden lg:block"
+            triggerClassName="w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] inline-flex items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
+          />
         </div>
       </div>
 

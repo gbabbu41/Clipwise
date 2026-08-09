@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopUnreadCount } from "@/lib/notify";
-import { AvatarImage } from "@/components/ui/avatar-image";
+import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 
 /**
  * Owner-dashboard page header — the same clean top the home page uses: title
@@ -60,10 +60,7 @@ export function DashboardHeader({ title, subtitle, action }: { title: string; su
           <Bell size={17} />
           {unread > 0 && <span className="cwd-dot" />}
         </Link>
-        <Link href="/dashboard/settings" aria-label="Account" className="cwd-avatar">
-          <AvatarImage src={photo} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
-            fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
-        </Link>
+        <ProfileMenu name={profile?.name ?? "Account"} photo={photo} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
       </div>
     </div>
   );

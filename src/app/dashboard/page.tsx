@@ -18,7 +18,7 @@ import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, 
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
-import { AvatarImage } from "@/components/ui/avatar-image";
+import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useAuth } from "@/lib/auth-context";
 import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -571,10 +571,7 @@ export default function DashboardPage() {
             <Bell size={17} />
             {notifications.filter(n => !n.is_read).length > 0 && <span className="cwd-dot" />}
           </Link>
-          <Link href="/dashboard/settings" aria-label="Account" className="cwd-avatar">
-            <AvatarImage src={profile?.avatar || ownerPhoto} alt={profile?.name ?? "Account"} className="w-full h-full object-cover"
-              fallback={<>{(profile?.name ?? "U").charAt(0).toUpperCase()}</>} />
-          </Link>
+          <ProfileMenu name={profile?.name ?? "Account"} photo={profile?.avatar || ownerPhoto} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
         </div>
       </div>
 
