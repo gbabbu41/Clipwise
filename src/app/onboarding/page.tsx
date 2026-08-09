@@ -56,7 +56,7 @@ export default function OnboardingPage() {
   const [createdBarberIds, setCreatedBarberIds] = useState<string[]>([]);
   const [addedBarbers, setAddedBarbers] = useState<{ id: string; name: string; email: string; self: boolean }[]>([]);
   const [showAddOther, setShowAddOther] = useState(false);
-  const [otherBarber, setOtherBarber] = useState({ name: "", email: "" });
+  const [otherBarber, setOtherBarber] = useState({ name: "", email: "", commission: "" });
   const [addingBarber, setAddingBarber] = useState(false);
   const [barberError, setBarberError] = useState("");
   const [chosenPlan, setChosenPlan] = useState("starter");
@@ -238,7 +238,7 @@ export default function OnboardingPage() {
   const selfAdded = !!user?.email && addedBarbers.some((b) => b.self || b.email.toLowerCase() === user.email!.toLowerCase());
   const atBarberLimit = addedBarbers.length >= planLimit;
 
-  const inviteBarber = async (name: string, email: string) => {
+  const inviteBarber = async (name: string, email: string, commission_percent: number) => {
     if (!createdShopId) { setBarberError("Please finish step 1 first."); return; }
     if (!accessToken) { setBarberError("Session expired — please sign in again."); return; }
     if (addedBarbers.length >= planLimit) {
@@ -251,14 +251,14 @@ export default function OnboardingPage() {
       const res = await fetch("/api/admin/barber/invite", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, commission_percent: 50, shop_id: createdShopId }),
+        body: JSON.stringify({ name, email, commission_percent, shop_id: createdShopId }),
       });
       const data = await res.json();
       if (!res.ok || !data.barber) { setBarberError(data.error ?? "Could not add barber."); return; }
       setAddedBarbers((prev) => [...prev, { id: data.barber.id, name, email, self: !!data.ownerSelf }]);
       setCreatedBarberIds((prev) => [...prev, data.barber.id]);
       setShowAddOther(false);
-      setOtherBarber({ name: "", email: "" });
+      setOtherBarber({ name: "", email: "", commission: "" });
     } catch {
       setBarberError("Connection error — please try again.");
     } finally {
@@ -268,7 +268,9 @@ export default function OnboardingPage() {
 
   const addSelfAsBarber = () => {
     if (!user?.email) { setBarberError("Your account email is missing — try signing in again."); return; }
-    inviteBarber(profile?.name || user.email.split("@")[0], user.email);
+    // The owner keeps 100% of their own cuts — a commission split only makes sense
+    // for employed barbers (paid plans). One person = all theirs.
+    inviteBarber(profile?.name || user.email.split("@")[0], user.email, 100);
   };
 
   const addOtherBarber = () => {
@@ -281,7 +283,12 @@ export default function OnboardingPage() {
       setBarberError("You're already set up as a barber — use “Add yourself” above.");
       return;
     }
-    inviteBarber(name, email);
+    const commission = Number(otherBarber.commission);
+    if (otherBarber.commission.trim() === "" || Number.isNaN(commission) || commission < 0 || commission > 100) {
+      setBarberError("Set this barber's commission % (0–100) — you decide, there's no default.");
+      return;
+    }
+    inviteBarber(name, email, commission);
   };
 
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://app.clipwise.ca"}/book/${createdShopSlug}`;
@@ -422,11 +429,13 @@ export default function OnboardingPage() {
                   <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-white">Invite a barber</p>
-                      <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "" }); setBarberError(""); }} className="text-[#8f8f8f] hover:text-white"><X size={16} /></button>
+                      <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "", commission: "" }); setBarberError(""); }} className="text-[#8f8f8f] hover:text-white"><X size={16} /></button>
                     </div>
                     <input value={otherBarber.name} onChange={(e) => setOtherBarber((p) => ({ ...p, name: e.target.value }))} placeholder="Barber name *"
                       className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <input value={otherBarber.email} onChange={(e) => setOtherBarber((p) => ({ ...p, email: e.target.value }))} placeholder="Barber email *" type="email"
+                      className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
+                    <input value={otherBarber.commission} onChange={(e) => setOtherBarber((p) => ({ ...p, commission: e.target.value }))} placeholder="Their commission % — you decide (e.g. 50)" type="number" min={0} max={100}
                       className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <Button className="w-full" loading={addingBarber} onClick={addOtherBarber}>Send invite</Button>
                   </div>

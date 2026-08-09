@@ -40,15 +40,15 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
   const router = useRouter();
 
-  // A shop OWNER who doesn't cut hair (no linked barber row) has no place in the
-  // barber portal — send them to their own dashboard instead of the nav-less
-  // "not linked" screen below (which they'd otherwise be trapped on, e.g. after
-  // clicking a /barber-dashboard link from an email).
+  // A shop OWNER always belongs in the owner dashboard — never the barber portal,
+  // even if they added themselves as a barber (which a solo owner does so their
+  // own appointments have someone to sit under). One person = one view; this
+  // stops a solo owner from bouncing between two separate "income" portals.
   useEffect(() => {
-    if (!loading && (error || !barber) && profile?.role === "shop_owner") {
+    if (!loading && profile?.role === "shop_owner") {
       router.replace("/dashboard");
     }
-  }, [loading, error, barber, profile, router]);
+  }, [loading, profile, router]);
 
   const signOut = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
