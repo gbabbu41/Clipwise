@@ -122,7 +122,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       body: JSON.stringify({ appointment_id: id }),
     }).catch(() => null);
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email").eq("id", appt.shop_id).maybeSingle();
-    if (shopRow?.owner_id) {
+    // Dedupe: on a solo owner-barber shop the owner IS the assigned barber, and
+    // notify-cancellation above already alerted them (as the barber). Only add the
+    // owner notification when the owner is a DIFFERENT person, or there's no
+    // assigned barber — otherwise the owner-barber gets two "cancelled" pop-ups.
+    let barberUserId: string | null = null;
+    if (appt.barber_id) {
+      const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
+      barberUserId = b?.user_id ?? null;
+    }
+    if (shopRow?.owner_id && shopRow.owner_id !== barberUserId) {
       insertNotifications({
         user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment Cancelled",
         message: `${appt.client_name} cancelled their appointment (was ${appt.date} at ${appt.time_slot})`,
