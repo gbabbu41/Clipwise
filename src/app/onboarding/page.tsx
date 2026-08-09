@@ -50,6 +50,9 @@ export default function OnboardingPage() {
   const [shop, setShop] = useState({ name: "", address: "", city: "", province: "NB", postal_code: "", phone: "", description: "" });
   const [createdShopId, setCreatedShopId] = useState("");
   const [createdShopSlug, setCreatedShopSlug] = useState("");
+  // The server-decided status ("approved" when auto-approve is on, or a paid/
+  // trial plan; "pending" otherwise). Drives which finish-up emails we send.
+  const [createdShopStatus, setCreatedShopStatus] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   // Step 2 — "add barbers" (reuses /api/admin/barber/invite for both self + invites)
@@ -90,11 +93,12 @@ export default function OnboardingPage() {
       // .limit(1)+[0] (not .maybeSingle) — a returning multi-location owner has
       // 2+ shops, and .maybeSingle() throws on multiple rows.
       const { data: existingShops } = await supabase
-        .from("shops").select("id, slug").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
+        .from("shops").select("id, slug, status").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
       const existingShop = existingShops?.[0];
       if (!existingShop) return;
       setCreatedShopId(existingShop.id);
       setCreatedShopSlug(existingShop.slug);
+      setCreatedShopStatus(existingShop.status ?? "pending");
       const { data: existingBarbers } = await supabase
         .from("barbers").select("id, name, email").eq("shop_id", existingShop.id)
         .order("created_at", { ascending: true });
@@ -155,6 +159,7 @@ export default function OnboardingPage() {
         if (!res.ok || !data.shop) throw new Error(data.error || "Couldn't create your shop. Please try again.");
         setCreatedShopId(data.shop.id);
         setCreatedShopSlug(data.shop.slug);
+        setCreatedShopStatus(data.shop.status ?? "pending");
       }
 
       if (step === 3) {
@@ -188,7 +193,13 @@ export default function OnboardingPage() {
         );
         if (err) throw err;
 
-        // Last setup step → submit the shop for approval (fire the emails).
+        // Last setup step → fire the emails that match the shop's ACTUAL status.
+        // When auto-approve is on (admin lever), or it's a verified paid plan /
+        // Pro–Premium trial, the shop is already 'approved' — so the owner should
+        // be CONGRATULATED (booking page live), not told it's "under review", and
+        // the admin should get an FYI, not a "please review" ping. Only a genuinely
+        // pending shop gets the submitted-for-review pair.
+        const approved = createdShopStatus === "approved";
         const emailData = {
           shopName: shop.name,
           ownerName: profile?.name || user?.email || "Shop Owner",
@@ -198,10 +209,11 @@ export default function OnboardingPage() {
           province: shop.province,
           services: services.map((s) => s.name).join(", "),
           slug: createdShopSlug,
+          autoApproved: approved ? "true" : "false",
         };
         Promise.all([
           fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "new_shop_application", data: emailData }) }),
-          fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "shop_submitted_confirmation", data: emailData }) }),
+          fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: approved ? "shop_approved" : "shop_submitted_confirmation", data: emailData }) }),
         ]).catch(() => {});
       }
 
@@ -553,14 +565,18 @@ export default function OnboardingPage() {
               <Check size={36} className="text-gold" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Your shop is ready! 🎉</h2>
-            <p className="text-[#8f8f8f] mb-1 text-sm">Submitted for approval — usually approved within 24 hours.</p>
+            <p className="text-[#8f8f8f] mb-1 text-sm">{createdShopStatus === "approved"
+              ? "You're approved — your booking page is live now."
+              : "Submitted for approval — usually approved within 24 hours."}</p>
             <div className="bg-surface border border-gold/20 rounded-2xl p-5 text-left my-6">
               <p className="text-xs text-[#8f8f8f] mb-2 font-medium uppercase tracking-wider">Your Booking Link</p>
               <div className="flex items-center gap-2 bg-surface-raised rounded-xl px-3 py-2">
                 <p className="text-sm text-gold font-mono flex-1 truncate">{bookingUrl}</p>
                 <button onClick={() => navigator.clipboard.writeText(bookingUrl)} className="text-[#8f8f8f] hover:text-gold flex-shrink-0"><Copy size={16} /></button>
               </div>
-              <p className="text-xs text-[#8f8f8f] mt-2">Goes live once your shop is approved.</p>
+              <p className="text-xs text-[#8f8f8f] mt-2">{createdShopStatus === "approved"
+                ? "Your link is live — share it with clients."
+                : "Goes live once your shop is approved."}</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>

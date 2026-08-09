@@ -134,11 +134,14 @@ async function resolveShopLocation(shopId: string): Promise<{ line: string; url:
 // ── Email templates ───────────────────────────────────────────────────────────
 
 function adminNewApplication(data: Record<string, string>) {
+  const auto = data.autoApproved === "true";
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
-    <div class="badge">🔔 New Shop Application</div>
-    <h1>New Shop Applied</h1>
-    <p>A new barbershop has applied to join ClipWise and is waiting for your review.</p>
+    <div class="${auto ? "green-badge" : "badge"}">${auto ? "✓ New Shop — Auto-Approved" : "🔔 New Shop Application"}</div>
+    <h1>${auto ? "New Shop Joined" : "New Shop Applied"}</h1>
+    <p>${auto
+      ? "A new barbershop just signed up and was <strong>auto-approved</strong> — its booking page is live and no action is needed from you."
+      : "A new barbershop has applied to join ClipWise and is waiting for your review."}</p>
     <hr class="divider">
     <div class="row"><span class="label">Shop Name</span><span class="val">${data.shopName}</span></div>
     <div class="row"><span class="label">Owner</span><span class="val">${data.ownerName}</span></div>
@@ -146,9 +149,9 @@ function adminNewApplication(data: Record<string, string>) {
     <div class="row"><span class="label">Phone</span><span class="val">${data.ownerPhone || "—"}</span></div>
     <div class="row"><span class="label">Location</span><span class="val">${data.city}, ${data.province}</span></div>
     <div class="row"><span class="label">Services</span><span class="val">${data.services}</span></div>
-    <div class="row"><span class="label">Submitted</span><span class="val">${new Date().toLocaleString("en-CA")}</span></div>
+    <div class="row"><span class="label">${auto ? "Joined" : "Submitted"}</span><span class="val">${new Date().toLocaleString("en-CA")}</span></div>
     <hr class="divider">
-    <a href="${BASE_URL}/admin/shops" class="btn">Review in Admin Panel →</a>
+    <a href="${BASE_URL}/admin/shops" class="btn">${auto ? "View in Admin Panel →" : "Review in Admin Panel →"}</a>
   `);
 }
 
@@ -952,7 +955,9 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
   switch (type) {
     case "new_shop_application":
       to = ADMIN_EMAIL;
-      subject = `New Shop Application — ${data.shopName}`;
+      subject = data.autoApproved === "true"
+        ? `New Shop Joined (Auto-Approved) — ${data.shopName}`
+        : `New Shop Application — ${data.shopName}`;
       html = adminNewApplication(data);
       break;
     case "shop_submitted_confirmation":
