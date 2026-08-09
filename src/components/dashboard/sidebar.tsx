@@ -10,7 +10,7 @@ import {
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
-import { cn, timeAgo } from "@/lib/utils";
+import { cn, timeAgo, formatRole } from "@/lib/utils";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
@@ -616,7 +616,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-            <p className="text-xs text-grey truncate capitalize">{profile?.role ?? "owner"}</p>
+            <p className="text-xs text-grey truncate">{formatRole(profile?.role)}</p>
           </div>
           <PortalThemeToggle className="w-8 h-8 flex-shrink-0" />
           <button onClick={signOut} className="text-grey hover:text-red-500 transition-colors">

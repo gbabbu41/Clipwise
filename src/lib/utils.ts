@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Friendly label for a raw DB role value (e.g. "shop_owner" -> "Owner"), so
+ *  the underscore/lowercase role never shows through in the UI. */
+export function formatRole(role?: string | null): string {
+  switch (role) {
+    case "shop_owner": return "Owner";
+    case "barber": return "Barber";
+    case "customer": return "Customer";
+    default:
+      return (role ?? "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Member";
+  }
+}
+
 export function formatCurrency(amount: number): string {
   // Clean whole dollars ("$30"), but always show both cents when there are any
   // ("$3.90", not "$3.9"). Round to cents first so float noise (30.0000001)
