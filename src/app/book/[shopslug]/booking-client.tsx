@@ -1530,13 +1530,18 @@ export default function BookingClient() {
       {/* Booking-with-this-barber header (barber-specific link) */}
       {lockedBarber && (
         <div className="bg-black border-b border-[#2a2a2a]">
-          <div className="max-w-2xl mx-auto px-5 py-3 flex items-center gap-3">
-            {lockedBarber.photo
-              ? <img src={lockedBarber.photo} alt={lockedBarber.name} className="w-11 h-11 rounded-full object-cover border border-[#2a2a2a]" />
-              : <div className="w-11 h-11 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold">{lockedBarber.name[0]}</div>}
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-[#8f8f8f]">Booking with</p>
-              <p className="text-sm font-semibold text-white truncate">{lockedBarber.name}</p>
+          <div className="max-w-2xl mx-auto px-5 py-4">
+            <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
+              {lockedBarber.photo
+                ? <img src={lockedBarber.photo} alt={lockedBarber.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
+                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
+              <div className="min-w-0 flex-1">
+                <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
+                <p className="text-base font-bold text-white truncate leading-tight mt-0.5">{lockedBarber.name}</p>
+              </div>
+              <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2.5 py-1">
+                <Check size={12} /> Your barber
+              </span>
             </div>
           </div>
         </div>
