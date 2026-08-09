@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { effectivePlan, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
@@ -147,15 +147,15 @@ export async function finalizeBookingFromSession(params: {
     shop_id: m.shop_id,
     barber_id: m.barber_id || null,
     service_id: m.service_id,
-    client_name: m.client_name,
-    client_email: m.client_email,
-    client_phone: m.client_phone,
+    client_name: clampLen(m.client_name, FIELD_CAPS.client_name),
+    client_email: clampLen(m.client_email, FIELD_CAPS.client_email),
+    client_phone: clampLen(m.client_phone, FIELD_CAPS.client_phone),
     date: m.date,
     time_slot: m.time_slot,
     status: "confirmed",
     total_amount: Number(m.total_amount ?? 0),
     ...(Number(m.duration_minutes ?? 0) > 0 ? { duration_minutes: Number(m.duration_minutes) } : {}),
-    ...(m.service_names ? { notes: `Services: ${m.service_names}` } : {}),
+    ...(m.service_names ? { notes: clampLen(`Services: ${m.service_names}`, FIELD_CAPS.notes) } : {}),
     deposit_paid: !isHold && !isSave,
     payment_status: isSave ? "saved" : isHold ? "held" : "paid",
     ...(!isSave && !isHold ? { paid_at: new Date().toISOString() } : {}),

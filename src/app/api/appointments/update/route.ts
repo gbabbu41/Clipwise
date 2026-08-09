@@ -6,7 +6,7 @@ import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
 import { sendAppEmail } from "@/lib/emailer";
 import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { effectivePlan, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
 
 /**
  * Edit an appointment with an authoritative double-booking guard.
@@ -84,10 +84,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Build the update from only the editable fields actually supplied.
+  // Build the update from only the editable fields actually supplied. Clamp the
+  // free-text fields to the DB caps so an oversized value truncates instead of
+  // tripping the CHECK constraint (mirrors the public booking inserts).
+  const TEXT_CAPS: Record<string, number> = {
+    client_name: FIELD_CAPS.client_name,
+    client_email: FIELD_CAPS.client_email,
+    client_phone: FIELD_CAPS.client_phone,
+    notes: FIELD_CAPS.notes,
+  };
   const update: Record<string, unknown> = {};
   for (const k of EDITABLE) {
-    if (k in fields) update[k] = fields[k] === "" ? null : fields[k];
+    if (k in fields) {
+      const raw = fields[k] === "" ? null : fields[k];
+      update[k] = (typeof raw === "string" && k in TEXT_CAPS) ? clampLen(raw, TEXT_CAPS[k]) : raw;
+    }
   }
   if (Object.keys(update).length === 0) return NextResponse.json({ ok: true, noop: true });
 

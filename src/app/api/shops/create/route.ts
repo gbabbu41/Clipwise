@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getPlatformSettings } from "@/lib/platform-settings";
+import { clampLen, FIELD_CAPS } from "@/lib/validation";
 
 // Server-authoritative shop creation for onboarding.
 //
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
     postal_code: body.postal_code ?? null,
     phone: body.phone ?? null,
     email: body.email ?? null,
-    description: body.description ? body.description.slice(0, 500) : null,
+    description: clampLen(body.description ?? null, FIELD_CAPS.shop_description),
     ...(body.logo ? { logo: body.logo } : {}),
     status,
     subscription_plan: plan,

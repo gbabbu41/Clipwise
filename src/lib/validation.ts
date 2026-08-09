@@ -25,6 +25,25 @@ export function validateEmail(value: string): string | null {
   return null;
 }
 
+// ── Length caps ───────────────────────────────────────────────────────────────
+// These mirror the DB CHECK constraints (migration length_caps_*). Clamp public
+// free-text server-side BEFORE insert so an oversized value truncates cleanly
+// instead of hitting the constraint and 500-ing a booking. The DB check is the
+// backstop; this is the friendly front line.
+export const FIELD_CAPS = {
+  client_name: 500,
+  client_email: 320,
+  client_phone: 50,
+  notes: 2000,
+  shop_description: 500,
+} as const;
+
+/** Trim a string to `max` chars (null-safe). Returns null for null/undefined. */
+export function clampLen<T extends string | null | undefined>(v: T, max: number): string | null {
+  if (v == null) return null;
+  return v.length > max ? v.slice(0, max) : v;
+}
+
 // ── Price ─────────────────────────────────────────────────────────────────────
 
 export function validatePrice(value: string | number): string | null {

@@ -9,7 +9,7 @@ import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
-import { effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
+import { effectivePlan, planHasFeature, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
@@ -202,9 +202,11 @@ export async function POST(request: NextRequest) {
     shop_id: b.shop_id,
     barber_id: barberId,
     service_id: b.service_id,
-    client_name: b.client_name,
-    client_email: b.client_email ?? null,
-    client_phone: b.client_phone ?? null,
+    // Clamp public free-text to the DB caps so an oversized value truncates
+    // cleanly instead of tripping the CHECK constraint and 500-ing the booking.
+    client_name: clampLen(b.client_name, FIELD_CAPS.client_name),
+    client_email: clampLen(b.client_email ?? null, FIELD_CAPS.client_email),
+    client_phone: clampLen(b.client_phone ?? null, FIELD_CAPS.client_phone),
     date: b.date,
     time_slot: b.time_slot,
     status,
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
     deposit_paid: false,
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
-    notes: noteParts.length ? noteParts.join(" · ").slice(0, 1000) : null,
+    notes: clampLen(noteParts.length ? noteParts.join(" · ") : null, FIELD_CAPS.notes),
   };
 
   // Insert with duration_minutes; if the column doesn't exist yet (pre-phase14),
