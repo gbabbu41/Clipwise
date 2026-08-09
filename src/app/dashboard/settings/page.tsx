@@ -1094,6 +1094,14 @@ export default function SettingsPage() {
                 {trialEligible && (
                   <p className="text-xs text-emerald-400 mt-2">Try Pro or Premium free for 21 days — no card required.</p>
                 )}
+                {/* Paid/trial only — cancel & downgrade live on the Billing page
+                    (one place for all subscription actions). Starter has nothing
+                    to cancel, so this stays hidden there. */}
+                {!isFreePlan && (
+                  <a href="/dashboard/billing" className="block text-xs text-grey hover:text-red-400 transition-colors mt-3">
+                    Cancel or downgrade your plan →
+                  </a>
+                )}
               </CardContent>
             </Card>
 

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     nextBilling: string | null;
     amount: number | null;
     cardLast4: string | null;
+    cancelAtPeriodEnd: boolean;
     invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
     connect: { connected: boolean; status: string };
   } = {
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
     nextBilling: null,
     amount: null,
     cardLast4: null,
+    cancelAtPeriodEnd: false,
     invoices: [],
     connect: { connected: !!shop.stripe_connected, status: shop.stripe_connect_status ?? "pending" },
   };
@@ -50,6 +52,9 @@ export async function GET(request: NextRequest) {
       const planItem = (sub.items.data.find(i => i.price?.lookup_key !== LOCATION_ADDON_LOOKUP_KEY) ?? sub.items.data[0]) as (typeof sub.items.data[0] & { current_period_end?: number }) | undefined;
       const periodEnd = planItem?.current_period_end ?? sub.current_period_end;
       result.nextBilling = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+      // When a cancel is scheduled, Stripe keeps the sub active until period end
+      // (they keep what they paid for) — surface it so the UI can show it + a Resume.
+      result.cancelAtPeriodEnd = !!sub.cancel_at_period_end;
       result.amount = planItem?.price.unit_amount ? planItem.price.unit_amount / 100 : null;
       // Card: prefer subscription's default PM, fall back to the customer's default PM
       let pm = sub.default_payment_method as Stripe.PaymentMethod | string | null;

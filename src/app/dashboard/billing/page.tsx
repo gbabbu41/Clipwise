@@ -23,6 +23,7 @@ interface Billing {
   nextBilling: string | null;
   amount: number | null;
   cardLast4: string | null;
+  cancelAtPeriodEnd?: boolean;
   invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
   connect: { connected: boolean; status: string };
 }
@@ -39,6 +40,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [actionLoading, setActionLoading] = useState("");
+  const [showCancel, setShowCancel] = useState(false);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
@@ -137,6 +139,47 @@ export default function BillingPage() {
     if (res.ok && data.url) window.location.href = data.url;
     else { showToast(data.error ?? "Could not open billing portal"); setActionLoading(""); }
   };
+
+  // Cancel / downgrade to Free. immediate=false keeps access until the paid
+  // period (or trial) ends; immediate=true drops to Starter right now.
+  const cancelPlan = async (immediate: boolean) => {
+    if (!accessToken) return;
+    setActionLoading("cancel");
+    const res = await fetch("/api/stripe/cancel-subscription", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ immediate }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setShowCancel(false);
+    if (res && res.ok) {
+      await refreshShop();
+      await load();
+      if (data.immediate) showToast("You're back on the free Starter plan.");
+      else if (data.scheduled) showToast("Cancelled — you'll keep your plan until it ends, then move to free.");
+      else showToast("Got it — you'll keep your plan until your trial ends, then it's free.");
+    } else {
+      showToast((data as { error?: string }).error ?? "Couldn't cancel — please try again.");
+    }
+    setActionLoading("");
+  };
+
+  // Undo a scheduled cancel before the period ends.
+  const resumePlan = async () => {
+    if (!accessToken) return;
+    setActionLoading("resume");
+    const res = await fetch("/api/stripe/resume-subscription", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res && res.ok) { await load(); showToast("Your plan will keep renewing — cancellation undone."); }
+    else showToast((data as { error?: string }).error ?? "Couldn't resume — please try again.");
+    setActionLoading("");
+  };
+
+  const fmtDate = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "the end of your period";
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -349,6 +392,27 @@ export default function BillingPage() {
               <CreditCard size={15} /> Manage subscription
             </Button>
           )}
+
+          {/* Cancel already scheduled → show the end date + a way to undo it. */}
+          {!onFreePlan && billing?.cancelAtPeriodEnd && (
+            <div className="mt-3 flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl p-3">
+              <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-amber-200">Your plan ends on <span className="font-semibold text-amber-100">{fmtDate(billing?.nextBilling)}</span>, then switches to the free Starter plan. No more charges.</p>
+                <button onClick={resumePlan} disabled={actionLoading === "resume"} className="text-xs font-semibold text-amber-300 hover:text-amber-200 mt-1.5 disabled:opacity-60">
+                  {actionLoading === "resume" ? "Resuming…" : "Resume plan"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cancel / downgrade to Free — paid or trial only (never Starter), and
+              not when a cancel is already scheduled. */}
+          {!onFreePlan && !billing?.cancelAtPeriodEnd && (
+            <button type="button" onClick={() => setShowCancel(true)} className="mt-3 block text-xs text-grey hover:text-red-400 transition-colors">
+              {isTrial ? "Cancel trial · switch to free" : "Cancel plan · switch to free"}
+            </button>
+          )}
         </CardContent>
       </Card>
 
@@ -421,6 +485,42 @@ export default function BillingPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Cancel / downgrade-to-free confirmation */}
+      {showCancel && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowCancel(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+              <h2 className="text-lg font-bold text-foreground">{isTrial ? "Switch to the free plan?" : `Cancel ${currentPlanName}?`}</h2>
+              {isTrial ? (
+                <p className="text-sm text-grey">
+                  You&apos;re on a free trial{trialDaysLeft ? ` (${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left)` : ""} — you won&apos;t be charged either way. You can keep {currentPlanName} until{" "}
+                  <span className="text-foreground font-medium">{fmtDate(shop?.trial_ends_at as string | null)}</span>, then it becomes the free Starter plan automatically. Or switch to free right now.
+                </p>
+              ) : (
+                <p className="text-sm text-grey">
+                  You&apos;ll keep {currentPlanName} until{" "}
+                  <span className="text-foreground font-medium">{fmtDate(billing?.nextBilling)}</span> — then you move to the free Starter plan. No more charges, and no refund for the unused days.
+                </p>
+              )}
+              <div className="flex flex-col gap-2 pt-1">
+                {isTrial ? (
+                  <>
+                    <Button variant="danger" loading={actionLoading === "cancel"} onClick={() => cancelPlan(true)}>Switch to free now</Button>
+                    <Button variant="outline" onClick={() => setShowCancel(false)}>Keep my trial</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="danger" loading={actionLoading === "cancel"} onClick={() => cancelPlan(false)}>Cancel — end on {fmtDate(billing?.nextBilling)}</Button>
+                    <Button variant="outline" onClick={() => setShowCancel(false)}>Keep {currentPlanName}</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
     </div>
