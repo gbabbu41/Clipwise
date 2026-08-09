@@ -155,6 +155,24 @@ export default function BookingClient() {
   const [services, setServices] = useState<Service[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
 
+  // Sticky day-strip offset. The day strip pins directly below the sticky
+  // progress bar; measuring the bar's REAL height keeps that offset correct on
+  // every device (font scaling, notch/safe-area, and browser chrome all change
+  // it). This lets the whole page be one smooth scroller (no nested scroll box).
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [stickyTop, setStickyTop] = useState(0);
+  useEffect(() => {
+    const el = progressRef.current;
+    if (!el) return;
+    const measure = () => setStickyTop(el.getBoundingClientRect().height);
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro?.disconnect(); window.removeEventListener("resize", measure); };
+    // ResizeObserver re-measures on any height change, so no need to depend on step.
+  }, [pageLoading]);
+
   // ── Flow selection ─────────────────────────────────────────────────────────
   const [flow, setFlow] = useState<"time-first" | "barber-first">("time-first");
 
@@ -1521,7 +1539,7 @@ export default function BookingClient() {
       )}
 
       {/* Progress */}
-      <div className="bg-black border-b border-[#2a2a2a] sticky top-0 z-10">
+      <div ref={progressRef} className="bg-black border-b border-[#2a2a2a] sticky top-0 z-20">
         <div className="max-w-2xl mx-auto px-5 py-3.5">
           <div className="flex items-center gap-1">
             {visibleSteps.map((s, i) => (
@@ -1694,7 +1712,15 @@ export default function BookingClient() {
           }
 
           return (
-            <div className="flex flex-col -mx-4 sm:mx-0 animate-fade-in" style={{ maxHeight: "calc(100dvh - 210px)" }}>
+            // No animate-fade-in here: its lingering translateY transform would
+            // become the containing block for the sticky header below and break
+            // the pin (it'd anchor to this box, not the viewport).
+            <div className="flex flex-col -mx-4 sm:mx-0">
+              {/* Week nav + day strip + date title — pinned as ONE sticky header
+                  directly under the progress bar (top = its measured height), so
+                  the whole page stays a single smooth scroller and the strip never
+                  scrolls away. bg-black hides slots passing underneath. */}
+              <div className="sticky z-10 bg-black pt-2" style={{ top: stickyTop }}>
               {/* Header row: back / next week arrows (icon-only) */}
               <div className="flex items-center justify-between px-4 pb-2">
                 <button
@@ -1774,9 +1800,11 @@ export default function BookingClient() {
                   })() : "Pick a day"}
                 </p>
               </div>
+              </div>{/* end sticky header (nav + strip + date title) */}
 
-              {/* Slot list */}
-              <div className="flex-1 overflow-y-auto border-t border-[#2a2a2a]/40">
+              {/* Slot list — flows in the single page scroll; the sticky header
+                  above stays pinned as these scroll past. */}
+              <div className="border-t border-[#2a2a2a]/40">
                 {!selectedDate && (
                   <div className="py-16 text-center text-[#8f8f8f] text-sm">Tap a day above to see openings.</div>
                 )}
