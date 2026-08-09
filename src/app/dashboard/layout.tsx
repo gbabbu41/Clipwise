@@ -10,6 +10,7 @@ import { ModalChrome } from "@/components/modal-chrome";
 import { SwipeNavigator } from "@/components/swipe-navigator";
 import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 
 // Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
@@ -27,12 +28,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const triedRefresh = useRef(false);
   const [recovering, setRecovering] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const initialUidRef = useRef<string | null | undefined>(undefined);
 
   // A shop owner whose shop hasn't loaded into context yet (e.g. just finished
   // onboarding) would otherwise fall through to the "No shop found" page. Try a
   // single re-fetch before any no-shop UI renders; if it's still null after,
   // it's a genuinely shopless owner and the page shows the setup CTA.
   const ownerShopMissing = !loading && profile?.role === "shop_owner" && !shop;
+  const isLoadingState = loading || recovering || (ownerShopMissing && !triedRefresh.current);
 
   useEffect(() => {
     if (loading) return;
@@ -50,9 +54,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, profile, shop, loading, router, pathname, ownerShopMissing, refreshShop]);
 
+  // Safety net: never spin forever. If we're still loading after 10s, surface a
+  // recover screen (reload / sign in) instead of an endless spinner — covers a
+  // dropped connection, a stale token, or a same-browser session collision.
+  useEffect(() => {
+    if (!isLoadingState) { setStuck(false); return; }
+    const t = setTimeout(() => setStuck(true), 10000);
+    return () => clearTimeout(t);
+  }, [isLoadingState]);
+
+  // Safety net: if the signed-in user changes under this tab (e.g. a second tab
+  // logged into a DIFFERENT account — the same browser shares one session), reload
+  // so the whole app re-initializes for the current session instead of hanging on
+  // stale/mismatched data. A token refresh keeps the same id, so it never fires then.
+  useEffect(() => {
+    if (loading) return;
+    const uid = user?.id ?? null;
+    if (initialUidRef.current === undefined) { initialUidRef.current = uid; return; }
+    if (initialUidRef.current && uid && initialUidRef.current !== uid) {
+      window.location.reload();
+    } else {
+      initialUidRef.current = uid;
+    }
+  }, [user, loading]);
+
   // Show the spinner (not the "no shop" page) while we (re)fetch a shop-owner's
   // shop — both on the first render before the effect fires and during the fetch.
-  if (loading || recovering || (ownerShopMissing && !triedRefresh.current)) {
+  if (isLoadingState) {
+    if (stuck) {
+      return (
+        <div className="min-h-screen bg-card flex items-center justify-center px-4">
+          <div className="text-center max-w-sm">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h2 className="text-lg font-bold text-foreground mb-1">Taking longer than usual</h2>
+            <p className="text-grey text-sm mb-5">We couldn&apos;t load your dashboard. This can happen if you&apos;re signed in on another tab, or your connection dropped.</p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-xl bg-black text-white text-sm font-semibold">Reload</button>
+              <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground">Sign in again</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-card flex items-center justify-center">
         <div className="text-center">
