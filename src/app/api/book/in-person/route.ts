@@ -173,16 +173,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Don't book over a block / time-off. Approved blocked-hours that overlap the
-  // window, or any full-day off (day_off/vacation/sick), make the slot unbookable
-  // — even for an owner-added appointment (unblock first to override). A recurring
-  // break is enforced only for a CUSTOMER self-booking; an owner/staff adding a
-  // walk-in from the dashboard may deliberately squeeze someone in over a break.
-  const blockReason = await scheduleBlockReason(
-    b.shop_id, barberId, b.date, startMin, endMin, { includeBreaks: !callerIsStaff },
-  );
-  if (blockReason) {
-    return NextResponse.json({ error: blockReason }, { status: 409 });
+  // Schedule enforcement is CUSTOMER-only. A customer self-booking can't land on
+  // a block, a full-day off (day_off/vacation/sick), or a recurring break — the
+  // shop's schedule fully governs the public booking page. Staff adding a walk-in
+  // from the dashboard have full freedom to write a client in at ANY time / day
+  // (over a break, on an off day, outside hours); the ONLY hard stops for staff
+  // are the past-booking block (above) and the double-booking conflict (above +
+  // the DB overlap guard). So skip the schedule check entirely for staff.
+  if (!callerIsStaff) {
+    const blockReason = await scheduleBlockReason(
+      b.shop_id, barberId, b.date, startMin, endMin, { includeBreaks: true },
+    );
+    if (blockReason) {
+      return NextResponse.json({ error: blockReason }, { status: 409 });
+    }
   }
 
   // Owner-initiated bookings (b.confirmed) skip approval; customer self-bookings

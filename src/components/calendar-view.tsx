@@ -1584,15 +1584,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const svcs = chosenIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceLite[];
     const duration = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
     const price = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
-    // Must fit before the next booked appointment.
+    // Must fit before the next booked appointment (the only hard stop — staff may
+    // otherwise book over blocks / off-hours / off-days; the server enforces the
+    // same double-booking guard authoritatively).
     if (addWindow && timeToMinutes(time) + duration > addWindow.freeUntil) {
       showToast("Not enough time before the next appointment — shorten the service or start earlier");
-      return;
-    }
-    // Don't let it land on a blocked range for this barber.
-    const startMin = timeToMinutes(time);
-    if (blocksFor(addCtx.barberId, formatDateForDb(currentDate)).some(bl => startMin < bl.endMin && startMin + duration > bl.startMin)) {
-      showToast("That time is blocked — unblock it or pick another time.");
       return;
     }
     const outside = isOutsideSchedule(addCtx.barberId, time);
@@ -1668,11 +1664,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
     const dateStr = formatDateForDb(currentDate);
-    const sched = schedules.get(addCtx.barberId);
-    const startMin = sched ? Math.round(hourOfDb(sched.start) * 60) : 9 * 60;
-    const endMin = sched ? Math.round(hourOfDb(sched.end) * 60) : 18 * 60;
     const booked = bookedSlotsFor(addCtx.barberId, dateStr, ADD_STEP);
-    const blocksM = blocksFor(addCtx.barberId, dateStr);
     const isToday = dateStr === formatDateForDb(new Date());
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -1687,26 +1679,28 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return after.length ? Math.min(...after) : 24 * 60;
     };
     const opts: string[] = [];
-    for (let m = startMin; m < endMin; m += ADD_STEP) {
+    // Staff can write a client in at ANY time of day — the in-app calendar add is
+    // deliberately NOT bound to the barber's working hours or off-days (that
+    // schedule still governs the customer-facing booking page). The only starts we
+    // drop are ones that would DOUBLE-BOOK: a slot already taken, a past time
+    // today, or a start whose service would overrun into the next appointment.
+    // Blocks / time-off are intentionally NOT filtered out — staff may squeeze
+    // someone in over a break (the server allows it for staff too).
+    for (let m = 0; m < 24 * 60; m += ADD_STEP) {
       if (isToday && m < nowMin) continue;
       const slot = minsToSlot(m);
       if (booked.has(slot)) continue;
-      if (blocksM.some(bl => m >= bl.startMin && m < bl.endMin)) continue;
-      // Once a service is chosen, hide starts where it won't fit before the next booking.
       if (addTotalDuration > 0 && m + addTotalDuration > nextBookingAfter(m)) continue;
       opts.push(slot);
     }
-    // A deliberately-tapped empty box stays pickable even if it's outside working
-    // HOURS (overtime — the save guard still blocks a real overrun). But never
-    // re-add a slot that's already in the PAST today: you can't book earlier than
-    // now, and this was why a past slot (e.g. 9:00 AM at noon) kept showing + being
-    // pre-selected. Dropping it here lets the effect below default to the next slot.
+    // A deliberately-tapped empty box stays pickable. Never re-add a slot that's
+    // already in the PAST today (you can't book earlier than now).
     if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)
         && !(isToday && timeToMinutes(addCtx.time) < nowMin)) {
       opts.unshift(addCtx.time);
     }
     return opts;
-  }, [addCtx, currentDate, schedules, bookedSlotsFor, blocksFor, appointments, addTotalDuration]);
+  }, [addCtx, currentDate, bookedSlotsFor, appointments, addTotalDuration]);
 
   // Keep the selected time valid — default to the first available slot when the
   // seeded time isn't bookable (e.g. the header "+" landed before opening hours).
