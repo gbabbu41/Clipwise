@@ -35,7 +35,7 @@ const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pr
 const TRIAL_DAYS = 21;
 
 export default function BillingPage() {
-  const { accessToken, refreshShop, plans, shop } = useAuth();
+  const { accessToken, refreshShop, plans, shop, shops } = useAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -48,10 +48,15 @@ export default function BillingPage() {
   const load = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
-    const res = await fetch("/api/stripe/billing", { headers: { Authorization: `Bearer ${accessToken}` } });
+    // Scope to the ACTIVE shop. Without this, a multi-location owner saw the
+    // NEWEST shop's plan + Connect status (the API's fallback), not the location
+    // they're viewing — which is exactly why a fully-connected shop wrongly read
+    // "Not connected" (Billing was showing a different, un-connected location).
+    const url = shop?.id ? `/api/stripe/billing?shop_id=${encodeURIComponent(shop.id)}` : "/api/stripe/billing";
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (res.ok) setBilling(await res.json());
     setLoading(false);
-  }, [accessToken]);
+  }, [accessToken, shop?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -121,7 +126,9 @@ export default function BillingPage() {
     const res = await fetch("/api/stripe/connect", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      // Connect the SHOP being viewed (multi-location owners have one account per
+      // location), not just the newest shop.
+      body: JSON.stringify({ shop_id: shop?.id }),
     });
     const data = await res.json();
     if (res.ok && data.url) window.location.href = data.url;
@@ -478,7 +485,12 @@ export default function BillingPage() {
       {/* Connect / payouts card */}
       <Card>
         <CardHeader>
-          <CardTitle>Payouts (Stripe Connect)</CardTitle>
+          <CardTitle>
+            Payouts (Stripe Connect)
+            {shops && shops.length > 1 && shop?.name && (
+              <span className="block text-xs font-normal text-grey mt-0.5">Location: {shop.name} · each location connects its own bank</span>
+            )}
+          </CardTitle>
           {/* No "Not connected" warning on Starter — online payments aren't part of
               that plan, so there's nothing for them to set up. */}
           {onFreePlan ? null : (() => {

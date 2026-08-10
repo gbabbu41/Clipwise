@@ -30,7 +30,9 @@ export function StripeWarningBanner() {
       const res = await fetch("/api/stripe/connect", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        // Connect the shop this banner is about (the active location), not just
+        // the owner's newest shop.
+        body: JSON.stringify({ shop_id: shop?.id }),
       });
       const data = await res.json();
       if (res.ok && data.url) { window.location.href = data.url; return; }
