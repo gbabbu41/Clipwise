@@ -3,7 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
-import { reconcileLocationAddon } from "@/lib/stripe-addons";
+import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addons";
 
 // Called by the Billing page when the owner returns from a subscription
 // Checkout (upgrade/switch). Verifies the session and applies the plan to the
@@ -26,8 +26,10 @@ export async function POST(request: NextRequest) {
   }
 
   const meta = session.metadata ?? {};
-  // The session must belong to this user (metadata carries the buyer's user_id).
-  if (meta.user_id && meta.user_id !== user.id) {
+  // The session MUST belong to this user (our checkout always stamps user_id).
+  // Treat a missing user_id as forbidden too — don't attach an unlabeled
+  // session's subscription/customer to whoever calls this.
+  if (!meta.user_id || meta.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const paid = session.payment_status === "paid" || session.status === "complete";
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
     // Most likely the prevent_shop_field_escalation trigger rejecting the plan
     // change (run migrations/phase10_subscription_backend_update.sql).
     console.error("[confirm-subscription] shop update failed:", updErr.message);
-    return NextResponse.json({ error: `Could not apply plan: ${updErr.message}` }, { status: 500 });
+    return NextResponse.json({ error: "Payment received, but we couldn't activate the plan. Please refresh in a moment." }, { status: 500 });
   }
 
   // Cancel the previous subscription on an upgrade so they aren't double-billed.
@@ -89,6 +91,12 @@ export async function POST(request: NextRequest) {
     const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
     const included = getLocationLimit(effPlan);
     await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
+    // Re-attach the $15/mo AI-phone add-on too (a plan change makes a fresh sub,
+    // dropping it) if any of the owner's shops still has the phone active —
+    // otherwise they keep the feature but stop paying for it.
+    const { data: aiRow } = await supabaseAdmin
+      .from("shops").select("id").eq("owner_id", user.id).eq("ai_phone_plan_active", true).limit(1).maybeSingle();
+    if (aiRow) await reconcileAiPhoneAddon(newSubId, true).catch(() => {});
   }
 
   // Welcome / confirmation email to the shop owner (best-effort).

@@ -10,7 +10,8 @@ import { insertNotifications } from "@/lib/notify-server";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { runServerCompletionEffects } from "@/lib/completion-server";
 import { getLocationLimit } from "@/lib/validation";
-import { reconcileLocationAddon } from "@/lib/stripe-addons";
+import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addons";
+import { finalizeGiftFromSession } from "@/lib/finalize-gift-session";
 import type { TaxConfig } from "@/lib/pricing";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
@@ -52,6 +53,22 @@ export async function POST(request: NextRequest) {
             tipDollars: Number(session.metadata.tip_amount ?? 0),
             paymentIntentId: tipPi,
           });
+          break;
+        }
+
+        // ── Gift-card purchase, FALLBACK creation ──────────────────────────────
+        // A remote gift buyer normally gets their card when they return to the
+        // success page (gift-finalize). If they close the tab first, this is the
+        // safety net so a paid buyer is never charged for nothing. Idempotent via
+        // the unique (shop_id, code) index — if the return path already minted it,
+        // this no-ops.
+        if (session.metadata?.flow === "gift_card_purchase" && session.metadata?.shop_id) {
+          const { data: gShop } = await supabaseAdmin
+            .from("shops").select("id, name, email, slug").eq("id", session.metadata.shop_id).maybeSingle();
+          if (gShop) {
+            const r = await finalizeGiftFromSession(session, gShop, BASE_URL);
+            if (r.status === "error") console.warn("[webhook] gift fallback error:", r.message);
+          }
           break;
         }
 
@@ -277,13 +294,19 @@ export async function POST(request: NextRequest) {
           if (oldSubId && oldSubId !== newSubId) {
             await stripe.subscriptions.cancel(oldSubId).catch(() => null);
           }
-          // Re-attach the $30/location add-on onto the new subscription (a plan
-          // change makes a fresh sub, so the add-on item doesn't carry over).
+          // Re-attach the add-ons onto the new subscription (a plan change makes a
+          // fresh sub, so add-on items don't carry over). Without this the owner
+          // keeps the feature but stops being billed — a silent revenue leak.
           if (newSubId && userId && plan) {
             await ensurePlansHydrated();
             const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", userId);
             const included = getLocationLimit(plan);
             await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
+            // $15/mo AI-phone add-on: re-attach if any of the owner's shops still
+            // has the phone active.
+            const { data: aiRow } = await supabaseAdmin
+              .from("shops").select("id").eq("owner_id", userId).eq("ai_phone_plan_active", true).limit(1).maybeSingle();
+            if (aiRow) await reconcileAiPhoneAddon(newSubId, true).catch(() => {});
           }
         } else if (session.metadata?.shop_id && session.metadata?.date && session.metadata?.time_slot) {
           // ── New online booking, FALLBACK creation ────────────────────────────
@@ -325,8 +348,10 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const { data: shop } = await supabaseAdmin.from("shops")
-          .select("id, name, email").eq("stripe_subscription_id", sub.id).maybeSingle();
-        if (shop) {
+          .select("id, name, email, subscription_status").eq("stripe_subscription_id", sub.id).maybeSingle();
+        // Gate on the CURRENT status so a duplicate delete delivery doesn't
+        // re-downgrade + re-send the cancellation email.
+        if (shop && shop.subscription_status !== "cancelled") {
           await supabaseAdmin.from("shops")
             .update({ subscription_status: "cancelled", subscription_plan: "starter" })
             .eq("id", shop.id);
@@ -369,9 +394,16 @@ export async function POST(request: NextRequest) {
       // ── Booking payment failed → flag + notify owner ─────────────────────────
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
+        // Only flag a not-yet-settled booking as failed. Without this guard a
+        // duplicate/out-of-order failed event could revert an already paid /
+        // captured / refunded booking back to "failed" — which would then offer a
+        // "send payment link" action and risk collecting a SECOND time. The
+        // .select().maybeSingle() also means the owner is only notified on a real
+        // change (a no-op update returns null), killing duplicate alerts too.
         const { data: appt } = await supabaseAdmin.from("appointments")
           .update({ payment_status: "failed" })
           .eq("payment_intent_id", pi.id)
+          .in("payment_status", ["unpaid", "held", "saved"])
           .select("shop_id, client_name").maybeSingle();
         if (appt?.shop_id) {
           const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();

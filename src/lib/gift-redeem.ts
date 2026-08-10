@@ -27,15 +27,25 @@ export async function findRedeemableGift(shopId: string, code?: string | null): 
  * the appointment), so it can't double-spend.
  */
 export async function redeemGift(shopId: string, code: string, applyDollars: number): Promise<number> {
-  const gift = await findRedeemableGift(shopId, code);
-  if (!gift) return 0;
-  const applied = Math.min(gift.balance, Math.max(0, Math.round(applyDollars * 100) / 100));
-  if (applied <= 0) return 0;
-  const newBalance = Math.round((gift.balance - applied) * 100) / 100;
-  await supabaseAdmin.from("gift_cards").update({
-    remaining_value: newBalance,
-    is_active: newBalance > 0,
-    redeemed_at: new Date().toISOString(),
-  }).eq("id", gift.id);
-  return applied;
+  // Compare-and-swap draw-down: the balance write only applies if the balance is
+  // STILL what we read (`.eq("remaining_value", gift.balance)`). If two bookings
+  // redeem the same code at the same instant, only one write lands; the other
+  // matches 0 rows and retries against the fresh balance — so a $50 card can
+  // never take $50 off two bookings. A few retries cover realistic contention.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const gift = await findRedeemableGift(shopId, code);
+    if (!gift) return 0;
+    const applied = Math.min(gift.balance, Math.max(0, Math.round(applyDollars * 100) / 100));
+    if (applied <= 0) return 0;
+    const newBalance = Math.round((gift.balance - applied) * 100) / 100;
+    const { data, error } = await supabaseAdmin.from("gift_cards").update({
+      remaining_value: newBalance,
+      is_active: newBalance > 0,
+      redeemed_at: new Date().toISOString(),
+    }).eq("id", gift.id).eq("remaining_value", gift.balance).select("id");
+    if (error) return 0;                       // best-effort — never break the booking
+    if (data && data.length > 0) return applied; // our write won
+    // else: balance changed under us → loop and re-read
+  }
+  return 0;
 }

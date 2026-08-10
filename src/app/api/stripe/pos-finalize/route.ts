@@ -75,7 +75,10 @@ export async function POST(request: NextRequest) {
       if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
       ins = await attempt(trimmed);
     }
-    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+    if (ins.error) {
+      console.error("[pos-finalize] transaction insert failed:", ins.error.message);
+      return NextResponse.json({ error: "Couldn't record the sale. Please try again." }, { status: 500 });
+    }
     const txRow = ins.data;
 
     // Decrement inventory for any product items in the sale.

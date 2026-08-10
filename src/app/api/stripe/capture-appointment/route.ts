@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, stripeFeeCents } from "@/lib/stripe";
+import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { sendSmsBestEffort } from "@/lib/twilio";
@@ -107,6 +107,13 @@ export async function POST(request: NextRequest) {
   }
 
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
+  // Defense-in-depth: in LIVE mode never fall back to a platform charge (customer
+  // money must land in the shop's account). Held/saved cards live on the connected
+  // account so this can't misroute today, but make it explicit like every other
+  // charge route rather than safe-by-accident.
+  if (!useConnect && STRIPE_LIVE_MODE) {
+    return NextResponse.json({ error: "This shop must finish Stripe setup before charges can run." }, { status: 400 });
+  }
   const opts = useConnect ? { stripeAccount: shop.stripe_account_id! } : undefined;
 
   // No-show with a 0% fee (or a $0 booking): collect nothing. Release any held

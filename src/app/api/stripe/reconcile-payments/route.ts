@@ -25,9 +25,14 @@ export async function POST(request: NextRequest) {
   const { data: ownerShops } = await ownerQuery.order("created_at", { ascending: false }).limit(1);
   let shop = ownerShops?.[0] ?? null;
   if (!shop) {
+    // Barber fallback — only an ACTIVE barber WITH manage_appointments may run
+    // the sync (it fires customer receipts + owner alerts), matching the capture
+    // route's authz. A plain linked/removed barber must not trigger it.
     const { data: barber } = await supabaseAdmin
-      .from("barbers").select("shop_id").eq("user_id", user.id).limit(1).maybeSingle();
-    if (barber?.shop_id) {
+      .from("barbers").select("shop_id, is_active, permissions").eq("user_id", user.id).limit(1).maybeSingle();
+    const canManage = !!barber?.is_active
+      && (barber?.permissions as { manage_appointments?: boolean } | null)?.manage_appointments === true;
+    if (barber?.shop_id && canManage) {
       const { data: bShop } = await supabaseAdmin
         .from("shops").select("id, name, email, owner_id, stripe_account_id, stripe_connected, booking_settings")
         .eq("id", barber.shop_id).maybeSingle();

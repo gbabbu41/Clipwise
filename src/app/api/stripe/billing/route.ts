@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { LOCATION_ADDON_LOOKUP_KEY } from "@/lib/stripe-addons";
+import { LOCATION_ADDON_LOOKUP_KEY, AI_PHONE_ADDON_LOOKUP_KEY } from "@/lib/stripe-addons";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
       // Use the PLAN line item (not [0]): a subscription can also carry the
       // $30/location add-on item, and Stripe doesn't guarantee item order, so
       // [0] could be the add-on — which would show $30 as the plan price/period.
-      const planItem = (sub.items.data.find(i => i.price?.lookup_key !== LOCATION_ADDON_LOOKUP_KEY) ?? sub.items.data[0]) as (typeof sub.items.data[0] & { current_period_end?: number }) | undefined;
+      const ADDON_KEYS = new Set([LOCATION_ADDON_LOOKUP_KEY, AI_PHONE_ADDON_LOOKUP_KEY]);
+      const planItem = (sub.items.data.find(i => !ADDON_KEYS.has(i.price?.lookup_key ?? "")) ?? sub.items.data[0]) as (typeof sub.items.data[0] & { current_period_end?: number }) | undefined;
       const periodEnd = planItem?.current_period_end ?? sub.current_period_end;
       result.nextBilling = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
       // When a cancel is scheduled, Stripe keeps the sub active until period end

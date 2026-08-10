@@ -3,11 +3,16 @@ import { stripe, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Post-visit tip: a customer opens their tip link and leaves a tip. The charge
 // runs on the shop's connected account (0% platform fee) and is recorded via the
 // webhook (flow=tip). No appointment state changes — it's purely additive.
 export async function POST(request: NextRequest) {
+  // Public route → rate-limit like booking/gift checkout to stop session-spam
+  // and appointment-id enumeration.
+  const limited = enforceRateLimit(request, "tip-checkout", 12, 60_000);
+  if (limited) return limited;
   const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const { appointment_id, tip_amount } = await request.json() as { appointment_id?: string; tip_amount?: number };
   if (!appointment_id) return NextResponse.json({ error: "Missing booking." }, { status: 400 });
