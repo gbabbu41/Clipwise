@@ -141,6 +141,21 @@ export default function BillingPage() {
     else { showToast(data.error ?? "Could not open billing portal"); setActionLoading(""); }
   };
 
+  // Open the Stripe Express dashboard (payouts, balance, transfers) via a
+  // one-time login link — no separate Stripe login needed.
+  const openDashboard = async () => {
+    if (!accessToken) return;
+    setActionLoading("dashboard");
+    const res = await fetch("/api/stripe/dashboard-link", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop?.id }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res && res.ok && (data as { url?: string }).url) window.location.href = (data as { url: string }).url;
+    else { showToast((data as { error?: string }).error ?? "Couldn't open the Stripe dashboard"); setActionLoading(""); }
+  };
+
   // Cancel / downgrade to Free. immediate=false keeps access until the paid
   // period (or trial) ends; immediate=true drops to Starter right now.
   const cancelPlan = async (immediate: boolean) => {
@@ -425,14 +440,17 @@ export default function BillingPage() {
               ))}
               <p className="text-[11px] text-grey leading-relaxed">
                 Billed monthly in CAD · secure checkout by Stripe. Your plan renews automatically each month.
-                You can cancel or update your card anytime via <span className="text-gray-300">Manage subscription</span> — cancelling stops future charges and keeps your plan active until the end of the billing period (no refund for the unused days), then reverts to the free Starter plan. No contracts, no hidden fees.
+                Cancel or switch plans anytime with the buttons here — cancelling stops future charges and keeps your plan active until the end of the billing period (no refund for the unused days), then reverts to the free Starter plan. No contracts, no hidden fees.
               </p>
             </div>
           )}
           {!onFreePlan && !isTrial && (
-            <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
-              <CreditCard size={15} /> Manage subscription
-            </Button>
+            <div>
+              <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
+                <CreditCard size={15} /> Update card &amp; invoices
+              </Button>
+              <p className="text-[11px] text-grey mt-1.5">Opens Stripe&apos;s secure billing page to change your saved card or download invoices. To cancel or switch plans, use the buttons above.</p>
+            </div>
           )}
 
           {/* Redeem a comp coupon → free Pro/Premium days. Shown to free/trial
@@ -494,7 +512,11 @@ export default function BillingPage() {
                     : "Connect your bank account to receive customer payments directly via Stripe."}
                 </p>
               </div>
-              {!billing?.connect.connected && (
+              {billing?.connect.connected ? (
+                <Button variant="outline" loading={actionLoading === "dashboard"} onClick={openDashboard}>
+                  <Building2 size={15} /> View payouts on Stripe
+                </Button>
+              ) : (
                 <Button loading={actionLoading === "connect"} onClick={completeConnect}>
                   <Building2 size={15} /> Complete Setup
                 </Button>

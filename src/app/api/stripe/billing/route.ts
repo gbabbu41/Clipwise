@@ -82,5 +82,24 @@ export async function GET(request: NextRequest) {
     } catch { /* ignore */ }
   }
 
+  // Connect status — verify against the LIVE Stripe account, not just the cached
+  // `stripe_connected` boolean (which drifts if an account.updated webhook is
+  // missed → a fully onboarded shop wrongly reads "Not connected"). Self-heal the
+  // shop row so Billing AND every payment route that gates on stripe_connected
+  // see the truth. Same "active = charges + payouts enabled" definition as
+  // /api/stripe/connect/status.
+  if (shop.stripe_account_id) {
+    try {
+      const account = await stripe.accounts.retrieve(shop.stripe_account_id);
+      const active = !!(account.charges_enabled && account.payouts_enabled);
+      result.connect = { connected: active, status: active ? "active" : "pending" };
+      if (active !== !!shop.stripe_connected) {
+        await supabaseAdmin.from("shops")
+          .update({ stripe_connected: active, stripe_connect_status: active ? "active" : "pending" })
+          .eq("id", shop.id).then(null, () => null);
+      }
+    } catch { /* account fetch failed — keep the cached value */ }
+  }
+
   return NextResponse.json(result);
 }
