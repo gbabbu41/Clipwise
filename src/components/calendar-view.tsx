@@ -292,15 +292,27 @@ export function makeApptActions(opts: {
         }
       });
       if (Object.keys(clean).length === 0) { toast("No changes"); return; }
-      setBusy("edit");
       // Save THROUGH the server route: it runs the authoritative double-booking
       // check (service role, sees every booking, can't be skipped) before writing.
-      const res = await fetch("/api/appointments/update", {
+      const send = (overrideBlock: boolean) => fetch("/api/appointments/update", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appt.id, fields: clean }),
+        body: JSON.stringify({ appointment_id: appt.id, fields: clean, override_block: overrideBlock || undefined }),
       }).catch(() => null);
-      const data = res ? await res.json().catch(() => ({ error: "Network error" })) : { error: "Network error" };
+      setBusy("edit");
+      let res = await send(false);
+      let data = res ? await res.json().catch(() => ({ error: "Network error" })) : { error: "Network error" };
+      // Moving onto a deliberate break / time-off is respected with a warning the
+      // staff can accept (a double-booking has no `blocked` flag → hard stop).
+      if (res && !res.ok && data.blocked) {
+        setBusy("");
+        const ok = typeof window !== "undefined" &&
+          window.confirm("The barber has time off or a break during that slot. Move the appointment there anyway?");
+        if (!ok) return;
+        setBusy("edit");
+        res = await send(true);
+        data = res ? await res.json().catch(() => ({ error: "Network error" })) : { error: "Network error" };
+      }
       setBusy("");
       if (!res || !res.ok || data.error) {
         toast(data.error || "Update failed — please try again.");
@@ -627,46 +639,48 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const editSlots = useMemo<string[]>(() => {
     // Without a services list we don't fit-check — offer the whole 15-min grid.
     if (!services) return EDIT_TIME_SLOTS;
-    // Services known but availability not loaded / no schedule for the day: only
-    // keep the current time selectable (never offer an unvalidated slot). The
-    // save-time conflict guard is the final backstop either way.
-    if (!editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return [curSnapped];
-    const startMin = timeToMinutes(dbTimeToDisplay(editAvail.start_time));
-    const endMin = timeToMinutes(dbTimeToDisplay(editAvail.end_time));
+    // Availability still loading — keep just the current time until we know the
+    // barber's real bookings (never offer a slot we can't conflict-check yet).
+    if (!editAvail) return [curSnapped];
+    // Staff can reschedule to ANY time of day — the full 24h grid, not just the
+    // barber's working hours (mirrors the add flow). Blocks / time-off / breaks
+    // stay PICKABLE; the save warns and lets staff confirm. Only slots that would
+    // DOUBLE-BOOK are dropped (already busy, or a service overrunning the next
+    // appointment) plus past times today.
     const otherBusy = editAvail.busy.filter(x => !(ownSlot && x.time_slot === ownSlot));
     const occupied = new Set<string>(otherBusy.flatMap(a => occupiedSlots(a.time_slot, a.duration, 15)));
-    for (const o of editAvail.blocked) {
-      const bs = timeToMinutes(dbTimeToDisplay(o.start_time)), be = timeToMinutes(dbTimeToDisplay(o.end_time));
-      for (const s of generate24hSlots(15)) { const m = timeToMinutes(s); if (m >= bs && m < be) occupied.add(s); }
-    }
     const starts = otherBusy.map(a => timeToMinutes(a.time_slot));
     const nextAfter = (m: number) => { const after = starts.filter(s => s > m); return after.length ? Math.min(...after) : 24 * 60; };
     const dur = editTotalDuration > 0 ? editTotalDuration : 15;
     const isToday = editForm.date === formatDateForDb(new Date());
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
     const opts: string[] = [];
-    for (let m = startMin; m + dur <= endMin; m += 15) {
+    for (let m = 0; m + dur <= 24 * 60; m += 15) {
       const slot = minToDisplay(m);
       if (isToday && m < nowMin) continue;
       if (occupied.has(slot)) continue;
       if (m + dur > nextAfter(m)) continue;
       opts.push(slot);
     }
-    if (!opts.includes(curSnapped)) opts.unshift(curSnapped);
+    // Keep the current time selectable, inserted in chronological order so the
+    // native picker opens scrolled to it (not pinned to the top).
+    if (!opts.includes(curSnapped)) {
+      const cMin = timeToMinutes(curSnapped);
+      const idx = opts.findIndex(s => timeToMinutes(s) > cMin);
+      if (idx === -1) opts.push(curSnapped); else opts.splice(idx, 0, curSnapped);
+    }
     return opts;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services, editAvail, editTotalDuration, editForm.date, ownSlot, curSnapped]);
 
-  // If the chosen time stops fitting (e.g. a longer service was added), snap it
-  // to the first slot that does — but NEVER silently bounce a deliberate new pick
-  // back to the original. Only runs once real availability has loaded: while it's
-  // still fetching (barber just changed) OR the barber has no hours that day,
-  // editSlots collapses to just the original time, and snapping then was reverting
-  // a rescheduled time. When a re-snap is genuinely needed, land on the first real
-  // opening, not the original slot. The server conflict check is the final guard.
+  // If the chosen time stops fitting (e.g. a longer service was added), snap it to
+  // the first slot that does — but NEVER silently bounce a deliberate new pick
+  // back to the original. Skip only while availability is still loading (editSlots
+  // is just [curSnapped] then, so snapping would revert a rescheduled time); once
+  // loaded, keep the selection valid on any day (off-days included, since the list
+  // no longer collapses). The server conflict check is the final guard.
   useEffect(() => {
-    if (!editMode || !services) return;
-    if (!editAvail || editAvail.fullDayOff || !editAvail.start_time || !editAvail.end_time) return;
+    if (!editMode || !services || !editAvail) return;
     if (editSlots.includes(editForm.time)) return;
     const target = editSlots.find(s => s !== curSnapped) ?? editSlots[0];
     if (target) setEditForm(f => ({ ...f, time: target }));

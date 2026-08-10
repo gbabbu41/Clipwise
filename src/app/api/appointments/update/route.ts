@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
+import { scheduleBlockReason } from "@/lib/schedule-block";
 import { authorizeAppointment } from "@/lib/api-auth";
 import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
 import { sendAppEmail } from "@/lib/emailer";
@@ -29,7 +30,7 @@ const EDITABLE = [
 ] as const;
 
 export async function POST(request: NextRequest) {
-  const body = await request.json() as { appointment_id?: string; fields?: Record<string, unknown> };
+  const body = await request.json() as { appointment_id?: string; fields?: Record<string, unknown>; override_block?: boolean };
   const { appointment_id, fields } = body;
   if (!appointment_id || !fields || typeof fields !== "object") {
     return NextResponse.json({ error: "Missing appointment_id or fields" }, { status: 400 });
@@ -81,6 +82,20 @@ export async function POST(request: NextRequest) {
     const endMin = startMin + (newDur > 0 ? newDur : 30);
     if (await barberHasConflict(newBarber, newDate, startMin, endMin, appointment_id)) {
       return NextResponse.json({ error: "That overlaps another booking for this barber — pick another time or shorten the service." }, { status: 409 });
+    }
+    // Moving onto a DELIBERATE block — approved time-off (day_off/vacation/sick),
+    // blocked-hours, or a recurring break (lunch) — is allowed but warned. The
+    // client shows a confirm and retries with override_block. `blocked: true`
+    // marks this 409 as an OVERRIDABLE schedule conflict (vs the hard double-book
+    // conflict above). This route is already staff-only (owner / barber with
+    // manage_appointments), so the flag can't reach it from a customer.
+    if (!body.override_block) {
+      const blockReason = await scheduleBlockReason(
+        appt.shop_id, newBarber, newDate, startMin, endMin, { includeBreaks: true },
+      );
+      if (blockReason) {
+        return NextResponse.json({ error: blockReason, blocked: true }, { status: 409 });
+      }
     }
   }
 
