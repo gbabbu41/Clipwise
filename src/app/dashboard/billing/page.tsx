@@ -85,6 +85,28 @@ export default function BillingPage() {
     })();
   }, [accessToken, refreshShop, load]);
 
+  // Returned from Stripe's card-update page → re-read the live card and confirm
+  // it was accepted + when it'll next be charged.
+  useEffect(() => {
+    if (!accessToken) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("card_updated") !== "1") return;
+    window.history.replaceState({}, "", "/dashboard/billing");
+    (async () => {
+      const res = await fetch(`/api/stripe/billing${shop?.id ? `?shop_id=${encodeURIComponent(shop.id)}` : ""}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).catch(() => null);
+      const data = res && res.ok ? await res.json().catch(() => null) : null;
+      if (data) setBilling(data);
+      const last4 = data?.cardLast4 as string | null | undefined;
+      const when = data?.nextBilling ? ` It'll be charged on ${fmtDate(data.nextBilling)}.` : "";
+      showToast(last4
+        ? `Card accepted — •••• ${last4} is now on file.${when}`
+        : `Card accepted.${when}`);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, shop?.id]);
+
   const startCheckoutUpgrade = async (planId: string) => {
     if (!accessToken) return;
     setActionLoading(planId);
@@ -459,7 +481,7 @@ export default function BillingPage() {
               <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
                 <CreditCard size={15} /> Update card
               </Button>
-              <p className="text-[11px] text-grey mt-1.5">Opens Stripe&apos;s secure card page — update the number, expiry &amp; CVC; Stripe checks it&apos;s valid, then brings you back. Invoices are listed below; cancel or switch plans with the buttons above.</p>
+              <p className="text-[11px] text-grey mt-1.5">Opens Stripe&apos;s secure card page — number, expiry, CVC &amp; postal. Stripe checks it&apos;s valid, then brings you right back with a confirmation and when it&apos;ll next be charged. Invoices are listed below; cancel or switch plans with the buttons above.</p>
             </div>
           )}
 

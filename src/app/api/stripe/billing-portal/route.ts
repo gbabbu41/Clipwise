@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${baseUrl}/dashboard/billing`,
-      flow_data: { type: "payment_method_update" },
+      flow_data: {
+        type: "payment_method_update",
+        // On success, return with a flag so Billing can confirm the new card was
+        // accepted + show when it'll next be charged (instead of a silent return).
+        after_completion: { type: "redirect", redirect: { return_url: `${baseUrl}/dashboard/billing?card_updated=1` } },
+      },
     });
     return NextResponse.json({ url: session.url });
   } catch (err) {
