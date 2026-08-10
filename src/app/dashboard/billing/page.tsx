@@ -7,7 +7,6 @@ import { effectivePlan } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { UpdateCardModal, stripeElementsEnabled } from "@/components/update-card-modal";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -42,7 +41,6 @@ export default function BillingPage() {
   const [toast, setToast] = useState("");
   const [actionLoading, setActionLoading] = useState("");
   const [showCancel, setShowCancel] = useState(false);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [couponCode, setCouponCode] = useState("");
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
@@ -290,20 +288,6 @@ export default function BillingPage() {
     <div className="p-6 space-y-6 max-w-3xl">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      {showCardModal && (
-        <UpdateCardModal
-          accessToken={accessToken ?? ""}
-          shopId={shop?.id}
-          onClose={() => setShowCardModal(false)}
-          onSaved={(last4) => {
-            setShowCardModal(false);
-            setBilling(b => (b ? { ...b, cardLast4: last4 ?? b.cardLast4 } : b));
-            showToast(last4 ? `Card updated — •••• ${last4} is now on file.` : "Card updated.");
-            load();
-          }}
-        />
-      )}
-
       <div>
         <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Billing</h1>
         <p className="text-sm text-grey mt-0.5">Manage your subscription and payouts</p>
@@ -472,24 +456,10 @@ export default function BillingPage() {
               {billing?.cardLast4 && (
                 <p className="text-xs text-grey mb-2">Card on file <span className="text-foreground font-medium">•••• {billing.cardLast4}</span></p>
               )}
-              {stripeElementsEnabled ? (
-                <>
-                  <Button variant="outline" onClick={() => setShowCardModal(true)}>
-                    <CreditCard size={15} /> Update card
-                  </Button>
-                  <p className="text-[11px] text-grey mt-1.5">
-                    Change the card for your plan right here — invoices are listed below. Prefer Stripe?{" "}
-                    <button type="button" onClick={openPortal} className="underline hover:text-foreground disabled:opacity-50" disabled={actionLoading === "portal"}>Open Stripe&apos;s billing page</button>.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
-                    <CreditCard size={15} /> Update card &amp; invoices
-                  </Button>
-                  <p className="text-[11px] text-grey mt-1.5">Opens Stripe&apos;s secure billing page to change your saved card or download invoices. To cancel or switch plans, use the buttons above.</p>
-                </>
-              )}
+              <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
+                <CreditCard size={15} /> Update card
+              </Button>
+              <p className="text-[11px] text-grey mt-1.5">Opens Stripe&apos;s secure card page — update the number, expiry &amp; CVC; Stripe checks it&apos;s valid, then brings you back. Invoices are listed below; cancel or switch plans with the buttons above.</p>
             </div>
           )}
 

@@ -12,23 +12,33 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // The subscription lives on ONE Stripe customer for the owner. Pick any of
+  // their shops that actually holds it — not just the newest shop, which for a
+  // multi-location owner can be a location with no customer id (that used to
+  // wrongly say "No subscription to manage").
   const { data: shops } = await supabaseAdmin
     .from("shops").select("name, stripe_customer_id").eq("owner_id", user.id)
-    .order("created_at", { ascending: false }).limit(1);
-  const customerId = shops?.[0]?.stripe_customer_id;
+    .order("created_at", { ascending: false });
+  const shopWithCustomer = (shops ?? []).find(s => s.stripe_customer_id) ?? null;
+  const customerId = shopWithCustomer?.stripe_customer_id;
   if (!customerId) return NextResponse.json({ error: "No subscription to manage yet." }, { status: 400 });
 
   // Back-fill the customer's name with the shop's business name (fixes invoices
   // that previously showed the cardholder's personal name).
-  if (shops?.[0]?.name) {
-    await stripe.customers.update(customerId, { name: shops[0].name }).catch(() => null);
+  if (shopWithCustomer?.name) {
+    await stripe.customers.update(customerId, { name: shopWithCustomer.name }).catch(() => null);
   }
 
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   try {
+    // Land the owner STRAIGHT on Stripe's card-update screen (not the general
+    // portal) — Stripe collects + validates the new card there, then returns
+    // them to Billing. `payment_method_update` is on by default in the Customer
+    // Portal config; if it's ever disabled the catch below surfaces the reason.
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${baseUrl}/dashboard/billing`,
+      flow_data: { type: "payment_method_update" },
     });
     return NextResponse.json({ url: session.url });
   } catch (err) {

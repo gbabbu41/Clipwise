@@ -24,15 +24,11 @@ const nextConfig = {
     // /book page; the authenticated portals get X-Frame-Options: DENY below.
     const csp = [
       "default-src 'self'",
-      // js.stripe.com is the ONLY external script host — Stripe.js, needed for the
-      // in-app "Update card" secure field (Elements). No other external scripts.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
-      // *.stripe.com covers the hosted Checkout redirect AND the Elements card
-      // iframe (js.stripe.com / hooks.stripe.com) used by the in-app card update.
       "frame-src 'self' https://*.stripe.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
