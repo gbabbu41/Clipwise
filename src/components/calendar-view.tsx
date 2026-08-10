@@ -1708,11 +1708,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       if (addTotalDuration > 0 && m + addTotalDuration > nextBookingAfter(m)) continue;
       opts.push(slot);
     }
-    // A deliberately-tapped empty box stays pickable. Never re-add a slot that's
+    // A deliberately-tapped empty box (an off-grid time like 9:35) stays pickable
+    // — inserted in CHRONOLOGICAL order, not pinned to the top, so the list reads
+    // 9:15 → 9:30 → 9:35 → 9:45 and the native picker opens scrolled to it (with
+    // earlier times scrollable above and later ones below). Never re-add a slot
     // already in the PAST today (you can't book earlier than now).
     if (!addCtx.general && addCtx.time && !opts.includes(addCtx.time)
         && !(isToday && timeToMinutes(addCtx.time) < nowMin)) {
-      opts.unshift(addCtx.time);
+      const tMin = timeToMinutes(addCtx.time);
+      const idx = opts.findIndex(s => timeToMinutes(s) > tMin);
+      if (idx === -1) opts.push(addCtx.time); else opts.splice(idx, 0, addCtx.time);
     }
     return opts;
   }, [addCtx, currentDate, bookedSlotsFor, appointments, addTotalDuration]);
