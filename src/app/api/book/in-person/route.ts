@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     promo_code?: string;             // validated + consumed server-side
     pay_in_person?: boolean;         // tag the row as cash/unpaid
     confirmed?: boolean;             // owner-booked → skip the approval queue
+    override_block?: boolean;        // staff confirmed booking over a break/time-off (honored only for authenticated staff)
     note?: string;                   // extra note (e.g. "outside working hours")
     redeem?: boolean;                // customer chose to spend loyalty points (amount computed server-side)
     gift_code?: string;              // gift card that covers this booking (applied server-side)
@@ -173,19 +174,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Schedule enforcement is CUSTOMER-only. A customer self-booking can't land on
-  // a block, a full-day off (day_off/vacation/sick), or a recurring break — the
-  // shop's schedule fully governs the public booking page. Staff adding a walk-in
-  // from the dashboard have full freedom to write a client in at ANY time / day
-  // (over a break, on an off day, outside hours); the ONLY hard stops for staff
-  // are the past-booking block (above) and the double-booking conflict (above +
-  // the DB overlap guard). So skip the schedule check entirely for staff.
-  if (!callerIsStaff) {
+  // Schedule enforcement. A DELIBERATE block matters: approved time-off
+  // (day_off/vacation/sick), blocked-hours, or a recurring break (lunch). A
+  // regular off-day / outside-working-hours is NOT flagged here — staff (and the
+  // customer availability path) treat those separately.
+  //   · Customer self-booking  → hard block (the schedule governs the public page).
+  //   · Staff walk-in          → also blocked, UNLESS they explicitly confirmed
+  //     ("book anyway") via override_block. The client shows a warning first and
+  //     retries with the flag set. `blocked: true` tells the client this 409 is
+  //     an overridable schedule conflict (vs a hard double-booking conflict).
+  // The flag is honored ONLY for authenticated staff — a customer can't send it.
+  const staffOverride = callerIsStaff && b.override_block === true;
+  if (!staffOverride) {
     const blockReason = await scheduleBlockReason(
       b.shop_id, barberId, b.date, startMin, endMin, { includeBreaks: true },
     );
     if (blockReason) {
-      return NextResponse.json({ error: blockReason }, { status: 409 });
+      return NextResponse.json({ error: blockReason, blocked: true }, { status: 409 });
     }
   }
 

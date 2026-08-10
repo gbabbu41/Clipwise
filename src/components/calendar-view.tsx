@@ -1592,8 +1592,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return;
     }
     const outside = isOutsideSchedule(addCtx.barberId, time);
-    setSavingAdd(true);
-    const res = await fetch("/api/book/in-person", {
+    const send = (overrideBlock: boolean) => fetch("/api/book/in-person", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
@@ -1605,10 +1604,26 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         date: formatDateForDb(currentDate), time_slot: time,
         total_amount: price, duration_minutes: duration, pay_in_person: true,
         confirmed: true,
+        override_block: overrideBlock || undefined,
         note: outside ? "⚠️ Booked outside the barber's working hours" : undefined,
       }),
     });
-    const data = await res.json().catch(() => ({}));
+
+    setSavingAdd(true);
+    let res = await send(false);
+    let data = await res.json().catch(() => ({}));
+    // A DELIBERATE break / lunch / time-off is respected with a warning: the
+    // staff can confirm to book over it. (A regular off-day isn't flagged and
+    // books straight through.) A double-booking has no `blocked` flag → hard stop.
+    if (!res.ok && data.blocked) {
+      setSavingAdd(false);
+      const ok = typeof window !== "undefined" &&
+        window.confirm(`${addCtx.barberName} has time off or a break during this slot. Book them in anyway?`);
+      if (!ok) return;
+      setSavingAdd(true);
+      res = await send(true);
+      data = await res.json().catch(() => ({}));
+    }
     setSavingAdd(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
