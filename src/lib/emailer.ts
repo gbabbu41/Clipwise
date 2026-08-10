@@ -379,6 +379,21 @@ function subscriptionCancelled(data: Record<string, string>) {
   `);
 }
 
+function subscriptionCardUpdated(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">Card Updated</div>
+    <h1>Your payment card was updated</h1>
+    <p>The card on file for your ClipWise <span class="highlight">${data.planName || "subscription"}</span> plan${data.shopName ? ` (<span class="highlight">${data.shopName}</span>)` : ""} was successfully updated${data.cardLabel ? ` to <span class="highlight">${data.cardLabel}</span>` : ""}.</p>
+    ${data.nextBilling ? `<p>Your next payment will be charged to this card on <span class="highlight">${data.nextBilling}</span>.</p>` : ""}
+    <hr class="divider">
+    <p style="color:#4B5563">If you didn't make this change, please review your billing right away or contact us.</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">View billing →</a>
+    <hr class="divider">
+    <p style="color:#4B5563">— The ClipWise Team</p>
+  `);
+}
+
 function birthdayWish(data: Record<string, string>) {
   return wrap(`
     ${shopHeader(data.shopName)}
@@ -1041,6 +1056,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = "Your ClipWise subscription was cancelled";
       html = subscriptionCancelled(data);
+      break;
+    case "subscription_card_updated":
+      to = data.ownerEmail;
+      subject = "Your ClipWise payment card was updated";
+      html = subscriptionCardUpdated(data);
       break;
     case "time_off_request":
       to = data.ownerEmail;

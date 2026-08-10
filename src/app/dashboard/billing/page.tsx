@@ -104,6 +104,11 @@ export default function BillingPage() {
       showToast(label
         ? `Card accepted — ${label} is now on file.${when}`
         : `Card accepted.${when}`);
+      // Email the owner a confirmation of the card change (best-effort, server-side).
+      fetch("/api/stripe/notify-card-updated", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      }).catch(() => null);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, shop?.id]);
