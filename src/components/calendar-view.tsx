@@ -1110,7 +1110,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => clearTimeout(t);
   }, [addCtx]);
   const closeAdd = () => { setAddShown(false); setTimeout(() => setAddCtx(null), 260); };
-  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", client_email: "", service_ids: [] as string[], time: "" });
+  const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", client_email: "", service_ids: [] as string[], time: "", date: "" });
   const [savingAdd, setSavingAdd] = useState(false);
   // Blocked-hours state. The tap modal carries an Appointment/Block toggle
   // (addMode); blockForm holds the block's time range + reason.
@@ -1513,7 +1513,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // as long as the user can do at least one; defaults to whichever they can.
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false) => {
     if (!canManage && !canBlock) return;
-    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time });
+    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time, date: formatDateForDb(currentDate) });
     const startMin = timeToMinutes(time);
     setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
     setAddMode(canManage ? "appt" : "block");
@@ -1601,7 +1601,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         service_names: svcs.length > 1 ? svcs.map(s => s.name).join(" + ") : undefined,
         client_name: addForm.client_name.trim(), client_phone: addForm.client_phone.trim() || undefined,
         client_email: addForm.client_email.trim() || undefined,
-        date: formatDateForDb(currentDate), time_slot: time,
+        date: addForm.date || formatDateForDb(currentDate), time_slot: time,
         total_amount: price, duration_minutes: duration, pay_in_person: true,
         confirmed: true,
         override_block: overrideBlock || undefined,
@@ -1627,7 +1627,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     setSavingAdd(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
     setAddCtx(null);
-    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time: "" });
+    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time: "", date: "" });
     showToast(outside ? "Booked · outside working hours" : "Booked");
     load();
   };
@@ -1640,13 +1640,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!addCtx) return null;
     // Runway from the SELECTED start (not the seeded box) to the next booking.
     const boxStart = timeToMinutes(addForm.time || addCtx.time);
-    const dateStr = formatDateForDb(currentDate);
+    const dateStr = addForm.date || formatDateForDb(currentDate);
     const nexts = appointments
       .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
       .map(a => timeToMinutes(a.time_slot))
       .filter(m => m > boxStart);
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
-  }, [addCtx, appointments, currentDate, addForm.time]);
+  }, [addCtx, appointments, currentDate, addForm.time, addForm.date]);
 
   // Combined totals — sum over the chosen rows (counts duplicates, ignores "").
   const svcById = useCallback((id: string) => services.find(s => s.id === id), [services]);
@@ -1678,7 +1678,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // empty box also keeps that exact slot selectable even if it's overtime.
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
-    const dateStr = formatDateForDb(currentDate);
+    const dateStr = addForm.date || formatDateForDb(currentDate);
     const booked = bookedSlotsFor(addCtx.barberId, dateStr, ADD_STEP);
     const isToday = dateStr === formatDateForDb(new Date());
     const now = new Date();
@@ -1720,7 +1720,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       if (idx === -1) opts.push(addCtx.time); else opts.splice(idx, 0, addCtx.time);
     }
     return opts;
-  }, [addCtx, currentDate, bookedSlotsFor, appointments, addTotalDuration]);
+  }, [addCtx, currentDate, addForm.date, bookedSlotsFor, appointments, addTotalDuration]);
 
   // Keep the selected time valid — default to the first available slot when the
   // seeded time isn't bookable (e.g. the header "+" landed before opening hours).
@@ -2859,7 +2859,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               )}
               <div className="bg-card-raised rounded-xl p-3 text-xs text-grey space-y-0.5">
                 <p><span className="text-grey">Barber:</span> {addCtx.barberName}</p>
-                <p><span className="text-grey">When:</span> {friendlyDate(currentDate)}</p>
               </div>
               {addMode === "block" ? (
                 <>
@@ -2936,6 +2935,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
                 )}
               </div>
+              {/* Date + time. Defaults to the tapped day, but staff can change the
+                  date here too (e.g. book a client in for next week). */}
+              <Input label="Date" type="date" value={addForm.date}
+                min={formatDateForDb(new Date())}
+                onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))}
+                className="[color-scheme:dark]" />
               <Select label="Available time" value={addForm.time}
                 onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
                 {addTimeOptions.length === 0 && <option value="">No open times this day</option>}
