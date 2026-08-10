@@ -25,7 +25,7 @@ interface Billing {
   cardLast4: string | null;
   cancelAtPeriodEnd?: boolean;
   invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
-  connect: { connected: boolean; status: string };
+  connect: { connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; checkError?: boolean };
 }
 
 const PLAN_LABEL: Record<string, string> = { starter: "Starter (Free)", pro: "Pro", premium: "Premium" };
@@ -481,11 +481,14 @@ export default function BillingPage() {
           <CardTitle>Payouts (Stripe Connect)</CardTitle>
           {/* No "Not connected" warning on Starter — online payments aren't part of
               that plan, so there's nothing for them to set up. */}
-          {onFreePlan
-            ? null
-            : billing?.connect.connected
-            ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border bg-emerald-500/15 text-emerald-400 border-emerald-500/30"><Check size={11} /> Connected</span>
-            : <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border bg-orange-500/15 text-orange-400 border-orange-500/30"><AlertTriangle size={11} /> Not connected</span>}
+          {onFreePlan ? null : (() => {
+            const c = billing?.connect;
+            const pill = "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border";
+            if (c?.connected) return <span className={`${pill} bg-emerald-500/15 text-emerald-400 border-emerald-500/30`}><Check size={11} /> Connected</span>;
+            if (c?.checkError) return <span className={`${pill} bg-white/5 text-grey border-border`}><AlertTriangle size={11} /> Status unavailable</span>;
+            if (c?.chargesEnabled || c?.detailsSubmitted) return <span className={`${pill} bg-amber-500/15 text-amber-400 border-amber-500/30`}><AlertTriangle size={11} /> Finishing setup</span>;
+            return <span className={`${pill} bg-orange-500/15 text-orange-400 border-orange-500/30`}><AlertTriangle size={11} /> Not connected</span>;
+          })()}
         </CardHeader>
         <CardContent>
           {onFreePlan ? (
@@ -500,29 +503,44 @@ export default function BillingPage() {
                 <p className="text-xs text-gold mt-1">Choose a plan above to connect your bank and accept cards.</p>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center">
-                  <Building2 size={18} className="text-foreground" />
+          ) : (() => {
+            const c = billing?.connect;
+            const fully = !!c?.connected;
+            const partial = !fully && !c?.checkError && (c?.chargesEnabled || c?.detailsSubmitted);
+            return (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center flex-shrink-0">
+                    <Building2 size={18} className="text-foreground" />
+                  </div>
+                  <p className="text-sm text-grey">
+                    {fully
+                      ? "Your bank account is connected. Customer payments are deposited directly to you."
+                      : c?.checkError
+                        ? "We couldn't reach Stripe to check your status just now — refresh in a moment. If you've finished setup, it'll show as connected once Stripe responds."
+                        : partial
+                          ? (c?.chargesEnabled && !c?.payoutsEnabled
+                              ? "You're set up to take card payments, but Stripe is still verifying your bank before it can send payouts. Finish the last step on Stripe."
+                              : "Stripe is still verifying your details. Finish the remaining steps to start receiving payments.")
+                          : "Connect your bank account to receive customer payments directly via Stripe."}
+                  </p>
                 </div>
-                <p className="text-sm text-grey">
-                  {billing?.connect.connected
-                    ? "Your bank account is connected. Customer payments are deposited directly to you."
-                    : "Connect your bank account to receive customer payments directly via Stripe."}
-                </p>
-              </div>
-              {billing?.connect.connected ? (
-                <Button variant="outline" loading={actionLoading === "dashboard"} onClick={openDashboard}>
-                  <Building2 size={15} /> View payouts on Stripe
-                </Button>
-              ) : (
-                <Button loading={actionLoading === "connect"} onClick={completeConnect}>
-                  <Building2 size={15} /> Complete Setup
-                </Button>
-              )}
-            </>
-          )}
+                {fully ? (
+                  <Button variant="outline" loading={actionLoading === "dashboard"} onClick={openDashboard}>
+                    <Building2 size={15} /> View payouts on Stripe
+                  </Button>
+                ) : c?.checkError ? (
+                  <Button variant="outline" loading={loading} onClick={load}>
+                    <AlertTriangle size={15} /> Retry
+                  </Button>
+                ) : (
+                  <Button loading={actionLoading === "connect"} onClick={completeConnect}>
+                    <Building2 size={15} /> {partial ? "Finish on Stripe" : "Complete Setup"}
+                  </Button>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 

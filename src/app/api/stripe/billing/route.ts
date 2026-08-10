@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     cardLast4: string | null;
     cancelAtPeriodEnd: boolean;
     invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
-    connect: { connected: boolean; status: string };
+    connect: {
+      connected: boolean; status: string;
+      chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; checkError?: boolean;
+    };
   } = {
     plan: shop.subscription_plan ?? "starter",
     subscriptionStatus: shop.subscription_status ?? "inactive",
@@ -92,13 +95,27 @@ export async function GET(request: NextRequest) {
     try {
       const account = await stripe.accounts.retrieve(shop.stripe_account_id);
       const active = !!(account.charges_enabled && account.payouts_enabled);
-      result.connect = { connected: active, status: active ? "active" : "pending" };
+      // Report the true granular state so the UI can distinguish "fully
+      // connected" from "onboarded but Stripe is still verifying payouts" — the
+      // latter used to read as a flat, confusing "Not connected".
+      result.connect = {
+        connected: active,
+        status: active ? "active" : account.details_submitted ? "pending" : "incomplete",
+        chargesEnabled: !!account.charges_enabled,
+        payoutsEnabled: !!account.payouts_enabled,
+        detailsSubmitted: !!account.details_submitted,
+      };
       if (active !== !!shop.stripe_connected) {
         await supabaseAdmin.from("shops")
           .update({ stripe_connected: active, stripe_connect_status: active ? "active" : "pending" })
           .eq("id", shop.id).then(null, () => null);
       }
-    } catch { /* account fetch failed — keep the cached value */ }
+    } catch {
+      // Account fetch failed (e.g. a test/live key mismatch on the stored
+      // account id) — don't silently claim "Not connected"; flag it so the card
+      // can say we couldn't verify rather than mislead.
+      result.connect = { ...result.connect, checkError: true };
+    }
   }
 
   return NextResponse.json(result);
