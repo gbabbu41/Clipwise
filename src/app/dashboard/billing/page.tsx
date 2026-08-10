@@ -23,6 +23,7 @@ interface Billing {
   nextBilling: string | null;
   amount: number | null;
   cardLast4: string | null;
+  cardBrand?: string | null;
   cancelAtPeriodEnd?: boolean;
   invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
   connect: { connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; checkError?: boolean };
@@ -98,10 +99,10 @@ export default function BillingPage() {
       }).catch(() => null);
       const data = res && res.ok ? await res.json().catch(() => null) : null;
       if (data) setBilling(data);
-      const last4 = data?.cardLast4 as string | null | undefined;
+      const label = cardLabel(data?.cardLast4, data?.cardBrand);
       const when = data?.nextBilling ? ` It'll be charged on ${fmtDate(data.nextBilling)}.` : "";
-      showToast(last4
-        ? `Card accepted — •••• ${last4} is now on file.${when}`
+      showToast(label
+        ? `Card accepted — ${label} is now on file.${when}`
         : `Card accepted.${when}`);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,6 +226,13 @@ export default function BillingPage() {
 
   const fmtDate = (iso: string | null | undefined) =>
     iso ? new Date(iso).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "the end of your period";
+
+  // "Visa •••• 4242" from the brand + last4 (brand comes lowercase from Stripe).
+  const cardLabel = (last4?: string | null, brand?: string | null) => {
+    if (!last4) return null;
+    const b = brand ? brand.replace(/^(\w)/, c => c.toUpperCase()).replace(/^Amex$/i, "Amex") : "Card";
+    return `${b} •••• ${last4}`;
+  };
 
   // Redeem an admin comp coupon → free Pro/Premium days (no card).
   const redeemCoupon = async () => {
@@ -388,7 +396,10 @@ export default function BillingPage() {
               </div>
               <div className="p-3 bg-card-raised rounded-xl border border-border">
                 <p className="text-xs text-grey">Payment method</p>
-                <p className="text-sm text-foreground mt-0.5 flex items-center gap-1.5"><CreditCard size={13} className="text-grey" /> {billing.cardLast4 ? `•••• ${billing.cardLast4}` : "—"}</p>
+                <p className={cn("text-sm mt-0.5 flex items-center gap-1.5", billing.cardLast4 ? "text-foreground" : "text-grey")}>
+                  <CreditCard size={13} className="text-grey flex-shrink-0" />
+                  {cardLabel(billing.cardLast4, billing.cardBrand) ?? "No card yet"}
+                </p>
               </div>
             </div>
           ) : isTrial ? (
@@ -476,7 +487,7 @@ export default function BillingPage() {
           {!onFreePlan && !isTrial && (
             <div>
               {billing?.cardLast4 && (
-                <p className="text-xs text-grey mb-2">Card on file <span className="text-foreground font-medium">•••• {billing.cardLast4}</span></p>
+                <p className="text-xs text-grey mb-2">Card on file <span className="text-foreground font-medium">{cardLabel(billing.cardLast4, billing.cardBrand)}</span></p>
               )}
               <Button variant="outline" loading={actionLoading === "portal"} onClick={openPortal}>
                 <CreditCard size={15} /> Update card

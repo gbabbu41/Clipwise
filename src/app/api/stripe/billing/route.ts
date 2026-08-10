@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     nextBilling: string | null;
     amount: number | null;
     cardLast4: string | null;
+    cardBrand: string | null;
     cancelAtPeriodEnd: boolean;
     invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
     connect: {
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
     nextBilling: null,
     amount: null,
     cardLast4: null,
+    cardBrand: null,
     cancelAtPeriodEnd: false,
     invoices: [],
     connect: { connected: !!shop.stripe_connected, status: shop.stripe_connect_status ?? "pending" },
@@ -59,15 +61,28 @@ export async function GET(request: NextRequest) {
       // (they keep what they paid for) — surface it so the UI can show it + a Resume.
       result.cancelAtPeriodEnd = !!sub.cancel_at_period_end;
       result.amount = planItem?.price.unit_amount ? planItem.price.unit_amount / 100 : null;
-      // Card: prefer subscription's default PM, fall back to the customer's default PM
-      let pm = sub.default_payment_method as Stripe.PaymentMethod | string | null;
-      if (pm && typeof pm !== "string" && pm.card) {
-        result.cardLast4 = pm.card.last4;
-      } else if (shop.stripe_customer_id) {
+      // Card on file — check in order: the subscription's default PM, the
+      // customer's invoice default PM, then ANY card attached to the customer.
+      // The last one matters: a card can be attached + charged WITHOUT being
+      // flagged "default" (common right after Checkout), which is exactly why
+      // Payment method used to show blank ("—") on an active, billing plan.
+      const readCard = (pm: unknown): { last4: string; brand: string } | null => {
+        if (pm && typeof pm !== "string" && (pm as Stripe.PaymentMethod).card) {
+          const c = (pm as Stripe.PaymentMethod).card!;
+          return { last4: c.last4, brand: c.brand };
+        }
+        return null;
+      };
+      let card = readCard(sub.default_payment_method);
+      if (!card && shop.stripe_customer_id) {
         const cust = await stripe.customers.retrieve(shop.stripe_customer_id, { expand: ["invoice_settings.default_payment_method"] }) as Stripe.Customer;
-        pm = cust.invoice_settings?.default_payment_method as Stripe.PaymentMethod | null;
-        if (pm && typeof pm !== "string" && pm.card) result.cardLast4 = pm.card.last4;
+        card = readCard(cust.invoice_settings?.default_payment_method);
       }
+      if (!card && shop.stripe_customer_id) {
+        const pms = await stripe.paymentMethods.list({ customer: shop.stripe_customer_id, type: "card", limit: 1 });
+        card = readCard(pms.data[0]);
+      }
+      if (card) { result.cardLast4 = card.last4; result.cardBrand = card.brand; }
     } catch { /* subscription may be gone — leave defaults */ }
   }
 
