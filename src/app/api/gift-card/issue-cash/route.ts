@@ -43,13 +43,24 @@ export async function POST(request: NextRequest) {
   if (insErr) return NextResponse.json({ error: "Couldn't issue the gift card." }, { status: 500 });
 
   // Real cash sale → record revenue (mirrors the POS cash-sale ledger row).
-  await supabaseAdmin.from("transactions").insert({
+  // Progressive column-drop retry so a prod table missing source/type still
+  // records the revenue instead of silently dropping the whole row ($0 revenue).
+  const cashGiftRow: Record<string, unknown> = {
     shop_id: shop.id, barber_id: null,
     client_name: b.purchased_by?.trim() || b.recipient_name?.trim() || "Gift card",
     service_name: `Gift Card ${code}`,
     amount, tip: 0, commission_amount: null,
     payment_method: "cash", type: "product", source: "gift_card_sale",
-  }).then(null, () => null);
+  };
+  let cgtx = await supabaseAdmin.from("transactions").insert(cashGiftRow);
+  if (cgtx.error) {
+    const msg = cgtx.error.message || "";
+    if (/source/.test(msg)) delete cashGiftRow.source;
+    if (/\btype\b/.test(msg)) delete cashGiftRow.type;
+    if (/commission_amount/.test(msg)) delete cashGiftRow.commission_amount;
+    cgtx = await supabaseAdmin.from("transactions").insert(cashGiftRow);
+  }
+  if (cgtx.error) console.warn("[gift] cash sale revenue row failed:", cgtx.error.message);
 
   const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   await sendGiftCardEmails({

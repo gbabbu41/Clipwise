@@ -53,14 +53,26 @@ export async function finalizeGiftFromSession(
     return { status: "error", message: insErr.message };
   }
 
-  // Record the sale as revenue (mirrors owner-issued gift cards). Best-effort.
-  await supabaseAdmin.from("transactions").insert({
+  // Record the sale as revenue (mirrors owner-issued gift cards). Progressive
+  // column-drop retry so a prod `transactions` table missing `source`/`type`
+  // still records the revenue instead of silently swallowing the whole row
+  // (which would make every gift sale show $0 revenue).
+  const giftTxRow: Record<string, unknown> = {
     shop_id: shop.id, barber_id: null,
     client_name: m.purchaser_name || "Gift card",
     service_name: `Gift Card ${code}`,
     amount, tip: 0, commission_amount: null,
     payment_method: "card", type: "product", source: "gift_card_sale",
-  }).then(null, () => null);
+  };
+  let gtx = await supabaseAdmin.from("transactions").insert(giftTxRow);
+  if (gtx.error) {
+    const msg = gtx.error.message || "";
+    if (/source/.test(msg)) delete giftTxRow.source;
+    if (/\btype\b/.test(msg)) delete giftTxRow.type;
+    if (/commission_amount/.test(msg)) delete giftTxRow.commission_amount;
+    gtx = await supabaseAdmin.from("transactions").insert(giftTxRow);
+  }
+  if (gtx.error) console.warn("[gift] sale revenue row failed:", gtx.error.message);
 
   await sendGiftCardEmails({
     shop: { name: shop.name ?? "", slug: shop.slug ?? "", email: shop.email },

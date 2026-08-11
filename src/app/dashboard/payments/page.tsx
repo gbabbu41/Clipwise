@@ -171,7 +171,7 @@ export default function PaymentsPage() {
     setLoading(true);
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, client_email, client_phone, date, time_slot, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, paid_at, created_at, status, services(name), barbers(name)")
+        .select("*, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
         .select("id, client_name, service_name, amount, tip, tax, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
@@ -235,6 +235,7 @@ export default function PaymentsPage() {
 
   type FeedItem = {
     key: string; name: string; sub: string; amount: number; tax: number;
+    giftApplied?: number;   // gift-card value on this line — already counted at sale
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
     pi: string | null; method: string | null; refunded: boolean;
@@ -266,6 +267,7 @@ export default function PaymentsPage() {
           key: `a${a.id}`, name: a.client_name,
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
           amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
+          giftApplied: (a as { gift_applied?: number }).gift_applied ?? 0,
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
           settled: paid, tsIso,
@@ -309,8 +311,12 @@ export default function PaymentsPage() {
 
   // Net + fee per charge — the SAME shared helper the Dashboard's revenue math
   // uses, so Stripe fees are applied identically in both places.
-  const netOf = (i: FeedItem) => lineNetFee(i.pi, i.amount, stripeNet?.byPi).net;
-  const feeOf = (i: FeedItem) => lineNetFee(i.pi, i.amount, stripeNet?.byPi).fee;
+  // Count real money collected = line amount MINUS any gift-card value applied
+  // (that value was already counted when the card was sold). Keeps gift-redeemed
+  // bookings from being counted twice, matching src/lib/revenue.ts.
+  const counted = (i: FeedItem) => Math.max(0, i.amount - (i.giftApplied ?? 0));
+  const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
+  const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
 
   // Barber scope — when a specific barber is picked, every earnings figure
   // (carousel + cards) reflects only their appointments. POS / walk-in sales
@@ -352,8 +358,8 @@ export default function PaymentsPage() {
     const cardIn = cardSettled.filter(within);
     const cashIn = cashSettled.filter(within);
     const net = cardIn.reduce((s, i) => s + netOf(i), 0);
-    const cash = cashIn.reduce((s, i) => s + i.amount, 0);
-    const gross = cardIn.reduce((s, i) => s + i.amount, 0);
+    const cash = cashIn.reduce((s, i) => s + counted(i), 0);
+    const gross = cardIn.reduce((s, i) => s + counted(i), 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     const count = cardIn.length + cashIn.length;

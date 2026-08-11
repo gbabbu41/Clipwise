@@ -295,6 +295,12 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from("appointments")
         .update({ payment_method: "gift_card" }).eq("id", inserted.data.id).then(null, () => null);
     }
+    // Record how much gift value was applied so revenue counts it once (at sale),
+    // not again here. Best-effort (phase50 column) — safe to skip if it lags.
+    if (applied > 0) {
+      await supabaseAdmin.from("appointments")
+        .update({ gift_applied: applied }).eq("id", inserted.data.id).then(null, () => null);
+    }
   }
 
   // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned

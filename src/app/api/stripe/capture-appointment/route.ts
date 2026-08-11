@@ -242,16 +242,27 @@ export async function POST(request: NextRequest) {
     // Same connected-account context the charge used. Best-effort → 0.
     const feeDollars = (await stripeFeeCents(pi.id ?? appt.payment_intent_id, useConnect ? shop.stripe_account_id : null)) / 100;
     const txAmount = Math.max(0, amountReceived / 100 - tipDollars - txTax);
-    const txRes = await supabaseAdmin.from("transactions")
-      .insert({ ...txBase, amount: txAmount, tax: txTax, stripe_fee: feeDollars });
-    if (txRes.error && /column|does not exist|schema cache/i.test(txRes.error.message)) {
-      // `stripe_fee` (phase38) or `tax` (phase30) may lag on prod — drop the
-      // missing column(s) and retry so the row + totals still reconcile.
-      const res2 = await supabaseAdmin.from("transactions")
-        .insert({ ...txBase, amount: txAmount, tax: txTax });
-      if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
-        await supabaseAdmin.from("transactions")
-          .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+    // De-dup against a double-tap: two racing "Complete" requests both reach here
+    // with the SAME charge (the card can't be charged twice — idempotencyKey — but
+    // the ledger insert wasn't guarded), which would double-count revenue +
+    // commission. Skip if a row for this charge already exists. Mirrors the guard
+    // recordOnlinePaymentTx / terminal-capture already use.
+    const piId = pi.id ?? appt.payment_intent_id ?? null;
+    const { data: existingTx } = piId
+      ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", piId).limit(1).maybeSingle()
+      : { data: null };
+    if (!existingTx) {
+      const txRes = await supabaseAdmin.from("transactions")
+        .insert({ ...txBase, amount: txAmount, tax: txTax, stripe_fee: feeDollars });
+      if (txRes.error && /column|does not exist|schema cache/i.test(txRes.error.message)) {
+        // `stripe_fee` (phase38) or `tax` (phase30) may lag on prod — drop the
+        // missing column(s) and retry so the row + totals still reconcile.
+        const res2 = await supabaseAdmin.from("transactions")
+          .insert({ ...txBase, amount: txAmount, tax: txTax });
+        if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
+          await supabaseAdmin.from("transactions")
+            .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+        }
       }
     }
     sendPaymentReceipt(baseUrl, {

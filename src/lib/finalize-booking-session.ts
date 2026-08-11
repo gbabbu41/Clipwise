@@ -163,12 +163,18 @@ export async function finalizeBookingFromSession(params: {
     stripe_customer_id: savedCustomerId,
     stripe_payment_method_id: savedPaymentMethodId,
   };
-  // Include tip/tax when phase30 columns exist; if they don't yet, retry without
-  // them so a booking is NEVER lost after the customer has paid.
-  let ins = await supabaseAdmin.from("appointments")
-    .insert({ ...baseRow, tip_amount: Number(m.tip_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0) })
-    .select("id").single();
-  if (ins.error && /(tip_amount|tax_amount)/.test(ins.error.message) && /column|does not exist|schema cache/i.test(ins.error.message)) {
+  // Include tip/tax (phase30) + gift_applied (phase50) when those columns exist;
+  // drop whichever lags on prod and retry so a booking is NEVER lost after the
+  // customer has paid. gift_applied lets revenue subtract the gift portion so a
+  // gift-redeemed booking isn't counted twice (once at sale, once here).
+  const withExtras = { ...baseRow, tip_amount: Number(m.tip_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0), gift_applied: Number(m.gift_applied ?? 0) };
+  const colMissing = (msg: string) => /column|does not exist|schema cache/i.test(msg);
+  let ins = await supabaseAdmin.from("appointments").insert(withExtras).select("id").single();
+  if (ins.error && /gift_applied/.test(ins.error.message) && colMissing(ins.error.message)) {
+    const { gift_applied: _g, ...noGift } = withExtras;
+    ins = await supabaseAdmin.from("appointments").insert(noGift).select("id").single();
+  }
+  if (ins.error && /(tip_amount|tax_amount)/.test(ins.error.message) && colMissing(ins.error.message)) {
     ins = await supabaseAdmin.from("appointments").insert(baseRow).select("id").single();
   }
   const { data: appt, error } = ins;

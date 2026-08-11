@@ -14,6 +14,7 @@ export type RevAppt = {
   client_name: string | null;
   total_amount: number | null;
   tax_amount?: number | null;
+  gift_applied?: number | null;   // gift-card value applied — already counted at sale
   payment_status?: string | null;
   payment_method?: string | null;
   payment_intent_id?: string | null;
@@ -98,7 +99,10 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
   for (const a of appts) {
     if (!isPaid(a.payment_status)) continue;
     if (a.status === "no-show") continue;
-    const amt = a.total_amount ?? 0;
+    // Count revenue NET of any gift-card value applied — that money was already
+    // counted when the card was sold, so counting the full total here would
+    // double-count it. total_amount stays the full price for the receipt.
+    const amt = Math.max(0, (a.total_amount ?? 0) - (a.gift_applied ?? 0));
     const { net: n, fee: f } = lineNetFee(a.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += a.tax_amount ?? 0;
