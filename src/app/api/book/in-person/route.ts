@@ -335,11 +335,14 @@ export async function POST(request: NextRequest) {
   // Server-side (service role) so it works even from the anonymous booking page.
   await sendCustomerBookingEmail(inserted.data.id);
 
-  // Text the customer their confirmation (server-side, best-effort). Only for
-  // customer self-bookings — staff-added walk-ins don't auto-text (unchanged
-  // behavior). Sent here, not from the public page, so /api/twilio/send-sms can
-  // require auth (no open SMS relay).
-  if (!callerIsStaff && b.client_phone && isPaidPlan(plan)) {
+  // Text the customer their confirmation (server-side, best-effort). Sent for
+  // BOTH customer self-bookings AND staff-added bookings — a barber booking a
+  // client from inside the portal (e.g. taking a future appointment over the
+  // phone) should confirm to that client by text exactly like the confirmation
+  // EMAIL above already does. The only gates are: a phone on file + a plan with
+  // SMS (Starter is email-only). Sent here, not from the public page, so
+  // /api/twilio/send-sms can require auth (no open SMS relay).
+  if (b.client_phone && isPaidPlan(plan)) {
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
     const manageLink = `${origin}/my-booking/${inserted.data.id}`;
     const shopName = (shop as { name?: string }).name ?? "the shop";
