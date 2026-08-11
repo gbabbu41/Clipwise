@@ -364,7 +364,19 @@ export default function POSPage() {
     const serviceItems = cart.filter(i => i.type === "service");
     const primaryService = serviceItems[0];
     const serviceName = primaryService?.name ?? cart[0]?.name ?? "Sale";
-    const commission = selectedBarber ? Math.round(subtotal * (selectedBarber.commission_percent / 100) * 100) / 100 : null;
+    // Commission is a TALLY figure (not a payout) and applies ONLY to the SERVICES
+    // in the cart, for the barber actually assigned — never to retail products,
+    // and computed AFTER the discount (allocated to the services' share). No
+    // barber selected → no commission. Same math for an owner-barber (his rate,
+    // which defaults to 0%). This stops barbers being over-paid on product sales
+    // and on the pre-discount total.
+    const serviceSubtotal = serviceItems.reduce((s, i) => s + i.price * i.qty, 0);
+    const serviceAfterDiscount = subtotal > 0
+      ? Math.max(0, serviceSubtotal - discount * (serviceSubtotal / subtotal))
+      : 0;
+    const commission = selectedBarber
+      ? Math.round(serviceAfterDiscount * (selectedBarber.commission_percent / 100) * 100) / 100
+      : null;
     const txType = serviceItems.length > 0 ? "service" : "product";
 
     // Save the customer to the book if they're new (applies to every method).

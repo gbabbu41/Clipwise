@@ -135,7 +135,7 @@ export default function StaffPage() {
   const scheduleSlotOptions = useMemo(() => generate24hSlots(scheduleInterval), [scheduleInterval]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addTab, setAddTab] = useState<"manual" | "invite">("invite");
-  const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "50" });
+  const [addForm, setAddForm] = useState({ name: "", email: "", commission_percent: "" });
   const [inviteSent, setInviteSent] = useState(false);
 
   // Permissions modal state
@@ -347,6 +347,14 @@ export default function StaffPage() {
       showToast("That email is already on your team.");
       return;
     }
+    // Force a deliberate commission choice — no silent default that could
+    // over/under-pay. Salaried barbers use 0% (commission is a tally figure, not
+    // an actual payout).
+    const addPct = parseInt(addForm.commission_percent, 10);
+    if (addForm.commission_percent.trim() === "" || isNaN(addPct) || addPct < 0 || addPct > 100) {
+      showToast("Set a commission % (0–100). Use 0 if this barber is on salary.");
+      return;
+    }
 
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
@@ -362,7 +370,7 @@ export default function StaffPage() {
       body: JSON.stringify({
         name: addForm.name.trim(),
         email: addForm.email.trim(),
-        commission_percent: Math.min(100, Math.max(0, parseInt(addForm.commission_percent) || 50)),
+        commission_percent: Math.min(100, Math.max(0, addPct)),
         skip_invite: skipInvite,
         shop_id: shop.id,
       }),
@@ -374,7 +382,7 @@ export default function StaffPage() {
     // Owner self-add → no invite link, just confirm and refresh
     if (data.ownerSelf) {
       setShowAddModal(false);
-      setAddForm({ name: "", email: "", commission_percent: "50" });
+      setAddForm({ name: "", email: "", commission_percent: "" });
       showToast("You have been added as a barber! Open 'My Barber View' from the sidebar.");
       loadBarbers();
       return;
@@ -383,7 +391,7 @@ export default function StaffPage() {
     // Manual add (no app invite) → just create the record and refresh.
     if (data.manual) {
       setShowAddModal(false);
-      setAddForm({ name: "", email: "", commission_percent: "50" });
+      setAddForm({ name: "", email: "", commission_percent: "" });
       showToast("Barber added");
       loadBarbers();
       return;
@@ -430,10 +438,11 @@ export default function StaffPage() {
     const res = await fetch("/api/admin/barber/invite", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      // Owner adds self as a barber → default to keeping 100% (they own the shop);
-      // they can lower it on the Staff page to split personal barber wage vs
-      // business profit (e.g. for taxes).
-      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 100, shop_id: shop.id }),
+      // Owner adds self as a barber → default 0%: his own service money stays as
+      // SHOP revenue (one pocket) instead of being split out as a separate
+      // "commission," so the same dollar isn't double-labeled. He can raise it on
+      // the Staff page if he wants to track a personal barber wage vs profit.
+      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 0, shop_id: shop.id }),
     });
     const data = await res.json();
     setSavingAdd(false);
@@ -738,6 +747,9 @@ export default function StaffPage() {
                   className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-grey mt-0.5"><span>0%</span><span>100%</span></div>
+                <p className="text-[11px] text-grey mt-1.5 leading-relaxed">
+                  Share of each service this barber performs (a tally, not an auto-payout). Tips stay 100% theirs; products/retail are shop revenue. It only changes how service money is split on reports — not what the customer pays.
+                </p>
                 <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
                   Save Commission
                 </Button>
@@ -1173,12 +1185,12 @@ export default function StaffPage() {
       {/* Add / Invite Barber Modal */}
       {showAddModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">Add Barber</h2>
-                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
+                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               {/* Tabs */}
@@ -1199,7 +1211,7 @@ export default function StaffPage() {
                   <div className="text-4xl mb-3">✉️</div>
                   <p className="font-semibold text-foreground">Invite sent!</p>
                   <p className="text-sm text-grey mt-1">{addForm.name} will get an email with a link to set up their account.</p>
-                  <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Done</Button>
+                  <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }}>Done</Button>
                 </div>
               ) : (
                 <>
@@ -1238,7 +1250,7 @@ export default function StaffPage() {
                   {[
                     { key: "name" as const, label: "Full Name *", placeholder: "John Doe", type: "text", required: true, maxLength: 40 },
                     { key: "email" as const, label: "Email *", placeholder: "john@barbershop.com", type: "email", required: true, maxLength: 120 },
-                    { key: "commission_percent" as const, label: "Commission %", placeholder: "50", type: "number", required: false, maxLength: 3 },
+                    { key: "commission_percent" as const, label: "Commission % *", placeholder: "e.g. 40 · use 0 if salaried", type: "number", required: true, maxLength: 3 },
                   ].map(({ key, label, placeholder, type, required, maxLength }) => {
                     const isPct = key === "commission_percent";
                     return (
@@ -1260,12 +1272,17 @@ export default function StaffPage() {
                         maxLength={maxLength}
                         className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
                       />
+                      {isPct && (
+                        <p className="text-[11px] text-grey leading-relaxed">
+                          The barber keeps this % of each service they perform (a tally figure, not an automatic payout). <span className="text-foreground">Tips always go 100% to the barber</span>, and products / retail are always shop revenue. Salaried? Set 0%.
+                        </p>
+                      )}
                     </div>
                     );
                   })}
 
                   <div className="flex gap-3 pt-2">
-                    <Button variant="outline" className="flex-1" onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "50" }); }}>Cancel</Button>
+                    <Button variant="outline" className="flex-1" onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "" }); }}>Cancel</Button>
                     <Button className="flex-1" loading={savingAdd} onClick={addTab === "invite" ? inviteBarber : addBarber}>
                       {addTab === "invite" ? "Send Invite" : "Add Barber"}
                     </Button>

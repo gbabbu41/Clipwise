@@ -61,7 +61,7 @@ export function AddSelfBarberBanner() {
         body: JSON.stringify({
           name: profile?.name || user.email.split("@")[0] || "Me",
           email: user.email,
-          commission_percent: 100, // solo owner keeps 100% — one person, no split
+          commission_percent: 0, // owner-barber: his services stay as SHOP revenue (one pocket), not split out as a separate "commission" — keeps the books from double-labeling the same dollar. He can change it later.
           shop_id: shop.id,
         }),
       });
