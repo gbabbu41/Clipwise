@@ -20,7 +20,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useAuth } from "@/lib/auth-context";
-import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isPaid, type RevTx, type ByPi } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -442,6 +442,27 @@ export default function DashboardPage() {
     return d >= rangeStart && d <= rangeEnd;
   });
   const collected = collectedTotals(appointments, txnsInRange, stripeByPi);
+  // Barber commission tallied for the window (SERVICES only) — the SAME rule the
+  // Analytics waterfall uses, so the two screens agree. Appointment commission is
+  // each barber's rate applied after tax + gift (owner-barber included, 0% by
+  // default → $0); POS commission is the stored commission_amount, de-duped
+  // against appointments so a completion tx isn't double-counted. Commission is a
+  // reporting tally, not a payout.
+  const commissionPct: Record<string, number> = Object.fromEntries(barbers.map((b) => [b.id, b.commission_percent ?? 0]));
+  let commission = 0;
+  for (const a of appointments) {
+    if (!isPaid(a.payment_status) || a.status === "no-show") continue;
+    const gift = Number((a as { gift_applied?: number }).gift_applied ?? 0);
+    const svc = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0) - gift);
+    commission += svc * ((commissionPct[a.barber_id ?? ""] ?? 0) / 100);
+  }
+  for (const tx of countablePosTxs(appointments, txnsInRange)) {
+    if (tx.refunded) continue;
+    commission += Number((tx as { commission_amount?: number }).commission_amount ?? 0);
+  }
+  // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
+  // (gov't) − tips (barber) − barber commission (barber/owner pay).
+  const netRevenue = Math.max(0, collected.net - collected.tax - collected.tips - commission);
   const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
@@ -659,7 +680,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             <div className="cwd-kpis">
               <div className="cwd-kpi">

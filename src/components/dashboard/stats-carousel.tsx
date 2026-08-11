@@ -15,19 +15,23 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, chartData, appointments, completed, barbers, periodLabel = "Today",
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, periodLabel = "Today",
 }: {
-  revenue: number;         // NET after Stripe fees (incl. tax + cash + tips)
-  taxCollected?: number;   // GST/HST + PST portion of the net (shown as an "incl. tax" note)
+  revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
+  taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
   cashIncluded?: number;   // cash portion of the total (shown as an "incl. cash" note)
-  feesPaid?: number;       // Stripe processing fees deducted (shown as a "− fees" note)
-  tips?: number;           // tips collected (part of gross — shown as an informational ledger line)
+  feesPaid?: number;       // Stripe processing fees deducted (Gross − fees = Collected)
+  tips?: number;           // tips collected (the barber's — subtracted in the waterfall)
+  commission?: number;     // barber commission tallied for the period (services only — subtracted)
+  netRevenue?: number;     // what the shop KEEPS = Collected − tax − tips − commission
   chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
   barbers: Barber[];
   periodLabel?: string;    // active date-filter label ("Today", "This Week", …)
 }) {
+  // Fall back to computing net revenue locally if the parent didn't pass it.
+  const netRev = netRevenue ?? Math.max(0, revenue - taxCollected - tips - commission);
   const [idx, setIdx] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -121,14 +125,19 @@ export function StatsCarousel({
           )}
         </div>
       </div>
-      {/* Receipt ledger — same shape as the Payments page, so both screens match. */}
+      {/* Receipt ledger — the money waterfall, identical to Analytics & Payments:
+          Gross → − Stripe fees → Collected → − sales tax → − tips → − barber
+          commission → Net revenue (what the shop keeps). Zero lines are hidden so
+          a solo/cash shop's receipt stays clean. */}
       {revenue + feesPaid > 0 && (
         <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
           <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
-          {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tips</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(tips)}</span></div>}
-          {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tax</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(taxCollected)}</span></div>}
-          {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
-          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Collected</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
+          {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
+          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
+          {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
+          {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
+          {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
+          <div className="flex justify-between border-t border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Net revenue</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(netRev)}</span></div>
         </div>
       )}
     </div>,
