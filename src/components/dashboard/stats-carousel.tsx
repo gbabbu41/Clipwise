@@ -83,7 +83,7 @@ export function StatsCarousel({
     // 1 — Revenue (area)
     <div key="rev" className={card}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Net · {periodLabel}</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Collected · {periodLabel}</p>
         <span className={cn("text-[11px] font-medium whitespace-nowrap", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
           {hasCompleted ? `${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "‹ swipe ›"}
         </span>
@@ -128,7 +128,7 @@ export function StatsCarousel({
           {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tips</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(tips)}</span></div>}
           {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Tax</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(taxCollected)}</span></div>}
           {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
-          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">You keep</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
+          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Collected</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(revenue)}</span></div>
         </div>
       )}
     </div>,

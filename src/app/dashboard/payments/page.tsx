@@ -236,6 +236,7 @@ export default function PaymentsPage() {
   type FeedItem = {
     key: string; name: string; sub: string; amount: number; tax: number;
     giftApplied?: number;   // gift-card value on this line — already counted at sale
+    tipExtra?: number;      // booking tip NOT already inside `amount` (POS tips already are)
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
     pi: string | null; method: string | null; refunded: boolean;
@@ -268,6 +269,7 @@ export default function PaymentsPage() {
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
           amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
           giftApplied: (a as { gift_applied?: number }).gift_applied ?? 0,
+          tipExtra: (a as { tip_amount?: number }).tip_amount ?? 0,
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
           settled: paid, tsIso,
@@ -311,10 +313,11 @@ export default function PaymentsPage() {
 
   // Net + fee per charge — the SAME shared helper the Dashboard's revenue math
   // uses, so Stripe fees are applied identically in both places.
-  // Count real money collected = line amount MINUS any gift-card value applied
-  // (that value was already counted when the card was sold). Keeps gift-redeemed
-  // bookings from being counted twice, matching src/lib/revenue.ts.
-  const counted = (i: FeedItem) => Math.max(0, i.amount - (i.giftApplied ?? 0));
+  // What the customer actually paid on this line = amount + booking tip − gift
+  // already applied. ADD the booking tip (POS tips are already in `amount`) so a
+  // tipped booking's line matches the real Stripe charge; SUBTRACT the gift value
+  // (counted at sale). Matches src/lib/revenue.ts exactly so the two never differ.
+  const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0));
   const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
   const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
 

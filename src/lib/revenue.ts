@@ -12,8 +12,9 @@
 
 export type RevAppt = {
   client_name: string | null;
-  total_amount: number | null;
+  total_amount: number | null;   // service + tax (NOT tip — tip is its own column)
   tax_amount?: number | null;
+  tip_amount?: number | null;     // booking tip, charged on the SAME intent
   gift_applied?: number | null;   // gift-card value applied — already counted at sale
   payment_status?: string | null;
   payment_method?: string | null;
@@ -90,8 +91,8 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
 
   let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0;
 
-  // PaymentIntents already fully accounted for by the appointment loop (their
-  // byPi net includes any tip charged on the SAME intent — booking tips).
+  // PaymentIntents accounted for by the appointment loop — a post-visit tip on
+  // one of these intents is already inside the appointment, so it's skipped below.
   const apptPis = new Set<string>();
 
   // Settled appointments — exclude paid no-shows (represented by a tx row so it
@@ -99,14 +100,22 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
   for (const a of appts) {
     if (!isPaid(a.payment_status)) continue;
     if (a.status === "no-show") continue;
-    // Count revenue NET of any gift-card value applied — that money was already
-    // counted when the card was sold, so counting the full total here would
-    // double-count it. total_amount stays the full price for the receipt.
-    const amt = Math.max(0, (a.total_amount ?? 0) - (a.gift_applied ?? 0));
-    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, amt, byPi);
-    gross += amt; net += n; fees += f;
+    // The customer paid: (service + tax) − gift already applied + the booking tip.
+    //  · Subtract gift: that value was counted when the card was SOLD, so counting
+    //    the full total here would double-count it (total_amount stays full for the
+    //    receipt).
+    //  · ADD the tip into gross (it rode the same charge). Without this, gross
+    //    excluded the tip while net (from the real Stripe charge) included it — so
+    //    net could read HIGHER than gross. Now gross ≥ net always, and every tip
+    //    is counted consistently (same as POS + post-visit tips).
+    const svcTax = Math.max(0, (a.total_amount ?? 0) - (a.gift_applied ?? 0));
+    const apptTip = Math.max(0, a.tip_amount ?? 0);
+    const lineGross = svcTax + apptTip;
+    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, lineGross, byPi);
+    gross += lineGross; net += n; fees += f;
     tax += a.tax_amount ?? 0;
-    if (a.payment_method === "cash") cash += amt;
+    tips += apptTip;
+    if (a.payment_method === "cash") cash += lineGross;
     if (a.payment_intent_id) apptPis.add(a.payment_intent_id);
   }
 
