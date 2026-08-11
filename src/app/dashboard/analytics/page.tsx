@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
   const topService = serviceRevenue[0];
 
   const kpis = [
-    { label: "Collected", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-foreground" },
+    { label: "Gross sales", value: formatCurrency(totalRevenue), sub: `before Stripe fees`, color: "text-foreground" },
     { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-foreground" },
     { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-foreground" },
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Industry avg 12%", color: "text-orange-400" },
