@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { computeBarberEarnings } from "@/lib/barber-earnings";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -65,40 +66,26 @@ export async function GET(request: NextRequest) {
     .gte("created_at", from)
     .order("created_at", { ascending: false });
 
-  // Exclude refunded transactions — a refunded charge must not keep inflating
-  // revenue/commission/tips/count. Filter in JS (not .neq) so rows where
-  // `refunded` is null/absent are kept.
+  // Earnings math lives in ONE place (src/lib/barber-earnings) so the owner's
+  // Payments page — when filtered to this barber — shows the identical numbers.
+  // computeBarberEarnings excludes refunded rows and keeps the same 50/50 card-fee
+  // split as before (commission + tips − barber's half of the fee = take-home).
   const list = (transactions ?? []).filter(t => !t.refunded);
-  const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
-  const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
-  const revenue = serviceAmount + tips;
-  // Service-commission portion (no tips) — driven by the barber's own commission
-  // rate. For an owner at 100% this equals the whole service amount (unchanged);
-  // an owner who sets e.g. 50% keeps half here and the rest is business profit.
-  const commission = list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * commissionPercent) / 100), 0);
-  // Card processing fee is split 50/50 with the shop. Real fee stored per card
-  // transaction (phase38); cash sales have 0. The barber covers half.
-  const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
-  const barberFeeShare = stripeFee / 2;
-  // Take-home = service commission + all tips − the barber's half of the card fee.
-  // The remainder (service minus commission minus the shop's own half of the fee)
-  // is the shop/business cut.
-  const youKeep = Math.max(0, commission + tips - barberFeeShare);
-  const shopKeeps = Math.max(0, serviceAmount - commission - barberFeeShare);
+  const e = computeBarberEarnings(transactions ?? [], commissionPercent);
 
   return NextResponse.json({
     transactions: list,
     summary: {
-      revenue,
-      commission,
-      tips,
-      stripeFee,
-      barberFeeShare,
-      youKeep,
-      shopKeeps,
+      revenue: e.revenue,
+      commission: e.commission,
+      tips: e.tips,
+      stripeFee: e.stripeFee,
+      barberFeeShare: e.barberFeeShare,
+      youKeep: e.youKeep,
+      shopKeeps: e.shopKeeps,
       isOwner,
-      count: list.length,
-      avgTicket: list.length ? revenue / list.length : 0,
+      count: e.count,
+      avgTicket: e.avgTicket,
       commissionPercent,
     },
   });

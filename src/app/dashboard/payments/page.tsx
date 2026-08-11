@@ -8,6 +8,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 import { countablePosTxs, isNoShowTx, isPaid, lineNetFee } from "@/lib/revenue";
+import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -37,6 +38,11 @@ interface TxRow {
   tax: number | null;
   payment_method: string | null;
   type: string;
+  // Per-barber earnings (mirror of the barber's own portal): who earned it, their
+  // stored cut, and the card fee on the charge. Nullable — older rows may lack them.
+  barber_id: string | null;
+  commission_amount: number | null;
+  stripe_fee: number | null;
   created_at: string;
   stripe_session_id: string | null;
   appointment_id: string | null;
@@ -103,7 +109,7 @@ export default function PaymentsPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Barber filter
-  const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([]);
+  const [barbers, setBarbers] = useState<{ id: string; name: string; commission_percent?: number }[]>([]);
   const [selectedBarber, setSelectedBarber] = useState("all");
   const [showBarberPicker, setShowBarberPicker] = useState(false);
 
@@ -144,8 +150,8 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (!shop) return;
-    supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name")
-      .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string }[]));
+    supabase.from("barbers").select("id, name, commission_percent").eq("shop_id", shop.id).eq("is_active", true).order("name")
+      .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string; commission_percent?: number }[]));
   }, [shop]);
 
   // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
@@ -174,7 +180,7 @@ export default function PaymentsPage() {
         .select("*, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
       supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, tax, payment_method, type, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
+        .select("id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
         .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -241,6 +247,11 @@ export default function PaymentsPage() {
     ts: number; tsIso: string | null;
     pi: string | null; method: string | null; refunded: boolean;
     appt?: ApptRow;
+    // Barber-earnings row (Payments filtered to one barber): `amount` already IS
+    // that barber's take-home cut for the line, so display it directly instead of
+    // running it through netOf()/feeOf() (which would re-net a Stripe fee that
+    // the barber-earnings math already handles).
+    earn?: boolean;
   };
 
   // Which transactions count as income — the SAME shared rule the Dashboard uses
@@ -321,11 +332,52 @@ export default function PaymentsPage() {
   const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
   const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
 
-  // Barber scope — when a specific barber is picked, every earnings figure
-  // (carousel + cards) reflects only their appointments. POS / walk-in sales
-  // aren't barber-attributed, so they fall out of a per-barber view.
+  // Barber name — used to scope the appointment-based bits still shown in barber
+  // mode (the Outstanding / On-file tiles). The earnings cards + statement below
+  // are sourced from that barber's TRANSACTIONS instead (see barber mode).
   const barberName = selectedBarber !== "all" ? (barbers.find(b => b.id === selectedBarber)?.name ?? null) : null;
   const barberFirst = barberName?.split(" ")[0] ?? "";
+  // ── Per-barber EARNINGS mode ────────────────────────────────────────────────
+  // When a specific barber is picked, the whole earnings view (cards + statement)
+  // becomes an exact mirror of that barber's OWN portal: their cut (commission %)
+  // + 100% tips, computed from THEIR transactions with the shared calculator, so
+  // the two screens can never disagree. "Shop (all barbers)" is unchanged — it
+  // stays the shop's collected-revenue / payout view.
+  const barberMode = selectedBarber !== "all";
+  const selPct = barberMode ? (barbers.find(b => b.id === selectedBarber)?.commission_percent ?? 0) : 0;
+  const barberEarnTx = barberMode
+    ? txs.filter(t => t.barber_id === selectedBarber && !t.refunded)
+        .map(t => ({ ...t, ts: new Date(t.created_at).getTime() }))
+    : [];
+  // Earnings for one window = the shared barber-earnings math over that barber's
+  // transactions in [from, to], plus a per-bucket take-home series for the spark.
+  const earnScope = (from: number, to: number, monthly: boolean) => {
+    const inWin = barberEarnTx.filter(t => t.ts >= from && t.ts <= to);
+    const e = computeBarberEarnings(inWin, selPct);
+    const m = new Map<string, { order: number; net: number }>();
+    inWin.forEach(t => {
+      const dt = new Date(t.ts);
+      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(t.ts / 86400000);
+      const label = monthly
+        ? dt.toLocaleDateString("en-CA", { month: "short" })
+        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+      const cur = m.get(label) ?? { order, net: 0 };
+      cur.net += barberRowCut(t, selPct); m.set(label, cur);
+    });
+    const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
+    return { take: e.youKeep, commission: e.commission, tips: e.tips, feeShare: e.barberFeeShare, count: e.count, avg: e.avgTicket, data };
+  };
+  // Statement rows for barber mode — one per transaction, showing that barber's
+  // earned cut (commission + tip). `earn:true` tells the row/modal to show
+  // `amount` as-is instead of re-netting a Stripe fee.
+  const barberFeed: FeedItem[] = barberEarnTx.map((t): FeedItem => ({
+    key: `be${t.id}`, name: t.client_name || "Client",
+    sub: t.service_name || "Service",
+    amount: barberRowCut(t, selPct), tax: 0,
+    statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
+    tone: "good", settled: true, tsIso: t.created_at, ts: t.ts,
+    pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false, earn: true,
+  }));
   const scopedSettled = feedAll.filter(i => i.settled && (!barberName || i.appt?.barbers?.name === barberName));
   const cardSettled = scopedSettled.filter(i => i.method !== "cash");
   const cashSettled = scopedSettled.filter(i => i.method === "cash");
@@ -402,12 +454,28 @@ export default function PaymentsPage() {
   })();
   // Default view = swipeable carousel of the three main windows. A dropdown
   // override (last 14 / last week / custom) replaces it with a single static card.
-  const baseSlides = [
-    { label: "This week", range: rangeFor("week"), scope: computeScope(startOf("week"), nowTs, false) },
-    { label: "This month", range: rangeFor("month"), scope: computeScope(startOf("month"), nowTs, false) },
-    { label: "All time", range: "", scope: computeScope(0, Infinity, true) },
+  // ONE card builder for both modes: shop = collected (card net + cash); barber =
+  // that barber's take-home (their % + tips), the exact figure from their portal.
+  type PeriodCard = {
+    mode: "shop" | "barber"; label: string; range: string;
+    headline: number;        // the big number (collected, or take-home)
+    commission: number; tips: number; feeShare: number; // barber-mode ledger
+    fees: number; tax: number; cash: number;            // shop-mode ledger
+    count: number; avg: number; data: { label: string; net: number }[];
+  };
+  const mkCard = (from: number, to: number, monthly: boolean, label: string, range: string): PeriodCard => {
+    if (barberMode) {
+      const e = earnScope(from, to, monthly);
+      return { mode: "barber", label, range, headline: e.take, commission: e.commission, tips: e.tips, feeShare: e.feeShare, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
+    }
+    const s = computeScope(from, to, monthly);
+    return { mode: "shop", label, range, headline: s.net + s.cash, commission: 0, tips: 0, feeShare: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
+  };
+  const carouselWindows = [
+    { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
+    { label: "This month", range: rangeFor("month"), from: startOf("month"), to: nowTs, monthly: false },
+    { label: "All time", range: "", from: 0, to: Infinity, monthly: true },
   ];
-  const overrideScope = ownerExtraPeriod ? computeScope(ownerExtraPeriod.from, ownerExtraPeriod.to, ownerExtraPeriod.monthly) : null;
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
   const pendingAppts = scopedAppts.filter(a => a.payment_status === "held" || a.payment_status === "saved");
@@ -529,21 +597,14 @@ export default function PaymentsPage() {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
   }
 
-  // ── Earnings carousel = the period selector. Headline = collected (card gross
-  // + cash); the three presets + a Custom card are the swipeable cards. ──────
-  const periodCards = baseSlides.map(s => ({
-    label: s.label, range: s.range,
-    // NET headline = card net (after Stripe fees) + cash. Falls back to gross
-    // when Stripe figures haven't loaded (net === gross, fees 0).
-    collected: s.scope.net + s.scope.cash,
-    fees: s.scope.fees, tax: s.scope.tax,
-    cash: s.scope.cash, count: s.scope.count, avg: s.scope.avg, data: s.scope.data,
-  }));
+  // ── Earnings carousel = the period selector. The three presets + a Custom card
+  // are the swipeable cards; each is built by mkCard (shop or barber mode). ────
+  const periodCards = carouselWindows.map(w => mkCard(w.from, w.to, w.monthly, w.label, w.range));
   const customFromTs = customFrom ? new Date(customFrom + "T00:00:00").getTime() : null;
   const customToTs = customTo ? new Date(customTo + "T23:59:59.999").getTime() : null;
   const hasCustom = !!(customFromTs || customToTs);
-  const customScope = hasCustom
-    ? computeScope(customFromTs ?? 0, customToTs ?? nowTs, ((customToTs ?? nowTs) - (customFromTs ?? 0)) > 62 * 86400000)
+  const customCard = hasCustom
+    ? mkCard(customFromTs ?? 0, customToTs ?? nowTs, ((customToTs ?? nowTs) - (customFromTs ?? 0)) > 62 * 86400000, "Custom", "")
     : null;
   const customLabel = hasCustom ? `${customFrom ? fmtShort(customFrom) : "…"} – ${customTo ? fmtShort(customTo) : "…"}` : "";
 
@@ -554,7 +615,18 @@ export default function PaymentsPage() {
     .filter(i => i.appt && isUnpaidStatus(i.appt.payment_status) && (i.appt.total_amount ?? 0) > 0)
     .filter(i => !barberName || i.appt?.barbers?.name === barberName)
     .sort((a, b) => b.ts - a.ts);
-  const stmtItems = txFilter === "unpaid" ? unpaidRows : feed;
+  // Barber mode: the statement is that barber's own transactions (their cut per
+  // row), mirroring their portal. Unpaid/refunded chase-filters don't apply to a
+  // settled earnings ledger, so they show nothing there.
+  const barberStmt = barberFeed
+    .filter(i => {
+      if (txFilter === "card") return i.method !== "cash";
+      if (txFilter === "cash") return i.method === "cash";
+      if (txFilter === "unpaid" || txFilter === "refunded") return false;
+      return true;
+    })
+    .sort((a, b) => b.ts - a.ts);
+  const stmtItems = barberMode ? barberStmt : (txFilter === "unpaid" ? unpaidRows : feed);
   const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
   const dayLabel = (k: number) => {
@@ -569,10 +641,31 @@ export default function PaymentsPage() {
     stmtItems.forEach(i => { const k = dayStart(i.ts); const arr = m.get(k) ?? []; arr.push(i); m.set(k, arr); });
     return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
       const items = m.get(k)!;
-      const total = items.filter(x => x.settled && !x.refunded).reduce((s, x) => s + netOf(x), 0);
+      const total = items.filter(x => x.settled && !x.refunded).reduce((s, x) => s + (x.earn ? x.amount : netOf(x)), 0);
       return { key: k, label: dayLabel(k), total, items };
     });
   })();
+
+  // One receipt-ledger renderer for both modes. Barber: Commission + Tips −
+  // fee share = Take-home. Shop: Gross − tax − fees = You keep.
+  const renderLedger = (p: PeriodCard) => (
+    p.mode === "barber" ? (
+      <div className="cwp-ledger">
+        <div className="cwp-lrow"><span className="cwp-lk">Commission{selPct ? ` (${selPct}%)` : ""}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
+        {p.tips > 0 && <div className="cwp-lrow"><span className="cwp-lk">Tips</span><span className="cwp-lv">{formatCurrency(p.tips)}</span></div>}
+        {p.feeShare > 0 && <div className="cwp-lrow"><span className="cwp-lk">Card fee share</span><span className="cwp-lv">−{formatCurrency(p.feeShare)}</span></div>}
+        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+      </div>
+    ) : (
+      <div className="cwp-ledger">
+        <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.headline + p.fees)}</span></div>
+        {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
+        {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
+        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+      </div>
+    )
+  );
+  const cardCapLabel = barberMode ? "Take-home" : "Net collected";
 
   return (
     <div className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl mx-auto pb-28">
@@ -586,7 +679,7 @@ export default function PaymentsPage() {
       {/* ── Header (unchanged nav) ─────────────────────────────────────────── */}
       <DashboardHeader
         title="Payments"
-        subtitle={barberName ? `${barberFirst} · collected revenue` : `${shop?.name ?? "Your shop"} · you keep 100%`}
+        subtitle={barberName ? `${barberFirst} · take-home${selPct ? ` · ${selPct}%` : ""}` : `${shop?.name ?? "Your shop"} · you keep 100%`}
       />
 
       {/* Barber chip — only when more than one barber (solo shops stay clean) */}
@@ -626,47 +719,33 @@ export default function PaymentsPage() {
               <span className="cwp-pname">{p.label}</span>
               {p.range && <span className="cwp-prange">{p.range}</span>}
             </div>
-            <div className="cwp-caplbl">Net collected</div>
-            <div className="cwp-amt">{formatCurrency(p.collected)}</div>
+            <div className="cwp-caplbl">{cardCapLabel}</div>
+            <div className="cwp-amt">{formatCurrency(p.headline)}</div>
             <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
               {p.count > 0
                 ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
                 : "No cuts in this period"}
             </div>
             <Spark data={p.data} />
-            {p.count > 0 && (
-              <div className="cwp-ledger">
-                <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.collected + p.fees)}</span></div>
-                {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
-                {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
-                <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(p.collected)}</span></div>
-              </div>
-            )}
+            {p.count > 0 && renderLedger(p)}
           </div>
         ))}
         {/* Custom range card — last in the rail */}
-        {hasCustom && customScope ? (
+        {hasCustom && customCard ? (
           <div className="cwp-ecard">
             <div className="cwp-period">
               <span className="cwp-pname">Custom</span>
               <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
             </div>
-            <div className="cwp-caplbl">Net collected</div>
-            <div className="cwp-amt">{formatCurrency(customScope.net + customScope.cash)}</div>
-            <div className={cn("cwp-sub", customScope.count === 0 && "cwp-flat")}>
-              {customScope.count > 0
-                ? <>{customLabel} · {customScope.count} cut{customScope.count !== 1 ? "s" : ""}{customScope.cash > 0 ? ` · incl. ${formatCurrency(customScope.cash)} cash` : ""}</>
+            <div className="cwp-caplbl">{cardCapLabel}</div>
+            <div className="cwp-amt">{formatCurrency(customCard.headline)}</div>
+            <div className={cn("cwp-sub", customCard.count === 0 && "cwp-flat")}>
+              {customCard.count > 0
+                ? <>{customLabel} · {customCard.count} cut{customCard.count !== 1 ? "s" : ""}{customCard.cash > 0 ? ` · incl. ${formatCurrency(customCard.cash)} cash` : ""}</>
                 : customLabel}
             </div>
-            <Spark data={customScope.data} />
-            {customScope.count > 0 && (
-              <div className="cwp-ledger">
-                <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(customScope.net + customScope.cash + customScope.fees)}</span></div>
-                {customScope.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(customScope.tax)}</span></div>}
-                {customScope.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(customScope.fees)}</span></div>}
-                <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(customScope.net + customScope.cash)}</span></div>
-              </div>
-            )}
+            <Spark data={customCard.data} />
+            {customCard.count > 0 && renderLedger(customCard)}
           </div>
         ) : (
           <div className="cwp-ecard cwp-ghost">
@@ -684,20 +763,25 @@ export default function PaymentsPage() {
           <i key={i} className={cn(i === netSlide && "cwp-on")} />
         ))}
       </div>
-      <div className="cwp-payout">
-        <span className="cwp-next">
-          {stripeNet?.connected === false
-            ? <>Connect Stripe to see live fees &amp; payouts</>
-            : stripeNet?.nextPayoutAmount != null && stripeNet?.nextPayoutDate
-              ? <>Next payout <b>{formatCurrency(stripeNet.nextPayoutAmount)}</b> · {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</>
-              : payout > 0
-                ? <>Balance <b>{formatCurrency(payout)}</b> settling to your bank</>
-                : <>Payouts settle straight to your bank</>}
-        </span>
-        <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
-          {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />
-        </button>
-      </div>
+      {/* Payout balance is shop-level (funds settle to the shop's account, not a
+          single barber) — hide it under a per-barber filter to avoid implying it's
+          the barber's payout. */}
+      {!barberMode && (
+        <div className="cwp-payout">
+          <span className="cwp-next">
+            {stripeNet?.connected === false
+              ? <>Connect Stripe to see live fees &amp; payouts</>
+              : stripeNet?.nextPayoutAmount != null && stripeNet?.nextPayoutDate
+                ? <>Next payout <b>{formatCurrency(stripeNet.nextPayoutAmount)}</b> · {new Date(stripeNet.nextPayoutDate * 1000).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</>
+                : payout > 0
+                  ? <>Balance <b>{formatCurrency(payout)}</b> settling to your bank</>
+                  : <>Payouts settle straight to your bank</>}
+          </span>
+          <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
+            {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />
+          </button>
+        </div>
+      )}
 
       {/* ── Two summary tiles ──────────────────────────────────────────────── */}
       <div className="cwp-tiles">
@@ -713,11 +797,14 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* ── Tax collected (own page) ───────────────────────────────────────── */}
-      <a href="/dashboard/payments/tax" className="cwp-payout" style={{ textDecoration: "none", marginTop: 10 }}>
-        <span className="cwp-next">🏛️ Tax collected · this year</span>
-        <span className="cwp-stripe">View →</span>
-      </a>
+      {/* ── Tax collected (own page) — shop-level (tax is remitted by the shop,
+          not a barber), so hide it under a per-barber filter. ────────────────── */}
+      {!barberMode && (
+        <a href="/dashboard/payments/tax" className="cwp-payout" style={{ textDecoration: "none", marginTop: 10 }}>
+          <span className="cwp-next">🏛️ Tax collected · this year</span>
+          <span className="cwp-stripe">View →</span>
+        </a>
+      )}
 
       {/* ── Statement ──────────────────────────────────────────────────────── */}
       <div className="cwp-txhead"><h2>Transactions</h2></div>
@@ -756,14 +843,14 @@ export default function PaymentsPage() {
                       )}
                     </div>
                     <div className="cwp-rright">
-                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(netOf(i))}</div>
+                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(i.earn ? i.amount : netOf(i))}</div>
                       <div className="cwp-m">
                         {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
                           : <>
                               <span className="cwp-method">{isCash ? "Cash" : "Card"}</span>
                               {ago ? ` · ${ago}` : ""}
-                              {i.method !== "cash" && feeOf(i) > 0 ? ` · ${formatCurrency(feeOf(i))} fee` : ""}
+                              {!i.earn && i.method !== "cash" && feeOf(i) > 0 ? ` · ${formatCurrency(feeOf(i))} fee` : ""}
                             </>}
                       </div>
                     </div>
@@ -787,7 +874,9 @@ export default function PaymentsPage() {
         const a = i.appt;
         const canRefresh = !!a?.payment_intent_id && !isPaid(a.payment_status) && a.payment_status !== "refunded";
         const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
-        const refundable = i.settled && i.method !== "cash" && !!i.pi && !i.refunded;
+        // Never offer refund on a barber-earnings row — it represents that barber's
+        // cut, not the underlying charge (and its key isn't a refundable tx id).
+        const refundable = !i.earn && i.settled && i.method !== "cash" && !!i.pi && !i.refunded;
         const dt = i.tsIso ? new Date(i.tsIso) : null;
         return (
           <>
@@ -802,8 +891,8 @@ export default function PaymentsPage() {
                   <div className="flex justify-between gap-3"><span className="text-grey">Service</span><span className="text-foreground text-right truncate">{i.sub}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
-                  <div className="flex justify-between"><span className="text-grey">Amount</span><span className="text-foreground font-semibold">{formatCurrency(netOf(i))}</span></div>
-                  {i.settled && i.method !== "cash" && feeOf(i) > 0 && (
+                  <div className="flex justify-between"><span className="text-grey">{i.earn ? "Earned" : "Amount"}</span><span className="text-foreground font-semibold">{formatCurrency(i.earn ? i.amount : netOf(i))}</span></div>
+                  {!i.earn && i.settled && i.method !== "cash" && feeOf(i) > 0 && (
                     <div className="flex justify-between"><span className="text-grey">Stripe fee</span><span className="text-grey">{formatCurrency(feeOf(i))}</span></div>
                   )}
                   {dt && (
