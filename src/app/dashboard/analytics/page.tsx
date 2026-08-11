@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, type RevAppt, type RevTx } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -45,11 +45,15 @@ function SkeletonCard() {
 type DayRevenue = { date: string; label: string; day: string; revenue: number; appointments: number };
 
 export default function AnalyticsPage() {
-  const { shop } = useAuth();
+  const { shop, accessToken } = useAuth();
   const [period, setPeriod] = useState("month");
   const [barberFilter, setBarberFilter] = useState("all");
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  // Real Stripe fees per charge (paymentIntent → {gross, fee, net}) — same source
+  // the Dashboard/Payments use, so the "− Stripe fee" line here is the actual fee,
+  // not a guess, and the waterfall reconciles to the Collected number.
+  const [byPi, setByPi] = useState<ByPi>({});
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -91,6 +95,19 @@ export default function AnalyticsPage() {
   }, [shop, period]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Pull the real Stripe fee/net map (gated by a bearer token). If it doesn't
+  // load (offline / not connected), the waterfall degrades to fee = 0 rather
+  // than breaking — never a wrong-but-confident number.
+  useEffect(() => {
+    if (!accessToken || !shop?.id) return;
+    let active = true;
+    fetch(`/api/stripe/payments-summary?shop_id=${shop.id}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d && !d.error) setByPi(d.byPi ?? {}); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accessToken, shop?.id]);
 
   const today = new Date().toISOString().split("T")[0];
   const thisMonth = today.slice(0, 7);
@@ -149,13 +166,33 @@ export default function AnalyticsPage() {
     });
   }, [filteredTx, filteredAppts]);
 
-  // KPIs
-  // Use the SAME shared calculator as the Dashboard + Payments so Analytics can
-  // never show a different "revenue" number. This is gross COLLECTED (appointments
-  // + POS deduped, all tips, gift-adjusted) — the Dashboard shows it after Stripe
-  // fees, so this reads a touch higher by the fee amount, but both now use one
-  // set of rules instead of two different formulas / tables.
-  const totalRevenue = collectedTotals(filteredAppts as RevAppt[], filteredTx as RevTx[]).gross;
+  // KPIs — the money waterfall, all from the SAME shared calculator the Dashboard
+  // + Payments use (so no screen can show a different number):
+  //   Gross sales → − Stripe fee → − Tax → − Tips → − Barber commission → Net revenue
+  const money = useMemo(() => {
+    const t = collectedTotals(filteredAppts as RevAppt[], filteredTx as RevTx[], byPi);
+    // Barber pay = commission on services + tips. Appointment commission is derived
+    // from each barber's rate (the owner-barber included, at whatever % they set —
+    // 0% by default); POS commission is the stored commission_amount. Uses the same
+    // countablePosTxs rule so a completed booking's completion-tx isn't double-counted.
+    const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
+    let commission = 0;
+    for (const a of filteredAppts) {
+      if (!isPaid(a.payment_status) || a.status === "no-show") continue;
+      const gift = Number((a as { gift_applied?: number }).gift_applied ?? 0);
+      const svc = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0) - gift);
+      commission += svc * ((pct[a.barber_id ?? ""] ?? 0) / 100);
+    }
+    for (const tx of countablePosTxs(filteredAppts as RevAppt[], filteredTx as RevTx[])) {
+      if (tx.refunded) continue;
+      commission += Number((tx as { commission_amount?: number }).commission_amount ?? 0);
+    }
+    // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),
+    // then minus tax (govt), tips (barber), and barber commission (barber/owner).
+    const netRevenue = Math.max(0, t.net - t.tax - t.tips - commission);
+    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: t.tips, commission, netRevenue };
+  }, [filteredAppts, filteredTx, byPi, barbers]);
+  const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
@@ -320,6 +357,28 @@ export default function AnalyticsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Money waterfall — Gross → fees → tax → tips → barber → what the shop keeps.
+          Uses the same numbers as the Dashboard/Payments (Collected = gross − fees). */}
+      {!loading && money.gross > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Where the money goes</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-grey">Gross sales</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.gross)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.fees)}</span></div>
+              <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Collected <span className="text-grey-muted">(hits your account)</span></span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.collected)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Sales tax <span className="text-grey-muted">(owed to gov&apos;t)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tax)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Tips <span className="text-grey-muted">(barber&apos;s)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tips)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.commission)}</span></div>
+              <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className="font-mono tabular-nums font-bold text-emerald-400 text-base">{formatCurrency(money.netRevenue)}</span></div>
+            </div>
+            <p className="text-[11px] text-grey mt-3 leading-relaxed">
+              Gross sales is your revenue for taxes; the Stripe fee is a deductible expense. Tips &amp; commission are the barber&apos;s (see the barber breakdown for who got what) — for a solo shop that&apos;s still your money.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Revenue Over Time */}
