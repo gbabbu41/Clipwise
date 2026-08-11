@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, countablePosTxs, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { shopBarberCommission } from "@/lib/barber-earnings";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -171,22 +172,14 @@ export default function AnalyticsPage() {
   //   Gross sales → − Stripe fee → − Tax → − Tips → − Barber commission → Net revenue
   const money = useMemo(() => {
     const t = collectedTotals(filteredAppts as RevAppt[], filteredTx as RevTx[], byPi);
-    // Barber pay = commission on services + tips. Appointment commission is derived
-    // from each barber's rate (the owner-barber included, at whatever % they set —
-    // 0% by default); POS commission is the stored commission_amount. Uses the same
-    // countablePosTxs rule so a completed booking's completion-tx isn't double-counted.
+    // Barber commission — read from the ONE source (the transactions ledger), the
+    // SAME rows + formula the barber portal + the Dashboard use, so every screen
+    // shows the same barber pay. POS rows carry a stored commission_amount;
+    // appointment-completion rows carry none, so it falls back to the barber's
+    // rate × the service. Gift/product/no-barber sales have no barber_id → no
+    // commission. Tips are separate (100% the barber's).
     const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
-    let commission = 0;
-    for (const a of filteredAppts) {
-      if (!isPaid(a.payment_status) || a.status === "no-show") continue;
-      const gift = Number((a as { gift_applied?: number }).gift_applied ?? 0);
-      const svc = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0) - gift);
-      commission += svc * ((pct[a.barber_id ?? ""] ?? 0) / 100);
-    }
-    for (const tx of countablePosTxs(filteredAppts as RevAppt[], filteredTx as RevTx[])) {
-      if (tx.refunded) continue;
-      commission += Number((tx as { commission_amount?: number }).commission_amount ?? 0);
-    }
+    const commission = shopBarberCommission(filteredTx, pct);
     // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
     const netRevenue = Math.max(0, t.net - t.tax - t.tips - commission);

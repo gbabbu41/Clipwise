@@ -37,6 +37,24 @@ export function barberRowCut(t: EarningTx, commissionPercent: number): number {
   return commission + (t.tip ?? 0);
 }
 
+// Shop-wide barber commission for a set of transactions — the SAME ledger + the
+// SAME formula the barber portal reads, so the dashboard/Analytics "barber
+// commission" line equals the sum of what every barber sees they earned. Only
+// rows tied to a barber count (gift/product/no-barber sales carry no barber_id →
+// shop revenue, no commission). Refunded rows excluded. commission_amount is the
+// stored cut (POS); appointment-completion rows store none, so it falls back to
+// the barber's rate × the service amount — identical to computeBarberEarnings.
+export function shopBarberCommission(
+  txs: Array<{ amount: number | null; commission_amount?: number | null; barber_id?: string | null; refunded?: boolean | null }>,
+  pctByBarber: Record<string, number>,
+): number {
+  return txs.reduce((sum, t) => {
+    if (t.refunded || !t.barber_id) return sum;
+    const pct = pctByBarber[t.barber_id] ?? 0;
+    return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
+  }, 0);
+}
+
 export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number): BarberEarnings {
   // Exclude refunded — a refunded charge must not keep inflating a barber's cut.
   // Filter in JS (not .neq) so rows where `refunded` is null/absent are kept.

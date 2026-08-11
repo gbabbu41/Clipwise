@@ -20,7 +20,8 @@ import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useAuth } from "@/lib/auth-context";
-import { collectedTotals, countablePosTxs, isPaid, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
+import { shopBarberCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -295,7 +296,7 @@ export default function DashboardPage() {
       ? Promise.resolve({ data: [] as RevTx[] })
       : supabase
           .from("transactions")
-          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded")
+          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount")
           .eq("shop_id", shop.id)
           .order("created_at", { ascending: false })
           .limit(250);
@@ -442,24 +443,15 @@ export default function DashboardPage() {
     return d >= rangeStart && d <= rangeEnd;
   });
   const collected = collectedTotals(appointments, txnsInRange, stripeByPi);
-  // Barber commission tallied for the window (SERVICES only) — the SAME rule the
-  // Analytics waterfall uses, so the two screens agree. Appointment commission is
-  // each barber's rate applied after tax + gift (owner-barber included, 0% by
-  // default → $0); POS commission is the stored commission_amount, de-duped
-  // against appointments so a completion tx isn't double-counted. Commission is a
-  // reporting tally, not a payout.
+  // Barber commission — read from the ONE source: the transactions ledger, the
+  // SAME rows + formula the barber portal (and Payments per-barber view) use, so
+  // the dashboard's commission equals what the barbers actually earned. POS rows
+  // carry a stored commission_amount; appointment-completion rows carry none, so
+  // it falls back to the barber's rate × the service (net of tax). Gift/product/
+  // no-barber sales carry no barber_id → shop revenue, no commission. Commission
+  // is a reporting tally, not a payout.
   const commissionPct: Record<string, number> = Object.fromEntries(barbers.map((b) => [b.id, b.commission_percent ?? 0]));
-  let commission = 0;
-  for (const a of appointments) {
-    if (!isPaid(a.payment_status) || a.status === "no-show") continue;
-    const gift = Number((a as { gift_applied?: number }).gift_applied ?? 0);
-    const svc = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0) - gift);
-    commission += svc * ((commissionPct[a.barber_id ?? ""] ?? 0) / 100);
-  }
-  for (const tx of countablePosTxs(appointments, txnsInRange)) {
-    if (tx.refunded) continue;
-    commission += Number((tx as { commission_amount?: number }).commission_amount ?? 0);
-  }
+  const commission = shopBarberCommission(txnsInRange, commissionPct);
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
   // (gov't) − tips (barber) − barber commission (barber/owner pay).
   const netRevenue = Math.max(0, collected.net - collected.tax - collected.tips - commission);

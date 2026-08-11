@@ -34,6 +34,10 @@ export type RevTx = {
   stripe_session_id?: string | null;
   source?: string | null;
   refunded?: boolean | null;
+  // Barber attribution + stored cut — used by shopBarberCommission so the owner
+  // screens read commission from the same ledger the barber portal does.
+  barber_id?: string | null;
+  commission_amount?: number | null;
 };
 
 // paymentIntent id -> exact figures from Stripe balance transactions.
