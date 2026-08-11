@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
+import { collectedTotals, type RevAppt, type RevTx } from "@/lib/revenue";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -149,8 +150,12 @@ export default function AnalyticsPage() {
   }, [filteredTx, filteredAppts]);
 
   // KPIs
-  const totalRevenue = filteredTx.reduce((s, t) => s + t.amount + t.tip, 0)
-    || filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
+  // Use the SAME shared calculator as the Dashboard + Payments so Analytics can
+  // never show a different "revenue" number. This is gross COLLECTED (appointments
+  // + POS deduped, all tips, gift-adjusted) — the Dashboard shows it after Stripe
+  // fees, so this reads a touch higher by the fee amount, but both now use one
+  // set of rules instead of two different formulas / tables.
+  const totalRevenue = collectedTotals(filteredAppts as RevAppt[], filteredTx as RevTx[]).gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
@@ -229,7 +234,7 @@ export default function AnalyticsPage() {
   const topService = serviceRevenue[0];
 
   const kpis = [
-    { label: "Total Revenue", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-foreground" },
+    { label: "Collected", value: formatCurrency(totalRevenue), sub: `${completedAppts} completed`, color: "text-foreground" },
     { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-foreground" },
     { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-foreground" },
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Industry avg 12%", color: "text-orange-400" },
