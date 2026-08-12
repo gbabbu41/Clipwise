@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
+import { UnreadBadge } from "@/components/notification-badge";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
 import { AvatarImage } from "@/components/ui/avatar-image";
@@ -203,11 +204,7 @@ export function BarberSidebar() {
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 bg-red-500 text-foreground text-[10px] font-bold rounded-full flex items-center justify-center border border-black leading-none">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
+          <UnreadBadge count={unreadCount} />
         </button>
         {/* Account menu — tap the avatar for a dropdown (profile / payments /
             notifications / log out). Shown on every page, including Profile. */}

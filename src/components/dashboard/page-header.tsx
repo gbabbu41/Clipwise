@@ -4,7 +4,8 @@ import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { fetchShopUnreadCount } from "@/lib/notify";
+import { useShopUnreadCount } from "@/hooks/use-unread-count";
+import { UnreadBadge } from "@/components/notification-badge";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 
 /**
@@ -19,14 +20,13 @@ import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
  */
 export function DashboardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   const { profile, shop } = useAuth();
-  const [unread, setUnread] = useState(0);
+  // Shared live count (initial fetch + realtime) so this bell matches every other
+  // bell and decrements the instant a notification is read.
+  const unread = useShopUnreadCount(profile?.id, shop?.id);
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id) return;
-    // Unread count scoped to the active shop (multi-shop owners don't see other
-    // shops' unread lighting the bell).
-    fetchShopUnreadCount(supabase, profile.id, shop?.id).then(setUnread);
     // Scope the avatar to this shop's barber row too (an owner who is a barber at
     // multiple shops otherwise gets an arbitrary shop's photo).
     let q = supabase.from("barbers").select("photo").eq("user_id", profile.id);
@@ -56,9 +56,9 @@ export function DashboardHeader({ title, subtitle, action }: { title: string; su
         {/* Optional page action (e.g. "add"), sits left of the universal
             bell + profile so the right cluster stays consistent everywhere. */}
         {action}
-        <Link href="/dashboard/notifications" aria-label="Notifications" className="cwd-icobtn" onClick={onBell}>
+        <Link href="/dashboard/notifications" aria-label="Notifications" className="cwd-icobtn relative" onClick={onBell}>
           <Bell size={17} />
-          {unread > 0 && <span className="cwd-dot" />}
+          <UnreadBadge count={unread} />
         </Link>
         <ProfileMenu name={profile?.name ?? "Account"} photo={photo} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
       </div>

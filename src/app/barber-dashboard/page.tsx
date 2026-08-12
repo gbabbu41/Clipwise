@@ -9,6 +9,8 @@ import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
+import { UnreadBadge } from "@/components/notification-badge";
+import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { shareLink } from "@/lib/share";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
@@ -31,6 +33,7 @@ const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ?
 export default function BarberOverviewPage() {
   const { accessToken, profile } = useAuth();
   const { barber, shop, loading: barberLoading } = useBarber();
+  const unreadCount = useShopUnreadCount(profile?.id, shop?.id);
   // The owner (also a barber) gets every permission by default; a staff barber
   // gets only what the owner granted. Without manage_appointments the embedded
   // calendar + the schedule modal are read-only (view, no actions).
@@ -143,9 +146,10 @@ export default function BarberOverviewPage() {
           <Link
             href="/barber-dashboard/notifications"
             aria-label="Notifications"
-            className="hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-card border border-border text-accent-soft hover:border-accent-soft transition-colors"
+            className="relative hidden lg:inline-flex w-[38px] h-[38px] rounded-full items-center justify-center bg-card border border-border text-foreground hover:border-white/30 transition-colors"
           >
             <Bell size={15} />
+            <UnreadBadge count={unreadCount} />
           </Link>
           <ProfileMenu
             name={barber?.name ?? "Account"}

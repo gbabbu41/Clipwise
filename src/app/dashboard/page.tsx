@@ -19,6 +19,8 @@ import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
+import { UnreadBadge } from "@/components/notification-badge";
+import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
 import { shopBarberCommission } from "@/lib/barber-earnings";
@@ -137,6 +139,7 @@ const apptMins = (a: AppointmentWithDetails): number =>
 
 export default function DashboardPage() {
   const { shop, profile, accessToken } = useAuth();
+  const unreadCount = useShopUnreadCount(profile?.id, shop?.id);
   const router = useRouter();
   // Dashboard week calendar navigation: 0 = this week, ±n = weeks away (swipe/arrows).
   const [weekOffset, setWeekOffset] = useState(0);
@@ -573,7 +576,7 @@ export default function DashboardPage() {
           <Link
             href="/dashboard/notifications"
             aria-label="Notifications"
-            className="cwd-icobtn"
+            className="cwd-icobtn relative"
             onClick={(e) => {
               if (typeof window !== "undefined" && window.innerWidth < 1024) {
                 e.preventDefault();
@@ -582,7 +585,7 @@ export default function DashboardPage() {
             }}
           >
             <Bell size={17} />
-            {notifications.filter(n => !n.is_read).length > 0 && <span className="cwd-dot" />}
+            <UnreadBadge count={unreadCount} />
           </Link>
           <ProfileMenu name={profile?.name ?? "Account"} photo={profile?.avatar || ownerPhoto} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
         </div>

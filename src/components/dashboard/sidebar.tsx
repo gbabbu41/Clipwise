@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
+import { UnreadBadge } from "@/components/notification-badge";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
@@ -344,11 +345,7 @@ export function Sidebar() {
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 bg-red-500 text-foreground text-[9px] font-bold rounded-full flex items-center justify-center border border-white leading-none">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
+          <UnreadBadge count={unreadCount} />
         </button>
         <ProfileMenu
           name={displayName}
