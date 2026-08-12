@@ -34,8 +34,8 @@ Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code 
       completed early. At go-live flip it to `true` so staff can only mark an appointment
       complete / charge it from `CHECKOUT_LEAD_HOURS` (3h) before its start onward. (Owner
       decided 2026-08-12: leave off until launch.)
-- [ ] **Run the consolidated pending SQL** — paste `supabase/migrations/RUN-ON-PROD-2026-08-12.sql`
-      into the Supabase SQL Editor once (bundles phase8/13/14/49/50 + the Premium $79 fix). See §2.
+- ✅ **SQL migrations: nothing to run** — a full `information_schema` audit on 2026-08-12
+      confirmed prod is fully migrated (see §2). Premium is already $79 with multi-location.
 
 > ℹ️ **How customer payments work (test vs live) — expected behavior, not a bug.**
 > Stripe **Connect** = receiving customer payments (payouts). In **sandbox/test**
@@ -96,7 +96,7 @@ These are the difference between "works on localhost" and "works for real custom
       "untracked." (Workaround in-app: the Payments page "Refresh" button re-checks Stripe.)
 - [ ] **Go live on Stripe** when ready: swap `sk_test_/pk_test_` for live keys in Vercel,
       and have each shop owner complete **Stripe Connect** onboarding (Billing page).
-- [ ] **Run pending SQL** in Supabase → SQL editor (see section 4).
+- [x] ✅ **SQL migrations** — all applied on prod (verified 2026-08-12; see §2). Nothing pending.
 - [ ] **Email domain**: `FROM_EMAIL=Hello@clipwise.ca` — verify the domain in Resend and
       set up inbox/forwarding so replies don't bounce (MX / Cloudflare Email Routing).
 - [ ] ⚖️ **Merchant-of-record / liability (pre-launch, get legal review):** ClipWise must stay
@@ -119,8 +119,13 @@ These are the difference between "works on localhost" and "works for real custom
 
 ---
 
-## 🗄️ 2. Pending SQL migrations (Supabase SQL editor)
-- [ ] 🟠 **Phase 15 transaction provenance** (`supabase/migrations/phase15_transaction_source.sql`)
+## 🗄️ 2. SQL migrations — ✅ ALL APPLIED ON PROD (verified 2026-08-12)
+> A full `information_schema` audit on **2026-08-12** confirmed **every** migration's
+> columns/tables are present on prod. **The entire list below is RUN**, even where an old
+> `[ ]` checkbox was never flipped. Do NOT re-run these hunting for a fix — the DB is fully
+> migrated. The per-phase notes below are kept only as a reference for what each one added.
+> Track only migrations added *after* this date as new to-dos.
+- [x] 🟠 **Phase 15 transaction provenance** (`supabase/migrations/phase15_transaction_source.sql`)
       — **RUN BEFORE deploying the phase15 code** (transactions `source` +
       `appointment_id`). The POS finalize + cash inserts now set `source`; without
       the columns those inserts fail (Stripe charged but sale not recorded).

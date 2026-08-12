@@ -90,17 +90,16 @@ frequent schedule (`*/30 * * * *`) silently **blocks ALL deploys**. This bit us 
 For ~2h no-show capture, upgrade to Pro or use an external scheduler hitting
 `/api/cron/no-show` with header `x-cron-secret: <CRON_SECRET>`.
 
-## ⚠️ Pending migrations — prod DB is BEHIND `schema.sql`
-`schema.sql` is stale (it was missing `booking_settings`). Several columns/tables
-exist in dev but were never added to prod. Run these in Supabase SQL Editor if not
-already (see `supabase/migrations/` + TODO.md §2). Most critical:
-- `phase5_shop_booking_settings.sql` — adds `shops.booking_settings` JSONB. Without
-  it, no-show/deposit/auto-confirm + `capture-appointment` all fail (it 404'd with
-  "column shops.booking_settings does not exist"). **Owner has run this.**
-- `phase3_appointment_waitlist.sql`, `phase4_prevent_double_booking.sql`,
-  `phase1_no_show.sql`, `phase2_save_card.sql`.
-- If a feature "silently does nothing," suspect a missing column in prod — add
-  `console.warn` + capture the supabase `error` to confirm (don't only read `data`).
+## ✅ Migrations — prod is FULLY MIGRATED (verified 2026-08-12)
+`schema.sql` is stale (a floor, not the truth — see `database.types.ts` + the phase
+migrations for the real shape). But a full `information_schema` audit on **2026-08-12**
+confirmed **every** `phaseN` migration's columns/tables are present on prod. **Do NOT tell
+the owner a feature is broken because "a migration is pending" — the whole backlog is
+applied.** Verify against the live DB (Supabase MCP or an `information_schema` query),
+never against a stale checkbox in TODO.md or a migration file header.
+- New migrations added AFTER 2026-08-12 are the only ones to track as "to run."
+- If a feature "silently does nothing," still capture the supabase `error` (don't only
+  read `data`) — but the cause is far more likely code/config than a missing column now.
 
 ## Key facts / gotchas
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
@@ -175,11 +174,9 @@ See `SESSION-16-NOTES.md` for the full log of all changes across sessions 14–1
   both the Set Schedule start/end dropdowns AND the customer booking grid slot list.
   Staff → Set Schedule → "Time increments" toggle persists the choice shop-wide.
 
-⚠️ **Pending migrations** (run in Supabase SQL Editor):
-- `phase8_loyalty_earning.sql` — adds `appointments.loyalty_awarded`
-- `phase13_appointment_paid_at.sql` — adds `appointments.paid_at`
-- `phase14_appointment_duration.sql` — adds `appointments.duration_minutes`
-(phase12 realtime + phase9 plans already run)
+✅ **Migrations: all run on prod** (verified 2026-08-12). The phase8 (`loyalty_awarded`),
+phase13 (`paid_at`), phase14 (`duration_minutes`) columns that were long flagged pending
+are confirmed present — as is the entire backlog. Nothing to run.
 
 Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 ⚖️ merchant-of-record legal item.
@@ -188,5 +185,5 @@ Stripe in **sandbox/test**; Twilio on **trial**. Before live: see TODO §0 + the
 - `src/app/api/availability/route.ts` — server-side barber availability (service role, no PII)
 - `src/app/api/book/in-person/route.ts` — server-side in-person booking creation
 - `src/lib/appointment-actions.ts` — shared side-effect logic for approve/complete/reject
-- `supabase/migrations/phase13_appointment_paid_at.sql` — ⚠️ not yet run on prod
-- `supabase/migrations/phase14_appointment_duration.sql` — ⚠️ not yet run on prod
+- `supabase/migrations/phase13_appointment_paid_at.sql` — ✅ run on prod
+- `supabase/migrations/phase14_appointment_duration.sql` — ✅ run on prod

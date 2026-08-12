@@ -579,11 +579,14 @@ plus the feature tables (gift_cards, promo_redemptions, call_logs, time_off_requ
 `shop_id`-scoped. Integrity guards (triggers): `clipwise_prevent_overlap`, the double-booking
 unique index, and the role/shop/barber escalation guards.
 
-### 5.6 ⚠️ Pending prod migrations (code degrades gracefully; feature silently no-ops until run)
+### 5.6 ✅ Migrations — prod fully migrated (verified 2026-08-12)
 
-`phase8` (`loyalty_awarded`), `phase13` (`paid_at`), `phase14` (`duration_minutes`),
-`phase49` (`trial_used`), `phase50` (`gift_applied`). Run these in the Supabase SQL Editor. See
-`TODO.md` §2 for the authoritative list.
+A full `information_schema` audit on **2026-08-12** confirmed **every** `phaseN` migration's
+columns/tables are present on prod — including the ones long flagged pending (`phase8`
+`loyalty_awarded`, `phase13` `paid_at`, `phase14` `duration_minutes`, `phase49` `trial_used`,
+`phase50` `gift_applied`). **Nothing is pending.** `schema.sql` remains a stale floor; trust
+`database.types.ts` + the migrations + the live DB, never a checkbox. Only migrations added
+*after* this date are "to run" — and always verify against the live DB, not the docs.
 
 ---
 
@@ -604,10 +607,9 @@ Seeded: `starter` $0 / 1 barber / no features · `pro` **$23** / 4 barbers /
 when the DB isn't hydrated; `MAX_LOCATIONS = 5` is a hard ceiling.
 
 > ✅ **Resolved (2026-08-12):**
-> 1. **Premium price** — confirmed **$79/mo**. The code already said $79 (`stripe.ts:51`,
->    `DEFAULT_PLAN_CONFIG`); only the phase9 seed said $49. `phase51_fix_premium_plan.sql`
->    (bundled in `RUN-ON-PROD-2026-08-12.sql`) sets the live `plans` row to `price_cents = 7900`.
->    Run it on prod.
+> 1. **Premium price** — confirmed **$79/mo**, and the **live `plans` row was already 7900**
+>    (the $49 was only in the stale phase9 seed *file*, never on prod). `phase51_fix_premium_plan.sql`
+>    documents the intent and corrects a *fresh* install's seed; prod needed nothing.
 > 2. **`multi_location` on Premium** — the app now gates multi-location on
 >    `planAllowsMultiLocation()` = `getLocationLimit(plan) > 1` OR the feature flag
 >    (`validation.ts`), so Premium keeps its 2 locations even if the admin `plans` row's
