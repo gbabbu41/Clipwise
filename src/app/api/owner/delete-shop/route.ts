@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
 import { cleanupOrphanedBarberAccounts } from "@/lib/barber-cleanup";
+import { deleteBarberPhotoFile, deleteShopLogoFile } from "@/lib/storage-cleanup";
 
 // Permanent shop deletion. The owner can delete their own shop, which
 // cascades to all dependent rows (barbers, services, appointments, etc.
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   // wipes these rows, so we can't look them up afterwards. We use them below to
   // remove the logins of barbers left with no shop at all.
   const { data: shopBarbers } = await supabaseAdmin
-    .from("barbers").select("user_id").eq("shop_id", shop_id).not("user_id", "is", null);
+    .from("barbers").select("id, user_id").eq("shop_id", shop_id).not("user_id", "is", null);
 
   // Delete — cascades via FK constraints.
   const { error: delErr } = await supabaseAdmin
@@ -46,6 +47,10 @@ export async function POST(request: NextRequest) {
     .delete()
     .eq("id", shop_id);
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+  // Erase the shop's uploaded files (public buckets → orphans stay fetchable).
+  await deleteShopLogoFile(shop_id);
+  for (const b of shopBarbers ?? []) if (b.id) await deleteBarberPhotoFile(b.id);
 
   // A barber whose ONLY shop was this one should lose their login too. One who
   // also works at another shop (same login) keeps their account — only this

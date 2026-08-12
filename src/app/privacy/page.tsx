@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" updated="July 18, 2026">
+    <LegalShell title="Privacy Policy" updated="August 12, 2026">
       <p>
         <strong className="text-white">ClipWise Technologies Inc.</strong> (&ldquo;ClipWise,&rdquo;
         &ldquo;we&rdquo;) respects your privacy. This policy explains what personal information we
@@ -33,6 +33,14 @@ export default function PrivacyPage() {
         <p>To provide and operate the Service; process bookings and payments; send transactional
           messages (confirmations, reminders, receipts); provide support; maintain security and prevent
           fraud; comply with legal obligations; and, with consent where required, send marketing.</p>
+        <p>
+          <strong className="text-white">Automated processing &amp; AI.</strong> Some features use
+          automated processing. This includes an optional <strong className="text-white">AI phone
+          assistant</strong> that a Shop can enable to answer its calls and book appointments: when it is
+          on, call audio may be transcribed and processed by our AI providers to understand the request
+          and complete the booking. We do not use this automated processing to make legal or similarly
+          significant decisions about you, and you can always reach a Shop by other means instead.
+        </p>
       </LSection>
 
       <LSection n={3} title="Email &amp; SMS communications (consent)">
@@ -53,7 +61,7 @@ export default function PrivacyPage() {
         <p>We do not sell your personal information. We share it only:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong className="text-white">With the Shop you book</strong> — your booking details are shared with that barbershop so it can serve you.</li>
-          <li><strong className="text-white">With service providers</strong> that operate the platform on our behalf: Stripe (payments), Twilio (SMS), Resend (email), Supabase (database hosting), and Vercel (application hosting). They may process data outside your province, including in the United States, under appropriate safeguards.</li>
+          <li><strong className="text-white">With service providers</strong> that operate the platform on our behalf: Stripe (payments), Twilio (SMS and voice/phone calls), Resend (email), Supabase (database, authentication, and file storage), Vercel (application hosting), Cloudflare (bot/spam protection), Google (web fonts and maps), and AI providers that power the optional AI phone assistant (e.g., Anthropic). They may process data outside your province, including in the United States, under appropriate safeguards.</li>
           <li><strong className="text-white">For legal reasons</strong> — to comply with law, enforce our Terms, or protect rights, safety, and security.</li>
           <li><strong className="text-white">In a business transfer</strong> — e.g., a merger or acquisition, subject to this policy.</li>
         </ul>

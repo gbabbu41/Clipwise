@@ -156,6 +156,11 @@ export default function WhyClipWisePage() {
 
       <footer className="border-t border-border py-8 px-4 text-center">
         <Logo size="sm" className="justify-center mb-2" />
+        <p className="text-[11px] text-[#8f8f8f] max-w-2xl mx-auto mb-3 leading-relaxed">
+          Comparisons and quotes reference publicly available third-party reviews and pricing as of 2026 and
+          reflect those users&rsquo; own experiences, not typical results. Squire&trade; and Booksy&trade; are
+          trademarks of their respective owners; ClipWise is not affiliated with, endorsed by, or sponsored by them.
+        </p>
         <p className="text-xs text-[#8f8f8f]">© 2026 ClipWise Technologies Inc. · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
       </footer>
     </div>

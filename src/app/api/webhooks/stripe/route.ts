@@ -344,6 +344,36 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      // ── Upcoming renewal → advance reminder before the card is charged ────────
+      // Stripe emits invoice.upcoming a few days before a subscription renews (the
+      // lead time is configured in Stripe billing settings). Requires this event to
+      // be enabled on the webhook. Best-effort email; never blocks.
+      case "invoice.upcoming": {
+        const inv = event.data.object as Stripe.Invoice;
+        // Map by customer id (on the Invoice type across SDK versions, and stored on
+        // every one of an owner's shops) — reliably resolves to the owner's shop.
+        const custId = typeof inv.customer === "string" ? inv.customer : null;
+        if ((inv.amount_due ?? 0) <= 0 || !custId) break; // nothing to charge / can't map
+        const { data: shop } = await supabaseAdmin.from("shops")
+          .select("name, email, subscription_plan")
+          .eq("stripe_customer_id", custId)
+          .limit(1).maybeSingle();
+        if (shop?.email) {
+          const renewsOn = inv.next_payment_attempt
+            ? new Date(inv.next_payment_attempt * 1000).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })
+            : "soon";
+          fetch(`${BASE_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "subscription_renewal_reminder", data: {
+              shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
+              amount: ((inv.amount_due ?? 0) / 100).toFixed(2), renewsOn,
+            } }),
+          }).catch(() => null);
+        }
+        break;
+      }
+
       // ── Subscription cancelled → downgrade to starter + email ────────────────
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;

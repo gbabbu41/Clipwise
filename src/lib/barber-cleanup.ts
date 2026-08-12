@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { deleteAvatarFile } from "@/lib/storage-cleanup";
 
 /**
  * Clean up barber logins that are left with NO shop after a shop (or an owner's
@@ -59,6 +60,10 @@ export async function cleanupOrphanedBarberAccounts(
       await supabaseAdmin.from("users").delete().eq("id", uid).then(null, () => null);
       const { error } = await supabaseAdmin.auth.admin.deleteUser(uid);
       if (!error) removed++;
+      // Erase their account avatar file too (public bucket → would otherwise be
+      // orphaned + still fetchable). Their barber-photo is removed by the caller,
+      // which captured the barber id before the cascade. Best-effort.
+      await deleteAvatarFile(uid);
     } catch {
       /* best-effort: never let account cleanup fail the shop/account delete */
     }

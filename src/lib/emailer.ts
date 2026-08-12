@@ -740,6 +740,24 @@ function subscriptionStarted(data: Record<string, string>) {
   `);
 }
 
+function subscriptionRenewalReminder(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">🔔 Upcoming renewal</div>
+    <h1>Your plan renews ${data.renewsOn}</h1>
+    <p>Heads up — your <span class="highlight">${data.plan || "ClipWise"}</span> plan for
+      <span class="highlight">${data.shopName}</span> will renew automatically on
+      <span class="highlight">${data.renewsOn}</span> for <span class="highlight">$${data.amount} CAD</span>.
+      No action is needed to continue.</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">Manage billing →</a>
+    <hr class="divider">
+    <p style="font-size:13px;color:#9CA3AF">Want to change or cancel? You can do it anytime from
+      <a href="${BASE_URL}/dashboard/billing" style="color:#F5F0E6">Billing</a> before the renewal date —
+      cancelling stops future charges and keeps your plan until the end of the current period.</p>
+    <p style="color:#4B5563">— ClipWise</p>
+  `);
+}
+
 function barberPasswordReset(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -1061,6 +1079,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = "Your ClipWise payment card was updated";
       html = subscriptionCardUpdated(data);
+      break;
+    case "subscription_renewal_reminder":
+      to = data.ownerEmail;
+      subject = `Your ClipWise plan renews ${data.renewsOn}`;
+      html = subscriptionRenewalReminder(data);
       break;
     case "time_off_request":
       to = data.ownerEmail;
