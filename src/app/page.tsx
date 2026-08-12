@@ -355,7 +355,7 @@ export default function LandingPage() {
           <div className="fg">
             <div><Logo size="sm" className="cw-grad" /><p style={{ marginTop: 12, maxWidth: "32ch" }}>The premium barbershop management platform. Made in Canada.</p></div>
             <div><h5>Product</h5><a href="#features">Features</a><a href="#pricing">Pricing</a><Link href="/shops">Find a Barber</Link></div>
-            <div><h5>Company</h5><Link href="/why-clipwise">Why ClipWise</Link><a href="mailto:support@clipwise.ca">Contact</a></div>
+            <div><h5>Company</h5><Link href="/why-clipwise">Why ClipWise</Link><Link href="/support">How payments work</Link><a href="mailto:support@clipwise.ca">Contact</a></div>
             <div><h5>Legal</h5><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link></div>
           </div>
           <div className="fb"><span>© 2026 ClipWise Technologies Inc.</span><span>Privacy-first · PIPEDA-aware · 🇨🇦 Canadian-Made</span></div>

@@ -27,6 +27,7 @@ export function LegalShell({
         </div>
 
         <div className="mt-12 pt-6 border-t border-border flex flex-wrap gap-4 text-xs text-[#8f8f8f]">
+          <Link href="/support" className="hover:text-gold">How Payments Work</Link>
           <Link href="/terms" className="hover:text-gold">Terms of Service</Link>
           <Link href="/privacy" className="hover:text-gold">Privacy Policy</Link>
           <Link href="/cookies" className="hover:text-gold">Cookie Policy</Link>
