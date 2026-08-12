@@ -67,6 +67,11 @@ export default function POSPage() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [giftCode, setGiftCode] = useState("");
   const [giftCard, setGiftCard] = useState<{ id: string; code: string; remaining_value: number } | null>(null);
+  // Loyalty redemption: the selected client's redeemable balance (looked up by
+  // email/phone) + whether staff chose to spend it. Points are settled server-side
+  // on the sale, capped at the real balance.
+  const [posLoyalty, setPosLoyalty] = useState<{ eligible: boolean; points: number; value: number } | null>(null);
+  const [redeemLoyalty, setRedeemLoyalty] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
   const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
@@ -160,6 +165,32 @@ export default function POSPage() {
     });
     showToast(`Added ${name} to clients`);
   }, [shop, client, custPhone, custEmail, selectedClientId]);
+
+  // Look up the selected customer's redeemable loyalty balance (by email/phone).
+  // Server decides eligibility (on-plan + enabled + worth ≥ $5). Debounced; clears
+  // when the contact clears or isn't eligible.
+  useEffect(() => {
+    if (!shop) { setPosLoyalty(null); setRedeemLoyalty(false); return; }
+    const email = custEmail.trim();
+    const phone = custPhone.trim();
+    if (!email.includes("@") && phone.replace(/\D/g, "").length < 7) {
+      setPosLoyalty(null); setRedeemLoyalty(false); return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/loyalty/lookup", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id, email, phone }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.eligible) setPosLoyalty(data);
+        else { setPosLoyalty(null); setRedeemLoyalty(false); }
+      } catch { if (!cancelled) setPosLoyalty(null); }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [shop, custEmail, custPhone]);
 
   // ── Customer picker helpers ─────────────────────────────────────────────
   const filteredClients = useMemo(() => {
@@ -307,7 +338,13 @@ export default function POSPage() {
   const posTaxEnabled = shopChargesTax(posTaxCfg);
   const posTaxRate = combinedTaxRate(posTaxCfg);
   const taxLabel = (posTaxCfg?.tax_label || "Tax").trim();
-  const taxableAmt = Math.max(0, subtotal - discount);
+  // Loyalty redemption behaves like a discount: it reduces the taxable base, the
+  // total the customer pays, and the recorded revenue. Capped at the client's
+  // redeemable value AND the remaining service subtotal (after any promo).
+  const loyaltyDiscount = redeemLoyalty && posLoyalty?.eligible
+    ? Math.min(posLoyalty.value, Math.max(0, subtotal - discount))
+    : 0;
+  const taxableAmt = Math.max(0, subtotal - discount - loyaltyDiscount);
   const taxAmt = posTaxEnabled ? Math.round(taxableAmt * posTaxRate) / 100 : 0;
   const total = Math.max(0, taxableAmt + taxAmt + tipAmt);
   // A gift card is TENDER, not new revenue (its value was booked when it sold),
@@ -342,7 +379,12 @@ export default function POSPage() {
 
   const charge = async () => {
     if (cart.length === 0) { showToast("Please select a service first"); return; }
-    if (dueAfterGift <= 0 && !giftCard) { showToast("Cannot charge $0 — please add items"); return; }
+    // $0 due is valid when it's fully covered by a gift card, loyalty points, or a
+    // promo (the sale still records + points deduct via the cash path below). Only
+    // block a $0 due that ISN'T covered by anything (i.e. an empty/free cart).
+    if (dueAfterGift <= 0 && !giftCard && loyaltyDiscount <= 0 && discount <= 0) {
+      showToast("Cannot charge $0 — please add items"); return;
+    }
     // A customer must be chosen (existing client or a name entered) before charging.
     if (!client.trim()) { showToast("Select or add a customer first"); setPickerOpen(true); return; }
     const tipPct = tipPercent !== null ? tipPercent : customTip ? (Number(customTip) / subtotal) * 100 : 0;
@@ -371,8 +413,10 @@ export default function POSPage() {
     // which defaults to 0%). This stops barbers being over-paid on product sales
     // and on the pre-discount total.
     const serviceSubtotal = serviceItems.reduce((s, i) => s + i.price * i.qty, 0);
+    // Allocate BOTH the promo + loyalty discounts to the services' share, so
+    // commission is on what the barber's services actually netted.
     const serviceAfterDiscount = subtotal > 0
-      ? Math.max(0, serviceSubtotal - discount * (serviceSubtotal / subtotal))
+      ? Math.max(0, serviceSubtotal - (discount + loyaltyDiscount) * (serviceSubtotal / subtotal))
       : 0;
     const commission = selectedBarber
       ? Math.round(serviceAfterDiscount * (selectedBarber.commission_percent / 100) * 100) / 100
@@ -407,6 +451,8 @@ export default function POSPage() {
             commission_amount: commission,
             type: txType,
             promo_code: promoApplied?.code ?? null,
+            redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
+            loyalty_discount: loyaltyDiscount,
             products,
           }),
         });
@@ -441,13 +487,18 @@ export default function POSPage() {
           client_email: custEmail.trim(),
           client_phone: custPhone.trim(),
           service_name: giftApplied > 0 ? `${serviceName} (gift card ${formatCurrency(giftApplied)})` : serviceName,
-          amount: Math.max(0, subtotal - giftApplied),
+          // Recorded revenue nets out the loyalty discount (revenue given up when
+          // points are spent). Gift is tender (already revenue at sale), so it's
+          // subtracted separately as before.
+          amount: Math.max(0, subtotal - loyaltyDiscount - giftApplied),
           tip: tipAmt,
           tax: taxAmt,
           commission_amount: commission,
           payment_method: paymentMethod,
           type: txType,
           promo_code: promoApplied?.code ?? null,
+          redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
+          loyalty_discount: loyaltyDiscount,
           products,
           gift_card: giftCard ? { id: giftCard.id, remaining_value: giftCard.remaining_value, applied: giftApplied } : null,
         }),
@@ -459,7 +510,7 @@ export default function POSPage() {
       showToast("Error saving transaction"); setCharging(false); return;
     }
 
-    setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + giftApplied, tax: taxAmt });
+    setLastCharge({ total: dueAfterGift, subtotal, method: paymentMethod, items: [...cart], tip: tipAmt, discount: discount + loyaltyDiscount + giftApplied, tax: taxAmt });
     setCharging(false);
     setSuccess(true);
 
@@ -469,7 +520,7 @@ export default function POSPage() {
 
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
-    setGiftCode(""); setGiftCard(null);
+    setGiftCode(""); setGiftCard(null); setPosLoyalty(null); setRedeemLoyalty(false);
     setPaymentMethod("card"); setCheckoutStep("review"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
@@ -623,7 +674,22 @@ export default function POSPage() {
               <Button variant="outline" size="sm" onClick={applyGift}>Apply</Button>
             </div>
           )}
+          {/* Loyalty — spend the client's points (only shows with a redeemable balance) */}
+          {posLoyalty?.eligible && (
+            <button type="button" onClick={() => setRedeemLoyalty(v => !v)}
+              className={cn("w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
+                redeemLoyalty ? "border-[#00e5a0]/40 bg-[#00e5a0]/10" : "border-border hover:border-[#00e5a0]/40")}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground">⭐ Use loyalty points</p>
+                <p className="text-[10px] text-grey-muted">{posLoyalty.points} pts · up to {formatCurrency(posLoyalty.value)} off</p>
+              </div>
+              <span className={cn("w-9 h-5 rounded-full relative transition-colors flex-shrink-0", redeemLoyalty ? "bg-[#00e5a0]" : "bg-[#2a2a2a]")}>
+                <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", redeemLoyalty ? "left-[18px]" : "left-0.5")} />
+              </span>
+            </button>
+          )}
           {discount > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Discount</span><span className="text-[#00e5a0]">-{formatCurrency(discount)}</span></div>}
+          {loyaltyDiscount > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Loyalty points</span><span className="text-[#00e5a0]">-{formatCurrency(loyaltyDiscount)}</span></div>}
           {taxAmt > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">{taxLabel} ({posTaxRate}%)</span><span className="text-foreground">{formatCurrency(taxAmt)}</span></div>}
           {giftApplied > 0 && <div className="flex justify-between text-xs"><span className="text-grey-muted">Gift card</span><span className="text-[#00e5a0]">-{formatCurrency(giftApplied)}</span></div>}
           <div className="flex justify-between items-baseline border-t border-border pt-2">

@@ -1126,6 +1126,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const closeAdd = () => { setAddShown(false); setTimeout(() => setAddCtx(null), 260); };
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", client_email: "", service_ids: [] as string[], time: "", date: "" });
   const [savingAdd, setSavingAdd] = useState(false);
+  // Loyalty redemption for a staff-booked client: look the client up by the
+  // email/phone entered; if they have a redeemable balance, offer "use points".
+  // The /api/book/in-person route does the server-authoritative math + deduction
+  // (we only send the `redeem` intent) — same as the customer booking flow.
+  const [addLoyalty, setAddLoyalty] = useState<{ eligible: boolean; points: number; value: number } | null>(null);
+  const [addRedeem, setAddRedeem] = useState(false);
   // Blocked-hours state. The tap modal carries an Appointment/Block toggle
   // (addMode); blockForm holds the block's time range + reason.
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
@@ -1618,6 +1624,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         date: addForm.date || formatDateForDb(currentDate), time_slot: time,
         total_amount: price, duration_minutes: duration, pay_in_person: true,
         confirmed: true,
+        redeem: addRedeem && !!addLoyalty?.eligible,   // spend loyalty points (server computes + deducts)
         override_block: overrideBlock || undefined,
         note: outside ? "⚠️ Booked outside the barber's working hours" : undefined,
       }),
@@ -1661,6 +1668,33 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .filter(m => m > boxStart);
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
   }, [addCtx, appointments, currentDate, addForm.time, addForm.date]);
+
+  // Recognize a returning client by the email/phone entered and surface their
+  // redeemable loyalty balance (server decides eligibility: on-plan + enabled +
+  // worth ≥ $5). Debounced; resets when the sheet closes, switches to Block, or
+  // the contact clears.
+  useEffect(() => {
+    if (!addCtx || addMode !== "appt" || !shop) { setAddLoyalty(null); setAddRedeem(false); return; }
+    const email = addForm.client_email.trim();
+    const phone = addForm.client_phone.trim();
+    if (!email.includes("@") && phone.replace(/\D/g, "").length < 7) {
+      setAddLoyalty(null); setAddRedeem(false); return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/loyalty/lookup", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id, email, phone }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.eligible) setAddLoyalty(data);
+        else { setAddLoyalty(null); setAddRedeem(false); }
+      } catch { if (!cancelled) setAddLoyalty(null); }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [addCtx, addMode, shop, addForm.client_email, addForm.client_phone]);
 
   // Combined totals — sum over the chosen rows (counts duplicates, ignores "").
   const svcById = useCallback((id: string) => services.find(s => s.id === id), [services]);
@@ -2951,6 +2985,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
                 )}
               </div>
+              {/* Loyalty — offer to spend the client's points (only when they have
+                  a redeemable balance). Server computes the discount + deducts. */}
+              {addLoyalty?.eligible && (
+                <button type="button" onClick={() => setAddRedeem(v => !v)}
+                  className={cn("w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                    addRedeem ? "bg-emerald-500/10 border-emerald-500/40" : "bg-card-raised border-border hover:border-white/30")}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">⭐ Use loyalty points</p>
+                    <p className="text-xs text-grey mt-0.5">{addLoyalty.points} pts · up to {formatCurrency(addLoyalty.value)} off</p>
+                  </div>
+                  <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", addRedeem ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
+                    <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", addRedeem ? "left-[22px]" : "left-0.5")} />
+                  </span>
+                </button>
+              )}
               {/* Date + time. Defaults to the tapped day, but staff can change the
                   date here too (e.g. book a client in for next week). */}
               <Input label="Date" type="date" value={addForm.date}

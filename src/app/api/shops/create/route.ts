@@ -110,6 +110,10 @@ export async function POST(request: NextRequest) {
     email: body.email ?? null,
     description: clampLen(body.description ?? null, FIELD_CAPS.shop_description),
     ...(body.logo ? { logo: body.logo } : {}),
+    // Loyalty starts OFF for a NEW shop — the owner turns it on + sets the rate in
+    // Loyalty settings. (Existing shops with no config are left untouched: the code
+    // still treats a null config as on-by-default, so this only affects new signups.)
+    booking_settings: { loyalty: { enabled: false } },
     status,
     subscription_plan: plan,
     subscription_status: subscriptionStatus,

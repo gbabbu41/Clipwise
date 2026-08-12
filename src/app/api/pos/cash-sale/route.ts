@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
+import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
 
 /**
  * Record a cash (or gift-card-covered) POS sale server-side.
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     const shop_id = b.shop_id as string | undefined;
     if (!shop_id) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
 
-    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", shop_id).maybeSingle();
+    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id, booking_settings").eq("id", shop_id).maybeSingle();
     if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
     let allowed = shop.owner_id === user.id;
     if (!allowed) {
@@ -89,6 +90,15 @@ export async function POST(req: Request) {
     // for a POS sale → appointment_id null.
     if (validPromo) {
       await consumePromo(validPromo, shop_id, b.client_email || null, b.client_phone || null, null);
+    }
+
+    // Settle loyalty points for a redeemed POS discount (server converts $ → points
+    // and deducts, capped at the client's real balance). Best-effort.
+    if (b.redeem_loyalty && Number(b.loyalty_discount) > 0) {
+      await redeemPointsForDiscount({
+        shopId: shop_id, email: b.client_email || null, phone: b.client_phone || null,
+        discountDollars: Number(b.loyalty_discount), bookingSettings: shop.booking_settings,
+      });
     }
 
     // Draw down inventory for product line items + low-stock alert.

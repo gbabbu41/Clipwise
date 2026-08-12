@@ -3,6 +3,7 @@ import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
+import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
 
 // Called when the POS returns from a paid card checkout. Verifies the payment
 // on the connected account, then records the transaction + decrements stock.
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
   if (!session_id || !shop_id) return NextResponse.json({ error: "Missing params" }, { status: 400 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("owner_id, stripe_account_id, stripe_connected").eq("id", shop_id).single();
+    .from("shops").select("owner_id, stripe_account_id, stripe_connected, booking_settings").eq("id", shop_id).single();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
     const subtotal = Number(m.subtotal ?? 0);
     const tip = Number(m.tip ?? 0);
     const discount = Number(m.discount ?? 0);
+    const loyaltyDiscount = Math.max(0, Number(m.loyalty_discount ?? 0));
     // Charged total = what Stripe actually took (passed through unchanged).
     const total = m.total != null ? Number(m.total) : subtotal + tip - discount;
 
@@ -51,9 +53,9 @@ export async function POST(request: NextRequest) {
       client_name: m.client_name || "Walk-in",
       service_name: m.service_name || "Sale",
       // Ledger the amount actually COLLECTED for the service (net of any POS
-      // discount), not the pre-discount subtotal — otherwise every discounted
-      // card sale overstates revenue by the discount in Payments/analytics.
-      amount: Math.max(0, subtotal - discount),
+      // discount + loyalty redemption), not the pre-discount subtotal — otherwise
+      // every discounted card sale overstates revenue in Payments/analytics.
+      amount: Math.max(0, subtotal - discount - loyaltyDiscount),
       tip,
       tax,
       stripe_fee: stripeFee,
@@ -89,6 +91,16 @@ export async function POST(request: NextRequest) {
     if (m.promo_code) {
       const promo = await fetchValidPromo(shop_id, m.promo_code);
       if (promo) await consumePromo(promo, shop_id, m.client_email || null, m.client_phone || null, null);
+    }
+
+    // Settle loyalty points for a redeemed discount (server converts $ → points,
+    // capped at the client's real balance). Only on the NEW-insert path above, so
+    // a duplicate finalize never double-deducts.
+    if (m.redeem_loyalty === "1" && loyaltyDiscount > 0) {
+      await redeemPointsForDiscount({
+        shopId: shop_id, email: m.client_email || null, phone: m.client_phone || null,
+        discountDollars: loyaltyDiscount, bookingSettings: shop.booking_settings,
+      });
     }
 
     // Decrement inventory for any product items in the sale.

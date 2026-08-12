@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     type: string;
     products: { id: string; qty: number }[];
     promo_code?: string | null;   // applied promo — validated + consumed server-side
+    redeem_loyalty?: boolean;     // spend the client's loyalty points
+    loyalty_discount?: number;    // $ applied from points — settled on finalize
   };
 
   if (!body.shop_id || !body.total || body.total <= 0) {
@@ -104,6 +106,8 @@ export async function POST(request: NextRequest) {
           commission_amount: body.commission_amount != null ? String(body.commission_amount) : "",
           type: body.type,
           promo_code: body.promo_code ?? "",
+          redeem_loyalty: body.redeem_loyalty ? "1" : "",
+          loyalty_discount: body.loyalty_discount != null ? String(body.loyalty_discount) : "",
           // Compact product list for inventory decrement on finalize.
           products: JSON.stringify(body.products ?? []).slice(0, 480),
         },

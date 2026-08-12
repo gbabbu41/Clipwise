@@ -82,6 +82,26 @@ export async function computeRedemption(opts: {
 }
 
 /**
+ * Deduct the points that back a POS / in-person loyalty discount of $N. Converts
+ * the dollar discount to points at the shop's rate and deducts them, capped at the
+ * client's REAL balance (deductRedeemedPoints never drives it negative). Used by
+ * the POS sale routes, where the staff applies the discount and we settle the
+ * points server-side. Best-effort — a points hiccup never fails a real sale.
+ */
+export async function redeemPointsForDiscount(opts: {
+  shopId: string; email?: string | null; phone?: string | null;
+  discountDollars: number; bookingSettings: unknown;
+}): Promise<void> {
+  if (!(opts.discountDollars > 0)) return;
+  const ls = loyaltyCfg(opts.bookingSettings);
+  if (ls?.enabled === false) return;
+  const rate = Number(ls?.redemption_rate ?? 5);
+  if (!(rate > 0)) return;
+  const points = Math.round((opts.discountDollars / rate) * 100);
+  await deductRedeemedPoints({ shopId: opts.shopId, email: opts.email, phone: opts.phone, points });
+}
+
+/**
  * Deduct redeemed points once the booking exists + logs the redemption. Deducts
  * min(balance, points) so it can never drive a balance negative. Best-effort:
  * a logging failure must never roll back a real booking. Idempotency is the
