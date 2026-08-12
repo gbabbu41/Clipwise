@@ -124,6 +124,11 @@ already (see `supabase/migrations/` + TODO.md §2). Most critical:
   `booking-finalize` (the Stripe redirect wipes in-memory state).
 
 ## Where to look
+- **`KNOWLEDGE-BOOK.md` — the full "behind the app" platform reference.** Architecture, the
+  booking engine, payments/Stripe, auth/RLS/security, the data model + every migration phase,
+  plans/billing, notifications/email/SMS/realtime/cron, all ancillary features, and the money
+  model — mapped from the real code with `file:line` anchors. **Start here** for how any
+  subsystem actually works. Keep it current when a subsystem changes materially.
 - `TODO.md` — go-live checklist (§0), pending SQL (§2), **code-review backlog (§2b)**, roadmap (§4b = Tap to Pay via Capacitor).
 - `SESSION-18-NOTES.md` — detailed log of the most recent work (latest): universal top header + consistent top padding across all owner pages. NEXT: barber portal.
 - `SESSION-17-NOTES.md` — prior session.
