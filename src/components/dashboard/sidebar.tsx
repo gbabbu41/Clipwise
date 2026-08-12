@@ -507,7 +507,11 @@ export function Sidebar() {
           // Light sidebar: pure-white surface with a hairline gray right edge.
           // Looks like the rest of the dashboard cards — Apple-style "this is
           // navigation, not chrome" treatment.
-          "cw-sidebar fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
+          // pt = status-bar inset so the wordmark header doesn't slide UNDER the
+          // clock/notch when the app runs as an installed PWA (standalone, where
+          // content extends to the top edge). No-op in a browser tab / on desktop
+          // (inset resolves to 0).
+          "cw-sidebar fixed left-0 top-0 z-[60] w-64 h-[100dvh] pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

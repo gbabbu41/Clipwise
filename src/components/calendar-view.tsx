@@ -2849,7 +2849,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               }}
               className={cn(
                 "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
-                "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
+                // No bottom padding here — the sticky action bar below owns the
+                // home-indicator (safe-area) inset, so Cancel/Add never clip.
+                "pb-0 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
               )}>
               {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
               <div
@@ -2897,7 +2899,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     <span className="text-accent-soft mt-0.5">ⓘ</span>
                     {profile?.role === "shop_owner" ? "Blocks this time immediately." : "Sends your shop owner a request to approve."}
                   </p>
-                  <div className="flex gap-2 pt-1">
+                  <div className="sticky bottom-0 -mx-6 px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-card-raised border-t border-border flex gap-2">
                     <Button variant="outline" className="flex-1" disabled={blockBusy} onClick={() => closeAdd()}>Cancel</Button>
                     <Button className="flex-1" loading={blockBusy}
                       disabled={!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start}
@@ -2967,7 +2969,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     : `${addCtx.barberName} has no schedule set for this day.`}
                 </p>
               )}
-              <div className="flex gap-2 pt-1">
+              {/* Sticky action bar — pinned to the sheet bottom above the home
+                  indicator (safe-area inset) so the primary actions are never
+                  clipped or scrolled out of reach on an installed PWA. */}
+              <div className="sticky bottom-0 -mx-6 px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-card-raised border-t border-border flex gap-2">
                 <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => closeAdd()}>Cancel</Button>
                 <Button className="flex-1" loading={savingAdd} onClick={createAppointment}>Add</Button>
               </div>
