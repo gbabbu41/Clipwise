@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
+import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 
 /**
  * Record a cash (or gift-card-covered) POS sale server-side.
@@ -36,6 +37,18 @@ export async function POST(req: Request) {
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    // Promo enforcement (server-authoritative) — validate the applied code's cap +
+    // expiry + once-per-customer here (the POS only checks it in the browser).
+    // Consumed after the sale row is recorded so usage draws down. Validated
+    // BEFORE the insert so an invalid code is refused, not silently recorded.
+    let validPromo: PromoRow | null = null;
+    if (b.promo_code) {
+      validPromo = await fetchValidPromo(shop_id, String(b.promo_code));
+      if (!validPromo) return NextResponse.json({ error: "That promo code is invalid or expired." }, { status: 400 });
+      const blocked = await promoBlockReason(validPromo, b.client_email, b.client_phone);
+      if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+    }
+
     const fullRow: Record<string, unknown> = {
       shop_id,
       barber_id: b.barber_id || null,
@@ -70,6 +83,13 @@ export async function POST(req: Request) {
       ins = await attempt();
     }
     if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+
+    // Consume the promo now that the sale is recorded (draws down uses_left +
+    // records the redemption for once-per-customer). Best-effort; no appointment
+    // for a POS sale → appointment_id null.
+    if (validPromo) {
+      await consumePromo(validPromo, shop_id, b.client_email || null, b.client_phone || null, null);
+    }
 
     // Draw down inventory for product line items + low-stock alert.
     const products = Array.isArray(b.products) ? (b.products as { id: string; qty: number }[]) : [];

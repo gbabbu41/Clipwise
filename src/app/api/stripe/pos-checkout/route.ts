@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { authorizeShop } from "@/lib/api-auth";
+import { fetchValidPromo, promoBlockReason } from "@/lib/promo";
 
 // In-person POS card sale → hosted Stripe Checkout on the shop's connected
 // account (platform-charge fallback when Connect KYC isn't done, so sandbox
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     commission_amount: number | null;
     type: string;
     products: { id: string; qty: number }[];
+    promo_code?: string | null;   // applied promo — validated + consumed server-side
   };
 
   if (!body.shop_id || !body.total || body.total <= 0) {
@@ -55,6 +57,18 @@ export async function POST(request: NextRequest) {
       { error: "Card payments aren't set up yet — finish Stripe Connect in Billing. You can still take cash." },
       { status: 409 },
     );
+  }
+
+  // Promo enforcement (server-authoritative) — the POS applies the code in the
+  // browser for UX, but the cap + expiry + once-per-customer are only real if
+  // checked here BEFORE the charge. Validated now; consumed on /pos-finalize so
+  // usage draws down exactly once per settled sale. Checked before taking any
+  // money, so an invalid code never charges.
+  if (body.promo_code) {
+    const promo = await fetchValidPromo(body.shop_id, body.promo_code);
+    if (!promo) return NextResponse.json({ error: "That promo code is invalid or expired." }, { status: 400 });
+    const blocked = await promoBlockReason(promo, body.client_email, body.client_phone);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
   }
 
   const origin = body.origin || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
@@ -89,6 +103,7 @@ export async function POST(request: NextRequest) {
           tax: String(body.tax ?? 0),
           commission_amount: body.commission_amount != null ? String(body.commission_amount) : "",
           type: body.type,
+          promo_code: body.promo_code ?? "",
           // Compact product list for inventory decrement on finalize.
           products: JSON.stringify(body.products ?? []).slice(0, 480),
         },

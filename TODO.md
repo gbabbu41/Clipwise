@@ -29,6 +29,14 @@ locked out.
 ## 🟢 0. GO-LIVE CHECKLIST — switch from sandbox to real money
 Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code rewrite.
 
+- [ ] **Turn ON the check-out / completion barrier.** It's deliberately OFF for testing
+      (`BARRIER_ENABLED = false` in `src/lib/utils.ts:179`) so future test bookings can be
+      completed early. At go-live flip it to `true` so staff can only mark an appointment
+      complete / charge it from `CHECKOUT_LEAD_HOURS` (3h) before its start onward. (Owner
+      decided 2026-08-12: leave off until launch.)
+- [ ] **Run the consolidated pending SQL** — paste `supabase/migrations/RUN-ON-PROD-2026-08-12.sql`
+      into the Supabase SQL Editor once (bundles phase8/13/14/49/50 + the Premium $79 fix). See §2.
+
 > ℹ️ **How customer payments work (test vs live) — expected behavior, not a bug.**
 > Stripe **Connect** = receiving customer payments (payouts). In **sandbox/test**
 > mode the app intentionally falls back to a **platform charge** so demos work

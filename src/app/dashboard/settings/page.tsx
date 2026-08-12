@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Building2, Plus, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { effectivePlan, planHasFeature, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
+import { effectivePlan, planHasFeature, planAllowsMultiLocation, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
 import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -103,7 +103,9 @@ export default function SettingsPage() {
   const onTrialSub = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
   const hasStripeSub = !!shop?.stripe_subscription_id;
   // Multiple locations are a Premium+ feature — Pro/Starter can't add them.
-  const canMultiLocation = planHasFeature(effectivePlan(shop?.subscription_plan, shop?.subscription_status), "multi_location");
+  // Gate on the location-limit-aware helper so a Premium shop keeps multi-location
+  // even if the admin plan row's `features` array omits the `multi_location` flag.
+  const canMultiLocation = planAllowsMultiLocation(effectivePlan(shop?.subscription_plan, shop?.subscription_status));
   // Locations INCLUDED in the plan (Premium = 2); beyond that each is a $30/mo
   // add-on, up to the hard MAX_LOCATIONS ceiling.
   const locationLimit = getLocationLimit(effectivePlan(shop?.subscription_plan, shop?.subscription_status));

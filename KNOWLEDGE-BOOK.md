@@ -306,7 +306,9 @@ Domain: `pending | confirmed | completed | no-show | cancelled`. Transitions run
 (`runCompletionEffects` — client stats, loyalty award [plan-gated, idempotent], review email),
 no-show (`sendNoShowFollowup`), reject (`sendRejectionEmail` + `notifyFreedSlot` → waitlist).
 ⚠️ **Gotcha:** the check-out time barrier `isCheckoutAllowed` is currently **disabled**
-(`utils.ts:179`, `BARRIER_ENABLED = false` — temp testing flag), so completion is allowed anytime.
+(`utils.ts:179`, `BARRIER_ENABLED = false`), so completion is allowed anytime. **Decision
+(2026-08-12): stays off during testing** so future test bookings can be completed early; flip
+`BARRIER_ENABLED = true` at go-live to enforce the 3-hour rule (see `TODO.md` §0).
 
 **DB-level backstops** (so the UI can never disagree with the database):
 - Exact-slot unique index `(barber_id, date, time_slot)` for active rows
@@ -601,15 +603,16 @@ Seeded: `starter` $0 / 1 barber / no features · `pro` **$23** / 4 barbers /
 (inactive). Code-default fallback `DEFAULT_PLAN_CONFIG` (`validation.ts:136-142`) is used only
 when the DB isn't hydrated; `MAX_LOCATIONS = 5` is a hard ceiling.
 
-> ⚠️ **Two discrepancies to verify against the live DB:**
-> 1. **Premium price** — DB seed says **$49** (`phase9:77`) but the hardcoded fallback +
->    every code comment say **$79** (`stripe.ts:51`, `add-location`, `stripe-addons`). The live
->    price is whatever the admin `plans` row says (DB wins).
-> 2. **`multi_location` on Premium** — the code default includes it, but the seeded Premium
->    `features` array omits it, and `hydratePlanConfig` *replaces* the whole per-plan entry.
->    So once real DB plans hydrate, `planHasFeature("premium","multi_location")` returns
->    **false** unless an admin ticks it on the Premium row. `getLocationLimit` still returns 2
->    (it falls back to defaults). Confirm the live Premium row includes `multi_location`.
+> ✅ **Resolved (2026-08-12):**
+> 1. **Premium price** — confirmed **$79/mo**. The code already said $79 (`stripe.ts:51`,
+>    `DEFAULT_PLAN_CONFIG`); only the phase9 seed said $49. `phase51_fix_premium_plan.sql`
+>    (bundled in `RUN-ON-PROD-2026-08-12.sql`) sets the live `plans` row to `price_cents = 7900`.
+>    Run it on prod.
+> 2. **`multi_location` on Premium** — the app now gates multi-location on
+>    `planAllowsMultiLocation()` = `getLocationLimit(plan) > 1` OR the feature flag
+>    (`validation.ts`), so Premium keeps its 2 locations even if the admin `plans` row's
+>    `features` array drops the flag. phase51 also adds the flag to the DB row for a clean admin
+>    view. (Both `add-location/route.ts` and `settings/page.tsx` use the new helper.)
 
 ### 6.2 Hydration (the sync gating config)
 
@@ -790,10 +793,13 @@ public `/api/availability`, returns human-readable text the AI reads out), `book
 - **POS / walk-in sales** (`dashboard/pos`, Premium-gated) — 2-step checkout (tender → tip →
   charge). Card → `pos-checkout`/`pos-finalize` (Connect required, idempotent on
   `stripe_session_id`); cash/gift → `pos/cash-sale` (service role). **Commission is services-only,
-  after discount, barber-assigned** (`pos/page.tsx:363-380`) — a tally, not a payout. ⚠️ Gotchas:
-  cash amount is computed client-side; **POS promo is client-side only** (never calls
-  `validate`/`consumePromo`, so POS promo usage isn't drawn down); split gift+card isn't supported;
-  `finalizedRef` guards double-finalize (cash has no idempotency key).
+  after discount, barber-assigned** (`pos/page.tsx:363-380`) — a tally, not a payout. **POS
+  promos are now enforced server-side** (2026-08-12): the code is validated before charging
+  (`pos-checkout` / `cash-sale` via `fetchValidPromo` + `promoBlockReason`) and consumed once the
+  sale settles (`pos-finalize` / `cash-sale` via `consumePromo`, `appointment_id` null), so
+  caps/expiry/once-per-customer are real and usage draws down — matching the booking flow.
+  ⚠️ Remaining gotchas: cash amount is still computed client-side; split gift+card isn't
+  supported; `finalizedRef` guards double-finalize (cash has no idempotency key).
 - **Gift cards** (loyalty-gated) — minted **on payment confirmation**, never at checkout start.
   Four sale paths (public online, owner charge/send-link, owner cash) converge on one code
   generator + email. **Not taxed at purchase**; redemption is **cash-like tender** reducing amount

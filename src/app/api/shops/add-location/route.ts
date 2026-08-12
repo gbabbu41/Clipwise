@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
-import { planHasFeature, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
+import { planAllowsMultiLocation, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 // Add ANOTHER location for an existing owner.
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   await ensurePlansHydrated();
   const paid = existingShops.find(s =>
     s.subscription_status === "active" &&
-    planHasFeature(effectivePlan(s.subscription_plan ?? undefined, s.subscription_status ?? undefined), "multi_location"),
+    planAllowsMultiLocation(effectivePlan(s.subscription_plan ?? undefined, s.subscription_status ?? undefined)),
   );
   if (!paid) {
     return NextResponse.json(

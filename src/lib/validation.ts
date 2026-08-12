@@ -174,6 +174,19 @@ export function planHasFeature(plan: string | undefined, feature: PlanFeature): 
 }
 
 /**
+ * Can this plan hold more than one location? Robust to the plans-table drift where
+ * an admin-editable DB row's `features` array omits `multi_location` even though the
+ * tier is meant to allow it (e.g. the seeded Premium row). True if EITHER the plan's
+ * location limit exceeds 1 OR the `multi_location` flag is set. `getLocationLimit`
+ * falls back to the built-in defaults (Premium = 2), so a Premium shop keeps
+ * multi-location even when the DB row didn't list the flag. Gate multi-location on
+ * this, not on `planHasFeature(..., "multi_location")` alone.
+ */
+export function planAllowsMultiLocation(plan: string | undefined): boolean {
+  return getLocationLimit(plan) > 1 || planHasFeature(plan, "multi_location");
+}
+
+/**
  * Is this a PAID plan (anything above the free Starter tier)? Gates the extras
  * that free shops don't get but that aren't tied to a specific feature flag:
  * customer SMS, reviews, marketing, analytics, walk-in/waitlist. Free = book +

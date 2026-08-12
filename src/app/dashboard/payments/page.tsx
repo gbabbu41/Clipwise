@@ -58,6 +58,7 @@ function statusInfo(s: string | null): { label: string; tone: "good" | "warn" | 
     case "held": return { label: "Card on hold", tone: "active" };
     case "saved": return { label: "Card on file", tone: "active" };
     case "refunded": return { label: "Refunded", tone: "muted" };
+    case "voided": return { label: "Hold released", tone: "muted" };
     case "failed": return { label: "Payment failed", tone: "warn" };
     case "unpaid": return { label: "Unpaid", tone: "warn" };
     default: return { label: "Unpaid", tone: "warn" };

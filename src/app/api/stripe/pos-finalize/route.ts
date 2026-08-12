@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
+import { fetchValidPromo, consumePromo } from "@/lib/promo";
 
 // Called when the POS returns from a paid card checkout. Verifies the payment
 // on the connected account, then records the transaction + decrements stock.
@@ -80,6 +81,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Couldn't record the sale. Please try again." }, { status: 500 });
     }
     const txRow = ins.data;
+
+    // Consume the promo now that the sale is recorded — draws down uses_left +
+    // records the redemption (once-per-customer). Only reached on a NEW insert
+    // (a duplicate finalize returns at the idempotency check above), so a code is
+    // never double-consumed. No appointment for a POS sale → appointment_id null.
+    if (m.promo_code) {
+      const promo = await fetchValidPromo(shop_id, m.promo_code);
+      if (promo) await consumePromo(promo, shop_id, m.client_email || null, m.client_phone || null, null);
+    }
 
     // Decrement inventory for any product items in the sale.
     let products: { id: string; qty: number }[] = [];
