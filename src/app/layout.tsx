@@ -34,7 +34,6 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "ClipWise",
   },
-  themeColor: "#000000",
   icons: {
     apple: "/apple-touch-icon.png",
     icon: [
@@ -51,6 +50,10 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover" as const,
+  // Dark status/toolbar tint so it blends with the near-black app (was gold in the
+  // manifest → a jarring strip at the top in standalone). Lives in `viewport`, not
+  // `metadata`, per the Next 14 API (silences the build-time themeColor warning).
+  themeColor: "#0A0A0A",
 };
 
 export default function RootLayout({
