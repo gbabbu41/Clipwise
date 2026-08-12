@@ -487,10 +487,11 @@ export default function POSPage() {
           client_email: custEmail.trim(),
           client_phone: custPhone.trim(),
           service_name: giftApplied > 0 ? `${serviceName} (gift card ${formatCurrency(giftApplied)})` : serviceName,
-          // Recorded revenue nets out the loyalty discount (revenue given up when
-          // points are spent). Gift is tender (already revenue at sale), so it's
-          // subtracted separately as before.
-          amount: Math.max(0, subtotal - loyaltyDiscount - giftApplied),
+          // Recorded revenue nets out BOTH discounts (promo + loyalty — revenue
+          // given up) so cash matches the card path and Payments/analytics aren't
+          // overstated. Gift is tender (already booked as revenue at its sale), so
+          // it's subtracted separately as before.
+          amount: Math.max(0, subtotal - discount - loyaltyDiscount - giftApplied),
           tip: tipAmt,
           tax: taxAmt,
           commission_amount: commission,
