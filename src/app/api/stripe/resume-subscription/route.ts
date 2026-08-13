@@ -10,8 +10,13 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: shops } = await supabaseAdmin
-    .from("shops").select("id, stripe_subscription_id").eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
+  const { shop_id } = await request.json().catch(() => ({})) as { shop_id?: string };
+
+  // Scope to the shop being viewed (fall back to newest), constrained to the
+  // owner's shops — mirrors cancel-subscription so resume undoes the same sub.
+  let shopQ = supabaseAdmin.from("shops").select("id, stripe_subscription_id").eq("owner_id", user.id);
+  shopQ = shop_id ? shopQ.eq("id", shop_id) : shopQ.order("created_at", { ascending: false });
+  const { data: shops } = await shopQ.limit(1);
   const shop = shops?.[0];
   if (!shop?.stripe_subscription_id) return NextResponse.json({ error: "No subscription to resume." }, { status: 400 });
 

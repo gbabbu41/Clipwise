@@ -20,10 +20,14 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { immediate = false } = await request.json().catch(() => ({})) as { immediate?: boolean };
+  const { immediate = false, shop_id } = await request.json().catch(() => ({})) as { immediate?: boolean; shop_id?: string };
 
-  const { data: shops } = await supabaseAdmin
-    .from("shops").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
+  // Scope to the shop the owner is VIEWING (billing is per-active-shop) so a
+  // multi-location owner cancels the right one — not always the newest. Still
+  // constrained to shops they own, so a bad shop_id can't touch another account.
+  let shopQ = supabaseAdmin.from("shops").select("*").eq("owner_id", user.id);
+  shopQ = shop_id ? shopQ.eq("id", shop_id) : shopQ.order("created_at", { ascending: false });
+  const { data: shops } = await shopQ.limit(1);
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 

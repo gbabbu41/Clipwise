@@ -199,7 +199,7 @@ export default function BillingPage() {
     const res = await fetch("/api/stripe/cancel-subscription", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ immediate }),
+      body: JSON.stringify({ immediate, shop_id: shop?.id }),
     }).catch(() => null);
     const data = res ? await res.json().catch(() => ({})) : {};
     setShowCancel(false);
@@ -222,6 +222,7 @@ export default function BillingPage() {
     const res = await fetch("/api/stripe/resume-subscription", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop?.id }),
     }).catch(() => null);
     const data = res ? await res.json().catch(() => ({})) : {};
     if (res && res.ok) { await load(); showToast("Your plan will keep renewing — cancellation undone."); }
