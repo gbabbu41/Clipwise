@@ -113,7 +113,7 @@ export default function GiftCardPurchasePage() {
     <div className="min-h-[100dvh] bg-black pt-[env(safe-area-inset-top)]">
       <div className="max-w-md mx-auto px-5 py-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-[#1a1a1a] border border-[#242424] flex items-center justify-center text-white"><Gift size={22} /></div>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white"><Gift size={22} /></div>
           <div>
             <h1 className="text-xl font-black text-white uppercase tracking-tight leading-none">{shop.name}</h1>
             <p className="text-sm text-[#8a8a8a] mt-1">Buy a gift card</p>
