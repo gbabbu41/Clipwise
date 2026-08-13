@@ -1228,6 +1228,47 @@ export default function BookingClient() {
     setSlotGrid([]);
   };
 
+  // ── Browser Back = go back one booking step (don't leave & lose data) ────────
+  // Mirror the wizard `step` into the browser history stack: every forward step
+  // pushes an entry, so pressing Back (browser or the in-app arrow) pops ONE step
+  // at a time and keeps all the customer's selections. Only a Back from the first
+  // step actually leaves the page. `historyStepRef` tracks what we've recorded so
+  // we don't push duplicates, and popstate-driven changes update it in lockstep.
+  const historyStepRef = useRef(-1);
+  useEffect(() => {
+    if (typeof window === "undefined" || pageLoading) return;
+    const first = lockedBarber ? 1 : 0;
+    const prev = historyStepRef.current;
+    if (prev === -1) {
+      // Baseline: tag the current entry with the first step (no new entry added).
+      const base = Math.max(first, step);
+      window.history.replaceState({ ...(window.history.state || {}), bookingStep: base }, "");
+      historyStepRef.current = base;
+      return;
+    }
+    if (step > prev) {
+      window.history.pushState({ ...(window.history.state || {}), bookingStep: step }, "");
+    } else if (step < prev) {
+      // Programmatic backward jump (flow switch / reset) — keep the tag in sync.
+      window.history.replaceState({ ...(window.history.state || {}), bookingStep: step }, "");
+    }
+    historyStepRef.current = step;
+  }, [step, pageLoading, lockedBarber]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPop = (e: PopStateEvent) => {
+      const bs = (e.state as { bookingStep?: number } | null)?.bookingStep;
+      if (typeof bs !== "number") return; // before the flow → let the browser leave
+      const first = lockedBarber ? 1 : 0;
+      const target = Math.min(STEPS.length - 1, Math.max(first, bs));
+      historyStepRef.current = target; // pre-sync so the effect above sees no change
+      setStep(target);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [lockedBarber, STEPS.length]);
+
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (pageLoading) {
     return (
@@ -2273,7 +2314,7 @@ export default function BookingClient() {
           {step > (lockedBarber ? 1 : 0) && (
             <button
               type="button"
-              onClick={() => setStep(step - 1)}
+              onClick={() => { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); }}
               aria-label="Back"
               className="w-9 h-9 rounded-full border border-white/15 text-white/80 hover:text-white hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
             >
