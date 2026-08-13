@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
     await stripe.subscriptions.update(shop.stripe_subscription_id, { cancel_at_period_end: false });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't resume — please try again." }, { status: 500 });
+    // Generic message to the client; real detail stays in the server logs.
+    console.error("[resume-subscription] error", err);
+    return NextResponse.json({ error: "Couldn't resume — please try again." }, { status: 500 });
   }
 }

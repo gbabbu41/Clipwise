@@ -42,11 +42,25 @@ export async function POST(request: NextRequest) {
     // ── Immediate: drop to free now ──────────────────────────────────────────
     if (immediate) {
       if (hasPaidSub) {
-        await stripe.subscriptions.cancel(shop.stripe_subscription_id).catch(() => null);
+        // Do NOT swallow this — if Stripe doesn't actually cancel, we must not
+        // tell the owner they're on free while their card keeps getting charged.
+        try {
+          await stripe.subscriptions.cancel(shop.stripe_subscription_id);
+        } catch (err) {
+          console.error("[cancel-subscription] Stripe cancel failed", err);
+          return NextResponse.json({ error: "Couldn't cancel your subscription with Stripe — please try again." }, { status: 502 });
+        }
       }
-      await supabaseAdmin.from("shops")
-        .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null })
+      // Clear the (now dead) subscription id so a re-subscribe / start-trial isn't
+      // blocked by a stale id, and a stray future event can't map back to this row.
+      // Keep stripe_customer_id so a re-subscribe reuses the same Stripe customer.
+      const { error: upErr } = await supabaseAdmin.from("shops")
+        .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null, stripe_subscription_id: null })
         .eq("id", shop.id);
+      if (upErr) {
+        console.error("[cancel-subscription] immediate downgrade write failed", upErr);
+        return NextResponse.json({ error: "Cancelled with Stripe but couldn't update your account — please contact support." }, { status: 500 });
+      }
       return NextResponse.json({ ok: true, immediate: true });
     }
 
@@ -68,11 +82,17 @@ export async function POST(request: NextRequest) {
 
     // ── Admin-comped plan (active, no Stripe sub, no trial clock): nothing to
     //    "keep until", so just move them to the free Starter plan now. ─────────
-    await supabaseAdmin.from("shops")
+    const { error: compErr } = await supabaseAdmin.from("shops")
       .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null })
       .eq("id", shop.id);
+    if (compErr) {
+      console.error("[cancel-subscription] comped downgrade write failed", compErr);
+      return NextResponse.json({ error: "Couldn't update your account — please try again." }, { status: 500 });
+    }
     return NextResponse.json({ ok: true, immediate: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't cancel — please try again." }, { status: 500 });
+    // Generic message to the client; real detail stays in the server logs.
+    console.error("[cancel-subscription] error", err);
+    return NextResponse.json({ error: "Couldn't cancel — please try again." }, { status: 500 });
   }
 }

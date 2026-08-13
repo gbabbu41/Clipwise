@@ -758,6 +758,22 @@ function subscriptionRenewalReminder(data: Record<string, string>) {
   `);
 }
 
+function subscriptionPaymentFailed(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">⚠️ Payment failed</div>
+    <h1>We couldn't process your renewal</h1>
+    <p>The payment for your <span class="highlight">${data.plan || "ClipWise"}</span> plan on
+      <span class="highlight">${data.shopName}</span>${data.amount ? ` (<span class="highlight">$${data.amount} CAD</span>)` : ""}
+      didn't go through. Some premium features may be paused until it's sorted out.</p>
+    <p>Please update your card — Stripe will automatically retry, and your plan continues once the payment succeeds.</p>
+    <a href="${BASE_URL}/dashboard/billing" class="btn">Update payment method →</a>
+    <hr class="divider">
+    <p style="font-size:13px;color:#9CA3AF">If you already fixed this, you can ignore this message — a successful retry restores everything automatically.</p>
+    <p style="color:#4B5563">— ClipWise</p>
+  `);
+}
+
 function barberPasswordReset(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -1084,6 +1100,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = `Your ClipWise plan renews ${data.renewsOn}`;
       html = subscriptionRenewalReminder(data);
+      break;
+    case "subscription_payment_failed":
+      to = data.ownerEmail;
+      subject = "Action needed — your ClipWise payment failed";
+      html = subscriptionPaymentFailed(data);
       break;
     case "time_off_request":
       to = data.ownerEmail;

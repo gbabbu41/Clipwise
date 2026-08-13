@@ -338,9 +338,12 @@ export async function POST(request: NextRequest) {
           past_due: "past_due", unpaid: "past_due",
           canceled: "cancelled", incomplete_expired: "cancelled",
         };
-        await supabaseAdmin.from("shops")
+        const { error: updErr } = await supabaseAdmin.from("shops")
           .update({ subscription_status: statusMap[sub.status] ?? "inactive" })
           .eq("stripe_subscription_id", sub.id);
+        // Throw so the outer catch returns 500 and Stripe retries — never
+        // silently drop a status change (a lapsed shop would keep its features).
+        if (updErr) throw updErr;
         break;
       }
 
@@ -374,6 +377,31 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      // ── Renewal payment failed → prompt the owner to fix their card ──────────
+      // Stripe locks features via the past_due status (subscription.updated), but
+      // the owner needs a nudge to update the card BEFORE Stripe gives up and
+      // cancels — a dunning email that saves the subscription. Best-effort.
+      case "invoice.payment_failed": {
+        const inv = event.data.object as Stripe.Invoice;
+        const custId = typeof inv.customer === "string" ? inv.customer : null;
+        if (!custId) break;
+        const { data: shop } = await supabaseAdmin.from("shops")
+          .select("name, email, subscription_plan")
+          .eq("stripe_customer_id", custId)
+          .limit(1).maybeSingle();
+        if (shop?.email) {
+          fetch(`${BASE_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "subscription_payment_failed", data: {
+              shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
+              amount: ((inv.amount_due ?? 0) / 100).toFixed(2),
+            } }),
+          }).catch(() => null);
+        }
+        break;
+      }
+
       // ── Subscription cancelled → downgrade to starter + email ────────────────
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
@@ -382,9 +410,11 @@ export async function POST(request: NextRequest) {
         // Gate on the CURRENT status so a duplicate delete delivery doesn't
         // re-downgrade + re-send the cancellation email.
         if (shop && shop.subscription_status !== "cancelled") {
-          await supabaseAdmin.from("shops")
+          const { error: delErr } = await supabaseAdmin.from("shops")
             .update({ subscription_status: "cancelled", subscription_plan: "starter" })
             .eq("id", shop.id);
+          // Throw so Stripe retries — a missed downgrade = free premium forever.
+          if (delErr) throw delErr;
           if (shop.email) {
             fetch(`${BASE_URL}/api/send-email`, {
               method: "POST",
