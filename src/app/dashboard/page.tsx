@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
@@ -422,9 +423,10 @@ export default function DashboardPage() {
     setSelectedDayAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
   }, []);
+  const { confirm } = useConfirm();
   const apptActions = useMemo(
-    () => makeApptActions({ shop, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => setSelectedAppt(null) }),
-    [shop, accessToken, patchAppt],
+    () => makeApptActions({ shop, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => setSelectedAppt(null), confirm: (m) => confirm({ message: m }) }),
+    [shop, accessToken, patchAppt, confirm],
   );
   const todayAppts = appointments.filter((a) => a.date === todayStr);
 

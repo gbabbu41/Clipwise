@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { LayoutDashboard, Store, Users, Settings, Shield, ChevronRight, LogOut, History, AlertTriangle, Ticket } from "lucide-react";
 
 const NAV = [
@@ -47,6 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
+    <ConfirmProvider>
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside className={cn(
@@ -122,5 +124,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {children}
       </main>
     </div>
+    </ConfirmProvider>
   );
 }

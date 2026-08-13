@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { DashboardHeader } from "@/components/dashboard/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 import { countablePosTxs, isNoShowTx, isPaid, lineNetFee } from "@/lib/revenue";
@@ -100,6 +101,7 @@ function Spark({ data }: { data: { net: number }[] }) {
 
 export default function PaymentsPage() {
   const { shop, accessToken } = useAuth();
+  const { confirm } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
@@ -517,7 +519,7 @@ export default function PaymentsPage() {
   // ── Refund a settled card payment (appointment or POS) — keeps the booking ──
   const refundItem = async (i: FeedItem) => {
     if (!accessToken) return;
-    if (typeof window !== "undefined" && !window.confirm("Refund this payment to the customer's card? The appointment itself stays.")) return;
+    if (!(await confirm({ title: "Refund payment", message: "Refund this payment to the customer's card? The appointment itself stays.", confirmText: "Refund", tone: "danger" }))) return;
     setRefunding(true);
     const body = i.appt ? { appointment_id: i.appt.id } : { transaction_id: i.key.slice(1) };
     const res = await fetch("/api/stripe/refund-payment", {

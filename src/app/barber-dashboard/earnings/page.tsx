@@ -6,6 +6,7 @@ import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 
 interface Tx {
@@ -249,9 +250,10 @@ export default function BarberPaymentsPage() {
     setUnpaid(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
   }, []);
+  const { confirm } = useConfirm();
   const apptActions = useMemo(
-    () => makeApptActions({ shop: shop ?? null, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => { setSelectedAppt(null); loadUnpaid(); } }),
-    [shop, accessToken, patchAppt, showToast, loadUnpaid],
+    () => makeApptActions({ shop: shop ?? null, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => { setSelectedAppt(null); loadUnpaid(); }, confirm: (m) => confirm({ message: m }) }),
+    [shop, accessToken, patchAppt, showToast, loadUnpaid, confirm],
   );
   const visibleUnpaid = unpaid.filter(a => !dismissedOut.has(a.id));
   const outstandingTotal = visibleUnpaid.reduce((s, a) => s + (a.total_amount ?? 0), 0);

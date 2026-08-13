@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { WaitlistAssignSheet } from "@/components/waitlist-assign-sheet";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { WaitlistEntry, Barber, Service, AppointmentWithDetails } from "@/lib/database.types";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -223,12 +224,14 @@ export default function WaitlistPage() {
     }
   }, [checkoutEntryId]);
 
+  const { confirm } = useConfirm();
   const apptActions = useMemo(
     () => makeApptActions({
       shop: shop ?? null, accessToken, patch: patchCheckout, setBusy: setDetailBusy,
       toast: showToast, onDone: () => { setCheckoutAppt(null); setCheckoutEntryId(null); load(); },
+      confirm: (m) => confirm({ message: m }),
     }),
-    [shop, accessToken, patchCheckout, load],
+    [shop, accessToken, patchCheckout, load, confirm],
   );
 
   const rejectFromWaitlist = async (entry: WaitlistEntry) => {

@@ -1668,3 +1668,22 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cw-shopbg .cw-shopbg-drift{animation:cwShopKenBurns 26s ease-in-out infinite alternate}
 @keyframes cwShopKenBurns{from{transform:scale(1.02)}to{transform:scale(1.16) translate(-3%,-2%)}}
 @media (prefers-reduced-motion:reduce){.cw-shopbg .cw-shopbg-drift{animation:none}}
+
+/* ── Mobile-responsive modals (iOS/Android safe) ─────────────────────────────
+   Every centered modal in the portals shares the same container markup:
+   `fixed inset-0 flex items-center justify-center`. Rather than patch dozens of
+   modals, make the shared container fit any phone: scroll when the card is
+   taller than the screen, keep the card clear of the notch AND the home
+   indicator (safe-area padding), and never clip the top of a tall card. Bottom
+   sheets use `items-end` so they're untouched (they handle their own insets). */
+.fixed.inset-0.items-center.justify-center{
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding-top:max(1rem, env(safe-area-inset-top));
+  padding-bottom:max(1rem, env(safe-area-inset-bottom));
+  padding-left:max(0.75rem, env(safe-area-inset-left));
+  padding-right:max(0.75rem, env(safe-area-inset-right));
+}
+/* Center a short card, but let a tall one sit flush and scroll (margin:auto
+   resolves to 0 when there's no spare room) so its top is never cut off. */
+.fixed.inset-0.items-center.justify-center > *{ margin-top:auto; margin-bottom:auto; }

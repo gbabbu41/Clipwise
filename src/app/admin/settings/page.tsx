@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Check, X, Plus, Trash2, Power, Wrench, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { ALL_PLAN_FEATURES, type PlanFeature } from "@/lib/validation";
 import type { PlanRow } from "@/lib/plans";
@@ -64,6 +65,7 @@ const DEFAULTS: PlatformSettings = {
 
 export default function AdminSettingsPage() {
   const { user, accessToken } = useAuth();
+  const { confirm } = useConfirm();
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -133,7 +135,7 @@ export default function AdminSettingsPage() {
   const deletePlan = async (idx: number) => {
     const plan = plans[idx];
     if (plan.__isNew) { setPlans(prev => prev.filter((_, i) => i !== idx)); return; }
-    if (!confirm(`Delete the "${plan.name}" plan? This can't be undone.`)) return;
+    if (!(await confirm({ title: "Delete plan", message: `Delete the "${plan.name}" plan? This can't be undone.`, confirmText: "Delete", tone: "danger" }))) return;
     setSavingId(plan.id);
     const res = await fetch(`/api/admin/plans?id=${encodeURIComponent(plan.id)}`, {
       method: "DELETE", headers: { Authorization: `Bearer ${accessToken ?? ""}` },

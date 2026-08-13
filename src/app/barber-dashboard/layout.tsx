@@ -9,6 +9,7 @@ import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SwipeNavigator } from "@/components/swipe-navigator";
 import { PortalThemeProvider } from "@/components/portal-theme";
 
@@ -132,6 +133,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
     <BarberProvider>
       <BarberGuard>
         <div className="portal min-h-[100dvh] bg-background">
+          <ConfirmProvider>
           <ModalChrome />
           <NotificationListener />
           <BarberSidebar />
@@ -143,6 +145,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
             <BarberSwipe isCalendar={isCalendar}>{children}</BarberSwipe>
           </main>
           <BarberMobileNav />
+          </ConfirmProvider>
         </div>
       </BarberGuard>
     </BarberProvider>

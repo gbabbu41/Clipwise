@@ -8,6 +8,7 @@ import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { MaintenanceBanner } from "@/components/maintenance-banner";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SwipeNavigator } from "@/components/swipe-navigator";
 import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
@@ -135,6 +136,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <PortalThemeProvider>
     <div className="portal min-h-[100dvh] bg-background">
+      <ConfirmProvider>
       <ModalChrome />
       <NotificationListener />
       <Sidebar />
@@ -152,6 +154,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </SwipeNavigator>
       </main>
       <MobileNav />
+      </ConfirmProvider>
     </div>
     </PortalThemeProvider>
   );

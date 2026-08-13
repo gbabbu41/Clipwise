@@ -8,6 +8,7 @@ import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils"
 import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
@@ -107,9 +108,10 @@ export default function BarberOverviewPage() {
     setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
   }, []);
+  const { confirm } = useConfirm();
   const apptActions = useMemo(
-    () => makeApptActions({ shop: shop ?? null, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => { setSelectedAppt(null); loadAppointments(); } }),
-    [shop, accessToken, patchAppt, showToast, loadAppointments],
+    () => makeApptActions({ shop: shop ?? null, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => { setSelectedAppt(null); loadAppointments(); }, confirm: (m) => confirm({ message: m }) }),
+    [shop, accessToken, patchAppt, showToast, loadAppointments, confirm],
   );
 
   if (barberLoading) return (

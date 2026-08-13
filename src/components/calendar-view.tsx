@@ -6,6 +6,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { DashboardHeader } from "@/components/dashboard/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   cn, formatCurrency, formatDateForDb, friendlyDate, timeAgo, paymentTag,
   occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
@@ -258,8 +259,12 @@ export function makeApptActions(opts: {
   setBusy: (key: string) => void;                                  // "" when idle
   toast: (msg: string) => void;
   onDone: () => void;                                              // close the detail card after a terminal action
+  confirm?: (msg: string) => Promise<boolean>;                     // in-app yes/no (falls back to window.confirm)
 }): ApptActions {
   const { shop, accessToken, patch, setBusy, toast, onDone } = opts;
+  // Prefer the in-app dialog when provided; otherwise fall back to the native
+  // browser confirm so this factory still works outside a ConfirmProvider.
+  const ask = opts.confirm ?? (async (m: string) => (typeof window !== "undefined" ? window.confirm(m) : false));
   // Check-out / completion is only allowed from CHECKOUT_LEAD_HOURS before the
   // appointment starts (and any time after) — no completing/charging days early.
   // Computed in the shop's timezone; returns true (and toasts) when too early.
@@ -306,8 +311,7 @@ export function makeApptActions(opts: {
       // staff can accept (a double-booking has no `blocked` flag → hard stop).
       if (res && !res.ok && data.blocked) {
         setBusy("");
-        const ok = typeof window !== "undefined" &&
-          window.confirm("The barber has time off or a break during that slot. Move the appointment there anyway?");
+        const ok = await ask("The barber has time off or a break during that slot. Move the appointment there anyway?");
         if (!ok) return;
         setBusy("edit");
         res = await send(true);
@@ -439,7 +443,7 @@ export function makeApptActions(opts: {
       // card stayed authorized ~7 days.
       const hasCharge = !!(appt.payment_intent_id && (appt.payment_status === "paid" || appt.payment_status === "captured"));
       const hasHold = !!(appt.payment_intent_id && appt.payment_status === "held");
-      if (typeof window !== "undefined" && !window.confirm(`Reject this appointment? The customer will be notified${hasCharge ? " and refunded." : "."}`)) return;
+      if (!(await ask(`Reject this appointment? The customer will be notified${hasCharge ? " and refunded." : "."}`))) return;
       setBusy("reject");
       if (hasCharge && accessToken) {
         const refundRes = await fetch("/api/stripe/refund", {
@@ -1082,6 +1086,7 @@ type BlockRow = { id: string; barber_id: string; start_date: string; start_time:
 
 export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string }) {
   const { shop, profile, accessToken, user } = useAuth();
+  const { confirm } = useConfirm();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.
   const [view, setView] = useState<"year" | "month" | "day">(defaultView ?? "day");
@@ -1400,8 +1405,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Appointment actions — shared factory (same behavior as the Appointments page),
   // so the calendar detail card and the dashboard board stay in sync.
   const apptActions: ApptActions = useMemo(
-    () => makeApptActions({ shop, accessToken, patch: applyLocal, setBusy: setActionBusy, toast: showToast, onDone: () => setSelectedAppt(null) }),
-    [shop, accessToken, applyLocal, showToast],
+    () => makeApptActions({ shop, accessToken, patch: applyLocal, setBusy: setActionBusy, toast: showToast, onDone: () => setSelectedAppt(null), confirm: (m) => confirm({ message: m }) }),
+    [shop, accessToken, applyLocal, showToast, confirm],
   );
 
   // Empty "+" slots are shown every 30 min; a booking can still be added on a
@@ -1580,7 +1585,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   const removeBlock = async (b: BlockRow) => {
     if (!shop || !accessToken) return;
-    if (typeof window !== "undefined" && !window.confirm("Remove this block?")) return;
+    if (!(await confirm({ message: "Remove this block?", confirmText: "Remove", tone: "danger" }))) return;
     const res = await fetch("/api/calendar/block", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -1638,8 +1643,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // books straight through.) A double-booking has no `blocked` flag → hard stop.
     if (!res.ok && data.blocked) {
       setSavingAdd(false);
-      const ok = typeof window !== "undefined" &&
-        window.confirm(`${addCtx.barberName} has time off or a break during this slot. Book them in anyway?`);
+      const ok = await confirm({ message: `${addCtx.barberName} has time off or a break during this slot. Book them in anyway?`, confirmText: "Book anyway" });
       if (!ok) return;
       setSavingAdd(true);
       res = await send(true);

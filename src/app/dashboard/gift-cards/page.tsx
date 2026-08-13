@@ -7,6 +7,7 @@ import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
@@ -48,6 +49,7 @@ const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_e
 
 export default function GiftCardsPage() {
   const { shop, accessToken } = useAuth();
+  const { prompt } = useConfirm();
   const [cards, setCards] = useState<GiftCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -215,7 +217,7 @@ export default function GiftCardsPage() {
   // Re-send a card's code to a customer (email confirmed/edited via a prompt).
   const resendCode = async (card: GiftCard) => {
     if (!shop) return;
-    const to = window.prompt("Send this gift card code to which email?", card.recipient_email || card.purchased_by_email || "");
+    const to = await prompt({ title: "Re-send gift card", message: "Send this gift card code to which email?", type: "email", placeholder: "name@email.com", defaultValue: card.recipient_email || card.purchased_by_email || "", confirmText: "Send" });
     if (to === null) return;
     if (!to.trim()) { showToast("Enter an email address"); return; }
     const res = await fetch("/api/gift-card/resend", {

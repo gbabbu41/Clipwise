@@ -120,7 +120,15 @@ export function NotificationListener() {
   if (popups.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-sm pointer-events-none">
+    <div
+      className="fixed z-[200] flex flex-col gap-2 max-w-sm pointer-events-none"
+      style={{
+        top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+        right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
+        left: "auto",
+        width: "calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 1.5rem)",
+      }}
+    >
       {popups.map(p => (
         <button
           key={p.id}
