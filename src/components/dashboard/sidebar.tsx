@@ -494,7 +494,13 @@ export function Sidebar() {
       {/* Backdrop — only renders on mobile when drawer is open */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
+          // Background set inline (not a bg-black/* class) on purpose: it keeps
+          // this drawer backdrop from matching ModalChrome's selector, so the
+          // drawer uses only its own lightweight overflow-lock. ModalChrome's
+          // position:fixed body-lock broke the drawer's full height on iOS, and
+          // its nav-hide left a dark void at the bottom when the drawer opened.
+          className="lg:hidden fixed inset-0 z-[55] animate-fade-in"
+          style={{ background: "rgba(0,0,0,0.6)" }}
           onClick={() => setMobileOpen(false)}
         />
       )}

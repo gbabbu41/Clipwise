@@ -304,7 +304,13 @@ export function BarberSidebar() {
 
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 z-[55] animate-fade-in"
+          // Inline background (not a bg-black/* class) so this drawer backdrop
+          // doesn't match ModalChrome's selector — the drawer then uses only its
+          // own overflow-lock, avoiding ModalChrome's position:fixed body-lock
+          // (which broke the drawer's full height on iOS) and its nav-hide (which
+          // left a dark void at the bottom when the drawer was open).
+          className="lg:hidden fixed inset-0 z-[55] animate-fade-in"
+          style={{ background: "rgba(0,0,0,0.6)" }}
           onClick={() => setMobileOpen(false)}
         />
       )}
