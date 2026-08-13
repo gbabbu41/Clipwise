@@ -1622,3 +1622,49 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cwp-tdue{color:#f5b544;background:rgba(245,181,68,.13)}
 .cwp-tref{color:var(--grey-2);background:var(--surface-overlay)}
 .cwp-send{font-size:11px;font-weight:600;color:#a9c6ff;background:rgba(110,168,254,.10);border:1px solid rgba(110,168,254,.22);padding:4px 9px;border-radius:8px;margin-top:5px;cursor:pointer}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Customer booking header — cinematic barbershop backdrop.
+   A code-drawn scene (dark base + warm rim light + backbar strips + bokeh +
+   a barber-chair silhouette + film grain) that fades to solid black by ~70%
+   so the existing white header text stays perfectly readable. Sits BEHIND the
+   header content only; everything else on the page is unchanged.
+   ───────────────────────────────────────────────────────────────────────── */
+.cw-shopbg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.cw-shopbg .cw-shopbg-l{position:absolute;inset:-8%}
+.cw-shopbg .cw-shopbg-base{
+  background:
+    radial-gradient(58% 82% at 82% 12%, rgba(233,162,59,.55), rgba(233,162,59,0) 60%),
+    radial-gradient(52% 66% at 18% 26%, rgba(96,124,164,.15), transparent 60%),
+    linear-gradient(180deg,#251a10 0%,#150f0a 44%,#000 100%);
+}
+.cw-shopbg .cw-shopbg-strips{
+  background-image:repeating-linear-gradient(90deg,
+    rgba(244,198,122,0) 0 34px, rgba(244,198,122,.15) 34px 36px, rgba(244,198,122,0) 36px 82px);
+  filter:blur(1px);opacity:.45;
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.9),transparent 62%);
+          mask-image:linear-gradient(180deg,rgba(0,0,0,.9),transparent 62%);
+}
+.cw-shopbg .cw-shopbg-bokeh{
+  background-image:
+    radial-gradient(circle at 16% 26%, rgba(244,198,122,.5) 0 4px, transparent 5px),
+    radial-gradient(circle at 34% 18%, rgba(244,198,122,.32) 0 7px, transparent 9px),
+    radial-gradient(circle at 62% 12%, rgba(255,220,160,.4) 0 5px, transparent 7px),
+    radial-gradient(circle at 86% 30%, rgba(244,198,122,.28) 0 9px, transparent 12px);
+  filter:blur(2px);
+}
+.cw-shopbg .cw-shopbg-chair{position:absolute;right:4%;bottom:-6px;width:190px;height:auto;opacity:.85}
+.cw-shopbg .cw-shopbg-scrim{
+  inset:0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.30) 0%, rgba(0,0,0,.14) 22%, rgba(0,0,0,.55) 54%, #000 78%),
+    linear-gradient(90deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 58%);
+}
+.cw-shopbg .cw-shopbg-grain{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  opacity:.05;mix-blend-mode:overlay;
+}
+/* Slow Ken Burns drift on the scene (not the scrim/grain, so text ground stays put) */
+.cw-shopbg .cw-shopbg-drift{animation:cwShopKenBurns 26s ease-in-out infinite alternate}
+@keyframes cwShopKenBurns{from{transform:scale(1.02)}to{transform:scale(1.16) translate(-3%,-2%)}}
+@media (prefers-reduced-motion:reduce){.cw-shopbg .cw-shopbg-drift{animation:none}}

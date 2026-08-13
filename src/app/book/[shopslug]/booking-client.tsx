@@ -1451,8 +1451,31 @@ export default function BookingClient() {
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header */}
-      <div className="bg-black border-b border-[#2a2a2a]">
-        <div className="max-w-2xl mx-auto px-5 pt-6 pb-5">
+      <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
+        {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
+        <div className="cw-shopbg" aria-hidden="true">
+          <div className="cw-shopbg-l cw-shopbg-drift">
+            <div className="cw-shopbg-l cw-shopbg-base" />
+            <div className="cw-shopbg-l cw-shopbg-strips" />
+            <div className="cw-shopbg-l cw-shopbg-bokeh" />
+            <svg className="cw-shopbg-chair" viewBox="0 0 200 160" fill="none">
+              <g fill="#000" opacity="0.82">
+                <rect x="70" y="70" width="60" height="46" rx="10" />
+                <rect x="66" y="60" width="68" height="18" rx="9" />
+                <rect x="88" y="112" width="24" height="34" rx="4" />
+                <rect x="70" y="142" width="60" height="10" rx="5" />
+                <rect x="58" y="86" width="14" height="30" rx="7" />
+                <rect x="128" y="86" width="14" height="30" rx="7" />
+              </g>
+              <g stroke="rgba(244,198,122,.45)" strokeWidth="1.4" fill="none">
+                <path d="M66 61 h68" /><path d="M70 116 h60" />
+              </g>
+            </svg>
+          </div>
+          <div className="cw-shopbg-l cw-shopbg-scrim" />
+          <div className="cw-shopbg-l cw-shopbg-grain" />
+        </div>
+        <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
           {/* Logo */}
           <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
             <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
