@@ -2889,17 +2889,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
                 // No bottom padding here — the sticky action bar below owns the
                 // home-indicator (safe-area) inset, so Cancel/Add never clip.
-                "pb-0 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-3",
+                "pb-0 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-2 cw-modal-compact",
               )}>
               {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
               <div
                 onClick={() => !savingAdd && !blockBusy && closeAdd()}
-                className="flex justify-center pt-3 pb-2 -mx-6 cursor-grab active:cursor-grabbing"
+                className="flex justify-center pt-2.5 pb-1.5 -mx-6 cursor-grab active:cursor-grabbing"
               >
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
+                <h3 className="text-base font-bold text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
                 <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
@@ -2911,7 +2911,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-grey hover:text-foreground")}><Ban size={14} /> Block</button>
                 </div>
               )}
-              <div className="bg-card-raised rounded-xl p-3 text-xs text-grey space-y-0.5">
+              <div className="bg-card-raised rounded-xl px-3 py-2 text-xs text-grey">
                 <p><span className="text-grey">Barber:</span> {addCtx.barberName}</p>
               </div>
               {addMode === "block" ? (

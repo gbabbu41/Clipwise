@@ -1687,3 +1687,14 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 /* Center a short card, but let a tall one sit flush and scroll (margin:auto
    resolves to 0 when there's no spare room) so its top is never cut off. */
 .fixed.inset-0.items-center.justify-center > *{ margin-top:auto; margin-bottom:auto; }
+
+/* ── Compact form density for tight modals (e.g. the New-appointment sheet) ───
+   Shrinks field padding, label size and the label→input gap so the whole form
+   fits a phone screen with little/no scrolling. Scoped to `.cw-modal-compact`
+   so every other form in the app keeps its comfortable, tappable size. */
+.cw-modal-compact .form-label { margin-bottom: 0.15rem; font-size: 0.72rem; }
+.cw-modal-compact .form-control,
+.cw-modal-compact .form-select { padding: 0.45rem 0.75rem; font-size: 0.875rem; border-radius: 0.7rem; }
+.cw-modal-compact .form-text { margin-top: 0.2rem; font-size: 0.72rem; line-height: 1.35; }
+/* Tighten the label/input stack that <Input>/<Select> wrap in `space-y-1`. */
+.cw-modal-compact .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.12rem; }
