@@ -508,7 +508,7 @@ export function Sidebar() {
           // clock/notch when the app runs as an installed PWA (standalone, where
           // content extends to the top edge). No-op in a browser tab / on desktop
           // (inset resolves to 0).
-          "cw-sidebar fixed left-0 top-0 z-[60] w-64 h-[100dvh] pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -538,7 +538,7 @@ export function Sidebar() {
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
         {(() => {
           const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
           const visibleSections = navSections

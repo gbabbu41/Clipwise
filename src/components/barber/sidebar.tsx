@@ -311,7 +311,7 @@ export function BarberSidebar() {
 
       <aside
         className={cn(
-          "cw-sidebar fixed left-0 top-0 z-[60] w-64 h-[100dvh] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -333,7 +333,7 @@ export function BarberSidebar() {
       {/* Reused from the owner sidebar — only renders when shops.length > 1 */}
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.filter(item => {
           if (!item.permKey) return true;
           const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
