@@ -119,6 +119,49 @@ These are the difference between "works on localhost" and "works for real custom
 
 ---
 
+## 🛡️ 1b. Compliance / legal checklist ("vibecoded app" risk audit — 2026-08-12)
+Audited against the 10 common "getting-sued" risks. Code fixes are shipped; the
+open items below are config/legal that only the owner can finish.
+
+**✅ Done in code (shipped 2026-08-12):**
+- [x] **Privacy Policy exists** (`/privacy`, PIPEDA-aware) + **data-collection disclosed**.
+- [x] **AI disclosed in the Privacy Policy** — automated processing + the AI phone
+      assistant (call audio transcribed/processed by AI providers). `src/app/privacy/page.tsx`.
+- [x] **Subprocessors listed** — Stripe, Twilio (SMS **+ voice**), Resend, Supabase
+      (db/auth/**storage**), Vercel, **Cloudflare**, **Google**, **AI providers (Anthropic)**.
+- [x] **User uploads are deleted on erasure** — account/shop deletion + orphaned-barber
+      cleanup now remove the actual files (avatars, barber photos, shop logos) from the
+      public buckets, not just DB rows. `src/lib/storage-cleanup.ts` + the 3 delete paths.
+- [x] **Storage buckets** — public is by design (public-facing images, UUID paths, listing
+      disabled, magic-byte validation, auth on writes). Acceptable; no action.
+- [x] **Cancel is as easy as signup** — self-serve, 2 clicks, no dark pattern; now scoped to
+      the ACTIVE shop (multi-location fix).
+- [x] **Auto-renew reminder — code added** — `invoice.upcoming` webhook →
+      `subscription_renewal_reminder` email (⚠️ needs the Stripe toggle below to fire).
+- [x] **AI crisis/self-harm guardrails — code added** — voice-server system prompt now
+      refuses out-of-scope + directs to 988/911 (⚠️ needs the voice-server redeploy below).
+- [x] **Testimonials** — no fake *ClipWise* testimonials exist; added trademark/"not
+      affiliated"/"reflects those users' experiences" disclaimer to `/why-clipwise`.
+
+**⚠️ Owner action required (config / legal — not code):**
+- [ ] **Enable `invoice.upcoming`** on the LIVE Stripe webhook (Developers → Webhooks →
+      your endpoint → add event). Without it the renewal-reminder email never fires.
+      Optionally set the reminder lead time in Stripe Billing settings.
+- [ ] **Redeploy the voice server** (`voice-server/`, on Railway/Render/Fly — NOT Vercel) so
+      the AI crisis/safety guardrails take effect. Verify with a test call.
+- [ ] **Substantiate the `/why-clipwise` competitor quotes** — they name real people
+      ("Joshua O.", "Chris F.") + hard stats ("1.4/5 from 89 reviews"). Hold a verifiable
+      source for each, or tell Claude which to soften/remove. Unsourced attributed quotes are
+      the real FTC/defamation risk.
+- [ ] **Lawyer review of the Privacy Policy + Terms** before billing real customers — the
+      disclosures added are factual descriptions of what the app does, not legal advice.
+
+**Minor (optional):**
+- [ ] Pin the `avatars` storage bucket in a migration (currently created at runtime in
+      `upload-avatar/route.ts`, so its public flag isn't declaratively set like the others).
+
+---
+
 ## 🗄️ 2. SQL migrations — ✅ ALL APPLIED ON PROD (verified 2026-08-12)
 > A full `information_schema` audit on **2026-08-12** confirmed **every** migration's
 > columns/tables are present on prod. **The entire list below is RUN**, even where an old
