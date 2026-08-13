@@ -1634,10 +1634,9 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cw-shopbg .cw-shopbg-l{position:absolute;inset:-8%}
 .cw-shopbg .cw-shopbg-base{
   background:
-    radial-gradient(62% 80% at 80% 14%, rgba(233,162,59,.55), rgba(233,162,59,0) 62%),
-    radial-gradient(72% 78% at 22% 94%, rgba(190,120,55,.22), transparent 62%),
-    radial-gradient(50% 60% at 22% 26%, rgba(96,124,164,.13), transparent 60%),
-    linear-gradient(180deg,#2b1e12 0%, #1c130b 52%, #0d0906 100%);
+    radial-gradient(58% 82% at 82% 12%, rgba(233,162,59,.55), rgba(233,162,59,0) 60%),
+    radial-gradient(52% 66% at 18% 26%, rgba(96,124,164,.15), transparent 60%),
+    linear-gradient(180deg,#251a10 0%,#150f0a 44%,#000 100%);
 }
 .cw-shopbg .cw-shopbg-strips{
   background-image:repeating-linear-gradient(90deg,
@@ -1654,19 +1653,13 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
     radial-gradient(circle at 86% 30%, rgba(244,198,122,.28) 0 9px, transparent 12px);
   filter:blur(2px);
 }
-.cw-shopbg .cw-shopbg-chair{position:absolute;right:4%;bottom:-6px;width:200px;height:auto;opacity:.7}
-/* Readability veil that keeps the image visible across the WHOLE block (never
-   goes to pure black), a left-side darkening for the text, and a vignette that
-   frames the banner so it reads as a contained picture, not a page-wide glow. */
+.cw-shopbg .cw-shopbg-chair{position:absolute;right:4%;bottom:-6px;width:190px;height:auto;opacity:.85}
 .cw-shopbg .cw-shopbg-scrim{
   inset:0;
   background:
-    linear-gradient(180deg, rgba(0,0,0,.34) 0%, rgba(0,0,0,.30) 46%, rgba(0,0,0,.50) 100%),
-    linear-gradient(90deg, rgba(0,0,0,.48) 0%, rgba(0,0,0,.06) 56%, rgba(0,0,0,.20) 100%),
-    radial-gradient(125% 135% at 50% 38%, transparent 52%, rgba(0,0,0,.55) 100%);
+    linear-gradient(180deg, rgba(0,0,0,.30) 0%, rgba(0,0,0,.14) 22%, rgba(0,0,0,.55) 54%, #000 78%),
+    linear-gradient(90deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 58%);
 }
-/* Gentle text-shadow so white + grey header text stays crisp over the photo */
-.cw-shopbg-head h1, .cw-shopbg-head p{text-shadow:0 1px 12px rgba(0,0,0,.55)}
 .cw-shopbg .cw-shopbg-grain{
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
   opacity:.05;mix-blend-mode:overlay;

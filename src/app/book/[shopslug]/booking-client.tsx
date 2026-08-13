@@ -1475,7 +1475,7 @@ export default function BookingClient() {
           <div className="cw-shopbg-l cw-shopbg-scrim" />
           <div className="cw-shopbg-l cw-shopbg-grain" />
         </div>
-        <div className="cw-shopbg-head relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
+        <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
           {/* Logo */}
           <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
             <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
