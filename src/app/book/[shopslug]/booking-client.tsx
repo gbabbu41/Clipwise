@@ -1457,7 +1457,7 @@ export default function BookingClient() {
           <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
             <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
               fallback={
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700 text-white text-3xl font-black tracking-tight">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f] text-white text-3xl font-black tracking-tight">
                   {shopInitials(shop.name)}
                 </div>
               } />
@@ -1540,7 +1540,7 @@ export default function BookingClient() {
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
               {lockedBarber.photo
                 ? <img src={lockedBarber.photo} alt={lockedBarber.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
-                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
+                : <div className="w-12 h-12 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
                 <p className="text-base font-bold text-white truncate leading-tight mt-0.5">{lockedBarber.name}</p>
