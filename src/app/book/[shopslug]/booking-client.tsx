@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -85,14 +85,23 @@ function MailIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-// One tappable contact row — icon tile + text (iOS-list style, no chevron).
-function ContactRow({ icon, text, href }: { icon: ReactNode; text: string; href: string }) {
+function PhoneIcon({ size = 20 }: { size?: number }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer"
-       className="flex items-center gap-3 py-0.5 active:opacity-60 transition-opacity">
-      <span className="w-11 h-11 rounded-xl bg-[#141414] border border-[#242424] flex items-center justify-center text-lg flex-shrink-0">{icon}</span>
-      <span className="flex-1 text-[15px] text-white/90 truncate">{text}</span>
-    </a>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/90" aria-hidden>
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function GlobeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/90" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
   );
 }
 
@@ -1507,11 +1516,31 @@ export default function BookingClient() {
             const hasContacts = shop.phone || ig || shop.website || shop.email;
             if (!hasContacts) return null;
             return (
-              <div className="mt-4 space-y-2">
-                {shop.phone && <ContactRow icon="📞" text={formatPhone(shop.phone)} href={`tel:${shop.phone}`} />}
-                {shop.email && <ContactRow icon={<MailIcon />} text={shop.email} href={`mailto:${shop.email}`} />}
-                {ig && <ContactRow icon={<InstagramIcon />} text={`@${ig}`} href={`https://instagram.com/${ig}`} />}
-                {shop.website && <ContactRow icon="🌐" text={displayUrl(shop.website)} href={ensureHttp(shop.website)} />}
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                {shop.phone && (
+                  <a href={`tel:${shop.phone}`} aria-label={`Call ${formatPhone(shop.phone)}`} title={formatPhone(shop.phone)}
+                     className="w-12 h-12 rounded-full bg-[#141414] border border-[#242424] flex items-center justify-center text-white/90 hover:border-[#3a3a3a] hover:text-white active:opacity-60 transition-all">
+                    <PhoneIcon />
+                  </a>
+                )}
+                {shop.email && (
+                  <a href={`mailto:${shop.email}`} aria-label={`Email ${shop.email}`} title={shop.email}
+                     className="w-12 h-12 rounded-full bg-[#141414] border border-[#242424] flex items-center justify-center text-white/90 hover:border-[#3a3a3a] hover:text-white active:opacity-60 transition-all">
+                    <MailIcon />
+                  </a>
+                )}
+                {ig && (
+                  <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer" aria-label={`Instagram @${ig}`} title={`@${ig}`}
+                     className="w-12 h-12 rounded-full bg-[#141414] border border-[#242424] flex items-center justify-center text-white/90 hover:border-[#3a3a3a] hover:text-white active:opacity-60 transition-all">
+                    <InstagramIcon />
+                  </a>
+                )}
+                {shop.website && (
+                  <a href={ensureHttp(shop.website)} target="_blank" rel="noopener noreferrer" aria-label={`Website ${displayUrl(shop.website)}`} title={displayUrl(shop.website)}
+                     className="w-12 h-12 rounded-full bg-[#141414] border border-[#242424] flex items-center justify-center text-white/90 hover:border-[#3a3a3a] hover:text-white active:opacity-60 transition-all">
+                    <GlobeIcon />
+                  </a>
+                )}
               </div>
             );
           })()}
