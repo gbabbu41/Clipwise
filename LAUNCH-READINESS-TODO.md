@@ -110,10 +110,12 @@ forever." (It still needs the webhook from item 1 as the primary path; this is t
       Cosmetic (features re-derive from plan). Optional hardening.
 - [ ] **L4** — Trial-credit on upgrade reads the *newest* shop, not the one you're viewing
       (edge case for multi-location). Fold into the item-2 multi-location fix.
-- [ ] **L5** — A barber who works at 2 shops is pinned to one arbitrarily (no switcher).
-      Data stays isolated — usability gap only. Decide if multi-shop barbers are supported.
-- [ ] **L6** — Public booking page exposes the shop's Stripe `acct_…` id. Not a secret
-      (Stripe.js may need it client-side) — verify, and drop from the public read if unused.
+- [~] **L5** — DEFERRED (not a blocker). A barber who works at 2 shops is pinned to one
+      (no switcher); data stays isolated. Only matters if you actually have a barber working at
+      2+ locations — revisit then and Claude adds a switcher.
+- [~] **L6** — DEFERRED (leave as-is). The `acct_…` id on the public booking page is NOT a
+      secret — Stripe's payment form needs it to take card payments on the shop's behalf.
+      Removing it could break online booking payments. No action.
 
 ---
 
