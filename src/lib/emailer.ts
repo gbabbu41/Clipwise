@@ -298,15 +298,20 @@ function bookingConfirmation(data: Record<string, string>) {
 // state, so even if this email is missed the link is the single source of truth.
 function appointmentUpdated(data: Record<string, string>) {
   const manageUrl = data.appointmentId ? `${BASE_URL}/my-booking/${data.appointmentId}` : null;
-  const changed = data.changedSummary
-    ? `<p style="font-size:13px;color:#9AA0A8">What changed: ${data.changedSummary}</p>`
-    : "";
+  // When the time actually moved, lead with a clear Previous → New comparison.
+  const moved = (data.fromWhen && data.toWhen)
+    ? `<div class="panel">
+         <div class="row"><span class="label">Previous</span><span class="val" style="color:#9AA0A8;text-decoration:line-through">${data.fromWhen}</span></div>
+         <div class="row"><span class="label">New time</span><span class="val">${data.toWhen}</span></div>
+       </div>`
+    : (data.changedSummary ? `<p style="font-size:13px;color:#9AA0A8">What changed: ${data.changedSummary}</p>` : "");
+  const rescheduled = !!(data.fromWhen && data.toWhen);
   return wrap(`
     ${shopHeader(data.shopName)}
-    <div class="badge">📝 Appointment Updated</div>
+    <div class="badge">${rescheduled ? "🗓️ Appointment Rescheduled" : "📝 Appointment Updated"}</div>
     <h1>Hi ${data.clientName},</h1>
-    <p>Your appointment at <span class="highlight">${data.shopName}</span> has been updated by the shop. Here are your latest details:</p>
-    ${changed}
+    <p>Your appointment at <span class="highlight">${data.shopName}</span> was ${rescheduled ? "rescheduled" : "updated"} by the shop. ${rescheduled ? "Here's your new time:" : "Here are your latest details:"}</p>
+    ${moved}
     <hr class="divider">
     <div class="row"><span class="label">Barber</span><span class="val">${data.barberName || "Any Available"}</span></div>
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
@@ -809,20 +814,36 @@ function passwordReset(data: Record<string, string>) {
 }
 
 function barberAppointmentChange(data: Record<string, string>) {
-  const isNoShow = (data.statusLabel ?? "").toLowerCase().includes("no-show");
+  const label = (data.statusLabel ?? "").toLowerCase();
+  const isNoShow = label.includes("no-show");
+  const isReschedule = label.includes("reschedul");
+  const badgeClass = isNoShow || isReschedule ? "badge" : "red-badge";
+  const badgeText = isNoShow ? "👀 No-Show" : isReschedule ? "🗓️ Rescheduled" : "📅 Slot Freed Up";
+  const intro = isNoShow
+    ? `Your appointment with <span class="highlight">${data.clientName}</span> was marked a no-show.`
+    : isReschedule
+      ? `<span class="highlight">${data.clientName}</span>'s appointment at ${data.shopName} was rescheduled to a new time.`
+      : `Your appointment with <span class="highlight">${data.clientName}</span> at ${data.shopName} was cancelled — this slot is now open again.`;
+  // Reschedule leads with an old → new panel; cancel/no-show keep the flat rows.
+  const detail = isReschedule && data.fromWhen && data.toWhen
+    ? `<div class="panel">
+         <div class="row"><span class="label">Was</span><span class="val" style="color:#9AA0A8;text-decoration:line-through">${data.fromWhen}</span></div>
+         <div class="row"><span class="label">Now</span><span class="val">${data.toWhen}</span></div>
+       </div>
+       <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+       <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>`
+    : `<div class="row"><span class="label">Status</span><span class="val">${data.statusLabel}</span></div>
+       <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
+       <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+       <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+       <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>`;
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
-    <div class="${isNoShow ? "badge" : "red-badge"}">${isNoShow ? "👀 No-Show" : "📅 Slot Freed Up"}</div>
+    <div class="${badgeClass}">${badgeText}</div>
     <h1>Hi ${data.barberName},</h1>
-    <p>${isNoShow
-      ? `Your appointment with <span class="highlight">${data.clientName}</span> was marked a no-show.`
-      : `Your appointment with <span class="highlight">${data.clientName}</span> at ${data.shopName} was cancelled — this slot is now open again.`}</p>
+    <p>${intro}</p>
     <hr class="divider">
-    <div class="row"><span class="label">Status</span><span class="val">${data.statusLabel}</span></div>
-    <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
-    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
-    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
-    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${detail}
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>
     <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>

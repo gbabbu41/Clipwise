@@ -164,8 +164,10 @@ export async function POST(request: NextRequest) {
         ]);
 
         const prettyWhen = `${prettyDate(full.date)} at ${full.time_slot}`;
+        const oldWhen = `${prettyDate(appt.date)} at ${appt.time_slot}`;   // the previous time
+        const timeMoved = dateChanged || timeChanged;
         const changes: string[] = [];
-        if (dateChanged || timeChanged) changes.push(`new time — ${prettyWhen}`);
+        if (timeMoved) changes.push(`new time — ${prettyWhen}`);
         if (barberChanged) changes.push(`barber — ${newBarber?.name ?? "Any Available"}`);
         const changedSummary = changes.join("; ");
 
@@ -182,6 +184,10 @@ export async function POST(request: NextRequest) {
             total: full.total_amount ? formatCurrency(full.total_amount) : "",
             appointmentId: appointment_id,
             changedSummary,
+            // Old → new time (only when the time actually moved) so the email
+            // leads with a clear "Previous vs New" instead of just the new time.
+            fromWhen: timeMoved ? oldWhen : "",
+            toWhen: timeMoved ? prettyWhen : "",
           }).catch(() => null);
         }
 
@@ -192,11 +198,10 @@ export async function POST(request: NextRequest) {
         // serverless freeze can't drop it.
         if (full.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
           const base = process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
-          await sendSmsBestEffort(
-            full.client_phone,
-            `Your appointment is now ${prettyDate(full.date)} at ${full.time_slot}. Manage: ${base}/my-booking/${appointment_id}`,
-            shopRow?.name,
-          );
+          const smsBody = timeMoved
+            ? `Your appointment was moved to ${prettyDate(full.date)} at ${full.time_slot} (was ${oldWhen}). Manage: ${base}/my-booking/${appointment_id}`
+            : `Your appointment details were updated. Manage: ${base}/my-booking/${appointment_id}`;
+          await sendSmsBestEffort(full.client_phone, smsBody, shopRow?.name);
         }
 
         // 2) Newly-assigned barber — in-app alert + email so they see the new job.
@@ -237,7 +242,7 @@ export async function POST(request: NextRequest) {
           await insertNotifications({
             user_id: newBarber.user_id, shop_id: full.shop_id, type: "booking",
             title: "Appointment rescheduled",
-            message: `${full.client_name ?? "A client"} moved to ${prettyWhen}`,
+            message: `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen}`,
           });
           if (newBarber.email) {
             await sendAppEmail("barber_appointment_change", {
@@ -250,8 +255,23 @@ export async function POST(request: NextRequest) {
               date: full.date,
               time: full.time_slot ?? "",
               statusLabel: "Rescheduled",
+              fromWhen: oldWhen,
+              toWhen: prettyWhen,
             }).catch(() => null);
           }
+        }
+
+        // 5) Owner heads-up — unless the owner is the one who made the change
+        //    (no point notifying yourself). Covers "a barber rescheduled a
+        //    client" so the owner always knows a booking moved.
+        if (!auth.isOwner && shopRow?.owner_id) {
+          await insertNotifications({
+            user_id: shopRow.owner_id, shop_id: full.shop_id, type: "booking",
+            title: timeMoved ? "Appointment rescheduled" : "Appointment reassigned",
+            message: timeMoved
+              ? `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen}${barberChanged ? ` · ${newBarber?.name ?? "Any Available"}` : ""}`
+              : `${full.client_name ?? "A client"} moved to ${newBarber?.name ?? "Any Available"}`,
+          });
         }
       }
     } catch { /* notifications are best-effort — the save already succeeded */ }
