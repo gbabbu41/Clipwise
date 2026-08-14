@@ -110,9 +110,14 @@ forever." (It still needs the webhook from item 1 as the primary path; this is t
       Cosmetic (features re-derive from plan). Optional hardening.
 - [ ] **L4** — Trial-credit on upgrade reads the *newest* shop, not the one you're viewing
       (edge case for multi-location). Fold into the item-2 multi-location fix.
-- [~] **L5** — DEFERRED (not a blocker). A barber who works at 2 shops is pinned to one
-      (no switcher); data stays isolated. Only matters if you actually have a barber working at
-      2+ locations — revisit then and Claude adds a switcher.
+- [x] **L5** — ✅ ALREADY BUILT (verified in code). Multi-shop barbers are fully supported:
+      `/api/barber/me` returns all their shops, `BarberContext` switches + persists the active
+      one (and its per-shop role), and the barber sidebar shows a shop switcher when they're
+      linked to 2+ shops. Every barber page re-scopes to the active shop. The audit's note was
+      based on `/api/profile` (a path the barber portal doesn't use for shop scoping).
+      Minor optional edge: realtime notification *pop-ups* still filter by the auth-context
+      shop, so a multi-shop barber who switches may see the other shop's toasts until reload
+      (all notifications still appear in the bell). Tighten only if desired.
 - [~] **L6** — DEFERRED (leave as-is). The `acct_…` id on the public booking page is NOT a
       secret — Stripe's payment form needs it to take card payments on the shop's behalf.
       Removing it could break online booking payments. No action.
