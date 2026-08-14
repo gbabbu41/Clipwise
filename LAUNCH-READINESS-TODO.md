@@ -98,9 +98,10 @@ forever." (It still needs the webhook from item 1 as the primary path; this is t
 
 ## 🟡 4. MINOR / POLISH (low priority — you or Claude)
 
-- [ ] **M5** — Adding a card in the **last 2 days** of a trial bills immediately (Stripe can't
-      defer < 48h), which contradicts the "keep your free days" copy. Fix = tweak the banner
-      copy in that window, or push `trial_end` to 49h out. *(Decide preferred wording.)*
+- [x] **M5** — ✅ DONE. Adding a card in the last 48h of a trial now defers the first charge to
+      `now + 49h` instead of billing on the spot, honoring "keep all your remaining free days."
+- [x] **M2 wording** — ✅ DONE. The cancel modal now warns multi-location owners that cancelling
+      applies to all their locations (shared subscription).
 - [ ] **L1** — Immediate cancel sets status `inactive`; the follow-up webhook sets `cancelled`
       and sends the "cancelled" email → possible mixed badge + an extra email. Tidy to one.
 - [ ] **L2** — Subscription webhook handlers don't check `event.account` (platform vs

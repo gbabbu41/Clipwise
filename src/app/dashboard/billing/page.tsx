@@ -663,6 +663,11 @@ export default function BillingPage() {
                   <span className="text-foreground font-medium">{fmtDate(billing?.nextBilling)}</span> — then you move to the free Starter plan. No more charges, and no refund for the unused days.
                 </p>
               )}
+              {shops && shops.length > 1 && (
+                <p className="text-xs text-amber-500/90 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+                  Heads up: your locations share one subscription, so this applies to <span className="font-semibold">all {shops.length} of your locations</span>.
+                </p>
+              )}
               <div className="flex flex-col gap-2 pt-1">
                 {isTrial ? (
                   <>

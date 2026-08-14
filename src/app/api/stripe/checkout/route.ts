@@ -49,14 +49,16 @@ export async function POST(request: NextRequest) {
     // Honor the remaining trial. Only for a genuine active no-card trial (a
     // trial_ends_at in the future, no existing Stripe subscription — so a paid
     // subscriber switching plans can't mint themselves a fresh free trial).
-    // Stripe requires trial_end ≥ 48h out; inside that window we just bill now
-    // (they're at the tail of the trial anyway) rather than risk an API error.
+    // Stripe requires trial_end ≥ ~48h out; inside that window we push to the
+    // minimum (now + 49h) instead of billing on the spot — so a card added on the
+    // last day still honors "keep all your remaining free days" (errs toward a
+    // little more free time, never charging early).
     const rawTrialEnd = shops?.[0]?.trial_ends_at ? new Date(shops[0].trial_ends_at as string).getTime() : 0;
-    const MIN_LEAD_MS = 48 * 3600 * 1000;
     if (!oldSubscriptionId
       && shops?.[0]?.subscription_status === "active"
-      && rawTrialEnd - Date.now() >= MIN_LEAD_MS) {
-      trialEndUnix = Math.floor(rawTrialEnd / 1000);
+      && rawTrialEnd > Date.now()) {
+      const minEndMs = Date.now() + 49 * 3600 * 1000;
+      trialEndUnix = Math.floor(Math.max(rawTrialEnd, minEndMs) / 1000);
     }
     // Label the Stripe customer with the shop's BUSINESS name so subscription
     // invoices read "To: <Shop>" instead of the cardholder's personal name.
