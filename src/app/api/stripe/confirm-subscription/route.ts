@@ -77,7 +77,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payment received, but we couldn't activate the plan. Please refresh in a moment." }, { status: 500 });
   }
 
-  // Cancel the previous subscription on an upgrade so they aren't double-billed.
+  // Cancel EVERY other active subscription on this customer — not just the one we
+  // captured at checkout time. Two checkouts (two tabs / back button) could each
+  // create a subscription and leave the first one billing forever; this sweeps up
+  // any such ghost. Safe because add-ons are line items on the ONE subscription,
+  // never separate subscriptions, so the only "other" active sub is a duplicate.
+  if (customerId && newSubId) {
+    try {
+      const others = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 100 });
+      for (const s of others.data) {
+        if (s.id !== newSubId) await stripe.subscriptions.cancel(s.id).catch(() => null);
+      }
+    } catch { /* non-fatal — the captured old-sub fallback below still runs */ }
+  }
   if (oldSubId && oldSubId !== newSubId) {
     await stripe.subscriptions.cancel(oldSubId).catch(() => null);
   }

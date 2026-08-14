@@ -116,14 +116,37 @@ export default function BillingPage() {
   const startCheckoutUpgrade = async (planId: string) => {
     if (!accessToken) return;
     setActionLoading(planId);
-    const res = await fetch("/api/stripe/checkout", {
+    // First try an in-place switch on the existing subscription (proration —
+    // credit for unused days, no card re-entry, no duplicate subscription). The
+    // server returns 409 if there's no live subscription, and we fall back to
+    // Checkout to collect a card.
+    const pr = await fetch("/api/stripe/change-plan", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: planId, upgrade: true }),
-    });
-    const data = await res.json();
-    if (res.ok && data.url) window.location.href = data.url;
-    else { showToast(data.error ?? "Could not start upgrade"); setActionLoading(""); }
+      body: JSON.stringify({ plan: planId }),
+    }).catch(() => null);
+    const prData = pr ? await pr.json().catch(() => ({})) : {};
+    if (pr?.ok && prData.ok) {
+      showToast("Plan updated — the difference is prorated on your next invoice.");
+      await refreshShop?.();
+      await load();
+      setActionLoading("");
+      return;
+    }
+    if (pr && pr.status === 409) {
+      // No live subscription yet → collect a card via Checkout.
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, upgrade: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) window.location.href = data.url;
+      else { showToast(data.error ?? "Could not start upgrade"); setActionLoading(""); }
+      return;
+    }
+    showToast(prData.error ?? "Could not change plan");
+    setActionLoading("");
   };
 
   // Start the no-card 21-day trial (no checkout / no card up front). Only offered

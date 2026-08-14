@@ -48,43 +48,35 @@ connected-account (booking/refund) events, or that both destinations point at th
 
 ---
 
-## 🟠 2. DECISIONS ONLY YOU CAN MAKE (business model — then Claude codes it)
+## ✅ 2. DECISIONS (owner chose A + A — now implemented & shipped)
 
-### C1 + H6 — How plan changes should bill  *(Critical + High)*
-Today every upgrade/downgrade creates a **brand-new** Stripe subscription and cancels the old
-one. Two problems fall out of this:
-- **C1:** starting two checkouts (two tabs / back button) can leave a **ghost second
-  subscription billing forever**.
-- **H6:** switching mid-month **charges a fresh full month with no credit** for unused days —
-  reads like a double charge.
+### C1 + H6 — How plan changes bill → **A (proration) ✅ DONE**
+Plan changes now **edit the existing subscription with proration** instead of starting a new
+one: the owner is credited for unused days and only charged the difference, with no card
+re-entry. This also **fixes the Critical ghost-subscription bug** (C1) — and as a belt, the
+activation path now cancels *every* other active subscription on the customer, not just the
+captured one. New code: `api/stripe/change-plan/route.ts` + `changePlanPrice()` in
+`lib/stripe-addons.ts`. The billing page tries this first and only falls back to Checkout
+(to collect a card) when there's no live subscription.
 
-**Your call — pick one:**
-- **(A · recommended)** Switch plans by *editing the existing subscription* with proration
-  (`stripe.subscriptions.update` + `proration_behavior: "create_prorations"`). Credits unused
-  time and **fixes C1 for free**. This is the industry-standard approach.
-- **(B)** Keep new-subscription-per-change, but on activation cancel *all other* active
-  subscriptions on that customer (careful: must not cancel the location/AI-phone add-on subs).
+### H4 + H7 + M2 — Multi-location billing model → **A (account-level) ✅ DONE**
+Plan changes are now applied **account-level** — to every shop the owner owns (they share one
+subscription) — via `change-plan` (and `confirm-subscription` already did this). H7 is fixed:
+"Change plan" no longer targets just the newest shop.
+- ⚠️ **Still to polish (small, optional):** the Cancel/Resume *labels* and the "switch to free
+  now" copy still say "Location: X" while the action is account-wide. The behaviour is now
+  consistent (H1/H3 fixes make cancel safe), but the wording should be updated to say it
+  affects the whole account. Low priority — tell Claude to reword when you want.
 
-➡️ **Tell Claude A or B and it will implement it.** (This is pricing behaviour, so it's your
-decision to make first.)
-
-### H4 + H7 + M2 — Multi-location billing model  *(High + Medium)*
-All of an owner's locations **share one** Stripe subscription, but the Billing page says
-"Location: X." So:
-- **H4:** "Switch to free now" on one location stops billing for **all** of them, but only
-  marks the one you're viewing as free — the others keep premium for free.
-- **H7:** "Change plan" doesn't send the location id — it acts on the newest shop and applies
-  to all.
-- **M2:** cancel-at-period-end / resume also hit every location while the UI implies one.
-
-**Your call — pick one:**
-- **(A · recommended for a shared sub)** Make the Billing *subscription* card **owner-level**
-  (one subscription for the whole account), and downgrade/upgrade **all** the owner's shops
-  together. Simpler and matches reality.
-- **(B)** Give each location its **own** Stripe subscription (true per-location billing).
-  Bigger change; only if you want locations billed independently.
-
-➡️ **Tell Claude A or B and it will implement it.**
+### ⚠️ TEST THIS IN STRIPE **TEST MODE** BEFORE GOING LIVE
+This is real-money logic and I could not run a live Stripe flow from here. Please run through it
+once in test mode:
+- [ ] Upgrade a paid shop to a higher plan → confirm the invoice shows a **prorated charge**
+      (not a full month) and NO second subscription is created.
+- [ ] Downgrade a paid shop → confirm a **credit/proration** appears and features update.
+- [ ] Confirm the **location + AI-phone add-ons survive** the switch (still on the sub).
+- [ ] A brand-new subscribe (Starter → paid) still goes through **Checkout** and collects a card.
+- [ ] Multi-location: a plan change on one location updates **all** the owner's locations.
 
 ---
 

@@ -84,6 +84,51 @@ export async function reconcileLocationAddon(
   }
 }
 
+/**
+ * Switch the PLAN line item to a different monthly price WITH PRORATION — credits
+ * the unused portion of the current plan and charges only the difference, on the
+ * SAME subscription (no new checkout, no card re-entry, no duplicate sub).
+ *
+ * The plan item is identified as the only line item WITHOUT an add-on lookup key
+ * (the location + AI-phone add-ons always carry one), so add-on items are left
+ * exactly as they are. Reuses the item's existing Stripe product (renaming it so
+ * invoices read the new plan) to avoid creating throwaway products.
+ *
+ * Throws on Stripe error — the caller decides how to surface it.
+ */
+export async function changePlanPrice(
+  subscriptionId: string,
+  amountCents: number,
+  planName: string,
+  planId: string,
+): Promise<void> {
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
+  const planItem = sub.items.data.find((i) => !i.price?.lookup_key);
+  if (!planItem) throw new Error("Could not find the plan line item on the subscription");
+  const price = planItem.price;
+  let productId = typeof price.product === "string" ? price.product : (price.product?.id ?? null);
+  if (!productId) {
+    const p = await stripe.products.create({ name: planName });
+    productId = p.id;
+  } else {
+    // Keep the invoice line label in sync with the new plan (best-effort).
+    await stripe.products.update(productId, { name: planName }).catch(() => null);
+  }
+  await stripe.subscriptions.update(subscriptionId, {
+    items: [{
+      id: planItem.id,
+      price_data: {
+        currency: "cad",
+        product: productId,
+        unit_amount: amountCents,
+        recurring: { interval: "month" },
+      },
+    }],
+    proration_behavior: "create_prorations",
+    metadata: { ...(sub.metadata ?? {}), plan: planId },
+  });
+}
+
 /** The reusable recurring Price for the AI phone add-on, created lazily the
  *  first time it's needed (works in test + live with no dashboard step). */
 async function getAiPhoneAddonPriceId(): Promise<string> {
