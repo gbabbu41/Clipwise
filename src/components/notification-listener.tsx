@@ -43,8 +43,13 @@ function popupHref(n: Popup, isBarber: boolean): string {
  * The sound uses the Web Audio API (no asset file). Browsers suspend audio
  * until the first user gesture, so we resume the context on the first click/key.
  */
-export function NotificationListener() {
+export function NotificationListener({ shopId }: { shopId?: string | null } = {}) {
   const { user, shop } = useAuth();
+  // In the barber portal a barber can work at multiple shops, so the active shop
+  // comes from BarberContext and is passed in as `shopId`. Owners render this
+  // with no prop → fall back to the auth-context shop. (`undefined` = not passed;
+  // `null` = passed but no shop selected yet.)
+  const activeShopId = shopId === undefined ? (shop?.id ?? null) : shopId;
   const router = useRouter();
   const pathname = usePathname();
   const isBarber = !!pathname?.startsWith("/barber-dashboard");
@@ -106,7 +111,7 @@ export function NotificationListener() {
           const n = payload.new as Popup & { shop_id?: string | null };
           // Only pop + chime for the shop the user is currently viewing (or a
           // legacy null-shop row) — not the owner's other shops.
-          if (!notifBelongsToShop(n, shop?.id)) return;
+          if (!notifBelongsToShop(n, activeShopId ?? undefined)) return;
           setPopups(prev => [...prev, { id: n.id, title: n.title, message: n.message, type: n.type }].slice(-4));
           chime();
           // Auto-dismiss after 7s.
@@ -115,7 +120,7 @@ export function NotificationListener() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, shop?.id, chime, dismiss]);
+  }, [user, activeShopId, chime, dismiss]);
 
   if (popups.length === 0) return null;
 

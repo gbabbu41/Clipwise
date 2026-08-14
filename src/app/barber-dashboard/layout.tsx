@@ -7,7 +7,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
-import { NotificationListener } from "@/components/notification-listener";
+import { BarberNotificationListener } from "@/components/barber/barber-notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SwipeNavigator } from "@/components/swipe-navigator";
@@ -135,7 +135,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
         <div className="portal min-h-[100dvh] bg-background">
           <ConfirmProvider>
           <ModalChrome />
-          <NotificationListener />
+          <BarberNotificationListener />
           <BarberSidebar />
           {/* Matches the shop portal: docked sidebar at lg+, drawer + bottom nav
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).

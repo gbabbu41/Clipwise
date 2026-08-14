@@ -115,9 +115,9 @@ forever." (It still needs the webhook from item 1 as the primary path; this is t
       one (and its per-shop role), and the barber sidebar shows a shop switcher when they're
       linked to 2+ shops. Every barber page re-scopes to the active shop. The audit's note was
       based on `/api/profile` (a path the barber portal doesn't use for shop scoping).
-      Minor optional edge: realtime notification *pop-ups* still filter by the auth-context
-      shop, so a multi-shop barber who switches may see the other shop's toasts until reload
-      (all notifications still appear in the bell). Tighten only if desired.
+      Realtime notification pop-ups now also follow the switched shop (via
+      `BarberNotificationListener`), so a multi-shop barber sees the right shop's toasts
+      immediately after switching. Fully complete.
 - [~] **L6** — DEFERRED (leave as-is). The `acct_…` id on the public booking page is NOT a
       secret — Stripe's payment form needs it to take card payments on the shop's behalf.
       Removing it could break online booking payments. No action.
