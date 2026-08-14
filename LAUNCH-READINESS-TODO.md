@@ -80,16 +80,19 @@ once in test mode:
 
 ---
 
-## 🟠 3. CODE CLAUDE CAN DO ON YOUR "GO" (bigger/riskier — needs your ok first)
+## ✅ 3. Daily reconciliation safety-net (H2) — DONE & shipped
 
-### H2 — Daily reconciliation safety-net for paid subs  *(High)*
-Trials already have a daily cron that downgrades expired ones; **paid subscriptions don't.**
-Add a daily job (extend the existing trial cron — no new Vercel cron slot needed, stays within
-the Hobby "daily only" limit) that re-checks each shop's live Stripe status and downgrades any
-that are genuinely canceled/unpaid. This is the belt-and-suspenders for any missed webhook.
+The daily cron (`/api/cron/reminders`) now also runs `reconcileSubscriptions()`
+(`lib/reconcile-subscriptions.ts`) — no new Vercel cron slot needed. Once a day it re-checks
+each paid subscription's LIVE status in Stripe and:
+- downgrades to Starter if Stripe says the sub is genuinely cancelled/expired **or** returns a
+  real "no such subscription" (404),
+- flags `past_due` / self-heals a recovered `past_due → active`,
+- **skips on any other error** (network/rate-limit) so a Stripe hiccup can never wrongly strip
+  a paying shop of its plan.
 
-➡️ Safe to build once you confirm item 1; say "go" and Claude will add it conservatively
-(only acts on definitive Stripe statuses; skips on API errors so it can't wrongly downgrade).
+This is the belt-and-suspenders so a single missed webhook can no longer = "free premium
+forever." (It still needs the webhook from item 1 as the primary path; this is the backup.)
 
 ---
 

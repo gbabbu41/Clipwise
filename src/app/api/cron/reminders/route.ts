@@ -7,6 +7,7 @@ import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
+import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -221,11 +222,13 @@ async function run() {
 
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await processTrials(Date.now()).catch(() => null);   // trial reminders + downgrades (same daily cron)
+  await processTrials(Date.now()).catch(() => null);      // trial reminders + downgrades (same daily cron)
+  await reconcileSubscriptions().catch(() => null);       // safety-net for a missed subscription webhook
   return run();
 }
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await processTrials(Date.now()).catch(() => null);
+  await reconcileSubscriptions().catch(() => null);
   return run();
 }
