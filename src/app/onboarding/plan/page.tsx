@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Zap, Crown, ArrowRight, AlertCircle } from "lucide-react";
+import { Check, X, Zap, Crown, ArrowRight, AlertCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlanPrice, type PlanRow } from "@/lib/plans";
+import { marketingFor } from "@/lib/plan-marketing";
 
 type Plan = string;
 
@@ -166,14 +167,23 @@ function PlanPageInner() {
             const Icon = st.icon;
             const isFree = plan.price_cents === 0;
             const cta = isFree ? "Get Started Free" : `Start ${plan.name} — 21 days free`;
+            // Marketing copy (bullets, tagline, spotlight) from the shared list so
+            // this matches the home page: what's included AND what's not, with Pro
+            // spotlighted. A custom plan with no entry falls back to its DB
+            // highlights and shows no "not included" list.
+            const mk = marketingFor(plan.id);
+            const tagline = mk?.forWho ?? PLAN_GUIDANCE[plan.id];
+            const included = mk?.yes ?? plan.highlights;
+            const excluded = mk?.no ?? [];
+            const badge = mk ? (mk.pop ? "Most popular" : null) : plan.badge;
             return (
               <div key={plan.id} id={`plan-${plan.id}`}
                 className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent,
                   preselected === plan.id && "ring-2 ring-gold ring-offset-2 ring-offset-background")}
                 onClick={() => selectPlan(plan.id)}>
-                {plan.badge && (
+                {badge && (
                   <div className={cn("absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full", st.badgeBg)}>
-                    {plan.badge}
+                    {badge}
                   </div>
                 )}
                 {preselected === plan.id && (
@@ -187,8 +197,8 @@ function PlanPageInner() {
                     <Icon size={20} className={st.iconColor} />
                   </div>
                   <h2 className="text-xl font-bold text-white">{plan.name}</h2>
-                  {PLAN_GUIDANCE[plan.id] && (
-                    <p className="text-xs text-[#8f8f8f] mt-1 leading-snug">{PLAN_GUIDANCE[plan.id]}</p>
+                  {tagline && (
+                    <p className="text-xs text-[#8f8f8f] mt-1 leading-snug">{tagline}</p>
                   )}
                   <div className="flex items-baseline gap-1 mt-2">
                     <span className="text-3xl font-bold text-white">{formatPlanPrice(plan.price_cents)}</span>
@@ -197,9 +207,17 @@ function PlanPageInner() {
                 </div>
 
                 <ul className="space-y-2.5 flex-1 mb-6">
-                  {plan.highlights.map(f => (
+                  {included.map(f => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-gray-300">
                       <Check size={15} className={cn("flex-shrink-0 mt-0.5", st.checkColor)} />
+                      {f}
+                    </li>
+                  ))}
+                  {/* What this tier does NOT include — shown honestly (grey ✕) so
+                      Starter's limits are clear and Pro reads as the upgrade. */}
+                  {excluded.map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-[#74747e]">
+                      <X size={15} className="flex-shrink-0 mt-0.5 text-[#4a4a52]" />
                       {f}
                     </li>
                   ))}

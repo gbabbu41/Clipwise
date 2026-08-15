@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { PLAN_MARKETING as plans } from "@/lib/plan-marketing";
 
 // Animated landing page: Lenis momentum scroll + GSAP ScrollTrigger (pinned,
 // scrubbed product tour, parallax depth, scrub counters) + a Three.js 3D object
@@ -20,11 +21,9 @@ const features = [
   { t: "Loyalty & gift cards", d: "Reward regulars with points, sell and redeem gift cards, run promos in seconds.", i: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 12h20M12 7V21"/>' },
   { t: "Inventory, waitlist & kiosk", d: "Track stock, run a live walk-in queue, offer tablet self check-in.", i: '<path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 12h8"/>' },
 ];
-const plans = [
-  { n: "Starter", plan: "starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Email confirmations & reminders"], no: ["SMS / text alerts", "Reviews & loyalty", "Marketing & analytics", "Walk-in & waitlist", "Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "SMS reminders & alerts", "Reviews, loyalty & marketing", "Walk-in & waitlist", "Tips, tax & analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
-  { n: "Premium", plan: "premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
-];
+// Plan cards render from the shared marketing list in lib/plan-marketing (the one
+// source of truth shown here, on signup/onboarding, and on the in-app change-plan
+// screens). Edit copy there once and every screen updates together.
 // Comparison claims cross-checked against Squire's & Booksy's own current
 // materials (2026): $0 fees / no marketplace / free plan / Canadian are the
 // verifiable differentiators. POS, tips/tax, loyalty & inventory are marked at
