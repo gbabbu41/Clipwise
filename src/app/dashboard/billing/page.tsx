@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlanPrice } from "@/lib/plans";
+import { marketingFor } from "@/lib/plan-marketing";
 import { effectivePlan } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -330,11 +331,20 @@ export default function BillingPage() {
   const displayPlanId = onFreePlan ? "starter" : currentPlanId;
   const displayPlan = plans.find(p => p.id === displayPlanId);
   const currentPlanName = PLAN_LABEL[displayPlanId] ?? displayPlan?.name ?? displayPlanId;
+  // Feature bullets come from the shared marketing list (the same one the home
+  // page + signup use — ONE source of truth for wording), falling back to the
+  // admin-editable DB highlights for any custom plan not in that list. This
+  // account screen stays "what's included" only (green) — the honest "what you
+  // don't get" ✕ list lives on the fresh-choice screens (home + signup).
+  const bulletsFor = (id: string, fallback?: string[] | null) => marketingFor(id)?.yes ?? fallback ?? [];
   // What the effective plan includes — so the card says what they're really on.
   // Starter has no highlights row in the plans table; fall back to a baseline.
-  const currentHighlights = (displayPlan?.highlights && displayPlan.highlights.length > 0)
-    ? displayPlan.highlights
-    : (displayPlanId === "starter" ? ["Online booking page", "Appointment calendar", "Up to 1 barber"] : []);
+  const currentHighlights = bulletsFor(
+    displayPlanId,
+    (displayPlan?.highlights && displayPlan.highlights.length > 0)
+      ? displayPlan.highlights
+      : (displayPlanId === "starter" ? ["Online booking page", "Appointment calendar", "Up to 1 barber"] : []),
+  );
   // Paid plans to offer. When effectively on Starter (fresh OR lapsed) show ALL
   // paid tiers so they can (re)start any — including the plan they just lapsed
   // from. When on an active paid plan, exclude the current one (up/downgrade only).
@@ -491,9 +501,9 @@ export default function BillingPage() {
                       </Button>
                     )}
                   </div>
-                  {p.highlights && p.highlights.length > 0 && (
+                  {bulletsFor(p.id, p.highlights).length > 0 && (
                     <ul className="space-y-1">
-                      {p.highlights.slice(0, 6).map(h => (
+                      {bulletsFor(p.id, p.highlights).slice(0, 6).map(h => (
                         <li key={h} className="flex items-start gap-2 text-xs text-gray-300">
                           <Check size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" /> {h}
                         </li>

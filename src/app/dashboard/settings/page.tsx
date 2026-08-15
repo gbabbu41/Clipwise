@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { effectivePlan, planHasFeature, planAllowsMultiLocation, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
 import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
+import { marketingFor } from "@/lib/plan-marketing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -78,16 +79,18 @@ const bookingKeyOf = (bk: BookingSettings, allowPIP: boolean) => JSON.stringify(
 
 export default function SettingsPage() {
   const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken, plans } = useAuth();
-  // Plan cards come from the admin-editable `plans` DB table — ONE source of truth
-  // shared with the signup step + feature gating. PLAN_INFO is only a fallback for
-  // the brief moment before /api/plans resolves (or if it fails).
+  // Plan cards: price/limits come from the admin-editable `plans` DB table (the
+  // source of truth for billing + gating); the feature bullets come from the
+  // shared marketing list (lib/plan-marketing) so the wording matches the home
+  // page + signup exactly — ONE source, no drift. A custom plan not in that list
+  // falls back to its DB highlights. PLAN_INFO covers the brief pre-load moment.
   const planCards: PlanInfo[] = (plans && plans.length)
     ? plans.filter(p => p.is_active).map(p => ({
         key: p.id,
         name: p.name,
         priceLabel: p.price_cents === 0 ? "Free" : `$${p.price_cents / 100}`,
         priceSuffix: p.price_cents === 0 ? "forever" : "/month",
-        features: p.highlights ?? [],
+        features: marketingFor(p.id)?.yes ?? p.highlights ?? [],
       }))
     : PLAN_INFO;
   const [tab, setTab] = useState("profile");
