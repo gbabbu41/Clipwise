@@ -489,6 +489,7 @@ export default function OnboardingPage() {
         {step === 4 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Add your services</h2>
+            <p className="text-sm text-grey -mt-1">We&apos;ve added a few common services to start — edit the prices or remove any that don&apos;t fit. These go live on your booking page.</p>
             <div className="space-y-3">
               {services.map((svc, i) => (
                 <div key={i} className="bg-surface-raised border border-border rounded-2xl p-4 space-y-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -49,7 +50,10 @@ export default function SchedulePage() {
       <DashboardHeader title="Schedule" subtitle="Set working hours, breaks & lunch — each barber gets emailed their schedule." />
 
       {barbers.length === 0 ? (
-        <p className="text-sm text-grey py-12 text-center">No barbers yet. Add staff first.</p>
+        <div className="py-12 text-center">
+          <p className="text-sm text-grey mb-3">No barbers yet — add a barber to set their hours.</p>
+          <Link href="/dashboard/staff" className="inline-flex items-center gap-1.5 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors">Add staff →</Link>
+        </div>
       ) : (
         <>
           {/* Barber picker first */}

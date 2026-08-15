@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, prettyDate, timeAgo, timeToMinutes } from "@/lib/utils";
 import { formatPhone, validatePrice, noShowFeeDollars, NO_SHOW_GRACE_MINUTES, NO_SHOW_MAX_PCT } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
@@ -1132,6 +1133,9 @@ export default function AppointmentsPage() {
                 <p className="text-3xl mb-3">📅</p>
                 <p className="text-foreground font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                 <p className="text-sm text-grey px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                {!(search || statusFilter !== "all" || barberFilter !== "all") && (
+                  <Link href="/dashboard/share" className="inline-block mt-3 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Share your booking link →</Link>
+                )}
               </div>
             ) : filtered.map(apt => {
               const [timeHour, timeMeridian] = (apt.time_slot ?? "").split(" ");
@@ -1228,6 +1232,9 @@ export default function AppointmentsPage() {
                         <p className="text-3xl mb-3">📅</p>
                         <p className="text-foreground font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                         <p className="text-sm text-grey">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
+                        {!(search || statusFilter !== "all" || barberFilter !== "all") && (
+                          <Link href="/dashboard/share" className="inline-block mt-3 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Share your booking link →</Link>
+                        )}
                       </td></tr>
                     ) : filtered.map(apt => (
                       <tr key={apt.id} onClick={() => { setSelectedApt(apt); setNotes(apt.notes ?? ""); }}

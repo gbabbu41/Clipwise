@@ -156,7 +156,8 @@ export default function ServicesPage() {
           {services.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-3xl mb-3">✂️</p>
-              <p className="text-grey text-sm">No services yet. Add your first service above.</p>
+              <p className="text-grey text-sm mb-3">No services yet — add your first service to open bookings.</p>
+              <Button onClick={() => { setEditService(null); setNewSvc(BLANK_SVC); setShowServiceModal(true); }}>+ Add Service</Button>
             </div>
           ) : categories.map(cat => {
             const catServices = grouped[cat] || [];
