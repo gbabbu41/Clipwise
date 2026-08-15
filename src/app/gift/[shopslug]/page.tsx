@@ -99,7 +99,7 @@ export default function GiftCardPurchasePage() {
         <div className="mt-6 p-5 rounded-2xl border-2 border-dashed border-[#333] bg-[#0d0d0d]">
           <p className="text-[11px] uppercase tracking-widest text-[#8f8f8f]">Gift Card Code</p>
           <p className="text-2xl font-black font-mono text-white tracking-widest mt-2">{issued.code}</p>
-          <button onClick={() => { navigator.clipboard.writeText(issued.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
+          <button onClick={() => { navigator.clipboard?.writeText(issued.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}
             className="mt-3 inline-flex items-center gap-1.5 text-sm text-gold hover:text-gold/80">
             <Copy size={14} /> {copied ? "Copied!" : "Copy code"}
           </button>

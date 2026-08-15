@@ -989,7 +989,10 @@ export default function PaymentsPage() {
                   <div className="bg-card-raised border border-border rounded-xl p-2 text-xs text-sky-300 break-all">{generatedLink}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" className="btn btn-primary w-full"
-                      onClick={() => { navigator.clipboard?.writeText(generatedLink); showToast("Link copied"); }}>Copy link</button>
+                      onClick={async () => {
+                        if (!navigator.clipboard) { showToast("Couldn't copy — copy it manually"); return; }
+                        try { await navigator.clipboard.writeText(generatedLink); showToast("Link copied"); } catch { showToast("Couldn't copy — copy it manually"); }
+                      }}>Copy link</button>
                     <a href={generatedLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">Open</a>
                   </div>
                   <button type="button" className="btn btn-outline-secondary w-full" onClick={() => { setLinkModal(null); loadData(); }}>Done</button>

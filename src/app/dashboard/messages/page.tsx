@@ -409,7 +409,7 @@ export default function MessagesPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm flex-shrink-0">
-                      {thread.clientName[0].toUpperCase()}
+                      {thread.clientName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -446,7 +446,7 @@ export default function MessagesPage() {
               ←
             </button>
             <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm flex-shrink-0">
-              {activeThread.clientName[0].toUpperCase()}
+              {activeThread.clientName?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-foreground">{activeThread.clientName}</p>

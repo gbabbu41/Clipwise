@@ -399,21 +399,23 @@ export default function ClientsPage() {
             if (atRiskWithEmail.length === 0) { showToast("No at-risk clients have email addresses on file"); return; }
             let sent = 0;
             for (const c of atRiskWithEmail) {
-              const res = await fetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-                body: JSON.stringify({
-                  type: "rebooking_reminder",
-                  data: {
-                    clientName: c.name,
-                    clientEmail: c.email,
-                    shopName: shop.name,
-                    shopEmail: shop.email ?? "",
-                    bookingUrl: `${window.location.origin}/book/${shop.slug}`,
-                  },
-                }),
-              });
-              if (res.ok) sent++;
+              try {
+                const res = await fetch("/api/send-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+                  body: JSON.stringify({
+                    type: "rebooking_reminder",
+                    data: {
+                      clientName: c.name,
+                      clientEmail: c.email,
+                      shopName: shop.name,
+                      shopEmail: shop.email ?? "",
+                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                    },
+                  }),
+                });
+                if (res.ok) sent++;
+              } catch { /* skip this one, keep sending the rest */ }
             }
             showToast(`Re-engagement emails sent to ${sent} at-risk clients`);
           }}>
@@ -716,21 +718,25 @@ export default function ClientsPage() {
                   <Button className="flex-1" size="sm" loading={saving} onClick={saveNotes}>Save Notes</Button>
                   <Button variant="outline" size="sm" className="flex-1" onClick={async () => {
                     if (!selectedClient.email || !shop) { showToast("No email on file for this client"); return; }
-                    const res = await fetch("/api/send-email", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-                      body: JSON.stringify({
-                        type: "rebooking_reminder",
-                        data: {
-                          clientName: selectedClient.name,
-                          clientEmail: selectedClient.email,
-                          shopName: shop.name,
-                          shopEmail: shop.email ?? "",
-                          bookingUrl: `${window.location.origin}/book/${shop.slug}`,
-                        },
-                      }),
-                    });
-                    showToast(res.ok ? "Re-engagement email sent!" : "Failed to send email");
+                    try {
+                      const res = await fetch("/api/send-email", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+                        body: JSON.stringify({
+                          type: "rebooking_reminder",
+                          data: {
+                            clientName: selectedClient.name,
+                            clientEmail: selectedClient.email,
+                            shopName: shop.name,
+                            shopEmail: shop.email ?? "",
+                            bookingUrl: `${window.location.origin}/book/${shop.slug}`,
+                          },
+                        }),
+                      });
+                      showToast(res.ok ? "Re-engagement email sent!" : "Failed to send email");
+                    } catch {
+                      showToast("Couldn't send — check your connection.");
+                    }
                   }}>
                     {selectedClient.email ? "Send Re-engagement" : "No Email on File"}
                   </Button>

@@ -1395,9 +1395,10 @@ export default function AppointmentsPage() {
 
               {/* Post-visit tip link — copy + text to the customer so they can tip online. */}
               {(shop?.booking_settings as { tips_enabled?: boolean } | null)?.tips_enabled !== false && selectedApt.status !== "cancelled" && (
-                <Button variant="ghost" className="w-full" onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/tip/${selectedApt.id}`);
-                  showToast("Tip link copied — text it to the customer 💜");
+                <Button variant="ghost" className="w-full" onClick={async () => {
+                  if (!navigator.clipboard) { showToast("Couldn't copy — copy it manually"); return; }
+                  try { await navigator.clipboard.writeText(`${window.location.origin}/tip/${selectedApt.id}`); showToast("Tip link copied — text it to the customer 💜"); }
+                  catch { showToast("Couldn't copy — copy it manually"); }
                 }}>Copy tip link</Button>
               )}
 
@@ -1634,7 +1635,10 @@ export default function AppointmentsPage() {
                   <div className="bg-card-raised border border-border rounded-xl p-2 text-xs text-sky-300 break-all">{payLink}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" className="btn btn-primary w-full"
-                      onClick={() => { navigator.clipboard?.writeText(payLink); showToast("Link copied"); }}>
+                      onClick={async () => {
+                        if (!navigator.clipboard) { showToast("Couldn't copy — copy it manually"); return; }
+                        try { await navigator.clipboard.writeText(payLink); showToast("Link copied"); } catch { showToast("Couldn't copy — copy it manually"); }
+                      }}>
                       Copy link
                     </button>
                     <a href={payLink} target="_blank" rel="noopener noreferrer" className="btn btn-success w-full text-center">

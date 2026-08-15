@@ -50,6 +50,7 @@ export default function MyBookingPage() {
 
   const [view, setView] = useState<"detail" | "reschedule" | "cancelled">("detail");
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Reschedule state
@@ -95,6 +96,7 @@ export default function MyBookingPage() {
   const cancelBooking = async () => {
     if (!appt) return;
     setCancelling(true);
+    setCancelError("");
     try {
       const res = await fetch(`/api/my-booking/${appt.id}`, {
         method: "PATCH",
@@ -105,8 +107,13 @@ export default function MyBookingPage() {
         setAppt(prev => prev ? { ...prev, status: "cancelled" } : prev);
         setShowCancelConfirm(false);
         setView("cancelled");
+      } else {
+        const { error } = await res.json().catch(() => ({ error: "" }));
+        setCancelError(error || "Couldn't cancel — this may be inside the shop's cancellation window. Please contact the shop.");
       }
-    } catch { /* keep the confirm dialog open on failure */ }
+    } catch {
+      setCancelError("Something went wrong — please try again.");
+    }
     setCancelling(false);
   };
 
@@ -287,6 +294,7 @@ export default function MyBookingPage() {
                   if (period === "AM" && h === 12) h = 0;
                   const start = new Date(appt.date + "T12:00:00");
                   start.setHours(h, m, 0, 0);
+                  if (Number.isNaN(start.getTime())) return; // malformed slot → don't build an invalid URL
                   const end = new Date(start.getTime() + (appt.services?.duration_minutes ?? 60) * 60000);
                   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
                   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Haircut at ${appt.shops?.name ?? ""}`)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Booking ID: ${appt.id.slice(0, 8).toUpperCase()}`)}&location=${encodeURIComponent(`${appt.shops?.address ?? ""}, ${appt.shops?.city ?? ""}`)}`;
@@ -318,8 +326,9 @@ export default function MyBookingPage() {
                   <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 space-y-3">
                     <p className="text-sm font-semibold text-red-400">Cancel this appointment?</p>
                     <p className="text-xs text-[#6e6e6e]">This cannot be undone. You&apos;ll need to rebook if you change your mind.</p>
+                    {cancelError && <p className="text-xs text-red-300 bg-red-500/15 border border-red-500/30 rounded-lg px-3 py-2">{cancelError}</p>}
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowCancelConfirm(false)}>Keep it</Button>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => { setShowCancelConfirm(false); setCancelError(""); }}>Keep it</Button>
                       <Button variant="danger" size="sm" className="flex-1" disabled={cancelling} onClick={cancelBooking}>
                         {cancelling ? "Cancelling…" : "Yes, Cancel"}
                       </Button>

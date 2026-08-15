@@ -595,7 +595,8 @@ export default function OnboardingPage() {
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>
               <Button className="flex-1" loading={finishing} onClick={async () => {
-                const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
+                let planData: Record<string, unknown> = {};
+                try { planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}"); } catch { /* corrupt session storage — proceed with defaults */ }
                 sessionStorage.removeItem("clipwise_plan");
                 // Sync the freshly-created shop into the auth context BEFORE we
                 // navigate — otherwise /dashboard sees shop=null and shows the

@@ -54,12 +54,13 @@ export default function BarberClientsPage() {
         }
         setClients(Array.from(map.values()).sort((a, b) => b.visits - a.visits));
       })
+      .catch(() => { /* load failed — finally clears the spinner; list stays empty */ })
       .finally(() => setLoading(false));
   }, [accessToken, shop?.id, notPermitted]);
 
   const filtered = clients.filter(c =>
-    c.client_name.toLowerCase().includes(query.toLowerCase()) ||
-    c.client_phone.includes(query)
+    (c.client_name ?? "").toLowerCase().includes(query.toLowerCase()) ||
+    (c.client_phone ?? "").includes(query)
   );
 
   if (notPermitted) {
@@ -106,9 +107,9 @@ export default function BarberClientsPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((client, i) => (
-            <div key={i} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-4">
+            <div key={`${client.client_name}-${i}`} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-gold/15 border border-gold/20 flex items-center justify-center text-gold font-semibold flex-shrink-0">
-                {client.client_name.charAt(0)}
+                {client.client_name?.charAt(0) ?? "?"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground truncate">{client.client_name}</p>

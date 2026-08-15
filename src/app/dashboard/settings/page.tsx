@@ -372,8 +372,10 @@ export default function SettingsPage() {
           if (cachedB) loadedBooking = JSON.parse(cachedB) as BookingSettings;
         }
       } catch {
-        const cachedB = localStorage.getItem(`booking_${shop.id}`);
-        if (cachedB) loadedBooking = JSON.parse(cachedB) as BookingSettings;
+        try {
+          const cachedB = localStorage.getItem(`booking_${shop.id}`);
+          if (cachedB) loadedBooking = JSON.parse(cachedB) as BookingSettings;
+        } catch { /* corrupt cached settings — fall back to defaults */ }
       }
       setBooking(loadedBooking);
       setTemplates(loadedTemplates);
@@ -1417,20 +1419,25 @@ export default function SettingsPage() {
                       onClick={async () => {
                         if (!shop || !accessToken) return;
                         setDeletingShop(true);
-                        const res = await fetch("/api/owner/delete-shop", {
-                          method: "POST",
-                          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                          body: JSON.stringify({ shop_id: shop.id, confirm: "DELETE" }),
-                        });
-                        setDeletingShop(false);
-                        if (!res.ok) {
-                          const j = await res.json().catch(() => ({}));
-                          showToast(`Delete failed: ${j.error ?? res.statusText}`);
-                          return;
+                        try {
+                          const res = await fetch("/api/owner/delete-shop", {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                            body: JSON.stringify({ shop_id: shop.id, confirm: "DELETE" }),
+                          });
+                          if (!res.ok) {
+                            const j = await res.json().catch(() => ({}));
+                            showToast(`Delete failed: ${j.error ?? res.statusText}`);
+                            setDeletingShop(false);
+                            return;
+                          }
+                          // Sign out and bounce to home — the user no longer has a shop.
+                          await supabase.auth.signOut();
+                          window.location.href = "/";
+                        } catch {
+                          setDeletingShop(false);
+                          showToast("Delete failed — check your connection and try again.");
                         }
-                        // Sign out and bounce to home — the user no longer has a shop.
-                        await supabase.auth.signOut();
-                        window.location.href = "/";
                       }}>
                       Permanently Delete
                     </Button>
@@ -1461,20 +1468,25 @@ export default function SettingsPage() {
                       onClick={async () => {
                         if (!accessToken) return;
                         setDeletingAccount(true);
-                        const res = await fetch("/api/account/delete", {
-                          method: "POST",
-                          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                          body: JSON.stringify({ confirm: "DELETE" }),
-                        });
-                        setDeletingAccount(false);
-                        if (!res.ok) {
-                          const j = await res.json().catch(() => ({}));
-                          showToast(`Delete failed: ${j.error ?? res.statusText}`);
-                          return;
+                        try {
+                          const res = await fetch("/api/account/delete", {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                            body: JSON.stringify({ confirm: "DELETE" }),
+                          });
+                          if (!res.ok) {
+                            const j = await res.json().catch(() => ({}));
+                            showToast(`Delete failed: ${j.error ?? res.statusText}`);
+                            setDeletingAccount(false);
+                            return;
+                          }
+                          // Account gone — sign out and bounce home.
+                          await supabase.auth.signOut();
+                          window.location.href = "/";
+                        } catch {
+                          setDeletingAccount(false);
+                          showToast("Delete failed — check your connection and try again.");
                         }
-                        // Account gone — sign out and bounce home.
-                        await supabase.auth.signOut();
-                        window.location.href = "/";
                       }}>
                       Permanently Delete Account
                     </Button>

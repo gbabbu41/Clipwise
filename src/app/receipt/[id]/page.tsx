@@ -56,9 +56,11 @@ export default function ReceiptPage() {
   useEffect(() => { load(); }, [load]);
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard?.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard unavailable (insecure context / older browser) */ }
   };
 
   if (loading) {

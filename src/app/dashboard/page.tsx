@@ -817,6 +817,9 @@ export default function DashboardPage() {
                 <div className="py-8 text-center text-grey">
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
                   <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
+                  {!selectedCalDate && (
+                    <Link href="/dashboard/share" className="inline-block mt-3 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Share your booking link →</Link>
+                  )}
                 </div>
               ) : (() => {
                 const sorted = [...displayAppts].sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""));
@@ -864,7 +867,10 @@ export default function DashboardPage() {
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
             <div className="cwd-cardb cwd-ledgerb">
               {barbers.length === 0 ? (
-                <p className="text-sm text-grey text-center py-4">No active staff</p>
+                <div className="text-center py-4">
+                  <p className="text-sm text-grey">No active staff</p>
+                  <Link href="/dashboard/staff" className="inline-block mt-1.5 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Add a barber →</Link>
+                </div>
               ) : barbers.map((b) => {
                 const cnt = todayAppts.filter((a) => a.barber_id === b.id).length;
                 return (
