@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered, PanelLeft, PanelLeftClose } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 import { UnreadBadge } from "@/components/notification-badge";
@@ -136,6 +136,17 @@ export function BarberSidebar() {
       return () => { document.body.style.overflow = original; };
     }
   }, [mobileOpen]);
+
+  // Desktop (lg+): collapse/expand the docked sidebar, remembered across reloads.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("cw_sidebar_collapsed") === "1") document.documentElement.classList.add("cw-sidebar-collapsed");
+    } catch { /* storage unavailable */ }
+  }, []);
+  const toggleDesktopSidebar = () => {
+    const collapsed = document.documentElement.classList.toggle("cw-sidebar-collapsed");
+    try { localStorage.setItem("cw_sidebar_collapsed", collapsed ? "1" : "0"); } catch { /* storage unavailable */ }
+  };
 
   // `cw-toggle-sidebar` flips the drawer; `cw-open-sidebar` forces open
   // (back-compat). Listens for both.
@@ -315,6 +326,18 @@ export function BarberSidebar() {
         />
       )}
 
+      {/* Desktop: floating "show sidebar" button — CSS reveals it only when the
+          sidebar is collapsed on lg+ (hidden on mobile / when expanded). */}
+      <button
+        type="button"
+        onClick={toggleDesktopSidebar}
+        aria-label="Show sidebar"
+        className="cw-sidebar-expand hidden fixed left-3 z-[61] w-9 h-9 rounded-xl bg-card border border-border text-grey hover:text-foreground shadow-sm items-center justify-center"
+        style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
+        <PanelLeft size={18} />
+      </button>
+
       <aside
         className={cn(
           "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
@@ -323,7 +346,7 @@ export function BarberSidebar() {
       >
       {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
       <div
-        className="cw-grad cw-logo-fade whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
+        className="cw-grad cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
@@ -334,6 +357,15 @@ export function BarberSidebar() {
         }}
       >
         CLIPWISE
+        {/* Desktop: collapse the sidebar (mobile uses the drawer + backdrop tap) */}
+        <button
+          type="button"
+          onClick={toggleDesktopSidebar}
+          aria-label="Hide sidebar"
+          className="hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-grey hover:text-foreground hover:bg-surface-raised items-center justify-center"
+        >
+          <PanelLeftClose size={18} />
+        </button>
       </div>
 
       {/* Reused from the owner sidebar — only renders when shops.length > 1 */}

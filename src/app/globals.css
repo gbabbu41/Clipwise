@@ -1698,3 +1698,14 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cw-modal-compact .form-text { margin-top: 0.2rem; font-size: 0.72rem; line-height: 1.35; }
 /* Tighten the label/input stack that <Input>/<Select> wrap in `space-y-1`. */
 .cw-modal-compact .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.12rem; }
+
+/* ── Desktop-collapsible sidebar (lg+) ────────────────────────────────────────
+   The collapse/expand buttons toggle `cw-sidebar-collapsed` on <html>. When set,
+   the docked sidebar slides out and the content reclaims its left margin. Mobile
+   is unaffected (it uses the slide-in drawer). */
+.cw-main{transition:margin-left .2s ease}
+@media (min-width:1024px){
+  html.cw-sidebar-collapsed .cw-sidebar{transform:translateX(-100%)}
+  html.cw-sidebar-collapsed .cw-main{margin-left:0}
+  html.cw-sidebar-collapsed .cw-sidebar-expand{display:flex}
+}

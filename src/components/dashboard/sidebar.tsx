@@ -8,6 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
+  PanelLeft, PanelLeftClose,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -208,6 +209,19 @@ export function Sidebar() {
       return () => { document.body.style.overflow = original; };
     }
   }, [mobileOpen]);
+
+  // Desktop (lg+): let the owner collapse/expand the docked sidebar. A class on
+  // <html> drives the CSS that slides it out and reclaims the content margin;
+  // the choice is remembered across reloads. Mobile is unaffected (drawer).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("cw_sidebar_collapsed") === "1") document.documentElement.classList.add("cw-sidebar-collapsed");
+    } catch { /* storage unavailable */ }
+  }, []);
+  const toggleDesktopSidebar = () => {
+    const collapsed = document.documentElement.classList.toggle("cw-sidebar-collapsed");
+    try { localStorage.setItem("cw_sidebar_collapsed", collapsed ? "1" : "0"); } catch { /* storage unavailable */ }
+  };
 
   // Allow the mobile bottom-nav 'More' button to control the drawer via
   // custom window events. `cw-toggle-sidebar` flips it; `cw-open-sidebar`
@@ -505,6 +519,18 @@ export function Sidebar() {
         />
       )}
 
+      {/* Desktop: floating "show sidebar" button — CSS reveals it only when the
+          sidebar is collapsed on lg+ (hidden on mobile / when expanded). */}
+      <button
+        type="button"
+        onClick={toggleDesktopSidebar}
+        aria-label="Show sidebar"
+        className="cw-sidebar-expand hidden fixed left-3 z-[61] w-9 h-9 rounded-xl bg-card border border-border text-grey hover:text-foreground shadow-sm items-center justify-center"
+        style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
+        <PanelLeft size={18} />
+      </button>
+
       <aside
         className={cn(
           // Light sidebar: pure-white surface with a hairline gray right edge.
@@ -522,7 +548,7 @@ export function Sidebar() {
           wordmark doesn't float with dead space on both sides. cw-grad is on the
           wordmark span only (not the div) so it never bleeds onto the badge. */}
       <div
-        className="cw-logo-fade whitespace-nowrap border-b border-border flex flex-col justify-center items-start gap-1.5 pl-6"
+        className="cw-logo-fade relative whitespace-nowrap border-b border-border flex flex-col justify-center items-start gap-1.5 pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
@@ -531,6 +557,15 @@ export function Sidebar() {
           height: "64px",
         }}
       >
+        {/* Desktop: collapse the sidebar (mobile uses the drawer + backdrop tap) */}
+        <button
+          type="button"
+          onClick={toggleDesktopSidebar}
+          aria-label="Hide sidebar"
+          className="hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-grey hover:text-foreground hover:bg-surface-raised items-center justify-center"
+        >
+          <PanelLeftClose size={18} />
+        </button>
         {/* Stacked lockup: signature gradient wordmark over the plan as a spaced
             small-caps kicker (no pill) — tidier than the old inline badge. */}
         <span className="cw-grad" style={{ fontSize: "23px", lineHeight: 1 }}>CLIPWISE</span>
