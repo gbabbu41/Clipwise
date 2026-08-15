@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, ShieldCheck, Store, Calendar } from "lucide-react";
+import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, ShieldCheck, Store } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -20,7 +20,11 @@ interface TurnstileApi { render: (el: HTMLElement, opts: Record<string, unknown>
 
 export default function SignupPage() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<SelectedRole>("");
+  // The role picker was removed — /signup is the barber/shop-owner funnel (every
+  // marketing CTA points here for owners; customers book through a shop's public
+  // storefront, no account needed). Default straight to shop_owner so signup is
+  // one tap shorter. Kept as SelectedRole so the API role param stays unchanged.
+  const selectedRole: SelectedRole = "shop_owner";
   const [step, setStep] = useState<"form" | "code">("form");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -36,14 +40,11 @@ export default function SignupPage() {
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetRendered = useRef(false);
 
-  // Arriving from a pricing card (/signup?plan=pro) → they're a barber/owner, so
-  // skip the role picker and carry their plan choice into onboarding.
+  // Arriving from a pricing card (/signup?plan=pro) → carry their plan choice
+  // into onboarding.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("plan");
-    if (p && ["starter", "pro", "premium"].includes(p)) {
-      setPlan(p);
-      setSelectedRole("shop_owner");
-    }
+    if (p && ["starter", "pro", "premium"].includes(p)) setPlan(p);
   }, []);
 
   const pwStrength = getPasswordStrength(form.password);
@@ -188,11 +189,6 @@ export default function SignupPage() {
     { key: "phone" as const, label: "Phone Number", placeholder: "(506) 555-0123", icon: Phone, type: "tel" },
   ];
 
-  const roleOptions = [
-    { role: "shop_owner" as SelectedRole, icon: Store, title: "I'm a barber or shop owner", desc: "Take bookings and get paid — solo or with a team. Pick your plan next.", accent: "border-gold/40 hover:border-gold/70", iconBg: "bg-gold/15", iconColor: "text-gold" },
-    { role: "customer" as SelectedRole, icon: Calendar, title: "I'm looking to book", desc: "Find and book appointments at nearby barbershops", accent: "border-border hover:border-gray-500", iconBg: "bg-surface-raised", iconColor: "text-gray-300" },
-  ];
-
   if (signupsPaused) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
@@ -219,18 +215,10 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
-          {!selectedRole && (
-            <>
-              <h1 className="text-2xl font-bold text-white">Join ClipWise</h1>
-              <p className="text-[#8f8f8f] text-sm mt-1">How are you planning to use ClipWise?</p>
-            </>
-          )}
-          {selectedRole && step === "form" && (
+          {step === "form" && (
             <>
               <h1 className="text-2xl font-bold text-white">Create your account</h1>
-              <p className="text-[#8f8f8f] text-sm mt-1">
-                {selectedRole === "shop_owner" ? "Set up your shop in minutes. No credit card required." : "Book appointments at top barbershops near you."}
-              </p>
+              <p className="text-[#8f8f8f] text-sm mt-1">Set up your shop in minutes. No credit card required.</p>
             </>
           )}
         </div>
@@ -279,35 +267,9 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* ── Role picker ── */}
-        {!selectedRole && (
-          <div className="space-y-3">
-            {roleOptions.map(({ role, icon: Icon, title, desc, accent, iconBg, iconColor }) => (
-              <button key={role} onClick={() => { setSelectedRole(role); setStep("form"); }}
-                className={cn("w-full flex items-center gap-4 bg-surface border rounded-2xl p-5 text-left transition-all", accent)}>
-                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", iconBg)}>
-                  <Icon size={22} className={iconColor} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="text-xs text-[#8f8f8f] mt-0.5">{desc}</p>
-                </div>
-              </button>
-            ))}
-            <p className="text-center text-sm text-[#8f8f8f] pt-2">
-              Already have an account?{" "}
-              <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
-            </p>
-          </div>
-        )}
-
         {/* ── Details form step ── */}
-        {selectedRole && step === "form" && (
+        {step === "form" && (
           <div className="bg-surface border border-border rounded-2xl p-8">
-            <button onClick={() => setSelectedRole("")} className="text-xs text-[#8f8f8f] hover:text-gold mb-4 flex items-center gap-1">
-              ← Back
-            </button>
-
             {error && error !== "already_registered" && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
                 <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
