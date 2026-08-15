@@ -26,7 +26,6 @@ const SPRING = "transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)";
 export function ModalChrome() {
   useEffect(() => {
     let open = false;
-    let scrollY = 0;
 
     // ── rubber-band drag state ──
     let container: HTMLElement | null = null;
@@ -82,15 +81,20 @@ export function ModalChrome() {
       document.removeEventListener("touchcancel", onEnd);
     };
 
+    // Lock the background scroll with overflow:hidden — NOT position:fixed on
+    // <body>. position:fixed makes bottom-anchored fixed modals stop short of the
+    // home-indicator in an installed PWA (a black strip appears under the sheet),
+    // because their bottom:0 anchors to the shifted body box instead of the true
+    // viewport. overflow:hidden freezes the background in place (scroll position
+    // preserved, no jump) while letting modals reach the real screen bottom.
     const lock = () => {
       if (open) return;
       open = true;
-      scrollY = window.scrollY;
       const b = document.body;
-      b.style.position = "fixed";
-      b.style.top = `-${scrollY}px`;
-      b.style.width = "100%";
+      const h = document.documentElement;
       b.style.overflow = "hidden";
+      h.style.overflow = "hidden";
+      b.style.overscrollBehavior = "none";
       b.classList.add("cw-modal-open");
       addListeners();
     };
@@ -98,13 +102,12 @@ export function ModalChrome() {
       if (!open) return;
       open = false;
       const b = document.body;
-      b.style.position = "";
-      b.style.top = "";
-      b.style.width = "";
+      const h = document.documentElement;
       b.style.overflow = "";
+      h.style.overflow = "";
+      b.style.overscrollBehavior = "";
       b.classList.remove("cw-modal-open");
       removeListeners();
-      window.scrollTo(0, scrollY);
     };
 
     const sync = () => {
