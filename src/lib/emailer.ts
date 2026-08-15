@@ -46,51 +46,51 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 function wrap(content: string) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark">
-<meta name="supported-color-schemes" content="dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <style>
-  :root{color-scheme:dark}
-  body{margin:0;padding:0;background:#0A0A0A;color-scheme:dark;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#C7CAD1}
-  a{color:#F5F0E6}
+  :root{color-scheme:light;supported-color-schemes:light}
+  body{margin:0;padding:0;background:#EEF0F3;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#4B5563}
+  a{color:#111827}
   .container{max-width:560px;margin:0 auto;padding:32px 16px}
-  .card{background:#161719;border:1px solid #2A2B2F;border-radius:16px;padding:32px}
-  .logo{font-size:22px;font-weight:800;color:#F5F0E6;letter-spacing:-0.5px;margin:0 0 28px}
-  .logo span{color:#fff}
-  h1{font-size:25px;line-height:1.25;font-weight:700;color:#fff;letter-spacing:-0.3px;margin:0 0 12px}
-  h2{font-size:16px;font-weight:700;color:#fff;margin:24px 0 10px}
-  p{font-size:15px;line-height:1.65;color:#C7CAD1;margin:0 0 14px}
-  .highlight{color:#fff;font-weight:600}
-  .muted{color:#8A8F98}
-  .badge{display:inline-block;background:#2A2C31;border:1px solid #3A3D44;color:#fff;font-size:12px;font-weight:600;padding:5px 13px;border-radius:999px;margin:0 0 20px}
-  .btn{display:inline-block;background:#F5F0E6;color:#000;font-weight:700;font-size:15px;padding:13px 30px;border-radius:10px;text-decoration:none;margin:18px 0}
-  .panel{background:#202127;border:1px solid #2F3138;border-radius:12px;padding:18px 20px;margin:18px 0}
-  .link-box{background:#0F0F11;border:1px solid #2A2B2F;border-radius:10px;padding:12px 16px;margin:16px 0}
-  .link-box a{color:#F5F0E6;font-size:13px;text-decoration:none;word-break:break-all}
-  .divider{border:0;border-top:1px solid #2A2B2F;margin:24px 0}
+  .card{background:#FFFFFF;border:1px solid #E7E9EE;border-radius:16px;padding:32px}
+  .logo{font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;margin:0 0 24px}
+  .logo span{color:#111827}
+  h1{font-size:24px;line-height:1.25;font-weight:800;color:#111827;letter-spacing:-0.4px;margin:0 0 12px}
+  h2{font-size:16px;font-weight:700;color:#111827;margin:24px 0 10px}
+  p{font-size:15px;line-height:1.6;color:#4B5563;margin:0 0 14px}
+  .highlight{color:#111827;font-weight:700}
+  .muted{color:#9CA3AF}
+  .badge{display:inline-block;background:#F3F4F6;border:1px solid #E5E7EB;color:#374151;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
+  .btn{display:inline-block;background:#111827;color:#ffffff;font-weight:700;font-size:15px;padding:13px 30px;border-radius:10px;text-decoration:none;margin:18px 0}
+  .panel{background:#F9FAFB;border:1px solid #EDEFF2;border-radius:12px;padding:4px 18px;margin:18px 0}
+  .link-box{background:#F9FAFB;border:1px solid #E7E9EE;border-radius:10px;padding:12px 16px;margin:16px 0}
+  .link-box a{color:#111827;font-size:13px;text-decoration:none;word-break:break-all}
+  .divider{border:0;border-top:1px solid #EDEFF2;margin:22px 0}
   .steps{list-style:none;padding:0;margin:16px 0}
-  .steps li{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:15px;color:#C7CAD1}
-  .step-num{background:#F5F0E6;border:1px solid #F5F0E6;color:#161719;width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
-  .footer{text-align:center;margin-top:24px;font-size:12px;color:#7E828A}
-  .row{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #2A2B2F;font-size:13.5px}
+  .steps li{margin-bottom:12px;font-size:15px;color:#4B5563}
+  .step-num{display:inline-block;background:#111827;color:#ffffff;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;font-size:11px;font-weight:700;margin-right:8px}
+  .footer{text-align:center;margin-top:22px;font-size:12px;color:#9CA3AF}
+  .footer a{color:#6B7280;text-decoration:none}
+  .row{padding:11px 0;border-bottom:1px solid #EDEFF2;font-size:14px;overflow:hidden}
   .row:last-child{border-bottom:0}
-  .row .label{color:#9AA0A8}
-  .row .val{color:#fff;font-weight:500}
-  .green-badge{display:inline-block;background:#064E3B;border:1px solid #10B981;color:#D1FAE5;font-size:12px;font-weight:600;padding:5px 13px;border-radius:999px;margin:0 0 20px}
-  .red-badge{display:inline-block;background:#7F1D1D;border:1px solid #EF4444;color:#FEE2E2;font-size:12px;font-weight:600;padding:5px 13px;border-radius:999px;margin:0 0 20px}
+  .row .label{color:#6B7280;float:left}
+  .row .val{color:#111827;font-weight:600;float:right;text-align:right;max-width:62%}
+  .green-badge{display:inline-block;background:#DCFCE7;border:1px solid #A7F3D0;color:#166534;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
+  .red-badge{display:inline-block;background:#FEE2E2;border:1px solid #FECACA;color:#991B1B;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
 </style></head>
 <body><div class="container"><div class="card">${content}</div>
-<div class="footer">© ClipWise · <a href="${BASE_URL}" style="color:#F5F0E6;text-decoration:none">clipwise.ca</a></div>
+<div class="footer">© ClipWise · <a href="${BASE_URL}">clipwise.ca</a></div>
 </div></body></html>`;
 }
 
-// Customer-facing emails lead with the SHOP's name (it's the shop's email to
-// their client), with a small "Powered by ClipWise" line so the platform stays
-// present but the brand out front is the barbershop. Owner/barber/admin/platform
-// emails keep the ClipWise logo instead (they're from the platform to its users).
+// Customer-facing emails lead with the SHOP's name as the hero — it's the shop's
+// email to their client, so the barbershop is the brand out front (no "Powered by
+// ClipWise" line). Owner/barber/admin/platform emails keep the ClipWise logo
+// instead (they're from the platform to its own users).
 function shopHeader(shopName?: string) {
   const name = shopName || "Your shop";
-  return `<div style="font-size:22px;font-weight:800;color:#F5F0E6;letter-spacing:-0.3px;margin-bottom:2px">${name}</div>
-    <div style="font-size:11px;color:#8A8F98;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:26px">Powered by ClipWise</div>`;
+  return `<div style="font-size:27px;line-height:1.15;font-weight:800;color:#111827;letter-spacing:-0.5px;margin:0 0 22px">${name}</div>`;
 }
 
 // A "Location" row + a Google Maps "Get directions" link. Values are resolved
@@ -101,7 +101,7 @@ function addressBlock(addressLine?: string, directionsUrl?: string) {
   const addr = (addressLine ?? "").trim();
   if (!addr) return "";
   const link = directionsUrl
-    ? `\n    <p style="margin:8px 0 0;text-align:right"><a href="${directionsUrl}" style="color:#F5F0E6;font-size:13px;text-decoration:none">📍 Get directions →</a></p>`
+    ? `\n    <p style="margin:8px 0 0;text-align:right"><a href="${directionsUrl}" style="color:#111827;font-size:13px;text-decoration:none">📍 Get directions →</a></p>`
     : "";
   return `<div class="row"><span class="label">Location</span><span class="val" style="text-align:right;max-width:62%">${addr}</span></div>${link}`;
 }
@@ -169,7 +169,7 @@ function ownerSubmissionConfirmation(data: Record<string, string>) {
     <h1>Hi ${data.ownerName},</h1>
     <p>We've received your application for <span class="highlight">${data.shopName}</span> and will review it within <span class="highlight">24 hours</span>.</p>
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:8px">What happens next:</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:8px">What happens next:</p>
     <ul class="steps">
       <li><span class="step-num">1</span>Our team reviews your shop details</li>
       <li><span class="step-num">2</span>You receive an approval email</li>
@@ -177,12 +177,12 @@ function ownerSubmissionConfirmation(data: Record<string, string>) {
       <li><span class="step-num">4</span>Start accepting bookings!</li>
     </ul>
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:4px">Your future booking link:</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:4px">Your future booking link:</p>
     <div class="link-box"><a href="${BASE_URL}/book/${data.slug}">${BASE_URL}/book/${data.slug}</a></div>
-    <p style="font-size:12px;color:#8A8F98">This link goes live once your shop is approved.</p>
+    <p style="font-size:12px;color:#6B7280">This link goes live once your shop is approved.</p>
     <hr class="divider">
     <p>Questions? Reply to this email and we'll get back to you.</p>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -195,7 +195,7 @@ function ownerApproved(data: Record<string, string>) {
     <div class="link-box"><a href="${BASE_URL}/book/${data.slug}">${BASE_URL}/book/${data.slug}</a></div>
     <a href="${BASE_URL}/book/${data.slug}" class="btn">View Your Booking Page →</a>
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:8px">Get your first booking:</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:8px">Get your first booking:</p>
     <ul class="steps">
       <li><span class="step-num">1</span>Add this link to your Instagram bio</li>
       <li><span class="step-num">2</span>Share it on Facebook and WhatsApp</li>
@@ -203,10 +203,10 @@ function ownerApproved(data: Record<string, string>) {
       <li><span class="step-num">4</span>Watch the bookings come in!</li>
     </ul>
     <hr class="divider">
-    <a href="${BASE_URL}/login" class="btn" style="background:#161719;color:#F5F0E6;border:1px solid #F5F0E640">Login to Dashboard →</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">Email: ${data.ownerEmail}</p>
+    <a href="${BASE_URL}/login" class="btn" style="background:#F3F4F6;color:#111827;border:1px solid #11182740">Login to Dashboard →</a>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">Email: ${data.ownerEmail}</p>
     <hr class="divider">
-    <p style="color:#8A8F98">Welcome to ClipWise! — The ClipWise Team</p>
+    <p style="color:#6B7280">Welcome to ClipWise! — The ClipWise Team</p>
   `);
 }
 
@@ -218,11 +218,11 @@ function ownerRejected(data: Record<string, string>) {
     <p>Thank you for applying to ClipWise.</p>
     <p>Unfortunately, we could not approve <span class="highlight">${data.shopName}</span> at this time.</p>
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:4px">Reason:</p>
-    <p style="background:#202127;border:1px solid #2A2B2F;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason || "No reason provided."}</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:4px">Reason:</p>
+    <p style="background:#F9FAFB;border:1px solid #E9EBEF;border-radius:8px;padding:12px 16px;color:#374151">${data.reason || "No reason provided."}</p>
     <hr class="divider">
-    <p>You are welcome to <a href="${BASE_URL}/onboarding" style="color:#F5F0E6">reapply</a> after addressing the above. If you have any questions, please reply to this email.</p>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p>You are welcome to <a href="${BASE_URL}/onboarding" style="color:#111827">reapply</a> after addressing the above. If you have any questions, please reply to this email.</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -236,15 +236,15 @@ function reviewRequest(data: Record<string, string>) {
     <h1>Thanks for visiting, ${data.clientName}!</h1>
     <p>We hope you loved your experience at <span class="highlight">${data.shopName}</span>. Your feedback means everything to us and helps other clients find the best barbers.</p>
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:4px">Your appointment:</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:4px">Your appointment:</p>
     <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <hr class="divider">
     ${googleUrl ? `<a href="${googleUrl}" class="btn">⭐ Leave a Google Review</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">Takes 30 seconds and makes a huge difference!</p>` : `<a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">Only takes 30 seconds!</p>`}
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">Takes 30 seconds and makes a huge difference!</p>` : `<a href="${data.reviewUrl}" class="btn">Leave a Review ★★★★★</a>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">Only takes 30 seconds!</p>`}
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -263,8 +263,8 @@ function appointmentReminder(data: Record<string, string>) {
     ${data.total ? `<div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>` : ""}
     ${addressBlock(data.shopAddressLine, data.shopDirectionsUrl)}
     <hr class="divider">
-    <p style="font-size:12px;color:#9AA0A8">Need to cancel? Please contact the shop as soon as possible.</p>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="font-size:12px;color:#6B7280">Need to cancel? Please contact the shop as soon as possible.</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -285,10 +285,10 @@ function bookingConfirmation(data: Record<string, string>) {
     ${addressBlock(data.shopAddressLine, data.shopDirectionsUrl)}
     <hr class="divider">
     ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">You can reschedule or cancel from the link above.</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">You can reschedule or cancel from the link above.</p>
     <hr class="divider">` : ""}
-    ${data.cancellationHours && Number(data.cancellationHours) > 0 ? `<p style="font-size:12px;color:#C7CAD1"><strong style="color:#fff">Cancellation policy:</strong> please cancel or reschedule at least ${data.cancellationHours} hour${data.cancellationHours === "1" ? "" : "s"} before your appointment.</p>` : ""}
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    ${data.cancellationHours && Number(data.cancellationHours) > 0 ? `<p style="font-size:12px;color:#4B5563"><strong style="color:#111827">Cancellation policy:</strong> please cancel or reschedule at least ${data.cancellationHours} hour${data.cancellationHours === "1" ? "" : "s"} before your appointment.</p>` : ""}
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -301,10 +301,10 @@ function appointmentUpdated(data: Record<string, string>) {
   // When the time actually moved, lead with a clear Previous → New comparison.
   const moved = (data.fromWhen && data.toWhen)
     ? `<div class="panel">
-         <div class="row"><span class="label">Previous</span><span class="val" style="color:#9AA0A8;text-decoration:line-through">${data.fromWhen}</span></div>
+         <div class="row"><span class="label">Previous</span><span class="val" style="color:#6B7280;text-decoration:line-through">${data.fromWhen}</span></div>
          <div class="row"><span class="label">New time</span><span class="val">${data.toWhen}</span></div>
        </div>`
-    : (data.changedSummary ? `<p style="font-size:13px;color:#9AA0A8">What changed: ${data.changedSummary}</p>` : "");
+    : (data.changedSummary ? `<p style="font-size:13px;color:#6B7280">What changed: ${data.changedSummary}</p>` : "");
   const rescheduled = !!(data.fromWhen && data.toWhen);
   return wrap(`
     ${shopHeader(data.shopName)}
@@ -320,9 +320,9 @@ function appointmentUpdated(data: Record<string, string>) {
     ${data.total ? `<div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>` : ""}
     <hr class="divider">
     ${manageUrl ? `<a href="${manageUrl}" class="btn">View / Manage Booking →</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">This link always shows your booking's latest details — you can reschedule or cancel from there.</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">This link always shows your booking's latest details — you can reschedule or cancel from there.</p>
     <hr class="divider">` : ""}
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -335,9 +335,9 @@ function rebookingReminder(data: Record<string, string>) {
     <p>Book your next appointment in seconds — no calls, no waiting.</p>
     <hr class="divider">
     <a href="${data.bookingUrl}" class="btn">Book Now →</a>
-    ${data.promoNote ? `<p style="font-size:13px;color:#F5F0E6;margin-top:12px">${data.promoNote}</p>` : ""}
+    ${data.promoNote ? `<p style="font-size:13px;color:#111827;margin-top:12px">${data.promoNote}</p>` : ""}
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -351,7 +351,7 @@ function noShowFollowUp(data: Record<string, string>) {
     <hr class="divider">
     <a href="${data.bookingUrl}" class="btn">Book Again →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -368,9 +368,9 @@ function appointmentCancelled(data: Record<string, string>) {
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     <hr class="divider">
-    <p style="font-size:13px;color:#9AA0A8">This time slot is now available for new bookings.</p>
+    <p style="font-size:13px;color:#6B7280">This time slot is now available for new bookings.</p>
     <a href="${BASE_URL}/dashboard/calendar" class="btn">Open Calendar →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -384,7 +384,7 @@ function subscriptionCancelled(data: Record<string, string>) {
     <p>Premium features (customer payments, POS, extra barbers) are now locked. You can resubscribe anytime to restore them.</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">Reactivate Subscription →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -396,10 +396,10 @@ function subscriptionCardUpdated(data: Record<string, string>) {
     <p>The card on file for your ClipWise <span class="highlight">${data.planName || "subscription"}</span> plan${data.shopName ? ` (<span class="highlight">${data.shopName}</span>)` : ""} was successfully updated${data.cardLabel ? ` to <span class="highlight">${data.cardLabel}</span>` : ""}.</p>
     ${data.nextBilling ? `<p>Your next payment will be charged to this card on <span class="highlight">${data.nextBilling}</span>.</p>` : ""}
     <hr class="divider">
-    <p style="color:#8A8F98">If you didn't make this change, please review your billing right away or contact us.</p>
+    <p style="color:#6B7280">If you didn't make this change, please review your billing right away or contact us.</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">View billing →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -413,7 +413,7 @@ function birthdayWish(data: Record<string, string>) {
     <p>To celebrate, we'd love to treat you to a fresh cut. Book your birthday appointment and come in looking your best!</p>
     <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Your Birthday Cut →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -435,7 +435,7 @@ function newBookingOwner(data: Record<string, string>) {
     <div class="row"><span class="label">Booking ID</span><span class="val">#${data.bookingId}</span></div>
     <hr class="divider">
     <a href="${BASE_URL}/dashboard/calendar" class="btn">Open Calendar →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -454,7 +454,7 @@ function newBookingBarber(data: Record<string, string>) {
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -469,12 +469,12 @@ function appointmentRejected(data: Record<string, string>) {
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     ${data.reason ? `<hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:4px">Reason from the shop:</p>
-    <p style="background:#202127;border:1px solid #2A2B2F;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason}</p>` : ""}
+    <p style="font-weight:600;color:#111827;margin-bottom:4px">Reason from the shop:</p>
+    <p style="background:#F9FAFB;border:1px solid #E9EBEF;border-radius:8px;padding:12px 16px;color:#374151">${data.reason}</p>` : ""}
     <hr class="divider">
     <p>We're sorry for the inconvenience. You're welcome to book a new time that works for you.</p>
     <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Again →</a>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -487,8 +487,8 @@ function paymentReceipt(data: Record<string, string>) {
     <div class="badge">👋 We Missed You</div>
     <h1>Hey ${data.clientName}, we missed you!</h1>
     <p>You weren't able to make it to your appointment at <span class="highlight">${data.shopName}</span> — no worries, life happens. As noted when you booked, a no-show fee was applied; your receipt is below, and we'd love to see you next time.</p>`
-    : `<div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
-    <div style="font-size:12px;color:#9AA0A8;margin-bottom:22px">Receipt from ${data.shopName}</div>
+    : `<div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:22px">Receipt from ${data.shopName}</div>
     <div class="green-badge">💳 Payment Received</div>
     <h1>Hi ${data.clientName},</h1>
     <p>Thanks for your payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}. ${data.shopName} is the seller for this purchase — your receipt is below.</p>`;
@@ -506,12 +506,12 @@ function paymentReceipt(data: Record<string, string>) {
     <div class="row"><span class="label">Subtotal</span><span class="val">${data.subtotal}</span></div>
     <div class="row"><span class="label">${data.taxLabel || "Tax"}</span><span class="val">${data.tax}</span></div>
     ${data.tip ? `<div class="row"><span class="label">Tip</span><span class="val">${data.tip}</span></div>` : ""}
-    <div class="row"><span class="label" style="color:#fff;font-weight:700">Amount Paid</span><span class="val" style="font-weight:700">${data.amount}</span></div>`
+    <div class="row"><span class="label" style="color:#111827;font-weight:700">Amount Paid</span><span class="val" style="font-weight:700">${data.amount}</span></div>`
     : `<div class="row"><span class="label">Amount Paid</span><span class="val">${data.amount}</span></div>`}
     ${rebook}
     <hr class="divider">
-    <p style="font-size:13px;color:#9AA0A8">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
-    <p style="font-size:12px;color:#8A8F98">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
+    <p style="font-size:13px;color:#6B7280">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
+    <p style="font-size:12px;color:#6B7280">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
   `);
 }
 
@@ -526,10 +526,10 @@ function refundIssued(data: Record<string, string>) {
     <div class="row"><span class="label">Original Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Refund Amount</span><span class="val">${data.total}</span></div>
     <hr class="divider">
-    <p style="font-size:13px;color:#9AA0A8">Refunds typically appear on your statement within 5–10 business days depending on your bank.</p>
+    <p style="font-size:13px;color:#6B7280">Refunds typically appear on your statement within 5–10 business days depending on your bank.</p>
     <p>We hope to see you again soon.</p>
     <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Again →</a>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -552,17 +552,17 @@ function directMessageEmail(data: Record<string, string>) {
     .replace(/>/g, "&gt;")
     .replace(/\n/g, "<br>");
   const senderLine = data.senderName
-    ? `<p style="color:#9AA0A8;font-size:13px;margin:0 0 4px">From ${data.senderName}</p>`
+    ? `<p style="color:#6B7280;font-size:13px;margin:0 0 4px">From ${data.senderName}</p>`
     : "";
   return wrap(`
     ${shopHeader(data.shopName)}
     ${senderLine}
     <h1 style="font-size:18px">Hi ${data.clientName},</h1>
-    <div style="background:#111;border:1px solid #2A2B2F;border-radius:12px;padding:16px;margin:16px 0;font-size:15px;line-height:1.55;color:#E5E7EB">
+    <div style="background:#F3F4F6;border:1px solid #E9EBEF;border-radius:12px;padding:16px;margin:16px 0;font-size:15px;line-height:1.55;color:#374151">
       ${escaped}
     </div>
-    <p style="font-size:13px;color:#9AA0A8">Reply to this email and your response will go straight to ${data.shopName}.</p>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="font-size:13px;color:#6B7280">Reply to this email and your response will go straight to ${data.shopName}.</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -587,7 +587,7 @@ function paymentLinkEmail(data: Record<string, string>) {
     ? `
     <div class="row"><span class="label">Subtotal</span><span class="val">${money(data.subtotal)}</span></div>
     <div class="row"><span class="label">${data.taxLabel || "Tax"}</span><span class="val">${money(data.tax)}</span></div>
-    <div class="row"><span class="label" style="color:#fff;font-weight:700">Total</span><span class="val" style="font-weight:700">${total}</span></div>`
+    <div class="row"><span class="label" style="color:#111827;font-weight:700">Total</span><span class="val" style="font-weight:700">${total}</span></div>`
     : `
     <div class="row"><span class="label">Amount</span><span class="val">${total}</span></div>`;
   return wrap(`
@@ -603,8 +603,8 @@ function paymentLinkEmail(data: Record<string, string>) {
     <hr class="divider">
     <a href="${data.paymentUrl}" class="btn">Pay Now →</a>
     <div class="link-box"><a href="${data.paymentUrl}">${data.paymentUrl}</a></div>
-    <p style="font-size:13px;color:#9AA0A8">Payments are processed securely through Stripe. This link will stay valid for 24 hours.</p>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="font-size:13px;color:#6B7280">Payments are processed securely through Stripe. This link will stay valid for 24 hours.</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -619,11 +619,11 @@ function timeOffRequest(data: Record<string, string>) {
     <div class="row"><span class="label">Type</span><span class="val">${data.requestType}</span></div>
     <div class="row"><span class="label">Dates</span><span class="val">${data.dateRange}</span></div>
     ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
-    ${data.reason ? `<hr class="divider"><p style="font-weight:600;color:#fff;margin-bottom:4px">Reason from ${data.barberName}:</p>
-    <p style="background:#202127;border:1px solid #2A2B2F;border-radius:8px;padding:12px 16px;color:#E5E7EB">${data.reason}</p>` : ""}
+    ${data.reason ? `<hr class="divider"><p style="font-weight:600;color:#111827;margin-bottom:4px">Reason from ${data.barberName}:</p>
+    <p style="background:#F9FAFB;border:1px solid #E9EBEF;border-radius:8px;padding:12px 16px;color:#374151">${data.reason}</p>` : ""}
     <hr class="divider">
     <a href="${BASE_URL}/dashboard/time-off" class="btn">Review in Dashboard →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -656,15 +656,15 @@ function timeOffDecision(data: Record<string, string>) {
     ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
     <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#10B981" : cancelled || modified ? "#F59E0B" : "#EF4444"};text-transform:uppercase;font-weight:600">${data.decision}</span></div>
     ${approved
-      ? `<p style="color:#C7CAD1">Your schedule has been updated — these slots will no longer be offered to customers during this window.</p>`
+      ? `<p style="color:#4B5563">Your schedule has been updated — these slots will no longer be offered to customers during this window.</p>`
       : cancelled
-      ? `<p style="color:#C7CAD1">Customers will once again be able to book during this window. If you still need the time off, please submit a new request.</p>`
+      ? `<p style="color:#4B5563">Customers will once again be able to book during this window. If you still need the time off, please submit a new request.</p>`
       : modified
-      ? `<p style="color:#C7CAD1">That single day was removed from your approved time off; the rest of your request still stands. You're expected to work that day — message your shop if you need to discuss.</p>`
-      : `<p style="color:#C7CAD1">If you need to talk this through, message your shop directly.</p>`}
+      ? `<p style="color:#4B5563">That single day was removed from your approved time off; the rest of your request still stands. You're expected to work that day — message your shop if you need to discuss.</p>`
+      : `<p style="color:#4B5563">If you need to talk this through, message your shop directly.</p>`}
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/time-off" class="btn">View My Requests →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -673,18 +673,18 @@ function bookingRequestReceived(data: Record<string, string>) {
     ${shopHeader(data.shopName)}
     <div class="badge">⏳ Request received</div>
     <h1>Thanks, ${data.clientName}!</h1>
-    <p>Your booking request at <span class="highlight">${data.shopName}</span> has been received and is <strong style="color:#fff">waiting for the shop to confirm</strong>. We'll email you as soon as it's approved.</p>
+    <p>Your booking request at <span class="highlight">${data.shopName}</span> has been received and is <strong style="color:#111827">waiting for the shop to confirm</strong>. We'll email you as soon as it's approved.</p>
     <hr class="divider">
-    <table style="width:100%;font-size:14px;color:#C7CAD1">
-      <tr><td>Service</td><td style="text-align:right;color:#fff">${data.serviceName}</td></tr>
-      <tr><td>Barber</td><td style="text-align:right;color:#fff">${data.barberName}</td></tr>
-      <tr><td>Date</td><td style="text-align:right;color:#fff">${data.date}</td></tr>
-      <tr><td>Time</td><td style="text-align:right;color:#fff">${data.time}</td></tr>
+    <table style="width:100%;font-size:14px;color:#4B5563">
+      <tr><td>Service</td><td style="text-align:right;color:#111827">${data.serviceName}</td></tr>
+      <tr><td>Barber</td><td style="text-align:right;color:#111827">${data.barberName}</td></tr>
+      <tr><td>Date</td><td style="text-align:right;color:#111827">${data.date}</td></tr>
+      <tr><td>Time</td><td style="text-align:right;color:#111827">${data.time}</td></tr>
     </table>
     <hr class="divider">
-    <p style="font-size:13px;color:#C7CAD1">Booking ref: <strong style="color:#fff">${data.bookingId}</strong> · You'll pay in person at the shop.</p>
+    <p style="font-size:13px;color:#4B5563">Booking ref: <strong style="color:#111827">${data.bookingId}</strong> · You'll pay in person at the shop.</p>
     <a href="${BASE_URL}/my-booking/${data.appointmentId}" class="btn">View my booking →</a>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -693,10 +693,10 @@ function barberInvite(data: Record<string, string>) {
   const ctaText = existing ? "Open My Barber Dashboard →" : "Accept Invite & Set Up Account →";
   const leadParagraph = existing
     ? `<p>Good news — you already have a ClipWise account. Click the button below to sign in instantly and start managing your schedule at <span class="highlight">${data.shopName}</span>.</p>
-       <p style="font-size:13px;color:#C7CAD1;background:#202127;border:1px solid #2A2B2F;border-radius:8px;padding:12px 16px">
+       <p style="font-size:13px;color:#4B5563;background:#F9FAFB;border:1px solid #E9EBEF;border-radius:8px;padding:12px 16px">
          The link below logs you in automatically.
-         You can keep using your <strong style="color:#fff">existing ClipWise password</strong> to sign in normally any time at <a href="${BASE_URL}/login" style="color:#F5F0E6">${BASE_URL}/login</a> — or
-         <a href="${BASE_URL}/forgot-password" style="color:#F5F0E6">reset your password</a> if you've forgotten it.
+         You can keep using your <strong style="color:#111827">existing ClipWise password</strong> to sign in normally any time at <a href="${BASE_URL}/login" style="color:#111827">${BASE_URL}/login</a> — or
+         <a href="${BASE_URL}/forgot-password" style="color:#111827">reset your password</a> if you've forgotten it.
        </p>`
     : `<p>Click the button below to set up your account and access your personal barber dashboard. You'll be asked to choose a password.</p>`;
   return wrap(`
@@ -706,7 +706,7 @@ function barberInvite(data: Record<string, string>) {
     <p><span class="highlight">${data.shopName}</span> has invited you to join their team on ClipWise — the barbershop management platform.</p>
     ${leadParagraph}
     <hr class="divider">
-    <p style="font-weight:600;color:#fff;margin-bottom:8px">With your barber portal you can:</p>
+    <p style="font-weight:600;color:#111827;margin-bottom:8px">With your barber portal you can:</p>
     <ul class="steps">
       <li><span class="step-num">1</span>View your daily schedule and upcoming appointments</li>
       <li><span class="step-num">2</span>Manage your availability hours</li>
@@ -715,9 +715,9 @@ function barberInvite(data: Record<string, string>) {
     </ul>
     <hr class="divider">
     <a href="${data.inviteLink}" class="btn">${ctaText}</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">This link expires in 1 hour. If you didn't expect this, you can ignore it.</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">This link expires in 1 hour. If you didn't expect this, you can ignore it.</p>
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -727,10 +727,10 @@ function ownerPaymentReceived(data: Record<string, string>) {
     <div class="badge">💰 Payment Received</div>
     <h1>You got paid</h1>
     <p><span class="highlight">${data.clientName}</span> paid <span class="highlight">${data.amount}</span> for ${data.serviceName}${data.date ? ` (${data.date}${data.time ? ` · ${data.time}` : ""})` : ""}.</p>
-    <p style="font-size:13px;color:#C7CAD1">The appointment is now marked <strong style="color:#fff">Paid</strong> in your dashboard.</p>
+    <p style="font-size:13px;color:#4B5563">The appointment is now marked <strong style="color:#111827">Paid</strong> in your dashboard.</p>
     <a href="${BASE_URL}/dashboard/payments" class="btn">View payments →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">— ClipWise</p>
+    <p style="color:#6B7280">— ClipWise</p>
   `);
 }
 
@@ -742,10 +742,10 @@ function subscriptionStarted(data: Record<string, string>) {
     <p>Your <span class="highlight">${data.planName}</span> plan for <span class="highlight">${data.shopName}</span> is now active — every feature included in your plan is unlocked.</p>
     <a href="${BASE_URL}/dashboard" class="btn">Go to my dashboard →</a>
     <hr class="divider">
-    <p style="font-size:13px;color:#C7CAD1">Billed monthly in CAD. You can change or cancel your plan anytime from
-      <a href="${BASE_URL}/dashboard/billing" style="color:#F5F0E6">Billing</a> — cancelling stops future charges and
+    <p style="font-size:13px;color:#4B5563">Billed monthly in CAD. You can change or cancel your plan anytime from
+      <a href="${BASE_URL}/dashboard/billing" style="color:#111827">Billing</a> — cancelling stops future charges and
       keeps your plan active until the end of the billing period. No contracts, no hidden fees.</p>
-    <p style="color:#8A8F98">— ClipWise</p>
+    <p style="color:#6B7280">— ClipWise</p>
   `);
 }
 
@@ -760,10 +760,10 @@ function subscriptionRenewalReminder(data: Record<string, string>) {
       No action is needed to continue.</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">Manage billing →</a>
     <hr class="divider">
-    <p style="font-size:13px;color:#C7CAD1">Want to change or cancel? You can do it anytime from
-      <a href="${BASE_URL}/dashboard/billing" style="color:#F5F0E6">Billing</a> before the renewal date —
+    <p style="font-size:13px;color:#4B5563">Want to change or cancel? You can do it anytime from
+      <a href="${BASE_URL}/dashboard/billing" style="color:#111827">Billing</a> before the renewal date —
       cancelling stops future charges and keeps your plan until the end of the current period.</p>
-    <p style="color:#8A8F98">— ClipWise</p>
+    <p style="color:#6B7280">— ClipWise</p>
   `);
 }
 
@@ -778,8 +778,8 @@ function subscriptionPaymentFailed(data: Record<string, string>) {
     <p>Please update your card — Stripe will automatically retry, and your plan continues once the payment succeeds.</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">Update payment method →</a>
     <hr class="divider">
-    <p style="font-size:13px;color:#C7CAD1">If you already fixed this, you can ignore this message — a successful retry restores everything automatically.</p>
-    <p style="color:#8A8F98">— ClipWise</p>
+    <p style="font-size:13px;color:#4B5563">If you already fixed this, you can ignore this message — a successful retry restores everything automatically.</p>
+    <p style="color:#6B7280">— ClipWise</p>
   `);
 }
 
@@ -790,9 +790,9 @@ function barberPasswordReset(data: Record<string, string>) {
     <h1>Hi ${data.barberName},</h1>
     <p><span class="highlight">${data.shopName}</span> sent you a link to reset your ClipWise password.</p>
     <a href="${data.resetLink}" class="btn">Reset My Password →</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
     <hr class="divider">
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -807,9 +807,9 @@ function passwordReset(data: Record<string, string>) {
     <h1>Reset your password</h1>
     <p>We received a request to reset the password on your ClipWise account. Click below to choose a new one.</p>
     <a href="${data.resetLink}" class="btn">Reset My Password →</a>
-    <p style="font-size:12px;color:#8A8F98;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:8px">This link expires in 1 hour. If you didn't request this, you can safely ignore it — your password won't change.</p>
     <hr class="divider">
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -827,7 +827,7 @@ function barberAppointmentChange(data: Record<string, string>) {
   // Reschedule leads with an old → new panel; cancel/no-show keep the flat rows.
   const detail = isReschedule && data.fromWhen && data.toWhen
     ? `<div class="panel">
-         <div class="row"><span class="label">Was</span><span class="val" style="color:#9AA0A8;text-decoration:line-through">${data.fromWhen}</span></div>
+         <div class="row"><span class="label">Was</span><span class="val" style="color:#6B7280;text-decoration:line-through">${data.fromWhen}</span></div>
          <div class="row"><span class="label">Now</span><span class="val">${data.toWhen}</span></div>
        </div>
        <div class="row"><span class="label">Client</span><span class="val">${data.clientName}</span></div>
@@ -846,7 +846,7 @@ function barberAppointmentChange(data: Record<string, string>) {
     ${detail}
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -863,7 +863,7 @@ function shopOwnerNewBarberRequest(data: Record<string, string>) {
     ${data.bio ? `<div class="row"><span class="label">Bio</span><span class="val">${data.bio}</span></div>` : ""}
     <hr class="divider">
     <a href="${BASE_URL}/dashboard/staff" class="btn">Approve or Reject in Dashboard →</a>
-    <p style="color:#8A8F98">— The ClipWise Team</p>
+    <p style="color:#6B7280">— The ClipWise Team</p>
   `);
 }
 
@@ -879,8 +879,8 @@ function waitlistSlotOpen(data: Record<string, string>) {
     <hr class="divider">
     <a href="${data.bookingUrl}" class="btn">Book Now →</a>
     <div class="link-box"><a href="${data.bookingUrl}">${data.bookingUrl}</a></div>
-    <p style="font-size:13px;color:#9AA0A8">You're receiving this because you asked to be notified when a spot opened. No further action is needed if you've already booked elsewhere.</p>
-    <p style="color:#8A8F98">— ${data.shopName} via ClipWise</p>
+    <p style="font-size:13px;color:#6B7280">You're receiving this because you asked to be notified when a spot opened. No further action is needed if you've already booked elsewhere.</p>
+    <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
   `);
 }
 
@@ -900,7 +900,7 @@ function trialReminder(data: Record<string, string>) {
     <p>Hi ${data.ownerName || "there"} — <span class="highlight">${data.shopName}</span> is on the ${data.planName} free trial. Add a card to keep your paid features (online payments, POS, loyalty, extra barbers) once it ends.</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">Add your card →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">No charge until you subscribe. If you do nothing, your shop simply drops to the free Starter plan — your account and bookings stay safe. — The ClipWise Team</p>
+    <p style="color:#6B7280">No charge until you subscribe. If you do nothing, your shop simply drops to the free Starter plan — your account and bookings stay safe. — The ClipWise Team</p>
   `);
 }
 
@@ -911,7 +911,7 @@ function trialEnded(data: Record<string, string>) {
     <p>Hi ${data.ownerName || "there"} — the free trial for <span class="highlight">${data.shopName}</span> is over, so your shop is now on the free <span class="highlight">Starter</span> plan. Your account, booking page and bookings are all safe — you've just lost the paid features (online payments, POS, loyalty, extra barbers).</p>
     <a href="${BASE_URL}/dashboard/billing" class="btn">Subscribe to turn them back on →</a>
     <hr class="divider">
-    <p style="color:#8A8F98">Add a card anytime and your paid features switch back on instantly. — The ClipWise Team</p>
+    <p style="color:#6B7280">Add a card anytime and your paid features switch back on instantly. — The ClipWise Team</p>
   `);
 }
 
@@ -921,8 +921,8 @@ function signupCode(data: Record<string, string>) {
     <div class="green-badge">🔐 Verify your email</div>
     <h1>Your verification code</h1>
     <p>Enter this code to finish creating your ClipWise account:</p>
-    <div style="font-size:34px;font-weight:800;letter-spacing:10px;color:#fff;background:#161719;border:1px solid #2A2B2F;border-radius:14px;padding:22px;text-align:center;margin:18px 0;font-family:ui-monospace,Menlo,monospace">${data.code}</div>
-    <p style="font-size:13px;color:#9AA0A8">This code expires in ${data.expiryMinutes || "10"} minutes. If you didn't request it, you can safely ignore this email — no account is created until the code is entered.</p>
+    <div style="font-size:34px;font-weight:800;letter-spacing:10px;color:#111827;background:#F3F4F6;border:1px solid #E9EBEF;border-radius:14px;padding:22px;text-align:center;margin:18px 0;font-family:ui-monospace,Menlo,monospace">${data.code}</div>
+    <p style="font-size:13px;color:#6B7280">This code expires in ${data.expiryMinutes || "10"} minutes. If you didn't request it, you can safely ignore this email — no account is created until the code is entered.</p>
   `);
 }
 
@@ -1034,7 +1034,7 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
     if (!customTpl) return { subject: fallbackSubject, html: fallbackHtml() };
     const subj = customTpl.subject?.trim() ? fillTpl(customTpl.subject) : fallbackSubject;
     const bodyHtml = customTpl.body?.trim() ? fillTpl(customTpl.body).replace(/\n/g, "<br>") : "";
-    return { subject: subj, html: bodyHtml ? wrap(`<div style="font-size:15px;line-height:1.65;color:#333;">${bodyHtml}</div>`) : fallbackHtml() };
+    return { subject: subj, html: bodyHtml ? wrap(`<div style="font-size:15px;line-height:1.65;color:#E9EBEF;">${bodyHtml}</div>`) : fallbackHtml() };
   };
 
   let to = "";
