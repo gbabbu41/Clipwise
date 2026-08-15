@@ -1711,3 +1711,32 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
   html.cw-sidebar-collapsed .cw-main{margin-left:0}
   html.cw-sidebar-collapsed .cw-sidebar-expand{display:flex}
 }
+
+/* ── Crisp light — straggler fixes (from the whole-app light audit) ────────────
+   Central, light-only overrides so no interactive piece or popup stays washed or
+   dark. Dark theme untouched; no logic. */
+
+/* Toggle knobs: a bare white knob vanished on the light track when OFF — give any
+   un-inverted white element a faint inner hairline so it always reads. */
+html[data-theme="light"] .portal .bg-white:not(.text-black){ box-shadow: inset 0 0 0 1px rgba(15,23,42,0.18); }
+
+/* Inverted (bg-white+text-black) buttons: their hover kept a LIGHT bg while the
+   text is light → unreadable. Keep the dark inverted bg on hover. */
+html[data-theme="light"] .portal .hover\:bg-\[\#eaeaea\]:hover{ background-color: var(--foreground); }
+
+/* Bottom-sheets used the raised grey as the PANEL, so inner grey chips had no
+   tier separation (the washed sheet). Make the sheet panel white so chips lift. */
+html[data-theme="light"] .portal .bg-card-raised.shadow-2xl,
+html[data-theme="light"] .portal .bg-card-raised.rounded-t-\[20px\]{ background: var(--card); }
+
+/* Borderless faint "…" action button → give it a hairline edge. */
+html[data-theme="light"] .portal .bg-white\/10.text-foreground{ border: 1px solid var(--border); }
+
+/* Palette gaps the family maps didn't reach (extra opacities / solid accents). */
+html[data-theme="light"] .portal :is(.bg-\[\#00e5a0\]\/12, .hover\:bg-\[\#00e5a0\]\/20:hover){ background-color: #e7f4ed; }
+html[data-theme="light"] .portal :is(.border-\[\#00e5a0\]\/60, .hover\:border-\[\#00e5a0\]\/60:hover){ border-color: #2f9e6b; }
+html[data-theme="light"] .portal .border-\[\#ff6b6b\]\/50{ border-color: #f0c6c1; }
+html[data-theme="light"] .portal :is(.hover\:bg-\[\#ff6b6b\]\/10:hover, .hover\:bg-\[\#ff6b6b\]\/\[0\.12\]:hover){ background-color: #fbeae8; }
+html[data-theme="light"] .portal .bg-accent{ background-color: #4a86d8; }
+html[data-theme="light"] .portal .bg-accent-muted{ background-color: #e9f1fb; }
+html[data-theme="light"] .portal .bg-black.text-white{ background-color: var(--foreground); color: var(--background); }
