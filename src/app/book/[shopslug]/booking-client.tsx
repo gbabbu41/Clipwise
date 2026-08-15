@@ -141,7 +141,7 @@ function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300"
     )}>
       {toast.ok ? <Check size={15} /> : "✕"} {toast.msg}
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100">✕</button>
+      <button onClick={onClose} aria-label="Dismiss" className="ml-2 opacity-60 hover:opacity-100">✕</button>
     </div>
   );
 }
@@ -272,9 +272,11 @@ export default function BookingClient() {
   const [barberDows, setBarberDows] = useState<Record<string, Set<number>>>({});
   const [barberTimeOff, setBarberTimeOff] = useState<{ barber_id: string; start_date: string; end_date: string }[]>([]);
 
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3500);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
   };
 
   // ── Load shop + barbers + services ─────────────────────────────────────────
@@ -1560,25 +1562,25 @@ export default function BookingClient() {
               <div className="mt-5 flex flex-wrap items-center gap-6">
                 {shop.phone && (
                   <a href={`tel:${shop.phone}`} aria-label={`Call ${formatPhone(shop.phone)}`} title={formatPhone(shop.phone)}
-                     className="text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
+                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
                     <PhoneIcon size={22} />
                   </a>
                 )}
                 {shop.email && (
                   <a href={`mailto:${shop.email}`} aria-label={`Email ${shop.email}`} title={shop.email}
-                     className="text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
+                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
                     <MailIcon size={22} />
                   </a>
                 )}
                 {ig && (
                   <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer" aria-label={`Instagram @${ig}`} title={`@${ig}`}
-                     className="text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
+                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
                     <InstagramIcon size={22} />
                   </a>
                 )}
                 {shop.website && (
                   <a href={ensureHttp(shop.website)} target="_blank" rel="noopener noreferrer" aria-label={`Website ${displayUrl(shop.website)}`} title={displayUrl(shop.website)}
-                     className="text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
+                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
                     <GlobeIcon size={22} />
                   </a>
                 )}
@@ -1638,7 +1640,7 @@ export default function BookingClient() {
           <div className="max-w-2xl mx-auto px-5 py-4">
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
               {lockedBarber.photo
-                ? <img src={lockedBarber.photo} alt={lockedBarber.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
+                ? <img src={lockedBarber.photo} alt={lockedBarber.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
                 : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
@@ -1683,7 +1685,7 @@ export default function BookingClient() {
                 className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
               >
                 {b.photo
-                  ? <img src={b.photo} alt={b.name} className="w-14 h-14 rounded-full object-cover border border-[#2a2a2a]" />
+                  ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-14 h-14 rounded-full object-cover border border-[#2a2a2a]" />
                   : <div className="w-14 h-14 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold text-xl">{b.name[0]}</div>
                 }
                 <div className="flex-1">
@@ -2039,7 +2041,7 @@ export default function BookingClient() {
                               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-[#2a2a2a] bg-[#141414] hover:border-gray-400 text-left transition-all"
                             >
                               {b.photo
-                                ? <img src={b.photo} alt={b.name} className="w-10 h-10 rounded-full object-cover" />
+                                ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover" />
                                 : <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white font-bold">{b.name[0]}</div>
                               }
                               <div className="flex-1">
