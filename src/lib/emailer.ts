@@ -487,8 +487,7 @@ function paymentReceipt(data: Record<string, string>) {
     <div class="badge">👋 We Missed You</div>
     <h1>Hey ${data.clientName}, we missed you!</h1>
     <p>You weren't able to make it to your appointment at <span class="highlight">${data.shopName}</span> — no worries, life happens. As noted when you booked, a no-show fee was applied; your receipt is below, and we'd love to see you next time.</p>`
-    : `<div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.3px;margin-bottom:4px">${data.shopName}</div>
-    <div style="font-size:12px;color:#6B7280;margin-bottom:22px">Receipt from ${data.shopName}</div>
+    : `${shopHeader(data.shopName)}
     <div class="green-badge">💳 Payment Received</div>
     <h1>Hi ${data.clientName},</h1>
     <p>Thanks for your payment to <span class="highlight">${data.shopName}</span>${data.context ? ` for your ${data.context.toLowerCase()}` : ""}. ${data.shopName} is the seller for this purchase — your receipt is below.</p>`;
@@ -654,7 +653,7 @@ function timeOffDecision(data: Record<string, string>) {
     <div class="row"><span class="label">Type</span><span class="val">${data.requestType}</span></div>
     <div class="row"><span class="label">Dates</span><span class="val">${data.dateRange}</span></div>
     ${data.timeRange ? `<div class="row"><span class="label">Hours</span><span class="val">${data.timeRange}</span></div>` : ""}
-    <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#10B981" : cancelled || modified ? "#F59E0B" : "#EF4444"};text-transform:uppercase;font-weight:600">${data.decision}</span></div>
+    <div class="row"><span class="label">Decision</span><span class="val" style="color:${approved ? "#166534" : cancelled || modified ? "#B45309" : "#991B1B"};text-transform:uppercase;font-weight:700">${data.decision}</span></div>
     ${approved
       ? `<p style="color:#4B5563">Your schedule has been updated — these slots will no longer be offered to customers during this window.</p>`
       : cancelled
@@ -675,12 +674,10 @@ function bookingRequestReceived(data: Record<string, string>) {
     <h1>Thanks, ${data.clientName}!</h1>
     <p>Your booking request at <span class="highlight">${data.shopName}</span> has been received and is <strong style="color:#111827">waiting for the shop to confirm</strong>. We'll email you as soon as it's approved.</p>
     <hr class="divider">
-    <table style="width:100%;font-size:14px;color:#4B5563">
-      <tr><td>Service</td><td style="text-align:right;color:#111827">${data.serviceName}</td></tr>
-      <tr><td>Barber</td><td style="text-align:right;color:#111827">${data.barberName}</td></tr>
-      <tr><td>Date</td><td style="text-align:right;color:#111827">${data.date}</td></tr>
-      <tr><td>Time</td><td style="text-align:right;color:#111827">${data.time}</td></tr>
-    </table>
+    <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
+    <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
+    <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
+    <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
     <hr class="divider">
     <p style="font-size:13px;color:#4B5563">Booking ref: <strong style="color:#111827">${data.bookingId}</strong> · You'll pay in person at the shop.</p>
     <a href="${BASE_URL}/my-booking/${data.appointmentId}" class="btn">View my booking →</a>
@@ -1034,7 +1031,7 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
     if (!customTpl) return { subject: fallbackSubject, html: fallbackHtml() };
     const subj = customTpl.subject?.trim() ? fillTpl(customTpl.subject) : fallbackSubject;
     const bodyHtml = customTpl.body?.trim() ? fillTpl(customTpl.body).replace(/\n/g, "<br>") : "";
-    return { subject: subj, html: bodyHtml ? wrap(`<div style="font-size:15px;line-height:1.65;color:#E9EBEF;">${bodyHtml}</div>`) : fallbackHtml() };
+    return { subject: subj, html: bodyHtml ? wrap(`${shopHeader(data.shopName)}<div style="font-size:15px;line-height:1.65;color:#4B5563">${bodyHtml}</div>`) : fallbackHtml() };
   };
 
   let to = "";
