@@ -1337,7 +1337,12 @@ textarea:focus-visible {
 .cwd-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
 /* Match the inline page headers used on the other ~25 pages
    (text-2xl / font-bold / tracking-wide) so every portal header is identical. */
-.cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:0.025em; text-transform:uppercase; color:var(--foreground); line-height:1.2; }
+/* Mobile: the sticky top bar already shows the page title ("HOME") at 23px, so
+   the in-body shop-name greeting is dialed down to clearly sit UNDER it instead
+   of competing as a second big uppercase title. Desktop (no top bar) keeps it at
+   full page-title size below. */
+.cwd-hdr h1 { margin:0; font-size:1.125rem; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; color:var(--foreground); line-height:1.25; }
+@media (min-width:1024px) { .cwd-hdr h1 { font-size:1.5rem; letter-spacing:0.025em; } }
 .cwd-hdr .cwd-sub { margin:4px 0 0; font-size:13px; color:var(--grey); }
 .cwd-cluster { display:flex; gap:8px; flex-shrink:0; }
 .cwd-icobtn { width:38px; height:38px; border-radius:999px; background:var(--card-raised); border:0; display:flex; align-items:center; justify-content:center; color:#a9c6ff; position:relative; }
