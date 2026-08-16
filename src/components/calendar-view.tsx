@@ -2686,14 +2686,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // It fires an event (when the calendar is already open) and sets a flag (read
   // on a fresh navigation, once barbers have loaded so there's someone to seed).
   useEffect(() => {
-    const fire = () => { try { sessionStorage.removeItem("cw_open_newappt"); } catch { /* ignore */ } openAddGeneral(); };
+    const hasBarber = () => !!(dayBarberId ?? orderedBarbers[0]?.id);
+    // Guard on a resolved barber (openAddGeneral early-returns without one, which
+    // would consume the flag and make "New appointment" silently do nothing); if
+    // none yet, leave the flag so this effect re-fires once barbers load.
+    const fire = () => { if (!hasBarber()) return; try { sessionStorage.removeItem("cw_open_newappt"); } catch { /* ignore */ } openAddGeneral(); };
     try {
-      if (sessionStorage.getItem("cw_open_newappt") === "1" && (dayBarberId ?? orderedBarbers[0]?.id)) fire();
+      const flag = sessionStorage.getItem("cw_open_newappt");
+      if (flag) {
+        // Only honor a FRESH flag (set on this navigation). A stale one — left
+        // behind by a visit where barbers never loaded — is dropped, not fired.
+        if (Date.now() - Number(flag) < 8000) fire();
+        else sessionStorage.removeItem("cw_open_newappt");
+      }
     } catch { /* ignore */ }
     window.addEventListener("cw-open-newappt", fire);
     return () => window.removeEventListener("cw-open-newappt", fire);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayBarberId, orderedBarbers]);
+  }, [dayBarberId, orderedBarbers[0]?.id]);
   // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
     ? `y${currentDate.getFullYear()}`

@@ -214,6 +214,19 @@ export function Sidebar() {
     if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut();
   };
   const [unreadCount, setUnreadCount] = useState(0);
+  // Remembers where the owner was before opening Clients so the toggle can return
+  // there — never router.back(), which would leave the app entirely if Clients was
+  // the first page (deep link / refresh / no in-app history).
+  const clientsReturnRef = useRef<string>("/dashboard");
+  const isBarber = profile?.role === "barber";
+  const toggleClients = () => {
+    if (pathname === "/dashboard/clients") {
+      router.push(clientsReturnRef.current || "/dashboard");
+    } else {
+      clientsReturnRef.current = pathname;
+      router.push("/dashboard/clients");
+    }
+  };
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -312,8 +325,12 @@ export function Sidebar() {
     // the query doesn't error on shops that haven't run it yet.
     // Scoped to the active shop (multi-shop owners don't see other shops' alerts).
     fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 15 })
-      .then(({ data }) => setRecentNotifs((data ?? []) as unknown as typeof recentNotifs));
-  }, [notifOpen, user, unreadCount, shop?.id]);
+      .then(({ data, error }) => { if (!error) setRecentNotifs((data ?? []) as unknown as typeof recentNotifs); });
+    // Deliberately NOT keyed on unreadCount: mark-seen sets it to 0, which would
+    // re-run this fetch and race the (fire-and-forget) DB write — re-reading rows
+    // still is_read:false and repainting the "unread" dots the open sheet just
+    // cleared. The sheet already loads fresh on every open (notifOpen).
+  }, [notifOpen, user, shop?.id]);
 
   // Opening the bell marks everything SEEN so the red badge clears right away (and
   // stays cleared on refresh). Mirrors the unread-count scope: this user's unread
@@ -325,7 +342,10 @@ export function Sidebar() {
     let q = supabase.from("notifications").update({ is_read: true })
       .eq("user_id", user.id).eq("is_read", false);
     if (shop?.id) q = q.or(`shop_id.eq.${shop.id},shop_id.is.null`);
-    q.then(null, () => null);
+    // Read the error (not just swallow a rejection): a Supabase update RESOLVES
+    // with { error } on an RLS/DB failure, so without this a silently-failed
+    // write leaves the rows unread and the red badge returns on next refresh.
+    q.then(({ error }) => { if (error) console.error("mark notifications seen failed:", error.message); }, () => {});
   };
   useEffect(() => {
     if (notifOpen) markNotifsSeen();
@@ -385,8 +405,9 @@ export function Sidebar() {
 
   // The Clients top-bar button uses router.push (a toggle), which — unlike a
   // <Link> — doesn't auto-prefetch. Warm the route once on mount so the tap is
-  // instant, matching the prefetch the bottom-nav Link tabs get for free.
-  useEffect(() => { router.prefetch("/dashboard/clients"); }, [router]);
+  // instant, matching the prefetch the bottom-nav Link tabs get for free. Skip
+  // for barbers, who don't see the Clients shortcut.
+  useEffect(() => { if (!isBarber) router.prefetch("/dashboard/clients"); }, [router, isBarber]);
 
   useEffect(() => {
     if (!user) return;
@@ -425,13 +446,14 @@ export function Sidebar() {
       >
         <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
-            again (while on it) to go back. Highlights while active. */}
-        {(() => {
+            again (while on it) to return where you were. Owner-only, matching the
+            sidebar's ownerOnly Clients item. Highlights while active. */}
+        {!isBarber && (() => {
           const onClients = pathname === "/dashboard/clients";
           return (
             <button
               type="button"
-              onClick={() => (onClients ? router.back() : router.push("/dashboard/clients"))}
+              onClick={toggleClients}
               aria-label="Clients"
               aria-pressed={onClients}
               className={cn(
@@ -788,7 +810,10 @@ export function MobileNav() {
   // Fires an event (when the calendar is already open) and sets a flag (read on a
   // fresh navigation, once barbers load) so the banner opens from any page.
   const newAppointment = () => {
-    try { sessionStorage.setItem("cw_open_newappt", "1"); } catch { /* ignore */ }
+    // Timestamp (not "1") so a flag that never gets consumed this navigation —
+    // calendar mounts without barbers, user leaves — goes stale instead of
+    // popping the add banner open on some unrelated later calendar visit.
+    try { sessionStorage.setItem("cw_open_newappt", String(Date.now())); } catch { /* ignore */ }
     window.dispatchEvent(new Event("cw-open-newappt"));
     router.push("/dashboard/calendar");
   };

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency, getTagColor, prettyDate } from "@/lib/utils";
@@ -70,6 +70,11 @@ export default function ClientsPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
+  // Guards against a stale load overwriting fresh data: every loadClients bumps
+  // this, and any async setState checks it's still the latest before writing.
+  // Prevents a shop-switch or a burst of realtime events from painting old rows.
+  const loadSeqRef = useRef(0);
+
   // Builds the client list from BOTH the `clients` table (people the owner
   // manually added or whose stats have been touched by a completed appt)
   // AND distinct customers harvested from `appointments` (the booking flow
@@ -77,15 +82,20 @@ export default function ClientsPage() {
   // empty `clients` table). Dedupe by email > phone > name (same pattern
   // as the messages picker). Synthetic rows get a `synthetic:` id prefix
   // so write ops (notes, points, etc.) can detect and skip them.
-  const loadClients = useCallback(async () => {
+  const loadClients = useCallback(async (opts?: { background?: boolean }) => {
     if (!shop) { setLoading(false); return; }
-    setLoading(true);
+    const seq = ++loadSeqRef.current;
+    // A realtime refresh runs in the background — don't flash the skeleton back
+    // over an already-painted list on every booking/completion. Only the first
+    // (foreground) load shows the loading state.
+    if (!opts?.background) setLoading(true);
 
     // ── Phase 1 (fast) — the clients table alone. It's small and indexed by
     // shop_id and already carries total_visits/points, so the list can paint
     // almost immediately instead of waiting on the full appointment history. ──
     const { data: clientRows, error: clientErr } = await supabase
       .from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false });
+    if (seq !== loadSeqRef.current) return; // a newer load started — bail
     if (clientErr) showToast("Couldn't load clients — please refresh.");
     const baseRows = (clientRows ?? []) as Client[];
     setClients(groupClients({ shopId: shop.id, clientRows: baseRows, apptRows: [] }));
@@ -107,6 +117,7 @@ export default function ClientsPage() {
         .from("appointments")
         .select("client_name, client_email, client_phone, date, status, total_amount")
         .eq("shop_id", shop.id).order("date", { ascending: false });
+      if (seq !== loadSeqRef.current) return; // a newer load started — bail
       apptRows = (noCid.data as unknown as ApptLite[]) ?? [];
     }
 
@@ -114,9 +125,13 @@ export default function ClientsPage() {
     // so two people named "ABC" stay separate, and the same person with a typo'd
     // name or reformatted number stays as one. See lib/client-identity.ts.
     const list = groupClients({ shopId: shop.id, clientRows: baseRows, apptRows });
+    if (seq !== loadSeqRef.current) return; // a newer load started — bail
     setClients(list);
 
-    const nsData = nsRes.data;
+    // Read the error too: a failed no-show query looks identical to "zero
+    // no-shows" if we only read data, so keep the prior counts instead of
+    // silently blanking the badges.
+    const nsData = nsRes.error ? null : nsRes.data;
     if (nsData) {
       // Attribute each no-show to the right person by IDENTITY, keyed on the
       // grouped client's id — so a same-name stranger isn't blamed for it.
@@ -135,12 +150,17 @@ export default function ClientsPage() {
   // spend) or clients (points/notes edits from another device or barber) change.
   useEffect(() => {
     if (!shop) return;
+    // Debounce: a completed booking can fire several row changes at once — collapse
+    // the burst into one background refresh instead of re-running the full history
+    // fetch per event. `background` keeps the painted list up while it refreshes.
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => { if (t) clearTimeout(t); t = setTimeout(() => loadClients({ background: true }), 400); };
     const ch = supabase
       .channel(`clients-live:${shop.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, () => loadClients())
-      .on("postgres_changes", { event: "*", schema: "public", table: "clients", filter: `shop_id=eq.${shop.id}` }, () => loadClients())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `shop_id=eq.${shop.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients", filter: `shop_id=eq.${shop.id}` }, refresh)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { if (t) clearTimeout(t); supabase.removeChannel(ch); };
   }, [shop, loadClients]);
 
   // Keyboard: Escape closes panel
@@ -304,7 +324,10 @@ export default function ClientsPage() {
     const realId = await ensureRealClient(addPointsClient);
     if (!realId) { setSaving(false); showToast("Couldn't add points — please try again."); return; }
     // Read the current balance from the DB (not stale local state / NaN) then add.
-    const { data: row } = await supabase.from("clients").select("loyalty_points").eq("id", realId).maybeSingle();
+    // Bail on a read error — otherwise a failed read reads as 0 and the update
+    // would OVERWRITE the client's real balance with just the delta (data loss).
+    const { data: row, error: readErr } = await supabase.from("clients").select("loyalty_points").eq("id", realId).maybeSingle();
+    if (readErr) { setSaving(false); showToast("Couldn't add points — please try again."); return; }
     const current = Number(row?.loyalty_points ?? 0);
     const newTotal = Math.max(0, current + pts);
     const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", realId);
@@ -313,7 +336,7 @@ export default function ClientsPage() {
     if (selectedClient?.id === addPointsClient.id) setSelectedClient(c => c ? { ...c, id: realId, loyalty_points: newTotal } : c);
     showToast(`${pts > 0 ? "+" : ""}${pts} points · now ${newTotal}`);
     setAddPointsClient(null);
-    loadClients();
+    loadClients({ background: true }); // list is already on screen — don't flash the skeleton
   };
 
   const addClient = async () => {
@@ -347,7 +370,7 @@ export default function ClientsPage() {
       loyalty_points: 0,
       tag: "New",
     });
-    if (!error) { showToast("Client added!"); loadClients(); setShowAddModal(false); setNewClient(BLANK_CLIENT); }
+    if (!error) { showToast("Client added!"); loadClients({ background: true }); setShowAddModal(false); setNewClient(BLANK_CLIENT); }
     else showToast("Error: " + error.message);
     setSaving(false);
   };
