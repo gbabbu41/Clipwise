@@ -894,16 +894,16 @@ export default function StaffPage() {
       {permBarber && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPermBarber(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card border border-border w-full sm:max-w-md max-h-[92dvh] sm:max-h-[85dvh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-sm">
+              <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border shrink-0">
                 <div>
                   <h2 className="text-lg font-bold text-foreground">Permissions — {permBarber.name}</h2>
                   <p className="text-xs text-grey mt-0.5">Choose what {permBarber.name.split(" ")[0]} can do from the barber portal.</p>
                 </div>
-                <button onClick={() => setPermBarber(null)} className="text-grey hover:text-foreground"><X size={18} /></button>
+                <button onClick={() => setPermBarber(null)} className="text-grey hover:text-foreground shrink-0"><X size={18} /></button>
               </div>
-              <div className="space-y-2 pt-1">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-2">
                 {([
                   { key: "edit_schedule",       label: "Edit own schedule",     description: "Change working hours from their Availability page." },
                   { key: "request_time_off",    label: "Request time off",      description: "Submit time-off requests for your approval." },
@@ -921,7 +921,7 @@ export default function StaffPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 px-5 py-4 border-t border-border shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                 <Button variant="outline" className="flex-1" onClick={() => setPermBarber(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingPerms} onClick={savePermissions}>Save</Button>
               </div>
@@ -934,12 +934,13 @@ export default function StaffPage() {
       {scheduleBarber && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setScheduleBarber(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card border border-border w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[85dvh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
                 <h2 className="text-lg font-bold text-foreground">Schedule — {scheduleBarber.name}</h2>
                 <button onClick={() => setScheduleBarber(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
 
               {/* Time increments — quarter-hour lets a barber start at e.g.
                   9:45 AM. Shop-wide; the customer booking page offers the same
@@ -1081,7 +1082,8 @@ export default function StaffPage() {
                   );
                 })}
               </div>
-              <div className="flex gap-3">
+              </div>
+              <div className="flex gap-3 px-5 py-4 border-t border-border shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                 <Button variant="outline" className="flex-1" onClick={() => setScheduleBarber(null)}>Cancel</Button>
                 <Button className="flex-1" loading={savingSchedule} onClick={saveSchedule}>Save Schedule</Button>
               </div>
@@ -1095,8 +1097,8 @@ export default function StaffPage() {
       {inviteLinkModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setInviteLinkModal(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card shadow-sm border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md space-y-4 max-h-[92dvh] sm:max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">✉️ Invite Link Ready</h2>
                 <button onClick={() => setInviteLinkModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
@@ -1134,8 +1136,8 @@ export default function StaffPage() {
       {resetModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setResetModal(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card shadow-sm border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md space-y-4 max-h-[92dvh] sm:max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">Password reset sent</h2>
                 <button onClick={() => setResetModal(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
@@ -1156,8 +1158,8 @@ export default function StaffPage() {
       {confirmRemove && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmRemove(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card shadow-sm border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm space-y-4 max-h-[92dvh] sm:max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
                   <Trash2 size={20} className="text-red-400" />
@@ -1186,8 +1188,8 @@ export default function StaffPage() {
       {showAddModal && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+            <div className="bg-card shadow-sm border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md space-y-4 max-h-[92dvh] sm:max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">Add Barber</h2>
                 <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
