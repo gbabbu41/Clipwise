@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose,
+  PanelLeft, PanelLeftClose, Plus,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -401,6 +401,14 @@ export function Sidebar() {
         )}
       >
         <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{barTitleFor(pathname)}</h1>
+        {/* Clients shortcut — moved off the (now 4-tab) bottom nav to here. */}
+        <Link
+          href="/dashboard/clients"
+          aria-label="Clients"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-foreground hover:bg-white/5 transition-colors flex-shrink-0"
+        >
+          <Users size={19} />
+        </Link>
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
@@ -725,37 +733,70 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
-  // 4 page-links + 1 'More' drawer-opener. The drawer is the canonical
-  // way to reach everything else (Staff, Services, Settings, etc.).
-  const linkItems = [
-    { href: "/dashboard",              label: "Home",         icon: LayoutDashboard },
-    { href: "/dashboard/schedule",     label: "Schedule",     icon: Clock },
-    { href: "/dashboard/calendar",     label: "Calendar",     icon: CalendarDays },
-    { href: "/dashboard/clients",      label: "Clients",      icon: Users },
-    { href: "/dashboard/payments",     label: "Payments",     icon: Banknote },
-  ];
+  const router = useRouter();
+  const [addOpen, setAddOpen] = useState(false);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
+  // Two tabs flank the center + ; the last tab + More sit on the right. Schedule
+  // moved into the More drawer and Clients moved to the top bar to make room, so
+  // the four tabs stay balanced around the raised quick-add button.
+  const navLink = (href: string, label: string, Icon: typeof LayoutDashboard) => {
+    const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+    return (
+      <Link href={href} className={cn("cw-ni", isActive && "active")}>
+        <div className="cw-ni-icon"><Icon size={20} /></div>
+        <div className="cw-ni-label">{label}</div>
+        {isActive && <div className="cw-ni-line" />}
+      </Link>
+    );
+  };
+
+  // Quick-add actions — reach the create surfaces from any page. New appointment
+  // opens the calendar (where booking happens); Walk-in opens the dashboard's
+  // walk-in modal via a flag + event so it works whether or not it's mounted.
+  const newAppointment = () => { setAddOpen(false); router.push("/dashboard/calendar"); };
+  const newWalkin = () => {
+    setAddOpen(false);
+    try { sessionStorage.setItem("cw_open_walkin", "1"); } catch { /* ignore */ }
+    window.dispatchEvent(new Event("cw-open-walkin"));
+    router.push("/dashboard");
+  };
+
   return (
-    <nav className="cw-bnav lg:hidden">
-      {linkItems.map((item) => {
-        const isActive = pathname === item.href
-          || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-        return (
-          <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
-            <div className="cw-ni-icon"><item.icon size={20} /></div>
-            <div className="cw-ni-label">{item.label}</div>
-            {isActive && <div className="cw-ni-line" />}
-          </Link>
-        );
-      })}
-      {/* 'More' opens the sidebar drawer instead of navigating somewhere.
-          Replaces the old top-bar hamburger so all chrome lives in one
-          predictable spot at the bottom of the screen. */}
-      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-        <div className="cw-ni-icon"><Menu size={20} /></div>
-        <div className="cw-ni-label">More</div>
-      </button>
-    </nav>
+    <>
+      <nav className="cw-bnav lg:hidden">
+        {navLink("/dashboard", "Home", LayoutDashboard)}
+        {navLink("/dashboard/calendar", "Calendar", CalendarDays)}
+        {/* Center hero — quick add (new appointment / walk-in). */}
+        <button type="button" onClick={() => setAddOpen(true)} className="cw-fab" aria-label="Add">
+          <Plus size={26} strokeWidth={2.6} />
+        </button>
+        {navLink("/dashboard/payments", "Payments", Banknote)}
+        {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Settings…). */}
+        <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
+          <div className="cw-ni-icon"><Menu size={20} /></div>
+          <div className="cw-ni-label">More</div>
+        </button>
+      </nav>
+
+      {/* Quick-add sheet — slides up from the +. */}
+      {addOpen && (
+        <div className="lg:hidden fixed inset-0 z-[80]" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 bg-card border-t border-border rounded-t-2xl shadow-2xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] animate-slide-up">
+            <div className="flex justify-center pt-1 pb-2"><div className="w-9 h-1.5 rounded-full bg-border" /></div>
+            <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-grey">Add</p>
+            <button type="button" onClick={newAppointment} className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-surface-overlay transition-colors text-left">
+              <span className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-foreground flex-shrink-0"><CalendarDays size={20} /></span>
+              <span className="min-w-0"><span className="block text-sm font-semibold text-foreground">New appointment</span><span className="block text-xs text-grey">Book a client on the calendar</span></span>
+            </button>
+            <button type="button" onClick={newWalkin} className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-surface-overlay transition-colors text-left border-t border-border">
+              <span className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-foreground flex-shrink-0"><Users size={20} /></span>
+              <span className="min-w-0"><span className="block text-sm font-semibold text-foreground">Walk-in</span><span className="block text-xs text-grey">Add someone who just showed up</span></span>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
