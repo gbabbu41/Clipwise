@@ -1312,6 +1312,15 @@ textarea:focus-visible {
 .cwd-icobtn .cwd-dot { position:absolute; top:7px; right:7px; width:7px; height:7px; border-radius:999px; background:var(--foreground); border:2px solid var(--background); }
 .cwd-avatar { width:38px; height:38px; border-radius:999px; background:var(--foreground); color:var(--background); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
 
+/* On mobile the sticky top bar carries the page title, so hide the in-body
+   page-title heading there (it was showing the title twice). Desktop has no top
+   bar, so it keeps the heading. Targets the shared page-title style used by the
+   ~18 standalone pages (staff, settings, analytics, billing, …) — verified only
+   used on page-title <h1>s, never section headings or other tags. */
+@media (max-width: 1023.98px) {
+  .portal h1.text-2xl.uppercase.tracking-wide { display: none; }
+}
+
 .cwd-filter { display:flex; gap:8px; align-items:center; margin-bottom:18px; flex-wrap:wrap; position:relative; }
 .cwd-select { background:var(--card-raised); border:1px solid var(--border); border-radius:11px; padding:9px 12px; font-size:13px; color:var(--foreground); display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
 .cwd-select:hover { border-color:rgba(255,255,255,.4); }

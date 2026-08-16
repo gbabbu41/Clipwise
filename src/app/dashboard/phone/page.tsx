@@ -76,7 +76,7 @@ export default function PhoneActivityPage() {
           <Link href="/dashboard/settings" className="inline-flex items-center gap-1 text-xs text-grey hover:text-foreground mb-1">
             <ArrowLeft size={13} /> Settings
           </Link>
-          <h1 className="text-xl font-bold text-foreground">Phone Activity</h1>
+          <h1 className="text-xl font-bold text-foreground max-lg:hidden">Phone Activity</h1>
         </div>
         <div className="flex gap-1">
           {PERIODS.map(p => (
