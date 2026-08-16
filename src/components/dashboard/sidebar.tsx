@@ -181,18 +181,27 @@ const navSections: NavSection[] = [
 ];
 
 
-// Mobile top-bar titles (route → label), mirroring the barber portal. Only the
-// pages that render an inline header are mapped; other pages show a title-less
-// bar (bell + profile) so their own in-page heading isn't duplicated.
+// Mobile top-bar titles. Explicit labels for routes whose auto-derived name would
+// be wrong/ugly; every other page falls back to a title-cased route segment (see
+// barTitleFor) so NO page shows a blank bar. Mirrors the barber portal.
 const BAR_TITLE: Record<string, string> = {
   "/dashboard": "Home",
-  "/dashboard/calendar": "Calendar",
-  "/dashboard/appointments": "Appointments",
-  "/dashboard/clients": "Clients",
-  "/dashboard/payments": "Payments",
-  "/dashboard/schedule": "Schedule",
   "/dashboard/pos": "POS",
+  "/dashboard/my-stats": "My Stats",
+  "/dashboard/waitlist": "Waitlist",
+  "/dashboard/waitlist-requests": "Spot Waitlist",
+  "/dashboard/stripe-setup": "Get Paid",
 };
+
+// The bar title for a route: explicit map first, else title-case the last path
+// segment ("/dashboard/gift-cards" → "Gift Cards", "/dashboard/time-off" →
+// "Time Off"). Falls back to "Dashboard" for anything unexpected.
+function barTitleFor(pathname: string): string {
+  if (BAR_TITLE[pathname]) return BAR_TITLE[pathname];
+  const seg = pathname.split("/").filter(Boolean).pop() ?? "";
+  if (!seg || seg === "dashboard") return "Home";
+  return seg.split("-").map(w => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(" ");
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -391,7 +400,7 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
+        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{barTitleFor(pathname)}</h1>
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
