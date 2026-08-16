@@ -106,13 +106,24 @@ export async function changePlanPrice(
   const planItem = sub.items.data.find((i) => !i.price?.lookup_key);
   if (!planItem) throw new Error("Could not find the plan line item on the subscription");
   const price = planItem.price;
-  let productId = typeof price.product === "string" ? price.product : (price.product?.id ?? null);
+  let productId: string | null = typeof price.product === "string" ? price.product : (price.product?.id ?? null);
+  if (productId) {
+    // Reactivate + rename the existing plan product. Stripe REFUSES to attach a
+    // new price to an ARCHIVED (inactive) product — "…is marked as inactive, and
+    // thus no new subscriptions can be created to any plans of this product" —
+    // which happens after earlier subscription/price cleanup and was the real
+    // cause of the Pro→Premium failure. active:true clears it; reusing the same
+    // product keeps invoice history tidy. If the product is gone/unusable, fall
+    // through and mint a fresh one.
+    try {
+      await stripe.products.update(productId, { name: planName, active: true });
+    } catch {
+      productId = null;
+    }
+  }
   if (!productId) {
     const p = await stripe.products.create({ name: planName });
     productId = p.id;
-  } else {
-    // Keep the invoice line label in sync with the new plan (best-effort).
-    await stripe.products.update(productId, { name: planName }).catch(() => null);
   }
   await stripe.subscriptions.update(subscriptionId, {
     items: [{
