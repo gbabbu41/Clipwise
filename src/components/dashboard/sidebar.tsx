@@ -263,12 +263,22 @@ export function Sidebar() {
     };
   }, []);
 
-  // Sticky top-bar hairline: fade the border in only once content scrolls under
-  // the bar (matches the barber portal's top bar).
+  // Mobile top bar: hide on scroll-down, come back on scroll-up (matches the
+  // barber portal); the hairline border fades in only once content scrolls under
+  // the bar.
+  const [topBarHidden, setTopBarHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 4);
-    onScroll();
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 4);
+      const delta = y - lastY;
+      if (Math.abs(delta) < 6) return;
+      if (delta > 0 && y > 40) setTopBarHidden(true);
+      else if (delta < 0) setTopBarHidden(false);
+      lastY = y;
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -378,6 +388,7 @@ export function Sidebar() {
         className={cn(
           "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
           scrolled ? "border-border" : "border-transparent",
+          topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
         <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
