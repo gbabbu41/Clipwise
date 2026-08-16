@@ -371,6 +371,32 @@ html[data-theme="light"] .portal .focus\:border-\[\#00e5a0\]\/50:focus { border-
 html[data-theme="light"] .portal :is(.border-\[\#ff6b6b\]\/15) { border-color: #f0c6c1; }
 html[data-theme="light"] .portal :is(.border-gray-500\/30,.border-purple-400\/20) { border-color: #d4d4d8; }
 
+/* ── Dark portal: route the scattered hard-coded surface/border literals through
+   the minimal token ramp so cards read as ONE calm surface, not a stack of
+   bordered boxes — the mirror of the light remap above. Dark-only (scoped to
+   html:not([data-theme="light"])), so it never touches the light theme. Color
+   only, no component edits: these literal hexes predate the tokens, and with the
+   new near-invisible --border + nearly-merged card tiers, folding them onto the
+   tokens is what removes the remaining "boxy" noise the token retune alone left. */
+
+/* Visible literal borders → the near-invisible token hairline. */
+html:not([data-theme="light"]) .portal :is(
+  .border-\[\#2a2a2a\],.border-\[\#2a2a2a\]\/40,.border-\[\#2a2a2a\]\/50,.border-\[\#2a2a2a\]\/60,.border-\[\#2a2a2a\]\/80,
+  .border-\[\#333\],.border-\[\#333333\],.border-\[\#242424\],.border-\[\#1c1c1c\],.border-\[\#1e1e1e\]
+) { border-color: var(--border); }
+/* Heavier literal borders (drag handles, active outlines, hovers) → subtle strong divider. */
+html:not([data-theme="light"]) .portal :is(.border-\[\#3a3a3a\],.border-\[\#4a4a4a\]) { border-color: var(--border-strong); }
+html:not([data-theme="light"]) .portal :is(.hover\:border-\[\#4a4a4a\]:hover,.hover\:border-\[\#2a2a2a\]:hover,.hover\:border-\[\#2a2a2a\]\/80:hover) { border-color: var(--border-strong); }
+
+/* Surface fills → collapse the competing dark greys onto the ramp so only a
+   couple of distinct backgrounds remain. Solid fills only — opacity variants
+   (…/80, …/30) are scrims and keep their translucency. */
+html:not([data-theme="light"]) .portal :is(.bg-\[\#0d0d0d\],.bg-\[\#0a0a0a\],.bg-\[\#0A0A0A\]) { background-color: var(--background); }
+html:not([data-theme="light"]) .portal :is(.bg-\[\#141414\],.bg-\[\#0c0c0c\]) { background-color: var(--card); }
+html:not([data-theme="light"]) .portal .bg-\[\#1a1a1a\] { background-color: var(--card-raised); }
+html:not([data-theme="light"]) .portal :is(.bg-\[\#1e1e1e\],.bg-\[\#1c1c1c\],.bg-\[\#2a2a2a\],.bg-\[\#242424\],.bg-\[\#262626\]) { background-color: var(--surface-overlay); }
+html:not([data-theme="light"]) .portal .bg-\[\#3a3a3a\] { background-color: var(--border-strong); }
+
 * {
   box-sizing: border-box;
 }
