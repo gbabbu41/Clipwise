@@ -610,16 +610,18 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Date filter — compact dropdown (sizes to the selected label) + pill */}
+      {/* Date filter — ONE quiet control: a ghost "Today ▾" text button whose menu
+          holds the ranges plus "Pick a date…" (which opens the calendar). The
+          separate bordered calendar pill was removed so the top stays clean. */}
       <div className="cwd-filter">
         <div className="relative">
           <button
             type="button"
             onClick={() => setFilterMenuOpen(o => !o)}
-            className={cn("cwd-trigger", filterMenuOpen && "open")}
+            className="inline-flex items-center gap-1.5 py-1.5 pr-1 text-[15px] font-bold text-foreground"
           >
             {DATE_FILTER_LABELS[dateFilter]}
-            <ChevronDown size={15} />
+            <ChevronDown size={16} className="text-grey" />
           </button>
           {filterMenuOpen && (
             <>
@@ -633,37 +635,34 @@ export default function DashboardPage() {
                       {v}
                     </button>
                   ))}
+                <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
+                <button type="button" className="flex items-center gap-2"
+                  onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
+                  <Calendar size={14} /> Pick a date…
+                </button>
+              </div>
+            </>
+          )}
+          {showDatePicker && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
+              <div className="absolute left-0 top-full mt-2 z-40">
+                <CalendarPicker
+                  value={new Date(filterDateRange[0] + "T00:00:00")}
+                  minDate={null}
+                  onChange={(d) => {
+                    const ds = formatDateForDb(d);
+                    setCustomStart(ds);
+                    setCustomEnd(ds);
+                    setDateFilter("custom" as DateFilterKey);
+                    setSelectedCalDate(null);
+                    setShowDatePicker(false);
+                  }}
+                />
               </div>
             </>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowDatePicker(s => !s)}
-          aria-label="Pick a date"
-          className={cn("cwd-trigger", showDatePicker && "open")}
-        >
-          <Calendar size={15} />
-        </button>
-        {showDatePicker && (
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
-            <div className="absolute left-0 top-full mt-2 z-40">
-              <CalendarPicker
-                value={new Date(filterDateRange[0] + "T00:00:00")}
-                minDate={null}
-                onChange={(d) => {
-                  const ds = formatDateForDb(d);
-                  setCustomStart(ds);
-                  setCustomEnd(ds);
-                  setDateFilter("custom" as DateFilterKey);
-                  setSelectedCalDate(null);
-                  setShowDatePicker(false);
-                }}
-              />
-            </div>
-          </>
-        )}
       </div>
 
       {/* Hero + KPIs + Quick actions */}
@@ -681,26 +680,24 @@ export default function DashboardPage() {
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
             <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
+            {/* Minimal stat tiles — label + number only (helper sub-text removed),
+                borderless tiles on the canvas (dividers removed via globals). */}
             <div className="cwd-kpis">
               <div className="cwd-kpi">
                 <div className="cwd-klbl">New Clients</div>
                 <div className="cwd-kval cwd-mono">{newClients}</div>
-                <div className={cn("cwd-ksub", newClients > 0 && "up")}>{newClients > 0 ? "↑ This period" : "No new clients yet"}</div>
               </div>
               <div className="cwd-kpi">
                 <div className="cwd-klbl">Avg Ticket</div>
                 <div className="cwd-kval cwd-mono">{formatCurrency(avgTicket)}</div>
-                <div className={cn("cwd-ksub", hasCompleted && "up")}>{hasCompleted ? "↑ Per completed visit" : "Complete a booking first"}</div>
               </div>
               <div className="cwd-kpi">
                 <div className="cwd-klbl">No-Show Rate</div>
                 <div className="cwd-kval cwd-mono">{hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}</div>
-                <div className={cn("cwd-ksub", hasAppts && (noShows > 0 ? "down" : "up"))}>{hasAppts ? (noShows > 0 ? `${noShows} no-show${noShows !== 1 ? "s" : ""} · Follow up` : "↑ All shows kept") : "No data yet"}</div>
               </div>
               <div className="cwd-kpi">
                 <div className="cwd-klbl">Avg Rating</div>
                 <div className="cwd-kval cwd-mono">{avgRating != null ? `${avgRating}★` : "—"}</div>
-                <div className={cn("cwd-ksub", totalReviews > 0 && "up")}>{totalReviews > 0 ? `↑ ${totalReviews} review${totalReviews !== 1 ? "s" : ""}` : "No reviews yet"}</div>
               </div>
             </div>
 

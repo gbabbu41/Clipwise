@@ -81,7 +81,7 @@ html[data-theme="light"] .portal {
    there's no layout shift; the shadow does all the separation. */
 html[data-theme="light"] .portal .card,
 html[data-theme="light"] .portal .cwd-card,
-html[data-theme="light"] .portal .cwd-kpis,
+html[data-theme="light"] .portal .cwd-kpi,
 html[data-theme="light"] .portal .cwd-hero,
 html[data-theme="light"] .portal .cwd-qa,
 html[data-theme="light"] .portal .cwd-cal {
@@ -1376,8 +1376,10 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 /* The four KPIs live in ONE calm panel now — separated by whisper-thin divider
    gaps (the grid gap reveals the panel's --border tone), not four bordered
    boxes. Works at 4-col (desktop) and 2-col (tablet/phone) automatically. */
-.cwd-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-bottom:14px; background:var(--border); border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
-.cwd-kpi { background:var(--card-raised); border:0; border-radius:0; padding:18px 16px; }
+/* Minimal stats: borderless tiles separated by whitespace (no panel, no 1px
+   dividers) — each tile floats on its own with a soft lift. */
+.cwd-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+.cwd-kpi { background:var(--card-raised); border:0; border-radius:16px; padding:18px 16px; box-shadow:var(--cwd-lift); }
 .cwd-klbl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--grey); }
 .cwd-kval { font-size:26px; font-weight:700; margin-top:8px; letter-spacing:-.02em; line-height:1; color:var(--foreground); }
 .cwd-ksub { font-size:11px; margin-top:9px; color:var(--grey); }
