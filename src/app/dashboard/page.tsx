@@ -194,15 +194,6 @@ export default function DashboardPage() {
   const walkinDrag = useSheetDrag(walkinSheetRef, () => setShowAddWalkin(false), { enabled: showAddWalkin });
   const [walkinName, setWalkinName] = useState("");
   const [walkinBarber, setWalkinBarber] = useState("");
-  // Open the walk-in modal when the bottom-nav quick-add ("+") routes here. The
-  // "+" sets a sessionStorage flag AND fires an event, so it works whether the
-  // dashboard is already mounted (event) or freshly navigated to (flag on mount).
-  useEffect(() => {
-    const open = () => { try { sessionStorage.removeItem("cw_open_walkin"); } catch { /* ignore */ } setShowAddWalkin(true); };
-    try { if (sessionStorage.getItem("cw_open_walkin") === "1") open(); } catch { /* ignore */ }
-    window.addEventListener("cw-open-walkin", open);
-    return () => window.removeEventListener("cw-open-walkin", open);
-  }, []);
   const [walkinService, setWalkinService] = useState("");
   const [savingWalkin, setSavingWalkin] = useState(false);
   // Today's Schedule → full appointment detail modal (reuses the calendar/Appointments flow).

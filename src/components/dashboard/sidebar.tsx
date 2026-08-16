@@ -734,7 +734,6 @@ export function Sidebar() {
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [addOpen, setAddOpen] = useState(false);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   // Two tabs flank the center + ; the last tab + More sit on the right. Schedule
@@ -751,57 +750,29 @@ export function MobileNav() {
     );
   };
 
-  // Quick-add actions — reach the create surfaces from any page. New appointment
-  // opens the calendar (where booking happens); Walk-in opens the dashboard's
-  // walk-in modal via a flag + event so it works whether or not it's mounted.
+  // Center + → open the calendar's add-appointment banner directly (no menu).
+  // Fires an event (when the calendar is already open) and sets a flag (read on a
+  // fresh navigation, once barbers load) so the banner opens from any page.
   const newAppointment = () => {
-    setAddOpen(false);
     try { sessionStorage.setItem("cw_open_newappt", "1"); } catch { /* ignore */ }
     window.dispatchEvent(new Event("cw-open-newappt"));
     router.push("/dashboard/calendar");
   };
-  const newWalkin = () => {
-    setAddOpen(false);
-    try { sessionStorage.setItem("cw_open_walkin", "1"); } catch { /* ignore */ }
-    window.dispatchEvent(new Event("cw-open-walkin"));
-    router.push("/dashboard");
-  };
 
   return (
-    <>
-      <nav className="cw-bnav lg:hidden">
-        {navLink("/dashboard", "Home", LayoutDashboard)}
-        {navLink("/dashboard/calendar", "Calendar", CalendarDays)}
-        {/* Center hero — quick add (new appointment / walk-in). */}
-        <button type="button" onClick={() => setAddOpen(true)} className="cw-fab" aria-label="Add">
-          <Plus size={26} strokeWidth={2.6} />
-        </button>
-        {navLink("/dashboard/payments", "Payments", Banknote)}
-        {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Settings…). */}
-        <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
-          <div className="cw-ni-icon"><Menu size={20} /></div>
-          <div className="cw-ni-label">More</div>
-        </button>
-      </nav>
-
-      {/* Quick-add sheet — slides up from the +. */}
-      {addOpen && (
-        <div className="lg:hidden fixed inset-0 z-[80]" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 bg-card border-t border-border rounded-t-2xl shadow-2xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] animate-slide-up">
-            <div className="flex justify-center pt-1 pb-2"><div className="w-9 h-1.5 rounded-full bg-border" /></div>
-            <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-grey">Add</p>
-            <button type="button" onClick={newAppointment} className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-surface-overlay transition-colors text-left">
-              <span className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-foreground flex-shrink-0"><CalendarDays size={20} /></span>
-              <span className="min-w-0"><span className="block text-sm font-semibold text-foreground">New appointment</span><span className="block text-xs text-grey">Book a client on the calendar</span></span>
-            </button>
-            <button type="button" onClick={newWalkin} className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-surface-overlay transition-colors text-left border-t border-border">
-              <span className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center text-foreground flex-shrink-0"><Users size={20} /></span>
-              <span className="min-w-0"><span className="block text-sm font-semibold text-foreground">Walk-in</span><span className="block text-xs text-grey">Add someone who just showed up</span></span>
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+    <nav className="cw-bnav lg:hidden">
+      {navLink("/dashboard", "Home", LayoutDashboard)}
+      {navLink("/dashboard/calendar", "Calendar", CalendarDays)}
+      {/* Center hero — opens the add-appointment banner. */}
+      <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
+        <Plus size={26} strokeWidth={2.6} />
+      </button>
+      {navLink("/dashboard/payments", "Payments", Banknote)}
+      {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Settings…). */}
+      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
+        <div className="cw-ni-icon"><Menu size={20} /></div>
+        <div className="cw-ni-label">More</div>
+      </button>
+    </nav>
   );
 }
