@@ -1299,7 +1299,25 @@ textarea:focus-visible {
   --cwd-div: color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
-.cwd-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
+/* ── Sticky page header (shop portal) ─────────────────────────────────────────
+   The owner top header (.cwd-hdr — title + bell + profile, used by the dashboard
+   home AND every DashboardHeader page) now STAYS PUT on scroll, like the barber
+   portal's top bar, instead of scrolling away. bg matches the page so cards slide
+   cleanly underneath; ::before fills the notch / safe-area strip when the bar is
+   pinned to the top (mobile + installed PWA). */
+.cwd-hdr {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  margin-bottom:18px;
+  position:sticky; top:env(safe-area-inset-top); z-index:30;
+  background:var(--background);
+}
+.cwd-hdr::before {
+  content:""; position:absolute; left:0; right:0; bottom:100%;
+  height:env(safe-area-inset-top); background:inherit;
+}
+/* The calendar canvas uses the sunken tone, so its pinned header matches that
+   (not the page background) — keeps the calendar top seamless. */
+.bg-surface-sunken .cwd-hdr { background:var(--surface-sunken); }
 /* Match the inline page headers used on the other ~25 pages
    (text-2xl / font-bold / tracking-wide) so every portal header is identical. */
 .cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:0.025em; text-transform:uppercase; color:var(--foreground); line-height:1.2; }
