@@ -37,22 +37,22 @@
    :root values above). Accent / status hues are inherited unchanged.
    Light theme is one flag away: `.portal[data-theme="light"]` below. */
 .portal {
-  --background:     #0e0f12;  /* off-black — kills the pure-#000 glare */
-  --foreground:     #ededee;  /* soft white — easier on the eyes than #fff */
-  /* Surface ramp raised so tier-1 `bg-card` panels lift clearly off the page
-     (was #16181c, only ~8 levels up → flat). Tier 2 + overlay nudged up in step
-     so the two-tier hierarchy (a card-raised chip inside a card panel) still
-     reads, and the redesigned cards (which use tier 2) barely shift. */
-  --card:           #1b1e24;  /* tier 1 (cards, sidebars, raw bg-card panels) */
-  --card-raised:    #22262d;  /* tier 2 (chips, inner pills, redesigned cards) */
-  --surface:        #1b1e24;
-  --surface-raised: #22262d;
-  --surface-overlay:#2c313a;  /* tier 3 (hover fills, menus) */
-  --surface-sunken: #101215;  /* recessed (below tier 1) */
-  --border:         #262b32;  /* hairline — visible on the lifted surfaces */
-  --border-strong:  #363c45;
-  --grey:           #9aa0aa;  /* secondary text */
-  --grey-2:         #6b7079;  /* muted / tertiary text */
+  --background:     #0b0c0d;  /* deepest neutral charcoal — the single page ground */
+  --foreground:     #ededee;  /* soft off-white — never pure #fff */
+  /* Minimal ramp: cards sit ONE subtle, neutral step above the page and separate
+     by the soft --cwd-lift shadow, not by fills or borders. Tier 1 and tier 2 are
+     nearly the same tone, so a chip inside a card reads as the same surface — not a
+     second box. The old cool/blue bias (#1b1e24 … #2c313a) is gone; pure neutral. */
+  --card:           #141517;  /* tier 1 (sidebars, raw bg-card panels, inputs) */
+  --card-raised:    #191a1d;  /* tier 2 (all dashboard cards) — a hair above tier 1 */
+  --surface:        #141517;
+  --surface-raised: #191a1d;
+  --surface-overlay:#202124;  /* tier 3 (hover fills, menus) */
+  --surface-sunken: #08090a;  /* recessed (below the page) */
+  --border:         #1f2023;  /* near-invisible hairline — barely lifts off a card */
+  --border-strong:  #2a2b2e;  /* still subtle — only where a divider must show */
+  --grey:           #8b9096;  /* secondary text — muted neutral, not bright */
+  --grey-2:         #696c71;  /* tertiary / muted text */
 }
 
 /* Light theme. Toggled by setting data-theme="light" on <html> (the portal
@@ -61,18 +61,19 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  /* Exact values sampled from the reference screenshot (neutral, no tint). */
-  --background:     #eceef1;  /* canvas — a touch greyer so white cards float clearly */
-  --foreground:     #1a1a1a;  /* crisp near-black text */
-  --card:           #ffffff;  /* pure-white cards — clean lift off the grey canvas */
-  --card-raised:    #eef0f2;  /* subtle nested chips/pills */
+  /* Minimal light system: one soft off-white ground, white cards that float on it
+     via the soft shadow (not borders), whisper-faint hairlines. */
+  --background:     #f4f5f6;  /* soft, light off-white — the single page ground */
+  --foreground:     #1a1a1a;  /* dark charcoal — never absolute black */
+  --card:           #ffffff;  /* white cards float on the off-white via a soft shadow */
+  --card-raised:    #f1f2f4;  /* nested chips/pills — barely off the page, same-surface feel */
   --surface:        #ffffff;
-  --surface-raised: #eef0f2;
-  --surface-overlay:#e7e9ec;  /* hover fills / menus */
-  --surface-sunken: #ebebeb;  /* recessed (calendar canvas) */
-  --border:         #e6e6e6;  /* soft neutral — cards read borderless; inputs/dividers show it faintly */
-  --border-strong:  #d6d6d6;
-  --grey:           #6b6b6b;  /* secondary text */
+  --surface-raised: #f1f2f4;
+  --surface-overlay:#eaebed;  /* hover fills / menus */
+  --surface-sunken: #edeef0;  /* recessed (calendar canvas) */
+  --border:         #ececed;  /* very light neutral — cards read borderless; shows faintly on inputs */
+  --border-strong:  #dededf;
+  --grey:           #6b6b6b;  /* secondary text — muted grey */
   --grey-2:         #9a9a9a;  /* muted text */
 }
 
