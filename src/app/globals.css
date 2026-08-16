@@ -1337,12 +1337,13 @@ textarea:focus-visible {
 .cwd-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
 /* Match the inline page headers used on the other ~25 pages
    (text-2xl / font-bold / tracking-wide) so every portal header is identical. */
-/* Mobile: the sticky top bar already shows the page title ("HOME") at 23px, so
-   the in-body shop-name greeting is dialed down to clearly sit UNDER it instead
-   of competing as a second big uppercase title. Desktop (no top bar) keeps it at
-   full page-title size below. */
-.cwd-hdr h1 { margin:0; font-size:1.125rem; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; color:var(--foreground); line-height:1.25; }
-@media (min-width:1024px) { .cwd-hdr h1 { font-size:1.5rem; letter-spacing:0.025em; } }
+.cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:0.025em; text-transform:uppercase; color:var(--foreground); line-height:1.2; }
+/* Home greeting (shop name): title-case, tight tracking, 20px mobile / 24px
+   desktop — matches the barber portal's "Hi, …" so it reads as a calm greeting
+   under the top bar, not a loud uppercase block. Scoped with .cwd-greeting so the
+   shared page-header titles on OTHER owner pages keep their uppercase treatment. */
+.cwd-hdr h1.cwd-greeting { font-size:1.25rem; letter-spacing:-0.02em; text-transform:none; line-height:1.25; }
+@media (min-width:1024px) { .cwd-hdr h1.cwd-greeting { font-size:1.5rem; } }
 .cwd-hdr .cwd-sub { margin:4px 0 0; font-size:13px; color:var(--grey); }
 .cwd-cluster { display:flex; gap:8px; flex-shrink:0; }
 .cwd-icobtn { width:38px; height:38px; border-radius:999px; background:var(--card-raised); border:0; display:flex; align-items:center; justify-content:center; color:#a9c6ff; position:relative; }
@@ -1358,7 +1359,10 @@ textarea:focus-visible {
   .portal h1.text-2xl.uppercase.tracking-wide { display: none; }
 }
 
-.cwd-filter { display:flex; gap:8px; align-items:center; margin-bottom:18px; flex-wrap:wrap; position:relative; }
+.cwd-filter { display:flex; gap:8px; align-items:center; flex-wrap:wrap; position:relative; }
+/* When the filter menu sits at the header's right edge, open it right-aligned so
+   the dropdown / date-picker never overflow off the screen edge. */
+.cwd-menu.cwd-menu--right { left:auto; right:0; }
 .cwd-select { background:var(--card-raised); border:1px solid var(--border); border-radius:11px; padding:9px 12px; font-size:13px; color:var(--foreground); display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
 .cwd-select:hover { border-color:rgba(255,255,255,.4); }
 .cwd-pill { background:var(--card-raised); border:1px solid var(--border); border-radius:999px; padding:6px 13px; font-size:12px; color:var(--grey); cursor:pointer; }
