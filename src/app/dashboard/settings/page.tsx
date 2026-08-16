@@ -101,7 +101,10 @@ export default function SettingsPage() {
   const isFreePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status) === "starter";
   // A Starter owner who has NEVER trialed can start the no-card 21-day trial right
   // from the upgrade cards (one free trial ever — the server enforces the same).
-  const trialEligible = isFreePlan && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  // Must check trial_used (permanent), not just trial_ends_at (cleared when a trial
+  // ends/cancels) — otherwise a used-trial owner is shown a "Start free trial"
+  // button the server rejects, with no card path. trial_used → "Switch" (checkout).
+  const trialEligible = isFreePlan && !shop?.trial_used && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
   // Cancel-flow state of the current shop.
   const onTrialSub = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
   const hasStripeSub = !!shop?.stripe_subscription_id;

@@ -326,7 +326,12 @@ export default function BillingPage() {
   // Eligible for the no-card 21-day trial: on Starter, never trialed before, and
   // no live subscription. Lets them upgrade WITHOUT a card up front (server
   // enforces the same — one free trial ever).
-  const trialEligible = onFreePlan && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  // MUST check trial_used (the permanent flag), not just trial_ends_at: after a
+  // trial ends or is cancelled, trial_ends_at gets cleared but trial_used stays
+  // true. Without this, the page showed "Start free trial" buttons that the server
+  // rejects ("already used your trial") — leaving the owner with NO way to add a
+  // card and subscribe. trial_used → the plans show "Choose" (Stripe checkout).
+  const trialEligible = onFreePlan && !shop?.trial_used && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
   // Show the plan they're effectively on (a lapsed Pro reads as Starter, not Pro).
   const displayPlanId = onFreePlan ? "starter" : currentPlanId;
   const displayPlan = plans.find(p => p.id === displayPlanId);

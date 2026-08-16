@@ -36,6 +36,11 @@ export interface Shop {
    *  date (subscription_status is "active", no stripe_subscription_id). Cleared
    *  once they subscribe with a card. */
   trial_ends_at?: string | null;
+  /** Permanent "has ever used the free trial" flag (phase49). Set true when a
+   *  trial starts and NEVER cleared — so one free trial per shop, even after the
+   *  trial ends or is cancelled (trial_ends_at gets wiped, this does not). The
+   *  server (start-trial) enforces it; the client uses it to gate trial CTAs. */
+  trial_used?: boolean | null;
   stripe_connected?: boolean;
   stripe_connect_status?: "pending" | "active";
   instagram?: string;
