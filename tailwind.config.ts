@@ -1,5 +1,24 @@
 import type { Config } from "tailwindcss";
 
+// Our theme colors live in CSS variables as hex (e.g. --foreground:#1a1a1a) so
+// hand-written rules in globals.css can use `var(--foreground)` as a full color.
+// But Tailwind can't inject an alpha channel into a bare `var(...)`, so an opacity
+// modifier like `text-foreground/70` or `bg-card-raised/50` used to emit NO rule
+// at all — the element lost its color/fill and inherited (white text on light
+// surfaces, transparent cards). Wrapping each var token as a color FUNCTION routes
+// the opacity through `color-mix`, so every `/NN` modifier works app-wide while a
+// plain `text-foreground` still resolves to the solid colour (100% = unchanged).
+// Keeps the hex vars intact, so raw `var(--x)` usage in globals.css is unaffected.
+// Returns a Tailwind color FUNCTION at runtime (Tailwind calls it with the
+// resolved opacity), but typed as `string` because @tailwindcss/Config's color
+// type doesn't include the function form — a known typing gap. The cast keeps the
+// config type-checking while Tailwind still receives the function.
+const varColor = (name: string): string =>
+  ((({ opacityValue }: { opacityValue?: string }) =>
+    opacityValue === undefined
+      ? `var(${name})`
+      : `color-mix(in srgb, var(${name}) calc(${opacityValue} * 100%), transparent)`) as unknown as string);
+
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -14,8 +33,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: varColor("--background"),
+        foreground: varColor("--foreground"),
         // `gold` slot kept as white — every `bg-gold` etc. across the
         // codebase silently becomes the design system's white accent.
         gold: {
@@ -39,25 +58,25 @@ const config: Config = {
         // `bg-surface` / `bg-card` / `border-border` / `text-grey` callsite with
         // zero code changes. Public pages keep the :root defaults untouched.
         surface: {
-          DEFAULT: "var(--surface)",
-          raised:  "var(--surface-raised)",
-          overlay: "var(--surface-overlay)",
-          sunken:  "var(--surface-sunken)",
+          DEFAULT: varColor("--surface"),
+          raised:  varColor("--surface-raised"),
+          overlay: varColor("--surface-overlay"),
+          sunken:  varColor("--surface-sunken"),
         },
         card: {
-          DEFAULT: "var(--card)",
-          raised:  "var(--card-raised)",
+          DEFAULT: varColor("--card"),
+          raised:  varColor("--card-raised"),
         },
         border: {
-          DEFAULT: "var(--border)",
-          strong:  "var(--border-strong)",
+          DEFAULT: varColor("--border"),
+          strong:  varColor("--border-strong"),
           gold:    "rgba(255,255,255,0.25)",
         },
         // Secondary / muted text tiers — collapses the old fragmented greys
         // (#8f8f8f/#999/#888/#aaa vs #666/#6e6e6e/#555) into two switchable tiers.
         grey: {
-          DEFAULT: "var(--grey)",
-          muted:   "var(--grey-2)",
+          DEFAULT: varColor("--grey"),
+          muted:   varColor("--grey-2"),
         },
       },
       fontFamily: {
