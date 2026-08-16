@@ -205,6 +205,7 @@ function barTitleFor(pathname: string): string {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, profile, shop, shops, setActiveShop, signOut, accessToken } = useAuth();
   const { confirm } = useConfirm();
   // Confirm before signing out — the icon sits next to the theme toggle, so a
@@ -314,6 +315,23 @@ export function Sidebar() {
       .then(({ data }) => setRecentNotifs((data ?? []) as unknown as typeof recentNotifs));
   }, [notifOpen, user, unreadCount, shop?.id]);
 
+  // Opening the bell marks everything SEEN so the red badge clears right away (and
+  // stays cleared on refresh). Mirrors the unread-count scope: this user's unread
+  // rows for the active shop (or legacy null-shop rows).
+  const markNotifsSeen = () => {
+    if (!user || unreadCount === 0) return;
+    setUnreadCount(0);
+    setRecentNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+    let q = supabase.from("notifications").update({ is_read: true })
+      .eq("user_id", user.id).eq("is_read", false);
+    if (shop?.id) q = q.or(`shop_id.eq.${shop.id},shop_id.is.null`);
+    q.then(null, () => null);
+  };
+  useEffect(() => {
+    if (notifOpen) markNotifsSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifOpen]);
+
   // ── Inline Approve / Decline for booking notifications ────────────────────
   // Reuses the same client-side flow the calendar uses (status update + the
   // shared side-effect helpers). `shop` comes from useAuth above.
@@ -401,14 +419,25 @@ export function Sidebar() {
         )}
       >
         <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{barTitleFor(pathname)}</h1>
-        {/* Clients shortcut — moved off the (now 4-tab) bottom nav to here. */}
-        <Link
-          href="/dashboard/clients"
-          aria-label="Clients"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-foreground hover:bg-white/5 transition-colors flex-shrink-0"
-        >
-          <Users size={19} />
-        </Link>
+        {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
+            again (while on it) to go back. Highlights while active. */}
+        {(() => {
+          const onClients = pathname === "/dashboard/clients";
+          return (
+            <button
+              type="button"
+              onClick={() => (onClients ? router.back() : router.push("/dashboard/clients"))}
+              aria-label="Clients"
+              aria-pressed={onClients}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                onClients ? "bg-white/10 text-foreground" : "text-foreground hover:bg-white/5",
+              )}
+            >
+              <Users size={19} />
+            </button>
+          );
+        })()}
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
