@@ -80,42 +80,43 @@ export default function ClientsPage() {
   const loadClients = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [{ data: clientRows, error: clientErr }, { data: nsData }] = await Promise.all([
-      supabase.from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false }),
-      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
-    ]);
-    // Appointments incl. the phase-36 client_id link. Fall back without it if the
-    // migration hasn't been run yet, so the page never breaks in that window.
+
+    // ── Phase 1 (fast) — the clients table alone. It's small and indexed by
+    // shop_id and already carries total_visits/points, so the list can paint
+    // almost immediately instead of waiting on the full appointment history. ──
+    const { data: clientRows, error: clientErr } = await supabase
+      .from("clients").select("*").eq("shop_id", shop.id).order("total_visits", { ascending: false });
+    if (clientErr) showToast("Couldn't load clients — please refresh.");
+    const baseRows = (clientRows ?? []) as Client[];
+    setClients(groupClients({ shopId: shop.id, clientRows: baseRows, apptRows: [] }));
+    setLoading(false); // list is visible now — the rest enriches in the background
+
+    // ── Phase 2 (heavier) — the appointment history. Adds walk-in/synthetic
+    // clients not in the table, refines activity, and counts no-shows. Runs in
+    // the background so it never blocks the first paint. ──
     type ApptLite = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
-    let apptRows: ApptLite[] = [];
-    let apptErr: unknown = null;
-    const withCid = await supabase
-      .from("appointments")
-      .select("client_id, client_name, client_email, client_phone, date, status, total_amount")
-      .eq("shop_id", shop.id).order("date", { ascending: false });
+    const [nsRes, withCid] = await Promise.all([
+      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
+      // Appointments incl. the phase-36 client_id link. Fall back without it if the
+      // migration hasn't been run yet, so the page never breaks in that window.
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id).order("date", { ascending: false }),
+    ]);
+    let apptRows: ApptLite[] = (withCid.data as unknown as ApptLite[]) ?? [];
     if (withCid.error) {
       const noCid = await supabase
         .from("appointments")
         .select("client_name, client_email, client_phone, date, status, total_amount")
         .eq("shop_id", shop.id).order("date", { ascending: false });
       apptRows = (noCid.data as unknown as ApptLite[]) ?? [];
-      apptErr = noCid.error;
-    } else {
-      apptRows = (withCid.data as unknown as ApptLite[]) ?? [];
     }
-
-    if (clientErr || apptErr) showToast("Couldn't load clients — please refresh.");
 
     // De-dupe + attribute activity by IDENTITY (shared email/phone), not name —
     // so two people named "ABC" stay separate, and the same person with a typo'd
     // name or reformatted number stays as one. See lib/client-identity.ts.
-    const list = groupClients({
-      shopId: shop.id,
-      clientRows: (clientRows ?? []) as Client[],
-      apptRows: (apptRows ?? []),
-    });
+    const list = groupClients({ shopId: shop.id, clientRows: baseRows, apptRows });
     setClients(list);
 
+    const nsData = nsRes.data;
     if (nsData) {
       // Attribute each no-show to the right person by IDENTITY, keyed on the
       // grouped client's id — so a same-name stranger isn't blamed for it.
@@ -126,7 +127,6 @@ export default function ClientsPage() {
       }
       setNoShowCounts(counts);
     }
-    setLoading(false);
   }, [shop]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
