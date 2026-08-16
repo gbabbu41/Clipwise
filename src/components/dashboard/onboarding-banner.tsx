@@ -145,7 +145,11 @@ export function OnboardingBanner({ shop }: Props) {
               {step.done ? <Check size={12} /> : i + 1}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium", step.done ? "text-foreground/70" : "text-foreground")}>{step.label}</p>
+              {/* Done rows use text-grey (a real token) not text-foreground/70:
+                  Tailwind can't apply an opacity modifier to the var-backed
+                  foreground colour, so /70 emitted no rule and the title inherited
+                  white — invisible on the light-green "done" row in light mode. */}
+              <p className={cn("text-sm font-medium", step.done ? "text-grey" : "text-foreground")}>{step.label}</p>
               <p className="text-xs text-grey truncate">{step.description}</p>
             </div>
             {step.done

@@ -90,7 +90,10 @@ export function ProfileMenu({
             {/* Quick links / actions */}
             <div className="py-1.5">
               {items.map(({ label, href, icon: Icon, onClick }) => {
-                const cls = "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-foreground/5 transition-colors text-left";
+                // hover:bg-surface-overlay (a real token) not bg-foreground/5 —
+                // Tailwind can't apply an opacity modifier to the var-backed
+                // foreground colour, so /5 emitted no rule and hover did nothing.
+                const cls = "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-surface-overlay transition-colors text-left";
                 const inner = (<><Icon size={16} className="text-grey flex-shrink-0" /><span className="truncate">{label}</span></>);
                 return href ? (
                   <Link key={label} href={href} onClick={() => setOpen(false)} role="menuitem" className={cls}>{inner}</Link>

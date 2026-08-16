@@ -137,7 +137,7 @@ export default function AdminCouponsPage() {
                         {c.days} free days of <span className="capitalize text-foreground">{c.plan}</span> · used {c.used_count}/{c.max_uses}
                         {c.expires_at ? ` · expires ${new Date(c.expires_at).toLocaleDateString("en-CA")}` : ""}
                       </p>
-                      {c.note && <p className="text-[11px] text-grey/80 mt-0.5 truncate">{c.note}</p>}
+                      {c.note && <p className="text-[11px] text-grey-muted mt-0.5 truncate">{c.note}</p>}
                     </div>
                     <Button size="sm" variant="outline" onClick={() => toggle(c)}>{c.is_active ? "Disable" : "Enable"}</Button>
                   </div>
