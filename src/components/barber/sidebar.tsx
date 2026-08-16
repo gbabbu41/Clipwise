@@ -119,12 +119,34 @@ export function BarberSidebar() {
     return () => { supabase.removeChannel(channel); };
   }, [user, shop?.id]);
 
-  // Recent 5 for the popover — refetched whenever it opens / the count changes.
+  // Recent 15 for the sheet — refetched whenever it opens.
   useEffect(() => {
     if (!notifOpen || !user) return;
     fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 15 })
-      .then(({ data }) => setRecentNotifs((data ?? []) as unknown as typeof recentNotifs));
-  }, [notifOpen, user, unreadCount, shop?.id]);
+      .then(({ data, error }) => { if (!error) setRecentNotifs((data ?? []) as unknown as typeof recentNotifs); });
+    // Deliberately NOT keyed on unreadCount (mirrors the owner sidebar): mark-seen
+    // sets it to 0, which would re-run this fetch and race the DB write — re-reading
+    // rows still is_read:false and repainting the "unread" dots just cleared.
+  }, [notifOpen, user, shop?.id]);
+
+  // Opening the bell marks everything SEEN so the red badge clears right away and
+  // stays cleared on refresh — same as the owner portal. Scoped to this barber's
+  // unread rows for the active shop (or legacy null-shop rows).
+  const markNotifsSeen = () => {
+    if (!user || unreadCount === 0) return;
+    setUnreadCount(0);
+    setRecentNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+    let q = supabase.from("notifications").update({ is_read: true })
+      .eq("user_id", user.id).eq("is_read", false);
+    if (shop?.id) q = q.or(`shop_id.eq.${shop.id},shop_id.is.null`);
+    // Read the error: a Supabase update RESOLVES with { error } on failure, so
+    // swallowing it would leave the rows unread and the badge back on refresh.
+    q.then(({ error }) => { if (error) console.error("mark notifications seen failed:", error.message); }, () => {});
+  };
+  useEffect(() => {
+    if (notifOpen) markNotifsSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifOpen]);
 
   useEffect(() => { setNotifOpen(false); }, [pathname]);
 
