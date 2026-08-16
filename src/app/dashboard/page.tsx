@@ -618,10 +618,10 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setFilterMenuOpen(o => !o)}
-            className="inline-flex items-center gap-1.5 py-1.5 pr-1 text-[15px] font-bold text-foreground"
+            className={cn("cwd-trigger", filterMenuOpen && "open")}
           >
             {DATE_FILTER_LABELS[dateFilter]}
-            <ChevronDown size={16} className="text-grey" />
+            <ChevronDown size={15} />
           </button>
           {filterMenuOpen && (
             <>
@@ -646,8 +646,9 @@ export default function DashboardPage() {
           {showDatePicker && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
-              <div className="absolute left-0 top-full mt-2 z-40">
+              <div className="absolute left-0 top-full mt-2 z-40 w-[320px] max-w-[calc(100vw-2.5rem)]">
                 <CalendarPicker
+                  className="shadow-xl w-full max-w-none"
                   value={new Date(filterDateRange[0] + "T00:00:00")}
                   minDate={null}
                   onChange={(d) => {
