@@ -16,6 +16,7 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
 // notification is actually about (NOT "/dashboard/pending" — that's the shop's
@@ -184,6 +185,12 @@ const navSections: NavSection[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user, profile, shop, shops, setActiveShop, signOut, accessToken } = useAuth();
+  const { confirm } = useConfirm();
+  // Confirm before signing out — the icon sits next to the theme toggle, so a
+  // stray tap shouldn't drop the owner straight to the login screen.
+  const confirmSignOut = async () => {
+    if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut();
+  };
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
@@ -661,7 +668,7 @@ export function Sidebar() {
             <p className="text-xs text-grey truncate">{formatRole(profile?.role)}</p>
           </div>
           <PortalThemeToggle className="w-8 h-8 flex-shrink-0" />
-          <button onClick={signOut} className="text-grey hover:text-red-500 transition-colors">
+          <button onClick={confirmSignOut} className="text-grey hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

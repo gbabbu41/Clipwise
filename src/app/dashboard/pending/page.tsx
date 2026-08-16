@@ -5,10 +5,12 @@ import { Clock, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 export default function PendingPage() {
   const { shop, refreshShop, signOut } = useAuth();
+  const { confirm } = useConfirm();
   const router = useRouter();
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function PendingPage() {
           <Button variant="outline" className="flex-1" onClick={() => refreshShop()}>
             <RefreshCw size={16} /> Check Status
           </Button>
-          <Button variant="ghost" onClick={signOut} className="flex-1">
+          <Button variant="ghost" onClick={async () => { if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut(); }} className="flex-1">
             Sign Out
           </Button>
         </div>

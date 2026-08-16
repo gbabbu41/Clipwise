@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, fetchShopUnreadCount } from "@/lib/notify";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 
 // Notification visual config — one clean type-icon, tinted chip (mirrors owner).
@@ -72,6 +73,11 @@ export function BarberSidebar() {
   const pathname = usePathname();
   const { user, profile, signOut, accessToken } = useAuth();
   const { barber, shop, shops, setActiveShop } = useBarber();
+  const { confirm } = useConfirm();
+  // Confirm before signing out so a stray tap on the icon doesn't boot the barber.
+  const confirmSignOut = async () => {
+    if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut();
+  };
   const slotInterval = (shop?.booking_settings as { slot_interval_minutes?: number } | null)?.slot_interval_minutes ?? 30;
   const [assignReq, setAssignReq] = useState<WaitlistRequest | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -424,7 +430,7 @@ export function BarberSidebar() {
             <p className="text-xs text-grey">{profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}</p>
           </div>
           <PortalThemeToggle className="w-8 h-8 flex-shrink-0" />
-          <button onClick={signOut} className="text-grey hover:text-red-400 transition-colors">
+          <button onClick={confirmSignOut} className="text-grey hover:text-red-400 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

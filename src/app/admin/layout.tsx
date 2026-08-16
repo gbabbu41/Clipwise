@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { ConfirmProvider, useConfirm } from "@/components/ui/confirm-dialog";
 import { LayoutDashboard, Store, Users, Settings, Shield, ChevronRight, LogOut, History, AlertTriangle, Ticket } from "lucide-react";
 
 const NAV = [
@@ -16,6 +16,20 @@ const NAV = [
   { label: "Errors", href: "/admin/errors", icon: AlertTriangle },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
+
+// Rendered INSIDE <ConfirmProvider> (below), so it can use the in-app confirm
+// dialog before signing out — a stray click shouldn't drop the admin to /login.
+function AdminSignOutButton({ onSignOut }: { onSignOut: () => void }) {
+  const { confirm } = useConfirm();
+  return (
+    <button
+      onClick={async () => { if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) onSignOut(); }}
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-[#8f8f8f] hover:text-red-400 hover:bg-surface-raised transition-colors"
+    >
+      <LogOut size={15} /> Sign Out
+    </button>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -98,9 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <LayoutDashboard size={15} /> Shop Dashboard
             </div>
           </Link>
-          <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-[#8f8f8f] hover:text-red-400 hover:bg-surface-raised transition-colors">
-            <LogOut size={15} /> Sign Out
-          </button>
+          <AdminSignOutButton onSignOut={handleLogout} />
         </div>
       </aside>
 

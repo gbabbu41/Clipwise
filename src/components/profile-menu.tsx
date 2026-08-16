@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Settings, CreditCard, Bell, User, DollarSign, Share2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AvatarImage } from "@/components/ui/avatar-image";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 /** A menu row is either a link (href) or an action (onClick), never both. */
@@ -35,6 +36,7 @@ export function ProfileMenu({
   align?: "left" | "right";
 }) {
   const { user, signOut } = useAuth();
+  const { confirm } = useConfirm();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initial = (name || "U").charAt(0).toUpperCase();
@@ -108,7 +110,7 @@ export function ProfileMenu({
             <div className="py-1.5 border-t border-border">
               <button
                 type="button"
-                onClick={() => { setOpen(false); void signOut(); }}
+                onClick={async () => { if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) { setOpen(false); signOut(); } }}
                 role="menuitem"
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
               >
