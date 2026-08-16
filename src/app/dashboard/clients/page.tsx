@@ -118,6 +118,7 @@ export default function ClientsPage() {
         .select("client_name, client_email, client_phone, date, status, total_amount")
         .eq("shop_id", shop.id).order("date", { ascending: false });
       if (seq !== loadSeqRef.current) return; // a newer load started — bail
+      if (noCid.error) console.error("clients: appointment history load failed:", noCid.error.message);
       apptRows = (noCid.data as unknown as ApptLite[]) ?? [];
     }
 
@@ -218,7 +219,10 @@ export default function ClientsPage() {
     type Row = AppointmentRow & { client_id?: string | null; client_email?: string | null; client_phone?: string | null; client_name?: string | null };
     const seen = new Set<string>();
     const merged: Row[] = [];
-    for (const { data } of results) {
+    for (const { data, error } of results) {
+      // The client_id query errors on shops without phase-36 (expected + handled);
+      // log any real failure instead of silently dropping that query's history.
+      if (error) { console.error("client history query failed:", error.message); continue; }
       for (const a of ((data as unknown as Row[]) ?? [])) {
         if (!seen.has(a.id)) { seen.add(a.id); merged.push(a); }
       }
