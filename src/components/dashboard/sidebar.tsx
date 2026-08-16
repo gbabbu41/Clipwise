@@ -13,7 +13,6 @@ import {
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
 import { UnreadBadge } from "@/components/notification-badge";
-import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -182,6 +181,19 @@ const navSections: NavSection[] = [
 ];
 
 
+// Mobile top-bar titles (route → label), mirroring the barber portal. Only the
+// pages that render an inline header are mapped; other pages show a title-less
+// bar (bell + profile) so their own in-page heading isn't duplicated.
+const BAR_TITLE: Record<string, string> = {
+  "/dashboard": "Home",
+  "/dashboard/calendar": "Calendar",
+  "/dashboard/appointments": "Appointments",
+  "/dashboard/clients": "Clients",
+  "/dashboard/payments": "Payments",
+  "/dashboard/schedule": "Schedule",
+  "/dashboard/pos": "POS",
+};
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, profile, shop, shops, setActiveShop, signOut, accessToken } = useAuth();
@@ -249,6 +261,16 @@ export function Sidebar() {
       window.removeEventListener("cw-toggle-sidebar", toggle);
       window.removeEventListener("cw-open-notifs", openNotifs);
     };
+  }, []);
+
+  // Sticky top-bar hairline: fade the border in only once content scrolls under
+  // the bar (matches the barber portal's top bar).
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   // Notification quick-view popover (mobile top-bar bell). State + a
@@ -348,21 +370,25 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Floating glass control (mobile) — just the bell + avatar, pinned to the
-          top-right and always visible. The old full-width bar + "ClipWise"
-          wordmark are gone; page content scrolls under the blur. */}
-      {/* Hidden on pages that carry the bell + profile inline in their own
-          header (dashboard home, schedule, …) — see INLINE_HEADER_PAGES. */}
-      {!INLINE_HEADER_PAGES.includes(pathname) && (
-      <div className="lg:hidden fixed z-30 top-[calc(env(safe-area-inset-top)+0.625rem)] sm:top-[calc(env(safe-area-inset-top)+0.875rem)] right-4 sm:right-5 flex items-center gap-2">
+      {/* Mobile top bar — the shop portal's sticky top nav, identical to the
+          barber portal: route title (left) + bell + profile on a solid card bar
+          that spans the notch; the hairline border fades in once content scrolls
+          under it. Replaces the old floating bell/profile pill. */}
+      <div
+        className={cn(
+          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
+          scrolled ? "border-border" : "border-transparent",
+        )}
+      >
+        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
           aria-label="Notifications"
           aria-expanded={notifOpen}
           className={cn(
-            "w-7 h-7 rounded-full flex items-center justify-center text-foreground [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] transition-colors relative",
-            notifOpen ? "bg-black/20" : "hover:bg-black/10",
+            "w-9 h-9 rounded-full flex items-center justify-center text-foreground transition-colors relative flex-shrink-0",
+            notifOpen ? "bg-white/10" : "hover:bg-white/5",
           )}
         >
           <Bell size={20} strokeWidth={2.5} />
@@ -372,10 +398,9 @@ export function Sidebar() {
           name={displayName}
           photo={profile?.avatar || ownerPhoto}
           items={OWNER_MENU_ITEMS}
-          triggerClassName="w-7 h-7 rounded-full bg-white text-black font-extrabold text-[10px] flex items-center justify-center shadow-md hover:opacity-90 transition-opacity overflow-hidden"
+          triggerClassName="w-9 h-9 rounded-full bg-white text-black font-extrabold text-[11px] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 overflow-hidden"
         />
       </div>
-      )}
 
       {/* Notification sheet — slides up from the bottom (matches the app's other
           sheets). Drag the handle down or tap outside to close. */}

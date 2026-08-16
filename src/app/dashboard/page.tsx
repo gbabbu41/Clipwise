@@ -564,7 +564,9 @@ export default function DashboardPage() {
           other page. */}
       {shop && profile?.role === "shop_owner" && <OnboardingBanner shop={shop} />}
 
-      {/* Header — shop title + bell + profile on one row (preview layout). */}
+      {/* Header — shop name + subtitle stay as the in-page greeting (like the
+          barber "Hi, …" line); the bell + profile are desktop-only here because
+          the mobile sticky top bar carries them. */}
       <div className="cwd-hdr">
         <div className="min-w-0">
           <h1 className="truncate">{shop?.name ?? "Dashboard"}</h1>
@@ -572,7 +574,7 @@ export default function DashboardPage() {
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>
         </div>
-        <div className="cwd-cluster">
+        <div className="cwd-cluster max-lg:hidden">
           {/* On mobile the bell opens the notification popover (same as every
               other page); on desktop it navigates to the notifications page. */}
           <Link

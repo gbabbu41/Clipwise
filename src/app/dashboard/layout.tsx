@@ -13,7 +13,6 @@ import { SwipeNavigator } from "@/components/swipe-navigator";
 import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { INLINE_HEADER_PAGES } from "@/lib/inline-header-pages";
 
 // Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
 const OWNER_SWIPE_ORDER = [
@@ -144,7 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own sunken canvas so
           the spacer matches it; everything else uses the calm page background. */}
-      <main className={`cw-main lg:ml-64 ${INLINE_HEADER_PAGES.includes(pathname) ? "pt-[env(safe-area-inset-top)]" : "pt-[calc(2.75rem+env(safe-area-inset-top))]"} lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
+      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-surface-sunken h-[100dvh] overflow-hidden" : ""}`}>
         <MaintenanceBanner />
         <TrialBanner />
         <StripeWarningBanner />
