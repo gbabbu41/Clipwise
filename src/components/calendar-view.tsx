@@ -2682,6 +2682,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const bName = barbers.find(b => b.id === bId)?.name ?? "";
     openAdd(bId, bName, "9:00 AM", 13 * 60, true);
   };
+  // Bottom-nav quick-add "New appointment" opens this SAME general add banner.
+  // It fires an event (when the calendar is already open) and sets a flag (read
+  // on a fresh navigation, once barbers have loaded so there's someone to seed).
+  useEffect(() => {
+    const fire = () => { try { sessionStorage.removeItem("cw_open_newappt"); } catch { /* ignore */ } openAddGeneral(); };
+    try {
+      if (sessionStorage.getItem("cw_open_newappt") === "1" && (dayBarberId ?? orderedBarbers[0]?.id)) fire();
+    } catch { /* ignore */ }
+    window.addEventListener("cw-open-newappt", fire);
+    return () => window.removeEventListener("cw-open-newappt", fire);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayBarberId, orderedBarbers]);
   // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
     ? `y${currentDate.getFullYear()}`

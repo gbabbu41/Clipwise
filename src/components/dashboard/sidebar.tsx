@@ -754,7 +754,12 @@ export function MobileNav() {
   // Quick-add actions — reach the create surfaces from any page. New appointment
   // opens the calendar (where booking happens); Walk-in opens the dashboard's
   // walk-in modal via a flag + event so it works whether or not it's mounted.
-  const newAppointment = () => { setAddOpen(false); router.push("/dashboard/calendar"); };
+  const newAppointment = () => {
+    setAddOpen(false);
+    try { sessionStorage.setItem("cw_open_newappt", "1"); } catch { /* ignore */ }
+    window.dispatchEvent(new Event("cw-open-newappt"));
+    router.push("/dashboard/calendar");
+  };
   const newWalkin = () => {
     setAddOpen(false);
     try { sessionStorage.setItem("cw_open_walkin", "1"); } catch { /* ignore */ }

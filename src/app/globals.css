@@ -1126,19 +1126,9 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 .cw-b-pend  { background: rgba(245,158,11,0.10); color: var(--amber); }
 .cw-b-bad   { background: rgba(239,68,68,0.10);  color: var(--red); }
 
-/* Floating Action Button */
-.cw-fab {
-  position: fixed; bottom: 82px; right: 20px;
-  width: 48px; height: 48px;
-  background: #ffffff; color: #000000;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 700;
-  cursor: pointer; z-index: 40;
-  box-shadow: 0 4px 24px rgba(255,255,255,0.10);
-  transition: transform 0.15s;
-}
-.cw-fab:active { transform: scale(0.9); }
+/* (Removed the old fixed bottom-right .cw-fab — the bottom-nav center hero
+   .cw-fab below is the only quick-add button now; the stale fixed rule was
+   pinning it to the corner instead of the middle.) */
 
 /* Bottom nav bar (mobile) */
 .cw-bnav {
