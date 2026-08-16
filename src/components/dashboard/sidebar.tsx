@@ -383,6 +383,11 @@ export function Sidebar() {
       .then(({ data }) => { setIsAlsoBarber(!!data); setOwnerPhoto((data as { photo?: string | null } | null)?.photo ?? null); });
   }, [user, shop, profile]);
 
+  // The Clients top-bar button uses router.push (a toggle), which — unlike a
+  // <Link> — doesn't auto-prefetch. Warm the route once on mount so the tap is
+  // instant, matching the prefetch the bottom-nav Link tabs get for free.
+  useEffect(() => { router.prefetch("/dashboard/clients"); }, [router]);
+
   useEffect(() => {
     if (!user) return;
 
