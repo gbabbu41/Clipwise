@@ -61,11 +61,11 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  /* Minimal light system: page ground is the SAME white as the cards — cards
-     separate purely by a soft elevation shadow (the Stripe/iOS "float on white"
-     look), no tonal step, no borders. The shadow below is tuned stronger to carry
-     that separation now that there's no grey background behind the cards. */
-  --background:     #ffffff;  /* pure white — same as cards; shadow does the lift */
+  /* Minimal light system: a barely-there grey ground so white cards separate by a
+     tiny tonal step PLUS the soft shadow — the Stripe/Linear approach (pure
+     white-on-white is too low-contrast). Lighter + more neutral than a typical
+     app grey, so it still reads clean, not dull. */
+  --background:     #f6f7f9;  /* faint cool off-white — white cards lift off it */
   --foreground:     #1a1a1a;  /* dark charcoal — never absolute black */
   --card:           #ffffff;  /* white cards float on the off-white via a soft shadow */
   --card-raised:    #f1f2f4;  /* nested chips/pills — barely off the page, same-surface feel */
