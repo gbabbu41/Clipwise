@@ -323,6 +323,14 @@ export function titleCase(s: string | null | undefined): string {
   return (s ?? "").replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
 
+/** Time-of-day greeting ("Good morning" / "Good afternoon" / "Good evening").
+ *  Pass an hour (0–23) to override; defaults to the local now. Display-only. */
+export function timeGreeting(hour: number = new Date().getHours()): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export function prettyDate(d: string | null | undefined): string {
   if (!d) return "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already formatted / not a date-only string

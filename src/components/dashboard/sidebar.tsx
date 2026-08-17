@@ -421,7 +421,15 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{barTitleFor(pathname)}</h1>
+        {/* Home calms its bar title to a small grey label so it doesn't compete
+            with the in-page time-of-day greeting; every other page keeps the loud
+            uppercase title (it's that page's only heading). */}
+        <h1 className={cn(
+          "flex-1 min-w-0 truncate",
+          pathname === "/dashboard"
+            ? "text-[15px] font-semibold text-grey"
+            : "text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground",
+        )}>{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
             again (while on it) to return where you were. Owner-only, matching the
             sidebar's ownerOnly Clients item. Highlights while active. */}
