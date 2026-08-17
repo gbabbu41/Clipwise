@@ -2682,28 +2682,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const bName = barbers.find(b => b.id === bId)?.name ?? "";
     openAdd(bId, bName, "9:00 AM", 13 * 60, true);
   };
-  // Bottom-nav quick-add "New appointment" opens this SAME general add banner.
-  // It fires an event (when the calendar is already open) and sets a flag (read
-  // on a fresh navigation, once barbers have loaded so there's someone to seed).
+  // The bottom-nav "+" now opens the GLOBAL add-appointment modal (mounted in the
+  // dashboard layout) — it no longer navigates here. That modal posts to the same
+  // /api/book/in-person this calendar uses, so when it books while the calendar is
+  // open, refresh so the new appointment shows immediately.
   useEffect(() => {
-    const hasBarber = () => !!(dayBarberId ?? orderedBarbers[0]?.id);
-    // Guard on a resolved barber (openAddGeneral early-returns without one, which
-    // would consume the flag and make "New appointment" silently do nothing); if
-    // none yet, leave the flag so this effect re-fires once barbers load.
-    const fire = () => { if (!hasBarber()) return; try { sessionStorage.removeItem("cw_open_newappt"); } catch { /* ignore */ } openAddGeneral(); };
-    try {
-      const flag = sessionStorage.getItem("cw_open_newappt");
-      if (flag) {
-        // Only honor a FRESH flag (set on this navigation). A stale one — left
-        // behind by a visit where barbers never loaded — is dropped, not fired.
-        if (Date.now() - Number(flag) < 8000) fire();
-        else sessionStorage.removeItem("cw_open_newappt");
-      }
-    } catch { /* ignore */ }
-    window.addEventListener("cw-open-newappt", fire);
-    return () => window.removeEventListener("cw-open-newappt", fire);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayBarberId, orderedBarbers[0]?.id]);
+    const refresh = () => load();
+    window.addEventListener("cw-appt-created", refresh);
+    return () => window.removeEventListener("cw-appt-created", refresh);
+  }, [load]);
   // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
     ? `y${currentDate.getFullYear()}`

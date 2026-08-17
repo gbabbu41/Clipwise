@@ -775,7 +775,6 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   // Two tabs flank the center + ; the last tab + More sit on the right. Schedule
@@ -792,16 +791,12 @@ export function MobileNav() {
     );
   };
 
-  // Center + → open the calendar's add-appointment banner directly (no menu).
-  // Fires an event (when the calendar is already open) and sets a flag (read on a
-  // fresh navigation, once barbers load) so the banner opens from any page.
+  // Center + → open the global add-appointment modal INSTANTLY over the current
+  // page (mounted in the dashboard layout). No navigation to the calendar, no
+  // background swap — the modal posts to the same /api/book/in-person the calendar
+  // uses, so it's one shared booking path.
   const newAppointment = () => {
-    // Timestamp (not "1") so a flag that never gets consumed this navigation —
-    // calendar mounts without barbers, user leaves — goes stale instead of
-    // popping the add banner open on some unrelated later calendar visit.
-    try { sessionStorage.setItem("cw_open_newappt", String(Date.now())); } catch { /* ignore */ }
     window.dispatchEvent(new Event("cw-open-newappt"));
-    router.push("/dashboard/calendar");
   };
 
   return (

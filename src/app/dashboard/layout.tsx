@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
+import { AddAppointmentModal } from "@/components/dashboard/add-appointment-modal";
 import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banner";
 import { AddSelfBarberBanner } from "@/components/dashboard/add-self-barber-banner";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
@@ -153,6 +154,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </SwipeNavigator>
       </main>
       <MobileNav />
+      {/* Global quick-add: opens instantly over ANY page (fired by the bottom-nav
+          + via cw-open-newappt) and posts to the same /api/book/in-person the
+          calendar uses — no navigating to the calendar first. */}
+      <AddAppointmentModal />
       </ConfirmProvider>
     </div>
     </PortalThemeProvider>
