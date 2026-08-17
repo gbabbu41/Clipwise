@@ -378,10 +378,10 @@ export function BarberSidebar() {
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
-          fontSize: "26px",
+          fontSize: "23px",
           letterSpacing: "-0.02em",
           color: "var(--foreground)",
-          height: "64px",
+          height: "3.5rem",
         }}
       >
         CLIPWISE
