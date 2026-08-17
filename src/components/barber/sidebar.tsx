@@ -376,7 +376,7 @@ export function BarberSidebar() {
       <div
         className="cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
-          fontFamily: "'Sora', sans-serif",
+          fontFamily: "'Sora', var(--font-body), system-ui, sans-serif",
           fontWeight: 800,
           fontSize: "23px",
           letterSpacing: "-0.02em",
