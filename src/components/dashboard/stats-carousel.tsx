@@ -202,8 +202,12 @@ export function StatsCarousel({
   return (
     <div className="mb-3">
       <div className="relative">
+        {/* py + -my gives the card's elevation shadow room to render INSIDE the
+            scroll viewport (overflow clips at the padding edge), then pulls the
+            box back so layout doesn't move — so the carousel card shows the SAME
+            soft shadow as the KPI cards instead of needing a border. */}
         <div ref={ref} onScroll={onScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3 py-5 -my-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {slides.map((s, i) => (
             <div key={i} className="min-w-full snap-center min-h-[180px]">{s}</div>
           ))}
