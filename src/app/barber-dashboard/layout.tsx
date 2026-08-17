@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -7,6 +7,8 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
+import { AddAppointmentModal } from "@/components/dashboard/add-appointment-modal";
+import { DEFAULT_BARBER_PERMISSIONS } from "@/lib/database.types";
 import { BarberNotificationListener } from "@/components/barber/barber-notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -34,6 +36,25 @@ function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: 
     <SwipeNavigator order={order}>
       {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
     </SwipeNavigator>
+  );
+}
+
+// Mounts the shared add-appointment modal for the barber portal — fixed to the
+// logged-in barber (no picker). A barber WITHOUT the manage_appointments
+// permission sees a "contact your shop" message instead of the form. Posts to the
+// same /api/book/in-person the calendar uses. Lives under BarberProvider.
+function BarberAddAppt() {
+  const { accessToken } = useAuth();
+  const { barber, shop } = useBarber();
+  const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
+  const lockBarber = useMemo(() => (barber ? { id: barber.id, name: barber.name ?? "You" } : null), [barber]);
+  return (
+    <AddAppointmentModal
+      shop={shop ? { id: shop.id } : null}
+      accessToken={accessToken}
+      canAdd={perms.manage_appointments !== false}
+      lockBarber={lockBarber}
+    />
   );
 }
 
@@ -145,6 +166,9 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
             <BarberSwipe isCalendar={isCalendar}>{children}</BarberSwipe>
           </main>
           <BarberMobileNav />
+          {/* Global quick-add "+" — instant modal over any page, fixed to this
+              barber (or a "contact your shop" message if they lack permission). */}
+          <BarberAddAppt />
           </ConfirmProvider>
         </div>
       </BarberGuard>

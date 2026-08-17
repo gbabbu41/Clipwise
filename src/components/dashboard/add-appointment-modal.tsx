@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
 import { X, Check } from "lucide-react";
@@ -12,7 +11,11 @@ import { X, Check } from "lucide-react";
  * the calendar, no background page swap. It posts to the SAME /api/book/in-person
  * endpoint the calendar's add form uses, so the booking rules (double-booking
  * guard, math, dedupe) are the ONE shared server path — this modal never forks the
- * booking logic. Mounted once in the dashboard layout.
+ * booking logic. Mounted once per portal (owner + barber) in the layout.
+ *
+ * Owner: full barber picker. Barber: `lockBarber` fixes it to the logged-in barber
+ * (no picker), and `canAdd={false}` shows a "contact your shop" message instead of
+ * the form (for a barber without the manage_appointments permission).
  */
 type BarberLite = { id: string; name: string };
 type ServiceLite = { id: string; name: string; price: number | null; duration_minutes: number | null };
@@ -30,8 +33,14 @@ const TIME_OPTIONS: string[] = (() => {
   return out;
 })();
 
-export function AddAppointmentModal() {
-  const { shop, accessToken } = useAuth();
+export function AddAppointmentModal({
+  shop, accessToken, canAdd = true, lockBarber = null,
+}: {
+  shop: { id: string } | null;
+  accessToken: string | null;
+  canAdd?: boolean;                                   // false → show "contact your shop" message instead of the form
+  lockBarber?: { id: string; name: string } | null;  // barber mode: fix to this barber, hide the picker
+}) {
   const { confirm } = useConfirm();
   const [open, setOpen] = useState(false);
   const [barbers, setBarbers] = useState<BarberLite[]>([]);
@@ -59,14 +68,21 @@ export function AddAppointmentModal() {
     return () => window.removeEventListener("cw-open-newappt", openIt);
   }, [reset]);
 
-  // Load barbers + services when the modal opens.
+  // Load barbers + services when the modal opens (skipped when the barber isn't
+  // allowed — then we only show the "contact your shop" message).
   useEffect(() => {
-    if (!open || !shop) return;
-    supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name")
-      .then(({ data }) => { const b = (data ?? []) as BarberLite[]; setBarbers(b); setBarberId(prev => prev || b[0]?.id || ""); });
+    if (!open || !shop || !canAdd) return;
+    if (lockBarber) {
+      setBarbers([lockBarber]);
+      setBarberId(lockBarber.id);
+    } else {
+      supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name")
+        .then(({ data }) => { const b = (data ?? []) as BarberLite[]; setBarbers(b); setBarberId(prev => prev || b[0]?.id || ""); });
+    }
     supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name")
       .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
-  }, [open, shop]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, shop?.id, canAdd, lockBarber]);
 
   // Escape closes; lock body scroll while open (own lock — the inline-rgba backdrop
   // deliberately avoids ModalChrome's bg-black selector so its iOS body-lock, which
@@ -153,14 +169,26 @@ export function AddAppointmentModal() {
             <button onClick={() => setOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-surface-overlay transition-colors"><X size={18} /></button>
           </div>
 
+          {!canAdd ? (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm font-semibold text-foreground mb-1.5">Adding appointments isn&apos;t enabled for your account</p>
+              <p className="text-sm text-grey mb-6">Ask your shop owner to turn on appointment access for you.</p>
+              <button onClick={() => setOpen(false)} className="w-full py-3 rounded-xl bg-foreground text-background font-semibold text-sm">Got it</button>
+            </div>
+          ) : (
+          <>
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
             <div>
               <label className="text-xs font-semibold text-grey uppercase tracking-wide">Barber</label>
-              <select value={barberId} onChange={e => setBarberId(e.target.value)}
-                className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground">
-                {barbers.length === 0 && <option value="">No barbers</option>}
-                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              {lockBarber ? (
+                <div className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground">{lockBarber.name}</div>
+              ) : (
+                <select value={barberId} onChange={e => setBarberId(e.target.value)}
+                  className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground">
+                  {barbers.length === 0 && <option value="">No barbers</option>}
+                  {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              )}
             </div>
 
             <div>
@@ -210,6 +238,8 @@ export function AddAppointmentModal() {
               {saving ? "Booking…" : totalPrice > 0 ? `Book · ${formatCurrency(totalPrice)}${totalDuration ? ` · ${totalDuration} min` : ""}` : "Book appointment"}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </>

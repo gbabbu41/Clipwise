@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered, PanelLeft, PanelLeftClose } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered, PanelLeft, PanelLeftClose, Plus } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
 import { UnreadBadge } from "@/components/notification-badge";
@@ -466,30 +466,34 @@ export function BarberMobileNav() {
   const pathname = usePathname();
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
-  // 4 page-links + 1 'More' drawer-opener. Payments hides when the perm
-  // is off — list shrinks to 3 links + More to keep balance.
-  const linkItems = [
-    { href: "/barber-dashboard",          label: "Home",     icon: LayoutDashboard, show: true },
-    { href: "/barber-dashboard/calendar", label: "Calendar", icon: CalendarDays,    show: true },
-    { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock,           show: true },
-    { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign,      show: perms.view_earnings !== false },
-  ].filter(i => i.show);
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
+  // Center + → open the global add-appointment modal instantly over the current
+  // page (the modal, mounted in the barber layout, is fixed to this barber and
+  // shows a "contact your shop" message if they lack the permission).
+  const newAppointment = () => window.dispatchEvent(new Event("cw-open-newappt"));
 
+  const navLink = (href: string, label: string, Icon: typeof LayoutDashboard) => {
+    const isActive = pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href));
+    return (
+      <Link href={href} className={cn("cw-ni", isActive && "active")}>
+        <div className="cw-ni-icon"><Icon size={20} /></div>
+        <div className="cw-ni-label">{label}</div>
+        {isActive && <div className="cw-ni-line" />}
+      </Link>
+    );
+  };
+
+  // Home · Calendar · [+] · Payments · More — matches the owner portal. Schedule
+  // moved into the More drawer to make room for the center quick-add.
   return (
     <nav className="cw-bnav lg:hidden">
-      {linkItems.map((item) => {
-        const isActive = pathname === item.href
-          || (item.href !== "/barber-dashboard" && pathname.startsWith(item.href));
-        return (
-          <Link key={item.href} href={item.href} className={cn("cw-ni", isActive && "active")}>
-            <div className="cw-ni-icon"><item.icon size={20} /></div>
-            <div className="cw-ni-label">{item.label}</div>
-            {isActive && <div className="cw-ni-line" />}
-          </Link>
-        );
-      })}
-      {/* 'More' opens the sidebar drawer (Profile, Time Off, etc.). */}
+      {navLink("/barber-dashboard", "Home", LayoutDashboard)}
+      {navLink("/barber-dashboard/calendar", "Calendar", CalendarDays)}
+      <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
+        <Plus size={26} strokeWidth={2.6} />
+      </button>
+      {perms.view_earnings !== false && navLink("/barber-dashboard/earnings", "Payments", DollarSign)}
+      {/* 'More' opens the sidebar drawer (Schedule, Profile, Time Off, etc.). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
         <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
