@@ -15,7 +15,7 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, periodLabel = "Today", filterControl,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -90,7 +90,7 @@ export function StatsCarousel({
       {/* Right side is kept clear (pr) for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
       <div className="flex items-start justify-between gap-2 pr-24">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Collected · {periodLabel}</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Collected</p>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
