@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, ResponsiveContainer, Tooltip,
@@ -15,7 +15,7 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, periodLabel = "Today",
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, periodLabel = "Today", filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -29,6 +29,7 @@ export function StatsCarousel({
   completed: AppointmentWithDetails[];
   barbers: Barber[];
   periodLabel?: string;    // active date-filter label ("Today", "This Week", …)
+  filterControl?: ReactNode; // the date-filter (Today ▾) — overlaid at the first card's top-right
 }) {
   // Fall back to computing net revenue locally if the parent didn't pass it.
   const netRev = netRevenue ?? Math.max(0, revenue - taxCollected - tips - commission);
@@ -86,15 +87,18 @@ export function StatsCarousel({
   const slides = [
     // 1 — Revenue (area)
     <div key="rev" className={card}>
-      <div className="flex items-start justify-between gap-2">
+      {/* Right side is kept clear (pr) for the Today ▾ filter the parent overlays
+          at the card's top-right corner. */}
+      <div className="flex items-start justify-between gap-2 pr-24">
         <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Collected · {periodLabel}</p>
-        <span className={cn("text-[11px] font-medium whitespace-nowrap", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
-          {hasCompleted ? `${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "‹ swipe ›"}
-        </span>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
+      {/* Booking count sits right under the big collected number. */}
+      <span className={cn("mt-1.5 block text-[12px] font-medium", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
+        {hasCompleted ? `${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}
+      </span>
       {/* Cash included in the net (already in hand). */}
       {cashIncluded > 0 && (
         <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
@@ -213,6 +217,12 @@ export function StatsCarousel({
           className={cn(arrowBtn, "right-1.5")}>
           <ChevronRight size={18} />
         </button>
+        {/* Date filter (Today ▾) overlaid at the first card's top-right — rendered
+            OUTSIDE the scroll container so its dropdown/date-picker aren't clipped
+            by the carousel's overflow. Last child so it paints above the slides. */}
+        {filterControl && (
+          <div className="absolute right-[18px] top-[13px]">{filterControl}</div>
+        )}
       </div>
       <div className="flex justify-center gap-1.5 mt-2">
         {slides.map((_, i) => (

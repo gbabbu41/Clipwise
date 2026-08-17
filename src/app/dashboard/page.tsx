@@ -574,82 +574,24 @@ export default function DashboardPage() {
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Date filter — ONE quiet "Today ▾" control, now on the header row (right)
-              instead of orphaned on its own line below, so the top matches the barber
-              portal's clean header→content flow. Menu + date-picker open right-aligned
-              so they never overflow the screen edge. */}
-          <div className="cwd-filter">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setFilterMenuOpen(o => !o)}
-                className={cn("cwd-trigger", filterMenuOpen && "open")}
-              >
-                {DATE_FILTER_LABELS[dateFilter]}
-                <ChevronDown size={15} />
-              </button>
-              {filterMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
-                  <div className="cwd-menu cwd-menu--right">
-                    {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
-                      .filter(([k]) => k !== "custom")
-                      .map(([k, v]) => (
-                        <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
-                          onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
-                          {v}
-                        </button>
-                      ))}
-                    <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
-                    <button type="button" className="flex items-center gap-2"
-                      onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
-                      <Calendar size={14} /> Pick a date…
-                    </button>
-                  </div>
-                </>
-              )}
-              {showDatePicker && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-40 w-[320px] max-w-[calc(100vw-2.5rem)]">
-                    <CalendarPicker
-                      className="shadow-xl w-full max-w-none"
-                      value={new Date(filterDateRange[0] + "T00:00:00")}
-                      minDate={null}
-                      onChange={(d) => {
-                        const ds = formatDateForDb(d);
-                        setCustomStart(ds);
-                        setCustomEnd(ds);
-                        setDateFilter("custom" as DateFilterKey);
-                        setSelectedCalDate(null);
-                        setShowDatePicker(false);
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="cwd-cluster max-lg:hidden">
-            {/* On mobile the bell opens the notification popover (same as every
-                other page); on desktop it navigates to the notifications page. */}
-            <Link
-              href="/dashboard/notifications"
-              aria-label="Notifications"
-              className="cwd-icobtn relative"
-              onClick={(e) => {
-                if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                  e.preventDefault();
-                  window.dispatchEvent(new Event("cw-open-notifs"));
-                }
-              }}
-            >
-              <Bell size={17} />
-              <UnreadBadge count={unreadCount} />
-            </Link>
-            <ProfileMenu name={profile?.name ?? "Account"} photo={profile?.avatar || ownerPhoto} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
-          </div>
+        <div className="cwd-cluster max-lg:hidden">
+          {/* On mobile the bell opens the notification popover (same as every
+              other page); on desktop it navigates to the notifications page. */}
+          <Link
+            href="/dashboard/notifications"
+            aria-label="Notifications"
+            className="cwd-icobtn relative"
+            onClick={(e) => {
+              if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                e.preventDefault();
+                window.dispatchEvent(new Event("cw-open-notifs"));
+              }
+            }}
+          >
+            <Bell size={17} />
+            <UnreadBadge count={unreadCount} />
+          </Link>
+          <ProfileMenu name={profile?.name ?? "Account"} photo={profile?.avatar || ownerPhoto} items={OWNER_MENU_ITEMS} triggerClassName="cwd-avatar" />
         </div>
       </div>
 
@@ -681,7 +623,62 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
+              filterControl={
+                <div className="cwd-filter">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setFilterMenuOpen(o => !o)}
+                      className={cn("cwd-trigger", filterMenuOpen && "open")}
+                    >
+                      {DATE_FILTER_LABELS[dateFilter]}
+                      <ChevronDown size={15} />
+                    </button>
+                    {filterMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
+                        <div className="cwd-menu cwd-menu--right">
+                          {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
+                            .filter(([k]) => k !== "custom")
+                            .map(([k, v]) => (
+                              <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
+                                onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
+                                {v}
+                              </button>
+                            ))}
+                          <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
+                          <button type="button" className="flex items-center gap-2"
+                            onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
+                            <Calendar size={14} /> Pick a date…
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {showDatePicker && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
+                        <div className="absolute right-0 top-full mt-2 z-40 w-[320px] max-w-[calc(100vw-2.5rem)]">
+                          <CalendarPicker
+                            className="shadow-xl w-full max-w-none"
+                            value={new Date(filterDateRange[0] + "T00:00:00")}
+                            minDate={null}
+                            onChange={(d) => {
+                              const ds = formatDateForDb(d);
+                              setCustomStart(ds);
+                              setCustomEnd(ds);
+                              setDateFilter("custom" as DateFilterKey);
+                              setSelectedCalDate(null);
+                              setShowDatePicker(false);
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              }
+            />
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),
                 borderless tiles on the canvas (dividers removed via globals). */}
