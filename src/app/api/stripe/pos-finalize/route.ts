@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
+import { upsertClient } from "@/lib/clients-server";
+import { sendPaymentReceipt } from "@/lib/payment-notify";
+import { type TaxConfig } from "@/lib/pricing";
 
 // Called when the POS returns from a paid card checkout. Verifies the payment
 // on the connected account, then records the transaction + decrements stock.
@@ -13,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!session_id || !shop_id) return NextResponse.json({ error: "Missing params" }, { status: 400 });
 
   const { data: shop } = await supabaseAdmin
-    .from("shops").select("owner_id, stripe_account_id, stripe_connected, booking_settings").eq("id", shop_id).single();
+    .from("shops").select("owner_id, name, email, stripe_account_id, stripe_connected, booking_settings").eq("id", shop_id).single();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
   const useConnect = !!(shop.stripe_account_id && shop.stripe_connected);
 
@@ -122,6 +125,31 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+
+    // Save the customer into the shop's client book (server-side, deduped) so a
+    // POS sale reliably lands them in Clients. Only reached on a NEW insert (a
+    // duplicate finalize returns at the idempotency check above), so the customer
+    // + receipt fire exactly once. Both awaited so they run before the function
+    // returns; both never throw, so they can't fail the recorded sale.
+    await upsertClient(shop_id, m.client_name, m.client_email, m.client_phone);
+
+    // Email the customer their ClipWise receipt. (Stripe's own receipt is off in
+    // sandbox/test mode and gated behind a dashboard toggle even live, so this is
+    // the receipt they can actually rely on.)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    await sendPaymentReceipt(baseUrl, {
+      clientEmail: m.client_email,
+      clientName: m.client_name,
+      shopName: shop.name,
+      shopEmail: shop.email,
+      serviceName: m.service_name,
+      date: new Date().toISOString().slice(0, 10),
+      amountCents: Math.round(total * 100),
+      context: "Payment received",
+      taxCents: Math.round(tax * 100),
+      tipCents: Math.round(tip * 100),
+      taxConfig: shop.booking_settings as TaxConfig | null,
+    });
 
     return NextResponse.json({
       paid: true,

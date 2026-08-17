@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
+import { upsertClient } from "@/lib/clients-server";
+import { sendPaymentReceipt } from "@/lib/payment-notify";
+import { type TaxConfig } from "@/lib/pricing";
 
 /**
  * Record a cash (or gift-card-covered) POS sale server-side.
@@ -28,7 +31,7 @@ export async function POST(req: Request) {
     const shop_id = b.shop_id as string | undefined;
     if (!shop_id) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
 
-    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id, booking_settings").eq("id", shop_id).maybeSingle();
+    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id, name, email, booking_settings").eq("id", shop_id).maybeSingle();
     if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
     let allowed = shop.owner_id === user.id;
     if (!allowed) {
@@ -137,6 +140,31 @@ export async function POST(req: Request) {
         }).eq("id", gc.id).then(null, () => null);
       }
     }
+
+    // Save the customer into the shop's client book (server-side, deduped) so a
+    // POS sale reliably lands them in Clients — the browser-side add can silently
+    // fail and a barber has no client-side INSERT rights. Both this and the receipt
+    // are awaited so they actually run before the serverless function returns; both
+    // never throw, so they can't fail the recorded sale.
+    await upsertClient(shop_id, b.client_name, b.client_email, b.client_phone);
+
+    // Email the customer their receipt — the same ClipWise receipt appointments
+    // send (cash gets no Stripe receipt, so this is the only one they'll get).
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+    const amt = Number(b.amount) || 0, tax = Number(b.tax) || 0, tip = Number(b.tip) || 0;
+    await sendPaymentReceipt(baseUrl, {
+      clientEmail: b.client_email,
+      clientName: b.client_name,
+      shopName: shop.name,
+      shopEmail: shop.email,
+      serviceName: b.service_name,
+      date: new Date().toISOString().slice(0, 10),
+      amountCents: Math.round((amt + tax + tip) * 100),
+      context: "Payment received",
+      taxCents: Math.round(tax * 100),
+      tipCents: Math.round(tip * 100),
+      taxConfig: shop.booking_settings as TaxConfig | null,
+    });
 
     return NextResponse.json({ transactionId: ins.data!.id });
   } catch (err) {
