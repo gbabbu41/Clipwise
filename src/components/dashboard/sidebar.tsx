@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus,
+  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -116,68 +116,43 @@ interface NavItem {
   hidden?: boolean;   // temporarily hidden from the nav on ALL plans (page/logic kept)
 }
 
-interface NavSection {
-  label: string;
-  items: NavItem[];
-}
+// Simple sidebar (mirrors the barber portal): the primary items sit flat on top,
+// everything else lives under a collapsible "Business" group, and account items
+// (Settings/Billing) pin to the bottom. Items that don't pass the ownerOnly +
+// feature-gating filter are skipped at render time.
+const primaryItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
+  { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
+  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
+  { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
+];
 
-// Grouped sidebar nav. Items that don't pass the ownerOnly + feature-gating
-// filter are skipped at render time; a section whose items are all filtered
-// out is hidden entirely (along with its label + divider) so barbers and
-// gated shops don't see empty group headers.
-const navSections: NavSection[] = [
-  {
-    label: "Overview",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
-      { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
-      { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
-      { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
-    ],
-  },
-  {
-    label: "People",
-    items: [
-      { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
-      { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true, paidOnly: true },
-    ],
-  },
-  {
-    label: "Business",
-    items: [
-      { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
-      { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
-      { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
-      // Messages: temporarily hidden from the nav on ALL plans — page + send logic
-      // are kept intact. `paidOnly` keeps it off Starter permanently; delete
-      // `hidden: true` to bring it back for Pro/Premium.
-      { href: "/dashboard/messages", label: "Messages", icon: MessageSquare, paidOnly: true, hidden: true },
-      { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
-      { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
-      { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
-      { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
-      { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
-      { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
-      { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
-    ],
-  },
-  {
-    label: "Settings",
-    items: [
-      { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
-      { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
-    ],
-  },
+const businessItems: NavItem[] = [
+  { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
+  { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
+  { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
+  // Messages: temporarily hidden from the nav on ALL plans — page + send logic
+  // are kept intact. Delete `hidden: true` to bring it back for Pro/Premium.
+  { href: "/dashboard/messages", label: "Messages", icon: MessageSquare, paidOnly: true, hidden: true },
+  { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
+  { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
+  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
+  { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
+  { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
+];
+
+const accountItems: NavItem[] = [
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
 ];
 
 
@@ -230,6 +205,8 @@ export function Sidebar() {
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Collapsible "Business" group in the sidebar (primary items stay flat on top).
+  const [businessOpen, setBusinessOpen] = useState(false);
 
   // Auto-close the mobile drawer whenever the route changes (i.e. the user
   // tapped a nav item) so they're not staring at the drawer on the new page.
@@ -660,19 +637,20 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Sidebar wordmark + shop plan badge — a compact centred row so the
-          wordmark doesn't float with dead space on both sides. cw-grad is on the
-          wordmark span only (not the div) so it never bleeds onto the badge. */}
+      {/* Sidebar wordmark — plain solid CLIPWISE (theme-aware colour, no gradient),
+          same 26px as the barber portal so both sidebars match exactly. */}
       <div
-        className="cw-logo-fade relative whitespace-nowrap border-b border-border flex flex-col justify-center items-start gap-1.5 pl-6"
+        className="cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
           fontFamily: "'Sora', sans-serif",
           fontWeight: 800,
+          fontSize: "26px",
           letterSpacing: "-0.02em",
-          color: "#ffffff",
+          color: "var(--foreground)",
           height: "64px",
         }}
       >
+        CLIPWISE
         {/* Desktop: collapse the sidebar (mobile uses the drawer + backdrop tap) */}
         <button
           type="button"
@@ -682,75 +660,83 @@ export function Sidebar() {
         >
           <PanelLeftClose size={18} />
         </button>
-        {/* Stacked lockup: signature gradient wordmark over the plan as a spaced
-            small-caps kicker (no pill) — tidier than the old inline badge. */}
-        <span className="cw-grad" style={{ fontSize: "23px", lineHeight: 1 }}>CLIPWISE</span>
-        {shop?.subscription_plan && shop.subscription_plan !== "starter" && (
-          <span className="uppercase font-semibold text-accent text-[9px] tracking-[0.34em] ml-[2px] leading-none">
-            {shop.subscription_plan}
-          </span>
-        )}
       </div>
 
       <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
 
       {/* Nav */}
-      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
         {(() => {
           const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
-          const visibleSections = navSections
-            .map(section => ({
-              ...section,
-              items: section.items.filter(item => {
-                if (item.hidden) return false;
-                if (item.ownerOnly && profile?.role === "barber") return false;
-                if (item.paidOnly && !isPaidPlan(plan)) return false;
-                if (item.feature) return planHasFeature(plan, item.feature);
-                return true;
-              }),
-            }))
-            .filter(section => section.items.length > 0);
+          const passes = (item: NavItem) => {
+            if (item.hidden) return false;
+            if (item.ownerOnly && profile?.role === "barber") return false;
+            if (item.paidOnly && !isPaidPlan(plan)) return false;
+            if (item.feature) return planHasFeature(plan, item.feature);
+            return true;
+          };
+          const renderItem = (item: NavItem) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                  isActive
+                    ? "bg-foreground text-background border border-foreground"
+                    : "text-grey hover:text-foreground hover:bg-card-raised",
+                )}
+              >
+                <Icon size={18} className={cn(isActive ? "text-background" : "text-grey group-hover:text-foreground")} />
+                <span className="flex-1">{item.label}</span>
+                {item.badge && unreadCount > 0 && (
+                  <span className={cn(
+                    "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
+                    isActive ? "bg-card text-foreground" : "bg-foreground text-background",
+                  )}>
+                    {unreadCount}
+                  </span>
+                )}
+                {isActive && <ChevronRight size={14} className="text-background" />}
+              </Link>
+            );
+          };
+          const business = businessItems.filter(passes);
+          const account = accountItems.filter(passes);
+          const businessActive = business.some(i => i.href === pathname);
+          const showBusiness = businessOpen || businessActive;
+          return (
+            <>
+              {/* Primary items — flat on top, no group labels (mirrors the barber portal). */}
+              {primaryItems.filter(passes).map(renderItem)}
 
-          return visibleSections.map((section, sectionIdx) => (
-            <div
-              key={section.label}
-              className={cn(sectionIdx > 0 && "mt-4 pt-4 border-t border-border")}
-            >
-              <p className="text-[10px] uppercase tracking-wider text-grey font-semibold px-3 mb-1.5">
-                {section.label}
-              </p>
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
-                        isActive
-                          ? "bg-foreground text-background border border-foreground"
-                          : "text-grey hover:text-foreground hover:bg-card-raised"
-                      )}
-                    >
-                      <Icon size={18} className={cn(isActive ? "text-background" : "text-grey group-hover:text-foreground")} />
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && unreadCount > 0 && (
-                        <span className={cn(
-                          "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
-                          isActive ? "bg-card text-foreground" : "bg-foreground text-background"
-                        )}>
-                          {unreadCount}
-                        </span>
-                      )}
-                      {isActive && <ChevronRight size={14} className="text-background" />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ));
+              {/* Everything else tucked under a collapsible Business group. */}
+              {business.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setBusinessOpen(o => !o)}
+                    aria-expanded={showBusiness}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-grey hover:text-foreground hover:bg-card-raised transition-all duration-200 group"
+                  >
+                    <Briefcase size={18} className="text-grey group-hover:text-foreground" />
+                    <span className="flex-1 text-left">Business</span>
+                    <ChevronDown size={16} className={cn("transition-transform duration-200", showBusiness && "rotate-180")} />
+                  </button>
+                  {showBusiness && <div className="mt-0.5 space-y-0.5">{business.map(renderItem)}</div>}
+                </div>
+              )}
+
+              {/* Account (Settings / Billing) pinned at the bottom. */}
+              {account.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border space-y-0.5">
+                  {account.map(renderItem)}
+                </div>
+              )}
+            </>
+          );
         })()}
 
         {/* Owner-also-barber: prominent switch to barber view. Paid plans only —
