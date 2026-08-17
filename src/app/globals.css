@@ -61,9 +61,11 @@
    white — echoing the ClipWise cream. */
 html[data-theme="light"] .portal {
   color-scheme: light;
-  /* Minimal light system: one soft off-white ground, white cards that float on it
-     via the soft shadow (not borders), whisper-faint hairlines. */
-  --background:     #f4f5f6;  /* soft, light off-white — the single page ground */
+  /* Minimal light system: page ground is the SAME white as the cards — cards
+     separate purely by a soft elevation shadow (the Stripe/iOS "float on white"
+     look), no tonal step, no borders. The shadow below is tuned stronger to carry
+     that separation now that there's no grey background behind the cards. */
+  --background:     #ffffff;  /* pure white — same as cards; shadow does the lift */
   --foreground:     #1a1a1a;  /* dark charcoal — never absolute black */
   --card:           #ffffff;  /* white cards float on the off-white via a soft shadow */
   --card-raised:    #f1f2f4;  /* nested chips/pills — barely off the page, same-surface feel */
@@ -71,7 +73,7 @@ html[data-theme="light"] .portal {
   --surface-raised: #f1f2f4;
   --surface-overlay:#eaebed;  /* hover fills / menus */
   --surface-sunken: #edeef0;  /* recessed (calendar canvas) */
-  --border:         #ececed;  /* very light neutral — cards read borderless; shows faintly on inputs */
+  --border:         #e6e8ec;  /* light hairline — defines bordered cards + inputs on the white ground */
   --border-strong:  #dededf;
   --grey:           #6b6b6b;  /* secondary text — muted grey */
   --grey-2:         #9a9a9a;  /* muted text */
@@ -87,7 +89,7 @@ html[data-theme="light"] .portal .cwd-hero,
 html[data-theme="light"] .portal .cwd-qa,
 html[data-theme="light"] .portal .cwd-cal {
   border-color: transparent;
-  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.07), 0 18px 36px rgba(16, 24, 40, 0.06);
 }
 
 /* The revenue carousel/hero, quick-action tiles, tinted cards and the calendar
@@ -109,7 +111,7 @@ html[data-theme="light"] .portal .cwd-seg { background: var(--card); }
 html[data-theme="light"] .portal .cwd-stat {
   background: var(--card);
   border-color: transparent;
-  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.07), 0 18px 36px rgba(16, 24, 40, 0.06);
 }
 
 /* ── Payments page (cwp-*) — the block kept hardcoded dark borders/rows/dots/
@@ -117,7 +119,7 @@ html[data-theme="light"] .portal .cwd-stat {
    payments matches the rest (dark theme untouched). ── */
 html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement) {
   border-color: transparent;
-  box-shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.06);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.07), 0 18px 36px rgba(16, 24, 40, 0.06);
 }
 /* The cards now default to the raised tone (for dark's lift off pure black);
    keep them white in light so they read as cards, not grey blocks. */
