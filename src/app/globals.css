@@ -935,7 +935,7 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    html[data-theme="light"] .portal .card rules keep light cards white. Scoped
    to .portal so customer-facing pages (booking, receipts) are untouched. This
    fixes the app-wide "card is the same colour as the background" blend. */
-.portal .card { background-color: var(--card-raised); border: 0; box-shadow: var(--cwd-lift); }
+.portal .card { background-color: var(--card); border: 0; box-shadow: var(--cwd-lift); }
 .portal .card-header { border-bottom-color: var(--cwd-div); }
 .portal .card-footer { border-top-color: var(--cwd-div); }
 .card-title    { margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 700; color: var(--foreground); letter-spacing: -0.015em; }
@@ -1450,7 +1450,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:transpar
 html[data-theme="light"] .portal .cwd-act.cwd-act--default:hover:not(:disabled) { background:var(--surface-overlay); }
 html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surface-overlay); border-color:var(--border); color:var(--grey-2); }
 
-.cwd-hero { background:var(--card-raised); border:0; border-radius:20px; padding:18px 18px 14px; margin-bottom:12px; box-shadow:var(--cwd-lift); }
+.cwd-hero { background:var(--card); border:0; border-radius:20px; padding:18px 18px 14px; margin-bottom:12px; box-shadow:var(--cwd-lift); }
 /* Revenue carousel slides — borderless soft lift (dark). Light keeps its own
    white + shadow via the html[data-theme="light"] .cwd-stat override above. */
 .cwd-stat { box-shadow:var(--cwd-lift); }
@@ -1473,7 +1473,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 /* Minimal stats: borderless tiles separated by whitespace (no panel, no 1px
    dividers) — each tile floats on its own with a soft lift. */
 .cwd-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-.cwd-kpi { background:var(--card-raised); border:0; border-radius:16px; padding:18px 16px; box-shadow:var(--cwd-lift); }
+.cwd-kpi { background:var(--card); border:0; border-radius:16px; padding:18px 16px; box-shadow:var(--cwd-lift); }
 .cwd-klbl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--grey); }
 .cwd-kval { font-size:26px; font-weight:700; margin-top:8px; letter-spacing:-.02em; line-height:1; color:var(--foreground); }
 .cwd-ksub { font-size:11px; margin-top:9px; color:var(--grey); }
@@ -1485,7 +1485,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-qahdr { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--grey-2); margin:14px 2px 9px; }
 /* Quick actions sit on the same calm panel; each tile is borderless with a soft
    icon chip. The first tile is the primary action (accent chip). */
-.cwd-qa { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:22px; background:var(--card-raised); border-radius:20px; padding:14px 10px; box-shadow:var(--cwd-lift); }
+.cwd-qa { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:22px; background:var(--card); border-radius:20px; padding:14px 10px; box-shadow:var(--cwd-lift); }
 .cwd-qa a, .cwd-qa button { background:transparent; border:0; border-radius:14px; padding:8px 4px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:9px; transition:background-color .15s; }
 .cwd-qa a:hover, .cwd-qa button:hover { background:color-mix(in srgb, var(--foreground) 5%, transparent); }
 .cwd-qic { width:52px; height:52px; border-radius:16px; background:var(--surface-overlay); display:flex; align-items:center; justify-content:center; color:var(--foreground); }
@@ -1495,14 +1495,14 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 
 .cwd-body { display:grid; grid-template-columns:2fr 1fr; gap:18px; }
 .cwd-col { display:flex; flex-direction:column; gap:16px; min-width:0; }
-.cwd-card { background:var(--card-raised); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
-.cwd-card.tint { background:var(--card-raised); }
+.cwd-card { background:var(--card); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
+.cwd-card.tint { background:var(--card); }
 .cwd-cardh { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--cwd-div); }
 .cwd-ct { font-size:14px; font-weight:700; color:var(--foreground); }
 .cwd-ca { font-size:12px; color:#a9c6ff; }
 .cwd-cardb { padding:12px 16px; }
 
-.cwd-cal { display:block; background:var(--card-raised); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
+.cwd-cal { display:block; background:var(--card); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
 .cwd-cal:hover { box-shadow:0 1px 2px rgba(0,0,0,.3), 0 22px 46px -22px rgba(0,0,0,.7); }
 .cwd-caltop { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--cwd-div); }
 .cwd-calm { font-size:13px; font-weight:700; color:var(--foreground); }
@@ -1619,7 +1619,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
    the earnings carousel shows the same soft shadow as the cards, no border. */
 .cwp-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:-16px -4px;padding:20px 4px}
 .cwp-rail::-webkit-scrollbar{display:none}
-.cwp-ecard{min-width:calc(100% - 30px);scroll-snap-align:center;background:var(--card-raised);border:0;border-radius:22px;padding:18px 18px 14px;box-shadow:var(--cwd-lift)}
+.cwp-ecard{min-width:calc(100% - 30px);scroll-snap-align:center;background:var(--card);border:0;border-radius:22px;padding:18px 18px 14px;box-shadow:var(--cwd-lift)}
 .cwp-period{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .cwp-pname{font-size:13px;font-weight:600;color:var(--foreground)}
 .cwp-prange{font-size:11px;color:var(--grey-2);white-space:nowrap}
@@ -1680,7 +1680,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 
 /* two summary tiles */
 .cwp-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 8px}
-.cwp-tile{background:var(--card-raised);border:0;border-radius:16px;padding:14px;text-align:left;display:block;width:100%;cursor:default;box-shadow:var(--cwd-lift)}
+.cwp-tile{background:var(--card);border:0;border-radius:16px;padding:14px;text-align:left;display:block;width:100%;cursor:default;box-shadow:var(--cwd-lift)}
 button.cwp-tile{cursor:pointer;transition:background .15s}
 button.cwp-tile:hover{background:var(--surface-overlay)}
 .cwp-tile .cwp-lbl{margin-bottom:8px;display:flex;align-items:center;gap:6px}
@@ -1696,7 +1696,7 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cwp-seg button{flex:none;font-size:12.5px;font-weight:500;color:var(--grey);background:var(--card-raised);border:1px solid var(--cwd-div);padding:7px 13px;border-radius:999px;cursor:pointer;transition:.15s}
 .cwp-seg button.cwp-on{background:var(--foreground);color:var(--surface-sunken);border-color:var(--foreground);font-weight:600}
 
-.cwp-statement{background:var(--card-raised);border:0;border-radius:20px;overflow:hidden;box-shadow:var(--cwd-lift)}
+.cwp-statement{background:var(--card);border:0;border-radius:20px;overflow:hidden;box-shadow:var(--cwd-lift)}
 .cwp-daygroup{border-top:1px solid var(--cwd-div)}
 .cwp-daygroup:first-child{border-top:none}
 .cwp-day{display:flex;align-items:baseline;justify-content:space-between;padding:12px 16px 8px}
