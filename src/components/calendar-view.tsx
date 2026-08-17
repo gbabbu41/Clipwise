@@ -1924,7 +1924,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <div key={d} className="px-2 py-2 text-xs font-medium text-grey-muted text-center">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+        <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-card">
           {visibleDays.map((day) => {
             const inMonth = isSameMonth(day, currentDate);
             const dayStr = formatDateForDb(day);

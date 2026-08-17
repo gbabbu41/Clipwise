@@ -773,7 +773,7 @@ export default function POSPage() {
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
-        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-card-raised border-l border-border">
+        <div className="hidden lg:flex w-80 shrink-0 flex-col bg-card border-l border-border">
           <div className="shrink-0 px-4 py-3 border-b border-border">
             <h2 className="text-base font-bold text-foreground">Order Summary</h2>
             <p className="text-xs text-grey-muted truncate">{client || "No customer"} · {barbers.find(b => b.id === barberId)?.name ?? "—"}</p>
@@ -841,7 +841,7 @@ export default function POSPage() {
                     const selected = cart.some(i => i.id === svc.id);
                     return (
                       <button key={svc.id} onClick={() => addItem(svc.id, svc.name, svc.price, "service")}
-                        className={cn("relative h-20 p-3 rounded-xl border bg-card-raised flex flex-col justify-between text-left transition-all active:scale-95",
+                        className={cn("relative h-20 p-3 rounded-xl border bg-card flex flex-col justify-between text-left transition-all active:scale-95",
                           selected ? "border-[#00e5a0]" : "border-border hover:border-white/20")}>
                         {selected && (
                           <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00e5a0] flex items-center justify-center">
@@ -881,7 +881,7 @@ export default function POSPage() {
                         const selected = cart.some(i => i.id === `inv-${inv.id}`);
                         return (
                           <button key={inv.id} onClick={() => addItem(`inv-${inv.id}`, inv.name, inv.price, "product", inv.id)}
-                            className={cn("relative h-20 p-3 rounded-xl border bg-card-raised flex flex-col justify-between text-left transition-all active:scale-95",
+                            className={cn("relative h-20 p-3 rounded-xl border bg-card flex flex-col justify-between text-left transition-all active:scale-95",
                               selected ? "border-[#00e5a0]" : "border-border hover:border-white/20",
                               inv.quantity === 0 && "opacity-40 pointer-events-none")}>
                             {selected && (
@@ -941,7 +941,7 @@ export default function POSPage() {
           <div className="lg:hidden fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setCartOpen(false)} />
           <div ref={cartSheetRef}
             style={{ transform: cartDrag.dragY ? `translate3d(0,${cartDrag.dragY}px,0)` : undefined, transition: cartDrag.dragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)" }}
-            className="lg:hidden fixed left-0 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-card-raised rounded-t-[20px] border-t border-border animate-slide-up">
+            className="lg:hidden fixed left-0 right-0 bottom-0 z-[60] max-h-[85vh] flex flex-col bg-card rounded-t-[20px] border-t border-border animate-slide-up">
             <div onClick={() => setCartOpen(false)} className="shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
               <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
             </div>

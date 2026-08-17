@@ -68,7 +68,9 @@ html[data-theme="light"] .portal {
   --background:     #f6f7f9;  /* faint cool off-white — white cards lift off it */
   --foreground:     #1a1a1a;  /* dark charcoal — never absolute black */
   --card:           #ffffff;  /* white cards float on the off-white via a soft shadow */
-  --card-raised:    #f1f2f4;  /* nested chips/pills — barely off the page, same-surface feel */
+  --card-raised:    #f1f2f4;  /* nested chips/pills/rows/skeletons INSIDE white cards —
+                                 a clear grey step below white. (Surfaces that sit on the
+                                 page base use --card/white, not this, so they lift.) */
   --surface:        #ffffff;
   --surface-raised: #f1f2f4;
   --surface-overlay:#eaebed;  /* hover fills / menus */
