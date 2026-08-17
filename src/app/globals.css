@@ -124,6 +124,11 @@ html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement) {
 /* The cards now default to the raised tone (for dark's lift off pure black);
    keep them white in light so they read as cards, not grey blocks. */
 html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement, .cwp-bmenu) { background: var(--card); }
+/* Swipeable carousel cards live inside an overflow-x scroll container, which CLIPS
+   their elevation shadow — so on the white ground they'd read as edgeless. Give
+   just these a hairline border (borders sit inside the box, so they're never
+   clipped) to keep them defined. Light only; dark separates them by tone. */
+html[data-theme="light"] .portal :is(.cwd-stat, .cwp-ecard) { border: 1px solid var(--border); }
 html[data-theme="light"] .portal :is(.cwp-bchip, .cwp-bmenu, .cwp-seg button) { border-color: var(--border); }
 html[data-theme="light"] .portal button.cwp-tile:hover { border-color: transparent; }
 html[data-theme="light"] .portal :is(.cwp-hint, .cwp-m) { color: var(--grey-2); }
