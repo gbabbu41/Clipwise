@@ -1,9 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
-import { X, Check } from "lucide-react";
+import { formatCurrency, formatDateForDb } from "@/lib/utils";
+import { Input, Select } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { X, Plus } from "lucide-react";
 
 /**
  * Global "New appointment" modal. Opens INSTANTLY over whatever page you're on
@@ -11,7 +13,8 @@ import { X, Check } from "lucide-react";
  * the calendar, no background page swap. It posts to the SAME /api/book/in-person
  * endpoint the calendar's add form uses, so the booking rules (double-booking
  * guard, math, dedupe) are the ONE shared server path — this modal never forks the
- * booking logic. Mounted once per portal (owner + barber) in the layout.
+ * booking logic. Its look mirrors the calendar's tap-to-add sheet on purpose so
+ * both entry points feel identical. Mounted once per portal (owner + barber).
  *
  * Owner: full barber picker. Barber: `lockBarber` fixes it to the logged-in barber
  * (no picker), and `canAdd={false}` shows a "contact your shop" message instead of
@@ -25,13 +28,28 @@ type ServiceLite = { id: string; name: string; price: number | null; duration_mi
 const TIME_OPTIONS: string[] = (() => {
   const out: string[] = [];
   for (let m = 6 * 60; m <= 22 * 60; m += 15) {
-    const h24 = Math.floor(m / 60), min = m % 60;
-    const ampm = h24 < 12 ? "AM" : "PM";
-    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    out.push(`${h12}:${String(min).padStart(2, "0")} ${ampm}`);
+    out.push(minutesToLabel(m));
   }
   return out;
 })();
+
+function minutesToLabel(m: number): string {
+  const h24 = Math.floor(m / 60), min = m % 60;
+  const ampm = h24 < 12 ? "AM" : "PM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
+}
+
+// Default the time to the next upcoming 15-min slot (so booking a walk-in TODAY
+// doesn't default to a slot that's already passed — the #1 reason a same-day add
+// used to fail the server's past-time guard). Clamped to the 6 AM–10 PM range.
+function nextDefaultTime(): string {
+  const now = new Date();
+  let m = Math.ceil((now.getHours() * 60 + now.getMinutes() + 1) / 15) * 15;
+  if (m < 6 * 60) m = 6 * 60;
+  if (m > 22 * 60) m = 22 * 60;
+  return minutesToLabel(m);
+}
 
 export function AddAppointmentModal({
   shop, accessToken, canAdd = true, lockBarber = null,
@@ -57,7 +75,7 @@ export function AddAppointmentModal({
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
   const reset = useCallback(() => {
-    setName(""); setPhone(""); setEmail(""); setServiceIds([]); setTime("9:00 AM");
+    setName(""); setPhone(""); setEmail(""); setServiceIds([]); setTime(nextDefaultTime());
     setDate(formatDateForDb(new Date()));
   }, []);
 
@@ -95,11 +113,21 @@ export function AddAppointmentModal({
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open]);
 
-  const toggleService = (id: string) =>
-    setServiceIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  // Service dropdown rows (mirrors the calendar's add sheet). At least one empty
+  // row is always shown; "Add another service" appends for a combined appointment.
+  const setServiceAt = (idx: number, id: string) =>
+    setServiceIds(ids => { const next = [...ids]; if (idx >= next.length) next.push(id); else next[idx] = id; return next; });
+  const addServiceRow = () => setServiceIds(ids => [...ids, ""]);
+  const removeServiceRow = (idx: number) => setServiceIds(ids => ids.filter((_, i) => i !== idx));
 
-  const totalDuration = serviceIds.reduce((n, id) => n + (services.find(s => s.id === id)?.duration_minutes || 0), 0);
-  const totalPrice = serviceIds.reduce((n, id) => n + Number(services.find(s => s.id === id)?.price || 0), 0);
+  const chosenServices = useMemo(
+    () => serviceIds.filter(Boolean).map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceLite[],
+    [serviceIds, services],
+  );
+  const totalDuration = chosenServices.reduce((n, s) => n + (s.duration_minutes || 0), 0);
+  const totalPrice = chosenServices.reduce((n, s) => n + Number(s.price || 0), 0);
+
+  const close = () => { setOpen(false); };
 
   const submit = async () => {
     if (!shop) return;
@@ -141,107 +169,124 @@ export function AddAppointmentModal({
     }
     setSaving(false);
     if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
-    showToast("Booked ✓");
+    // Close first, THEN toast — the toast lives outside the open-gated markup so it
+    // survives the close and the "Booked ✓" confirmation is actually seen.
     setOpen(false);
     reset();
+    showToast("Booked ✓");
     // If the calendar is mounted underneath, let it refresh to show the new appt.
     window.dispatchEvent(new Event("cw-appt-created"));
   };
 
-  if (!open) return null;
+  // Service rows: always render at least one row so the picker is never empty.
+  const rows = serviceIds.length ? serviceIds : [""];
+
   return (
     <>
+      {/* Toast lives OUTSIDE the open-gated markup so a success message survives the
+          modal closing (it used to unmount with the modal and never show). */}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[120] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">{toast}</div>
       )}
-      <div
-        className="fixed inset-0 z-[70] backdrop-blur-sm animate-fade-in"
-        style={{ background: "rgba(0,0,0,0.6)" }}
-        onClick={() => setOpen(false)}
-      />
-      <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] sm:flex sm:items-center sm:justify-center sm:p-4">
-        <div
-          className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[90dvh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-0 animate-slide-up"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-            <h2 className="text-base font-bold text-foreground">New appointment</h2>
-            <button onClick={() => setOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-surface-overlay transition-colors"><X size={18} /></button>
-          </div>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] backdrop-blur-sm animate-fade-in"
+            style={{ background: "rgba(0,0,0,0.6)" }}
+            onClick={() => !saving && close()}
+          />
+          <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
+            <div className="pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl pb-0 max-h-[90vh] overflow-y-auto overscroll-contain px-6 pt-0 space-y-2 cw-modal-compact animate-slide-up">
+              {/* Grab handle — tap to dismiss (mirrors the calendar sheet) */}
+              <div onClick={() => !saving && close()} className="flex justify-center pt-2.5 pb-1.5 -mx-6 cursor-pointer">
+                <div className="w-10 h-1.5 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-foreground">New appointment</h3>
+                <button onClick={() => !saving && close()} aria-label="Close" className="text-grey hover:text-foreground"><X size={18} /></button>
+              </div>
 
-          {!canAdd ? (
-            <div className="px-5 py-8 text-center">
-              <p className="text-sm font-semibold text-foreground mb-1.5">Adding appointments isn&apos;t enabled for your account</p>
-              <p className="text-sm text-grey mb-6">Ask your shop owner to turn on appointment access for you.</p>
-              <button onClick={() => setOpen(false)} className="w-full py-3 rounded-xl bg-foreground text-background font-semibold text-sm">Got it</button>
-            </div>
-          ) : (
-          <>
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-grey uppercase tracking-wide">Barber</label>
-              {lockBarber ? (
-                <div className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground">{lockBarber.name}</div>
+              {!canAdd ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm font-semibold text-foreground mb-1.5">Adding appointments isn&apos;t enabled for your account</p>
+                  <p className="text-sm text-grey mb-6">Ask your shop owner to turn on appointment access for you.</p>
+                  <div className="sticky bottom-0 -mx-6 px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-card-raised border-t border-border">
+                    <Button className="w-full" onClick={close}>Got it</Button>
+                  </div>
+                </div>
               ) : (
-                <select value={barberId} onChange={e => setBarberId(e.target.value)}
-                  className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground">
+              <>
+              {/* Barber — a fixed name box in barber mode (mirrors the calendar's
+                  tapped-column box); a picker for the owner's global add. */}
+              {lockBarber ? (
+                <div className="bg-card-raised rounded-xl px-3 py-2 text-xs text-grey">
+                  <p><span className="text-grey">Barber:</span> {lockBarber.name}</p>
+                </div>
+              ) : (
+                <Select label="Barber" value={barberId} onChange={e => setBarberId(e.target.value)}>
                   {barbers.length === 0 && <option value="">No barbers</option>}
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
+                </Select>
+              )}
+
+              <Input label="Client name *" value={name}
+                onChange={e => setName(e.target.value)} placeholder="Marcus Johnson" />
+              <Input label="Phone" value={phone}
+                onChange={e => setPhone(e.target.value)} placeholder="506-555-0000" inputMode="tel" />
+              <Input label="Email" type="email" value={email}
+                onChange={e => setEmail(e.target.value)} placeholder="name@email.com"
+                hint="Optional — we'll email them a booking confirmation" inputMode="email" />
+
+              {/* Services — dropdown rows; "+" adds another for a combined appointment */}
+              <div>
+                <label className="block text-xs font-medium text-grey mb-1">Services * <span className="text-grey-muted font-normal">(add one or more)</span></label>
+                <div className="space-y-2">
+                  {rows.map((sid, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Select value={sid} className="flex-1" onChange={e => setServiceAt(idx, e.target.value)}>
+                        <option value="">Select a service</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.name} · {formatCurrency(Number(s.price))} · {s.duration_minutes}m</option>
+                        ))}
+                      </Select>
+                      {(rows.length > 1 || !!sid) && (
+                        <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
+                          className="w-9 h-9 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground hover:border-foreground flex items-center justify-center">
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={addServiceRow}
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-foreground">
+                  <Plus size={15} /> Add another service
+                </button>
+                {chosenServices.length > 0 && (
+                  <p className="text-xs text-grey mt-1.5">Total: {totalDuration} min · {formatCurrency(totalPrice)}</p>
+                )}
+              </div>
+
+              {/* Date + time. Defaults to today + the next upcoming slot. */}
+              <Input label="Date" type="date" value={date}
+                min={formatDateForDb(new Date())}
+                onChange={e => setDate(e.target.value)} />
+              <Select label="Time" value={time} onChange={e => setTime(e.target.value)}>
+                {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </Select>
+
+              {/* Sticky action bar — pinned above the home indicator (safe-area) so
+                  the primary actions are never clipped on an installed PWA. */}
+              <div className="sticky bottom-0 -mx-6 px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-card-raised border-t border-border flex gap-2">
+                <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>Cancel</Button>
+                <Button className="flex-1" loading={saving} onClick={submit}>Add</Button>
+              </div>
+              </>
               )}
             </div>
-
-            <div>
-              <label className="text-xs font-semibold text-grey uppercase tracking-wide">Service{serviceIds.length > 1 ? "s" : ""}</label>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {services.map(s => {
-                  const on = serviceIds.includes(s.id);
-                  return (
-                    <button key={s.id} type="button" onClick={() => toggleService(s.id)}
-                      className={cn("px-3 py-1.5 rounded-full text-sm border transition-colors", on ? "bg-foreground text-background border-foreground" : "bg-card-raised text-foreground border-border hover:border-foreground/40")}>
-                      {on && <Check size={13} className="inline -mt-0.5 mr-1" />}{s.name}
-                    </button>
-                  );
-                })}
-                {services.length === 0 && <p className="text-sm text-grey">No services yet — add one in Services first.</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-grey uppercase tracking-wide">Date</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-grey uppercase tracking-wide">Time</label>
-                <select value={time} onChange={e => setTime(e.target.value)}
-                  className="mt-1 w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground">
-                  {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="Customer name"
-                className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
-              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (optional)" inputMode="tel"
-                className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
-              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (optional)" inputMode="email"
-                className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
-            </div>
           </div>
-
-          <div className="px-5 py-4 border-t border-border flex-shrink-0">
-            <button onClick={submit} disabled={saving}
-              className="w-full py-3 rounded-xl bg-foreground text-background font-semibold text-sm disabled:opacity-50 transition-opacity">
-              {saving ? "Booking…" : totalPrice > 0 ? `Book · ${formatCurrency(totalPrice)}${totalDuration ? ` · ${totalDuration} min` : ""}` : "Book appointment"}
-            </button>
-          </div>
-          </>
-          )}
-        </div>
-      </div>
+        </>
+      )}
     </>
   );
 }
