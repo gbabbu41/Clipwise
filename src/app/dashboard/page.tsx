@@ -569,7 +569,7 @@ export default function DashboardPage() {
           the mobile sticky top bar carries them. */}
       <div className="cwd-hdr">
         <div className="min-w-0">
-          <h1 className="cwd-greeting truncate">{shop?.name ? titleCase(shop.name) : "Dashboard"}</h1>
+          <h1 className="cwd-greeting truncate">{shop?.name ? `Hi, ${titleCase(shop.name)}` : "Dashboard"}</h1>
           <p className="cwd-sub truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>
