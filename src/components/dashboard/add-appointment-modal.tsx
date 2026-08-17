@@ -97,8 +97,8 @@ export function AddAppointmentModal({
       setBarberId(lockBarber.id);
     } else {
       // Load barbers name-sorted, then float the logged-in owner's OWN barber row
-      // to the top (stable sort keeps the rest alphabetical). No pre-selection —
-      // the owner must actively choose (submit blocks with "Pick a barber").
+      // to the top (stable sort keeps the rest alphabetical). No pre-selection when
+      // there are several — the owner actively chooses (submit blocks otherwise).
       supabase.from("barbers").select("id, name, user_id").eq("shop_id", shop.id).eq("is_active", true).order("name")
         .then(({ data }) => {
           const b = (data ?? []) as BarberLite[];
@@ -111,6 +111,13 @@ export function AddAppointmentModal({
       .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shop?.id, canAdd, lockBarber, preferUserId]);
+
+  // One-barber shop: there's nothing to choose, so auto-select the sole barber and
+  // show them as a fixed name (no picker). Only 2+ barbers get a real choice.
+  useEffect(() => {
+    if (lockBarber) return;
+    if (barbers.length === 1) setBarberId(barbers[0].id);
+  }, [barbers, lockBarber]);
 
   // Escape closes; lock body scroll while open (own lock — the inline-rgba backdrop
   // deliberately avoids ModalChrome's bg-black selector so its iOS body-lock, which
@@ -191,6 +198,10 @@ export function AddAppointmentModal({
   // Service rows: always render at least one row so the picker is never empty.
   const rows = serviceIds.length ? serviceIds : [""];
 
+  // The barber is FIXED (shown as a name, no picker) when the barber portal locks
+  // it, OR when the shop has exactly one barber — nothing to choose either way.
+  const fixedBarber = lockBarber ?? (barbers.length === 1 ? barbers[0] : null);
+
   return (
     <>
       {/* Toast lives OUTSIDE the open-gated markup so a success message survives the
@@ -226,11 +237,11 @@ export function AddAppointmentModal({
                 </div>
               ) : (
               <>
-              {/* Barber — a fixed name box in barber mode (mirrors the calendar's
-                  tapped-column box); a picker for the owner's global add. */}
-              {lockBarber ? (
+              {/* Barber — a fixed name box when it's locked (barber portal) or the
+                  shop has just one barber; a real picker only when there's a choice. */}
+              {fixedBarber ? (
                 <div className="bg-card-raised rounded-xl px-3 py-2 text-xs text-grey">
-                  <p><span className="text-grey">Barber:</span> {lockBarber.name}</p>
+                  <p><span className="text-grey">Barber:</span> {fixedBarber.name}</p>
                 </div>
               ) : (
                 <Select label="Barber *" value={barberId} onChange={e => setBarberId(e.target.value)}>
