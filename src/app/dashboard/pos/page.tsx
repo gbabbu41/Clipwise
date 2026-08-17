@@ -763,7 +763,7 @@ export default function POSPage() {
   return (
     // data-no-swipe: POS is a money workflow — never let an accidental page
     // swipe navigate away mid-sale and drop the in-progress cart.
-    <div data-no-swipe className="bg-surface-sunken">
+    <div data-no-swipe className="bg-background">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
