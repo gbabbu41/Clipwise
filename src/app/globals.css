@@ -124,12 +124,9 @@ html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement) {
 /* The cards now default to the raised tone (for dark's lift off pure black);
    keep them white in light so they read as cards, not grey blocks. */
 html[data-theme="light"] .portal :is(.cwp-ecard, .cwp-tile, .cwp-statement, .cwp-bmenu) { background: var(--card); }
-/* Payments' swipeable earnings carousel sits in an overflow-x scroll container
-   that clips its elevation shadow — give it a hairline so it stays defined on
-   white. (The home revenue carousel instead gets shadow room via padding on its
-   scroll container, so it keeps the EXACT same shadow as the KPI cards — no
-   border.) Light only; dark separates by tone. */
-html[data-theme="light"] .portal .cwp-ecard { border: 1px solid var(--border); }
+/* Payments' earnings carousel now gets shadow room via padding on its scroll
+   container (.cwp-rail), so it shows the same soft shadow as the KPI cards — no
+   border needed (matches the home carousel fix). */
 html[data-theme="light"] .portal :is(.cwp-bchip, .cwp-bmenu, .cwp-seg button) { border-color: var(--border); }
 html[data-theme="light"] .portal button.cwp-tile:hover { border-color: transparent; }
 html[data-theme="light"] .portal :is(.cwp-hint, .cwp-m) { color: var(--grey-2); }
@@ -274,8 +271,9 @@ html[data-theme="light"] .portal .ring-offset-\[\#0a0a0a\] { --tw-ring-offset-co
 html[data-theme="light"] .portal .cwd-icobtn { color: #3f6fb2; }
 
 /* Sidebar reads as a distinct "chrome" panel — a hair greyer than the white
-   page/cards so the nav separates cleanly instead of blending. Light only. */
-html[data-theme="light"] .portal .cw-sidebar { background: #eaeaea; }
+   page. The nav rail is white like the cards; its hairline right border separates
+   it from the faint-grey content area (clean chrome-rail look). Light only. */
+html[data-theme="light"] .portal .cw-sidebar { background: var(--card); }
 
 /* `gold` = white (the dark-theme accent). On a light page every text-gold /
    border-gold / ring-gold icon is white-on-white = invisible (shop-switcher
@@ -404,6 +402,47 @@ html:not([data-theme="light"]) .portal :is(.bg-\[\#141414\],.bg-\[\#0c0c0c\]) { 
 html:not([data-theme="light"]) .portal .bg-\[\#1a1a1a\] { background-color: var(--card-raised); }
 html:not([data-theme="light"]) .portal :is(.bg-\[\#1e1e1e\],.bg-\[\#1c1c1c\],.bg-\[\#2a2a2a\],.bg-\[\#242424\],.bg-\[\#262626\]) { background-color: var(--surface-overlay); }
 html:not([data-theme="light"]) .portal .bg-\[\#3a3a3a\] { background-color: var(--border-strong); }
+
+/* ── Light theme: roll-out consistency pass (calendar, payments, barber) ────────
+   Surfaces that bypassed the light remaps, brought in line so the whole light
+   theme reads as one system: faint-grey ground, white cards, soft shadow, muted
+   accents. Light only; dark untouched. */
+
+/* Calendar: appointment blocks were bg-card-raised (grey) on the sunken canvas —
+   grey-on-grey. Make them white cards; keep the coloured left edge + a whisper of lift. */
+html[data-theme="light"] .portal .cw-apptblock { background: var(--card); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+
+/* Calendar + widgets: raw periwinkle "today / selected" accent pill → muted blue, white text. */
+html[data-theme="light"] .portal .bg-accent { background-color: #4a86d8; }
+html[data-theme="light"] .portal .bg-accent.text-foreground { color: #ffffff; }
+html[data-theme="light"] .portal .bg-accent-muted { background-color: rgba(74,134,216,.12); }
+html[data-theme="light"] .portal .cwd-hd.today .cwd-hdw { color: #3f6fb2; }
+html[data-theme="light"] .portal .cwd-hd.today .cwd-hdn { background: #4a86d8; color: #ffffff; }
+
+/* Calendar: unmapped red hexes on freed / cancelled markers. */
+html[data-theme="light"] .portal .text-\[\#ff8a8a\] { color: #b23127; }
+html[data-theme="light"] .portal .bg-\[\#ff6b6b\]\/\[0\.06\] { background-color: #fbeae8; }
+html[data-theme="light"] .portal .border-\[\#ff6b6b\]\/50 { border-color: #f0c6c1; }
+
+/* Payments: "take-home" ledger total was neon-mint (#31d0a5) → muted brand green. */
+html[data-theme="light"] .portal .cwp-ltotal .cwp-lv,
+html[data-theme="light"] .portal .cwp-meta { color: #157a4a; }
+/* Payments: sparkline bars were washed pale-blue → the page's readable blue. */
+html[data-theme="light"] .portal .cwp-spark i { background: linear-gradient(180deg, rgba(63,111,178,.55), rgba(63,111,178,.16)); }
+html[data-theme="light"] .portal .cwp-spark i.cwp-peak { background: linear-gradient(180deg, #3f6fb2, rgba(63,111,178,.30)); }
+/* Payments: barber-picker dropdown carried a heavy black shadow → soft card shadow. */
+html[data-theme="light"] .portal .cwp-bmenu { box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 6px 16px rgba(16,24,40,.07), 0 18px 36px rgba(16,24,40,.06); }
+/* Payments: toast success/danger fills weren't remapped (were dark-on-dark). */
+html[data-theme="light"] .portal .bg-emerald-900\/80 { background-color: #e7f4ed; }
+html[data-theme="light"] .portal .bg-red-900\/80 { background-color: #fbeae8; }
+
+/* Barber: gold/white focus rings, loading-spinner arc, and a few /20 pill borders
+   the class-based light maps didn't reach. */
+html[data-theme="light"] .portal .ring-gold\/50 { --tw-ring-color: var(--border-strong); }
+html[data-theme="light"] .portal .border-t-gold { border-top-color: var(--grey-2); }
+html[data-theme="light"] .portal :is(.border-orange-400\/20,.border-amber-400\/20) { border-color: #ecd7a2; }
+html[data-theme="light"] .portal .border-red-400\/20 { border-color: #f0c6c1; }
+html[data-theme="light"] .portal .border-blue-400\/20 { border-color: #c6dcf4; }
 
 * {
   box-sizing: border-box;
@@ -1573,7 +1612,10 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 /* earnings carousel (periods live here) */
 .cwp-earn-head{display:flex;align-items:center;justify-content:space-between;margin:2px 0 10px}
 .cwp-hint{font-size:11px;color:#4a4a4f}
-.cwp-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -4px;padding:0 4px 2px}
+/* py + -my gives the .cwp-ecard shadow room inside the scroll viewport (overflow
+   clips at the padding edge) then pulls the box back so layout doesn't move — so
+   the earnings carousel shows the same soft shadow as the cards, no border. */
+.cwp-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:-16px -4px;padding:20px 4px}
 .cwp-rail::-webkit-scrollbar{display:none}
 .cwp-ecard{min-width:calc(100% - 30px);scroll-snap-align:center;background:var(--card-raised);border:0;border-radius:22px;padding:18px 18px 14px;box-shadow:var(--cwd-lift)}
 .cwp-period{display:flex;align-items:center;justify-content:space-between;gap:8px}

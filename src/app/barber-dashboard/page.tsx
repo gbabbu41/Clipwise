@@ -236,7 +236,7 @@ export default function BarberOverviewPage() {
           const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
           const cols = { gridTemplateColumns: "44px repeat(7, 1fr)" };
           return (
-            <Link href="/barber-dashboard/calendar" className="block bg-card-raised border border-border rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
+            <Link href="/barber-dashboard/calendar" className="block bg-card border border-border rounded-2xl overflow-hidden hover:border-white/15 transition-colors">
               <div className="flex items-center justify-between px-3.5 py-3 border-b border-border">
                 <p className="text-sm font-bold text-foreground">{new Date().toLocaleDateString("en-CA", { month: "long", year: "numeric" })}</p>
                 {/* The whole card links to the full calendar — an honest hint,
@@ -289,7 +289,7 @@ export default function BarberOverviewPage() {
       {/* Today's Schedule — exact replica of the owner dashboard's card
           (clickable rows → the shared appointment modal with actions), scoped
           to this barber's appointments. */}
-      <Card className="!bg-card-raised">
+      <Card>
         <CardHeader>
           <CardTitle>Today&apos;s Schedule</CardTitle>
           <Link href="/barber-dashboard/calendar" className="text-xs text-foreground hover:underline">View all</Link>

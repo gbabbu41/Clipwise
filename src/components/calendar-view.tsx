@@ -221,7 +221,7 @@ const apptBlock = (a: { status?: string | null; payment_status?: string | null }
     : a.status === "pending" ? "border-[#f5c542]"
     : a.status === "completed" ? "border-[#4a9eff]"
     : "border-[#00e5a0]";
-  return cn("bg-card-raised border-l-[3px] text-foreground", border, inactive && "opacity-60");
+  return cn("cw-apptblock bg-card-raised border-l-[3px] text-foreground", border, inactive && "opacity-60");
 };
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments

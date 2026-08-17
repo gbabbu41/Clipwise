@@ -170,7 +170,7 @@ export default function BarberProfilePage() {
               "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all",
               saved
                 ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-gold text-black hover:bg-gold/90"
+                : "bg-gold text-black hover:opacity-90"
             )}
           >
             <Save size={15} />

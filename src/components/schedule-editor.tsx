@@ -404,7 +404,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
               )}
 
               <button onClick={async () => { const ok = await save(); if (ok) setDayModal(null); }} disabled={saving}
-                className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:bg-[#eaeaea] disabled:opacity-50">
+                className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:opacity-90 disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
               </button>
               <p className="text-[11px] text-grey-muted text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
