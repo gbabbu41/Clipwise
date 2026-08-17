@@ -8,7 +8,6 @@ import { supabase } from "@/lib/supabase";
 import { BarberProvider, useBarber } from "@/lib/barber-context";
 import { BarberSidebar, BarberMobileNav } from "@/components/barber/sidebar";
 import { AddAppointmentModal } from "@/components/dashboard/add-appointment-modal";
-import { DEFAULT_BARBER_PERMISSIONS } from "@/lib/database.types";
 import { BarberNotificationListener } from "@/components/barber/barber-notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -40,19 +39,19 @@ function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: 
 }
 
 // Mounts the shared add-appointment modal for the barber portal — fixed to the
-// logged-in barber (no picker). A barber WITHOUT the manage_appointments
-// permission sees a "contact your shop" message instead of the form. Posts to the
-// same /api/book/in-person the calendar uses. Lives under BarberProvider.
+// logged-in barber (no picker). Adding an appointment to your OWN calendar is
+// allowed for EVERY barber (and the owner): it moves no money and can't touch
+// anyone else's bookings, so it isn't gated. The manage_appointments permission
+// still governs the real powers (approve / reject / take payment) elsewhere.
+// Posts to the same /api/book/in-person the calendar uses. Lives under BarberProvider.
 function BarberAddAppt() {
   const { accessToken } = useAuth();
   const { barber, shop } = useBarber();
-  const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const lockBarber = useMemo(() => (barber ? { id: barber.id, name: barber.name ?? "You" } : null), [barber]);
   return (
     <AddAppointmentModal
       shop={shop ? { id: shop.id } : null}
       accessToken={accessToken}
-      canAdd={perms.manage_appointments !== false}
       lockBarber={lockBarber}
     />
   );

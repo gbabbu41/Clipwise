@@ -16,9 +16,10 @@ import { X, Plus } from "lucide-react";
  * booking logic. Its look mirrors the calendar's tap-to-add sheet on purpose so
  * both entry points feel identical. Mounted once per portal (owner + barber).
  *
- * Owner: full barber picker. Barber: `lockBarber` fixes it to the logged-in barber
- * (no picker), and `canAdd={false}` shows a "contact your shop" message instead of
- * the form (for a barber without the manage_appointments permission).
+ * Adding an appointment is allowed for everyone (owner + every barber) — it books
+ * onto one calendar and moves no money, so it isn't permission-gated. Owner: full
+ * barber picker (or a fixed name when the shop has one barber). Barber: `lockBarber`
+ * fixes it to the logged-in barber (no picker).
  */
 type BarberLite = { id: string; name: string; user_id?: string | null };
 type ServiceLite = { id: string; name: string; price: number | null; duration_minutes: number | null };
@@ -52,11 +53,10 @@ function nextDefaultTime(): string {
 }
 
 export function AddAppointmentModal({
-  shop, accessToken, canAdd = true, lockBarber = null, preferUserId = null,
+  shop, accessToken, lockBarber = null, preferUserId = null,
 }: {
   shop: { id: string } | null;
   accessToken: string | null;
-  canAdd?: boolean;                                   // false → show "contact your shop" message instead of the form
   lockBarber?: { id: string; name: string } | null;  // barber mode: fix to this barber, hide the picker
   preferUserId?: string | null;                       // owner's user id — their own barber row sorts to the top
 }) {
@@ -88,10 +88,9 @@ export function AddAppointmentModal({
     return () => window.removeEventListener("cw-open-newappt", openIt);
   }, [reset]);
 
-  // Load barbers + services when the modal opens (skipped when the barber isn't
-  // allowed — then we only show the "contact your shop" message).
+  // Load barbers + services when the modal opens.
   useEffect(() => {
-    if (!open || !shop || !canAdd) return;
+    if (!open || !shop) return;
     if (lockBarber) {
       setBarbers([lockBarber]);
       setBarberId(lockBarber.id);
@@ -110,7 +109,7 @@ export function AddAppointmentModal({
     supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name")
       .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, shop?.id, canAdd, lockBarber, preferUserId]);
+  }, [open, shop?.id, lockBarber, preferUserId]);
 
   // One-barber shop: there's nothing to choose, so auto-select the sole barber and
   // show them as a fixed name (no picker). Only 2+ barbers get a real choice.
@@ -227,16 +226,6 @@ export function AddAppointmentModal({
                 <button onClick={() => !saving && close()} aria-label="Close" className="text-grey hover:text-foreground"><X size={18} /></button>
               </div>
 
-              {!canAdd ? (
-                <div className="py-6 text-center">
-                  <p className="text-sm font-semibold text-foreground mb-1.5">Adding appointments isn&apos;t enabled for your account</p>
-                  <p className="text-sm text-grey mb-6">Ask your shop owner to turn on appointment access for you.</p>
-                  <div className="sticky bottom-0 -mx-6 px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-card-raised border-t border-border">
-                    <Button className="w-full" onClick={close}>Got it</Button>
-                  </div>
-                </div>
-              ) : (
-              <>
               {/* Barber — a fixed name box when it's locked (barber portal) or the
                   shop has just one barber; a real picker only when there's a choice. */}
               {fixedBarber ? (
@@ -302,8 +291,6 @@ export function AddAppointmentModal({
                 <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={submit}>Add</Button>
               </div>
-              </>
-              )}
             </div>
           </div>
         </>
