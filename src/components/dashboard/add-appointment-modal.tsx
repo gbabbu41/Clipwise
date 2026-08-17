@@ -20,7 +20,7 @@ import { X, Plus } from "lucide-react";
  * (no picker), and `canAdd={false}` shows a "contact your shop" message instead of
  * the form (for a barber without the manage_appointments permission).
  */
-type BarberLite = { id: string; name: string };
+type BarberLite = { id: string; name: string; user_id?: string | null };
 type ServiceLite = { id: string; name: string; price: number | null; duration_minutes: number | null };
 
 // Time options in the SAME display format the booking API expects ("9:00 AM").
@@ -52,12 +52,13 @@ function nextDefaultTime(): string {
 }
 
 export function AddAppointmentModal({
-  shop, accessToken, canAdd = true, lockBarber = null,
+  shop, accessToken, canAdd = true, lockBarber = null, preferUserId = null,
 }: {
   shop: { id: string } | null;
   accessToken: string | null;
   canAdd?: boolean;                                   // false → show "contact your shop" message instead of the form
   lockBarber?: { id: string; name: string } | null;  // barber mode: fix to this barber, hide the picker
+  preferUserId?: string | null;                       // owner's user id — their own barber row sorts to the top
 }) {
   const { confirm } = useConfirm();
   const [open, setOpen] = useState(false);
@@ -77,7 +78,8 @@ export function AddAppointmentModal({
   const reset = useCallback(() => {
     setName(""); setPhone(""); setEmail(""); setServiceIds([]); setTime(nextDefaultTime());
     setDate(formatDateForDb(new Date()));
-  }, []);
+    if (!lockBarber) setBarberId("");   // owner must actively pick — never pre-filled
+  }, [lockBarber]);
 
   // Open on the global quick-add event (bottom-nav +). Instant, over the current page.
   useEffect(() => {
@@ -94,13 +96,21 @@ export function AddAppointmentModal({
       setBarbers([lockBarber]);
       setBarberId(lockBarber.id);
     } else {
-      supabase.from("barbers").select("id, name").eq("shop_id", shop.id).eq("is_active", true).order("name")
-        .then(({ data }) => { const b = (data ?? []) as BarberLite[]; setBarbers(b); setBarberId(prev => prev || b[0]?.id || ""); });
+      // Load barbers name-sorted, then float the logged-in owner's OWN barber row
+      // to the top (stable sort keeps the rest alphabetical). No pre-selection —
+      // the owner must actively choose (submit blocks with "Pick a barber").
+      supabase.from("barbers").select("id, name, user_id").eq("shop_id", shop.id).eq("is_active", true).order("name")
+        .then(({ data }) => {
+          const b = (data ?? []) as BarberLite[];
+          const sorted = [...b].sort((x, y) =>
+            (x.user_id === preferUserId ? 0 : 1) - (y.user_id === preferUserId ? 0 : 1));
+          setBarbers(sorted);
+        });
     }
     supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name")
       .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, shop?.id, canAdd, lockBarber]);
+  }, [open, shop?.id, canAdd, lockBarber, preferUserId]);
 
   // Escape closes; lock body scroll while open (own lock — the inline-rgba backdrop
   // deliberately avoids ModalChrome's bg-black selector so its iOS body-lock, which
@@ -223,8 +233,8 @@ export function AddAppointmentModal({
                   <p><span className="text-grey">Barber:</span> {lockBarber.name}</p>
                 </div>
               ) : (
-                <Select label="Barber" value={barberId} onChange={e => setBarberId(e.target.value)}>
-                  {barbers.length === 0 && <option value="">No barbers</option>}
+                <Select label="Barber *" value={barberId} onChange={e => setBarberId(e.target.value)}>
+                  <option value="">{barbers.length === 0 ? "No barbers" : "Select a barber"}</option>
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </Select>
               )}

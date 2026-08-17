@@ -157,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Global quick-add: opens instantly over ANY page (fired by the bottom-nav
           + via cw-open-newappt) and posts to the same /api/book/in-person the
           calendar uses — no navigating to the calendar first. */}
-      <AddAppointmentModal shop={shop} accessToken={accessToken} />
+      <AddAppointmentModal shop={shop} accessToken={accessToken} preferUserId={user?.id ?? null} />
       </ConfirmProvider>
     </div>
     </PortalThemeProvider>
