@@ -2174,7 +2174,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
-            <div className="grid sticky top-0 z-10 bg-surface-sunken border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
                 className="flex items-center justify-center py-1.5 transition-colors hover:bg-card-raised">
@@ -2517,7 +2517,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         {/* Fluid (min-w-0) so all 7 day columns shrink to fit any screen —
             phone/tablet/iPad — instead of a fixed 700px grid that scrolled + clipped. */}
         <div className="min-w-0">
-          <div className="grid sticky top-0 z-10 bg-surface-sunken border-b border-border" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
+          <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `48px repeat(7, minmax(0, 1fr))` }}>
             <div />
             {weekDays.map(day => {
               const dateStr = formatDateForDb(day);
@@ -2738,7 +2738,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   return (
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
-    <div data-no-swipe className={cn("flex flex-col h-full bg-surface-sunken text-foreground overflow-x-clip", embedded && "min-h-[100dvh]")}>
+    <div data-no-swipe className={cn("flex flex-col h-full bg-background text-foreground overflow-x-clip", embedded && "min-h-[100dvh]")}>
       {/* Page title (owner standalone only) — the universal top header, so the
           calendar's top matches every other page. The date-nav toolbar below
           stays as-is. Grid area (flex-1) absorbs the header height. */}
@@ -2847,7 +2847,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       )}
 
       <div
-        className={cn("relative flex-1 bg-surface-sunken", embedded ? "overflow-y-auto" : "overflow-hidden")}
+        className={cn("relative flex-1 bg-background", embedded ? "overflow-y-auto" : "overflow-hidden")}
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
