@@ -316,6 +316,13 @@ export function timeAgo(iso: string | null | undefined): string {
  * strings, ranges, empty) is returned unchanged, so it's safe to apply at both
  * the producer and the email-route chokepoint without double-formatting.
  */
+/** Title-case a name for display: every space-separated word becomes First-letter
+ *  upper, rest lower — so a shop stored as "FADE MECHANIC" (or "fade mechanic")
+ *  always renders "Fade Mechanic". Display-only; never mutates the stored value. */
+export function titleCase(s: string | null | undefined): string {
+  return (s ?? "").replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 export function prettyDate(d: string | null | undefined): string {
   if (!d) return "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already formatted / not a date-only string
