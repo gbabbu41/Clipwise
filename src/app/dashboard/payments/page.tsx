@@ -81,14 +81,11 @@ const fmtDate = (iso: string | null) => {
 // approved preview (blue gradient bars, tallest highlighted). Falls back to
 // faint placeholder bars when the period has no earnings.
 function Spark({ data }: { data: { net: number }[] }) {
-  if (!data.length) {
-    return (
-      <div className="cwp-spark">
-        {Array.from({ length: 7 }).map((_, i) => <i key={i} className="cwp-ph" style={{ height: `${28 + (i % 3) * 14}%` }} />)}
-      </div>
-    );
-  }
+  // Only render the graph when there's an actual value to plot. A zero-value
+  // period used to show faint placeholder bars (a dummy graph) — now it shows
+  // nothing, so the card stays clean until there's something to chart.
   const bars = data.slice(-14);
+  if (!bars.some(d => d.net > 0)) return null;
   const max = Math.max(...bars.map(d => d.net), 1);
   let peak = 0;
   bars.forEach((d, i) => { if (d.net > bars[peak].net) peak = i; });
@@ -791,12 +788,10 @@ export default function PaymentsPage() {
         <button className="cwp-tile cwp-warn" onClick={() => setTxFilter(txFilter === "unpaid" ? "all" : "unpaid")}>
           <div className="cwp-lbl">Outstanding</div>
           <div className="cwp-tv">{formatCurrency(outstanding)}</div>
-          <div className="cwp-tn">{outstandingCount} unpaid{outstandingCount > 0 ? " · tap to chase" : ""}</div>
         </button>
         <div className="cwp-tile">
           <div className="cwp-lbl">On file</div>
           <div className="cwp-tv">{formatCurrency(pending)}</div>
-          <div className="cwp-tn">{pendingCount} card{pendingCount !== 1 ? "s" : ""} held</div>
         </div>
       </div>
 
