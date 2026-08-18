@@ -77,15 +77,15 @@ const fmtDate = (iso: string | null) => {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 };
 
-// Mini CSS-bar sparkline for an earnings period card — same look as the
-// approved preview (blue gradient bars, tallest highlighted). Falls back to
-// faint placeholder bars when the period has no earnings.
+// Mini CSS-bar sparkline for an earnings period card (green gradient bars,
+// tallest highlighted). Renders only when there's a real trend to show.
 function Spark({ data }: { data: { net: number }[] }) {
-  // Only render the graph when there's an actual value to plot. A zero-value
-  // period used to show faint placeholder bars (a dummy graph) — now it shows
-  // nothing, so the card stays clean until there's something to chart.
+  // Buckets are per active day. One or two active days would render as a single
+  // fat slab (or two lonely bars) that says nothing — so only draw the chart
+  // once there are at least 3 active days. Fewer than that → clean card, no graph.
   const bars = data.slice(-14);
-  if (!bars.some(d => d.net > 0)) return null;
+  const active = bars.filter(d => d.net > 0);
+  if (active.length < 3) return null;
   const max = Math.max(...bars.map(d => d.net), 1);
   let peak = 0;
   bars.forEach((d, i) => { if (d.net > bars[peak].net) peak = i; });

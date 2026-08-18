@@ -133,7 +133,7 @@ html[data-theme="light"] .portal :is(.cwp-bchip, .cwp-bmenu, .cwp-seg button) { 
 html[data-theme="light"] .portal button.cwp-tile:hover { border-color: transparent; }
 html[data-theme="light"] .portal :is(.cwp-hint, .cwp-m) { color: var(--grey-2); }
 html[data-theme="light"] .portal .cwp-dots i { background: var(--border-strong); }
-html[data-theme="light"] .portal .cwp-dots i.cwp-on { background: #4a86d8; }
+html[data-theme="light"] .portal .cwp-dots i.cwp-on { background: #10b981; }
 html[data-theme="light"] .portal .cwp-row:hover { background: var(--surface-overlay); }
 html[data-theme="light"] .portal .cwp-glyph.cwp-card { background: rgba(63, 111, 178, 0.12); color: #3f6fb2; }
 html[data-theme="light"] .portal .cwp-spark i.cwp-ph { background: var(--surface-overlay); }
@@ -430,8 +430,8 @@ html[data-theme="light"] .portal .border-\[\#ff6b6b\]\/50 { border-color: #f0c6c
 html[data-theme="light"] .portal .cwp-ltotal .cwp-lv,
 html[data-theme="light"] .portal .cwp-meta { color: #157a4a; }
 /* Payments: sparkline bars were washed pale-blue → the page's readable blue. */
-html[data-theme="light"] .portal .cwp-spark i { background: linear-gradient(180deg, rgba(63,111,178,.55), rgba(63,111,178,.16)); }
-html[data-theme="light"] .portal .cwp-spark i.cwp-peak { background: linear-gradient(180deg, #3f6fb2, rgba(63,111,178,.30)); }
+html[data-theme="light"] .portal .cwp-spark i { background: linear-gradient(180deg, rgba(16,185,129,.55), rgba(16,185,129,.16)); }
+html[data-theme="light"] .portal .cwp-spark i.cwp-peak { background: linear-gradient(180deg, #10b981, rgba(16,185,129,.30)); }
 /* Payments: barber-picker dropdown carried a heavy black shadow → soft card shadow. */
 html[data-theme="light"] .portal .cwp-bmenu { box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 6px 16px rgba(16,24,40,.07), 0 18px 36px rgba(16,24,40,.06); }
 /* Payments: toast success/danger fills weren't remapped (were dark-on-dark). */
@@ -1622,7 +1622,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
    the earnings carousel shows the same soft shadow as the cards, no border. */
 .cwp-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:-16px -4px;padding:20px 4px}
 .cwp-rail::-webkit-scrollbar{display:none}
-.cwp-ecard{min-width:calc(100% - 30px);scroll-snap-align:center;background:var(--card);border:0;border-radius:22px;padding:18px 18px 14px;box-shadow:var(--cwd-lift)}
+.cwp-ecard{min-width:100%;scroll-snap-align:center;background:var(--card);border:0;border-radius:22px;padding:18px 18px 14px;box-shadow:var(--cwd-lift)}
 .cwp-period{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .cwp-pname{font-size:13px;font-weight:600;color:var(--foreground)}
 .cwp-prange{font-size:11px;color:var(--grey-2);white-space:nowrap}
@@ -1642,8 +1642,8 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwp-ltotal .cwp-lk{color:var(--foreground);font-weight:650}
 .cwp-ltotal .cwp-lv{color:#31d0a5;font-weight:700;font-size:14.5px}
 .cwp-spark{display:flex;align-items:flex-end;gap:5px;height:52px;margin-top:14px}
-.cwp-spark i{flex:1;min-width:3px;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,rgba(110,168,254,.55),rgba(110,168,254,.10));display:block}
-.cwp-spark i.cwp-peak{background:linear-gradient(180deg,#a9c6ff,rgba(110,168,254,.25))}
+.cwp-spark i{flex:1;min-width:3px;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,rgba(52,211,153,.55),rgba(52,211,153,.10));display:block}
+.cwp-spark i.cwp-peak{background:linear-gradient(180deg,#34d399,rgba(52,211,153,.25))}
 .cwp-spark i.cwp-ph{background:rgba(255,255,255,.05)}
 .cwp-ecard.cwp-ghost{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px}
 .cwp-ghost .cwp-pname{font-size:14px}
@@ -1653,7 +1653,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 
 .cwp-dots{display:flex;justify-content:center;gap:6px;margin:12px 0 4px}
 .cwp-dots i{height:6px;width:6px;border-radius:999px;background:#2a2a2e;transition:.2s}
-.cwp-dots i.cwp-on{width:20px;background:#6ea8fe}
+.cwp-dots i.cwp-on{width:20px;background:#34d399}
 /* Desktop-only prev/next arrows for the cwp earnings rails (payments + barber
    earnings). Mobile navigates by swipe, so they only appear at >=768px; they sit
    over the rail edges and fade out (disabled) at the first/last card. Theme-aware
