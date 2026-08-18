@@ -21,6 +21,12 @@ const varColor = (name: string): string =>
 
 const config: Config = {
   darkMode: ["class"],
+  // Only apply `hover:` styles on devices that actually support hover. On touch
+  // (the installed PWA), a tap used to leave a "stuck" hover background on the row
+  // under a finger — e.g. changing shops in the switcher left Calendar highlighted
+  // because the dropdown overlays it and the tap bled through. This scopes every
+  // hover utility to `@media (hover: hover)`, killing that class of sticky-hover.
+  future: { hoverOnlyWhenSupported: true },
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
