@@ -47,11 +47,13 @@
      by the soft --cwd-lift shadow, not by fills or borders. Tier 1 and tier 2 are
      nearly the same tone, so a chip inside a card reads as the same surface — not a
      second box. The old cool/blue bias (#1b1e24 … #2c313a) is gone; pure neutral. */
-  --card:           #141517;  /* tier 1 (sidebars, raw bg-card panels, inputs) */
-  --card-raised:    #191a1d;  /* tier 2 (all dashboard cards) — a hair above tier 1 */
-  --surface:        #141517;
-  --surface-raised: #191a1d;
-  --surface-overlay:#202124;  /* tier 3 (hover fills, menus) */
+  --card:           #1a1b1e;  /* tier 1 (sidebars, raw bg-card panels, inputs) —
+                                 lifted a clear step above the #101113 ground so
+                                 cards read as their own surface, not the same tone. */
+  --card-raised:    #212226;  /* tier 2 (chips inside cards) — a step above tier 1 */
+  --surface:        #1a1b1e;
+  --surface-raised: #212226;
+  --surface-overlay:#282a2e;  /* tier 3 (hover fills, menus) — above the chips */
   --surface-sunken: #0b0c0e;  /* recessed — a subtle step below the lifted page ground */
   --border:         #1f2023;  /* near-invisible hairline — barely lifts off a card */
   --border-strong:  #2a2b2e;  /* still subtle — only where a divider must show */
