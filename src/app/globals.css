@@ -37,7 +37,11 @@
    :root values above). Accent / status hues are inherited unchanged.
    Light theme is one flag away: `.portal[data-theme="light"]` below. */
 .portal {
-  --background:     #0b0c0d;  /* deepest neutral charcoal — the single page ground */
+  --background:     #101113;  /* page ground — sits just BELOW the #141517 cards so
+                                 they lift on a subtle step, not a near-black void.
+                                 (Near-black is where the eye is most contrast-
+                                 sensitive, so a small numeric gap here reads gentle,
+                                 matching how the light theme's base sits under white.) */
   --foreground:     #ededee;  /* soft off-white — never pure #fff */
   /* Minimal ramp: cards sit ONE subtle, neutral step above the page and separate
      by the soft --cwd-lift shadow, not by fills or borders. Tier 1 and tier 2 are
@@ -48,7 +52,7 @@
   --surface:        #141517;
   --surface-raised: #191a1d;
   --surface-overlay:#202124;  /* tier 3 (hover fills, menus) */
-  --surface-sunken: #08090a;  /* recessed (below the page) */
+  --surface-sunken: #0b0c0e;  /* recessed — a subtle step below the lifted page ground */
   --border:         #1f2023;  /* near-invisible hairline — barely lifts off a card */
   --border-strong:  #2a2b2e;  /* still subtle — only where a divider must show */
   --grey:           #8b9096;  /* secondary text — muted neutral, not bright */
