@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown,
+  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown, Wallet,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -152,7 +152,7 @@ const businessItems: NavItem[] = [
 
 const accountItems: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard, ownerOnly: true },
+  { href: "/dashboard/billing", label: "Billing", icon: Wallet, ownerOnly: true },
 ];
 
 
@@ -692,23 +692,23 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                  // Calm active state: a soft raised row + green accent bar + green
+                  // icon (no loud white pill, no trailing arrow) so "you are here"
+                  // reads clearly without out-shouting the page content.
+                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                   isActive
-                    ? "bg-foreground text-background border border-foreground"
+                    ? "bg-card-raised text-foreground"
                     : "text-grey hover:text-foreground hover:bg-card-raised",
                 )}
               >
-                <Icon size={18} className={cn(isActive ? "text-background" : "text-grey group-hover:text-foreground")} />
+                {isActive && <span aria-hidden className="absolute left-1 top-2.5 bottom-2.5 w-[3px] rounded-full bg-emerald-400" />}
+                <Icon size={18} className={cn(isActive ? "text-emerald-400" : "text-grey group-hover:text-foreground")} />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && unreadCount > 0 && (
-                  <span className={cn(
-                    "text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center",
-                    isActive ? "bg-card text-foreground" : "bg-foreground text-background",
-                  )}>
+                  <span className="text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
                     {unreadCount}
                   </span>
                 )}
-                {isActive && <ChevronRight size={14} className="text-background" />}
               </Link>
             );
           };
@@ -732,6 +732,9 @@ export function Sidebar() {
                   >
                     <Briefcase size={18} className="text-grey group-hover:text-foreground" />
                     <span className="flex-1 text-left">Business</span>
+                    {/* Surfaces a buried unread — Notifications lives in this group,
+                        so its badge would otherwise be hidden while collapsed. */}
+                    {!showBusiness && unreadCount > 0 && <span aria-hidden className="w-[7px] h-[7px] rounded-full bg-emerald-400 flex-shrink-0" />}
                     <ChevronDown size={16} className={cn("transition-transform duration-200", showBusiness && "rotate-180")} />
                   </button>
                   {showBusiness && <div className="mt-0.5 space-y-0.5">{business.map(renderItem)}</div>}
