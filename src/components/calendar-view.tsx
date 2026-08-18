@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock, Phone, Mail, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock, Phone, Mail, MessageSquare, Search, Check, Scissors } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -41,6 +41,12 @@ import {
 import type { AppointmentWithDetails, Barber, Shop } from "@/lib/database.types";
 
 type ServiceLite = { id: string; name: string; price: number; duration_minutes: number };
+type ClientLite = { id: string; name: string; phone: string | null; email: string | null; total_visits: number | null };
+
+// Shared field/label look for the quick-add sheet — matches the global add modal
+// (quiet sentence-case labels; fields sit on bg-card against the raised sheet).
+const ADD_FIELD = "w-full bg-card border border-border rounded-xl px-3 py-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
+const ADD_LABEL = "block text-xs font-medium text-grey mb-1.5";
 
 
 // Overlays (modals / side sheet) render through the document body so their
@@ -1130,6 +1136,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   }, [addCtx]);
   const closeAdd = () => { setAddShown(false); setTimeout(() => setAddCtx(null), 260); };
   const [addForm, setAddForm] = useState({ client_name: "", client_phone: "", client_email: "", service_ids: [] as string[], time: "", date: "" });
+  // Client search for the quick-add sheet: the name field doubles as the query;
+  // clientMode = search (typing) | existing (picked from the book) | new (adding).
+  const [addClients, setAddClients] = useState<ClientLite[]>([]);
+  const [clientMode, setClientMode] = useState<"search" | "existing" | "new">("search");
   const [savingAdd, setSavingAdd] = useState(false);
   // Loyalty redemption for a staff-booked client: look the client up by the
   // email/phone entered; if they have a redeemable balance, offer "use points".
@@ -1306,12 +1316,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => { active = false; };
   }, [shop, barbers, currentDate]);
 
-  // Services for the quick-add modal (rarely change → fetch once per shop).
+  // Services + clients for the quick-add sheet (rarely change → fetch once per
+  // shop). Clients power the searchable name field; RLS scopes the rows (owner
+  // sees the whole book, a barber only clients they've served — phase43).
   useEffect(() => {
     if (!shop) return;
     supabase.from("services").select("id, name, price, duration_minutes")
       .eq("shop_id", shop.id).eq("is_active", true).order("name")
       .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
+    supabase.from("clients").select("id, name, phone, email, total_visits")
+      .eq("shop_id", shop.id).order("total_visits", { ascending: false }).limit(500)
+      .then(({ data }) => setAddClients((data ?? []) as ClientLite[]));
   }, [shop]);
 
   // Catch up on payment-link payments (status may flip pending→confirmed too),
@@ -1539,6 +1554,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false) => {
     if (!canManage && !canBlock) return;
     setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time, date: formatDateForDb(currentDate) });
+    setClientMode("search");
     const startMin = timeToMinutes(time);
     setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
     setAddMode(canManage ? "appt" : "block");
@@ -1723,6 +1739,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   };
   const addServiceRow = () => setAddForm(p => ({ ...p, service_ids: [...p.service_ids, ""] }));
   const removeServiceRow = (idx: number) => reflowTime(addForm.service_ids.filter((_, i) => i !== idx));
+
+  // Client search (the name field doubles as the query). Matches the global add
+  // modal: pick an existing client to fill their contact, or add a new one.
+  const addClientMatches = useMemo(() => {
+    const q = addForm.client_name.trim().toLowerCase();
+    if (!q) return [] as ClientLite[];
+    return addClients.filter(c => (c.name ?? "").toLowerCase().includes(q)).slice(0, 6);
+  }, [addClients, addForm.client_name]);
+  const onAddNameChange = (v: string) => { setAddForm(p => ({ ...p, client_name: v })); setClientMode("search"); };
+  const pickAddClient = (c: ClientLite) => {
+    setAddForm(p => ({ ...p, client_name: c.name ?? "", client_phone: c.phone ?? "", client_email: c.email ?? "" }));
+    setClientMode("existing");
+  };
+  const addNewClient = () => { setAddForm(p => ({ ...p, client_phone: "", client_email: "" })); setClientMode("new"); };
 
   // Only genuinely-AVAILABLE start times: inside the barber's working hours for
   // the day, not already booked, not in a blocked range, and not in the past
@@ -2908,7 +2938,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
+                <h3 className="text-xl font-extrabold tracking-tight text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
                 <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
@@ -2920,8 +2950,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-grey hover:text-foreground")}><Ban size={14} /> Block</button>
                 </div>
               )}
-              <div className="bg-card-raised rounded-xl px-3 py-2 text-xs text-grey">
-                <p><span className="text-grey">Barber:</span> {addCtx.barberName}</p>
+              <div>
+                <span className="inline-flex items-center gap-1.5 bg-card border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
+                  <Scissors size={12} /> {addCtx.barberName}
+                </span>
               </div>
               {addMode === "block" ? (
                 <>
@@ -2957,32 +2989,69 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </>
               ) : (
               <>
-              <Input label="Client name *" value={addForm.client_name}
-                onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
-              <Input label="Phone" value={addForm.client_phone}
-                onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="506-555-0000" />
-              <Input label="Email" type="email" value={addForm.client_email}
-                onChange={e => setAddForm(p => ({ ...p, client_email: e.target.value }))} placeholder="name@email.com"
-                hint="Optional — we'll email them a booking confirmation" />
-              {/* Services first — dropdown rows; "+" adds another for a combined appointment */}
+              {/* Client — searchable: pick an existing client (fills their contact)
+                  or add a new one. Same as the global quick-add sheet. */}
               <div>
-                <label className="block text-xs font-medium text-grey mb-1">Services * <span className="text-grey-muted font-normal">(add one or more)</span></label>
+                <label className={ADD_LABEL}>Client <span className="text-emerald-400">*</span></label>
+                <div className="relative">
+                  <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
+                  <input value={addForm.client_name} onChange={e => onAddNameChange(e.target.value)}
+                    placeholder="Search or add a client"
+                    className={cn(ADD_FIELD, "pl-10", clientMode === "existing" && "pr-9")} />
+                  {clientMode === "existing" && <Check size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />}
+                </div>
+                {clientMode === "search" && addForm.client_name.trim() && (
+                  <div className="mt-1.5 bg-card border border-border rounded-xl overflow-hidden">
+                    {addClientMatches.map(c => (
+                      <button key={c.id} type="button" onClick={() => pickAddClient(c)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-t border-border first:border-t-0 hover:bg-surface-overlay transition-colors">
+                        <span className="w-7 h-7 rounded-full bg-surface-overlay text-foreground text-xs font-bold flex items-center justify-center flex-shrink-0">{(c.name ?? "?").charAt(0).toUpperCase()}</span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-foreground truncate">{c.name}</span>
+                          <span className="block text-xs text-grey truncate">{[c.phone, `${c.total_visits ?? 0} visit${(c.total_visits ?? 0) === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </button>
+                    ))}
+                    <button type="button" onClick={addNewClient}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-left border-t border-border text-sm font-semibold text-emerald-400 hover:bg-surface-overlay transition-colors">
+                      <Plus size={15} /> Add &ldquo;{addForm.client_name.trim()}&rdquo; as a new client
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Phone + email — only when adding a NEW client (an existing one
+                  already has theirs), so the sheet starts short. */}
+              {clientMode === "new" && (
+                <div className="space-y-2.5">
+                  <input value={addForm.client_phone} onChange={e => setAddForm(p => ({ ...p, client_phone: e.target.value }))} placeholder="Phone (optional)" inputMode="tel" className={ADD_FIELD} />
+                  <input value={addForm.client_email} onChange={e => setAddForm(p => ({ ...p, client_email: e.target.value }))} placeholder="Email (optional)" inputMode="email" className={ADD_FIELD} />
+                  <p className="text-xs text-grey">Optional — for their booking confirmation.</p>
+                </div>
+              )}
+
+              {/* Services — dropdown rows; "+" adds another for a combined appointment */}
+              <div>
+                <label className={ADD_LABEL}>Service <span className="text-emerald-400">*</span> <span className="text-grey-muted font-normal">(add one or more)</span></label>
                 <div className="space-y-2">
                   {(addForm.service_ids.length ? addForm.service_ids : [""]).map((sid, idx) => {
                     const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
                     const otherDur = addForm.service_ids.reduce((n, id, i) => i === idx ? n : n + (svcById(id)?.duration_minutes || 0), 0);
                     return (
                       <div key={idx} className="flex gap-2 items-center">
-                        <Select value={sid} className="flex-1" onChange={e => setServiceAt(idx, e.target.value)}>
-                          <option value="">Select a service</option>
-                          {services.map(s => {
-                            const wontFit = s.id !== sid && otherDur + s.duration_minutes > windowLen;
-                            return <option key={s.id} value={s.id} disabled={wontFit}>{s.name} · {formatCurrency(Number(s.price))} · {s.duration_minutes}m{wontFit ? " — won't fit" : ""}</option>;
-                          })}
-                        </Select>
+                        <div className="relative flex-1">
+                          <select value={sid} onChange={e => setServiceAt(idx, e.target.value)} className={cn(ADD_FIELD, "appearance-none pr-9")}>
+                            <option value="">Select a service</option>
+                            {services.map(s => {
+                              const wontFit = s.id !== sid && otherDur + s.duration_minutes > windowLen;
+                              return <option key={s.id} value={s.id} disabled={wontFit}>{s.name} · {formatCurrency(Number(s.price))} · {s.duration_minutes}m{wontFit ? " — won't fit" : ""}</option>;
+                            })}
+                          </select>
+                          <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-grey" />
+                        </div>
                         {(addForm.service_ids.length > 1 || !!sid) && (
                           <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                            className="w-9 h-9 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground hover:border-white flex items-center justify-center">
+                            className="w-11 h-11 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground flex items-center justify-center">
                             <X size={15} />
                           </button>
                         )}
@@ -2991,11 +3060,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   })}
                 </div>
                 <button type="button" onClick={addServiceRow}
-                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-soft hover:text-foreground">
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
                   <Plus size={15} /> Add another service
                 </button>
                 {addForm.service_ids.filter(Boolean).length > 0 && (
-                  <p className="text-xs text-grey mt-1.5">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
+                  <p className="text-xs text-grey mt-2">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
                 )}
               </div>
               {/* Loyalty — offer to spend the client's points (only when they have
@@ -3013,17 +3082,25 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   </span>
                 </button>
               )}
-              {/* Date + time. Defaults to the tapped day, but staff can change the
-                  date here too (e.g. book a client in for next week). */}
-              <Input label="Date" type="date" value={addForm.date}
-                min={formatDateForDb(new Date())}
-                onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))}
-                className="[color-scheme:dark]" />
-              <Select label="Available time" value={addForm.time}
-                onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))}>
-                {addTimeOptions.length === 0 && <option value="">No open times this day</option>}
-                {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-              </Select>
+              {/* Date + time on one row. Defaults to the tapped day, but staff can
+                  change the date here too (e.g. book a client in for next week). */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={ADD_LABEL}>Date</label>
+                  <input type="date" value={addForm.date} min={formatDateForDb(new Date())}
+                    onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={ADD_FIELD} />
+                </div>
+                <div>
+                  <label className={ADD_LABEL}>Available time</label>
+                  <div className="relative">
+                    <select value={addForm.time} onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))} className={cn(ADD_FIELD, "appearance-none pr-9")}>
+                      {addTimeOptions.length === 0 && <option value="">No open times this day</option>}
+                      {addTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-grey" />
+                  </div>
+                </div>
+              </div>
               {isOutsideSchedule(addCtx.barberId, addForm.time) && (
                 <p className="text-xs text-amber-400">
                   ⚠️ {schedules.has(addCtx.barberId)
