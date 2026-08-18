@@ -260,7 +260,10 @@ Server-role write (anon can INSERT but not SELECT). Flow: rate-limit (12/60s) �
 free text → shop must be `approved` → **past-booking guard** (shop-tz) → **`confirmed` is
 staff-only** (honored only if `authorizeShop` passes; an anon customer can't self-confirm or
 bypass pause) → **server-authoritative pricing** via `resolveServiceCharge` → promo/loyalty
-(server) → pay-model + advance-window (staff exempt) → barber resolve + `barberHasConflict` →
+(server) → pay-model + advance-window (staff exempt) → **barber resolve** (a *named* `barber_id`
+must belong to this `shop_id` — **cross-shop guard**, blocks an appointment tagged to one shop
+but assigned to another shop's barber row; the auto-resolve "Any Available" path is already
+shop-scoped) + `barberHasConflict` →
 **schedule enforcement + `override_block`** (staff-only; returns 409 with `blocked:true` for an
 *overridable* schedule conflict) → status `confirmed`/`autoConfirm` else `pending` → tax
 (paid-plan gated; stores gross in `total_amount`, `tax_amount` best-effort) → insert (with
@@ -684,6 +687,22 @@ just-subscribed shop).
 locations beyond the included limit are a **$30/mo add-on** reconciled on the existing sub
 (bill-first-then-create with rollback; needs `agree_addon`). Each new location **shares the one
 subscription** but gets its **own Connect account** — booking money stays separate per location.
+
+**Owner-barber across shops** (the two-active-shop gotcha): an owner who cuts hair has one
+`barbers` row **per shop** (same `user_id`, different `shop_id`). There are **two independent
+"active shop" states**, each with its own switcher + localStorage key: the owner dashboard's
+(`cw_active_shop`, `auth-context`) and the barber portal's (`clipwise_active_barber_shop_<uid>`,
+`barber-context`). The barber portal derives its active barber from its OWN shop
+(`barber = barbers.find(b => b.shop_id === shop.id)`), and the barber pages (earnings/clients)
+pass that `shop_id` to the barber APIs — which **fall back to the OLDEST barber row if `shop_id`
+is omitted** (`barber/earnings|appointments|availability`), a footgun for any new caller. The
+barber **calendar** must be handed the barber-context shop via `CalendarView`'s **`shopOverride`**
+prop (`barber-dashboard/calendar/page.tsx`) — otherwise it loads data from the *owner* context's
+(possibly different) shop while filtering to the barber-context's `forceBarberId`, giving an
+empty/wrong calendar and, on add, a **cross-shop appointment**. Server backstop = the
+barber-belongs-to-shop guard in `book/in-person` (§2.6). Owner dashboard `CalendarView` passes no
+override → uses the auth shop, unchanged. Identity (login/name/photo) is one account; only the
+per-shop *work* (schedule, calendar, earnings, permissions, commission) splits by shop.
 
 **AI phone** (ClipWise Business Number, `phase39`): a **$15/mo add-on** (`AI_PHONE_ADDON_CENTS`,
 `stripe-addons.ts`) riding the owner's existing CAD sub. `ai-phone/provision` (owner-only,
