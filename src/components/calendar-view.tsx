@@ -1090,8 +1090,13 @@ function AgendaSheet({
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string }) {
-  const { shop, profile, accessToken, user } = useAuth();
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId, shopOverride }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string; shopOverride?: Shop | null }) {
+  const { shop: authShop, profile, accessToken, user } = useAuth();
+  // The barber portal drives its OWN active shop (a multi-shop owner-barber can be
+  // viewing a different shop here than their owner dashboard). When given, use that
+  // shop for every shop-scoped query so the calendar's data and its forced barber
+  // always come from the SAME shop — never the owner context's stale one.
+  const shop = shopOverride ?? authShop;
   const { confirm } = useConfirm();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.

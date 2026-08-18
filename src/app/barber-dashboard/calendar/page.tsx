@@ -8,11 +8,14 @@ import { CalendarView } from "@/components/calendar-view";
 // "manage appointments" (owners-who-cut get full rights).
 export default function BarberCalendarPage() {
   const { profile } = useAuth();
-  const { barber } = useBarber();
+  const { barber, shop } = useBarber();
   const canManage = profile?.role === "shop_owner" || barber?.permissions?.manage_appointments === true;
   const canBlock = profile?.role === "shop_owner" || barber?.permissions?.block_hours !== false;
   if (!barber) {
     return <div className="h-[70vh] flex items-center justify-center text-grey text-sm">Loading calendar…</div>;
   }
-  return <CalendarView defaultView="day" forceBarberId={barber.id} canManage={canManage} canBlock={canBlock} />;
+  // Pass the barber portal's active shop so the calendar's data is scoped to the
+  // SAME shop as `forceBarberId` — critical for a multi-shop owner-barber, whose
+  // owner-dashboard shop can differ from the shop they're viewing here.
+  return <CalendarView defaultView="day" forceBarberId={barber.id} canManage={canManage} canBlock={canBlock} shopOverride={shop} />;
 }

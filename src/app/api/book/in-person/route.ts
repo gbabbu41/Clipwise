@@ -164,6 +164,16 @@ export async function POST(request: NextRequest) {
   // Resolve barber + conflict check (service-role → sees real bookings).
   let barberId = b.barber_id && b.barber_id !== "any" ? b.barber_id : null;
   if (barberId) {
+    // The named barber MUST belong to THIS shop. Guards against a cross-shop
+    // barber_id (e.g. a multi-shop owner-barber whose calendar context drifted to
+    // a different shop) creating an appointment tagged to one shop but assigned to
+    // another shop's barber row — a data-integrity break that would corrupt the
+    // calendar + earnings later. (The auto-resolve path below is already
+    // shop-scoped, so it can't produce a foreign barber.)
+    const { data: bRow } = await supabaseAdmin.from("barbers").select("shop_id").eq("id", barberId).maybeSingle();
+    if (!bRow || bRow.shop_id !== b.shop_id) {
+      return NextResponse.json({ error: "That barber isn't part of this shop." }, { status: 400 });
+    }
     if (await barberHasConflict(barberId, b.date, startMin, endMin)) {
       return NextResponse.json({ error: "Sorry, that time was just booked. Please pick another slot." }, { status: 409 });
     }
