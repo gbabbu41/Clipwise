@@ -421,9 +421,16 @@ export function Sidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* Calm top-bar title across the portal — a small grey label instead of the
-            old loud uppercase block, matching the Home screen's quieter top. */}
-        <h1 className="flex-1 min-w-0 truncate text-[15px] font-semibold text-grey">{barTitleFor(pathname)}</h1>
+        {/* Calm top-bar title (replaces the old loud uppercase block). Home stays a
+            whisper-quiet grey label because its big greeting sits right beneath it;
+            every other page — where this is the only heading on mobile — uses a small
+            but SOLID dark title so the page never reads headless. */}
+        <h1 className={cn(
+          "flex-1 min-w-0 truncate",
+          pathname === "/dashboard"
+            ? "text-[15px] font-semibold text-grey"
+            : "text-[17px] font-semibold text-foreground",
+        )}>{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
             again (while on it) to return where you were. Owner-only, matching the
             sidebar's ownerOnly Clients item. Highlights while active. */}
