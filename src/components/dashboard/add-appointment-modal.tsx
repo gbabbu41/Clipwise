@@ -44,7 +44,7 @@ function nextDefaultTime(): string {
   return minutesToLabel(m);
 }
 
-const FIELD = "w-full bg-card-raised border border-border rounded-xl px-3 py-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
+const FIELD = "w-full h-12 bg-card-raised border border-border rounded-xl px-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
 const LABEL = "block text-xs font-medium text-grey mb-1.5";
 
 export function AddAppointmentModal({
@@ -324,7 +324,7 @@ export function AddAppointmentModal({
                       </div>
                       {(rows.length > 1 || !!sid) && (
                         <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                          className="w-11 h-11 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground flex items-center justify-center">
+                          className="w-12 h-12 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground flex items-center justify-center">
                           <X size={15} />
                         </button>
                       )}
@@ -343,7 +343,7 @@ export function AddAppointmentModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL}>Date</label>
-                  <input type="date" value={date} min={formatDateForDb(new Date())} onChange={e => setDate(e.target.value)} className={FIELD} />
+                  <input type="date" value={date} min={formatDateForDb(new Date())} onChange={e => setDate(e.target.value)} className={cn(FIELD, "text-left [&::-webkit-date-and-time-value]:text-left")} />
                 </div>
                 <div>
                   <label className={LABEL}>Time</label>

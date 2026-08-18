@@ -45,7 +45,7 @@ type ClientLite = { id: string; name: string; phone: string | null; email: strin
 
 // Shared field/label look for the quick-add sheet — matches the global add modal
 // (quiet sentence-case labels; fields sit on bg-card against the raised sheet).
-const ADD_FIELD = "w-full bg-card border border-border rounded-xl px-3 py-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
+const ADD_FIELD = "w-full h-12 bg-card border border-border rounded-xl px-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
 const ADD_LABEL = "block text-xs font-medium text-grey mb-1.5";
 
 
@@ -3051,7 +3051,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         </div>
                         {(addForm.service_ids.length > 1 || !!sid) && (
                           <button type="button" onClick={() => removeServiceRow(idx)} aria-label="Remove service"
-                            className="w-11 h-11 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground flex items-center justify-center">
+                            className="w-12 h-12 flex-shrink-0 rounded-xl border border-border text-grey hover:text-foreground flex items-center justify-center">
                             <X size={15} />
                           </button>
                         )}
@@ -3088,7 +3088,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <div>
                   <label className={ADD_LABEL}>Date</label>
                   <input type="date" value={addForm.date} min={formatDateForDb(new Date())}
-                    onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={ADD_FIELD} />
+                    onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={cn(ADD_FIELD, "text-left [&::-webkit-date-and-time-value]:text-left")} />
                 </div>
                 <div>
                   <label className={ADD_LABEL}>Available time</label>
