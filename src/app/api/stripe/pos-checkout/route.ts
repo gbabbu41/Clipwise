@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     commission_amount: number | null;
     type: string;
     products: { id: string; qty: number }[];
+    items?: { n: string; q: number; p: number }[]; // cart lines → itemized receipt (carried in metadata)
     promo_code?: string | null;   // applied promo — validated + consumed server-side
     redeem_loyalty?: boolean;     // spend the client's loyalty points
     loyalty_discount?: number;    // $ applied from points — settled on finalize
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
           loyalty_discount: body.loyalty_discount != null ? String(body.loyalty_discount) : "",
           // Compact product list for inventory decrement on finalize.
           products: JSON.stringify(body.products ?? []).slice(0, 480),
+          items: JSON.stringify(body.items ?? []).slice(0, 480),
         },
         success_url: `${origin}/dashboard/pos?paid=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/dashboard/pos?cancelled=1`,

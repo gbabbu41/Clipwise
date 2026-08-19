@@ -498,7 +498,9 @@ function paymentReceipt(data: Record<string, string>) {
     ${opener}
     <hr class="divider">
     <div class="row"><span class="label">Sold by</span><span class="val">${data.shopName}</span></div>
-    ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
+    ${data.itemsHtml
+      ? `<div class="row"><span class="label" style="font-weight:600;color:#374151">Items${data.itemCount ? ` · ${data.itemCount}` : ""}</span><span class="val"></span></div>${data.itemsHtml}`
+      : (data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : "")}
     ${data.date ? `<div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>` : ""}
     ${data.apptTime ? `<div class="row"><span class="label">Time</span><span class="val">${data.apptTime}</span></div>` : ""}
     ${data.duration ? `<div class="row"><span class="label">Duration</span><span class="val">${data.duration}</span></div>` : ""}

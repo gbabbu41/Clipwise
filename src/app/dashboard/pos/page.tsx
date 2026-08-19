@@ -423,6 +423,11 @@ export default function POSPage() {
       : null;
     const txType = serviceItems.length > 0 ? "service" : "product";
 
+    // Itemized lines for the receipt — name · qty · unit price for every cart
+    // item (services AND products). Compact keys (n/q/p) so the card path fits in
+    // Stripe metadata. Names capped so a big cart can't blow the metadata limit.
+    const receiptItems = cart.map(i => ({ n: i.name.slice(0, 40), q: i.qty, p: i.price }));
+
     // Save the customer to the book if they're new (applies to every method).
     await ensureClient();
 
@@ -454,6 +459,7 @@ export default function POSPage() {
             redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
             loyalty_discount: loyaltyDiscount,
             products,
+            items: receiptItems,
           }),
         });
         const data = await res.json();
@@ -501,6 +507,7 @@ export default function POSPage() {
           redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
           loyalty_discount: loyaltyDiscount,
           products,
+          items: receiptItems,
           gift_card: giftCard ? { id: giftCard.id, remaining_value: giftCard.remaining_value, applied: giftApplied } : null,
         }),
       });

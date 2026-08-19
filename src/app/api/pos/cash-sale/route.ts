@@ -166,6 +166,8 @@ export async function POST(req: Request) {
       taxCents: Math.round(tax * 100),
       tipCents: Math.round(tip * 100),
       taxConfig: shop.booking_settings as TaxConfig | null,
+      items: (b as { items?: { n: string; q: number; p: number }[] }).items ?? null,
+      timezone: (shop as { timezone?: string | null }).timezone ?? null,
     });
 
     return NextResponse.json({ transactionId: ins.data!.id });

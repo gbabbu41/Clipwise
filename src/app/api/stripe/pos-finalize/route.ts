@@ -139,6 +139,10 @@ export async function POST(request: NextRequest) {
     // sandbox/test mode and gated behind a dashboard toggle even live, so this is
     // the receipt they can actually rely on.)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    // Itemized cart lines ride in the checkout metadata (compact JSON) — parse for
+    // the receipt; best-effort, a bad/absent blob just falls back to a lump sum.
+    let receiptItems: { n: string; q: number; p: number }[] | null = null;
+    try { const parsed = JSON.parse(m.items || "[]"); if (Array.isArray(parsed)) receiptItems = parsed; } catch { /* ignore */ }
     await sendPaymentReceipt(baseUrl, {
       clientEmail: m.client_email,
       clientName: m.client_name,
@@ -151,6 +155,8 @@ export async function POST(request: NextRequest) {
       taxCents: Math.round(tax * 100),
       tipCents: Math.round(tip * 100),
       taxConfig: shop.booking_settings as TaxConfig | null,
+      items: receiptItems,
+      timezone: (shop as { timezone?: string | null }).timezone ?? null,
     });
 
     return NextResponse.json({

@@ -30,6 +30,7 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   time?: string | null;         // appointment start time (e.g. "11:00 PM") — receipt row
   durationMinutes?: number | null; // appointment length — receipt row
   timezone?: string | null;     // shop tz for the "receipt generated" date/time stamp
+  items?: { n: string; q: number; p: number }[] | null; // POS cart lines → itemized receipt (name/qty/unit price)
 }): Promise<void> {
   if (!args.clientEmail || args.amountCents <= 0) return;
   const money = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -62,6 +63,20 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   };
   if (args.time) data.apptTime = args.time;
   if (args.durationMinutes && args.durationMinutes > 0) data.duration = fmtDuration(args.durationMinutes);
+  // Itemized POS lines → a proper receipt: each item as "qty× name … line total",
+  // plus the total item count. Names are shop-owned (products/services) but escaped
+  // anyway before going into the email HTML.
+  const items = Array.isArray(args.items) ? args.items.filter(it => it && it.n) : [];
+  if (items.length) {
+    const esc = (s: string) => String(s).replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
+    const rows = items.map((it) => {
+      const qty = Math.max(1, Math.round(Number(it.q) || 1));
+      const label = qty > 1 ? `${qty}× ${esc(it.n)}` : esc(it.n);
+      return `<div class="row"><span class="label">${label}</span><span class="val">${money(Math.round((Number(it.p) || 0) * qty * 100))}</span></div>`;
+    }).join("");
+    data.itemsHtml = rows;
+    data.itemCount = String(items.reduce((n, it) => n + Math.max(1, Math.round(Number(it.q) || 1)), 0));
+  }
   if (args.noShow) {
     data.noShow = "1";
     if (args.bookingUrl) data.bookingUrl = args.bookingUrl;
