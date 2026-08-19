@@ -887,6 +887,12 @@ export default function PaymentsPage() {
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between gap-3"><span className="text-grey">Service</span><span className="text-foreground text-right truncate">{i.sub}</span></div>
+                  {i.appt?.client_email && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-grey flex-shrink-0">Email</span>
+                      <a href={`mailto:${i.appt.client_email}`} className="text-foreground text-right break-all min-w-0 hover:underline">{i.appt.client_email}</a>
+                    </div>
+                  )}
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
                   <div className="flex justify-between"><span className="text-grey">{i.earn ? "Earned" : "Amount"}</span><span className="text-foreground font-semibold">{formatCurrency(i.earn ? i.amount : netOf(i))}</span></div>
