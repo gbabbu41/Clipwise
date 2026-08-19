@@ -747,6 +747,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   // that shows the money the customer actually paid / will be charged, add it in
   // — a held card captures total + tip, and a paid booking already took it.
   const tipAmt = Number(appt.tip_amount ?? 0);
+  const taxAmt = Number(appt.tax_amount ?? 0);
   const amtPaid = amt + tipAmt;
   // A checkout link is out and the customer hasn't paid yet — keep the Check out
   // button but surface that we're waiting (paying the link auto-completes).
@@ -840,6 +841,26 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   <a href={`mailto:${appt.client_email}`} className="text-sm text-foreground hover:underline truncate">{appt.client_email}</a>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Money breakdown — itemize the tip so the owner sees service vs tip,
+              not one lump. Only shown once a tip exists (tips are added at
+              payment/completion). */}
+          {tipAmt > 0 && (
+            <div className="px-[18px] py-3 border-b border-border">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-grey">Service{taxAmt > 0 ? " + tax" : ""}</span>
+                <span className="text-foreground font-medium tabular-nums">{formatCurrency(amt)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-grey">Tip</span>
+                <span className="text-foreground font-medium tabular-nums">{formatCurrency(tipAmt)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t border-border">
+                <span className="font-semibold text-foreground">Total</span>
+                <span className="font-bold text-foreground tabular-nums">{formatCurrency(amtPaid)}</span>
+              </div>
             </div>
           )}
 
