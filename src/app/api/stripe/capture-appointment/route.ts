@@ -284,6 +284,9 @@ export async function POST(request: NextRequest) {
       // (not a cold fee receipt on its own).
       noShow: reason === "no_show",
       bookingUrl: shop.slug ? `${baseUrl}/book/${shop.slug}` : undefined,
+      time: appt.time_slot,
+      durationMinutes: (appt as { duration_minutes?: number | null }).duration_minutes ?? (svc as { duration_minutes?: number } | null)?.duration_minutes ?? null,
+      timezone: (shop as { timezone?: string | null }).timezone ?? null,
     });
 
     // In-app/web success alert to owner + assigned barber for BOTH a completion

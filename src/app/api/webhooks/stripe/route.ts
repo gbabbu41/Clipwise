@@ -214,6 +214,9 @@ export async function POST(request: NextRequest) {
                 // Itemize price + tax (online payment = gross; subtotal = gross − tax).
                 taxCents: Math.round(linkTax * 100),
                 taxConfig: shopRow?.booking_settings as TaxConfig | null,
+                time: paidAppt.time_slot,
+                durationMinutes: (paidAppt as { duration_minutes?: number | null }).duration_minutes ?? null,
+                timezone: (shopRow as { timezone?: string | null } | null)?.timezone ?? null,
               });
             }
 

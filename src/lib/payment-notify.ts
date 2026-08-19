@@ -27,9 +27,22 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   taxConfig?: TaxConfig | null; // shop.booking_settings → receipt-style tax label
   noShow?: boolean;             // lead the email with a "we missed you" note + rebook CTA
   bookingUrl?: string | null;   // rebook link for the no-show variant
+  time?: string | null;         // appointment start time (e.g. "11:00 PM") — receipt row
+  durationMinutes?: number | null; // appointment length — receipt row
+  timezone?: string | null;     // shop tz for the "receipt generated" date/time stamp
 }): Promise<void> {
   if (!args.clientEmail || args.amountCents <= 0) return;
   const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const fmtDuration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m} min`);
+  // Date + time the receipt was produced (shop timezone) — a real paper-receipt
+  // stamp. Falls back to Canada Eastern (clipwise.ca) if the shop has no tz set.
+  let generatedAt = "";
+  try {
+    generatedAt = new Date().toLocaleString("en-CA", {
+      timeZone: args.timezone || "America/Toronto",
+      year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    });
+  } catch { generatedAt = new Date().toUTCString(); }
   const taxCents = Math.max(0, Math.round(Number(args.taxCents ?? 0)));
   const tipCents = Math.max(0, Math.round(Number(args.tipCents ?? 0)));
   const subtotalCents = args.amountCents - taxCents - tipCents;
@@ -45,7 +58,10 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
     date: args.date ?? "",
     amount: money(args.amountCents),
     context: args.context,
+    generatedAt,
   };
+  if (args.time) data.apptTime = args.time;
+  if (args.durationMinutes && args.durationMinutes > 0) data.duration = fmtDuration(args.durationMinutes);
   if (args.noShow) {
     data.noShow = "1";
     if (args.bookingUrl) data.bookingUrl = args.bookingUrl;

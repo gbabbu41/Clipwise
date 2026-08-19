@@ -178,6 +178,9 @@ export async function markAppointmentPaid(args: {
     // Itemize price + tax (online payment = gross; subtotal = gross − tax).
     taxCents: Math.round(taxDollars * 100),
     taxConfig: shop.booking_settings ?? null,
+    time: appt.time_slot,
+    durationMinutes: (appt as { duration_minutes?: number | null }).duration_minutes ?? null,
+    timezone: (shop as { timezone?: string | null }).timezone ?? null,
   });
 
   notifyNoShowCharged({

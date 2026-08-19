@@ -500,6 +500,8 @@ function paymentReceipt(data: Record<string, string>) {
     <div class="row"><span class="label">Sold by</span><span class="val">${data.shopName}</span></div>
     ${data.serviceName ? `<div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>` : ""}
     ${data.date ? `<div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>` : ""}
+    ${data.apptTime ? `<div class="row"><span class="label">Time</span><span class="val">${data.apptTime}</span></div>` : ""}
+    ${data.duration ? `<div class="row"><span class="label">Duration</span><span class="val">${data.duration}</span></div>` : ""}
     ${data.context ? `<div class="row"><span class="label">Charge</span><span class="val">${data.context}</span></div>` : ""}
     ${data.tax ? `
     <div class="row"><span class="label">Subtotal</span><span class="val">${data.subtotal}</span></div>
@@ -511,6 +513,7 @@ function paymentReceipt(data: Record<string, string>) {
     <hr class="divider">
     <p style="font-size:13px;color:#6B7280">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
     <p style="font-size:12px;color:#6B7280">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
+    ${data.generatedAt ? `<p style="font-size:11px;color:#9CA3AF;margin-top:4px">Receipt generated ${data.generatedAt}</p>` : ""}
   `);
 }
 
