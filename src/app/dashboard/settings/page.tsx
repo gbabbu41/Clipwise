@@ -884,60 +884,71 @@ export default function SettingsPage() {
               <Input label="Cancellation Notice Required (hours)" type="number" value={String(booking.cancellation_hours)}
                 onChange={e => setBooking(p => ({ ...p, cancellation_hours: Number(e.target.value) }))} />
             </div>
-            {/* One decision replaces the old pay-in-person + no-show-protection
-                toggles: does the customer hold the spot with a card? Card
-                required → no-show protection on + no pay-in-person. Card not
-                needed → pay in person, no no-show charge. The legacy fields
-                (booking.no_show_protection + shops.allow_pay_in_person) are kept
-                in sync underneath so the rest of the app is unchanged. */}
+            {/* Booking payment mode — ONE pick-one list (Card required / Card
+                optional / No card) instead of two interacting toggles. Writes the
+                same two flags underneath: booking.no_show_protection +
+                booking.pin_requires_card (allow_pay_in_person is kept true; the
+                customer + booking gates read those two flags directly). */}
             {(() => {
               const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
               const cardCapable = planHasFeature(plan, "payments");
               const canRequireCard = !isFreePlan && cardCapable;
-              const requireCard = canRequireCard && booking.no_show_protection;
-              const setRequireCard = (on: boolean) => {
-                setBooking(p => ({ ...p, no_show_protection: on }));
-                // Pay-in-person is offered either way now (the card-for-in-person
-                // nuance is the separate toggle below), so keep it allowed.
+              // Derive the single mode from the two stored flags.
+              const mode: "required" | "optional" | "nocard" =
+                !booking.no_show_protection ? "nocard"
+                  : booking.pin_requires_card === false ? "optional"
+                    : "required";
+              // Free / no-payments shops can't take cards → forced to "No card".
+              const effectiveMode = canRequireCard ? mode : "nocard";
+              const setMode = (m: "required" | "optional" | "nocard") => {
+                if (m === "nocard") setBooking(p => ({ ...p, no_show_protection: false }));
+                else setBooking(p => ({ ...p, no_show_protection: true, pin_requires_card: m === "required" }));
                 setProfile(p => ({ ...p, allow_pay_in_person: true }));
               };
+              const OPTIONS: { id: "required" | "optional" | "nocard"; name: string; rec?: boolean; desc: string; cust: string; needsCard: boolean }[] = [
+                { id: "required", name: "Card required", rec: true, needsCard: true,
+                  desc: "Everyone leaves a card. Pay online now, or “pay at the shop” with the card saved. You can always charge a no-show.",
+                  cust: "Pay online · or · Pay at shop (add card)" },
+                { id: "optional", name: "Card optional", needsCard: true,
+                  desc: "Customers choose: pay online with a card, or “pay at the shop” with no card. No-shows are chargeable only for those who left a card.",
+                  cust: "Pay online · or · Pay at shop (no card)" },
+                { id: "nocard", name: "No card", needsCard: false,
+                  desc: "Everyone books and pays at the shop. Simplest — but no-shows can’t be charged.",
+                  cust: "Pay at shop only" },
+              ];
               return (
-                <>
-                <div className={cn("p-4 bg-card-raised rounded-xl border border-border", !canRequireCard && "opacity-80")}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="pr-1">
-                      <p className="text-sm font-medium text-foreground">No-show protection</p>
-                      <p className="text-xs text-grey mt-0.5">
-                        {requireCard
-                          ? "Customers put a card down to book — never charged unless they no-show or cancel late. They can pay online now, or choose “pay at the shop” (card stays on file for protection, unless you turn that off below)."
-                          : "Customers book with no card and pay in person. Bookings are Cash · Unpaid until you collect, and no-shows can’t be charged."}
-                      </p>
-                      {isFreePlan && (
-                        <p className="text-xs text-gold mt-1">The free plan can’t take cards, so booking stays no-card. Upgrade to Pro for no-show protection.</p>
-                      )}
-                      {!isFreePlan && !cardCapable && (
-                        <p className="text-xs text-gold mt-1">No-show protection needs online payments — available on Pro and Premium.</p>
-                      )}
-                    </div>
-                    <Toggle value={requireCard} disabled={!canRequireCard} onChange={() => setRequireCard(!requireCard)} />
+                <div className="p-4 bg-card-raised rounded-xl border border-border">
+                  <p className="text-sm font-medium text-foreground">When someone books, how do they hold the spot?</p>
+                  {!canRequireCard && (
+                    <p className="text-xs text-amber-500 mt-1">{isFreePlan
+                      ? "The free plan can’t take cards, so bookings stay no-card. Upgrade to Pro for no-show protection."
+                      : "No-show protection needs online payments — available on Pro and Premium."}</p>
+                  )}
+                  <div className="space-y-2 mt-3">
+                    {OPTIONS.map(o => {
+                      const disabled = o.needsCard && !canRequireCard;
+                      const selected = effectiveMode === o.id;
+                      return (
+                        <button key={o.id} type="button" disabled={disabled} onClick={() => setMode(o.id)}
+                          className={cn("w-full text-left flex gap-3 items-start rounded-xl border p-3.5 transition-colors bg-card",
+                            selected ? "border-emerald-400 ring-1 ring-emerald-400" : "border-border hover:border-foreground/30",
+                            disabled && "opacity-45 cursor-not-allowed")}>
+                          <span className={cn("mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center", selected ? "border-emerald-400" : "border-grey")}>
+                            {selected && <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                              {o.name}
+                              {o.rec && <span className="text-[9.5px] font-bold uppercase tracking-wide text-black bg-emerald-400 rounded-full px-1.5 py-0.5">Recommended</span>}
+                            </span>
+                            <span className="block text-xs text-grey mt-1 leading-relaxed">{o.desc}</span>
+                            <span className="inline-flex items-center gap-1.5 mt-2 text-[11px] text-grey bg-background border border-border rounded-lg px-2 py-1">🧑 Customer sees: <span className="text-foreground font-medium">{o.cust}</span></span>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                {requireCard && (
-                  <div className="p-4 bg-card-raised rounded-xl border border-border">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="pr-1">
-                        <p className="text-sm font-medium text-foreground">Card on file for “pay at the shop”</p>
-                        <p className="text-xs text-grey mt-0.5">
-                          {booking.pin_requires_card
-                            ? "“Pay at the shop” still takes a card — saved, never charged unless they no-show. Protection stays on for walk-in-pay too."
-                            : "“Pay at the shop” takes no card at all — quicker to book, but you can’t charge a no-show for those."}
-                        </p>
-                      </div>
-                      <Toggle value={booking.pin_requires_card} onChange={() => setBooking(p => ({ ...p, pin_requires_card: !p.pin_requires_card }))} />
-                    </div>
-                  </div>
-                )}
-                </>
               );
             })()}
 
