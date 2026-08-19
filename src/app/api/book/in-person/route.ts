@@ -151,8 +151,10 @@ export async function POST(request: NextRequest) {
   // pay_in_person here under card-required stays rejected.
   const pinRequiresCard = (shop.booking_settings as { pin_requires_card?: boolean } | null)?.pin_requires_card !== false;
   const cardRequired = noShowProtection && shopCanCharge && effectiveTotal > 0;
-  const allowInPerson = (!cardRequired || !pinRequiresCard)
-    && ((shop as { allow_pay_in_person?: boolean | null }).allow_pay_in_person !== false || !shopCanCharge);
+  // Pay-in-person is allowed unless a card is genuinely required for it (card
+  // required AND pin_requires_card on → the customer must go through the save-card
+  // flow instead). No longer gated on the legacy allow_pay_in_person flag.
+  const allowInPerson = !cardRequired || !pinRequiresCard;
   if (!callerIsStaff && b.pay_in_person && !allowInPerson) {
     return NextResponse.json({ error: "This shop requires a card to book online." }, { status: 403 });
   }

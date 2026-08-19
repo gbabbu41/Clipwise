@@ -906,17 +906,17 @@ export default function SettingsPage() {
                 <div className={cn("p-4 bg-card-raised rounded-xl border border-border", !canRequireCard && "opacity-80")}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="pr-1">
-                      <p className="text-sm font-medium text-foreground">Require a card to book</p>
+                      <p className="text-sm font-medium text-foreground">No-show protection</p>
                       <p className="text-xs text-grey mt-0.5">
                         {requireCard
-                          ? "Customers reserve with a card — never charged unless they no-show or cancel late. They can pay online now, or choose “pay at the shop” (card stays on file for no-show protection, unless you turn that off below)."
-                          : "Customers book without a card and pay in person. Bookings are marked Cash · Unpaid until you collect, and no-show fees can’t be charged."}
+                          ? "Customers put a card down to book — never charged unless they no-show or cancel late. They can pay online now, or choose “pay at the shop” (card stays on file for protection, unless you turn that off below)."
+                          : "Customers book with no card and pay in person. Bookings are Cash · Unpaid until you collect, and no-shows can’t be charged."}
                       </p>
                       {isFreePlan && (
-                        <p className="text-xs text-gold mt-1">The free plan can’t take cards, so booking stays no-card. Upgrade to Pro to require a card and enable no-show protection.</p>
+                        <p className="text-xs text-gold mt-1">The free plan can’t take cards, so booking stays no-card. Upgrade to Pro for no-show protection.</p>
                       )}
                       {!isFreePlan && !cardCapable && (
-                        <p className="text-xs text-gold mt-1">Requiring a card needs online payments — available on Pro and Premium.</p>
+                        <p className="text-xs text-gold mt-1">No-show protection needs online payments — available on Pro and Premium.</p>
                       )}
                     </div>
                     <Toggle value={requireCard} disabled={!canRequireCard} onChange={() => setRequireCard(!requireCard)} />
@@ -926,11 +926,11 @@ export default function SettingsPage() {
                   <div className="p-4 bg-card-raised rounded-xl border border-border">
                     <div className="flex items-start justify-between gap-4">
                       <div className="pr-1">
-                        <p className="text-sm font-medium text-foreground">Keep a card on file for “pay at the shop”</p>
+                        <p className="text-sm font-medium text-foreground">Card on file for “pay at the shop”</p>
                         <p className="text-xs text-grey mt-0.5">
                           {booking.pin_requires_card
-                            ? "Customers who choose “pay at the shop” still add a card — saved, never charged unless they no-show. You keep no-show protection either way."
-                            : "Customers can choose “pay at the shop” with no card at all — quicker to book, but you can’t charge a no-show for those."}
+                            ? "“Pay at the shop” still takes a card — saved, never charged unless they no-show. Protection stays on for walk-in-pay too."
+                            : "“Pay at the shop” takes no card at all — quicker to book, but you can’t charge a no-show for those."}
                         </p>
                       </div>
                       <Toggle value={booking.pin_requires_card} onChange={() => setBooking(p => ({ ...p, pin_requires_card: !p.pin_requires_card }))} />

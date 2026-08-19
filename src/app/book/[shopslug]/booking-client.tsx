@@ -1062,9 +1062,11 @@ export default function BookingClient() {
   // — collected via the save-card (SetupIntent) flow, never charged unless no-show.
   const pinRequiresCard = ((shop?.booking_settings as { pin_requires_card?: boolean } | null)?.pin_requires_card ?? true);
   const payInPersonSavesCard = cardRequired && pinRequiresCard;
-  const allowInPerson = (shop?.allow_pay_in_person ?? true) || !shopCanCharge;
+  // Pay-in-person is always an option now — whether it needs a card is governed by
+  // no_show_protection + pin_requires_card above, not a separate on/off flag (the
+  // legacy allow_pay_in_person is no longer consulted, so stale values can't hide it).
   const canPayOnlineNow = total > 0 && shopCanCharge;
-  const canPayInPersonNow = total > 0 && allowInPerson;
+  const canPayInPersonNow = total > 0;
 
   // Payment method for the confirm step. When BOTH online + in-person are
   // offered, the customer picks inline (payMethodChoice); when only one is
