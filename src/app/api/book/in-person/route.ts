@@ -144,8 +144,14 @@ export async function POST(request: NextRequest) {
     && !!(shop as { stripe_connected?: boolean | null }).stripe_connected
     && !!(shop as { stripe_account_id?: string | null }).stripe_account_id;
   const noShowProtection = !!(shop.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection;
+  // Whether the "pay at the shop" path keeps a card on file (default on). When OFF,
+  // pay-in-person is allowed with NO card even if a card is otherwise required for
+  // the online path. When ON, the no-card in-person path isn't used — the customer
+  // goes through the save-card flow (finalize-booking-session), so a bare
+  // pay_in_person here under card-required stays rejected.
+  const pinRequiresCard = (shop.booking_settings as { pin_requires_card?: boolean } | null)?.pin_requires_card !== false;
   const cardRequired = noShowProtection && shopCanCharge && effectiveTotal > 0;
-  const allowInPerson = !cardRequired
+  const allowInPerson = (!cardRequired || !pinRequiresCard)
     && ((shop as { allow_pay_in_person?: boolean | null }).allow_pay_in_person !== false || !shopCanCharge);
   if (!callerIsStaff && b.pay_in_person && !allowInPerson) {
     return NextResponse.json({ error: "This shop requires a card to book online." }, { status: 403 });
