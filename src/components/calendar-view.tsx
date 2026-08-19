@@ -280,6 +280,13 @@ export function makeApptActions(opts: {
     toast(`Too early — you can check out from ${CHECKOUT_LEAD_HOURS}h before the appointment.`);
     return true;
   };
+  // Once a pending booking is resolved (approve/reject) from the calendar, delete
+  // the caller's own linked booking notification so the stale "Approve" action
+  // clears from the bell + notifications page and syncs live (the notifications
+  // realtime channel fires on the delete). Mirrors the popover's inline-approve.
+  // RLS scopes it to the caller's rows; best-effort — never blocks the action.
+  const clearBookingNotif = (appointmentId: string) =>
+    supabase.from("notifications").delete().eq("entity_id", appointmentId).eq("type", "booking").then(null, () => null);
   return {
     approve: async (appt) => {
       if (!shop) return;
@@ -288,6 +295,7 @@ export function makeApptActions(opts: {
       setBusy("");
       if (error) { toast(`Update failed: ${error.message}`); return; }
       patch(appt.id, { status: "confirmed" });
+      clearBookingNotif(appt.id);
       sendApprovalNotifications(appt, shop, accessToken);
       toast("Approved · Customer notified");
     },
@@ -459,6 +467,7 @@ export function makeApptActions(opts: {
         }).catch(() => null);
         if (refundRes?.ok) {
           patch(appt.id, { status: "cancelled", payment_status: "refunded" });
+          clearBookingNotif(appt.id);
           // The refund route already cancelled the booking + pinged the waitlist;
           // just tell the barber the slot freed (no second waitlist ping).
           fetch("/api/appointments/notify-cancellation", {
@@ -483,6 +492,7 @@ export function makeApptActions(opts: {
       setBusy("");
       if (error) { toast(`Failed: ${error.message}`); return; }
       patch(appt.id, hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
+      clearBookingNotif(appt.id);
       sendRejectionEmail(appt, shop, "");
       notifyFreedSlot(appt, shop, "Cancelled");
       onDone();
