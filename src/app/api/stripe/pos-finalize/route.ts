@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       shop_id,
       barber_id: m.barber_id || null,
       client_name: m.client_name || "Walk-in",
+      client_email: m.client_email || null,
       service_name: m.service_name || "Sale",
       // Ledger the amount actually COLLECTED for the service (net of any POS
       // discount + loyalty redemption), not the pre-discount subtotal — otherwise
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
       if (/tax/.test(ins.error.message)) delete trimmed.tax;
       if (/stripe_fee/.test(ins.error.message)) delete trimmed.stripe_fee;
       if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
+      if (/client_email/.test(ins.error.message)) delete trimmed.client_email;
       ins = await attempt(trimmed);
     }
     if (ins.error) {
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
     // duplicate finalize returns at the idempotency check above), so the customer
     // + receipt fire exactly once. Both awaited so they run before the function
     // returns; both never throw, so they can't fail the recorded sale.
-    await upsertClient(shop_id, m.client_name, m.client_email, m.client_phone);
+    await upsertClient(shop_id, m.client_name, m.client_email, m.client_phone, total);
 
     // Email the customer their ClipWise receipt. (Stripe's own receipt is off in
     // sandbox/test mode and gated behind a dashboard toggle even live, so this is

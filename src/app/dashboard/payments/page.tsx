@@ -33,6 +33,7 @@ interface ApptRow {
 interface TxRow {
   id: string;
   client_name: string | null;
+  client_email: string | null;
   service_name: string | null;
   amount: number;
   tip: number;
@@ -175,13 +176,20 @@ export default function PaymentsPage() {
   const loadData = useCallback(async () => {
     if (!shop) return;
     setLoading(true);
+    // `client_email` is a newer transactions column — try it, but fall back to a
+    // select without it so a shop that hasn't run the migration yet still loads its
+    // transaction feed (the email row just doesn't show for POS until then).
+    const TX_COLS = "id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source";
+    const fetchTx = async (): Promise<{ data: unknown[] | null }> => {
+      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250);
+      const withEmail = await run(`${TX_COLS}, client_email`);
+      return withEmail.error ? await run(TX_COLS) : withEmail;
+    };
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
         .select("*, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
-      supabase.from("transactions")
-        .select("id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source")
-        .eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250),
+      fetchTx(),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
@@ -247,6 +255,8 @@ export default function PaymentsPage() {
     ts: number; tsIso: string | null;
     pi: string | null; method: string | null; refunded: boolean;
     appt?: ApptRow;
+    client_email?: string | null;   // customer email (appointment or POS) — shown in detail
+    barberName?: string | null;     // barber served — shown in detail (POS drops it from `sub`)
     // Barber-earnings row (Payments filtered to one barber): `amount` already IS
     // that barber's take-home cut for the line, so display it directly instead of
     // running it through netOf()/feeOf() (which would re-net a Stripe fee that
@@ -287,20 +297,23 @@ export default function PaymentsPage() {
           ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
           pi: a.payment_intent_id, method: a.payment_method,
           refunded: a.payment_status === "refunded", appt: a,
+          client_email: a.client_email, barberName: a.barbers?.name ?? null,
         };
       }),
     ...posTxs.map((t): FeedItem => {
       const noShow = isNoShowTx(t);
       const refunded = !!t.refunded;
+      const barberName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
       return {
         key: `t${t.id}`, name: t.client_name || "Walk-in",
-        sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"} · POS`,
+        sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"}${barberName ? ` · ${barberName}` : ""} · POS`,
         amount: (t.amount ?? 0) + (t.tip ?? 0), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
         tone: refunded ? "muted" : "good",
         settled: !refunded, tsIso: t.created_at,
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded,
+        client_email: t.client_email, barberName,
       };
     }),
     // Post-visit tips (tip-link flow). `completion` txns are dropped by
@@ -887,10 +900,10 @@ export default function PaymentsPage() {
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between gap-3"><span className="text-grey">Service</span><span className="text-foreground text-right truncate">{i.sub}</span></div>
-                  {i.appt?.client_email && (
+                  {(i.client_email ?? i.appt?.client_email) && (
                     <div className="flex justify-between gap-3">
                       <span className="text-grey flex-shrink-0">Email</span>
-                      <a href={`mailto:${i.appt.client_email}`} className="text-foreground text-right break-all min-w-0 hover:underline">{i.appt.client_email}</a>
+                      <a href={`mailto:${i.client_email ?? i.appt?.client_email}`} className="text-foreground text-right break-all min-w-0 hover:underline">{i.client_email ?? i.appt?.client_email}</a>
                     </div>
                   )}
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>

@@ -57,6 +57,7 @@ export async function POST(req: Request) {
       shop_id,
       barber_id: b.barber_id || null,
       client_name: b.client_name || "Walk-in",
+      client_email: b.client_email || null,
       service_name: b.service_name || "Sale",
       amount: Number(b.amount) || 0,
       tip: Number(b.tip) || 0,
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     let ins = await attempt();
     for (let i = 0; i < 4 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
       let added = false;
-      for (const col of ["tax", "commission_amount", "source"]) {
+      for (const col of ["tax", "commission_amount", "source", "client_email"]) {
         if (!dropped.includes(col) && new RegExp(`\\b${col}\\b`).test(ins.error.message)) { dropped.push(col); added = true; }
       }
       if (!added) break;
@@ -146,7 +147,8 @@ export async function POST(req: Request) {
     // fail and a barber has no client-side INSERT rights. Both this and the receipt
     // are awaited so they actually run before the serverless function returns; both
     // never throw, so they can't fail the recorded sale.
-    await upsertClient(shop_id, b.client_name, b.client_email, b.client_phone);
+    await upsertClient(shop_id, b.client_name, b.client_email, b.client_phone,
+      (Number(b.amount) || 0) + (Number(b.tax) || 0) + (Number(b.tip) || 0));
 
     // Email the customer their receipt — the same ClipWise receipt appointments
     // send (cash gets no Stripe receipt, so this is the only one they'll get).

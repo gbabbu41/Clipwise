@@ -1,0 +1,12 @@
+-- phase52 — store the customer's email on a POS transaction.
+--
+-- Why: POS sales (cash + card) capture the customer's email at checkout, but the
+-- transactions ledger had no column to keep it, so the Payments transaction detail
+-- couldn't show it (only appointment rows carried an email, via the appointment).
+-- The POS insert already writes `client_email` behind a "drop the column if it
+-- doesn't exist yet" fallback, and the Payments feed selects it behind a retry —
+-- so the app works with or without this column. Run this to actually persist +
+-- surface the email on POS receipts/detail.
+--
+-- Safe + idempotent.
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS client_email text;

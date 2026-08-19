@@ -17,27 +17,41 @@ export async function upsertClient(
   name?: string | null,
   email?: string | null,
   phone?: string | null,
+  amountDollars?: number | null,   // this sale's gross → counts as a visit + spend
 ): Promise<void> {
   const nm = (name ?? "").trim().slice(0, 80);
   const e = (email ?? "").trim().slice(0, 120);
   const p = (phone ?? "").trim().slice(0, 30);
   if (!shopId || !nm || nm.toLowerCase() === "walk-in" || (!e && !p)) return;
+  const spend = Math.max(0, Number(amountDollars ?? 0));
+  const nowIso = new Date().toISOString();
   try {
-    let existing: { id: string } | null = null;
+    let existing: { id: string; total_visits: number | null; total_spent: number | null } | null = null;
     if (e) {
       const { data } = await supabaseAdmin
-        .from("clients").select("id").eq("shop_id", shopId).ilike("email", e).maybeSingle();
+        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).ilike("email", e).maybeSingle();
       existing = data;
     }
     if (!existing && p) {
       const { data } = await supabaseAdmin
-        .from("clients").select("id").eq("shop_id", shopId).eq("phone", p).maybeSingle();
+        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).eq("phone", p).maybeSingle();
       existing = data;
     }
-    if (existing) return; // already on file — deduped
+    if (existing) {
+      // On file already → count THIS POS sale as a visit + spend (mirrors what
+      // appointment completion does), so a POS-only customer's history isn't stuck
+      // at 0 visits / $0. Best-effort — never fail the recorded sale.
+      await supabaseAdmin.from("clients").update({
+        total_visits: (existing.total_visits ?? 0) + 1,
+        total_spent: Number(existing.total_spent ?? 0) + spend,
+        last_visit: nowIso,
+      }).eq("id", existing.id).then(null, () => null);
+      return;
+    }
+    // New client — this sale is their first visit.
     const { error } = await supabaseAdmin.from("clients").insert({
       shop_id: shopId, name: nm, email: e, phone: p,
-      total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
+      total_visits: 1, total_spent: spend, loyalty_points: 0, tag: "New", last_visit: nowIso,
     });
     if (error) console.error("[pos] client upsert failed:", error.message);
   } catch (err) {
