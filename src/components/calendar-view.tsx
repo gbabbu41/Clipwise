@@ -503,7 +503,10 @@ export function makeApptActions(opts: {
     // just flag it. Always marks the appointment "no-show" (frees the slot).
     noShow: async (appt, amountCents) => {
       if (!shop) return;
-      const hasCard = appt.payment_status === "held" || appt.payment_status === "saved";
+      // A card can be charged for a no-show when it's held/saved OR when it's a
+      // "pay at the shop" booking that kept a card on file (unpaid + saved PM).
+      // capture-appointment treats a stored PM with no held intent as chargeable.
+      const hasCard = appt.payment_status === "held" || appt.payment_status === "saved" || !!appt.stripe_payment_method_id;
       setBusy("noshow");
       let charged = false;
       let holdExpired = false;
@@ -608,7 +611,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     if (appt.date > today) return false;
     return timeToMinutes(appt.time_slot ?? "12:00 AM") - NO_SHOW_LEAD_MINUTES <= nowMinutesInTz(t);
   })();
-  const hasCardOnFile = appt.payment_status === "held" || appt.payment_status === "saved";
+  // A card is on file (chargeable for a no-show) when held/saved OR when a "pay at
+  // the shop" booking stored one (unpaid + saved PM).
+  const hasCardOnFile = appt.payment_status === "held" || appt.payment_status === "saved" || !!appt.stripe_payment_method_id;
   // No-show charge is chosen at the moment of marking via a 0–100% slider,
   // defaulting to the shop's configured percentage.
   const [noShowPct, setNoShowPct] = useState(() => clampNoShowPct(noShowFeePercent));

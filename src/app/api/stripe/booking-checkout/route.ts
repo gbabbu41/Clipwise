@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     service_names?: string;    // "Haircut + Beard" when multiple services were picked
     hold?: boolean; // when true: authorize (manual capture) instead of charging
     saveCard?: boolean; // when true: save the card (no charge now), charge later on completion/no-show
+    pay_in_person?: boolean; // save-card path chosen as "pay at the shop": mark Cash · Unpaid, card = no-show only
     subtotal?: number;  // pre-discount total, for server-side promo math
     promo_code?: string; // validated + recomputed server-side (never trust the client discount)
     tip_amount?: number; // customer-chosen tip in dollars (immediate full payment only)
@@ -227,6 +228,7 @@ export async function POST(request: NextRequest) {
     service_names: booking.service_names ?? "",
     hold: booking.hold ? "1" : "",
     save: booking.saveCard ? "1" : "",
+    pin: booking.pay_in_person ? "1" : "", // save-card chosen as "pay at the shop"
     promo_code: promoCodeForMeta,
     redeem_points: String(redemption.points),
     gift_code: giftCodeMeta,

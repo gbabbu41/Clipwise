@@ -29,6 +29,10 @@ type BookingSettings = {
   cancellation_hours: number;
   no_show_protection: boolean;
   no_show_fee_percent: number; // default % of the booked total for a no-show (0–100)
+  // When a card is required, whether the "pay at the shop" option ALSO collects a
+  // card (saved on file, never charged unless no-show). Only meaningful when
+  // no_show_protection is on. Default on = pay-in-person still protects no-shows.
+  pin_requires_card: boolean;
   auto_confirm: boolean;
   slot_interval_minutes: number; // booking-window granularity: 15 or 30
   tips_enabled: boolean;          // offer a tip picker at online payment
@@ -44,7 +48,7 @@ type BookingSettings = {
 
 const DEFAULT_BOOKING: BookingSettings = {
   advance_days: 15, cancellation_hours: 2,
-  no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, auto_confirm: false,
+  no_show_protection: true, no_show_fee_percent: NO_SHOW_DEFAULT_PCT, pin_requires_card: true, auto_confirm: false,
   slot_interval_minutes: 30,
   tips_enabled: true, tax_enabled: false, tax_rate: 0, tax_label: "HST", tax_number: "",
   pst_enabled: false, pst_rate: 0, pst_label: "PST", pst_number: "",
@@ -893,16 +897,19 @@ export default function SettingsPage() {
               const requireCard = canRequireCard && booking.no_show_protection;
               const setRequireCard = (on: boolean) => {
                 setBooking(p => ({ ...p, no_show_protection: on }));
-                setProfile(p => ({ ...p, allow_pay_in_person: !on }));
+                // Pay-in-person is offered either way now (the card-for-in-person
+                // nuance is the separate toggle below), so keep it allowed.
+                setProfile(p => ({ ...p, allow_pay_in_person: true }));
               };
               return (
+                <>
                 <div className={cn("p-4 bg-card-raised rounded-xl border border-border", !canRequireCard && "opacity-80")}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="pr-1">
                       <p className="text-sm font-medium text-foreground">Require a card to book</p>
                       <p className="text-xs text-grey mt-0.5">
                         {requireCard
-                          ? "Customers hold the spot with a card — never charged unless they no-show or cancel late, then you or the barber charge the fee. No “pay in person” option is shown."
+                          ? "Customers reserve with a card — never charged unless they no-show or cancel late. They can pay online now, or choose “pay at the shop” (card stays on file for no-show protection, unless you turn that off below)."
                           : "Customers book without a card and pay in person. Bookings are marked Cash · Unpaid until you collect, and no-show fees can’t be charged."}
                       </p>
                       {isFreePlan && (
@@ -915,6 +922,22 @@ export default function SettingsPage() {
                     <Toggle value={requireCard} disabled={!canRequireCard} onChange={() => setRequireCard(!requireCard)} />
                   </div>
                 </div>
+                {requireCard && (
+                  <div className="p-4 bg-card-raised rounded-xl border border-border">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="pr-1">
+                        <p className="text-sm font-medium text-foreground">Keep a card on file for “pay at the shop”</p>
+                        <p className="text-xs text-grey mt-0.5">
+                          {booking.pin_requires_card
+                            ? "Customers who choose “pay at the shop” still add a card — saved, never charged unless they no-show. You keep no-show protection either way."
+                            : "Customers can choose “pay at the shop” with no card at all — quicker to book, but you can’t charge a no-show for those."}
+                        </p>
+                      </div>
+                      <Toggle value={booking.pin_requires_card} onChange={() => setBooking(p => ({ ...p, pin_requires_card: !p.pin_requires_card }))} />
+                    </div>
+                  </div>
+                )}
+                </>
               );
             })()}
 

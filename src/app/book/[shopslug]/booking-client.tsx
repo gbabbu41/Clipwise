@@ -846,10 +846,15 @@ export default function BookingClient() {
     //                  captured later on completion / no-show.
     //   >7 days out  → card holds expire ~7 days, so instead SAVE the card
     //                  (no charge now) and charge it on completion / no-show.
+    // "Pay at the shop" while the shop keeps a card on file → collect + SAVE a card
+    // (SetupIntent, no charge) through the same checkout, tagged pay-in-person so
+    // it lands Cash · Unpaid with the card stored ONLY for a no-show.
+    const inPersonSaveCard = method === "in_person" && payInPersonSavesCard;
     const useHold = method === "online" && !willSaveCard;
-    const useSaveCard = method === "online" && willSaveCard;
-    // A card is being taken online — require the no-show consent first.
-    if (method === "online" && cardForNoShow && !noShowConsent) {
+    const useSaveCard = (method === "online" && willSaveCard) || inPersonSaveCard;
+    // A card is being taken (online, or the pay-in-person save-card path) — require
+    // the no-show consent first.
+    if (((method === "online" && cardForNoShow) || inPersonSaveCard) && !noShowConsent) {
       setSaving(false);
       showToast("Please accept the no-show policy to continue.", false);
       return;
@@ -857,8 +862,9 @@ export default function BookingClient() {
     // Amount to send: holds authorize the full total; saved cards + in-person +
     // free bookings charge nothing now.
     const chargeAmount = useHold ? total : 0;
-    // Route to Stripe whenever paying online (hold or save).
-    if (method === "online" || chargeAmount > 0) {
+    // Route to Stripe whenever a card is collected (online charge/hold/save, or the
+    // pay-in-person save-card path).
+    if (method === "online" || inPersonSaveCard || chargeAmount > 0) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
           method: "POST",
@@ -885,6 +891,7 @@ export default function BookingClient() {
             service_names: servicesPicked.length > 1 ? servicesPicked.map(s => s.name).join(" + ") : "",
             hold: useHold,
             saveCard: useSaveCard,
+            pay_in_person: inPersonSaveCard, // save-card but mark Cash · Unpaid (card = no-show only)
             tip_amount: tipAmount, // optional tip; server caps + only applies online
             redeem: wantsRedeem,   // spend loyalty points; amount computed server-side
             gift_code: giftCard?.code ?? undefined, // gift card applied to the charge (server-validated)
@@ -1050,7 +1057,12 @@ export default function BookingClient() {
   // If a shop wants a card but can't charge yet (Stripe unfinished), fall back to
   // in-person so booking is never impossible.
   const cardRequired = !!(shop?.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection && shopCanCharge && total > 0;
-  const allowInPerson = !cardRequired && ((shop?.allow_pay_in_person ?? true) || !shopCanCharge);
+  // NEW: pay-in-person is now offered EVEN when a card is required. When it is, the
+  // shop can still keep a card on file for that path (pin_requires_card, default on)
+  // — collected via the save-card (SetupIntent) flow, never charged unless no-show.
+  const pinRequiresCard = ((shop?.booking_settings as { pin_requires_card?: boolean } | null)?.pin_requires_card ?? true);
+  const payInPersonSavesCard = cardRequired && pinRequiresCard;
+  const allowInPerson = (shop?.allow_pay_in_person ?? true) || !shopCanCharge;
   const canPayOnlineNow = total > 0 && shopCanCharge;
   const canPayInPersonNow = total > 0 && allowInPerson;
 
@@ -2245,7 +2257,7 @@ export default function BookingClient() {
                       payMethodChoice === "in_person" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">🏪</span>
                     <span className="flex-1 text-sm font-semibold">Pay at the shop
-                      <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>No card needed · pay after your cut</span>
+                      <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>{payInPersonSavesCard ? "Add a card to hold your spot · not charged unless you no-show" : "No card needed · pay after your cut"}</span>
                     </span>
                   </button>
                 </div>
@@ -2275,11 +2287,12 @@ export default function BookingClient() {
                 )}
               </div>
             )}
-            {/* No-show consent — inline, only for the online/card path. */}
-            {effectiveMethod === "online" && cardForNoShow && noShowConsentBox}
+            {/* No-show consent — for the online/card path AND the pay-in-person
+                save-card path (both put a card on file that a no-show can charge). */}
+            {((effectiveMethod === "online" && cardForNoShow) || (effectiveMethod === "in_person" && payInPersonSavesCard)) && noShowConsentBox}
             {/* Footer reassurance, matched to the chosen method. */}
             {effectiveMethod === "in_person"
-              ? <p className="text-xs text-[#999] text-center">Pay at the shop · reserved as pending until the shop confirms · Free cancellation 24h before</p>
+              ? <p className="text-xs text-[#999] text-center">{payInPersonSavesCard ? "Pay at the shop · card on file, charged only if you no-show · Free cancellation 24h before" : "Pay at the shop · reserved as pending until the shop confirms · Free cancellation 24h before"}</p>
               : effectiveMethod === "online"
                 ? <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
                 : <p className="text-xs text-[#999] text-center">Free cancellation 24h before</p>

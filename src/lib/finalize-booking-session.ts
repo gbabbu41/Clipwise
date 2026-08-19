@@ -61,6 +61,10 @@ export async function finalizeBookingFromSession(params: {
   const m = session.metadata ?? {};
   const isHold = m.hold === "1";
   const isSave = m.save === "1";
+  // "Pay at the shop" that still saved a card: the customer pays in person, so the
+  // booking is Cash · Unpaid — the saved card is kept ONLY to charge a no-show.
+  // (Same setup-mode collection as isSave, different tagging + no completion charge.)
+  const isPayInPerson = isSave && m.pin === "1";
 
   // ── Confirm the money actually settled ─────────────────────────────────────
   let savedCustomerId: string | null = null;
@@ -157,7 +161,10 @@ export async function finalizeBookingFromSession(params: {
     ...(Number(m.duration_minutes ?? 0) > 0 ? { duration_minutes: Number(m.duration_minutes) } : {}),
     ...(m.service_names ? { notes: clampLen(`Services: ${m.service_names}`, FIELD_CAPS.notes) } : {}),
     deposit_paid: !isHold && !isSave,
-    payment_status: isSave ? "saved" : isHold ? "held" : "paid",
+    // Pay-in-person keeps the card on file but is UNPAID · Cash (charged in person,
+    // never off the card unless no-show). Others: saved / held / paid as before.
+    payment_status: isPayInPerson ? "unpaid" : isSave ? "saved" : isHold ? "held" : "paid",
+    ...(isPayInPerson ? { payment_method: "cash" } : {}),
     ...(!isSave && !isHold ? { paid_at: new Date().toISOString() } : {}),
     payment_intent_id: paymentIntentId,
     stripe_customer_id: savedCustomerId,
@@ -235,7 +242,7 @@ export async function finalizeBookingFromSession(params: {
     const bookingTitle = isSave ? `New Booking · card on file · ${amountStr}`
       : isHold ? `New Booking · card held · ${amountStr}`
       : `New Paid Booking · ${amountStr}`;
-    const bookingVerb = isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
+    const bookingVerb = isPayInPerson ? "(pay at shop · card on file)" : isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
     insertNotifications({
       user_id: shopRow.owner_id,
       shop_id: m.shop_id,
@@ -312,7 +319,8 @@ export async function finalizeBookingFromSession(params: {
       date: m.date, time: m.time_slot,
       // Grand total the customer paid — service + tax + tip (matches the charge).
       total: `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(2)}`,
-      paymentNote: isSave ? "Card saved — charged after your visit"
+      paymentNote: isPayInPerson ? "Pay at the shop — your card is on file only for a no-show"
+        : isSave ? "Card saved — charged after your visit"
         : isHold ? "Card on hold — charged after your visit"
         : "Paid online",
       bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
@@ -377,14 +385,16 @@ export async function finalizeBookingFromSession(params: {
 async function buildSummary(appointmentId: string, isSave: boolean, isHold: boolean): Promise<BookingSummary | null> {
   const { data: a } = await supabaseAdmin
     .from("appointments")
-    .select("date, time_slot, total_amount, tip_amount, client_email, payment_status, shops(name), barbers(name), services(name)")
+    .select("date, time_slot, total_amount, tip_amount, client_email, payment_status, payment_method, stripe_payment_method_id, shops(name), barbers(name), services(name)")
     .eq("id", appointmentId).maybeSingle();
   if (!a) return null;
   const rel = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
   const shop = rel(a.shops as { name?: string } | { name?: string }[] | null);
   const barber = rel(a.barbers as { name?: string } | { name?: string }[] | null);
   const service = rel(a.services as { name?: string } | { name?: string }[] | null);
-  const saved = isSave || a.payment_status === "saved";
+  // Pay-in-person with a card on file: Cash · Unpaid but a card is stored (no-show only).
+  const isPin = a.payment_method === "cash" && !!(a as { stripe_payment_method_id?: string | null }).stripe_payment_method_id;
+  const saved = !isPin && (isSave || a.payment_status === "saved");
   const held = isHold || a.payment_status === "held";
   return {
     shopName: shop?.name ?? "",
@@ -395,7 +405,8 @@ async function buildSummary(appointmentId: string, isSave: boolean, isHold: bool
     total: Number(a.total_amount ?? 0),
     tip: Number(a.tip_amount ?? 0),
     clientEmail: (a.client_email as string) ?? "",
-    paymentNote: saved ? "Card saved — charged after your visit"
+    paymentNote: isPin ? "Pay at the shop — your card is on file only for a no-show"
+      : saved ? "Card saved — charged after your visit"
       : held ? "Card held — charged after your visit"
       : "Paid online",
   };
