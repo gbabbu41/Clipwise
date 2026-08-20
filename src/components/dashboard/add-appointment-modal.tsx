@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils";
+import { clientMatchesQuery } from "@/lib/client-search";
 import { Button } from "@/components/ui/button";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { X, Plus, Search, Check, ChevronDown, Scissors } from "lucide-react";
@@ -159,9 +160,8 @@ export function AddAppointmentModal({
 
   // ── Client search ──────────────────────────────────────────────────────────
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [] as ClientLite[];
-    return clients.filter(c => (c.name ?? "").toLowerCase().includes(q)).slice(0, 6);
+    if (!query.trim()) return [] as ClientLite[];
+    return clients.filter(c => clientMatchesQuery(c, query)).slice(0, 6);
   }, [clients, query]);
   const showResults = mode === "search" && query.trim().length > 0;
 

@@ -6,6 +6,7 @@ import { cn, friendlyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Send, Search, MessageSquare, Plus, X, Phone } from "lucide-react";
 import type { Message, Client } from "@/lib/database.types";
+import { clientMatchesQuery } from "@/lib/client-search";
 
 interface Thread {
   clientName: string;
@@ -538,11 +539,7 @@ export default function MessagesPage() {
                   </div>
                 ) : (() => {
                   const q = composeSearch.trim().toLowerCase();
-                  const filtered = !q ? clients : clients.filter(c =>
-                    c.name.toLowerCase().includes(q) ||
-                    (c.email?.toLowerCase().includes(q) ?? false) ||
-                    (c.phone?.toLowerCase().includes(q) ?? false)
-                  );
+                  const filtered = !q ? clients : clients.filter(c => clientMatchesQuery(c, composeSearch));
                   return (
                     <div className="space-y-2">
                       <div className="relative">

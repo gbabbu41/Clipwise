@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Barber, Service, InventoryItem, PromoCode } from "@/lib/database.types";
+import { clientMatchesQuery } from "@/lib/client-search";
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
@@ -198,14 +199,8 @@ export default function POSPage() {
 
   // ── Customer picker helpers ─────────────────────────────────────────────
   const filteredClients = useMemo(() => {
-    const q = clientSearch.trim().toLowerCase();
-    const digits = q.replace(/\D/g, "");
-    if (!q) return clientsList.slice(0, 8);
-    return clientsList.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.email?.toLowerCase().includes(q) ?? false) ||
-      (digits.length > 0 && (c.phone?.replace(/\D/g, "").includes(digits) ?? false))
-    ).slice(0, 20);
+    if (!clientSearch.trim()) return clientsList.slice(0, 8);
+    return clientsList.filter(c => clientMatchesQuery(c, clientSearch)).slice(0, 20);
   }, [clientsList, clientSearch]);
 
   const selectClient = (c: ClientLite) => {

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Search, Users, Phone, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
+import { clientMatchesQuery } from "@/lib/client-search";
 
 interface ClientRow {
   client_name: string;
@@ -58,10 +59,7 @@ export default function BarberClientsPage() {
       .finally(() => setLoading(false));
   }, [accessToken, shop?.id, notPermitted]);
 
-  const filtered = clients.filter(c =>
-    (c.client_name ?? "").toLowerCase().includes(query.toLowerCase()) ||
-    (c.client_phone ?? "").includes(query)
-  );
+  const filtered = clients.filter(c => clientMatchesQuery(c, query));
 
   if (notPermitted) {
     return (

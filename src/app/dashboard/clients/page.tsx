@@ -11,6 +11,7 @@ import { Phone } from "lucide-react";
 import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
+import { clientMatchesQuery } from "@/lib/client-search";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -389,10 +390,7 @@ export default function ClientsPage() {
   const filtered = useMemo(() => {
     let list = [...clients];
     if (tagFilter !== "All") list = list.filter(c => c.tag === tagFilter);
-    if (search) list = list.filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.phone ?? "").includes(search)
-    );
+    if (search) list = list.filter(c => clientMatchesQuery(c, search));
     return list;
   }, [clients, tagFilter, search]);
 

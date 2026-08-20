@@ -13,6 +13,7 @@ import {
   isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
+import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
@@ -1821,9 +1822,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Client search (the name field doubles as the query). Matches the global add
   // modal: pick an existing client to fill their contact, or add a new one.
   const addClientMatches = useMemo(() => {
-    const q = addForm.client_name.trim().toLowerCase();
-    if (!q) return [] as ClientLite[];
-    return addClients.filter(c => (c.name ?? "").toLowerCase().includes(q)).slice(0, 6);
+    if (!addForm.client_name.trim()) return [] as ClientLite[];
+    return addClients.filter(c => clientMatchesQuery(c, addForm.client_name)).slice(0, 6);
   }, [addClients, addForm.client_name]);
   const onAddNameChange = (v: string) => { setAddForm(p => ({ ...p, client_name: v })); setClientMode("search"); };
   const pickAddClient = (c: ClientLite) => {
