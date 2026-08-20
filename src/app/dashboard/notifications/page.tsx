@@ -1,10 +1,15 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Info, Bell, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
+import { X, Check, Calendar, CalendarX2, AlertTriangle, Star, Info, Bell, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight, ChevronDown, Package } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications } from "@/lib/notify";
 import { cn, friendlyDate } from "@/lib/utils";
+import { DashboardHeader } from "@/components/dashboard/page-header";
+import { NotifSoundToggle } from "@/components/notif-sound-toggle";
+import { Switch } from "@/components/ui/switch";
+import { getNotifPrefs, setNotifPref, NOTIF_PREF_DEFAULTS, type NotifPrefKey } from "@/lib/notif-prefs";
+import type { Notification } from "@/lib/database.types";
 
 // Rich classification (mirrors the notification sheet): coloured badge + icon
 // chip + left accent inferred from the type and a few title/message keywords.
@@ -35,31 +40,15 @@ const classify = (n: { title: string; message: string; type: string }) => {
 const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 // Drop any leading emoji/symbol the stored title carries (e.g. "✅ Paid" → "Paid").
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import type { Notification } from "@/lib/database.types";
 
-type NotificationType = "booking" | "cancellation" | "no-show" | "review" | "inventory";
-
-const TYPE_ICONS: Record<string, string> = {
-  // 🎉 for bookings — celebrates the new paid booking instead of the
-  // generic calendar. Wiggles when unread (.cw-notif-wiggle in globals).
-  booking: "🎉", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
-};
-
-// Notification messages stored before we started formatting dates
-// server-side still contain raw 'YYYY-MM-DD'. Detect that pattern at
-// render time and swap it for the friendly form ('July 4' / 'Today' /
-// 'Tomorrow' / 'Monday'). Cheap to run, idempotent, no DB writes.
+// Notification messages stored before we started formatting dates server-side
+// still contain raw 'YYYY-MM-DD'. Swap it for the friendly form at render time.
 function humanizeMessage(msg: string): string {
   return msg.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (iso) => friendlyDate(iso));
 }
 
 // Hybrid timestamp: relative for the last hour ("Just now", "12m ago",
-// "3h ago"), context-aware date for anything older ("Today, 2:30 PM",
-// "Yesterday, 9:15 AM", "Monday, 4:00 PM", "June 27").
+// "3h ago"), context-aware date for anything older.
 function notifTime(dateStr: string) {
   const date = new Date(dateStr);
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -72,12 +61,30 @@ function notifTime(dateStr: string) {
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
-      <span className="text-foreground">✓</span>{message}
+    <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[200] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
+      <Check size={15} className="text-emerald-400" />{message}
       <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
 }
+
+// Filter chips — value + label + which notification types they include.
+const FILTERS: { v: string; l: string; types: string[] }[] = [
+  { v: "all", l: "All", types: [] },
+  { v: "bookings", l: "Bookings", types: ["booking"] },
+  { v: "no-shows", l: "No-shows", types: ["no-show"] },
+  { v: "reviews", l: "Reviews", types: ["review"] },
+  { v: "inventory", l: "Inventory", types: ["inventory"] },
+];
+
+// Rows for the "Alerts" preferences section — the real, per-device pop-up toggles.
+const PREF_ROWS: { key: NotifPrefKey; label: string; desc: string; Icon: typeof Bell; tint: string }[] = [
+  { key: "new_booking", label: "New bookings", desc: "A client books an appointment", Icon: Calendar, tint: "bg-emerald-500/15 text-emerald-300" },
+  { key: "cancellation", label: "Cancellations", desc: "A booking is cancelled", Icon: CalendarX2, tint: "bg-rose-500/15 text-rose-300" },
+  { key: "no_show", label: "No-shows", desc: "A client doesn’t show up", Icon: AlertTriangle, tint: "bg-rose-500/15 text-rose-300" },
+  { key: "low_inventory", label: "Low inventory", desc: "A product drops below its threshold", Icon: Package, tint: "bg-sky-500/15 text-sky-300" },
+  { key: "new_review", label: "New reviews", desc: "A client leaves a review", Icon: Star, tint: "bg-yellow-500/15 text-yellow-300" },
+];
 
 export default function NotificationsPage() {
   const { user, shop } = useAuth();
@@ -85,11 +92,13 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
   const [toast, setToast] = useState("");
-  const [notifSettings, setNotifSettings] = useState({
-    new_booking: true, cancellation: true, no_show: true, low_inventory: true, new_review: true,
-  });
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefs, setPrefs] = useState<Record<NotifPrefKey, boolean>>(NOTIF_PREF_DEFAULTS);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  // Prefs live in localStorage (per device), so read them after mount.
+  useEffect(() => { setPrefs(getNotifPrefs()); }, []);
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
 
   const loadNotifications = useCallback(async () => {
     if (!user) { setLoading(false); return; }
@@ -118,9 +127,7 @@ export default function NotificationsPage() {
   };
 
   const dismiss = async (id: string) => {
-    // Optimistic remove — drop the row from local state immediately, then
-    // delete from the DB. If the delete fails we'd lose the row visually
-    // until the next reload; acceptable trade-off for snappy feel.
+    // Optimistic remove — drop the row locally immediately, then delete from DB.
     setNotifications(prev => prev.filter(n => n.id !== id));
     await supabase.from("notifications").delete().eq("id", id);
   };
@@ -133,185 +140,172 @@ export default function NotificationsPage() {
     showToast("All cleared");
   };
 
+  const togglePref = (key: NotifPrefKey) => {
+    const next = !prefs[key];
+    setPrefs(p => ({ ...p, [key]: next }));
+    setNotifPref(key, next);
+    showToast(next ? "Pop-ups on for this" : "Pop-ups silenced for this");
+  };
+
   const filtered = useMemo(() => {
-    const typeMap: Record<string, string[]> = {
-      bookings: ["booking"], "no-shows": ["no-show"], reviews: ["review"],
-      inventory: ["inventory"], cancellations: ["cancellation"],
-    };
     if (typeFilter === "all") return notifications;
-    return notifications.filter(n => (typeMap[typeFilter] || []).includes(n.type));
+    const types = FILTERS.find(f => f.v === typeFilter)?.types ?? [];
+    return notifications.filter(n => types.includes(n.type));
   }, [notifications, typeFilter]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  // Per-filter counts for the chips (All shows unread; the rest show total in type).
+  const chipCount = (f: { v: string; types: string[] }) =>
+    f.v === "all" ? unreadCount : notifications.filter(n => f.types.includes(n.type)).length;
 
-  const toggleSetting = (key: keyof typeof notifSettings) => {
-    setNotifSettings(prev => ({ ...prev, [key]: !prev[key] }));
-    showToast(`Notification ${notifSettings[key] ? "disabled" : "enabled"}`);
+  const statusText = unreadCount > 0
+    ? `${unreadCount} unread`
+    : notifications.length > 0 ? "All caught up" : "Nothing here yet";
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <button onClick={markAllRead} disabled={unreadCount === 0}
+        className="text-xs font-semibold px-3 py-2 rounded-full border border-border text-grey enabled:hover:text-foreground enabled:active:bg-white/5 disabled:opacity-40 transition-colors whitespace-nowrap">
+        Mark all read
+      </button>
+      <button onClick={clearAll} disabled={notifications.length === 0}
+        className="text-xs font-semibold px-3 py-2 rounded-full border border-border text-grey enabled:hover:text-foreground enabled:active:bg-white/5 disabled:opacity-40 transition-colors whitespace-nowrap">
+        Clear
+      </button>
+    </div>
+  );
+
+  const card = (notif: Notification) => {
+    const c = classify(notif);
+    return (
+      <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
+        style={{ borderLeftColor: c.accent }}
+        className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
+          notif.is_read ? "bg-card border-border" : "bg-card-raised border-border")}>
+        <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+          <c.Icon size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {!notif.is_read && <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />}
+            <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
+            <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
+          </div>
+          <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
+            {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
+          </div>
+        </div>
+        {/* Always-visible dismiss — a hover-only X is invisible on touch. */}
+        <button type="button" aria-label="Dismiss notification"
+          onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
+          className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
+    );
   };
 
+  const section = (label: string, items: Notification[], labelCls = "text-grey") =>
+    items.length > 0 ? (
+      <div key={label} className="space-y-2">
+        <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
+        {items.map(card)}
+      </div>
+    ) : null;
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl mx-auto pb-28">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Notifications</h1>
-          <p className="text-sm text-grey mt-0.5">
-            {unreadCount > 0
-              ? `${unreadCount} unread`
-              : notifications.length > 0
-                ? "All caught up"
-                : "Nothing here yet"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={markAllRead} disabled={unreadCount === 0}>
-            <Check size={14} /> Mark all read
-          </Button>
-          <Button variant="outline" size="sm" onClick={clearAll} disabled={notifications.length === 0}>
-            <X size={14} /> Clear all
-          </Button>
-        </div>
+      <DashboardHeader title="Notifications" subtitle={statusText} action={headerActions} />
+
+      {/* Filter chips — horizontally scrollable so they never wrap to two rows. */}
+      <div className="flex gap-2 overflow-x-auto cw-noscroll -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
+        {FILTERS.map(f => {
+          const active = typeFilter === f.v;
+          const count = chipCount(f);
+          return (
+            <button key={f.v} onClick={() => setTypeFilter(f.v)}
+              className={cn("flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium border transition-colors",
+                active ? "bg-foreground text-background border-foreground" : "bg-card border-border text-grey hover:text-foreground")}>
+              {f.l}
+              {count > 0 && (
+                <span className={cn("text-[10px] font-bold rounded-full px-1.5 min-w-[18px] text-center",
+                  f.v === "all" ? "bg-emerald-500 text-black" : active ? "bg-background/15 text-background" : "bg-white/10 text-grey")}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Main notifications */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex gap-1 flex-wrap">
-            {[["all","All"],["bookings","Bookings"],["no-shows","No-Shows"],["reviews","Reviews"],["inventory","Inventory"]].map(([v,l]) => (
-              <button key={v} onClick={() => setTypeFilter(v)}
-                className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors border",
-                  typeFilter === v ? "bg-gold text-black border-black" : "border-border text-grey hover:text-foreground bg-card-raised")}>
-                {l}
-                {v === "all" && unreadCount > 0 && (
-                  <span className="ml-1.5 text-xs bg-red-500 text-foreground rounded-full px-1.5">{unreadCount}</span>
-                )}
-              </button>
-            ))}
+      {/* Feed */}
+      <div className="mt-4">
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[76px] rounded-2xl bg-card-raised animate-pulse" />)}
           </div>
-
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-card-raised animate-pulse" />)}
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 rounded-2xl border border-border bg-card">
+            <p className="text-4xl mb-3">🔔</p>
+            <p className="text-sm font-semibold text-foreground">{notifications.length === 0 ? "You’re all caught up" : "Nothing in this filter"}</p>
+            <p className="text-xs text-grey mt-1">{notifications.length === 0 ? "New bookings, payments and alerts land here." : "Try a different category above."}</p>
+          </div>
+        ) : (() => {
+          // Group like the mobile sheet: unread actionable → Action required,
+          // then Today, then Earlier.
+          const action = filtered.filter(n => !n.is_read && classify(n).actionable);
+          const ids = new Set(action.map(n => n.id));
+          const rest = filtered.filter(n => !ids.has(n.id));
+          const today = rest.filter(n => isToday(n.created_at));
+          const earlier = rest.filter(n => !isToday(n.created_at));
+          return (
+            <div className="space-y-5">
+              {section("Action required", action, "text-amber-400")}
+              {section("Today", today)}
+              {section("Earlier", earlier)}
             </div>
-          ) : filtered.length === 0 ? (
-            <Card>
-              <div className="text-center py-12">
-                <p className="text-4xl mb-3">🔔</p>
-                <p className="text-grey">{notifications.length === 0 ? "No notifications yet" : "No notifications in this category"}</p>
-              </div>
-            </Card>
-          ) : (
-            (() => {
-              // Group like the mobile sheet: unread actionable → Action required,
-              // then by day.
-              const action = filtered.filter(n => !n.is_read && classify(n).actionable);
-              const ids = new Set(action.map(n => n.id));
-              const rest = filtered.filter(n => !ids.has(n.id));
-              const today = rest.filter(n => isToday(n.created_at));
-              const earlier = rest.filter(n => !isToday(n.created_at));
-              const card = (notif: Notification) => {
-                const c = classify(notif);
-                return (
-                  <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
-                    style={{ borderLeftColor: c.accent }}
-                    className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
-                      notif.is_read ? "bg-card border-border" : "bg-white/[0.05] border-border")}>
-                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
-                      <c.Icon size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {!notif.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
-                        <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
-                        <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
-                      </div>
-                      <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
-                        {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
-                      </div>
-                    </div>
-                    {/* Always-visible dismiss — a hover-only X is invisible on touch (iPad/iPhone). */}
-                    <button type="button" aria-label="Dismiss notification"
-                      onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-                      className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
-                      <X size={16} />
-                    </button>
-                  </div>
-                );
-              };
-              const section = (label: string, items: Notification[], labelCls = "text-grey") =>
-                items.length > 0 ? (
-                  <div key={label} className="space-y-2">
-                    <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
-                    {items.map(card)}
-                  </div>
-                ) : null;
-              return (
-                <div className="space-y-4">
-                  {section("Action required", action, "text-amber-400")}
-                  {section("Today", today)}
-                  {section("Earlier", earlier)}
-                </div>
-              );
-            })()
-          )}
-        </div>
-
-        {/* Settings Panel */}
-        <div>
-          <Card>
-            <CardHeader><CardTitle>Notification Settings</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  { key: "new_booking" as const, label: "New Booking", icon: "📅", desc: "When a client books" },
-                  { key: "cancellation" as const, label: "Cancellation", icon: "❌", desc: "When a booking is cancelled" },
-                  { key: "no_show" as const, label: "No-Show", icon: "⚠️", desc: "When a client doesn't show" },
-                  { key: "low_inventory" as const, label: "Low Inventory", icon: "📦", desc: "Stock below threshold" },
-                  { key: "new_review" as const, label: "New Review", icon: "⭐", desc: "When a review is left" },
-                ].map(s => (
-                  <div key={s.key} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">{s.icon}</span>
-                      <div>
-                        <p className="text-sm text-foreground">{s.label}</p>
-                        <p className="text-xs text-grey">{s.desc}</p>
-                      </div>
-                    </div>
-                    <Switch checked={!!notifSettings[s.key]} onChange={() => toggleSetting(s.key)} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-4">
-            <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {(["booking","cancellation","no-show","review","inventory"] as NotificationType[]).map(type => {
-                  const count = notifications.filter(n => n.type === type).length;
-                  const unread = notifications.filter(n => n.type === type && !n.is_read).length;
-                  return (
-                    <div key={type} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{TYPE_ICONS[type]}</span>
-                        <span className="text-sm text-grey capitalize">{type}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-grey">{count}</span>
-                        {unread > 0 && <Badge variant="warning">{unread}</Badge>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          );
+        })()}
       </div>
+
+      {/* Alerts — collapsible per-device preferences (sound + which pop-ups show). */}
+      <section className="mt-8 border-t border-border pt-4">
+        <button type="button" onClick={() => setPrefsOpen(o => !o)} aria-expanded={prefsOpen}
+          className="w-full flex items-center justify-between gap-3 py-1.5 text-left">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">Alerts</p>
+            <p className="text-xs text-grey mt-0.5">Sound + which pop-ups show on this device</p>
+          </div>
+          <ChevronDown size={18} className={cn("text-grey flex-shrink-0 transition-transform", prefsOpen && "rotate-180")} />
+        </button>
+
+        {prefsOpen && (
+          <div className="mt-3 space-y-2">
+            <NotifSoundToggle />
+            {PREF_ROWS.map(row => (
+              <div key={row.key} className="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-border bg-card">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", row.tint)}>
+                    <row.Icon size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{row.label}</p>
+                    <p className="text-xs text-grey">{row.desc}</p>
+                  </div>
+                </div>
+                <Switch checked={!!prefs[row.key]} onChange={() => togglePref(row.key)} />
+              </div>
+            ))}
+            <p className="text-[11px] text-grey-muted px-1 pt-1 leading-relaxed">
+              Turning one off only silences its pop-up + chime on this device — it still appears in the list above.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

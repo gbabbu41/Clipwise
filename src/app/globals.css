@@ -523,6 +523,10 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gold);
 }
+/* Hide the scrollbar on horizontally-scrolling strips (e.g. filter chip rows)
+   without losing scrollability. */
+.cw-noscroll { -ms-overflow-style: none; scrollbar-width: none; }
+.cw-noscroll::-webkit-scrollbar { display: none; }
 
 /* Subtle two-tone wordmark gradient */
 .gold-text {

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { isNotifSoundOn } from "@/lib/notif-sound";
+import { shouldAlertForType } from "@/lib/notif-prefs";
 import { notifBelongsToShop } from "@/lib/notify";
 
 interface Popup { id: string; title: string; message: string; type: string }
@@ -112,6 +113,9 @@ export function NotificationListener({ shopId }: { shopId?: string | null } = {}
           // Only pop + chime for the shop the user is currently viewing (or a
           // legacy null-shop row) — not the owner's other shops.
           if (!notifBelongsToShop(n, activeShopId ?? undefined)) return;
+          // Respect the per-device alert toggles (Notifications page). The row is
+          // still stored + shown in the feed — this only silences the live pop-up.
+          if (!shouldAlertForType(n.type)) return;
           setPopups(prev => [...prev, { id: n.id, title: n.title, message: n.message, type: n.type }].slice(-4));
           chime();
           // Auto-dismiss after 7s.
