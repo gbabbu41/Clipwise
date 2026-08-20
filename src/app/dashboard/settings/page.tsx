@@ -97,7 +97,7 @@ const bookingBlockOf = (b: BookingSettings): string | null =>
 // serialized snapshot of the section) changes on every edit so the timer keeps
 // resetting while the owner is still typing/tapping; `active` gates it to
 // dirty + ready + not-blocked. Reads `save` through a ref so listeners stay put.
-function useAutoSave(signal: string, active: boolean, save: () => void, delay = 800) {
+function useAutoSave(signal: string, active: boolean, save: () => void, delay = 500) {
   const saveRef = useRef(save);
   saveRef.current = save;
   useEffect(() => {
@@ -486,6 +486,7 @@ export default function SettingsPage() {
     if (!error) {
       setBaseline(b => ({ ...b, profile: profileKeyOf(profile) }));
       flashSaved("profile");
+      refreshShop?.(); // keep the app's shop context current so other pages don't read stale settings
       if (!opts?.silent) showToast("Profile saved!");
     } else {
       // Always surface a failure, even on a silent auto-save — a lost setting is
@@ -551,6 +552,7 @@ export default function SettingsPage() {
     setSaving(false);
     bookingBusyRef.current = false;
     flashSaved("booking");
+    refreshShop?.(); // keep the app's shop context current so other pages don't read stale settings
     // A change landed while we were saving → persist the latest state once more.
     if (bookingPendingRef.current) { bookingPendingRef.current = false; saveBooking({ silent: true }); }
   };
@@ -572,6 +574,27 @@ export default function SettingsPage() {
   const profileChipBlock = !profile.name?.trim() ? "Add a shop name to save" : null;
   useAutoSave(profileKeyOf(profile), profileDirty && !profileChipBlock, () => saveProfile({ silent: true }));
   useAutoSave(bookingKeyOf(booking, profile.allow_pay_in_person), bookingDirty && !bookingBlock, () => saveBooking({ silent: true }));
+
+  // Flush a still-pending debounced save when the page is LEFT or hidden — the
+  // debounce is otherwise dropped if the owner changes a setting and immediately
+  // navigates away (e.g. straight to the booking page to test it), so the change
+  // silently never persisted. flushRef closes over the latest state each render.
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!baselineReady) return;
+    if (bookingDirty && !bookingBlock) saveBooking({ silent: true });
+    if (profileDirty && !profileChipBlock) saveProfile({ silent: true });
+  };
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") flushRef.current(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+      flushRef.current(); // flush on unmount (navigating away within the app)
+    };
+  }, []);
 
   const addLocation = async () => {
     if (!newLocation.name.trim() || !accessToken) return;
