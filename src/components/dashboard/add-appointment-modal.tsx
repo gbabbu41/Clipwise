@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { X, Plus, Search, Check, ChevronDown, Scissors } from "lucide-react";
@@ -34,6 +34,17 @@ function minutesToLabel(m: number): string {
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
+// "HH:MM:SS" → minutes since midnight (working hours / breaks come in this form).
+function parseHHMM(s: string): number { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); }
+
+// Shape returned by /api/availability for one barber on the chosen day.
+type BarberAvail = {
+  id: string; name: string;
+  start_time: string | null; end_time: string | null;
+  fullDayOff: boolean;
+  busy: { time_slot: string; duration: number }[];
+  blocked: { start_time: string; end_time: string }[];
+};
 // Default to the next upcoming 15-min slot so a same-day walk-in never defaults
 // to a time that's already passed (which the server rejects).
 function nextDefaultTime(): string {
@@ -174,6 +185,73 @@ export function AddAppointmentModal({
   const totalPrice = chosenServices.reduce((n, s) => n + Number(s.price || 0), 0);
 
   const fixedBarber = lockBarber ?? (barbers.length === 1 ? barbers[0] : null);
+
+  // ── Real-time availability for the picked barber + date ─────────────────────
+  // The Time list must reflect the CHOSEN day: refetch whenever the barber or
+  // date changes so past + already-booked slots are disabled and breaks / days
+  // off are flagged — the owner is never offered a time the server would reject.
+  const [avail, setAvail] = useState<BarberAvail | null>(null);
+  const [availLoading, setAvailLoading] = useState(false);
+  const availReq = useRef(0);
+  useEffect(() => {
+    if (!open || !shop || !barberId || !date) { setAvail(null); return; }
+    const reqId = ++availReq.current;
+    setAvailLoading(true);
+    fetch("/api/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id, date, barber_id: barberId }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (reqId !== availReq.current) return; // a newer date/barber superseded this
+        const b = ((d?.barbers ?? []) as BarberAvail[]).find(x => x.id === barberId) ?? null;
+        setAvail(b);
+      })
+      .catch(() => { if (reqId === availReq.current) setAvail(null); })
+      .finally(() => { if (reqId === availReq.current) setAvailLoading(false); });
+  }, [open, shop?.id, barberId, date]);
+
+  // Per-time status for the chosen day/barber, sized to the picked service(s).
+  // disabled = the server would reject it (past / double-booked); a tag flags an
+  // overridable reason (break / day off / outside posted hours).
+  const slotDuration = totalDuration > 0 ? totalDuration : 30;
+  const slotStatuses = useMemo(() => {
+    const map = new Map<string, { disabled: boolean; tag: string }>();
+    const isToday = date === formatDateForDb(new Date());
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    for (const t of TIME_OPTIONS) {
+      const tm = timeToMinutes(t);
+      const end = tm + slotDuration;
+      if (!avail) { map.set(t, { disabled: false, tag: "" }); continue; }
+      if (isToday && tm <= nowMin) { map.set(t, { disabled: true, tag: "past" }); continue; }
+      const booked = (avail.busy ?? []).some(b => { const bs = timeToMinutes(b.time_slot); return tm < bs + (b.duration || 30) && bs < end; });
+      if (booked) { map.set(t, { disabled: true, tag: "booked" }); continue; }
+      if (avail.fullDayOff) { map.set(t, { disabled: false, tag: "day off" }); continue; }
+      const inBreak = (avail.blocked ?? []).some(bl => { const s = parseHHMM(bl.start_time), e = parseHHMM(bl.end_time); return tm < e && s < end; });
+      if (inBreak) { map.set(t, { disabled: false, tag: "break" }); continue; }
+      if (avail.start_time && avail.end_time) {
+        const ws = parseHHMM(avail.start_time), we = parseHHMM(avail.end_time);
+        if (tm < ws || end > we) { map.set(t, { disabled: false, tag: "off hours" }); continue; }
+      } else {
+        map.set(t, { disabled: false, tag: "off hours" }); continue;
+      }
+      map.set(t, { disabled: false, tag: "" });
+    }
+    return map;
+  }, [avail, slotDuration, date]);
+
+  const anyFree = useMemo(() => TIME_OPTIONS.some(t => !slotStatuses.get(t)?.disabled), [slotStatuses]);
+
+  // If the picked time becomes unbookable after a date/barber/service change,
+  // jump to the first open slot so the field never shows a rejected time.
+  useEffect(() => {
+    if (slotStatuses.get(time)?.disabled) {
+      const firstFree = TIME_OPTIONS.find(t => !slotStatuses.get(t)?.disabled);
+      if (firstFree && firstFree !== time) setTime(firstFree);
+    }
+  }, [slotStatuses, time]);
 
   const submit = async () => {
     if (!shop) return;
@@ -339,7 +417,7 @@ export function AddAppointmentModal({
                 )}
               </div>
 
-              {/* Date + Time on one row */}
+              {/* Date + Time on one row — the Time list reflects the chosen day. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL}>Date</label>
@@ -349,12 +427,29 @@ export function AddAppointmentModal({
                   <label className={LABEL}>Time</label>
                   <div className="relative">
                     <select value={time} onChange={e => setTime(e.target.value)} className={cn(FIELD, "appearance-none pr-9")}>
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      {TIME_OPTIONS.map(t => {
+                        const st = slotStatuses.get(t);
+                        return <option key={t} value={t} disabled={st?.disabled}>{t}{st?.tag ? ` · ${st.tag}` : ""}</option>;
+                      })}
                     </select>
                     <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-grey" />
                   </div>
                 </div>
               </div>
+              {/* Availability hint for the chosen barber + day. */}
+              {barberId && (
+                <p className="mt-1.5 text-xs min-h-[1rem]">
+                  {availLoading ? (
+                    <span className="text-grey">Checking {fixedBarber?.name ?? "availability"}…</span>
+                  ) : avail?.fullDayOff ? (
+                    <span className="text-amber-400">Off this day — you can still book them in.</span>
+                  ) : avail && !anyFree ? (
+                    <span className="text-amber-400">Fully booked this day — try another date.</span>
+                  ) : avail ? (
+                    <span className="text-grey">Taken times are greyed out for this day.</span>
+                  ) : null}
+                </p>
+              )}
 
               {/* Sticky action bar */}
               <div className="sticky bottom-0 -mx-5 px-5 pt-3 mt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-card border-t border-border flex gap-3">
