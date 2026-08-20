@@ -1,13 +1,15 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { X, Check, Calendar, CalendarX2, AlertTriangle, Info, Bell, Star, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight } from "lucide-react";
+import { X, Check, Calendar, CalendarX2, AlertTriangle, Info, Bell, Star, CreditCard, Banknote, Clock, CheckCircle2, RefreshCcw, BellRing, ChevronRight, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications } from "@/lib/notify";
 import { cn, friendlyDate } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { NotifSoundToggle } from "@/components/notif-sound-toggle";
+import { Switch } from "@/components/ui/switch";
+import { getNotifPrefs, setNotifPref, NOTIF_PREF_DEFAULTS, type NotifPrefKey } from "@/lib/notif-prefs";
 import type { Notification } from "@/lib/database.types";
 
 // Rich classification (mirrors the notification sheet): coloured badge + icon
@@ -52,6 +54,21 @@ const destForBadge = (badge: string): string | null => {
   return null;
 };
 
+// Filter chips — value + label + which notification types they include.
+const FILTERS: { v: string; l: string; types: string[] }[] = [
+  { v: "all", l: "All", types: [] },
+  { v: "bookings", l: "Bookings", types: ["booking"] },
+  { v: "no-shows", l: "No-shows", types: ["no-show"] },
+  { v: "system", l: "System", types: ["system", "cancellation"] },
+];
+
+// Per-device pop-up toggles relevant to a barber (bookings + the two disruptions).
+const PREF_ROWS: { key: NotifPrefKey; label: string; desc: string; Icon: typeof Bell; tint: string }[] = [
+  { key: "new_booking", label: "New bookings", desc: "A client books with you", Icon: Calendar, tint: "bg-emerald-500/15 text-emerald-300" },
+  { key: "cancellation", label: "Cancellations", desc: "A booking is cancelled", Icon: CalendarX2, tint: "bg-rose-500/15 text-rose-300" },
+  { key: "no_show", label: "No-shows", desc: "A client doesn’t show up", Icon: AlertTriangle, tint: "bg-rose-500/15 text-rose-300" },
+];
+
 export default function BarberNotificationsPage() {
   const { user } = useAuth();
   const { shop } = useBarber();
@@ -60,7 +77,12 @@ export default function BarberNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
   const [toast, setToast] = useState("");
-  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefs, setPrefs] = useState<Record<NotifPrefKey, boolean>>(NOTIF_PREF_DEFAULTS);
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2600); };
+
+  // Alert prefs live in localStorage (per device), so read them after mount.
+  useEffect(() => { setPrefs(getNotifPrefs()); }, []);
 
   const load = useCallback(async () => {
     if (!user) { setLoading(false); return; }
@@ -105,120 +127,173 @@ export default function BarberNotificationsPage() {
     showToast("All cleared");
   };
 
+  const togglePref = (key: NotifPrefKey) => {
+    const next = !prefs[key];
+    setPrefs(p => ({ ...p, [key]: next }));
+    setNotifPref(key, next);
+    showToast(next ? "Pop-ups on for this" : "Pop-ups silenced for this");
+  };
+
   const filtered = useMemo(() => {
-    const map: Record<string, string[]> = {
-      bookings: ["booking"], "no-shows": ["no-show"], system: ["system", "cancellation"],
-    };
     if (typeFilter === "all") return notifications;
-    return notifications.filter(n => (map[typeFilter] || []).includes(n.type));
+    const types = FILTERS.find(f => f.v === typeFilter)?.types ?? [];
+    return notifications.filter(n => types.includes(n.type));
   }, [notifications, typeFilter]);
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const chipCount = (f: { v: string; types: string[] }) =>
+    f.v === "all" ? unreadCount : notifications.filter(n => f.types.includes(n.type)).length;
+
+  const card = (notif: Notification) => {
+    const c = classify(notif);
+    return (
+      <div key={notif.id} onClick={() => {
+          if (!notif.is_read) markRead(notif.id);
+          // Actionable rows now actually go somewhere the barber can act,
+          // instead of only marking themselves read.
+          const dest = c.actionable ? destForBadge(c.badge) : null;
+          if (dest) router.push(dest);
+        }}
+        style={{ borderLeftColor: c.accent }}
+        className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
+          notif.is_read ? "bg-card border-border" : "bg-card-raised border-border")}>
+        <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+          <c.Icon size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {!notif.is_read && <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />}
+            <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
+            <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
+          </div>
+          <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
+            {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
+          </div>
+        </div>
+        {/* Always-visible dismiss — a hover-only X is invisible on touch. */}
+        <button type="button" aria-label="Dismiss notification"
+          onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
+          className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
+    );
+  };
+
+  const section = (label: string, items: Notification[], labelCls = "text-grey") =>
+    items.length > 0 ? (
+      <div key={label} className="space-y-2">
+        <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
+        {items.map(card)}
+      </div>
+    ) : null;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-5">
+    <div className="px-4 sm:px-6 pt-6 pb-28 max-w-2xl mx-auto space-y-5">
       {toast && (
-        <div className="fixed bottom-24 lg:bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
-          <span className="text-[#00e5a0]">✓</span> {toast}
+        <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-2">
+          <Check size={15} className="text-emerald-400" /> {toast}
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="hidden lg:block text-2xl font-bold text-foreground uppercase tracking-wide">Notifications</h1>
-          <p className="text-sm text-grey mt-0.5">
+          <p className="text-sm text-grey lg:mt-0.5">
             {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? "All caught up" : "Nothing here yet"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={markAllRead} disabled={unreadCount === 0}>
-            <Check size={14} /> Mark all read
-          </Button>
-          <Button variant="outline" size="sm" onClick={clearAll} disabled={notifications.length === 0}>
-            <X size={14} /> Clear
-          </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={markAllRead} disabled={unreadCount === 0}
+            className="text-xs font-semibold px-3 py-2 rounded-full border border-border text-grey enabled:hover:text-foreground enabled:active:bg-white/5 disabled:opacity-40 transition-colors whitespace-nowrap">
+            Mark all read
+          </button>
+          <button onClick={clearAll} disabled={notifications.length === 0}
+            className="text-xs font-semibold px-3 py-2 rounded-full border border-border text-grey enabled:hover:text-foreground enabled:active:bg-white/5 disabled:opacity-40 transition-colors whitespace-nowrap">
+            Clear
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-1 flex-wrap">
-        {[["all", "All"], ["bookings", "Bookings"], ["no-shows", "No-Shows"], ["system", "System"]].map(([v, l]) => (
-          <button key={v} onClick={() => setTypeFilter(v)}
-            className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors border",
-              typeFilter === v ? "bg-white text-black border-white" : "border-border text-grey hover:text-foreground bg-card-raised")}>
-            {l}
-            {v === "all" && unreadCount > 0 && (
-              <span className="ml-1.5 text-xs bg-red-500 text-white rounded-full px-1.5">{unreadCount}</span>
-            )}
-          </button>
-        ))}
+      {/* Filter chips — horizontally scrollable so they never wrap to two rows. */}
+      <div className="flex gap-2 overflow-x-auto cw-noscroll -mx-4 px-4 sm:-mx-6 sm:px-6 pb-0.5">
+        {FILTERS.map(f => {
+          const active = typeFilter === f.v;
+          const count = chipCount(f);
+          return (
+            <button key={f.v} onClick={() => setTypeFilter(f.v)}
+              className={cn("flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium border transition-colors",
+                active ? "bg-foreground text-background border-foreground" : "bg-card border-border text-grey hover:text-foreground")}>
+              {f.l}
+              {count > 0 && (
+                <span className={cn("text-[10px] font-bold rounded-full px-1.5 min-w-[18px] text-center",
+                  f.v === "all" ? "bg-emerald-500 text-black" : active ? "bg-background/15 text-background" : "bg-white/10 text-grey")}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
-        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-card-raised animate-pulse" />)}</div>
+        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[76px] rounded-2xl bg-card-raised animate-pulse" />)}</div>
       ) : filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-2xl text-center py-12">
+        <div className="bg-card border border-border rounded-2xl text-center py-16">
           <p className="text-4xl mb-3">🔔</p>
-          <p className="text-grey">{notifications.length === 0 ? "No notifications yet" : "Nothing in this category"}</p>
+          <p className="text-sm font-semibold text-foreground">{notifications.length === 0 ? "You’re all caught up" : "Nothing in this filter"}</p>
+          <p className="text-xs text-grey mt-1">{notifications.length === 0 ? "New bookings and alerts land here." : "Try a different category above."}</p>
         </div>
-      ) : (
-        (() => {
-          const action = filtered.filter(n => !n.is_read && classify(n).actionable);
-          const ids = new Set(action.map(n => n.id));
-          const rest = filtered.filter(n => !ids.has(n.id));
-          const today = rest.filter(n => isToday(n.created_at));
-          const earlier = rest.filter(n => !isToday(n.created_at));
-          const card = (notif: Notification) => {
-            const c = classify(notif);
-            return (
-              <div key={notif.id} onClick={() => {
-                  if (!notif.is_read) markRead(notif.id);
-                  // Actionable rows now actually go somewhere the barber can act,
-                  // instead of only marking themselves read.
-                  const dest = c.actionable ? destForBadge(c.badge) : null;
-                  if (dest) router.push(dest);
-                }}
-                style={{ borderLeftColor: c.accent }}
-                className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
-                  notif.is_read ? "bg-card border-border" : "bg-white/[0.05] border-border")}>
-                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
-                  <c.Icon size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {!notif.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
-                    <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
-                    <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
+      ) : (() => {
+        const action = filtered.filter(n => !n.is_read && classify(n).actionable);
+        const ids = new Set(action.map(n => n.id));
+        const rest = filtered.filter(n => !ids.has(n.id));
+        const today = rest.filter(n => isToday(n.created_at));
+        const earlier = rest.filter(n => !isToday(n.created_at));
+        return (
+          <div className="space-y-5">
+            {section("Action required", action, "text-amber-400")}
+            {section("Today", today)}
+            {section("Earlier", earlier)}
+          </div>
+        );
+      })()}
+
+      {/* Alerts — collapsible per-device preferences (sound + which pop-ups show). */}
+      <section className="mt-3 border-t border-border pt-4">
+        <button type="button" onClick={() => setPrefsOpen(o => !o)} aria-expanded={prefsOpen}
+          className="w-full flex items-center justify-between gap-3 py-1.5 text-left">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">Alerts</p>
+            <p className="text-xs text-grey mt-0.5">Sound + which pop-ups show on this device</p>
+          </div>
+          <ChevronDown size={18} className={cn("text-grey flex-shrink-0 transition-transform", prefsOpen && "rotate-180")} />
+        </button>
+
+        {prefsOpen && (
+          <div className="mt-3 space-y-2">
+            <NotifSoundToggle />
+            {PREF_ROWS.map(row => (
+              <div key={row.key} className="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-border bg-card">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", row.tint)}>
+                    <row.Icon size={18} />
                   </div>
-                  <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
-                    {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{row.label}</p>
+                    <p className="text-xs text-grey">{row.desc}</p>
                   </div>
                 </div>
-                {/* Always-visible dismiss — a hover-only X is invisible on touch (iPad/iPhone). */}
-                <button type="button" aria-label="Dismiss notification"
-                  onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-                  className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
-                  <X size={16} />
-                </button>
+                <Switch checked={!!prefs[row.key]} onChange={() => togglePref(row.key)} />
               </div>
-            );
-          };
-          const section = (label: string, items: Notification[], labelCls = "text-grey") =>
-            items.length > 0 ? (
-              <div key={label} className="space-y-2">
-                <p className={cn("text-[11px] font-bold uppercase tracking-wider px-1", labelCls)}>{label}</p>
-                {items.map(card)}
-              </div>
-            ) : null;
-          return (
-            <div className="space-y-4">
-              {section("Action required", action, "text-amber-400")}
-              {section("Today", today)}
-              {section("Earlier", earlier)}
-            </div>
-          );
-        })()
-      )}
+            ))}
+            <p className="text-[11px] text-grey-muted px-1 pt-1 leading-relaxed">
+              Turning one off only silences its pop-up + chime on this device — it still appears in the list above.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

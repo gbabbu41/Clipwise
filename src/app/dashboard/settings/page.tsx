@@ -14,7 +14,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { Input, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { NotifSoundToggle } from "@/components/notif-sound-toggle";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -1130,13 +1129,6 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
-          <CardContent>
-            <NotifSoundToggle />
           </CardContent>
         </Card>
         </div>
