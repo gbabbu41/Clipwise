@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -74,6 +75,9 @@ export default function POSPage() {
   const [redeemLoyalty, setRedeemLoyalty] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PM>("card");
   const [charging, setCharging] = useState(false);
+  // Back from the Stripe card-payment page restores POS from bfcache with
+  // `charging` frozen — clear it so the charge button doesn't spin forever.
+  useResetOnReturn(() => setCharging(false));
   const [cartOpen, setCartOpen] = useState(false); // bottom order-summary drawer (UI only)
   // Checkout is a 2-step flow: staff reviews the cart + picks the tender, THEN
   // the screen hands to the customer to choose a tip and continue to pay.

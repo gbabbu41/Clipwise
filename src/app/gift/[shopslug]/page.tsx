@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
 import { validateEmail } from "@/lib/validation";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import type { Shop } from "@/lib/database.types";
 import { Gift, Check, Copy } from "lucide-react";
 
@@ -23,6 +24,9 @@ export default function GiftCardPurchasePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [issued, setIssued] = useState<{ code: string; amount: number } | null>(null);
+  // Back from Stripe restores this page from bfcache with `submitting` frozen —
+  // clear it so the pay button doesn't spin forever.
+  useResetOnReturn(() => setSubmitting(false));
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {

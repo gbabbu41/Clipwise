@@ -5,6 +5,7 @@ import { Heart, Check, Scissors } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { TIP_PRESET_PERCENTS } from "@/lib/pricing";
 
 interface TipBooking {
@@ -28,6 +29,9 @@ export default function TipPage() {
   const [custom, setCustom] = useState("");
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
+  // Back from Stripe restores this page from bfcache with `paying` frozen —
+  // clear it so the pay button doesn't spin forever.
+  useResetOnReturn(() => setPaying(false));
 
   useEffect(() => {
     if (typeof window !== "undefined") {

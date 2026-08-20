@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { formatPlanPrice } from "@/lib/plans";
 import { marketingFor } from "@/lib/plan-marketing";
 import { effectivePlan } from "@/lib/validation";
@@ -61,6 +62,12 @@ export default function BillingPage() {
   }, [accessToken, shop?.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // After tapping a button that redirects to Stripe (Add card / upgrade / portal
+  // / Connect) then hitting Back, iOS/Safari restore this page from the bfcache
+  // with actionLoading frozen — leaving the button spinning forever. Clear it on
+  // return so no button gets stranded.
+  useResetOnReturn(() => setActionLoading(""));
 
   useEffect(() => {
     if (!accessToken) return; // wait for auth before confirming

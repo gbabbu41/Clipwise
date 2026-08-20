@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { planHasFeature, effectivePlan } from "@/lib/validation";
 
 /**
@@ -20,6 +21,9 @@ export function StripeWarningBanner() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [starting, setStarting] = useState(false);
+  // Returning from Stripe via Back restores this page from bfcache with `starting`
+  // frozen — clear it so the button doesn't spin forever.
+  useResetOnReturn(() => setStarting(false));
 
   // Start Stripe Connect onboarding directly (same as Billing's "Complete Setup"
   // button) — the old link only navigated to Billing without starting anything.

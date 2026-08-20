@@ -5,12 +5,16 @@ import { Building2, Shield, Clock, ArrowRight, AlertCircle } from "lucide-react"
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 
 export default function StripeConnectPage() {
   const router = useRouter();
   const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Back from Stripe restores this page from bfcache with `loading` frozen —
+  // clear it so the button doesn't spin forever.
+  useResetOnReturn(() => setLoading(false));
 
   async function connect() {
     if (!accessToken) { setError("Please sign in again to continue."); return; }
