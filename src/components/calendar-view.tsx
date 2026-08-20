@@ -355,7 +355,7 @@ export function makeApptActions(opts: {
       if (!shop || !accessToken) return;
       if (checkoutBlocked(appt)) return;
       setBusy("capture");
-      toast(appt.payment_status === "saved" ? "Charging saved card…" : "Charging held card…");
+      toast(appt.payment_status === "held" ? "Charging held card…" : "Charging card on file…");
       let data: { ok?: boolean; error?: string };
       try {
         const res = await fetch("/api/stripe/capture-appointment", {
@@ -751,6 +751,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
   const heldOrSaved = appt.payment_status === "held" || appt.payment_status === "saved";
   const refunded = appt.payment_status === "refunded";
+  // A card is on file but nothing is held/settled yet — the customer chose "pay
+  // at the shop" at a card-required shop, so it lands unpaid · cash with the card
+  // saved. The owner can charge it off-session at checkout (or take cash / leave
+  // it); it's also the card a no-show charge would hit.
+  const cardOnFile = !paid && !refunded && !heldOrSaved && !!appt.stripe_payment_method_id;
   // Outstanding = a real balance not yet settled and not on a held/saved card
   // (those auto-charge on Complete). Drives the standalone "Take Payment" button.
   const outstanding = (appt.total_amount ?? 0) > 0
@@ -785,6 +790,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
       ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
       ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      : cardOnFile
+        ? { text: `Pay at shop · card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#f5c542]/10 text-[#f5c542]" }
       : awaiting
         ? { text: "Awaiting payment", cls: "bg-sky-400/10 text-sky-400" }
         : appt.status === "pending"
@@ -795,7 +802,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ? { text: "Cancelled", cls: "bg-white/5 text-grey" }
               : appt.status === "no-show"
                 ? { text: "No-show", cls: "bg-white/5 text-grey" }
-                : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
+                : appt.payment_method === "cash"
+                  ? { text: "Pay at shop", cls: "bg-white/5 text-[#bbb]" }
+                  : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
   const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amtPaid > 0 ? formatCurrency(amtPaid) : null].filter(Boolean).join(" · ");
 
   return (
@@ -959,8 +968,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <DAction tone="primary" icon="✓" label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
               ) : (
                 <>
-                  {heldOrSaved && (
-                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : `Complete + Capture${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                  {(heldOrSaved || cardOnFile) && (
+                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                   )}
                   {!showEmail ? (
                     <DAction icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
@@ -2162,6 +2171,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </span>
               ) : c.a.status === "completed" ? (
                 <span className="text-[10px] font-semibold text-[#bbb]">Unpaid</span>
+              ) : c.a.stripe_payment_method_id ? (
+                <span className="text-[10px] font-semibold text-[#4a9eff]">
+                  {c.a.payment_status === "held" ? "Card held" : c.a.payment_status === "saved" ? "Card saved" : "Card on file"}
+                </span>
+              ) : c.a.payment_method === "cash" ? (
+                <span className="text-[10px] font-semibold text-[#bbb]">Pay at shop</span>
               ) : (
                 <span className="text-[10px] font-semibold text-grey">{statusLabel(c.a.status)}</span>
               )}
