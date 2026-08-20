@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { Building2, Plus, ExternalLink } from "lucide-react";
+import { Building2, Plus, ExternalLink, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { effectivePlan, planHasFeature, planAllowsMultiLocation, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
 import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
@@ -81,6 +81,50 @@ const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province:
 const profileKeyOf = (p: Record<string, unknown>) => JSON.stringify({ ...p, allow_pay_in_person: undefined });
 const bookingKeyOf = (bk: BookingSettings, allowPIP: boolean) => JSON.stringify({ ...bk, _allowPIP: allowPIP });
 
+// A blocking reason the Booking tab can't be saved (invalid tax config), or null.
+// Auto-save holds while this is set and shows it inline instead of persisting a
+// broken tax setup that would silently over/under-charge.
+const bookingBlockOf = (b: BookingSettings): string | null =>
+  b.tax_enabled && !isValidGstNumber(b.tax_number)
+    ? "Add a valid GST/HST number to save tax (e.g. 123456789RT0001), or turn Charge GST/HST off."
+  : b.tax_enabled && !(Number(b.tax_rate) > 0)
+    ? "Set a tax rate above 0% to charge tax, or turn Charge GST/HST off."
+  : b.tax_enabled && b.pst_enabled && !(Number(b.pst_rate) > 0)
+    ? "Set a PST/QST rate above 0%, or turn off ‘Also charge PST/QST’."
+  : null;
+
+// Debounced auto-save: fire `save` a beat after the last change. `signal` (a
+// serialized snapshot of the section) changes on every edit so the timer keeps
+// resetting while the owner is still typing/tapping; `active` gates it to
+// dirty + ready + not-blocked. Reads `save` through a ref so listeners stay put.
+function useAutoSave(signal: string, active: boolean, save: () => void, delay = 800) {
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => saveRef.current(), delay);
+    return () => clearTimeout(t);
+  }, [signal, active, delay]);
+}
+
+// Small always-visible status line that replaces the buried Save button.
+function AutoSaveStatus({ dirty, saving, saved, block }: { dirty: boolean; saving: boolean; saved: boolean; block: string | null }) {
+  // `block` is a SHORT label; the detailed reason lives in the section's own
+  // inline hint (e.g. the tax hint), so the chip stays compact beside the title.
+  if (block) return (
+    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-500 whitespace-nowrap"><AlertTriangle size={13} className="flex-shrink-0" /><span>{block}</span></div>
+  );
+  if (saving || dirty) return (
+    <div className="flex items-center gap-1.5 text-xs font-medium text-grey"><span className="w-3 h-3 rounded-full border-2 border-grey/40 border-t-grey animate-spin" /><span>Saving…</span></div>
+  );
+  if (saved) return (
+    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400"><Check size={13} /><span>Saved</span></div>
+  );
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-medium text-grey/70"><Check size={13} /><span>All changes saved</span></div>
+  );
+}
+
 export default function SettingsPage() {
   const { user, shop, shops, setActiveShop, profile: authProfile, refreshShop, accessToken, plans } = useAuth();
   // Plan cards: price/limits come from the admin-editable `plans` DB table (the
@@ -145,6 +189,17 @@ export default function SettingsPage() {
   const [deleteAccountInput, setDeleteAccountInput] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Which section just auto-saved (drives the brief "Saved" flash in its status
+  // line). Only one tab shows at a time, so a single flag serves both sections.
+  const [savedFlash, setSavedFlash] = useState<"" | "booking" | "profile">("");
+  // Guard rails so a debounced auto-save never overlaps itself: if a save fires
+  // while one is already in flight, mark it pending and re-run once it finishes.
+  const bookingBusyRef = useRef(false); const bookingPendingRef = useRef(false);
+  const profileBusyRef = useRef(false); const profilePendingRef = useRef(false);
+  const flashSaved = (which: "booking" | "profile") => {
+    setSavedFlash(which);
+    setTimeout(() => setSavedFlash(f => (f === which ? "" : f)), 2000);
+  };
   const [logoUploading, setLogoUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -407,8 +462,11 @@ export default function SettingsPage() {
     showToast(error ? "Failed to save templates." : "Templates saved!");
   };
 
-  const saveProfile = async () => {
+  const saveProfile = async (opts?: { silent?: boolean }) => {
     if (!shop) return;
+    // Never overlap saves — if one's already running, queue a single re-run.
+    if (profileBusyRef.current) { profilePendingRef.current = true; return; }
+    profileBusyRef.current = true;
     setSaving(true);
     const { error } = await supabase.from("shops").update({
       name: profile.name, address: profile.address, city: profile.city,
@@ -424,28 +482,30 @@ export default function SettingsPage() {
       timezone: profile.timezone || DEFAULT_TZ,
     }).eq("id", shop.id);
     setSaving(false);
-    if (!error) setBaseline(b => ({ ...b, profile: profileKeyOf(profile) }));
-    showToast(error ? "Failed to save profile." : "Profile saved!");
+    profileBusyRef.current = false;
+    if (!error) {
+      setBaseline(b => ({ ...b, profile: profileKeyOf(profile) }));
+      flashSaved("profile");
+      if (!opts?.silent) showToast("Profile saved!");
+    } else {
+      // Always surface a failure, even on a silent auto-save — a lost setting is
+      // exactly what this feature must never do quietly.
+      showToast("Couldn’t save your changes — check your connection.");
+    }
+    // A change landed while we were saving → persist the latest state once more.
+    if (profilePendingRef.current) { profilePendingRef.current = false; saveProfile({ silent: true }); }
   };
 
-  const saveBooking = async () => {
+  const saveBooking = async (opts?: { silent?: boolean }) => {
     if (!shop) return;
-    // Tax gate (also enforced by disabling the Save button): you can't legally
-    // charge tax unless you're registered, so NEVER let a taxable config be saved
-    // without a valid GST/HST number AND a rate > 0. Otherwise "tax on, 13%, no
-    // number" saves but silently never charges — the exact confusion to avoid.
-    if (booking.tax_enabled && !isValidGstNumber(booking.tax_number)) {
-      showToast("Add a valid GST/HST number to charge tax (e.g. 123456789RT0001), or turn Charge GST/HST off.");
-      return;
-    }
-    if (booking.tax_enabled && !(Number(booking.tax_rate) > 0)) {
-      showToast("Set a tax rate above 0% to charge tax, or turn Charge GST/HST off.");
-      return;
-    }
-    if (booking.tax_enabled && booking.pst_enabled && !(Number(booking.pst_rate) > 0)) {
-      showToast("Set a PST/QST rate above 0%, or turn off 'Also charge PST/QST'.");
-      return;
-    }
+    // Tax gate: you can't legally charge tax unless you're registered, so NEVER
+    // let a taxable config persist without a valid GST/HST number AND a rate > 0.
+    // Auto-save holds here (the status line shows the reason) until it's valid.
+    const block = bookingBlockOf(booking);
+    if (block) { if (!opts?.silent) showToast(block); return; }
+    // Never overlap saves — if one's already running, queue a single re-run.
+    if (bookingBusyRef.current) { bookingPendingRef.current = true; return; }
+    bookingBusyRef.current = true;
     setSaving(true);
     // Defensively clamp advance_days at save time — on mobile a blur may not
     // fire before the Save tap, so don't rely solely on the input's onBlur.
@@ -465,6 +525,7 @@ export default function SettingsPage() {
       // Auto-Confirm) never reaching the DB, so the booking page never saw them.
       showToast(`Couldn't save settings: ${error.message}`);
       setSaving(false);
+      bookingBusyRef.current = false;
       return;
     }
     // DB write for this tab succeeded (booking_settings + allow_pay_in_person) —
@@ -480,11 +541,18 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
         body: JSON.stringify({ gst_number: gst }),
       }).catch(() => null);
-      showToast(res?.ok ? "Booking settings saved!" : "Settings saved (couldn't sync the GST number across locations).");
-    } else {
+      // On auto-save stay quiet (the status line says "Saved"); only speak up if
+      // the cross-location GST sync didn't land, since that's worth knowing.
+      if (!res?.ok) showToast("Saved — but couldn’t sync the GST number across your other locations.");
+      else if (!opts?.silent) showToast("Booking settings saved!");
+    } else if (!opts?.silent) {
       showToast("Settings saved. The GST/HST number looks invalid so it wasn't stored — fix it to charge tax.");
     }
     setSaving(false);
+    bookingBusyRef.current = false;
+    flashSaved("booking");
+    // A change landed while we were saving → persist the latest state once more.
+    if (bookingPendingRef.current) { bookingPendingRef.current = false; saveBooking({ silent: true }); }
   };
 
   // "Unsaved changes" flags — compare the live section state against the snapshot
@@ -493,6 +561,17 @@ export default function SettingsPage() {
   const profileDirty = baselineReady && profileKeyOf(profile) !== baseline.profile;
   const bookingDirty = baselineReady && bookingKeyOf(booking, profile.allow_pay_in_person) !== baseline.booking;
   const templatesDirty = baselineReady && JSON.stringify(templates) !== baseline.templates;
+
+  // Auto-save — persist each section a beat after the last change, so no setting
+  // is ever lost by not scrolling to a Save button. The signal (a serialized
+  // snapshot) changes on every edit, so the debounce keeps resetting while the
+  // owner is still editing. Booking holds while its tax config is invalid.
+  const bookingBlock = bookingBlockOf(booking);
+  // Short chip labels; the full guidance lives in each section's inline hint.
+  const bookingChipBlock = bookingBlock ? "Fix tax settings to save" : null;
+  const profileChipBlock = !profile.name?.trim() ? "Add a shop name to save" : null;
+  useAutoSave(profileKeyOf(profile), profileDirty && !profileChipBlock, () => saveProfile({ silent: true }));
+  useAutoSave(bookingKeyOf(booking, profile.allow_pay_in_person), bookingDirty && !bookingBlock, () => saveBooking({ silent: true }));
 
   const addLocation = async () => {
     if (!newLocation.name.trim() || !accessToken) return;
@@ -675,7 +754,12 @@ export default function SettingsPage() {
 
       {tab === "profile" && (
         <Card className="max-w-2xl">
-          <CardHeader><CardTitle>Shop Profile</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Shop Profile</CardTitle>
+              <AutoSaveStatus dirty={profileDirty} saving={saving && !!profileDirty} saved={savedFlash === "profile"} block={profileChipBlock} />
+            </div>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm font-medium text-grey mb-2">Shop Logo</p>
@@ -760,14 +844,9 @@ export default function SettingsPage() {
               <Input label="Google Place ID" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" value={profile.google_place_id} onChange={e => setProfile(p => ({ ...p, google_place_id: e.target.value }))} />
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving…" : "Save Profile"}</Button>
-              {profileDirty && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  Unsaved changes
-                </span>
-              )}
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-border">
+              <span className="text-xs text-grey-muted">Changes save automatically</span>
+              <AutoSaveStatus dirty={profileDirty} saving={saving && !!profileDirty} saved={savedFlash === "profile"} block={profileChipBlock} />
             </div>
           </CardContent>
         </Card>
@@ -878,7 +957,12 @@ export default function SettingsPage() {
       {tab === "booking" && (
         <div className="space-y-4 max-w-2xl">
         <Card>
-          <CardHeader><CardTitle>Booking Settings</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Booking Settings</CardTitle>
+              <AutoSaveStatus dirty={bookingDirty} saving={saving && !!bookingDirty} saved={savedFlash === "booking"} block={bookingChipBlock} />
+            </div>
+          </CardHeader>
           <CardContent className="space-y-5">
             <div>
               <Input label="Advance Booking Limit (days)" type="number" min={1} max={60} value={advanceDaysStr}
@@ -1115,19 +1199,9 @@ export default function SettingsPage() {
             )}
             </>
             )}
-            <div className="flex items-center gap-3">
-              <Button
-                disabled={saving || (booking.tax_enabled && (!isValidGstNumber(booking.tax_number) || !(Number(booking.tax_rate) > 0)))}
-                onClick={saveBooking}
-              >
-                {saving ? "Saving…" : "Save Settings"}
-              </Button>
-              {bookingDirty && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  Unsaved changes
-                </span>
-              )}
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-border">
+              <span className="text-xs text-grey-muted">Changes save automatically</span>
+              <AutoSaveStatus dirty={bookingDirty} saving={saving && !!bookingDirty} saved={savedFlash === "booking"} block={bookingChipBlock} />
             </div>
           </CardContent>
         </Card>
