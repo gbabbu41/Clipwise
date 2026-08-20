@@ -11,6 +11,7 @@ import { marketingFor } from "@/lib/plan-marketing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { DashboardHeader } from "@/components/dashboard/page-header";
 import { Input, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { NotifSoundToggle } from "@/components/notif-sound-toggle";
@@ -532,6 +533,14 @@ export default function SettingsPage() {
   };
 
   const TABS = ["profile","account","booking","notifications","subscription","locations","danger"];
+  // Clear, human tab labels — the shop's public info vs the owner's personal
+  // account, and the "notifications" tab is really the client-facing email
+  // templates (distinct from the owner's alert Notifications page).
+  const TAB_LABELS: Record<string, string> = {
+    profile: "Shop Profile", account: "My Account", booking: "Booking",
+    notifications: "Client Emails", subscription: "Subscription",
+    locations: "Locations", danger: "Danger Zone",
+  };
 
   const changePassword = async () => {
     if (!currentPassword) { setToast("Enter your current password."); return; }
@@ -643,24 +652,26 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-background px-4 sm:px-6 pb-28 space-y-5">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
-      <div>
-        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Settings</h1>
-        <p className="text-sm text-grey mt-0.5">Manage your shop preferences</p>
-      </div>
+      <DashboardHeader title="Settings" subtitle="Manage your shop & account" />
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border flex-wrap">
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-foreground" : "border-transparent text-grey hover:text-foreground",
-              t === "danger" && tab !== "danger" && "text-red-400/60 hover:text-red-400")}>
-            {t === "subscription" ? "Subscription" : t === "locations" ? "Locations" : t === "notifications" ? "Notifications" : t}
-          </button>
-        ))}
+      {/* Tabs — horizontally scrollable pill strip (never wraps to stacked rows). */}
+      <div className="flex gap-2 overflow-x-auto cw-noscroll -mx-4 px-4 sm:-mx-6 sm:px-6 pb-0.5">
+        {TABS.map(t => {
+          const active = tab === t;
+          const danger = t === "danger";
+          return (
+            <button key={t} onClick={() => setTab(t)}
+              className={cn("flex-shrink-0 px-3.5 py-2 rounded-full text-[13px] font-medium border transition-colors whitespace-nowrap",
+                active
+                  ? danger ? "bg-red-500/15 text-red-400 border-red-500/40" : "bg-foreground text-background border-foreground"
+                  : danger ? "bg-card border-border text-red-400/70 hover:text-red-400" : "bg-card border-border text-grey hover:text-foreground")}>
+              {TAB_LABELS[t] ?? t}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "profile" && (
@@ -816,7 +827,7 @@ export default function SettingsPage() {
             <div className="pt-2 border-t border-border space-y-3">
               <div>
                 <p className="text-sm font-medium text-grey">Phone number</p>
-                <p className="text-xs text-grey mt-0.5">Your personal number for booking alerts. This is private — it&apos;s never shown to customers (your public shop phone lives under the Profile tab).</p>
+                <p className="text-xs text-grey mt-0.5">Your personal number for booking alerts. This is private — it&apos;s never shown to customers (your public shop phone lives under the Shop Profile tab).</p>
               </div>
               <Input
                 label="Phone"
@@ -1004,7 +1015,7 @@ export default function SettingsPage() {
                     onClick={() => {
                       const preset = taxPresetFor(profile.province);
                       if (preset) setBooking(p => ({ ...p, tax_rate: preset.rate, tax_label: preset.label }));
-                      else showToast("Set your province in the Profile tab first, then tap this again.");
+                      else showToast("Set your province in the Shop Profile tab first, then tap this again.");
                     }}
                     className="text-xs text-gold hover:underline"
                   >
