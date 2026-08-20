@@ -1056,7 +1056,8 @@ export default function BookingClient() {
   // allow_pay_in_person flag, so turning card-required on always hides in-person.
   // If a shop wants a card but can't charge yet (Stripe unfinished), fall back to
   // in-person so booking is never impossible.
-  const cardRequired = !!(shop?.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection && shopCanCharge && total > 0;
+  const noShowOn = !!(shop?.booking_settings as { no_show_protection?: boolean } | null)?.no_show_protection;
+  const cardRequired = noShowOn && shopCanCharge && total > 0;
   // NEW: pay-in-person is now offered EVEN when a card is required. When it is, the
   // shop can still keep a card on file for that path (pin_requires_card, default on)
   // — collected via the save-card (SetupIntent) flow, never charged unless no-show.
@@ -1065,7 +1066,10 @@ export default function BookingClient() {
   // Pay-in-person is always an option now — whether it needs a card is governed by
   // no_show_protection + pin_requires_card above, not a separate on/off flag (the
   // legacy allow_pay_in_person is no longer consulted, so stale values can't hide it).
-  const canPayOnlineNow = total > 0 && shopCanCharge;
+  // Online pay is offered ONLY when no-show protection is on (Card required / Card
+  // optional). In "No card" mode (no_show off) the shop takes NO online payment —
+  // both options disappear and the customer just books, no pay-method choice.
+  const canPayOnlineNow = total > 0 && shopCanCharge && noShowOn;
   const canPayInPersonNow = total > 0;
 
   // Payment method for the confirm step. When BOTH online + in-person are

@@ -1030,8 +1030,8 @@ export default function SettingsPage() {
                   desc: "Customers choose: pay online with a card, or “pay at the shop” with no card. No-shows are chargeable only for those who left a card.",
                   cust: "Pay online · or · Pay at shop (no card)" },
                 { id: "nocard", name: "No card", needsCard: false,
-                  desc: "Everyone books free and pays at the shop. Simplest — but no-shows can’t be charged.",
-                  cust: "Pay at shop (online stays optional)" },
+                  desc: "Everyone books free and pays at the shop — no online payment at all. Simplest, but no-shows can’t be charged.",
+                  cust: "Pay at shop only" },
               ];
               return (
                 <div className="p-4 bg-card-raised rounded-xl border border-border">
