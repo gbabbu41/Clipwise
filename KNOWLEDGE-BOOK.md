@@ -198,6 +198,22 @@ sms, voice, ai-phone), **admin**, **shops/onboarding**, **uploads**, **infra**
   `"server-only"` guards; `notify.ts`/`availability.ts`/`plans.ts` are the client-safe halves.
 - **Idempotency everywhere**: payment/tip/gift finalizers dedup on PaymentIntent so the
   webhook and the customer-return route can both fire safely.
+- **Return-from-Stripe spinner (`lib/use-reset-on-return.ts`)**: iOS/Safari restore a page from
+  the back-forward cache with its JS frozen, so a button that set a loading flag then
+  `window.location.href`'d to Stripe would **spin forever** after the user hits Back.
+  `useResetOnReturn(reset)` clears the flag on `pageshow(persisted)` + `visibilitychange`. Applied
+  across every Stripe-redirect surface: billing, `stripe-warning-banner`, POS charge, tip, gift,
+  onboarding Connect.
+- **Settings auto-save (`settings/page.tsx`)**: the Booking + Shop Profile tabs have **no Save
+  button** — a `useAutoSave(signal, active, save)` hook debounces (~500ms) on a serialized snapshot
+  and persists silently, with a status chip ("Saving…/Saved/All changes saved") by the title.
+  Critically it **flushes on unmount + `pagehide` + tab-hide** (via a ref), so changing a setting
+  and immediately navigating away doesn't drop the write; overlap-guarded with busy/pending refs;
+  and calls `refreshShop()` on success so other pages don't read stale `booking_settings`. Booking
+  won't auto-save an invalid tax config; Profile won't persist a blank name; real save **failures**
+  still toast loudly. The Settings tabs use the standard header + a scrollable pill tab strip;
+  labels: **Shop Profile / My Account / Booking / Client Emails** (was the misnamed "Notifications"
+  = client email templates) / Subscription / Locations / Danger Zone.
 
 ---
 
@@ -227,6 +243,16 @@ fallback `:31-36`) → drop paused barbers (`bookings_paused`) → `holdsSlot` f
 `time_slots` (widest window if split shift `:85-98`), approved `time_off_requests`, recurring
 `barber_breaks` → return per-barber `{start_time, end_time, fullDayOff, busy[], blocked[]}`. A
 `barber_id === null` time-off row is a **shop-wide closure** applied to every barber (`:115-117`).
+
+**Staff add-appointment surfaces consume this live too.** The global quick-add sheet
+(`add-appointment-modal.tsx`) and the calendar "+" quick-add (`calendar-view.tsx`) refetch it
+whenever the barber or date changes, sizing to the picked service duration: they **disable** past
++ already-booked times (what the server hard-rejects) and flag overridable reasons (break / day
+off / off hours) inline while keeping them selectable, and auto-jump the selection to the first
+open slot when a change makes the current one unbookable. The calendar's in-memory `appointments`
+only covers a ~3–6 week window, so the quick-add UNIONs this server busy list in — otherwise an
+off-range date reads free (double-book risk). The server double-book guard (§2.3) stays the final
+authority.
 
 ### 2.3 Server write-path guard — `src/lib/booking-conflict.ts`
 
@@ -401,7 +427,27 @@ charge — ⚠️ no `statusInfo` label, renders default tone).
 
 Capture (`capture-appointment`): owner OR barber w/ `manage_appointments`; no-show fee =
 `no_show_fee_percent` capped at 100%; saved-card path uses a Stripe `idempotencyKey`; held-card
-path **never captures more than authorized**; "already captured" race treated as success.
+path **never captures more than authorized**; "already captured" race treated as success. It
+treats a stored PM with **no** held intent as chargeable off-session
+(`isSaved = payment_status === "saved" || (!payment_intent_id && stripe_payment_method_id)`), so a
+pay-at-shop booking can be charged for a no-show OR at checkout.
+
+**"Pay at the shop" with a card on file (save-only)** — Card-required mode still lets the customer
+choose *pay at the shop*, but that path runs a Stripe **SetupIntent** (mode `setup`, $0, no hold)
+through `booking-checkout` (metadata `pin: "1"`), and `finalize-booking-session` tags the row
+**Cash · Unpaid** with `stripe_customer_id`/`stripe_payment_method_id` stored — the card is kept
+**only** to charge a no-show. Gate (`booking-client.tsx`): `payInPersonSavesCard = cardRequired &&
+pinRequiresCard`; the customer page shows online only when `no_show_protection` is on
+(`canPayOnlineNow = total>0 && shopCanCharge && noShowOn`) — **No card mode hides online entirely**.
+Server (`book/in-person`): `allowInPerson = !cardRequired || !pinRequiresCard`.
+
+**Charge the card on file at checkout** — the calendar detail sheet (`calendar-view.tsx`) surfaces
+a **"Charge card on file"** action for an *unpaid* pay-in-person booking that has a saved PM
+(`cardOnFile = !paid && !refunded && !heldOrSaved && !!stripe_payment_method_id`), routing through
+`captureComplete` → `capture-appointment reason:"completed"`. Appointments carry payment-choice
+**flags** (Paid·online / Card held·on file / Pay at shop·card on file / Pay at shop) on both the
+owner and barber calendars (shared `CalendarView`). Money legs need a Stripe test-card run to
+fully verify.
 
 ### 3.5 The transactions ledger — when rows are written
 
@@ -541,12 +587,27 @@ buckets: `shop-logos`, `barber-photos`.
 
 ### 5.2 `shops.booking_settings` (JSONB) — the booking-policy blob
 
-Known keys (`settings/page.tsx:26-50`): `no_show_protection`, `no_show_fee_percent`,
-`auto_confirm`, `advance_days` (default 15), `cancellation_hours` (default **2** since phase48),
-`slot_interval_minutes` (15/30), `tips_enabled`, tax config (`tax_enabled/tax_rate/tax_label/
-tax_number` + provincial `pst_*`), `deposit`/`deposit_amount`, `loyalty:{enabled,
-points_per_visit, points_per_dollar}`. ⚠️ **`bookings_paused` is a column on `barbers`, NOT a
-`booking_settings` key.**
+Known keys (`settings/page.tsx:26-50`): `no_show_protection`, `pin_requires_card` (default
+**true**), `no_show_fee_percent`, `auto_confirm`, `advance_days` (default 15),
+`cancellation_hours` (default **2** since phase48), `slot_interval_minutes` (15/30),
+`tips_enabled`, tax config (`tax_enabled/tax_rate/tax_label/tax_number` + provincial `pst_*`),
+`deposit`/`deposit_amount`, `loyalty:{enabled, points_per_visit, points_per_dollar}`. No schema
+migration was needed for `pin_requires_card` — it rides inside the existing JSONB blob (loaded via
+`{...DEFAULT_BOOKING, ...stored}`, saved via a spread). ⚠️ **`bookings_paused` is a column on
+`barbers`, NOT a `booking_settings` key.**
+
+**The booking payment mode = ONE pick-one setting over two flags** (`settings/page.tsx` radio
+picker replaced two interacting toggles):
+- **Card required** — `no_show_protection: true` + `pin_requires_card: true`. Customer sees *pay
+  online* OR *pay at shop (card saved)*.
+- **Card optional** — `no_show_protection: true` + `pin_requires_card: false`. Customer sees *pay
+  online (card)* OR *pay at shop (no card)*.
+- **No card** — `no_show_protection: false`. **No online payment at all** — the pay-method picker
+  disappears and the customer books straight through.
+
+The legacy `shops.allow_pay_in_person` column is kept `true` but **no longer consulted** by the
+gates (stale `false` values used to hide pay-in-person). Free/no-payments shops are forced to
+**No card** (they can't take cards). See §3.4 for how these map to the customer gate.
 
 ### 5.3 Notable columns
 
@@ -741,6 +802,14 @@ to INSERTs on `notifications` filtered by `user_id`, gates per-shop client-side 
 oscillators 880→1180 Hz, lazily resumed on first user gesture). Mute preference in localStorage
 `cw_notif_sound`. Tap routing (`popupHref`) sends barbers to `/barber-dashboard/*`, owners to the
 actionable owner page.
+
+**Per-type alert prefs** — `lib/notif-prefs.ts` stores per-device toggles (localStorage
+`cw_notif_prefs`) for which types raise a live pop-up + chime; the listener gates on
+`shouldAlertForType(n.type)` (types with no toggle — `system`/unknown — always alert). The
+Notifications page (both portals) edits them under a collapsible **Alerts** section alongside the
+sound toggle. IMPORTANT: this only silences the **live alert** — the row is still stored and shown
+in the feed, so nothing is lost. The Notifications pages themselves use the standard header +
+scrollable filter chips (owner) / inline `hidden lg:block` header (barber).
 
 ### 7.2 Email — Resend
 
