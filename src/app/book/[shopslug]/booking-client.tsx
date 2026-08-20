@@ -1113,8 +1113,16 @@ export default function BookingClient() {
   const amountDue = Math.max(0, grandTotalWithTip - giftApplied);
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
-  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number } | null;
+  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number; cancellation_hours?: number } | null;
   const noShowProtection = !!bookingSettings?.no_show_protection;
+  // Footer reassurance reflects the SHOP's actual cancellation notice
+  // (booking_settings.cancellation_hours, default 2) — never a hardcoded "24h".
+  const cancelHours = Number(bookingSettings?.cancellation_hours ?? 2);
+  const cancelNotice = cancelHours <= 0
+    ? "Free cancellation anytime"
+    : cancelHours % 24 === 0
+      ? `Free cancellation ${cancelHours / 24} day${cancelHours / 24 === 1 ? "" : "s"} before`
+      : `Free cancellation ${cancelHours}h before`;
   // The consent card uses generic "up to the full price" language (the fee % is
   // no longer owner-configurable), so no per-booking fee amount is computed here.
   // Days until the appointment — drives hold (≤7d) vs save-card (>7d).
@@ -2298,10 +2306,10 @@ export default function BookingClient() {
             {((effectiveMethod === "online" && cardForNoShow) || (effectiveMethod === "in_person" && payInPersonSavesCard)) && noShowConsentBox}
             {/* Footer reassurance, matched to the chosen method. */}
             {effectiveMethod === "in_person"
-              ? <p className="text-xs text-[#999] text-center">{payInPersonSavesCard ? "Pay at the shop · card on file, charged only if you no-show · Free cancellation 24h before" : "Pay at the shop · reserved as pending until the shop confirms · Free cancellation 24h before"}</p>
+              ? <p className="text-xs text-[#999] text-center">{payInPersonSavesCard ? `Pay at the shop · card on file, charged only if you no-show · ${cancelNotice}` : `Pay at the shop · reserved as pending until the shop confirms · ${cancelNotice}`}</p>
               : effectiveMethod === "online"
-                ? <p className="text-xs text-[#999] text-center">Secure online payment · Free cancellation 24h before</p>
-                : <p className="text-xs text-[#999] text-center">Free cancellation 24h before</p>
+                ? <p className="text-xs text-[#999] text-center">Secure online payment · {cancelNotice}</p>
+                : <p className="text-xs text-[#999] text-center">{cancelNotice}</p>
             }
           </div>
           );
