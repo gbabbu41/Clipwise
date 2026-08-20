@@ -1723,6 +1723,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     load();
   };
 
+  // Authoritative busy list for the add modal's chosen barber + date. The
+  // calendar only loads a ~3–6 week window, but the add modal's date can jump
+  // anywhere — so for an off-range day the in-memory `appointments` would look
+  // empty and every slot would read free (a double-book waiting to happen). This
+  // service-role fetch (same endpoint the booking page uses) is the source of
+  // truth for that exact day and is merged into the runway + time list below.
+  const [addBusy, setAddBusy] = useState<{ time_slot: string; duration: number }[] | null>(null);
+  const addAvailReq = useRef(0);
+  useEffect(() => {
+    const bid = addCtx?.barberId;
+    if (!addCtx || !shop || !bid) { setAddBusy(null); return; }
+    const dateStr = addForm.date || formatDateForDb(currentDate);
+    const reqId = ++addAvailReq.current;
+    fetch("/api/availability", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id, date: dateStr, barber_id: bid }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (reqId !== addAvailReq.current) return; // a newer date/barber superseded this
+        const b = ((d?.barbers ?? []) as { id: string; busy?: { time_slot: string; duration: number }[] }[]).find(x => x.id === bid);
+        setAddBusy(b?.busy ?? []);
+      })
+      .catch(() => { if (reqId === addAvailReq.current) setAddBusy(null); });
+  }, [addCtx, shop?.id, addForm.date, currentDate]);
+
   // Free 15-min start times for the add modal (within the barber's window,
   // excluding times already booked), so a 15-min offset can be picked.
   // Free runway from the tapped box start up to the next booked appointment
@@ -1732,12 +1758,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // Runway from the SELECTED start (not the seeded box) to the next booking.
     const boxStart = timeToMinutes(addForm.time || addCtx.time);
     const dateStr = addForm.date || formatDateForDb(currentDate);
-    const nexts = appointments
-      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
-      .map(a => timeToMinutes(a.time_slot))
-      .filter(m => m > boxStart);
+    const nexts = [
+      ...appointments
+        .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
+        .map(a => timeToMinutes(a.time_slot)),
+      ...(addBusy ?? []).map(b => timeToMinutes(b.time_slot)),
+    ].filter(m => m > boxStart);
     return { boxStart, freeUntil: nexts.length ? Math.min(...nexts) : 24 * 60 };
-  }, [addCtx, appointments, currentDate, addForm.time, addForm.date]);
+  }, [addCtx, appointments, currentDate, addForm.time, addForm.date, addBusy]);
 
   // Recognize a returning client by the email/phone entered and surface their
   // redeemable loyalty balance (server decides eligibility: on-plan + enabled +
@@ -1811,16 +1839,22 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const addTimeOptions = useMemo(() => {
     if (!addCtx) return [] as string[];
     const dateStr = addForm.date || formatDateForDb(currentDate);
-    const booked = bookedSlotsFor(addCtx.barberId, dateStr, ADD_STEP);
+    // In-memory booked slots (loaded range) UNIONed with the authoritative
+    // server busy list for this exact day — so an off-range date can't read free.
+    const booked = new Set(bookedSlotsFor(addCtx.barberId, dateStr, ADD_STEP));
+    (addBusy ?? []).forEach(b => occupiedSlots(b.time_slot, b.duration || 30, ADD_STEP).forEach(s => booked.add(s)));
     const isToday = dateStr === formatDateForDb(new Date());
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     // Start times of the day's other bookings → so a slot whose chosen service
     // would overrun into the next appointment is DROPPED from the list entirely
-    // (not just shown disabled "won't fit").
-    const bookingStarts = appointments
-      .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
-      .map(a => timeToMinutes(a.time_slot));
+    // (not just shown disabled "won't fit"). Same in-memory + server union.
+    const bookingStarts = [
+      ...appointments
+        .filter(a => a.date === dateStr && a.barber_id === addCtx.barberId && !freesSlot(a))
+        .map(a => timeToMinutes(a.time_slot)),
+      ...(addBusy ?? []).map(b => timeToMinutes(b.time_slot)),
+    ];
     const nextBookingAfter = (m: number) => {
       const after = bookingStarts.filter(s => s > m);
       return after.length ? Math.min(...after) : 24 * 60;
@@ -1852,7 +1886,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       if (idx === -1) opts.push(addCtx.time); else opts.splice(idx, 0, addCtx.time);
     }
     return opts;
-  }, [addCtx, currentDate, addForm.date, bookedSlotsFor, appointments, addTotalDuration]);
+  }, [addCtx, currentDate, addForm.date, bookedSlotsFor, appointments, addTotalDuration, addBusy]);
 
   // Keep the selected time valid — default to the first available slot when the
   // seeded time isn't bookable (e.g. the header "+" landed before opening hours).
