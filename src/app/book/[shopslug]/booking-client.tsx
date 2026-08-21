@@ -188,6 +188,10 @@ export default function BookingClient() {
   // ── Shared step state ──────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
   const [selectedBarber, setSelectedBarber] = useState<string | null>(null); // null = "Any"
+  // Optional barber FILTER on the When step (null = Anyone). It only narrows which
+  // times are shown; the actual barber is set when a slot is tapped, so it never
+  // dead-ends the customer — Anyone is always one tap away.
+  const [barberFilter, setBarberFilter] = useState<string | null>(null);
   // Multi-service: customer can pick more than one (e.g. cut + beard, or
   // two haircuts for parent + child). They get booked back-to-back with the
   // same barber. selectedServices[0] is the legacy "primary" for code paths
@@ -387,9 +391,9 @@ export default function BookingClient() {
     (barbers.length === 1 ? barbers[0] : null);
   useEffect(() => {
     if (!lockedBarber) return;
-    setFlow("barber-first");
+    // A one-barber shop / ?barber= link just pre-selects that barber; the barber
+    // filter on the When step is hidden when there's nothing to choose.
     setSelectedBarber(lockedBarber.id);
-    setStep((s) => (s < 1 ? 1 : s)); // skip the Barber-pick step
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockedBarber?.id]);
 
@@ -1170,14 +1174,12 @@ export default function BookingClient() {
     return [{ ...s, barberIds: Array.from(intersection) }];
   });
 
-  // Steps — Date + Time merged into one Apple-style "When" step.
-  const STEPS_TIME_FIRST = ["Service", "When", "Your Info", "Promo", "Confirm"];
-  const STEPS_BARBER_FIRST = ["Barber", "Service", "When", "Your Info", "Promo", "Confirm"];
-  const STEPS = flow === "time-first" ? STEPS_TIME_FIRST : STEPS_BARBER_FIRST;
-  // When locked to one barber, the "Barber" step is pre-done — drop it from the
-  // progress bar (display only; internal `step` stays barber-first-indexed).
-  const visibleSteps = lockedBarber ? STEPS.slice(1) : STEPS;
-  const visibleStep = lockedBarber ? Math.max(0, step - 1) : step;
+  // Reflow: a lean 3-step wizard. Your Info + Promo fold into the Confirm screen,
+  // and the barber is an OPTIONAL filter on the When step — no separate Barber
+  // step and no time-first/barber-first toggle (the shop always books time-first).
+  const STEPS = ["Service", "When", "Confirm"];
+  const visibleSteps = STEPS;
+  const visibleStep = step;
 
   const validateClientInfo = () => {
     const errs: Record<string, string> = {};
@@ -1231,19 +1233,11 @@ export default function BookingClient() {
     }
   };
 
+  const clientInfoValid = () => !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
   const canNext = () => {
-    if (flow === "time-first") {
-      if (step === 0) return !!selectedService;
-      if (step === 1) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
-      if (step === 2) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
-      return true;
-    } else {
-      if (step === 0) return !!selectedBarber;
-      if (step === 1) return !!selectedService;
-      if (step === 2) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
-      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
-      return true;
-    }
+    if (step === serviceStepIndex) return !!selectedService;
+    if (step === whenStepIndex) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
+    return true; // Confirm (last) step — the Confirm button gates itself (see below)
   };
 
   const switchFlow = (f: "time-first" | "barber-first") => {
@@ -1265,7 +1259,7 @@ export default function BookingClient() {
   const historyStepRef = useRef(-1);
   useEffect(() => {
     if (typeof window === "undefined" || pageLoading) return;
-    const first = lockedBarber ? 1 : 0;
+    const first = 0;
     const prev = historyStepRef.current;
     if (prev === -1) {
       // Baseline: tag the current entry with the first step (no new entry added).
@@ -1288,7 +1282,7 @@ export default function BookingClient() {
     const onPop = (e: PopStateEvent) => {
       const bs = (e.state as { bookingStep?: number } | null)?.bookingStep;
       if (typeof bs !== "number") return; // before the flow → let the browser leave
-      const first = lockedBarber ? 1 : 0;
+      const first = 0;
       const target = Math.min(STEPS.length - 1, Math.max(first, bs));
       historyStepRef.current = target; // pre-sync so the effect above sees no change
       setStep(target);
@@ -1475,7 +1469,7 @@ export default function BookingClient() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -1487,12 +1481,14 @@ export default function BookingClient() {
   const isTimeFirstStep = (s: number) => flow === "time-first" ? s : -1;
   const isBarberFirstStep = (s: number) => flow === "barber-first" ? s : -1;
 
-  // Shared steps (Date + Time merged into one Apple-style "When" step)
-  const serviceStepIndex = flow === "time-first" ? 0 : 1;
-  const whenStepIndex = flow === "time-first" ? 1 : 2;
-  const clientStepIndex = flow === "time-first" ? 2 : 3;
-  const promoStepIndex = flow === "time-first" ? 3 : 4;
-  const confirmStepIndex = flow === "time-first" ? 4 : 5;
+  // Shared steps (Date + Time merged into one "When" step). Your Info + Promo now
+  // CO-RENDER on the Confirm screen — all three blocks are guarded to step 2, so
+  // they stack into one final screen (contact → promo → summary + pay).
+  const serviceStepIndex = 0;
+  const whenStepIndex = 1;
+  const clientStepIndex = 2;
+  const promoStepIndex = 2;
+  const confirmStepIndex = 2;
 
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
@@ -1638,27 +1634,8 @@ export default function BookingClient() {
         </div>
       </div>
 
-      {/* Flow Toggle — hidden on a barber-specific link (barber is locked). */}
-      {!lockedBarber && (
-      <div className="bg-black border-b border-[#2a2a2a]">
-        <div className="max-w-2xl mx-auto px-5 py-3 flex gap-2">
-          {(["time-first", "barber-first"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => switchFlow(f)}
-              className={cn(
-                "flex-1 py-3 px-3 rounded-full text-sm font-bold transition-all",
-                flow === f
-                  ? "bg-white text-black shadow-[0_2px_12px_rgba(255,255,255,0.12)]"
-                  : "bg-[#141414] text-[#8f8f8f] border border-[#2a2a2a] hover:text-white"
-              )}
-            >
-              {f === "time-first" ? "Choose Time First" : "Choose Barber First"}
-            </button>
-          ))}
-        </div>
-      </div>
-      )}
+      {/* (Flow toggle removed — the shop always books time-first; the barber is an
+          optional filter on the When step, so there's no dead-end.) */}
 
       {/* Booking-with-this-barber header (barber-specific link) */}
       {lockedBarber && (
@@ -1680,23 +1657,15 @@ export default function BookingClient() {
         </div>
       )}
 
-      {/* Progress */}
-      <div ref={progressRef} className="bg-black border-b border-[#2a2a2a] sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-5 py-3.5">
-          <div className="flex items-center gap-1">
+      {/* Progress — a slim gold segmented bar (replaces the numbered circles). */}
+      <div ref={progressRef} className="bg-black border-b border-white/[0.06] sticky top-0 z-20">
+        <div className="max-w-2xl mx-auto px-5 py-3">
+          <div className="flex items-center gap-1.5">
             {visibleSteps.map((s, i) => (
-              <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
-                <div className={cn(
-                  "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
-                  i <= visibleStep ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
-                )}>
-                  {i < visibleStep ? <Check size={12} /> : i + 1}
-                </div>
-                {i < visibleSteps.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < visibleStep ? "bg-emerald-400" : "bg-[#242424]")} />}
-              </div>
+              <div key={s + i} className={cn("h-[3px] flex-1 rounded-full transition-colors", i <= visibleStep ? "bg-gold" : "bg-white/[0.08]")} />
             ))}
           </div>
-          <p className="text-xs text-[#8f8f8f] mt-2">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+          <p className="text-[11px] text-[#8f8f8f] mt-2 font-medium">Step {visibleStep + 1} of {visibleSteps.length} · <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
         </div>
       </div>
 
@@ -1737,10 +1706,10 @@ export default function BookingClient() {
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
-              <div className="bg-black/5 border border-[#2a2a2a] rounded-2xl p-3 space-y-2">
+              <div className="bg-[#141414] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
                         className="ml-0.5 w-5 h-5 rounded-full bg-white/10 hover:bg-gold/40 flex items-center justify-center" aria-label="Remove">
@@ -1749,7 +1718,7 @@ export default function BookingClient() {
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center justify-between text-sm pt-1 border-t border-[#2a2a2a]">
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-white/[0.07]">
                   <span className="text-[#8f8f8f]">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
                   <span className="text-white font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
@@ -1759,7 +1728,7 @@ export default function BookingClient() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-all border", categoryFilter === cat ? "bg-white text-black border-white" : "bg-[#141414] border-[#2a2a2a] text-[#8f8f8f] hover:text-white")}
+                  className={cn("px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors", categoryFilter === cat ? "bg-gold/15 text-gold ring-1 ring-gold" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}
                 >{cat}</button>
               ))}
             </div>
@@ -1769,27 +1738,27 @@ export default function BookingClient() {
                 <p>No services found</p>
               </div>
             )}
-            <div className="space-y-3">
+            <div className="flex flex-col">
               {filteredServices.map((svc) => {
                 const count = selectedServices.filter(id => id === svc.id).length;
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-white/60 bg-white/[0.04]" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
+                  className={cn("w-full flex items-center justify-between gap-3 py-4 border-t border-white/[0.07] first:border-t-0 text-left transition-colors", isPicked && "bg-gold/[0.04]")}
                 >
-                  <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{svc.name}</p>
-                      <Badge>{svc.category}</Badge>
-                      {count > 1 && <span className="text-xs text-white">× {count}</span>}
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6e6e6e]">{svc.category}</span>
+                      {count > 1 && <span className="text-xs font-semibold text-gold">× {count}</span>}
                     </div>
                     {svc.description && <p className="text-xs text-[#8f8f8f] mt-0.5 line-clamp-2">{svc.description}</p>}
                     <p className="text-xs text-[#8f8f8f] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-lg font-bold text-white">{formatCurrency(svc.price)}</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-base font-bold text-white tabular-nums">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors" aria-label="Add service">
+                      className={cn("w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-gold text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
                       +
                     </button>
                   </div>
@@ -1839,7 +1808,11 @@ export default function BookingClient() {
           // barberIds are the barbers free for the FULL service duration (not
           // just the start slot). Using the raw grid gave wrong "N free" counts
           // and could auto-select a barber free only at the start → double-book.
-          const bookableSlots = slotGridForBlock.filter(({ slot }) => !(isTodaySelected && isSlotInPast(slot)));
+          const bookableSlots = slotGridForBlock
+            .filter(({ slot }) => !(isTodaySelected && isSlotInPast(slot)))
+            // Optional barber filter: when a specific barber is chosen, show only
+            // times they're free for. "Anyone" (null) shows every open slot.
+            .filter(({ barberIds }) => !barberFilter || barberIds.includes(barberFilter));
 
           // Group bookable slots into parts of the day so a 15-min-granularity
           // shop with 40+ openings stays scannable.
@@ -1944,6 +1917,37 @@ export default function BookingClient() {
               </div>
               </div>{/* end sticky header (nav + strip + date title) */}
 
+              {/* Barber filter — optional, never a gate. Defaults to Anyone; picking
+                  a barber just narrows the times below. Hidden for single-barber /
+                  barber-locked shops (nothing to choose). */}
+              {!lockedBarber && barbers.length > 1 && (
+                <div className="px-4 pt-1 pb-3">
+                  <div className="flex gap-2 overflow-x-auto cw-noscroll">
+                    {[{ id: null as string | null, name: "Anyone" }, ...barbers.map(b => ({ id: b.id, name: b.name }))].map((b) => {
+                      const active = barberFilter === b.id;
+                      return (
+                        <button key={b.id ?? "any"} type="button"
+                          onClick={() => {
+                            setBarberFilter(b.id);
+                            // Drop a chosen time if the new barber isn't free then.
+                            if (selectedTime) {
+                              const entry = slotGridForBlock.find(s => s.slot === selectedTime);
+                              if (b.id && (!entry || !entry.barberIds.includes(b.id))) setSelectedTime(null);
+                            }
+                          }}
+                          className={cn("flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+                            active ? "bg-gold/15 text-gold ring-1 ring-gold" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
+                          {b.id === null ? "✨" : (b.name[0] || "?").toUpperCase()} {b.name.split(" ")[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {barberFilter && (
+                    <p className="mt-2 text-[11.5px] text-[#8f8f8f] px-0.5">Showing {barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0]}&apos;s openings — tap <span className="text-white font-medium">Anyone</span> to see all times.</p>
+                  )}
+                </div>
+              )}
+
               {/* Slot list — flows in the single page scroll; the sticky header
                   above stays pinned as these scroll past. */}
               <div className="border-t border-[#2a2a2a]/40">
@@ -1979,9 +1983,11 @@ export default function BookingClient() {
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && (
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
-                      {servicesPicked.length > 1
-                        ? `${flow === "barber-first" ? "This barber doesn't have" : "No barber has"} ${totalDuration} min open on this day`
-                        : "No more openings on this day"}
+                      {barberFilter
+                        ? `${barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "This barber"} has no openings this day — try Anyone, or another day`
+                        : servicesPicked.length > 1
+                          ? `No barber has ${totalDuration} min open on this day`
+                          : "No more openings on this day"}
                     </p>
                     <p className="text-xs text-[#8f8f8f] mt-1">Try another day.</p>
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
@@ -2009,25 +2015,24 @@ export default function BookingClient() {
                             return (
                               <button key={slot}
                                 onClick={() => {
-                                  if (barberIds.length === 1) {
-                                    setSelectedTime(slot);
-                                    setSelectedBarber(barberIds[0]);
-                                  } else {
-                                    setExpandedSlot(slot);
-                                  }
+                                  if (barberFilter) { setSelectedTime(slot); setSelectedBarber(barberFilter); }
+                                  else if (barberIds.length === 1) { setSelectedTime(slot); setSelectedBarber(barberIds[0]); }
+                                  else { setExpandedSlot(slot); }
                                 }}
                                 className={cn(
-                                  "rounded-xl border py-2.5 px-1 flex flex-col items-center justify-center transition-all",
+                                  "rounded-xl py-2.5 px-1 flex flex-col items-center justify-center transition-colors",
                                   isSelectedSlot
-                                    ? "bg-gold border-gold text-black font-bold ring-2 ring-gold/40 scale-[1.03]"
-                                    : "bg-sky-500/15 border-sky-400/60 hover:bg-sky-500/25 text-white",
+                                    ? "bg-gold text-black font-bold"
+                                    : "bg-[#141414] hover:bg-[#1c1c1c] text-white",
                                 )}
                               >
                                 <span className="text-sm font-semibold leading-none">{slot}</span>
-                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-black/70" : "text-sky-300")}>
-                                  {barberIds.length === 1
-                                    ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
-                                    : `${barberIds.length} free`}
+                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-black/60" : "text-[#8f8f8f]")}>
+                                  {barberFilter
+                                    ? barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "barber"
+                                    : barberIds.length === 1
+                                      ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
+                                      : `${barberIds.length} free`}
                                 </span>
                               </button>
                             );
@@ -2340,7 +2345,7 @@ export default function BookingClient() {
             </p>
           )}
 
-          {step > (lockedBarber ? 1 : 0) && (
+          {step > 0 && (
             <button
               type="button"
               onClick={() => { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); }}
@@ -2364,6 +2369,7 @@ export default function BookingClient() {
             <button
               type="button"
               disabled={saving
+                || !clientInfoValid()
                 || (bothMethods && !payMethodChoice)
                 || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
               onClick={() => confirmBooking(effectiveMethod ?? undefined)}
