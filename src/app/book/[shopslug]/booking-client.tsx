@@ -1907,24 +1907,31 @@ export default function BookingClient() {
               {!lockedBarber && barbers.length > 1 && (
                 <div className="px-4 pt-1 pb-3">
                   <div className="flex gap-2 overflow-x-auto cw-noscroll">
-                    {[{ id: null as string | null, name: "Anyone" }, ...barbers.map(b => ({ id: b.id, name: b.name }))].map((b) => {
-                      const active = barberFilter === b.id;
+                    {([null, ...barbers] as (null | typeof barbers[number])[]).map((b) => {
+                      const id = b ? b.id : null;
+                      const active = barberFilter === id;
+                      const first = b ? b.name.split(" ")[0] : "Anyone";
                       return (
-                        <button key={b.id ?? "any"} type="button"
+                        <button key={id ?? "any"} type="button"
                           onClick={() => {
-                            setBarberFilter(b.id);
+                            setBarberFilter(id);
                             // Drop a chosen time if the new barber isn't free then.
                             if (selectedTime) {
                               const entry = slotGridForBlock.find(s => s.slot === selectedTime);
-                              if (b.id && (!entry || !entry.barberIds.includes(b.id))) setSelectedTime(null);
+                              if (id && (!entry || !entry.barberIds.includes(id))) setSelectedTime(null);
                             }
                           }}
-                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1.5 pr-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                            active ? "bg-gold text-black" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
-                          <span className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold", active ? "bg-black/15 text-black" : "bg-white/10 text-white")}>
-                            {b.id === null ? "✨" : (b.name[0] || "?").toUpperCase()}
+                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
+                            active ? "bg-gold text-black shadow-[0_3px_12px_rgba(205,168,106,0.28)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
+                          <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
+                            active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
+                            {b === null
+                              ? <span aria-hidden="true">✨</span>
+                              : b.photo
+                                ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                                : (b.name[0] || "?").toUpperCase()}
                           </span>
-                          {b.id === null ? "Anyone" : b.name.split(" ")[0]}
+                          {first}
                         </button>
                       );
                     })}
