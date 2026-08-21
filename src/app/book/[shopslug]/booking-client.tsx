@@ -212,6 +212,9 @@ export default function BookingClient() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  // Promo + gift-card inputs are collapsed on the Confirm screen (most people
+  // don't have a code) so that screen stays short.
+  const [showPromoGift, setShowPromoGift] = useState(false);
   // Loyalty: returning customers recognized by email/phone can spend points.
   // `loyalty` is what the shop says they're eligible for; `redeemPoints` is their
   // choice. The discount amount is always recomputed server-side at checkout.
@@ -1738,27 +1741,27 @@ export default function BookingClient() {
                 <p>No services found</p>
               </div>
             )}
-            <div className="flex flex-col">
+            <div className="space-y-2.5">
               {filteredServices.map((svc) => {
                 const count = selectedServices.filter(id => id === svc.id).length;
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between gap-3 py-4 border-t border-white/[0.07] first:border-t-0 text-left transition-colors", isPicked && "bg-gold/[0.04]")}
+                  className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-2xl border transition-colors", isPicked ? "border-white/25 bg-white/[0.02]" : "border-white/[0.08] bg-[#0d0d0d]")}
                 >
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{svc.name}</p>
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6e6e6e]">{svc.category}</span>
-                      {count > 1 && <span className="text-xs font-semibold text-gold">× {count}</span>}
+                      {count > 1 && <span className="text-xs font-semibold text-white">× {count}</span>}
                     </div>
-                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-0.5 line-clamp-2">{svc.description}</p>}
-                    <p className="text-xs text-[#8f8f8f] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
+                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-1 line-clamp-2">{svc.description}</p>}
+                    <p className="text-xs text-[#8f8f8f] mt-1.5 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <span className="text-base font-bold text-white tabular-nums">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className={cn("w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-gold text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
+                      className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
                       +
                     </button>
                   </div>
@@ -2131,32 +2134,16 @@ export default function BookingClient() {
           </div>
         )}
 
-        {/* Promo Code Step */}
+        {/* Promo / loyalty / gift — collapsed by default so the Confirm screen
+            stays short. Loyalty (a returning-customer perk) + any applied code
+            stay visible; the inputs live behind one disclosure. */}
         {step === promoStepIndex && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Have a promo code?</h2>
-            <p className="text-[#8f8f8f] text-sm">Optional — skip if you don&apos;t have one.</p>
-            <div className="flex gap-2">
-              <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" aria-label="Promo code"
-                className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest"
-              />
-              <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
-            </div>
-            {promoError && <p className="text-xs text-red-400">{promoError}</p>}
-            {promoApplied && (
-              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                <Check size={16} className="text-emerald-400" />
-                <span className="text-sm text-emerald-400 font-medium">
-                  {promoApplied.code} applied! Save {promoApplied.discount_type === "percent" ? `${promoApplied.discount_value}%` : formatCurrency(promoApplied.discount_value)}
-                </span>
-              </div>
-            )}
-
-            {/* Loyalty — only shown to a recognized returning customer with
-                enough points (server-decided). One tap to spend them. */}
+          <div className="space-y-3">
+            {/* Loyalty — only for a recognized returning customer with enough
+                points (server-decided). One tap to spend them. */}
             {loyalty?.eligible && (
               <button type="button" onClick={() => setRedeemPoints((v) => !v)}
-                className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors mt-2",
+                className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors",
                   redeemPoints ? "bg-emerald-500/10 border-emerald-500/40" : "bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a]")}>
                 <div>
                   <p className="text-sm font-semibold text-white">⭐ Use your loyalty points</p>
@@ -2168,23 +2155,56 @@ export default function BookingClient() {
               </button>
             )}
 
-            {/* Gift card — stored money, applied like cash to the total. */}
-            <div className="pt-1">
-              <p className="text-sm text-white mb-1.5">Have a gift card?</p>
-              {giftCard ? (
-                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                  <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
-                  <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="GIFT CARD CODE" aria-label="Gift card code"
-                    className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
-                  <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
-                </div>
-              )}
-              {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
-            </div>
+            {/* Applied promo / gift stay visible even when the inputs are collapsed. */}
+            {promoApplied && (
+              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                <Check size={16} className="text-emerald-400" />
+                <span className="text-sm text-emerald-400 font-medium">
+                  {promoApplied.code} applied · save {promoApplied.discount_type === "percent" ? `${promoApplied.discount_value}%` : formatCurrency(promoApplied.discount_value)}
+                </span>
+              </div>
+            )}
+            {giftCard && (
+              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
+                <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
+              </div>
+            )}
+
+            {/* One collapsed disclosure for the promo + gift inputs. */}
+            {(!promoApplied || !giftCard) && (
+              <div>
+                <button type="button" onClick={() => setShowPromoGift((v) => !v)}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-white/75 hover:text-white">
+                  <span className={cn("text-lg leading-none transition-transform", showPromoGift && "rotate-45")}>+</span>
+                  Have a promo code or gift card?
+                </button>
+                {showPromoGift && (
+                  <div className="mt-3 space-y-3">
+                    {!promoApplied && (
+                      <div>
+                        <div className="flex gap-2">
+                          <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" aria-label="Promo code"
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                          <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
+                        </div>
+                        {promoError && <p className="text-xs text-red-400 mt-1">{promoError}</p>}
+                      </div>
+                    )}
+                    {!giftCard && (
+                      <div>
+                        <div className="flex gap-2">
+                          <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="Gift card code" aria-label="Gift card code"
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                          <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
+                        </div>
+                        {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
