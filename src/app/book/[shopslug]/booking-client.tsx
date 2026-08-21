@@ -1846,67 +1846,41 @@ export default function BookingClient() {
                   the whole page stays a single smooth scroller and the strip never
                   scrolls away. bg-black hides slots passing underneath. */}
               <div className="sticky z-10 bg-black pt-2" style={{ top: stickyTop }}>
-              {/* Header row: back / next week arrows (icon-only) */}
-              <div className="flex items-center justify-between px-4 pb-2">
-                <button
-                  aria-label="Previous week"
-                  disabled={!canGoPrev}
-                  onClick={() => { if (!canGoPrev) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
-                    canGoPrev ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#6e6e6e] cursor-not-allowed",
-                  )}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  aria-label="Next week"
-                  disabled={!canGoNext}
-                  onClick={() => { if (!canGoNext) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
-                    canGoNext ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#6e6e6e] cursor-not-allowed",
-                  )}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-
-              {/* Week strip */}
-              <div className="grid grid-cols-7 px-2 pb-2">
-                {weekDays.map((day) => {
-                  const dayStr = formatDateForDb(day);
-                  const isSelectedDay = dayStr === dateStr;
-                  // The rolling strip starts at today, so no day here is ever in
-                  // the past. Disable only days where the relevant barber isn't
-                  // scheduled or is on approved full-day time-off.
-                  const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && !isBarberAvailableOnDate(selectedBarber, day);
-                  const isShopClosed = flow !== "barber-first" && !isShopAvailableOnDate(day);
-                  const isBeyondWindow = day > maxDate;
-                  const disabled = !!isBarberOff || isShopClosed || isBeyondWindow;
-                  const isTodayDay = dayStr === todayStr;
-                  return (
-                    <button key={dayStr} disabled={disabled}
-                      onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
-                      className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
-                    >
-                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-[#6e6e6e]" : "text-[#8f8f8f]")}>
-                        {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
-                      </span>
-                      <span className={cn(
-                        "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center transition-colors",
-                        // Selected day: solid WHITE pill (visible on the black
-                        // page — a black pill was invisible before). Today (when
-                        // not selected) gets a subtle ring so it's identifiable.
-                        isSelectedDay ? "bg-gold text-black font-bold" :
-                        isTodayDay && !disabled ? "text-white ring-1 ring-white/40" :
-                        disabled ? "text-[#6e6e6e]" : "text-white",
-                      )}>
-                        {day.getDate()}
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* Day rail — a horizontally-scrollable strip of rounded pills from
+                  today through the shop's booking window (replaces the paged
+                  week + arrows). Each pill: DOW label + big number, champagne
+                  when selected. */}
+              <div className="flex gap-2 overflow-x-auto cw-noscroll px-4 pb-3">
+                {(() => {
+                  const DAY_MS = 86400000;
+                  const span = Math.min(90, Math.max(1, Math.round((maxDate.getTime() - today.getTime()) / DAY_MS) + 1));
+                  return Array.from({ length: span }, (_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)).map((day, i) => {
+                    const dayStr = formatDateForDb(day);
+                    const isSelectedDay = dayStr === dateStr;
+                    // Grey a day the FILTERED barber isn't scheduled/off, or the
+                    // shop is closed. (No past days — the rail starts at today.)
+                    const isBarberOff = !!barberFilter && !isBarberAvailableOnDate(barberFilter, day);
+                    const isShopClosed = !isShopAvailableOnDate(day);
+                    const disabled = isBarberOff || isShopClosed;
+                    const isTodayDay = dayStr === todayStr;
+                    const label = i === 0 ? "Today" : i === 1 ? "Tmrw" : day.toLocaleDateString("en-CA", { weekday: "short" });
+                    return (
+                      <button key={dayStr} disabled={disabled}
+                        onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
+                        className={cn(
+                          "flex-shrink-0 w-[56px] py-2.5 rounded-2xl flex flex-col items-center transition-colors",
+                          isSelectedDay ? "bg-gold text-black"
+                            : disabled ? "bg-[#0d0d0d] text-[#555] cursor-not-allowed"
+                              : "bg-[#141414] text-white hover:bg-[#1c1c1c]",
+                          isTodayDay && !isSelectedDay && !disabled && "ring-1 ring-white/25",
+                        )}
+                      >
+                        <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isSelectedDay ? "text-black/55" : "text-[#8f8f8f]")}>{label}</span>
+                        <span className={cn("text-lg font-bold mt-1", isSelectedDay ? "text-black" : "")}>{day.getDate()}</span>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
 
               {/* Date title row (center) — weekday is always shown, with a
