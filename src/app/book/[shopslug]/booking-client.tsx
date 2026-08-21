@@ -1524,7 +1524,7 @@ export default function BookingClient() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
+    <div className="cw-book-gold min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header — only on the first (Service) step, so the When + Confirm
@@ -1754,7 +1754,7 @@ export default function BookingClient() {
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-2xl border transition-colors", isPicked ? "border-white/25 bg-white/[0.02]" : "border-white/[0.08] bg-[#0d0d0d]")}
+                  className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-2xl border transition-colors", isPicked ? "border-gold/40 bg-gold/10" : "border-white/[0.08] bg-[#0d0d0d]")}
                 >
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1768,7 +1768,7 @@ export default function BookingClient() {
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <span className="text-base font-bold text-white tabular-nums">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
+                      className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-gold text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
                       +
                     </button>
                   </div>
@@ -1898,7 +1898,7 @@ export default function BookingClient() {
                         // Selected day: solid WHITE pill (visible on the black
                         // page — a black pill was invisible before). Today (when
                         // not selected) gets a subtle ring so it's identifiable.
-                        isSelectedDay ? "bg-white text-black font-bold" :
+                        isSelectedDay ? "bg-gold text-black font-bold" :
                         isTodayDay && !disabled ? "text-white ring-1 ring-white/40" :
                         disabled ? "text-[#6e6e6e]" : "text-white",
                       )}>
@@ -1945,9 +1945,12 @@ export default function BookingClient() {
                               if (b.id && (!entry || !entry.barberIds.includes(b.id))) setSelectedTime(null);
                             }
                           }}
-                          className={cn("flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                            active ? "bg-white text-black" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
-                          {b.id === null ? "✨ Anyone" : b.name.split(" ")[0]}
+                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1.5 pr-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+                            active ? "bg-gold text-black" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
+                          <span className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold", active ? "bg-black/15 text-black" : "bg-white/10 text-white")}>
+                            {b.id === null ? "✨" : (b.name[0] || "?").toUpperCase()}
+                          </span>
+                          {b.id === null ? "Anyone" : b.name.split(" ")[0]}
                         </button>
                       );
                     })}
@@ -2285,7 +2288,7 @@ export default function BookingClient() {
                 <div className="grid grid-cols-1 gap-2">
                   <button type="button" onClick={() => setPayMethodChoice("online")}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "online" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "online" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">💳</span>
                     <span className="flex-1 text-sm font-semibold">Pay online now
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "online" ? "text-black/60" : "text-[#8f8f8f]")}>Secure card · add a tip</span>
@@ -2293,7 +2296,7 @@ export default function BookingClient() {
                   </button>
                   <button type="button" onClick={() => { setPayMethodChoice("in_person"); setTipPercent(0); }}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "in_person" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "in_person" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">🏪</span>
                     <span className="flex-1 text-sm font-semibold">Pay at the shop
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>{payInPersonSavesCard ? "Add a card to hold your spot · not charged unless you no-show" : "No card needed · pay after your cut"}</span>
@@ -2313,7 +2316,7 @@ export default function BookingClient() {
                   {[0, 15, 18, 20].map((p) => (
                     <button key={p} type="button" onClick={() => setTipPercent(p)}
                       className={cn("py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95",
-                        tipPercent === p ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                        tipPercent === p ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                       {p === 0 ? "No tip" : `${p}%`}
                     </button>
                   ))}
