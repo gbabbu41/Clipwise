@@ -1527,7 +1527,9 @@ export default function BookingClient() {
     <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
-      {/* Shop Header */}
+      {/* Shop Header — only on the first (Service) step, so the When + Confirm
+          views drop the banner and stay focused on the task. */}
+      {step === serviceStepIndex && (
       <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
         {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
         <div className="cw-shopbg" aria-hidden="true">
@@ -1636,12 +1638,13 @@ export default function BookingClient() {
           })()}
         </div>
       </div>
+      )}
 
       {/* (Flow toggle removed — the shop always books time-first; the barber is an
           optional filter on the When step, so there's no dead-end.) */}
 
-      {/* Booking-with-this-barber header (barber-specific link) */}
-      {lockedBarber && (
+      {/* Booking-with-this-barber header (barber-specific link) — first step only. */}
+      {lockedBarber && step === serviceStepIndex && (
         <div className="bg-black border-b border-[#2a2a2a]">
           <div className="max-w-2xl mx-auto px-5 py-4">
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
@@ -1668,7 +1671,11 @@ export default function BookingClient() {
               <div key={s + i} className={cn("h-[3px] flex-1 rounded-full transition-colors", i <= visibleStep ? "bg-gold" : "bg-white/[0.08]")} />
             ))}
           </div>
-          <p className="text-[11px] text-[#8f8f8f] mt-2 font-medium">Step {visibleStep + 1} of {visibleSteps.length} · <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+          <div className="flex items-center justify-between gap-3 mt-2">
+            <p className="text-[11px] text-[#8f8f8f] font-medium">Step {visibleStep + 1} of {visibleSteps.length} · <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+            {/* Shop name for context now the banner is hidden on later steps. */}
+            {step !== serviceStepIndex && <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>}
+          </div>
         </div>
       </div>
 
@@ -1939,8 +1946,8 @@ export default function BookingClient() {
                             }
                           }}
                           className={cn("flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                            active ? "bg-gold/15 text-gold ring-1 ring-gold" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
-                          {b.id === null ? "✨" : (b.name[0] || "?").toUpperCase()} {b.name.split(" ")[0]}
+                            active ? "bg-white text-black" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}>
+                          {b.id === null ? "✨ Anyone" : b.name.split(" ")[0]}
                         </button>
                       );
                     })}
@@ -2023,20 +2030,13 @@ export default function BookingClient() {
                                   else { setExpandedSlot(slot); }
                                 }}
                                 className={cn(
-                                  "rounded-xl py-2.5 px-1 flex flex-col items-center justify-center transition-colors",
+                                  "rounded-xl py-3 text-sm font-semibold transition-colors",
                                   isSelectedSlot
-                                    ? "bg-gold text-black font-bold"
+                                    ? "bg-gold text-black"
                                     : "bg-[#141414] hover:bg-[#1c1c1c] text-white",
                                 )}
                               >
-                                <span className="text-sm font-semibold leading-none">{slot}</span>
-                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-black/60" : "text-[#8f8f8f]")}>
-                                  {barberFilter
-                                    ? barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "barber"
-                                    : barberIds.length === 1
-                                      ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
-                                      : `${barberIds.length} free`}
-                                </span>
+                                {slot}
                               </button>
                             );
                           })}
