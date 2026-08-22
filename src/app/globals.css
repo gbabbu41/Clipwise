@@ -554,35 +554,42 @@ h1, h2, h3, h4 {
    invert the white/gold accent fills to a dark pill (white text on them), and
    keep the cinematic hero + modal scrims dark via `.cw-keepdark`. Two-class
    specificity beats the single-class utilities, so no !important. */
-.cw-book-light .bg-black { background-color:#f4f5f7; }
-.cw-book-light .bg-\[\#141414\], .cw-book-light .bg-\[\#0d0d0d\], .cw-book-light .bg-\[\#1c1c1c\],
+/* Palette matched to the portal light theme: ground #f6f7f9, white cards that
+   float on a soft shadow, #f1f2f4 raised chips, #e6e8ec hairlines, charcoal text. */
+.cw-book-light .bg-black { background-color:#f6f7f9; }
+/* Tier-1 white cards (service cards, summary, modal panels) — soft float. */
+.cw-book-light .bg-\[\#0d0d0d\], .cw-book-light .bg-black\/5,
 .cw-book-light .bg-\[\#1a1a1a\], .cw-book-light .bg-\[\#242424\], .cw-book-light .bg-\[\#2a2a2a\] { background-color:#ffffff; }
-.cw-book-light .bg-black\/5 { background-color:#f1f2f4; }
-.cw-book-light .bg-white\/\[0\.04\], .cw-book-light .bg-white\/\[0\.06\], .cw-book-light .bg-white\/10 { background-color:rgba(20,22,26,.05); }
+.cw-book-light .bg-\[\#0d0d0d\], .cw-book-light .bg-black\/5 { box-shadow:0 1px 3px rgba(20,22,26,.06); }
+/* Tier-2 raised (inputs, chips, day/time pills). */
+.cw-book-light .bg-\[\#141414\], .cw-book-light .bg-\[\#1c1c1c\] { background-color:#f1f2f4; }
+/* Subtle white lifts → white card / faint element wash. */
+.cw-book-light .bg-white\/\[0\.04\], .cw-book-light .bg-white\/\[0\.06\] { background-color:#ffffff; }
+.cw-book-light .bg-white\/10 { background-color:rgba(20,22,26,.06); }
 
 .cw-book-light .border-\[\#2a2a2a\], .cw-book-light .border-\[\#242424\], .cw-book-light .border-\[\#333\],
-.cw-book-light .border-\[\#3a3a3a\], .cw-book-light .border-\[\#1c1c1c\] { border-color:#e4e7eb; }
-.cw-book-light .border-white\/60 { border-color:rgba(20,22,26,.5); }
-.cw-book-light .border-white\/30, .cw-book-light .border-white\/15, .cw-book-light .border-white\/\[0\.06\] { border-color:rgba(20,22,26,.13); }
-.cw-book-light .ring-white\/10, .cw-book-light .ring-white\/25 { --tw-ring-color:rgba(20,22,26,.14); }
+.cw-book-light .border-\[\#3a3a3a\], .cw-book-light .border-\[\#1c1c1c\],
+.cw-book-light .border-white\/30, .cw-book-light .border-white\/15, .cw-book-light .border-white\/\[0\.06\] { border-color:#e6e8ec; }
+.cw-book-light .border-white\/60 { border-color:rgba(20,22,26,.55); }
+.cw-book-light .ring-white\/10, .cw-book-light .ring-white\/25 { --tw-ring-color:rgba(20,22,26,.12); }
 
-.cw-book-light .text-white { color:#16181c; }
+.cw-book-light .text-white { color:#1a1a1a; }
 .cw-book-light .text-white\/80, .cw-book-light .text-white\/75, .cw-book-light .text-white\/70,
-.cw-book-light .text-white\/60, .cw-book-light .text-white\/50 { color:#5b6169; }
+.cw-book-light .text-white\/60, .cw-book-light .text-white\/50 { color:#6b6b6b; }
 .cw-book-light .text-\[\#8f8f8f\], .cw-book-light .text-\[\#999\], .cw-book-light .text-\[\#aaa\],
 .cw-book-light .text-\[\#9a9a9a\], .cw-book-light .text-\[\#cfcfcf\], .cw-book-light .text-\[\#c4c4c4\],
-.cw-book-light .text-\[\#b6b7ba\], .cw-book-light .text-\[\#8a8a8a\], .cw-book-light .text-\[\#9a9a9a\] { color:#5b6169; }
-.cw-book-light .text-\[\#6e6e6e\], .cw-book-light .text-\[\#555\] { color:#9aa0a8; }
-.cw-book-light .placeholder\:text-\[\#8f8f8f\]::placeholder, .cw-book-light .placeholder\:text-\[\#6e6e6e\]::placeholder { color:#9aa0a8; }
+.cw-book-light .text-\[\#b6b7ba\], .cw-book-light .text-\[\#8a8a8a\] { color:#6b6b6b; }
+.cw-book-light .text-\[\#6e6e6e\], .cw-book-light .text-\[\#555\] { color:#9a9a9a; }
+.cw-book-light .placeholder\:text-\[\#8f8f8f\]::placeholder, .cw-book-light .placeholder\:text-\[\#6e6e6e\]::placeholder { color:#9a9a9a; }
 
-/* Accent — white/gold fills become a dark pill; the black text/icons on them go white. */
-.cw-book-light .bg-white, .cw-book-light .bg-gold { background-color:#16181c; }
-.cw-book-light .hover\:bg-white\/90:hover, .cw-book-light .hover\:bg-\[\#eaeaea\]:hover { background-color:#2a2d33; }
+/* Accent — white/gold fills become a charcoal pill; the black text/icons go white. */
+.cw-book-light .bg-white, .cw-book-light .bg-gold { background-color:#1a1a1a; }
+.cw-book-light .hover\:bg-white\/90:hover, .cw-book-light .hover\:bg-\[\#eaeaea\]:hover { background-color:#333333; }
 .cw-book-light .text-black { color:#ffffff; }
 .cw-book-light .text-black\/60, .cw-book-light .text-black\/55 { color:rgba(255,255,255,.65); }
 
 /* Keep the cinematic hero dark (it's a banner) even on the light flow. */
-.cw-book-light .cw-keepdark, .cw-book-light .cw-keepdark .bg-black { background-color:#000; }
+.cw-book-light .cw-keepdark, .cw-book-light .cw-keepdark .bg-black { background-color:#000; box-shadow:none; }
 .cw-book-light .cw-keepdark .text-white { color:#ffffff; }
 .cw-book-light .cw-keepdark .text-\[\#8a8a8a\], .cw-book-light .cw-keepdark .text-\[\#6e6e6e\],
 .cw-book-light .cw-keepdark .text-\[\#c4c4c4\], .cw-book-light .cw-keepdark .text-\[\#b6b7ba\] { color:#b6b7ba; }
