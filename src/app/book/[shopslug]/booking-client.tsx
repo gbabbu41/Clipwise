@@ -1524,13 +1524,13 @@ export default function BookingClient() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
+    <div className="cw-book-light min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header — only on the first (Service) step, so the When + Confirm
           views drop the banner and stay focused on the task. */}
       {step === serviceStepIndex && (
-      <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
+      <div className="cw-keepdark relative overflow-hidden bg-black border-b border-[#2a2a2a]">
         {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
         <div className="cw-shopbg" aria-hidden="true">
           <div className="cw-shopbg-l cw-shopbg-drift">
