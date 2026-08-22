@@ -1406,7 +1406,7 @@ export default function BookingClient() {
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
-          <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
+          <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: confirmedSummary?.shopName || shop.name },
               { label: "Barber", value: dispBarber },
@@ -1496,7 +1496,7 @@ export default function BookingClient() {
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
   const noShowConsentBox = (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-black overflow-hidden">
+    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden">
       <div className="flex items-start gap-3 p-4">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-400">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1695,7 +1695,7 @@ export default function BookingClient() {
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
               >
                 {b.photo
                   ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-14 h-14 rounded-full object-cover border border-[#2a2a2a]" />
@@ -2052,7 +2052,7 @@ export default function BookingClient() {
                   <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setExpandedSlot(null)} />
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                      <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
+                      <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-base font-bold text-white">Choose a barber</h3>
@@ -2203,7 +2203,7 @@ export default function BookingClient() {
           return (
           <div className="space-y-4 animate-fade-in mt-7">
             <h2 className="text-lg font-semibold text-white">Review</h2>
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
+            <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
               {[
                 { label: "Barber", value: barber?.name ?? "Any" },
                 { label: servicesPicked.length > 1 ? "Services" : "Service", value: servicesPicked.map(s => s.name).join(" + ") || "" },
@@ -2268,7 +2268,7 @@ export default function BookingClient() {
                 consent below only appear for the online path — a pay-in-person
                 customer is never shown a tip picker or asked for a card. */}
             {bothMethods && (
-              <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
                 <p className="text-sm font-semibold text-white mb-3">How would you like to pay?</p>
                 <div className="grid grid-cols-1 gap-2">
                   <button type="button" onClick={() => setPayMethodChoice("online")}
@@ -2292,7 +2292,7 @@ export default function BookingClient() {
             )}
             {/* Optional tip — online only, shown once "Pay online" is the chosen (or sole) method. */}
             {effectiveMethod === "online" && tipsEnabledShop && (
-              <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold text-white">Add a tip</span>
                   <span className="text-xs text-[#8f8f8f]">Optional · online payment</span>
@@ -2334,7 +2334,7 @@ export default function BookingClient() {
           as a rounded pill that floats with margin instead of a square
           edge-to-edge bar, so it reads distinct from theirs. */}
       <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
-        <div className="pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+        <div className="cw-book-bar pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
           {/* Running total — only shown when at least one service is picked.
               Falls back to a tiny step caption otherwise so the bar isn't empty. */}
           {servicesPicked.length > 0 ? (
@@ -2406,7 +2406,7 @@ export default function BookingClient() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => !waitlistSaving && setShowWaitlistModal(false)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white">Join the waitlist</h2>
