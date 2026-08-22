@@ -1922,7 +1922,7 @@ export default function BookingClient() {
                             }
                           }}
                           className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
-                            active ? "bg-gold text-black shadow-[0_3px_12px_rgba(205,168,106,0.28)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
+                            active ? "bg-gold text-black shadow-[0_3px_12px_rgba(52,211,153,0.28)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
                           <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
                             active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
                             {b === null
