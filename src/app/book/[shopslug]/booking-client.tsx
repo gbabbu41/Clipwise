@@ -2089,8 +2089,8 @@ export default function BookingClient() {
 
         {/* Client Info Step */}
         {step === clientStepIndex && (
-          <div className="space-y-2.5 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Your details</h2>
+          <div className="space-y-3.5 animate-fade-in">
+            <h2 className="text-lg font-semibold text-white mb-1">Your details</h2>
             {([
               { key: "name" as const, placeholder: "Full name", type: "text" },
               { key: "phone" as const, placeholder: "Mobile number", type: "tel" },
@@ -2115,7 +2115,7 @@ export default function BookingClient() {
                     });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-4 text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
                     clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
                 />
                 {clientErrors[key] && <p className="text-xs text-red-400 mt-1">{clientErrors[key]}</p>}
@@ -2128,7 +2128,7 @@ export default function BookingClient() {
             stays short. Loyalty (a returning-customer perk) + any applied code
             stay visible; the inputs live behind one disclosure. */}
         {step === promoStepIndex && (
-          <div className="space-y-3">
+          <div className="space-y-3 mt-7">
             {/* Loyalty — only for a recognized returning customer with enough
                 points (server-decided). One tap to spend them. */}
             {loyalty?.eligible && (
@@ -2201,7 +2201,7 @@ export default function BookingClient() {
         {/* Confirm Step */}
         {step === confirmStepIndex && (() => {
           return (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-4 animate-fade-in mt-7">
             <h2 className="text-lg font-semibold text-white">Review</h2>
             <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
               {[
