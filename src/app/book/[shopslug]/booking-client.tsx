@@ -1929,7 +1929,7 @@ export default function BookingClient() {
                               if (id && (!entry || !entry.barberIds.includes(id))) setSelectedTime(null);
                             }
                           }}
-                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
+                          className={cn("cw-barber-cap flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
                             active ? "bg-white text-black shadow-[0_3px_12px_rgba(255,255,255,0.14)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
                           <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
                             active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
@@ -2140,7 +2140,7 @@ export default function BookingClient() {
                   <p className="text-xs text-[#8f8f8f] mt-0.5">{loyalty.points} pts · up to {formatCurrency(loyalty.value)} off this visit</p>
                 </div>
                 <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
-                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
+                  <span className={cn("cw-knob absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
                 </span>
               </button>
             )}
