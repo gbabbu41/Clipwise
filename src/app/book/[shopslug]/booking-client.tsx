@@ -1524,7 +1524,7 @@ export default function BookingClient() {
   );
 
   return (
-    <div className="cw-book-gold min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
+    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop Header — only on the first (Service) step, so the When + Confirm
@@ -1666,13 +1666,21 @@ export default function BookingClient() {
       {/* Progress — a slim gold segmented bar (replaces the numbered circles). */}
       <div ref={progressRef} className="bg-black border-b border-white/[0.06] sticky top-0 z-20">
         <div className="max-w-2xl mx-auto px-5 py-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {visibleSteps.map((s, i) => (
-              <div key={s + i} className={cn("h-[3px] flex-1 rounded-full transition-colors", i <= visibleStep ? "bg-gold" : "bg-white/[0.08]")} />
+              <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
+                <div className={cn(
+                  "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                  i <= visibleStep ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
+                )}>
+                  {i < visibleStep ? <Check size={12} /> : i + 1}
+                </div>
+                {i < visibleSteps.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < visibleStep ? "bg-emerald-400" : "bg-[#242424]")} />}
+              </div>
             ))}
           </div>
           <div className="flex items-center justify-between gap-3 mt-2">
-            <p className="text-[11px] text-[#8f8f8f] font-medium">Step {visibleStep + 1} of {visibleSteps.length} · <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+            <p className="text-xs text-[#8f8f8f]">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
             {/* Shop name for context now the banner is hidden on later steps. */}
             {step !== serviceStepIndex && <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>}
           </div>
@@ -1716,10 +1724,10 @@ export default function BookingClient() {
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
-              <div className="bg-[#141414] rounded-2xl p-3 space-y-2">
+              <div className="bg-black/5 border border-[#2a2a2a] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
                         className="ml-0.5 w-5 h-5 rounded-full bg-white/10 hover:bg-gold/40 flex items-center justify-center" aria-label="Remove">
@@ -1728,7 +1736,7 @@ export default function BookingClient() {
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center justify-between text-sm pt-1 border-t border-white/[0.07]">
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-[#2a2a2a]">
                   <span className="text-[#8f8f8f]">{servicesPicked.length} service{servicesPicked.length !== 1 ? "s" : ""} · {totalDuration} min</span>
                   <span className="text-white font-bold">{formatCurrency(totalPrice)}</span>
                 </div>
@@ -1738,7 +1746,7 @@ export default function BookingClient() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors", categoryFilter === cat ? "bg-gold/15 text-gold ring-1 ring-gold" : "bg-[#141414] text-[#8f8f8f] hover:text-white")}
+                  className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-all border", categoryFilter === cat ? "bg-white text-black border-white" : "bg-[#141414] border-[#2a2a2a] text-[#8f8f8f] hover:text-white")}
                 >{cat}</button>
               ))}
             </div>
@@ -1748,27 +1756,27 @@ export default function BookingClient() {
                 <p>No services found</p>
               </div>
             )}
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {filteredServices.map((svc) => {
                 const count = selectedServices.filter(id => id === svc.id).length;
                 const isPicked = count > 0;
                 return (
                 <div key={svc.id}
-                  className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-2xl border transition-colors", isPicked ? "border-gold/40 bg-gold/10" : "border-white/[0.08] bg-[#0d0d0d]")}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-white/60 bg-white/[0.04]" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
                 >
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleService(svc.id)}>
+                  <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{svc.name}</p>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6e6e6e]">{svc.category}</span>
-                      {count > 1 && <span className="text-xs font-semibold text-white">× {count}</span>}
+                      <Badge>{svc.category}</Badge>
+                      {count > 1 && <span className="text-xs text-white">× {count}</span>}
                     </div>
-                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-1 line-clamp-2">{svc.description}</p>}
-                    <p className="text-xs text-[#8f8f8f] mt-1.5 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
+                    {svc.description && <p className="text-xs text-[#8f8f8f] mt-0.5 line-clamp-2">{svc.description}</p>}
+                    <p className="text-xs text-[#8f8f8f] mt-1 flex items-center gap-1"><Clock size={11} /> {svc.duration_minutes} min</p>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-base font-bold text-white tabular-nums">{formatCurrency(svc.price)}</span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-lg font-bold text-white">{formatCurrency(svc.price)}</span>
                     <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-colors", isPicked ? "bg-gold text-black" : "bg-white/10 text-white hover:bg-white/20")} aria-label="Add service">
+                      className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors" aria-label="Add service">
                       +
                     </button>
                   </div>
@@ -1922,7 +1930,7 @@ export default function BookingClient() {
                             }
                           }}
                           className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
-                            active ? "bg-gold text-black shadow-[0_3px_12px_rgba(52,211,153,0.28)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
+                            active ? "bg-white text-black shadow-[0_3px_12px_rgba(255,255,255,0.14)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
                           <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
                             active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
                             {b === null
