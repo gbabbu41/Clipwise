@@ -1720,7 +1720,7 @@ export default function BookingClient() {
         {step === serviceStepIndex && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Choose services</h2>
-            <p className="text-xs text-[#8f8f8f] -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
+            <p className="text-xs text-[#8f8f8f] -mt-1">Pick one or more — combined in one visit.</p>
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
@@ -2089,16 +2089,15 @@ export default function BookingClient() {
 
         {/* Client Info Step */}
         {step === clientStepIndex && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Your information</h2>
+          <div className="space-y-2.5 animate-fade-in">
+            <h2 className="text-lg font-semibold text-white">Your details</h2>
             {([
-              { key: "name" as const, label: "Full Name", placeholder: "Devon Williams", type: "text" },
-              { key: "email" as const, label: "Email Address", placeholder: "devon@email.com", type: "email" },
-              { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
-            ]).map(({ key, label, placeholder, type }) => (
-              <div key={key} className="space-y-1.5">
-                <label htmlFor={`ci-${key}`} className="text-sm font-medium text-[#999]">{label}</label>
-                <input id={`ci-${key}`} type={type} value={clientInfo[key]}
+              { key: "name" as const, placeholder: "Full name", type: "text" },
+              { key: "phone" as const, placeholder: "Mobile number", type: "tel" },
+              { key: "email" as const, placeholder: "Email address", type: "email" },
+            ]).map(({ key, placeholder, type }) => (
+              <div key={key}>
+                <input id={`ci-${key}`} type={type} value={clientInfo[key]} aria-label={placeholder}
                   onChange={(e) => {
                     const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
                     setClientInfo({ ...clientInfo, [key]: val });
@@ -2116,13 +2115,12 @@ export default function BookingClient() {
                     });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
                     clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
                 />
-                {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
+                {clientErrors[key] && <p className="text-xs text-red-400 mt-1">{clientErrors[key]}</p>}
               </div>
             ))}
-            <p className="text-xs text-[#999]">You&apos;ll receive a confirmation to the details provided.</p>
           </div>
         )}
 
@@ -2204,17 +2202,15 @@ export default function BookingClient() {
         {step === confirmStepIndex && (() => {
           return (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Review your booking</h2>
+            <h2 className="text-lg font-semibold text-white">Review</h2>
             <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
               {[
-                { label: "Shop", value: shop.name },
-                { label: "Barber", value: barber?.name ?? "Any Available" },
+                { label: "Barber", value: barber?.name ?? "Any" },
                 { label: servicesPicked.length > 1 ? "Services" : "Service", value: servicesPicked.map(s => s.name).join(" + ") || "" },
-                { label: "Total Duration", value: `${totalDuration} min` },
-                { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) ?? "" },
-                { label: "Start Time", value: selectedTime ?? "" },
+                { label: "Duration", value: `${totalDuration} min` },
+                { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" }) ?? "" },
+                { label: "Time", value: selectedTime ?? "" },
                 { label: "Name", value: clientInfo.name },
-                { label: "Email", value: clientInfo.email },
                 { label: "Phone", value: clientInfo.phone },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm">
