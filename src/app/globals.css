@@ -528,6 +528,26 @@ h1, h2, h3, h4 {
 .cw-noscroll { -ms-overflow-style: none; scrollbar-width: none; }
 .cw-noscroll::-webkit-scrollbar { display: none; }
 
+/* Booking-flow accent, scoped to the customer booking flow only. The app-wide
+   `gold` token is white; within `.cw-book-gold` we remap the gold utilities the
+   flow uses to the brand EMERALD (#34d399) so the wizard matches the ClipWise
+   dashboard. Two-class specificity beats the single-class Tailwind utility, so
+   no !important is needed. The hero uses amber CSS (not gold classes) → untouched. */
+.cw-book-gold .bg-gold { background-color:#34d399; }
+.cw-book-gold .text-gold { color:#34d399; }
+.cw-book-gold .border-gold { border-color:#34d399; }
+.cw-book-gold .border-gold\/40 { border-color:rgba(52,211,153,.4); }
+.cw-book-gold .ring-gold { --tw-ring-color:#34d399; }
+.cw-book-gold .ring-gold\/30 { --tw-ring-color:rgba(52,211,153,.3); }
+.cw-book-gold .bg-gold\/10 { background-color:rgba(52,211,153,.1); }
+.cw-book-gold .bg-gold\/15 { background-color:rgba(52,211,153,.15); }
+.cw-book-gold .hover\:bg-gold\/90:hover { background-color:#2bbd8a; }
+.cw-book-gold .hover\:bg-gold\/20:hover { background-color:rgba(52,211,153,.2); }
+.cw-book-gold .hover\:bg-gold\/40:hover { background-color:rgba(52,211,153,.4); }
+.cw-book-gold .focus\:ring-gold\/30:focus { --tw-ring-color:rgba(52,211,153,.3); }
+.cw-book-gold .focus\:border-gold:focus { border-color:#34d399; }
+.cw-book-gold .focus\:border-gold\/50:focus { border-color:rgba(52,211,153,.5); }
+
 /* Subtle two-tone wordmark gradient */
 .gold-text {
   background: linear-gradient(135deg, var(--gold), var(--gold-light));

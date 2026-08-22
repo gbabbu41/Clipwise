@@ -188,6 +188,10 @@ export default function BookingClient() {
   // ── Shared step state ──────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
   const [selectedBarber, setSelectedBarber] = useState<string | null>(null); // null = "Any"
+  // Optional barber FILTER on the When step (null = Anyone). It only narrows which
+  // times are shown; the actual barber is set when a slot is tapped, so it never
+  // dead-ends the customer — Anyone is always one tap away.
+  const [barberFilter, setBarberFilter] = useState<string | null>(null);
   // Multi-service: customer can pick more than one (e.g. cut + beard, or
   // two haircuts for parent + child). They get booked back-to-back with the
   // same barber. selectedServices[0] is the legacy "primary" for code paths
@@ -208,6 +212,9 @@ export default function BookingClient() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  // Promo + gift-card inputs are collapsed on the Confirm screen (most people
+  // don't have a code) so that screen stays short.
+  const [showPromoGift, setShowPromoGift] = useState(false);
   // Loyalty: returning customers recognized by email/phone can spend points.
   // `loyalty` is what the shop says they're eligible for; `redeemPoints` is their
   // choice. The discount amount is always recomputed server-side at checkout.
@@ -387,9 +394,9 @@ export default function BookingClient() {
     (barbers.length === 1 ? barbers[0] : null);
   useEffect(() => {
     if (!lockedBarber) return;
-    setFlow("barber-first");
+    // A one-barber shop / ?barber= link just pre-selects that barber; the barber
+    // filter on the When step is hidden when there's nothing to choose.
     setSelectedBarber(lockedBarber.id);
-    setStep((s) => (s < 1 ? 1 : s)); // skip the Barber-pick step
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockedBarber?.id]);
 
@@ -1170,14 +1177,12 @@ export default function BookingClient() {
     return [{ ...s, barberIds: Array.from(intersection) }];
   });
 
-  // Steps — Date + Time merged into one Apple-style "When" step.
-  const STEPS_TIME_FIRST = ["Service", "When", "Your Info", "Promo", "Confirm"];
-  const STEPS_BARBER_FIRST = ["Barber", "Service", "When", "Your Info", "Promo", "Confirm"];
-  const STEPS = flow === "time-first" ? STEPS_TIME_FIRST : STEPS_BARBER_FIRST;
-  // When locked to one barber, the "Barber" step is pre-done — drop it from the
-  // progress bar (display only; internal `step` stays barber-first-indexed).
-  const visibleSteps = lockedBarber ? STEPS.slice(1) : STEPS;
-  const visibleStep = lockedBarber ? Math.max(0, step - 1) : step;
+  // Reflow: a lean 3-step wizard. Your Info + Promo fold into the Confirm screen,
+  // and the barber is an OPTIONAL filter on the When step — no separate Barber
+  // step and no time-first/barber-first toggle (the shop always books time-first).
+  const STEPS = ["Service", "When", "Confirm"];
+  const visibleSteps = STEPS;
+  const visibleStep = step;
 
   const validateClientInfo = () => {
     const errs: Record<string, string> = {};
@@ -1231,19 +1236,11 @@ export default function BookingClient() {
     }
   };
 
+  const clientInfoValid = () => !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
   const canNext = () => {
-    if (flow === "time-first") {
-      if (step === 0) return !!selectedService;
-      if (step === 1) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
-      if (step === 2) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
-      return true;
-    } else {
-      if (step === 0) return !!selectedBarber;
-      if (step === 1) return !!selectedService;
-      if (step === 2) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
-      if (step === 3) return !!(clientInfo.name && clientInfo.email && clientInfo.phone) && Object.keys(validateClientInfo()).length === 0;
-      return true;
-    }
+    if (step === serviceStepIndex) return !!selectedService;
+    if (step === whenStepIndex) return !!selectedDate && isWithin6Months(selectedDate) && !!selectedTime;
+    return true; // Confirm (last) step — the Confirm button gates itself (see below)
   };
 
   const switchFlow = (f: "time-first" | "barber-first") => {
@@ -1265,7 +1262,7 @@ export default function BookingClient() {
   const historyStepRef = useRef(-1);
   useEffect(() => {
     if (typeof window === "undefined" || pageLoading) return;
-    const first = lockedBarber ? 1 : 0;
+    const first = 0;
     const prev = historyStepRef.current;
     if (prev === -1) {
       // Baseline: tag the current entry with the first step (no new entry added).
@@ -1288,7 +1285,7 @@ export default function BookingClient() {
     const onPop = (e: PopStateEvent) => {
       const bs = (e.state as { bookingStep?: number } | null)?.bookingStep;
       if (typeof bs !== "number") return; // before the flow → let the browser leave
-      const first = lockedBarber ? 1 : 0;
+      const first = 0;
       const target = Math.min(STEPS.length - 1, Math.max(first, bs));
       historyStepRef.current = target; // pre-sync so the effect above sees no change
       setStep(target);
@@ -1475,7 +1472,7 @@ export default function BookingClient() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -1487,12 +1484,14 @@ export default function BookingClient() {
   const isTimeFirstStep = (s: number) => flow === "time-first" ? s : -1;
   const isBarberFirstStep = (s: number) => flow === "barber-first" ? s : -1;
 
-  // Shared steps (Date + Time merged into one Apple-style "When" step)
-  const serviceStepIndex = flow === "time-first" ? 0 : 1;
-  const whenStepIndex = flow === "time-first" ? 1 : 2;
-  const clientStepIndex = flow === "time-first" ? 2 : 3;
-  const promoStepIndex = flow === "time-first" ? 3 : 4;
-  const confirmStepIndex = flow === "time-first" ? 4 : 5;
+  // Shared steps (Date + Time merged into one "When" step). Your Info + Promo now
+  // CO-RENDER on the Confirm screen — all three blocks are guarded to step 2, so
+  // they stack into one final screen (contact → promo → summary + pay).
+  const serviceStepIndex = 0;
+  const whenStepIndex = 1;
+  const clientStepIndex = 2;
+  const promoStepIndex = 2;
+  const confirmStepIndex = 2;
 
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
@@ -1528,7 +1527,9 @@ export default function BookingClient() {
     <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
-      {/* Shop Header */}
+      {/* Shop Header — only on the first (Service) step, so the When + Confirm
+          views drop the banner and stay focused on the task. */}
+      {step === serviceStepIndex && (
       <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
         {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
         <div className="cw-shopbg" aria-hidden="true">
@@ -1637,31 +1638,13 @@ export default function BookingClient() {
           })()}
         </div>
       </div>
-
-      {/* Flow Toggle — hidden on a barber-specific link (barber is locked). */}
-      {!lockedBarber && (
-      <div className="bg-black border-b border-[#2a2a2a]">
-        <div className="max-w-2xl mx-auto px-5 py-3 flex gap-2">
-          {(["time-first", "barber-first"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => switchFlow(f)}
-              className={cn(
-                "flex-1 py-3 px-3 rounded-full text-sm font-bold transition-all",
-                flow === f
-                  ? "bg-white text-black shadow-[0_2px_12px_rgba(255,255,255,0.12)]"
-                  : "bg-[#141414] text-[#8f8f8f] border border-[#2a2a2a] hover:text-white"
-              )}
-            >
-              {f === "time-first" ? "Choose Time First" : "Choose Barber First"}
-            </button>
-          ))}
-        </div>
-      </div>
       )}
 
-      {/* Booking-with-this-barber header (barber-specific link) */}
-      {lockedBarber && (
+      {/* (Flow toggle removed — the shop always books time-first; the barber is an
+          optional filter on the When step, so there's no dead-end.) */}
+
+      {/* Booking-with-this-barber header (barber-specific link) — first step only. */}
+      {lockedBarber && step === serviceStepIndex && (
         <div className="bg-black border-b border-[#2a2a2a]">
           <div className="max-w-2xl mx-auto px-5 py-4">
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
@@ -1680,9 +1663,9 @@ export default function BookingClient() {
         </div>
       )}
 
-      {/* Progress */}
-      <div ref={progressRef} className="bg-black border-b border-[#2a2a2a] sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-5 py-3.5">
+      {/* Progress — a slim gold segmented bar (replaces the numbered circles). */}
+      <div ref={progressRef} className="bg-black border-b border-white/[0.06] sticky top-0 z-20">
+        <div className="max-w-2xl mx-auto px-5 py-3">
           <div className="flex items-center gap-1">
             {visibleSteps.map((s, i) => (
               <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
@@ -1696,7 +1679,11 @@ export default function BookingClient() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#8f8f8f] mt-2">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+          <div className="flex items-center justify-between gap-3 mt-2">
+            <p className="text-xs text-[#8f8f8f]">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
+            {/* Shop name for context now the banner is hidden on later steps. */}
+            {step !== serviceStepIndex && <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>}
+          </div>
         </div>
       </div>
 
@@ -1733,7 +1720,7 @@ export default function BookingClient() {
         {step === serviceStepIndex && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-white">Choose services</h2>
-            <p className="text-xs text-[#8f8f8f] -mt-1">Pick one or more (e.g. cut + beard, or two haircuts for a family booking).</p>
+            <p className="text-xs text-[#8f8f8f] -mt-1">Pick one or more — combined in one visit.</p>
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
@@ -1839,7 +1826,11 @@ export default function BookingClient() {
           // barberIds are the barbers free for the FULL service duration (not
           // just the start slot). Using the raw grid gave wrong "N free" counts
           // and could auto-select a barber free only at the start → double-book.
-          const bookableSlots = slotGridForBlock.filter(({ slot }) => !(isTodaySelected && isSlotInPast(slot)));
+          const bookableSlots = slotGridForBlock
+            .filter(({ slot }) => !(isTodaySelected && isSlotInPast(slot)))
+            // Optional barber filter: when a specific barber is chosen, show only
+            // times they're free for. "Anyone" (null) shows every open slot.
+            .filter(({ barberIds }) => !barberFilter || barberIds.includes(barberFilter));
 
           // Group bookable slots into parts of the day so a 15-min-granularity
           // shop with 40+ openings stays scannable.
@@ -1863,67 +1854,41 @@ export default function BookingClient() {
                   the whole page stays a single smooth scroller and the strip never
                   scrolls away. bg-black hides slots passing underneath. */}
               <div className="sticky z-10 bg-black pt-2" style={{ top: stickyTop }}>
-              {/* Header row: back / next week arrows (icon-only) */}
-              <div className="flex items-center justify-between px-4 pb-2">
-                <button
-                  aria-label="Previous week"
-                  disabled={!canGoPrev}
-                  onClick={() => { if (!canGoPrev) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
-                    canGoPrev ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#6e6e6e] cursor-not-allowed",
-                  )}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  aria-label="Next week"
-                  disabled={!canGoNext}
-                  onClick={() => { if (!canGoNext) return; autoAdvanceRef.current.active = false; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setSelectedDate(d); setSelectedTime(null); }}
-                  className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors",
-                    canGoNext ? "bg-[#141414] hover:bg-[#141414]/80" : "bg-[#141414]/30 text-[#6e6e6e] cursor-not-allowed",
-                  )}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-
-              {/* Week strip */}
-              <div className="grid grid-cols-7 px-2 pb-2">
-                {weekDays.map((day) => {
-                  const dayStr = formatDateForDb(day);
-                  const isSelectedDay = dayStr === dateStr;
-                  // The rolling strip starts at today, so no day here is ever in
-                  // the past. Disable only days where the relevant barber isn't
-                  // scheduled or is on approved full-day time-off.
-                  const isBarberOff = flow === "barber-first" && selectedBarber && selectedBarber !== "any" && !isBarberAvailableOnDate(selectedBarber, day);
-                  const isShopClosed = flow !== "barber-first" && !isShopAvailableOnDate(day);
-                  const isBeyondWindow = day > maxDate;
-                  const disabled = !!isBarberOff || isShopClosed || isBeyondWindow;
-                  const isTodayDay = dayStr === todayStr;
-                  return (
-                    <button key={dayStr} disabled={disabled}
-                      onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
-                      className="flex flex-col items-center py-1.5 disabled:cursor-not-allowed"
-                    >
-                      <span className={cn("text-[10px] uppercase tracking-wider", disabled ? "text-[#6e6e6e]" : "text-[#8f8f8f]")}>
-                        {day.toLocaleDateString("en-CA", { weekday: "narrow" })}
-                      </span>
-                      <span className={cn(
-                        "text-base font-medium mt-1.5 w-9 h-9 rounded-full inline-flex items-center justify-center transition-colors",
-                        // Selected day: solid WHITE pill (visible on the black
-                        // page — a black pill was invisible before). Today (when
-                        // not selected) gets a subtle ring so it's identifiable.
-                        isSelectedDay ? "bg-white text-black font-bold" :
-                        isTodayDay && !disabled ? "text-white ring-1 ring-white/40" :
-                        disabled ? "text-[#6e6e6e]" : "text-white",
-                      )}>
-                        {day.getDate()}
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* Day rail — a horizontally-scrollable strip of rounded pills from
+                  today through the shop's booking window (replaces the paged
+                  week + arrows). Each pill: DOW label + big number, champagne
+                  when selected. */}
+              <div className="flex gap-2 overflow-x-auto cw-noscroll px-4 pb-3">
+                {(() => {
+                  const DAY_MS = 86400000;
+                  const span = Math.min(90, Math.max(1, Math.round((maxDate.getTime() - today.getTime()) / DAY_MS) + 1));
+                  return Array.from({ length: span }, (_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)).map((day, i) => {
+                    const dayStr = formatDateForDb(day);
+                    const isSelectedDay = dayStr === dateStr;
+                    // Grey a day the FILTERED barber isn't scheduled/off, or the
+                    // shop is closed. (No past days — the rail starts at today.)
+                    const isBarberOff = !!barberFilter && !isBarberAvailableOnDate(barberFilter, day);
+                    const isShopClosed = !isShopAvailableOnDate(day);
+                    const disabled = isBarberOff || isShopClosed;
+                    const isTodayDay = dayStr === todayStr;
+                    const label = i === 0 ? "Today" : i === 1 ? "Tmrw" : day.toLocaleDateString("en-CA", { weekday: "short" });
+                    return (
+                      <button key={dayStr} disabled={disabled}
+                        onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
+                        className={cn(
+                          "flex-shrink-0 w-[56px] py-2.5 rounded-2xl flex flex-col items-center transition-colors",
+                          isSelectedDay ? "bg-gold text-black"
+                            : disabled ? "bg-[#0d0d0d] text-[#555] cursor-not-allowed"
+                              : "bg-[#141414] text-white hover:bg-[#1c1c1c]",
+                          isTodayDay && !isSelectedDay && !disabled && "ring-1 ring-white/25",
+                        )}
+                      >
+                        <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isSelectedDay ? "text-black/55" : "text-[#8f8f8f]")}>{label}</span>
+                        <span className={cn("text-lg font-bold mt-1", isSelectedDay ? "text-black" : "")}>{day.getDate()}</span>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
 
               {/* Date title row (center) — weekday is always shown, with a
@@ -1943,6 +1908,47 @@ export default function BookingClient() {
                 </p>
               </div>
               </div>{/* end sticky header (nav + strip + date title) */}
+
+              {/* Barber filter — optional, never a gate. Defaults to Anyone; picking
+                  a barber just narrows the times below. Hidden for single-barber /
+                  barber-locked shops (nothing to choose). */}
+              {!lockedBarber && barbers.length > 1 && (
+                <div className="px-4 pt-1 pb-3">
+                  <div className="flex gap-2 overflow-x-auto cw-noscroll">
+                    {([null, ...barbers] as (null | typeof barbers[number])[]).map((b) => {
+                      const id = b ? b.id : null;
+                      const active = barberFilter === id;
+                      const first = b ? b.name.split(" ")[0] : "Anyone";
+                      return (
+                        <button key={id ?? "any"} type="button"
+                          onClick={() => {
+                            setBarberFilter(id);
+                            // Drop a chosen time if the new barber isn't free then.
+                            if (selectedTime) {
+                              const entry = slotGridForBlock.find(s => s.slot === selectedTime);
+                              if (id && (!entry || !entry.barberIds.includes(id))) setSelectedTime(null);
+                            }
+                          }}
+                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
+                            active ? "bg-white text-black shadow-[0_3px_12px_rgba(255,255,255,0.14)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
+                          <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
+                            active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
+                            {b === null
+                              ? <span aria-hidden="true">✨</span>
+                              : b.photo
+                                ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                                : (b.name[0] || "?").toUpperCase()}
+                          </span>
+                          {first}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {barberFilter && (
+                    <p className="mt-2 text-[11.5px] text-[#8f8f8f] px-0.5">Showing {barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0]}&apos;s openings — tap <span className="text-white font-medium">Anyone</span> to see all times.</p>
+                  )}
+                </div>
+              )}
 
               {/* Slot list — flows in the single page scroll; the sticky header
                   above stays pinned as these scroll past. */}
@@ -1979,9 +1985,11 @@ export default function BookingClient() {
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && (
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
-                      {servicesPicked.length > 1
-                        ? `${flow === "barber-first" ? "This barber doesn't have" : "No barber has"} ${totalDuration} min open on this day`
-                        : "No more openings on this day"}
+                      {barberFilter
+                        ? `${barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "This barber"} has no openings this day — try Anyone, or another day`
+                        : servicesPicked.length > 1
+                          ? `No barber has ${totalDuration} min open on this day`
+                          : "No more openings on this day"}
                     </p>
                     <p className="text-xs text-[#8f8f8f] mt-1">Try another day.</p>
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
@@ -2009,26 +2017,18 @@ export default function BookingClient() {
                             return (
                               <button key={slot}
                                 onClick={() => {
-                                  if (barberIds.length === 1) {
-                                    setSelectedTime(slot);
-                                    setSelectedBarber(barberIds[0]);
-                                  } else {
-                                    setExpandedSlot(slot);
-                                  }
+                                  if (barberFilter) { setSelectedTime(slot); setSelectedBarber(barberFilter); }
+                                  else if (barberIds.length === 1) { setSelectedTime(slot); setSelectedBarber(barberIds[0]); }
+                                  else { setExpandedSlot(slot); }
                                 }}
                                 className={cn(
-                                  "rounded-xl border py-2.5 px-1 flex flex-col items-center justify-center transition-all",
+                                  "rounded-xl py-3 text-sm font-semibold transition-colors",
                                   isSelectedSlot
-                                    ? "bg-gold border-gold text-black font-bold ring-2 ring-gold/40 scale-[1.03]"
-                                    : "bg-sky-500/15 border-sky-400/60 hover:bg-sky-500/25 text-white",
+                                    ? "bg-gold text-black"
+                                    : "bg-[#141414] hover:bg-[#1c1c1c] text-white",
                                 )}
                               >
-                                <span className="text-sm font-semibold leading-none">{slot}</span>
-                                <span className={cn("text-[10px] leading-none mt-1 truncate max-w-full", isSelectedSlot ? "text-black/70" : "text-sky-300")}>
-                                  {barberIds.length === 1
-                                    ? barbers.find(b => b.id === barberIds[0])?.name?.split(" ")[0] ?? "barber"
-                                    : `${barberIds.length} free`}
-                                </span>
+                                {slot}
                               </button>
                             );
                           })}
@@ -2089,16 +2089,15 @@ export default function BookingClient() {
 
         {/* Client Info Step */}
         {step === clientStepIndex && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Your information</h2>
+          <div className="space-y-2.5 animate-fade-in">
+            <h2 className="text-lg font-semibold text-white">Your details</h2>
             {([
-              { key: "name" as const, label: "Full Name", placeholder: "Devon Williams", type: "text" },
-              { key: "email" as const, label: "Email Address", placeholder: "devon@email.com", type: "email" },
-              { key: "phone" as const, label: "Phone Number", placeholder: "506-555-0201", type: "tel" },
-            ]).map(({ key, label, placeholder, type }) => (
-              <div key={key} className="space-y-1.5">
-                <label htmlFor={`ci-${key}`} className="text-sm font-medium text-[#999]">{label}</label>
-                <input id={`ci-${key}`} type={type} value={clientInfo[key]}
+              { key: "name" as const, placeholder: "Full name", type: "text" },
+              { key: "phone" as const, placeholder: "Mobile number", type: "tel" },
+              { key: "email" as const, placeholder: "Email address", type: "email" },
+            ]).map(({ key, placeholder, type }) => (
+              <div key={key}>
+                <input id={`ci-${key}`} type={type} value={clientInfo[key]} aria-label={placeholder}
                   onChange={(e) => {
                     const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
                     setClientInfo({ ...clientInfo, [key]: val });
@@ -2116,42 +2115,25 @@ export default function BookingClient() {
                     });
                   }}
                   placeholder={placeholder}
-                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
                     clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
                 />
-                {clientErrors[key] && <p className="text-xs text-red-400">{clientErrors[key]}</p>}
+                {clientErrors[key] && <p className="text-xs text-red-400 mt-1">{clientErrors[key]}</p>}
               </div>
             ))}
-            <p className="text-xs text-[#999]">You&apos;ll receive a confirmation to the details provided.</p>
           </div>
         )}
 
-        {/* Promo Code Step */}
+        {/* Promo / loyalty / gift — collapsed by default so the Confirm screen
+            stays short. Loyalty (a returning-customer perk) + any applied code
+            stay visible; the inputs live behind one disclosure. */}
         {step === promoStepIndex && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Have a promo code?</h2>
-            <p className="text-[#8f8f8f] text-sm">Optional — skip if you don&apos;t have one.</p>
-            <div className="flex gap-2">
-              <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" aria-label="Promo code"
-                className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest"
-              />
-              <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
-            </div>
-            {promoError && <p className="text-xs text-red-400">{promoError}</p>}
-            {promoApplied && (
-              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                <Check size={16} className="text-emerald-400" />
-                <span className="text-sm text-emerald-400 font-medium">
-                  {promoApplied.code} applied! Save {promoApplied.discount_type === "percent" ? `${promoApplied.discount_value}%` : formatCurrency(promoApplied.discount_value)}
-                </span>
-              </div>
-            )}
-
-            {/* Loyalty — only shown to a recognized returning customer with
-                enough points (server-decided). One tap to spend them. */}
+          <div className="space-y-3">
+            {/* Loyalty — only for a recognized returning customer with enough
+                points (server-decided). One tap to spend them. */}
             {loyalty?.eligible && (
               <button type="button" onClick={() => setRedeemPoints((v) => !v)}
-                className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors mt-2",
+                className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors",
                   redeemPoints ? "bg-emerald-500/10 border-emerald-500/40" : "bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a]")}>
                 <div>
                   <p className="text-sm font-semibold text-white">⭐ Use your loyalty points</p>
@@ -2163,23 +2145,56 @@ export default function BookingClient() {
               </button>
             )}
 
-            {/* Gift card — stored money, applied like cash to the total. */}
-            <div className="pt-1">
-              <p className="text-sm text-white mb-1.5">Have a gift card?</p>
-              {giftCard ? (
-                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                  <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
-                  <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="GIFT CARD CODE" aria-label="Gift card code"
-                    className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
-                  <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
-                </div>
-              )}
-              {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
-            </div>
+            {/* Applied promo / gift stay visible even when the inputs are collapsed. */}
+            {promoApplied && (
+              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                <Check size={16} className="text-emerald-400" />
+                <span className="text-sm text-emerald-400 font-medium">
+                  {promoApplied.code} applied · save {promoApplied.discount_type === "percent" ? `${promoApplied.discount_value}%` : formatCurrency(promoApplied.discount_value)}
+                </span>
+              </div>
+            )}
+            {giftCard && (
+              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
+                <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
+              </div>
+            )}
+
+            {/* One collapsed disclosure for the promo + gift inputs. */}
+            {(!promoApplied || !giftCard) && (
+              <div>
+                <button type="button" onClick={() => setShowPromoGift((v) => !v)}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-white/75 hover:text-white">
+                  <span className={cn("text-lg leading-none transition-transform", showPromoGift && "rotate-45")}>+</span>
+                  Have a promo code or gift card?
+                </button>
+                {showPromoGift && (
+                  <div className="mt-3 space-y-3">
+                    {!promoApplied && (
+                      <div>
+                        <div className="flex gap-2">
+                          <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" aria-label="Promo code"
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                          <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
+                        </div>
+                        {promoError && <p className="text-xs text-red-400 mt-1">{promoError}</p>}
+                      </div>
+                    )}
+                    {!giftCard && (
+                      <div>
+                        <div className="flex gap-2">
+                          <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="Gift card code" aria-label="Gift card code"
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                          <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
+                        </div>
+                        {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -2187,17 +2202,15 @@ export default function BookingClient() {
         {step === confirmStepIndex && (() => {
           return (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white">Review your booking</h2>
+            <h2 className="text-lg font-semibold text-white">Review</h2>
             <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
               {[
-                { label: "Shop", value: shop.name },
-                { label: "Barber", value: barber?.name ?? "Any Available" },
+                { label: "Barber", value: barber?.name ?? "Any" },
                 { label: servicesPicked.length > 1 ? "Services" : "Service", value: servicesPicked.map(s => s.name).join(" + ") || "" },
-                { label: "Total Duration", value: `${totalDuration} min` },
-                { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) ?? "" },
-                { label: "Start Time", value: selectedTime ?? "" },
+                { label: "Duration", value: `${totalDuration} min` },
+                { label: "Date", value: selectedDate?.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" }) ?? "" },
+                { label: "Time", value: selectedTime ?? "" },
                 { label: "Name", value: clientInfo.name },
-                { label: "Email", value: clientInfo.email },
                 { label: "Phone", value: clientInfo.phone },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm">
@@ -2260,7 +2273,7 @@ export default function BookingClient() {
                 <div className="grid grid-cols-1 gap-2">
                   <button type="button" onClick={() => setPayMethodChoice("online")}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "online" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "online" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">💳</span>
                     <span className="flex-1 text-sm font-semibold">Pay online now
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "online" ? "text-black/60" : "text-[#8f8f8f]")}>Secure card · add a tip</span>
@@ -2268,7 +2281,7 @@ export default function BookingClient() {
                   </button>
                   <button type="button" onClick={() => { setPayMethodChoice("in_person"); setTipPercent(0); }}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "in_person" ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "in_person" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">🏪</span>
                     <span className="flex-1 text-sm font-semibold">Pay at the shop
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>{payInPersonSavesCard ? "Add a card to hold your spot · not charged unless you no-show" : "No card needed · pay after your cut"}</span>
@@ -2288,7 +2301,7 @@ export default function BookingClient() {
                   {[0, 15, 18, 20].map((p) => (
                     <button key={p} type="button" onClick={() => setTipPercent(p)}
                       className={cn("py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95",
-                        tipPercent === p ? "bg-white text-black border-white" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                        tipPercent === p ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                       {p === 0 ? "No tip" : `${p}%`}
                     </button>
                   ))}
@@ -2340,7 +2353,7 @@ export default function BookingClient() {
             </p>
           )}
 
-          {step > (lockedBarber ? 1 : 0) && (
+          {step > 0 && (
             <button
               type="button"
               onClick={() => { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); }}
@@ -2364,6 +2377,7 @@ export default function BookingClient() {
             <button
               type="button"
               disabled={saving
+                || !clientInfoValid()
                 || (bothMethods && !payMethodChoice)
                 || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
               onClick={() => confirmBooking(effectiveMethod ?? undefined)}
