@@ -1530,7 +1530,7 @@ export default function BookingClient() {
       {/* Shop Header — only on the first (Service) step, so the When + Confirm
           views drop the banner and stay focused on the task. */}
       {step === serviceStepIndex && (
-      <div className="cw-keepdark relative overflow-hidden bg-black border-b border-[#2a2a2a]">
+      <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
         {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
         <div className="cw-shopbg" aria-hidden="true">
           <div className="cw-shopbg-l cw-shopbg-drift">
@@ -1556,7 +1556,7 @@ export default function BookingClient() {
         </div>
         <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
           {/* Logo */}
-          <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
+          <div className="cw-hero-logo w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
             <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
               fallback={
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700 text-white text-3xl font-black tracking-tight">

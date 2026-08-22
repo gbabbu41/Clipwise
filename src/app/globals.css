@@ -559,15 +559,14 @@ h1, h2, h3, h4 {
 /* Root carries `cw-book-light` and `bg-black` on the SAME element, so the
    descendant form below can't reach it — match the compound too, or the page
    ground stays black wherever no card paints over it. */
-.cw-book-light.bg-black, .cw-book-light .bg-black { background-color:#f6f7f9; }
-/* Portal language: white cards float on the soft grey ground. Nothing here is
-   deeply nested, so every dark surface becomes white — big panels get a soft
-   float shadow; dense pills/inputs get a hairline instead (a shadow per grid
-   cell reads heavy). #f1f2f4 on #f6f7f9 has ~no contrast, so we DON'T use it as
-   a resting surface — only as hover feedback. */
+.cw-book-light.bg-black, .cw-book-light .bg-black { background-color:#ffffff; }
+/* Crisp-white language: ground and cards are both #ffffff, separated by clean
+   hairlines — no drop-shadows (a shadow on white reads as a grey "shade"). Every
+   dark surface becomes white; the hairline borders these elements already carry
+   (border-[#2a2a2a] → #e6e8ec) do the separation. Only the floating bar lifts. */
 .cw-book-light .bg-\[\#0d0d0d\], .cw-book-light .bg-black\/5,
 .cw-book-light .bg-\[\#1a1a1a\], .cw-book-light .bg-white\/\[0\.06\] {
-  background-color:#ffffff; box-shadow:0 1px 3px rgba(20,22,26,.06);
+  background-color:#ffffff;
 }
 /* Selected-service card carries a whisper of the accent, not plain white. */
 .cw-book-light .bg-white\/\[0\.04\] { background-color:rgba(10,138,92,.07); }
@@ -639,12 +638,11 @@ h1, h2, h3, h4 {
    shadow (the dark utility shadow it carries reads wrong on light). */
 .cw-book-light .cw-book-bar { background-color:#ffffff; box-shadow:0 8px 28px rgba(20,22,26,.14); }
 
-/* Keep the cinematic hero dark (it's a banner) even on the light flow. */
-.cw-book-light .cw-keepdark, .cw-book-light .cw-keepdark .bg-black { background-color:#000; box-shadow:none; }
-.cw-book-light .cw-keepdark .text-white { color:#ffffff; }
-.cw-book-light .cw-keepdark .text-\[\#8a8a8a\], .cw-book-light .cw-keepdark .text-\[\#6e6e6e\],
-.cw-book-light .cw-keepdark .text-\[\#c4c4c4\], .cw-book-light .cw-keepdark .text-\[\#b6b7ba\] { color:#b6b7ba; }
-.cw-book-light .cw-keepdark .border-\[\#2a2a2a\], .cw-book-light .cw-keepdark .border-\[\#1c1c1c\] { border-color:#242424; }
+/* Shop header is fully light now: hide the cinematic dark backdrop (base/scrim/
+   grain/chair) so the hero shows as a clean white section, and soften the logo's
+   heavy drop shadow so nothing reads as a dark "shade" on the light ground. */
+.cw-book-light .cw-shopbg { display:none; }
+.cw-book-light .cw-hero-logo { box-shadow:0 4px 16px rgba(20,22,26,.10); }
 
 /* Subtle two-tone wordmark gradient */
 .gold-text {
