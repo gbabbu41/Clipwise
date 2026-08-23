@@ -587,6 +587,12 @@ h1, h2, h3, h4 {
 .cw-book-cine .cw-cat.bg-white { background-color:rgba(255,255,255,.12); }
 .cw-book-cine .cw-cat.bg-white.text-black { color:#f5f6f8; }
 .cw-book-cine .cw-cat.border-white { border-color:rgba(255,255,255,.22); }
+/* Cart item chips (selected services in the recap) stay minimal too — a neutral
+   pill, not an emerald tint. Compound selectors so they beat the single-class
+   bg-gold/border-gold rules regardless of source order. */
+.cw-book-cine .cw-cart.bg-gold\/15 { background-color:rgba(255,255,255,.08); }
+.cw-book-cine .cw-cart.border-gold\/30 { border-color:rgba(255,255,255,.16); }
+.cw-book-cine .cw-cart .hover\:bg-gold\/40:hover { background-color:rgba(255,255,255,.2); }
 .cw-book-cine .hover\:bg-white\/90:hover, .cw-book-cine .hover\:bg-\[\#eaeaea\]:hover, .cw-book-cine .hover\:bg-gold\/90:hover { background-color:#0e9f6e; }
 .cw-book-cine .bg-gold\/10, .cw-book-cine .bg-emerald-500\/10 { background-color:rgba(16,185,129,.12); }
 .cw-book-cine .bg-gold\/15 { background-color:rgba(16,185,129,.14); }
