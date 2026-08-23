@@ -1556,7 +1556,7 @@ export default function BookingClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
+    <div className="cw-book-cine min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
       {/* Shop header is now the cinematic ShopLanding (the "landing" view); the
@@ -2060,7 +2060,7 @@ export default function BookingClient() {
                   <p className="text-xs text-[#8f8f8f] mt-0.5">{loyalty.points} pts · up to {formatCurrency(loyalty.value)} off this visit</p>
                 </div>
                 <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
-                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
+                  <span className={cn("cw-knob absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
                 </span>
               </button>
             )}
