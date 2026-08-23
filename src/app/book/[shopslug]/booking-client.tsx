@@ -1666,7 +1666,7 @@ export default function BookingClient() {
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
-                  className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-all border", categoryFilter === cat ? "bg-white text-black border-white" : "bg-[#141414] border-[#2a2a2a] text-[#8f8f8f] hover:text-white")}
+                  className={cn("cw-cat px-4 py-2 rounded-full text-sm font-semibold transition-all border", categoryFilter === cat ? "bg-white text-black border-white" : "bg-[#141414] border-[#2a2a2a] text-[#8f8f8f] hover:text-white")}
                 >{cat}</button>
               ))}
             </div>

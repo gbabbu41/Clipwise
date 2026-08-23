@@ -582,6 +582,11 @@ h1, h2, h3, h4 {
 .cw-book-cine .bg-emerald-400, .cw-book-cine .bg-emerald-500 { background-color:#10b981; }
 /* The toggle knob must stay light, not emerald-on-emerald. */
 .cw-book-cine .cw-knob.bg-white { background-color:#f5f6f8; }
+/* Category filter chips stay minimal — the active one is a neutral light chip,
+   not an emerald fill (emerald is reserved for real actions: +, Continue, etc.). */
+.cw-book-cine .cw-cat.bg-white { background-color:rgba(255,255,255,.12); }
+.cw-book-cine .cw-cat.bg-white.text-black { color:#f5f6f8; }
+.cw-book-cine .cw-cat.border-white { border-color:rgba(255,255,255,.22); }
 .cw-book-cine .hover\:bg-white\/90:hover, .cw-book-cine .hover\:bg-\[\#eaeaea\]:hover, .cw-book-cine .hover\:bg-gold\/90:hover { background-color:#0e9f6e; }
 .cw-book-cine .bg-gold\/10, .cw-book-cine .bg-emerald-500\/10 { background-color:rgba(16,185,129,.12); }
 .cw-book-cine .bg-gold\/15 { background-color:rgba(16,185,129,.14); }
