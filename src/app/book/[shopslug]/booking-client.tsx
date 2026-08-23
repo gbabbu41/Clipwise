@@ -11,6 +11,7 @@ import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
+import ShopLanding from "./shop-landing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SlotAvailability {
@@ -162,6 +163,8 @@ export default function BookingClient() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  // Public testimonials for the cinematic landing (best-rated, with a comment).
+  const [reviews, setReviews] = useState<{ name: string; rating: number; comment: string }[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Sticky day-strip offset. The day strip pins directly below the sticky
@@ -184,6 +187,12 @@ export default function BookingClient() {
 
   // ── Flow selection ─────────────────────────────────────────────────────────
   const [flow, setFlow] = useState<"time-first" | "barber-first">("time-first");
+
+  // ── Top-level view ─────────────────────────────────────────────────────────
+  // The shop page opens on a cinematic landing ("landing"); Book Now flips to the
+  // booking wizard ("book"). Kept separate from `step` so the wizard's step math
+  // (all the step===0/1/2 gates) is untouched.
+  const [view, setView] = useState<"landing" | "book">("landing");
 
   // ── Shared step state ──────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
@@ -309,15 +318,23 @@ export default function BookingClient() {
         if (error) { setLoadError(true); setPageLoading(false); return; }
         setShop(shopData as Shop | null);
         if (shopData && shopData.status === "approved") {
-          const [{ data: b }, { data: s }] = await Promise.all([
+          const [{ data: b }, { data: s }, { data: rv }] = await Promise.all([
             // Public booking page — never expose staff PII (email/phone),
             // commission rates, or user_id (the latter was the signal an attacker
             // used to spot a claimable barber row). Select only display fields.
             supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true),
             supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
+            // Public testimonials for the landing. Guarded: if RLS blocks anon
+            // reads, `rv` is null and the reviews section simply doesn't render.
+            supabase.from("reviews").select("client_name, rating, comment").eq("shop_id", shopData.id).not("comment", "is", null).order("created_at", { ascending: false }).limit(8),
           ]);
           setBarbers((b ?? []) as Barber[]);
           setServices((s ?? []) as Service[]);
+          setReviews(
+            ((rv ?? []) as { client_name?: string; rating: number; comment?: string }[])
+              .filter((r) => r.rating >= 4 && !!r.comment && r.comment.trim().length > 0)
+              .map((r) => ({ name: r.client_name?.trim() || "Verified client", rating: r.rating, comment: r.comment!.trim() }))
+          );
         }
       } catch {
         setLoadError(true); // network failure — not an invalid link
@@ -1406,7 +1423,7 @@ export default function BookingClient() {
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
-          <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
+          <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: confirmedSummary?.shopName || shop.name },
               { label: "Barber", value: dispBarber },
@@ -1496,7 +1513,7 @@ export default function BookingClient() {
   // No-show consent checkbox — shown wherever a card is about to be taken
   // online under no-show protection. In-person bookings never render it.
   const noShowConsentBox = (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-black overflow-hidden">
+    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden">
       <div className="flex items-start gap-3 p-4">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-400">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1523,125 +1540,28 @@ export default function BookingClient() {
     </div>
   );
 
+  // The shop's public page opens on the cinematic landing (its own dark, luxury
+  // brand moment). Book Now hands off to the light booking wizard below.
+  if (view === "landing") {
+    return (
+      <ShopLanding
+        shop={shop}
+        services={services}
+        barbers={barbers}
+        reviews={reviews}
+        canGiftCard={shopCanCharge}
+        onBookNow={() => { setView("book"); setStep(serviceStepIndex); }}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
+    <div className="cw-book-light min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
-      {/* Shop Header — only on the first (Service) step, so the When + Confirm
-          views drop the banner and stay focused on the task. */}
-      {step === serviceStepIndex && (
-      <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
-        {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
-        <div className="cw-shopbg" aria-hidden="true">
-          <div className="cw-shopbg-l cw-shopbg-drift">
-            <div className="cw-shopbg-l cw-shopbg-base" />
-            <div className="cw-shopbg-l cw-shopbg-strips" />
-            <div className="cw-shopbg-l cw-shopbg-bokeh" />
-            <svg className="cw-shopbg-chair" viewBox="0 0 200 160" fill="none">
-              <g fill="#000" opacity="0.82">
-                <rect x="70" y="70" width="60" height="46" rx="10" />
-                <rect x="66" y="60" width="68" height="18" rx="9" />
-                <rect x="88" y="112" width="24" height="34" rx="4" />
-                <rect x="70" y="142" width="60" height="10" rx="5" />
-                <rect x="58" y="86" width="14" height="30" rx="7" />
-                <rect x="128" y="86" width="14" height="30" rx="7" />
-              </g>
-              <g stroke="rgba(244,198,122,.45)" strokeWidth="1.4" fill="none">
-                <path d="M66 61 h68" /><path d="M70 116 h60" />
-              </g>
-            </svg>
-          </div>
-          <div className="cw-shopbg-l cw-shopbg-scrim" />
-          <div className="cw-shopbg-l cw-shopbg-grain" />
-        </div>
-        <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
-          {/* Logo */}
-          <div className="w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
-            <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
-              fallback={
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700 text-white text-3xl font-black tracking-tight">
-                  {shopInitials(shop.name)}
-                </div>
-              } />
-          </div>
-          {/* Name */}
-          <h1 className="text-[28px] leading-tight font-black text-white uppercase tracking-tight mt-5">{shop.name}</h1>
-          {/* Location */}
-          {(shop.city || shop.province) && (
-            <p className="flex items-center gap-2 text-[15px] text-[#8a8a8a] mt-2.5">
-              <span className="text-base leading-none">📍</span>
-              {[shop.city, shop.province].filter(Boolean).join(", ")}
-            </p>
-          )}
-          {/* About */}
-          {shop.description && (
-            <div className="mt-4">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#6e6e6e] mb-1.5">About</p>
-              <p className="text-[14.5px] text-[#c4c4c4] leading-[1.6] whitespace-pre-line">{shop.description}</p>
-            </div>
-          )}
-          {/* Contact rows */}
-          {(() => {
-            const ig = shop.instagram ? igHandle(shop.instagram) : "";
-            const hasContacts = shop.phone || ig || shop.website || shop.email;
-            if (!hasContacts) return null;
-            return (
-              <div className="mt-5 flex flex-wrap items-center gap-6">
-                {shop.phone && (
-                  <a href={`tel:${shop.phone}`} aria-label={`Call ${formatPhone(shop.phone)}`} title={formatPhone(shop.phone)}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <PhoneIcon size={22} />
-                  </a>
-                )}
-                {shop.email && (
-                  <a href={`mailto:${shop.email}`} aria-label={`Email ${shop.email}`} title={shop.email}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <MailIcon size={22} />
-                  </a>
-                )}
-                {ig && (
-                  <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer" aria-label={`Instagram @${ig}`} title={`@${ig}`}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <InstagramIcon size={22} />
-                  </a>
-                )}
-                {shop.website && (
-                  <a href={ensureHttp(shop.website)} target="_blank" rel="noopener noreferrer" aria-label={`Website ${displayUrl(shop.website)}`} title={displayUrl(shop.website)}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <GlobeIcon size={22} />
-                  </a>
-                )}
-              </div>
-            );
-          })()}
-          {/* Directions / gift card — plain text, no border or fill, side by side */}
-          {(() => {
-            const showDir = !!(shop.address || shop.city);
-            const showGift = shopCanCharge;
-            if (!showDir && !showGift) return null;
-            return (
-              <div className="mt-4 pt-3.5 border-t border-[#1c1c1c] flex">
-                {showDir && (
-                  <a href={directionsUrl(shop)} target="_blank" rel="noopener noreferrer"
-                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:bg-white/[0.06] active:opacity-70 transition-all">
-                    <span className="text-base leading-none">🧭</span> Directions
-                  </a>
-                )}
-                {showGift && (
-                  <a href={`/gift/${shop.slug}`}
-                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:bg-white/[0.06] active:opacity-70 transition-all">
-                    <span className="text-base leading-none">🎁</span> Gift card
-                  </a>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-      )}
-
-      {/* (Flow toggle removed — the shop always books time-first; the barber is an
-          optional filter on the When step, so there's no dead-end.) */}
+      {/* Shop header is now the cinematic ShopLanding (the "landing" view); the
+          wizard steps stay clean and task-focused. (Barber is an optional filter
+          on the When step, so there's no dead-end.) */}
 
       {/* Booking-with-this-barber header (barber-specific link) — first step only. */}
       {lockedBarber && step === serviceStepIndex && (
@@ -1682,7 +1602,7 @@ export default function BookingClient() {
           <div className="flex items-center justify-between gap-3 mt-2">
             <p className="text-xs text-[#8f8f8f]">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
             {/* Shop name for context now the banner is hidden on later steps. */}
-            {step !== serviceStepIndex && <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>}
+            <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>
           </div>
         </div>
       </div>
@@ -1695,7 +1615,7 @@ export default function BookingClient() {
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
               >
                 {b.photo
                   ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-14 h-14 rounded-full object-cover border border-[#2a2a2a]" />
@@ -1929,7 +1849,7 @@ export default function BookingClient() {
                               if (id && (!entry || !entry.barberIds.includes(id))) setSelectedTime(null);
                             }
                           }}
-                          className={cn("flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
+                          className={cn("cw-barber-cap flex-shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-4 py-1 text-[13px] font-semibold transition-all",
                             active ? "bg-white text-black shadow-[0_3px_12px_rgba(255,255,255,0.14)]" : "bg-[#141414] text-[#cfcfcf] hover:bg-[#1c1c1c]")}>
                           <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
                             active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
@@ -2052,7 +1972,7 @@ export default function BookingClient() {
                   <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setExpandedSlot(null)} />
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                      <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
+                      <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm space-y-3 animate-fade-in">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-base font-bold text-white">Choose a barber</h3>
@@ -2140,7 +2060,7 @@ export default function BookingClient() {
                   <p className="text-xs text-[#8f8f8f] mt-0.5">{loyalty.points} pts · up to {formatCurrency(loyalty.value)} off this visit</p>
                 </div>
                 <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
-                  <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
+                  <span className={cn("cw-knob absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
                 </span>
               </button>
             )}
@@ -2203,7 +2123,7 @@ export default function BookingClient() {
           return (
           <div className="space-y-4 animate-fade-in mt-7">
             <h2 className="text-lg font-semibold text-white">Review</h2>
-            <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
+            <div className="bg-[#0d0d0d] shadow-sm border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
               {[
                 { label: "Barber", value: barber?.name ?? "Any" },
                 { label: servicesPicked.length > 1 ? "Services" : "Service", value: servicesPicked.map(s => s.name).join(" + ") || "" },
@@ -2268,7 +2188,7 @@ export default function BookingClient() {
                 consent below only appear for the online path — a pay-in-person
                 customer is never shown a tip picker or asked for a card. */}
             {bothMethods && (
-              <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
                 <p className="text-sm font-semibold text-white mb-3">How would you like to pay?</p>
                 <div className="grid grid-cols-1 gap-2">
                   <button type="button" onClick={() => setPayMethodChoice("online")}
@@ -2292,7 +2212,7 @@ export default function BookingClient() {
             )}
             {/* Optional tip — online only, shown once "Pay online" is the chosen (or sole) method. */}
             {effectiveMethod === "online" && tipsEnabledShop && (
-              <div className="bg-black border border-[#2a2a2a] rounded-2xl p-5">
+              <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold text-white">Add a tip</span>
                   <span className="text-xs text-[#8f8f8f]">Optional · online payment</span>
@@ -2334,7 +2254,7 @@ export default function BookingClient() {
           as a rounded pill that floats with margin instead of a square
           edge-to-edge bar, so it reads distinct from theirs. */}
       <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
-        <div className="pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+        <div className="cw-book-bar pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
           {/* Running total — only shown when at least one service is picked.
               Falls back to a tiny step caption otherwise so the bar isn't empty. */}
           {servicesPicked.length > 0 ? (
@@ -2353,11 +2273,13 @@ export default function BookingClient() {
             </p>
           )}
 
-          {step > 0 && (
+          {/* Back — earlier steps step back; from the first step it returns to the
+              cinematic shop landing (the "Book now" origin). */}
+          {(
             <button
               type="button"
-              onClick={() => { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); }}
-              aria-label="Back"
+              onClick={() => { if (step > 0) { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); } else { setView("landing"); } }}
+              aria-label={step > 0 ? "Back" : "Back to shop"}
               className="w-9 h-9 rounded-full border border-white/15 text-white/80 hover:text-white hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
             >
               <ChevronLeft size={16} />
@@ -2406,7 +2328,7 @@ export default function BookingClient() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => !waitlistSaving && setShowWaitlistModal(false)} />
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-black border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white">Join the waitlist</h2>

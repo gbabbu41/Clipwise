@@ -548,6 +548,102 @@ h1, h2, h3, h4 {
 .cw-book-gold .focus\:border-gold:focus { border-color:#34d399; }
 .cw-book-gold .focus\:border-gold\/50:focus { border-color:rgba(52,211,153,.5); }
 
+/* ── Light theme for the customer booking flow (scoped, exploratory) ──────────
+   The booking page is hard-coded dark; within `.cw-book-light` we remap its dark
+   surfaces/text/borders (and the translucent white variants) to a light palette,
+   invert the white/gold accent fills to a dark pill (white text on them), and
+   keep the cinematic hero + modal scrims dark via `.cw-keepdark`. Two-class
+   specificity beats the single-class utilities, so no !important. */
+/* Palette matched to the portal light theme: ground #f6f7f9, white cards that
+   float on a soft shadow, #f1f2f4 raised chips, #e6e8ec hairlines, charcoal text. */
+/* Root carries `cw-book-light` and `bg-black` on the SAME element, so the
+   descendant form below can't reach it — match the compound too, or the page
+   ground stays black wherever no card paints over it. */
+.cw-book-light.bg-black, .cw-book-light .bg-black { background-color:#ffffff; }
+/* Crisp-white language: ground and cards are both #ffffff, separated by clean
+   hairlines — no drop-shadows (a shadow on white reads as a grey "shade"). Every
+   dark surface becomes white; the hairline borders these elements already carry
+   (border-[#2a2a2a] → #e6e8ec) do the separation. Only the floating bar lifts. */
+.cw-book-light .bg-\[\#0d0d0d\], .cw-book-light .bg-black\/5,
+.cw-book-light .bg-\[\#1a1a1a\], .cw-book-light .bg-white\/\[0\.06\] {
+  background-color:#ffffff;
+}
+/* Selected-service card carries a whisper of the accent, not plain white. */
+.cw-book-light .bg-white\/\[0\.04\] { background-color:rgba(10,138,92,.07); }
+/* Thin dark-grey fills (tracker connector, toggle-off track) → light line grey. */
+.cw-book-light .bg-\[\#242424\], .cw-book-light .bg-\[\#2a2a2a\] { background-color:#e6e8ec; }
+/* Pills / day-time chips / inputs — white with a hairline (dense grids). */
+.cw-book-light .bg-\[\#141414\], .cw-book-light .bg-\[\#1c1c1c\] {
+  background-color:#ffffff; border:1px solid #e6e8ec;
+}
+.cw-book-light .bg-white\/10 { background-color:rgba(20,22,26,.06); }
+/* Hover feedback lands on the faint raised grey. */
+.cw-book-light .hover\:bg-\[\#1c1c1c\]:hover, .cw-book-light .hover\:bg-\[\#333\]:hover { background-color:#f1f2f4; }
+
+.cw-book-light .border-\[\#2a2a2a\], .cw-book-light .border-\[\#242424\], .cw-book-light .border-\[\#333\],
+.cw-book-light .border-\[\#3a3a3a\], .cw-book-light .border-\[\#1c1c1c\],
+.cw-book-light .border-white\/30, .cw-book-light .border-white\/15, .cw-book-light .border-white\/\[0\.06\] { border-color:#e6e8ec; }
+/* Selected-service + active-category outlines follow the accent. */
+.cw-book-light .border-white\/60, .cw-book-light .border-white { border-color:#0a8a5c; }
+.cw-book-light .ring-white\/10, .cw-book-light .ring-white\/25 { --tw-ring-color:rgba(20,22,26,.12); }
+
+.cw-book-light .text-white { color:#1a1a1a; }
+.cw-book-light .text-white\/80, .cw-book-light .text-white\/75, .cw-book-light .text-white\/70,
+.cw-book-light .text-white\/60, .cw-book-light .text-white\/50 { color:#6b6b6b; }
+.cw-book-light .text-\[\#8f8f8f\], .cw-book-light .text-\[\#999\], .cw-book-light .text-\[\#aaa\],
+.cw-book-light .text-\[\#9a9a9a\], .cw-book-light .text-\[\#cfcfcf\], .cw-book-light .text-\[\#c4c4c4\],
+.cw-book-light .text-\[\#b6b7ba\], .cw-book-light .text-\[\#8a8a8a\] { color:#6b6b6b; }
+.cw-book-light .text-\[\#6e6e6e\], .cw-book-light .text-\[\#555\] { color:#9a9a9a; }
+.cw-book-light .placeholder\:text-\[\#8f8f8f\]::placeholder, .cw-book-light .placeholder\:text-\[\#6e6e6e\]::placeholder { color:#9a9a9a; }
+
+/* ── Accent = Emerald (light flow) ──────────────────────────────────────────
+   Solid emerald fills carry white text/icons; soft tints for selected chips &
+   cards; deep readable emerald for accent text/icons on the light ground. */
+.cw-book-light .bg-white, .cw-book-light .bg-gold,
+.cw-book-light .bg-emerald-400, .cw-book-light .bg-emerald-500 { background-color:#0a8a5c; }
+.cw-book-light .text-black { color:#ffffff; }
+.cw-book-light .text-black\/60, .cw-book-light .text-black\/55 { color:rgba(255,255,255,.72); }
+.cw-book-light .hover\:bg-white\/90:hover, .cw-book-light .hover\:bg-\[\#eaeaea\]:hover,
+.cw-book-light .hover\:bg-gold\/90:hover { background-color:#096f4b; }
+
+/* Two bg-white elements are NOT accent fills — keep them off emerald:
+   the toggle knob stays white; the active barber capsule is a soft tint. */
+.cw-book-light .cw-knob.bg-white { background-color:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,.25); }
+.cw-book-light .cw-barber-cap.bg-white { background-color:rgba(10,138,92,.12); border:1px solid rgba(10,138,92,.35); color:#0a6b48; box-shadow:none; }
+.cw-book-light .cw-barber-cap.bg-white .text-black { color:#0a6b48; }
+.cw-book-light .cw-barber-cap.bg-white .bg-black\/10 { background-color:rgba(10,138,92,.18); }
+
+/* Soft accent tints — selected barber card, added-service pills, tinted buttons. */
+.cw-book-light .bg-gold\/10, .cw-book-light .bg-emerald-500\/10 { background-color:rgba(10,138,92,.10); }
+.cw-book-light .bg-gold\/15 { background-color:rgba(10,138,92,.12); }
+.cw-book-light .bg-gold\/20, .cw-book-light .bg-emerald-500\/20 { background-color:rgba(10,138,92,.16); }
+.cw-book-light .hover\:bg-gold\/20:hover { background-color:rgba(10,138,92,.18); }
+.cw-book-light .hover\:bg-gold\/40:hover { background-color:rgba(10,138,92,.30); }
+
+/* Accent borders. */
+.cw-book-light .border-gold, .cw-book-light .border-gold\/50, .cw-book-light .border-gold\/40,
+.cw-book-light .border-gold\/30, .cw-book-light .border-emerald-500\/40,
+.cw-book-light .border-emerald-500\/30, .cw-book-light .border-emerald-500\/25 { border-color:rgba(10,138,92,.5); }
+.cw-book-light .focus\:border-gold:focus, .cw-book-light .focus\:border-gold\/50:focus { border-color:#0a8a5c; }
+
+/* Accent rings — focus states + selected barber card. */
+.cw-book-light .ring-gold\/30, .cw-book-light .focus\:ring-gold\/30:focus,
+.cw-book-light .focus\:ring-gold\/50:focus { --tw-ring-color:rgba(10,138,92,.4); }
+
+/* Accent text / icons / spinner — deep emerald stays readable on light. */
+.cw-book-light .text-gold, .cw-book-light .text-emerald-400 { color:#0a6b48; }
+.cw-book-light .border-t-gold { border-top-color:#0a8a5c; }
+
+/* Floating action bar — a white pill that lifts off the ground with a soft
+   shadow (the dark utility shadow it carries reads wrong on light). */
+.cw-book-light .cw-book-bar { background-color:#ffffff; box-shadow:0 8px 28px rgba(20,22,26,.14); }
+
+/* Shop header is fully light now: hide the cinematic dark backdrop (base/scrim/
+   grain/chair) so the hero shows as a clean white section, and soften the logo's
+   heavy drop shadow so nothing reads as a dark "shade" on the light ground. */
+.cw-book-light .cw-shopbg { display:none; }
+.cw-book-light .cw-hero-logo { box-shadow:0 4px 16px rgba(20,22,26,.10); }
+
 /* Subtle two-tone wordmark gradient */
 .gold-text {
   background: linear-gradient(135deg, var(--gold), var(--gold-light));
