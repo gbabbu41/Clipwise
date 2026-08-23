@@ -593,6 +593,10 @@ h1, h2, h3, h4 {
 .cw-book-cine .cw-cart.bg-gold\/15 { background-color:rgba(255,255,255,.08); }
 .cw-book-cine .cw-cart.border-gold\/30 { border-color:rgba(255,255,255,.16); }
 .cw-book-cine .cw-cart .hover\:bg-gold\/40:hover { background-color:rgba(255,255,255,.2); }
+/* Active barber-filter capsule ("Anyone") avatar — the 10% black tint nearly
+   vanished on the emerald pill. Use a clear light disc so the icon/initial/photo
+   reads with strong contrast. (bg-black/10 is used only here.) */
+.cw-book-cine .bg-black\/10 { background-color:rgba(255,255,255,.92); }
 .cw-book-cine .hover\:bg-white\/90:hover, .cw-book-cine .hover\:bg-\[\#eaeaea\]:hover, .cw-book-cine .hover\:bg-gold\/90:hover { background-color:#0e9f6e; }
 .cw-book-cine .bg-gold\/10, .cw-book-cine .bg-emerald-500\/10 { background-color:rgba(16,185,129,.12); }
 .cw-book-cine .bg-gold\/15 { background-color:rgba(16,185,129,.14); }
