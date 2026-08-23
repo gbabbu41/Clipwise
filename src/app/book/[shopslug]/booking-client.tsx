@@ -11,6 +11,7 @@ import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
 import type { Shop, Barber, Service, PromoCode } from "@/lib/database.types";
+import ShopLanding from "./shop-landing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SlotAvailability {
@@ -162,6 +163,8 @@ export default function BookingClient() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  // Public testimonials for the cinematic landing (best-rated, with a comment).
+  const [reviews, setReviews] = useState<{ name: string; rating: number; comment: string }[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Sticky day-strip offset. The day strip pins directly below the sticky
@@ -184,6 +187,12 @@ export default function BookingClient() {
 
   // ── Flow selection ─────────────────────────────────────────────────────────
   const [flow, setFlow] = useState<"time-first" | "barber-first">("time-first");
+
+  // ── Top-level view ─────────────────────────────────────────────────────────
+  // The shop page opens on a cinematic landing ("landing"); Book Now flips to the
+  // booking wizard ("book"). Kept separate from `step` so the wizard's step math
+  // (all the step===0/1/2 gates) is untouched.
+  const [view, setView] = useState<"landing" | "book">("landing");
 
   // ── Shared step state ──────────────────────────────────────────────────────
   const [step, setStep] = useState(0);
@@ -309,15 +318,23 @@ export default function BookingClient() {
         if (error) { setLoadError(true); setPageLoading(false); return; }
         setShop(shopData as Shop | null);
         if (shopData && shopData.status === "approved") {
-          const [{ data: b }, { data: s }] = await Promise.all([
+          const [{ data: b }, { data: s }, { data: rv }] = await Promise.all([
             // Public booking page — never expose staff PII (email/phone),
             // commission rates, or user_id (the latter was the signal an attacker
             // used to spot a claimable barber row). Select only display fields.
             supabase.from("barbers").select("id, shop_id, name, photo, bio, rating, total_reviews, is_active").eq("shop_id", shopData.id).eq("is_active", true),
             supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
+            // Public testimonials for the landing. Guarded: if RLS blocks anon
+            // reads, `rv` is null and the reviews section simply doesn't render.
+            supabase.from("reviews").select("client_name, rating, comment").eq("shop_id", shopData.id).not("comment", "is", null).order("created_at", { ascending: false }).limit(8),
           ]);
           setBarbers((b ?? []) as Barber[]);
           setServices((s ?? []) as Service[]);
+          setReviews(
+            ((rv ?? []) as { client_name?: string; rating: number; comment?: string }[])
+              .filter((r) => r.rating >= 4 && !!r.comment && r.comment.trim().length > 0)
+              .map((r) => ({ name: r.client_name?.trim() || "Verified client", rating: r.rating, comment: r.comment!.trim() }))
+          );
         }
       } catch {
         setLoadError(true); // network failure — not an invalid link
@@ -1523,125 +1540,28 @@ export default function BookingClient() {
     </div>
   );
 
+  // The shop's public page opens on the cinematic landing (its own dark, luxury
+  // brand moment). Book Now hands off to the light booking wizard below.
+  if (view === "landing") {
+    return (
+      <ShopLanding
+        shop={shop}
+        services={services}
+        barbers={barbers}
+        reviews={reviews}
+        canGiftCard={shopCanCharge}
+        onBookNow={() => { setView("book"); setStep(serviceStepIndex); }}
+      />
+    );
+  }
+
   return (
     <div className="cw-book-light min-h-[100dvh] bg-black overflow-x-clip pt-[env(safe-area-inset-top)]">
       {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
 
-      {/* Shop Header — only on the first (Service) step, so the When + Confirm
-          views drop the banner and stay focused on the task. */}
-      {step === serviceStepIndex && (
-      <div className="relative overflow-hidden bg-black border-b border-[#2a2a2a]">
-        {/* Cinematic barbershop backdrop — fades to solid black so text stays crisp */}
-        <div className="cw-shopbg" aria-hidden="true">
-          <div className="cw-shopbg-l cw-shopbg-drift">
-            <div className="cw-shopbg-l cw-shopbg-base" />
-            <div className="cw-shopbg-l cw-shopbg-strips" />
-            <div className="cw-shopbg-l cw-shopbg-bokeh" />
-            <svg className="cw-shopbg-chair" viewBox="0 0 200 160" fill="none">
-              <g fill="#000" opacity="0.82">
-                <rect x="70" y="70" width="60" height="46" rx="10" />
-                <rect x="66" y="60" width="68" height="18" rx="9" />
-                <rect x="88" y="112" width="24" height="34" rx="4" />
-                <rect x="70" y="142" width="60" height="10" rx="5" />
-                <rect x="58" y="86" width="14" height="30" rx="7" />
-                <rect x="128" y="86" width="14" height="30" rx="7" />
-              </g>
-              <g stroke="rgba(244,198,122,.45)" strokeWidth="1.4" fill="none">
-                <path d="M66 61 h68" /><path d="M70 116 h60" />
-              </g>
-            </svg>
-          </div>
-          <div className="cw-shopbg-l cw-shopbg-scrim" />
-          <div className="cw-shopbg-l cw-shopbg-grain" />
-        </div>
-        <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-5">
-          {/* Logo */}
-          <div className="cw-hero-logo w-24 h-24 rounded-[26px] overflow-hidden border border-[#242424] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
-            <AvatarImage src={shop.logo} alt={shop.name} className="w-full h-full object-cover"
-              fallback={
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700 text-white text-3xl font-black tracking-tight">
-                  {shopInitials(shop.name)}
-                </div>
-              } />
-          </div>
-          {/* Name */}
-          <h1 className="text-[28px] leading-tight font-black text-white uppercase tracking-tight mt-5">{shop.name}</h1>
-          {/* Location */}
-          {(shop.city || shop.province) && (
-            <p className="flex items-center gap-2 text-[15px] text-[#8a8a8a] mt-2.5">
-              <span className="text-base leading-none">📍</span>
-              {[shop.city, shop.province].filter(Boolean).join(", ")}
-            </p>
-          )}
-          {/* About */}
-          {shop.description && (
-            <div className="mt-4">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#6e6e6e] mb-1.5">About</p>
-              <p className="text-[14.5px] text-[#c4c4c4] leading-[1.6] whitespace-pre-line">{shop.description}</p>
-            </div>
-          )}
-          {/* Contact rows */}
-          {(() => {
-            const ig = shop.instagram ? igHandle(shop.instagram) : "";
-            const hasContacts = shop.phone || ig || shop.website || shop.email;
-            if (!hasContacts) return null;
-            return (
-              <div className="mt-5 flex flex-wrap items-center gap-6">
-                {shop.phone && (
-                  <a href={`tel:${shop.phone}`} aria-label={`Call ${formatPhone(shop.phone)}`} title={formatPhone(shop.phone)}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <PhoneIcon size={22} />
-                  </a>
-                )}
-                {shop.email && (
-                  <a href={`mailto:${shop.email}`} aria-label={`Email ${shop.email}`} title={shop.email}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <MailIcon size={22} />
-                  </a>
-                )}
-                {ig && (
-                  <a href={`https://instagram.com/${ig}`} target="_blank" rel="noopener noreferrer" aria-label={`Instagram @${ig}`} title={`@${ig}`}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <InstagramIcon size={22} />
-                  </a>
-                )}
-                {shop.website && (
-                  <a href={ensureHttp(shop.website)} target="_blank" rel="noopener noreferrer" aria-label={`Website ${displayUrl(shop.website)}`} title={displayUrl(shop.website)}
-                     className="inline-flex items-center justify-center p-2 -m-2 text-[#b6b7ba] hover:text-white active:opacity-60 transition-all">
-                    <GlobeIcon size={22} />
-                  </a>
-                )}
-              </div>
-            );
-          })()}
-          {/* Directions / gift card — plain text, no border or fill, side by side */}
-          {(() => {
-            const showDir = !!(shop.address || shop.city);
-            const showGift = shopCanCharge;
-            if (!showDir && !showGift) return null;
-            return (
-              <div className="mt-4 pt-3.5 border-t border-[#1c1c1c] flex">
-                {showDir && (
-                  <a href={directionsUrl(shop)} target="_blank" rel="noopener noreferrer"
-                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:bg-white/[0.06] active:opacity-70 transition-all">
-                    <span className="text-base leading-none">🧭</span> Directions
-                  </a>
-                )}
-                {showGift && (
-                  <a href={`/gift/${shop.slug}`}
-                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:bg-white/[0.06] active:opacity-70 transition-all">
-                    <span className="text-base leading-none">🎁</span> Gift card
-                  </a>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-      )}
-
-      {/* (Flow toggle removed — the shop always books time-first; the barber is an
-          optional filter on the When step, so there's no dead-end.) */}
+      {/* Shop header is now the cinematic ShopLanding (the "landing" view); the
+          wizard steps stay clean and task-focused. (Barber is an optional filter
+          on the When step, so there's no dead-end.) */}
 
       {/* Booking-with-this-barber header (barber-specific link) — first step only. */}
       {lockedBarber && step === serviceStepIndex && (
@@ -1682,7 +1602,7 @@ export default function BookingClient() {
           <div className="flex items-center justify-between gap-3 mt-2">
             <p className="text-xs text-[#8f8f8f]">Step {visibleStep + 1} of {visibleSteps.length}: <span className="text-white font-semibold">{visibleSteps[visibleStep]}</span></p>
             {/* Shop name for context now the banner is hidden on later steps. */}
-            {step !== serviceStepIndex && <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>}
+            <p className="text-[11px] font-semibold text-white/70 truncate max-w-[45%]">{shop.name}</p>
           </div>
         </div>
       </div>
@@ -2353,11 +2273,13 @@ export default function BookingClient() {
             </p>
           )}
 
-          {step > 0 && (
+          {/* Back — earlier steps step back; from the first step it returns to the
+              cinematic shop landing (the "Book now" origin). */}
+          {(
             <button
               type="button"
-              onClick={() => { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); }}
-              aria-label="Back"
+              onClick={() => { if (step > 0) { if (typeof window !== "undefined") window.history.back(); else setStep(step - 1); } else { setView("landing"); } }}
+              aria-label={step > 0 ? "Back" : "Back to shop"}
               className="w-9 h-9 rounded-full border border-white/15 text-white/80 hover:text-white hover:border-white/30 flex items-center justify-center flex-shrink-0 transition-colors"
             >
               <ChevronLeft size={16} />
