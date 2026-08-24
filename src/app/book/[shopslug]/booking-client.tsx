@@ -1834,6 +1834,8 @@ export default function BookingClient() {
                   barber-locked shops (nothing to choose). */}
               {!lockedBarber && barbers.length > 1 && (
                 <div className="px-4 pt-1 pb-3">
+                  <div className="rounded-2xl border border-[#2a2a2a] px-3 pt-2.5 pb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8f8f8f] mb-2.5 px-0.5">{barberFilter ? "Selected barber" : "Choose your barber"}</p>
                   <div className="flex gap-2 overflow-x-auto cw-noscroll">
                     {([null, ...barbers] as (null | typeof barbers[number])[]).map((b) => {
                       const id = b ? b.id : null;
@@ -1865,8 +1867,9 @@ export default function BookingClient() {
                     })}
                   </div>
                   {barberFilter && (
-                    <p className="mt-2 text-[11.5px] text-[#8f8f8f] px-0.5">Showing {barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0]}&apos;s openings — tap <span className="text-white font-medium">Anyone</span> to see all times.</p>
+                    <p className="mt-2.5 text-[11.5px] text-[#8f8f8f] px-0.5">Showing {barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0]}&apos;s openings — tap <span className="text-white font-medium">Anyone</span> to see all times.</p>
                   )}
+                  </div>
                 </div>
               )}
 
