@@ -2018,14 +2018,14 @@ export default function BookingClient() {
         {/* Client Info Step */}
         {step === clientStepIndex && (
           <div className="animate-fade-in">
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-4 sm:p-5">
-              <div className="flex items-center gap-2.5 mb-4">
-                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold">
-                  <User size={16} />
+            <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5 sm:p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold">
+                  <User size={17} />
                 </span>
-                <h2 className="text-[17px] font-bold text-white">Your details</h2>
+                <h2 className="text-[18px] font-bold text-white">Your details</h2>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-4">
                 {([
                   { key: "name" as const, placeholder: "Full name", type: "text", Icon: User },
                   { key: "phone" as const, placeholder: "Mobile number", type: "tel", Icon: Phone },
@@ -2033,7 +2033,7 @@ export default function BookingClient() {
                 ]).map(({ key, placeholder, type, Icon }) => (
                   <div key={key}>
                     <div className="relative">
-                      <Icon size={17} aria-hidden="true"
+                      <Icon size={18} aria-hidden="true"
                         className={cn("absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none", clientErrors[key] ? "text-red-400" : "text-[#8f8f8f]")} />
                       <input id={`ci-${key}`} type={type} value={clientInfo[key]} aria-label={placeholder}
                         onChange={(e) => {
@@ -2053,7 +2053,7 @@ export default function BookingClient() {
                           });
                         }}
                         placeholder={placeholder}
-                        className={cn("w-full bg-[#141414] border rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                        className={cn("w-full bg-[#141414] border rounded-2xl pl-12 pr-4 py-[15px] text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
                           clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
                       />
                     </div>
