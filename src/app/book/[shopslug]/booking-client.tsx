@@ -1941,8 +1941,13 @@ export default function BookingClient() {
                               <button key={slot}
                                 onClick={() => {
                                   if (barberFilter) { setSelectedTime(slot); setSelectedBarber(barberFilter); }
-                                  else if (barberIds.length === 1) { setSelectedTime(slot); setSelectedBarber(barberIds[0]); }
-                                  else { setExpandedSlot(slot); }
+                                  else {
+                                    // "Anyone": the customer has no preference, so auto-assign an
+                                    // available barber (random for a fair spread) instead of
+                                    // prompting. They can pick a specific barber above if they care.
+                                    const pick = barberIds[Math.floor(Math.random() * barberIds.length)] ?? barberIds[0];
+                                    setSelectedTime(slot); setSelectedBarber(pick);
+                                  }
                                 }}
                                 className={cn(
                                   "rounded-xl py-3 text-sm font-semibold transition-colors",
