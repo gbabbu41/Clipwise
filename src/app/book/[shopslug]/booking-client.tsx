@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X, Phone, Mail } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
@@ -2017,38 +2017,51 @@ export default function BookingClient() {
 
         {/* Client Info Step */}
         {step === clientStepIndex && (
-          <div className="space-y-3.5 animate-fade-in">
-            <h2 className="text-lg font-semibold text-white mb-1">Your details</h2>
-            {([
-              { key: "name" as const, placeholder: "Full name", type: "text" },
-              { key: "phone" as const, placeholder: "Mobile number", type: "tel" },
-              { key: "email" as const, placeholder: "Email address", type: "email" },
-            ]).map(({ key, placeholder, type }) => (
-              <div key={key}>
-                <input id={`ci-${key}`} type={type} value={clientInfo[key]} aria-label={placeholder}
-                  onChange={(e) => {
-                    const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
-                    setClientInfo({ ...clientInfo, [key]: val });
-                    if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
-                  }}
-                  onBlur={() => {
-                    // Surface the reason "Continue" is greyed out instead of
-                    // leaving a dead button — populate this field's inline error
-                    // (cleared again on the next keystroke by onChange above).
-                    const errs = validateClientInfo();
-                    setClientErrors(prev => {
-                      const n = { ...prev };
-                      if (errs[key]) n[key] = errs[key]; else delete n[key];
-                      return n;
-                    });
-                  }}
-                  placeholder={placeholder}
-                  className={cn("w-full bg-[#141414] border rounded-xl px-4 py-4 text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
-                    clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
-                />
-                {clientErrors[key] && <p className="text-xs text-red-400 mt-1">{clientErrors[key]}</p>}
+          <div className="animate-fade-in">
+            <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-4 sm:p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold">
+                  <User size={16} />
+                </span>
+                <h2 className="text-[17px] font-bold text-white">Your details</h2>
               </div>
-            ))}
+              <div className="space-y-2.5">
+                {([
+                  { key: "name" as const, placeholder: "Full name", type: "text", Icon: User },
+                  { key: "phone" as const, placeholder: "Mobile number", type: "tel", Icon: Phone },
+                  { key: "email" as const, placeholder: "Email address", type: "email", Icon: Mail },
+                ]).map(({ key, placeholder, type, Icon }) => (
+                  <div key={key}>
+                    <div className="relative">
+                      <Icon size={17} aria-hidden="true"
+                        className={cn("absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none", clientErrors[key] ? "text-red-400" : "text-[#8f8f8f]")} />
+                      <input id={`ci-${key}`} type={type} value={clientInfo[key]} aria-label={placeholder}
+                        onChange={(e) => {
+                          const val = key === "phone" ? formatPhone(e.target.value) : e.target.value;
+                          setClientInfo({ ...clientInfo, [key]: val });
+                          if (clientErrors[key]) setClientErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+                        }}
+                        onBlur={() => {
+                          // Surface the reason "Continue" is greyed out instead of
+                          // leaving a dead button — populate this field's inline error
+                          // (cleared again on the next keystroke by onChange above).
+                          const errs = validateClientInfo();
+                          setClientErrors(prev => {
+                            const n = { ...prev };
+                            if (errs[key]) n[key] = errs[key]; else delete n[key];
+                            return n;
+                          });
+                        }}
+                        placeholder={placeholder}
+                        className={cn("w-full bg-[#141414] border rounded-xl pl-11 pr-4 py-3.5 text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
+                          clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
+                      />
+                    </div>
+                    {clientErrors[key] && <p className="text-xs text-red-400 mt-1.5 ml-1">{clientErrors[key]}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
