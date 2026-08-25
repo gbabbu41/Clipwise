@@ -23,8 +23,7 @@ import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
-import { collectedTotals, type RevTx, type ByPi } from "@/lib/revenue";
-import { shopBarberCommission } from "@/lib/barber-earnings";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type ByPi } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -456,7 +455,25 @@ export default function DashboardPage() {
   // no-barber sales carry no barber_id → shop revenue, no commission. Commission
   // is a reporting tally, not a payout.
   const commissionPct: Record<string, number> = Object.fromEntries(barbers.map((b) => [b.id, b.commission_percent ?? 0]));
-  const commission = shopBarberCommission(txnsInRange, commissionPct);
+  // Barber commission MUST be tallied over the SAME sales `collected` counts, or
+  // Net revenue is apples-vs-oranges (the old code summed the raw transactions
+  // ledger on a different date basis — completion rows dated apart from their
+  // appointment — which over-counted commission and clamped Net to $0). Mirror
+  // Payroll: commission = the barber's rate × service on each COUNTED sale.
+  //  · counted paid appointments → (total − tax) × that barber's rate
+  //  · counted POS sales with a barber → stored cut (or amount × rate)
+  // No-show penalty fees never pay commission — they're not a service performed.
+  const apptCommission = appointments.reduce((sum, a) => {
+    if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
+    const service = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+    return sum + (service * (commissionPct[a.barber_id] ?? 0)) / 100;
+  }, 0);
+  const posCommission = countablePosTxs(appointments, txnsInRange).reduce((sum, t) => {
+    if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return sum;
+    const pct = commissionPct[t.barber_id] ?? 0;
+    return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
+  }, 0);
+  const commission = apptCommission + posCommission;
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
   // (gov't) − tips (barber) − barber commission (barber/owner pay).
   const netRevenue = Math.max(0, collected.net - collected.tax - collected.tips - commission);

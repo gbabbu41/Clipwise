@@ -70,8 +70,13 @@ export async function GET(request: NextRequest) {
   // Payments page — when filtered to this barber — shows the identical numbers.
   // computeBarberEarnings excludes refunded rows and keeps the same 50/50 card-fee
   // split as before (commission + tips − barber's half of the fee = take-home).
-  const list = (transactions ?? []).filter(t => !t.refunded);
-  const e = computeBarberEarnings(transactions ?? [], commissionPercent);
+  // No-show penalty fees aren't a service the barber performed — they're a shop
+  // penalty charge — so they don't pay commission or count as the barber's
+  // earnings. Exclude them from both the totals and the returned list.
+  const isNoShowFee = (t: { source?: string | null; service_name?: string | null }) =>
+    t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
+  const list = (transactions ?? []).filter(t => !t.refunded && !isNoShowFee(t));
+  const e = computeBarberEarnings(list, commissionPercent);
 
   return NextResponse.json({
     transactions: list,
