@@ -45,11 +45,14 @@ export function barberRowCut(t: EarningTx, commissionPercent: number): number {
 // stored cut (POS); appointment-completion rows store none, so it falls back to
 // the barber's rate × the service amount — identical to computeBarberEarnings.
 export function shopBarberCommission(
-  txs: Array<{ amount: number | null; commission_amount?: number | null; barber_id?: string | null; refunded?: boolean | null }>,
+  txs: Array<{ amount: number | null; commission_amount?: number | null; barber_id?: string | null; refunded?: boolean | null; source?: string | null; service_name?: string | null }>,
   pctByBarber: Record<string, number>,
 ): number {
   return txs.reduce((sum, t) => {
     if (t.refunded || !t.barber_id) return sum;
+    // No-show penalty fees are shop income, not a service the barber performed —
+    // they never pay commission (matches the Dashboard + barber-portal rule).
+    if (t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee")) return sum;
     const pct = pctByBarber[t.barber_id] ?? 0;
     return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
   }, 0);

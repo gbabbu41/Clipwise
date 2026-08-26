@@ -103,7 +103,11 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (!accessToken || !shop?.id) return;
     let active = true;
-    fetch(`/api/stripe/payments-summary?shop_id=${shop.id}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    fetch("/api/stripe/payments-summary", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id }),
+    })
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (active && d && !d.error) setByPi(d.byPi ?? {}); })
       .catch(() => {});

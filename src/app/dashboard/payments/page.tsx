@@ -359,7 +359,10 @@ export default function PaymentsPage() {
   const barberMode = selectedBarber !== "all";
   const selPct = barberMode ? (barbers.find(b => b.id === selectedBarber)?.commission_percent ?? 0) : 0;
   const barberEarnTx = barberMode
-    ? txs.filter(t => t.barber_id === selectedBarber && !t.refunded)
+    ? txs.filter(t => t.barber_id === selectedBarber && !t.refunded
+        // No-show penalty fees aren't the barber's earnings — exclude them so this
+        // per-barber view matches what the barber sees in their own portal.
+        && t.source !== "no_show" && !(t.service_name ?? "").startsWith("No-show fee"))
         .map(t => ({ ...t, ts: new Date(t.created_at).getTime() }))
     : [];
   // Earnings for one window = the shared barber-earnings math over that barber's
