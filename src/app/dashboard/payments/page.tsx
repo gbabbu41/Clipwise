@@ -181,14 +181,14 @@ export default function PaymentsPage() {
     // transaction feed (the email row just doesn't show for POS until then).
     const TX_COLS = "id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source";
     const fetchTx = async (): Promise<{ data: unknown[] | null }> => {
-      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(250);
+      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(2000);
       const withEmail = await run(`${TX_COLS}, client_email`);
       return withEmail.error ? await run(TX_COLS) : withEmail;
     };
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
         .select("*, services(name), barbers(name)")
-        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(250),
+        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(2000),
       fetchTx(),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -404,7 +404,9 @@ export default function PaymentsPage() {
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
-    if (kind === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    // Sunday-start week, to match the Dashboard/Analytics shared getDateRange
+    // (was Monday-start here, so "This Week" totals disagreed across screens).
+    if (kind === "week") d.setDate(d.getDate() - d.getDay());
     else if (kind === "biweekly") d.setDate(d.getDate() - 13);   // trailing 14 days
     else if (kind === "month") d.setDate(1);
     return d.getTime();

@@ -108,7 +108,11 @@ export async function POST(req: NextRequest) {
     // and payouts are naturally skipped.
     const byPi: Record<string, { gross: number; fee: number; net: number }> = {};
     let startingAfter: string | undefined;
-    for (let page = 0; page < 6; page++) {
+    // Walk until Stripe says there are no more pages (was hard-capped at 6 pages /
+    // ~600 balance txns, so an established shop's older charges had no fee data and
+    // Net read too high). Bounded at 50 pages (~5,000 txns) to stay within the
+    // serverless time budget.
+    for (let page = 0; page < 50; page++) {
       const list = await stripe.balanceTransactions.list(
         { limit: 100, expand: ["data.source"], ...(startingAfter ? { starting_after: startingAfter } : {}) },
         opts,

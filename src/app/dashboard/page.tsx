@@ -302,7 +302,9 @@ export default function DashboardPage() {
           .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount")
           .eq("shop_id", shop.id)
           .order("created_at", { ascending: false })
-          .limit(250);
+          // Fetch newest-then-filter; 250 truncated a busy shop's window. 2000
+          // covers well past current volume (proper fix = window in SQL + paginate).
+          .limit(2000);
     const [{ data, error }, { data: txData }] = await Promise.all([q, txReq]);
     setAppointments((data ?? []) as AppointmentWithDetails[]);
     setTxns((txData ?? []) as RevTx[]);

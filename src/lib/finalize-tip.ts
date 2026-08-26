@@ -48,13 +48,12 @@ export async function recordTipFromCheckout(args: {
     paymentIntentId,
   });
 
-  // Roll the tip into the appointment's running total (best-effort).
-  const { data: cur } = await supabaseAdmin
-    .from("appointments").select("tip_amount").eq("id", appointmentId).maybeSingle();
-  if (cur) {
-    await supabaseAdmin.from("appointments")
-      .update({ tip_amount: Number(cur.tip_amount ?? 0) + tipDollars }).eq("id", appointmentId).then(null, () => null);
-  }
+  // NOTE: we deliberately do NOT roll this tip into the appointment's tip_amount.
+  // A post-visit tip is its OWN Stripe charge and is fully represented by the
+  // ledger row above (read by the barber portal + the owner's post-visit-tip
+  // line). Also bumping tip_amount made owner reporting count it TWICE — once via
+  // the appointment (loop 1) and once via this tx (loop 3) — inflating Gross and
+  // Tips. The ledger row is now the single source of truth for post-visit tips.
 
   // "Tip received 🎉" pop-up for the owner (best-effort).
   const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", shopId).maybeSingle();

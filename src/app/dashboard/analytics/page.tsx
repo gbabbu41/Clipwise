@@ -83,7 +83,7 @@ export default function AnalyticsPage() {
     else /* month (default) */ since = `${iso(now).slice(0, 7)}-01`;
 
     const [txRes, apptRes, barberRes, svcRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }),
+      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }).limit(5000),
       supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", since),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("id, name").eq("shop_id", shop.id),
@@ -194,7 +194,13 @@ export default function AnalyticsPage() {
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
   const noShowRate = totalAppts > 0 ? ((noShows / totalAppts) * 100).toFixed(1) : "0.0";
-  const avgTicket = completedAppts > 0 ? totalRevenue / completedAppts : 0;
+  // Avg ticket = pre-tax SERVICE revenue per completed appointment (matches the
+  // Dashboard). Using gross (which includes POS, tips, tax) over an appointment
+  // count inflated it.
+  const completedApptRevenue = filteredAppts
+    .filter(a => a.status === "completed" && a.payment_status !== "refunded")
+    .reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
+  const avgTicket = completedAppts > 0 ? completedApptRevenue / completedAppts : 0;
 
   // Revenue by barber
   const barberRevenue = useMemo(() => {
@@ -275,8 +281,8 @@ export default function AnalyticsPage() {
     { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-foreground" },
     { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-foreground" },
     { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
-    { label: "Tips Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + t.tip, 0)), sub: "Via POS", color: "text-foreground" },
-    { label: "Tax Collected", value: formatCurrency(filteredTx.reduce((s, t) => s + (t.tax ?? 0), 0)), sub: "GST/HST + PST to remit", color: "text-foreground" },
+    { label: "Tips Collected", value: formatCurrency(money.tips), sub: "Bookings + POS", color: "text-foreground" },
+    { label: "Tax Collected", value: formatCurrency(money.tax), sub: "GST/HST + PST to remit", color: "text-foreground" },
   ];
 
   if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {

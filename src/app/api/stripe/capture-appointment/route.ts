@@ -195,7 +195,11 @@ export async function POST(request: NextRequest) {
     // separately + best-effort so a lagging migration can never make this throw
     // and roll a SUCCESSFUL Stripe charge back to "failed" via the catch below.
     await supabaseAdmin.from("appointments")
-      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id })
+      // Set status:"no-show" HERE (server-side, atomic with the capture) rather
+      // than relying on a follow-up client write — revenue de-dups a no-show by
+      // `status==="no-show"`, so if that client write failed the full appointment
+      // AND the no-show fee both counted. Now the fee capture itself marks it.
+      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id, ...(reason === "no_show" ? { status: "no-show" } : {}) })
       .eq("id", appointment_id);
     await supabaseAdmin.from("appointments")
       .update({ paid_at: new Date().toISOString() })
