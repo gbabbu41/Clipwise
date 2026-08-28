@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
-import { shopBarberCommission } from "@/lib/barber-earnings";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -58,6 +57,10 @@ export default function AnalyticsPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  // Paid/captured appointments for the money waterfall — counted by paid_at
+  // (money-moved), not booked date. `appointments` above stays booked-date for
+  // operational metrics (completed count, no-shows, avg ticket).
+  const [revenueAppts, setRevenueAppts] = useState<Appointment[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   // id → name lookup so the appointments fallback for "Revenue by Service"
   // shows real service names instead of raw service_id UUIDs.
@@ -82,14 +85,18 @@ export default function AnalyticsPage() {
     else if (period === "last") since = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1));
     else /* month (default) */ since = `${iso(now).slice(0, 7)}-01`;
 
-    const [txRes, apptRes, barberRes, svcRes] = await Promise.all([
+    const [txRes, apptRes, barberRes, svcRes, revApptRes] = await Promise.all([
       supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }).limit(5000),
       supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", since),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("id, name").eq("shop_id", shop.id),
+      // Paid/captured appointments (broad — filtered to the period by paid_at at
+      // compute time), so revenue counts on the day money moved, not booked date.
+      supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).order("created_at", { ascending: false }).limit(5000),
     ]);
     if (txRes.data) setTransactions(txRes.data);
     if (apptRes.data) setAppointments(apptRes.data);
+    if (revApptRes.data) setRevenueAppts(revApptRes.data);
     if (barberRes.data) setBarbers(barberRes.data);
     if (svcRes.data) setServiceNames(Object.fromEntries(svcRes.data.map((s: { id: string; name: string }) => [s.id, s.name])));
     setLoading(false);
@@ -148,6 +155,21 @@ export default function AnalyticsPage() {
     return list;
   }, [appointments, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
 
+  // Revenue appointments in the period, dated by WHEN THE MONEY MOVED (paid_at,
+  // else created_at) — mirrors filteredTx's period logic so the money waterfall
+  // counts a sale on the day it was paid, not the day booked.
+  const revenueApptsInRange = useMemo(() => {
+    let list = revenueAppts;
+    if (barberFilter !== "all") list = list.filter(a => a.barber_id === barberFilter);
+    const paidTs = (a: Appointment) => (a.paid_at ?? a.created_at ?? "");
+    if (period === "today") list = list.filter(a => paidTs(a).startsWith(today));
+    else if (period === "week") { const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7); list = list.filter(a => new Date(paidTs(a)) >= weekAgo); }
+    else if (period === "month") list = list.filter(a => paidTs(a).startsWith(thisMonth));
+    else if (period === "year") list = list.filter(a => paidTs(a).startsWith(thisYear));
+    else if (period === "last") list = list.filter(a => paidTs(a).startsWith(lastMonth));
+    return list;
+  }, [revenueAppts, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
+
   // Revenue over time (from transactions)
   const revenueByDay = useMemo<DayRevenue[]>(() => {
     const map: Record<string, { revenue: number; appointments: number }> = {};
@@ -175,20 +197,29 @@ export default function AnalyticsPage() {
   // + Payments use (so no screen can show a different number):
   //   Gross sales → − Stripe fee → − Tax → − Tips → − Barber commission → Net revenue
   const money = useMemo(() => {
-    const t = collectedTotals(filteredAppts as RevAppt[], filteredTx as RevTx[], byPi);
-    // Barber commission — read from the ONE source (the transactions ledger), the
-    // SAME rows + formula the barber portal + the Dashboard use, so every screen
-    // shows the same barber pay. POS rows carry a stored commission_amount;
-    // appointment-completion rows carry none, so it falls back to the barber's
-    // rate × the service. Gift/product/no-barber sales have no barber_id → no
-    // commission. Tips are separate (100% the barber's).
+    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi);
+    // Barber commission tallied over the SAME sales `collected` counts (same as the
+    // Dashboard + Payroll), so Net reconciles: paid appointments → (total − tax) ×
+    // that barber's rate; counted POS sales with a barber → the stored cut.
+    // Completion rows are taken from the appointment, and no-show fees never pay
+    // commission.
     const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
-    const commission = shopBarberCommission(filteredTx, pct);
+    const apptCommission = revenueApptsInRange.reduce((sum, a) => {
+      if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
+      const service = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+      return sum + (service * (pct[a.barber_id] ?? 0)) / 100;
+    }, 0);
+    const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
+      if (t2.refunded || !t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
+      const p = pct[t2.barber_id] ?? 0;
+      return sum + (t2.commission_amount ?? ((t2.amount ?? 0) * p) / 100);
+    }, 0);
+    const commission = apptCommission + posCommission;
     // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
     const netRevenue = Math.max(0, t.net - t.tax - t.tips - commission);
     return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: t.tips, commission, netRevenue };
-  }, [filteredAppts, filteredTx, byPi, barbers]);
+  }, [revenueApptsInRange, filteredTx, byPi, barbers]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;

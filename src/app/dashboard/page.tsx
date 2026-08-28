@@ -23,7 +23,7 @@ import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -168,6 +168,13 @@ export default function DashboardPage() {
   // Transactions (POS / gift-card / walk-in sales) for the active range — so the
   // revenue headline includes non-appointment income and matches Payments.
   const [txns, setTxns] = useState<RevTx[]>([]);
+  // Revenue-side appointments — PAID/captured rows, counted by WHEN THE MONEY
+  // MOVED (paid_at), not the booked date. The `appointments` list above stays
+  // booked-date-windowed for the schedule/operational views (today's list, avg
+  // ticket, trend); this set feeds the money totals so revenue lands on the day
+  // it was actually collected (matches Payments' basis).
+  type RevApptRow = RevAppt & { barber_id?: string | null; paid_at?: string | null; created_at?: string | null };
+  const [revenueAppts, setRevenueAppts] = useState<RevApptRow[]>([]);
   // Exact Stripe net/fees per charge (same source the Payments page uses) so the
   // dashboard headline shows NET after fees, not gross.
   const [stripeByPi, setStripeByPi] = useState<ByPi>({});
@@ -305,9 +312,21 @@ export default function DashboardPage() {
           // Fetch newest-then-filter; 250 truncated a busy shop's window. 2000
           // covers well past current volume (proper fix = window in SQL + paginate).
           .limit(2000);
-    const [{ data, error }, { data: txData }] = await Promise.all([q, txReq]);
+    // Revenue appointments — paid/captured, fetched broad (NOT booked-date-
+    // windowed) so a booking paid today for a future day is available; we window
+    // it to the period by paid_at at compute time. Barber sees only their own.
+    let revQ = supabase
+      .from("appointments")
+      .select("client_name, total_amount, tax_amount, tip_amount, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
+      .eq("shop_id", shop.id)
+      .in("payment_status", ["paid", "captured"])
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (profile?.role === "barber" && myBarberId) revQ = revQ.eq("barber_id", myBarberId);
+    const [{ data, error }, { data: txData }, { data: revData }] = await Promise.all([q, txReq, revQ]);
     setAppointments((data ?? []) as AppointmentWithDetails[]);
     setTxns((txData ?? []) as RevTx[]);
+    setRevenueAppts((revData ?? []) as RevApptRow[]);
     setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
     setLoadingAppts(false);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
@@ -448,7 +467,15 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(t.created_at)); // LOCAL date, matches Payments
     return d >= rangeStart && d <= rangeEnd;
   });
-  const collected = collectedTotals(appointments, txnsInRange, stripeByPi);
+  // Revenue appointments in the window, dated by WHEN THE MONEY MOVED (paid_at,
+  // else created_at) — a sale counts on the day it was PAID, not the day booked.
+  const revenueApptsInRange = revenueAppts.filter((a) => {
+    const ts = a.paid_at ?? a.created_at;
+    if (!ts) return false;
+    const d = formatDateForDb(new Date(ts));
+    return d >= rangeStart && d <= rangeEnd;
+  });
+  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi);
   // Barber commission — read from the ONE source: the transactions ledger, the
   // SAME rows + formula the barber portal (and Payments per-barber view) use, so
   // the dashboard's commission equals what the barbers actually earned. POS rows
@@ -465,12 +492,12 @@ export default function DashboardPage() {
   //  · counted paid appointments → (total − tax) × that barber's rate
   //  · counted POS sales with a barber → stored cut (or amount × rate)
   // No-show penalty fees never pay commission — they're not a service performed.
-  const apptCommission = appointments.reduce((sum, a) => {
+  const apptCommission = revenueApptsInRange.reduce((sum, a) => {
     if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
     const service = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
     return sum + (service * (commissionPct[a.barber_id] ?? 0)) / 100;
   }, 0);
-  const posCommission = countablePosTxs(appointments, txnsInRange).reduce((sum, t) => {
+  const posCommission = countablePosTxs(revenueApptsInRange, txnsInRange).reduce((sum, t) => {
     if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return sum;
     const pct = commissionPct[t.barber_id] ?? 0;
     return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
