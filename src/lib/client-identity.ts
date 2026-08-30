@@ -59,6 +59,17 @@ type ApptRow = { client_id?: string | null; client_name?: string | null; client_
 /** Appointments store contact info as client_* fields — map to the common shape. */
 export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, email: a.client_email, phone: a.client_phone, name: a.client_name });
 
+// POS / walk-in sales live in `transactions` (no client_id, no phone) — attribute
+// them to a person by email → name so a client's visits/spend include walk-in and
+// product sales, not just booked appointments. Rows tied to an appointment
+// (completion / no-show / anything with an appointment_id) are SKIPPED here: the
+// appointment already counts them, so folding them again would double-count.
+type TxRow = { client_name?: string | null; client_email?: string | null; created_at?: string | null; amount?: number | null; source?: string | null; refunded?: boolean | null; appointment_id?: string | null };
+export const txToId = (t: TxRow): IdRecord => ({ email: t.client_email, name: t.client_name });
+const countableTx = (t: TxRow): boolean =>
+  !t.refunded && !t.appointment_id && t.source !== "completion" && t.source !== "no_show";
+const txDate = (t: TxRow): string => (t.created_at ?? "").slice(0, 10);
+
 /** A client row's own id is its identity anchor. */
 export const clientToId = (c: Client): IdRecord => ({ clientId: c.id, email: c.email, phone: c.phone, name: c.name });
 
@@ -70,8 +81,9 @@ export const clientToId = (c: Client): IdRecord => ({ clientId: c.id, email: c.e
  * points is the representative (hidden duplicates get cleaned up by a merge tool
  * later). Pure function → easy to reason about and unit-test.
  */
-export function groupClients(opts: { shopId: string; clientRows: Client[]; apptRows: ApptRow[] }): Client[] {
+export function groupClients(opts: { shopId: string; clientRows: Client[]; apptRows: ApptRow[]; txRows?: TxRow[] }): Client[] {
   const { shopId, clientRows, apptRows } = opts;
+  const txRows = (opts.txRows ?? []).filter(countableTx);
 
   // ── Union-find over strong tokens ──
   const parent = new Map<string, string>();
@@ -86,7 +98,7 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
   };
   const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
 
-  for (const rec of [...clientRows.map(clientToId), ...apptRows.map(apptToId)]) {
+  for (const rec of [...clientRows.map(clientToId), ...apptRows.map(apptToId), ...txRows.map(txToId)]) {
     const t = strongTokens(rec);
     t.forEach(add);
     for (let i = 1; i < t.length; i++) union(t[0], t[i]);
@@ -109,6 +121,16 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
     const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
     if (a.status === "completed") { g.visits++; g.spent += a.total_amount ?? 0; }
     if ((a.date ?? "") > g.last) g.last = a.date ?? "";
+    stats.set(key, g);
+  }
+  // Fold in POS / walk-in sales (each countable sale = a visit + its amount),
+  // attributed to the same person by identity — so total_spent reflects walk-ins
+  // and product sales, not only booked appointments.
+  for (const t of txRows) {
+    const key = compOf(txToId(t)); if (!key) continue;
+    const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
+    g.visits++; g.spent += t.amount ?? 0;
+    const d = txDate(t); if (d > g.last) g.last = d;
     stats.set(key, g);
   }
 
@@ -137,6 +159,26 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
       name: a.client_name,
       email: a.client_email ?? undefined,
       phone: a.client_phone ?? undefined,
+      total_visits: g.visits,
+      total_spent: g.spent,
+      last_visit: g.last || undefined,
+      loyalty_points: 0,
+      tag: g.visits >= 3 ? "Returning" : "New",
+    } as unknown as Client);
+  }
+
+  // Synthetic rows for people who ONLY exist in POS transactions — a walk-in who
+  // never booked and isn't in the clients table. Named only (anonymous walk-ins
+  // with no name are skipped). Their stats already include the tx fold above.
+  for (const t of txRows) {
+    if (!t.client_name) continue;
+    const key = compOf(txToId(t)); if (!key || out.has(key)) continue;
+    const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
+    out.set(key, {
+      id: `synthetic:${key}`,
+      shop_id: shopId,
+      name: t.client_name,
+      email: t.client_email ?? undefined,
       total_visits: g.visits,
       total_spent: g.spent,
       last_visit: g.last || undefined,

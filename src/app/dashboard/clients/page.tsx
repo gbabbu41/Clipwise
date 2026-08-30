@@ -106,12 +106,17 @@ export default function ClientsPage() {
     // clients not in the table, refines activity, and counts no-shows. Runs in
     // the background so it never blocks the first paint. ──
     type ApptLite = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
-    const [nsRes, withCid] = await Promise.all([
+    const [nsRes, withCid, txRes] = await Promise.all([
       supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
       // Appointments incl. the phase-36 client_id link. Fall back without it if the
       // migration hasn't been run yet, so the page never breaks in that window.
       supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id).order("date", { ascending: false }),
+      // POS / walk-in sales, so a client's visits + spend include walk-ins and
+      // product sales — not only booked appointments. Appointment-linked rows are
+      // filtered out inside groupClients so nothing double-counts. Best-effort.
+      supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
     ]);
+    const txRows = (txRes.error ? [] : txRes.data) ?? [];
     let apptRows: ApptLite[] = (withCid.data as unknown as ApptLite[]) ?? [];
     if (withCid.error) {
       const noCid = await supabase
@@ -126,7 +131,7 @@ export default function ClientsPage() {
     // De-dupe + attribute activity by IDENTITY (shared email/phone), not name —
     // so two people named "ABC" stay separate, and the same person with a typo'd
     // name or reformatted number stays as one. See lib/client-identity.ts.
-    const list = groupClients({ shopId: shop.id, clientRows: baseRows, apptRows });
+    const list = groupClients({ shopId: shop.id, clientRows: baseRows, apptRows, txRows });
     if (seq !== loadSeqRef.current) return; // a newer load started — bail
     setClients(list);
 

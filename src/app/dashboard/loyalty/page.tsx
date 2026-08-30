@@ -11,6 +11,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Info, X } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
+import { groupClients, sameIdentity } from "@/lib/client-identity";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -125,13 +126,30 @@ export default function LoyaltyPage() {
   const loadData = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const [clientRes, promoRes] = await Promise.all([
+    const [clientRes, promoRes, apptRes, txRes] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("loyalty_points", { ascending: false }),
       // promo_codes has no created_at column — order by active-first then code.
       // Ordering by the missing column returned a 400 and broke promo loading.
       supabase.from("promo_codes").select("*").eq("shop_id", shop.id).order("is_active", { ascending: false }).order("code", { ascending: true }),
+      // Source rows so the visits count reflects reality (the stored total_visits
+      // counter drifts — it's maintained by best-effort increments). Best-effort.
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id),
+      supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
     ]);
-    if (clientRes.data) setClients(clientRes.data);
+    if (clientRes.data) {
+      const baseRows = clientRes.data as Client[];
+      // Keep the REAL client rows (point add/redeem targets their id), but overwrite
+      // visits/spend/last-visit with the identity-attributed compute from source.
+      const computed = groupClients({
+        shopId: shop.id, clientRows: baseRows,
+        apptRows: (apptRes.error ? [] : apptRes.data) ?? [],
+        txRows: (txRes.error ? [] : txRes.data) ?? [],
+      });
+      setClients(baseRows.map((c) => {
+        const m = computed.find((g) => g.id === c.id) ?? computed.find((g) => sameIdentity(g, c));
+        return m ? { ...c, total_visits: m.total_visits, total_spent: m.total_spent, last_visit: m.last_visit ?? c.last_visit } : c;
+      }));
+    }
     if (promoRes.data) setPromos(promoRes.data);
     setLoading(false);
   }, [shop]);
