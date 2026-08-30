@@ -37,6 +37,31 @@ Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code 
 - ✅ **SQL migrations: nothing to run** — a full `information_schema` audit on 2026-08-12
       confirmed prod is fully migrated (see §2). Premium is already $79 with multi-location.
 
+### 🔒 Security — 3 items DEFERRED by owner (2026-08-30) → do BEFORE real shops onboard
+A security audit (2026-08-30) closed the dangerous **write-side takeover** holes already
+(`phase54_rls_privilege_lockdown.sql`, APPLIED + verified on prod):
+super_admin self-elevation, uninvited barber self-registration, barber self-escalating
+their own pay/active/shop. What's left is **read-only exposure** — safe to defer while it's
+only sandbox/test shops, but the trigger to fix is **before real shop owners onboard** (that's
+when real owner contact + billing becomes scrapeable via the public anon key):
+- [ ] **PII read leak (the important one).** `shops` + `barbers` have public/anon SELECT
+      policies, and RLS is row-level not column-level, so anyone with the anon key can read
+      EVERY column — `shops.stripe_account_id`, owner `email`/`phone`, `twilio_phone_number`,
+      `stripe_customer_id`/`stripe_subscription_id`, subscription state; and `barbers.user_id`
+      (auth UUID), `email`, `commission_percent`. The app itself already selects only safe
+      columns (`booking-client.tsx:315`), so the fix is DB-side: expose a booking-safe **view**
+      (`public_shops` / `public_barbers`) with only the columns the booking page needs, grant
+      anon SELECT on the view, repoint the two anon reads in `booking-client.tsx`, then tighten
+      the base-table SELECT policies to owner/stakeholder-only. ⚠️ Map EVERY `shops`/`barbers`
+      reader first (owner dashboard, barber portal) so tightening doesn't break them; needs a
+      real `next build` + deploy + booking smoke test.
+- [ ] **Leaked-password protection** — Supabase Auth setting is OFF. Turn it on in the
+      Supabase dashboard (Authentication → Passwords → "Leaked password protection"). Owner
+      action, 30s. (Advisor WARN; testers currently share one weak password.)
+- [ ] **Two anon-callable functions** — revoke EXECUTE from `anon` on `owns_shop(uuid)` (a
+      shop-ownership yes/no oracle) and on `rls_auto_enable()` (internal event-trigger fn).
+      ⚠️ Check first that no anon-reachable RLS policy calls `owns_shop` before revoking.
+
 > ℹ️ **How customer payments work (test vs live) — expected behavior, not a bug.**
 > Stripe **Connect** = receiving customer payments (payouts). In **sandbox/test**
 > mode the app intentionally falls back to a **platform charge** so demos work
