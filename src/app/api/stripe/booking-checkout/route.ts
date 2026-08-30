@@ -91,6 +91,16 @@ export async function POST(request: NextRequest) {
   const bookingDuration = charge.duration > 0 ? charge.duration : 30;
   const endMin = startMin + bookingDuration;
   let resolvedBarberId = booking.barber_id || null;
+  // Server-side safety net: never persist a barberless appointment (it's invisible
+  // on every calendar and earns no one). If the client sent no barber (bug/legacy/
+  // an "Anyone" that didn't resolve), assign an ACTIVE barber who's free for this
+  // slot; if none is free, reject cleanly rather than create an orphan.
+  if (!resolvedBarberId) {
+    resolvedBarberId = await findAvailableBarber(booking.shop_id, booking.date, startMin, endMin);
+    if (!resolvedBarberId) {
+      return NextResponse.json({ error: "No barber is available for that time. Please pick another slot." }, { status: 400 });
+    }
+  }
   if (resolvedBarberId) {
     if (await barberHasConflict(resolvedBarberId, booking.date, startMin, endMin)) {
       return NextResponse.json(

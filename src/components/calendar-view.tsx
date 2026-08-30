@@ -489,7 +489,12 @@ export function makeApptActions(opts: {
           body: JSON.stringify({ appointment_id: appt.id }),
         }).catch(() => null);
       }
-      const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appt.id);
+      // Persist the voided state to the DB too (a held card being cancelled) — the
+      // old write set only `status`, leaving the row `held + cancelled` forever
+      // (it read as a frozen hold in reconciliation). Match the local patch below.
+      const { error } = await supabase.from("appointments")
+        .update(hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" })
+        .eq("id", appt.id);
       setBusy("");
       if (error) { toast(`Failed: ${error.message}`); return; }
       patch(appt.id, hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
