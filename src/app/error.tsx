@@ -7,6 +7,22 @@ import { useEffect } from "react";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    // Stale-deploy recovery: a ChunkLoadError means the tab is holding HTML that
+    // points at JS chunks a newer Vercel deploy already removed (classic "tab open
+    // across a deploy" — it was silently losing bookings on the public page). Force
+    // ONE reload to pull the fresh build; a sessionStorage guard stops a loop.
+    const msg = error?.message || "";
+    const isChunkError = error?.name === "ChunkLoadError"
+      || /Loading chunk [\w-]+ failed|ChunkLoadError|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(msg);
+    if (isChunkError && typeof window !== "undefined") {
+      try {
+        if (!sessionStorage.getItem("cw_chunk_reloaded")) {
+          sessionStorage.setItem("cw_chunk_reloaded", "1");
+          window.location.reload();
+          return; // reloading — skip the error screen + the log below
+        }
+      } catch { /* storage blocked — fall through to the normal error screen */ }
+    }
     console.error("[error-boundary]", error);
     // Report to the central error log (CEO panel + Vercel logs). Best-effort.
     try {

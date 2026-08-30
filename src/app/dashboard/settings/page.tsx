@@ -469,7 +469,7 @@ export default function SettingsPage() {
     profileBusyRef.current = true;
     setSaving(true);
     const { error } = await supabase.from("shops").update({
-      name: profile.name, address: profile.address, city: profile.city,
+      name: profile.name.trim(), address: profile.address, city: profile.city,
       province: profile.province, postal_code: profile.postal_code,
       phone: profile.phone, email: profile.email, description: (profile.description ?? "").slice(0, 500),
       instagram: profile.instagram || null,
@@ -516,9 +516,22 @@ export default function SettingsPage() {
     // Save both the JSON `booking_settings` blob and the top-level
     // `allow_pay_in_person` column in one update — they're both shown in
     // this tab, so it would be confusing to have separate save buttons.
+    // MERGE onto the existing blob (don't replace) — the form only knows its own
+    // fields, so a wholesale write wiped internal keys the server owns (e.g. the
+    // reminder cron's `_h2_last_ms` bookkeeping). Shallow-merge top level, and
+    // deep-merge `reminders` so that scheduler state survives every save.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBS = ((shop.booking_settings ?? {}) as Record<string, any>);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nextBS = (bookingToSave as Record<string, any>);
+    const mergedBS = {
+      ...existingBS,
+      ...nextBS,
+      reminders: { ...(existingBS.reminders ?? {}), ...(nextBS.reminders ?? {}) },
+    };
     const { error } = await supabase.from("shops").update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      booking_settings: bookingToSave as any,
+      booking_settings: mergedBS as any,
       allow_pay_in_person: isFreePlan ? true : profile.allow_pay_in_person,
     }).eq("id", shop.id);
     if (error) {
