@@ -679,7 +679,7 @@ export default function PaymentsPage() {
         <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.headline + p.fees)}</span></div>
         {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
         {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
-        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">You keep</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Collected</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
       </div>
     )
   );
