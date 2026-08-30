@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     client_email?: string | null;
     service_name?: string;
     subtotal?: number; tip?: number; discount?: number; total?: number; tax?: number;
-    commission_amount?: number | null;
+    commission_base?: number | null; // service subtotal after discount; server applies the barber's DB rate
     type?: string;
     products?: { id: string; qty: number }[];
   };
@@ -73,7 +73,9 @@ export async function POST(req: NextRequest) {
         discount: String(discount),
         tax: String(tax),
         total: String(total),
-        commission_amount: body.commission_amount != null ? String(body.commission_amount) : "",
+        // Service subtotal after discount — the base /terminal/capture recomputes
+        // commission from using the barber's DB rate (never the browser).
+        commission_base: body.commission_base != null ? String(body.commission_base) : "",
         type: body.type || "service",
         products: JSON.stringify(Array.isArray(body.products) ? body.products : []),
       },

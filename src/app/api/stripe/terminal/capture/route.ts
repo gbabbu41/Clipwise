@@ -3,6 +3,7 @@ import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { authorizeShop } from "@/lib/api-auth";
 import { insertNotifications } from "@/lib/notify-server";
+import { posCommissionFor } from "@/lib/commission-server";
 
 /**
  * Capture a card-present PaymentIntent (after the reader collected the card) and
@@ -71,7 +72,12 @@ export async function POST(req: NextRequest) {
       tip,
       tax,
       stripe_fee: stripeFee,
-      commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
+      // Commission from the barber's DB rate (never the browser). Base = service
+      // subtotal after discount from metadata; fall back to the collected amount.
+      commission_amount: await posCommissionFor(
+        m.barber_id || null,
+        m.commission_base != null && m.commission_base !== "" ? Number(m.commission_base) : Math.max(0, subtotal - discount),
+      ),
       payment_method: "card",
       type: m.type || "service",
       payment_intent_id,

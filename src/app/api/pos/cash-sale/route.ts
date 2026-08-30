@@ -5,6 +5,7 @@ import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
 import { upsertClient } from "@/lib/clients-server";
 import { sendPaymentReceipt } from "@/lib/payment-notify";
+import { posCommissionFor } from "@/lib/commission-server";
 import { type TaxConfig } from "@/lib/pricing";
 
 /**
@@ -53,6 +54,12 @@ export async function POST(req: Request) {
       if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
     }
 
+    // Commission is recomputed server-side from the barber's DB rate (never the
+    // browser's commission_amount). Base = the service subtotal after discount the
+    // client sends; fall back to the collected amount if it's absent.
+    const commissionBase = b.commission_base != null ? Number(b.commission_base) : (Number(b.amount) || 0);
+    const commission_amount = await posCommissionFor(b.barber_id || null, commissionBase);
+
     const fullRow: Record<string, unknown> = {
       shop_id,
       barber_id: b.barber_id || null,
@@ -62,7 +69,7 @@ export async function POST(req: Request) {
       amount: Number(b.amount) || 0,
       tip: Number(b.tip) || 0,
       tax: Number(b.tax) || 0,
-      commission_amount: b.commission_amount != null ? Number(b.commission_amount) : null,
+      commission_amount,
       payment_method: b.payment_method || "cash",
       type: b.type || "service",
       source: "pos",

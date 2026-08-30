@@ -417,9 +417,9 @@ export default function POSPage() {
     const serviceAfterDiscount = subtotal > 0
       ? Math.max(0, serviceSubtotal - (discount + loyaltyDiscount) * (serviceSubtotal / subtotal))
       : 0;
-    const commission = selectedBarber
-      ? Math.round(serviceAfterDiscount * (selectedBarber.commission_percent / 100) * 100) / 100
-      : null;
+    // Commission is no longer computed here — the server recomputes it from the
+    // barber's DB rate applied to `serviceAfterDiscount` (sent as commission_base),
+    // so the browser can't dictate the cut. selectedBarber is still used elsewhere.
     const txType = serviceItems.length > 0 ? "service" : "product";
 
     // Itemized lines for the receipt — name · qty · unit price for every cart
@@ -452,7 +452,7 @@ export default function POSPage() {
             client_phone: custPhone.trim(),
             service_name: serviceName,
             subtotal, tip: tipAmt, discount, total, tax: taxAmt,
-            commission_amount: commission,
+            commission_base: serviceAfterDiscount,
             type: txType,
             promo_code: promoApplied?.code ?? null,
             redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
@@ -499,7 +499,7 @@ export default function POSPage() {
           amount: Math.max(0, subtotal - discount - loyaltyDiscount - giftApplied),
           tip: tipAmt,
           tax: taxAmt,
-          commission_amount: commission,
+          commission_base: serviceAfterDiscount,
           payment_method: paymentMethod,
           type: txType,
           promo_code: promoApplied?.code ?? null,

@@ -6,6 +6,7 @@ import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
 import { upsertClient } from "@/lib/clients-server";
 import { sendPaymentReceipt } from "@/lib/payment-notify";
+import { posCommissionFor } from "@/lib/commission-server";
 import { type TaxConfig } from "@/lib/pricing";
 
 // Called when the POS returns from a paid card checkout. Verifies the payment
@@ -46,6 +47,12 @@ export async function POST(request: NextRequest) {
     }
 
     const tax = Number(m.tax ?? 0);
+    // Recompute commission server-side from the barber's DB rate (never the
+    // browser's commission_amount). Base = service subtotal after discount from
+    // metadata; fall back to the collected service amount if absent.
+    const serviceAmount = Math.max(0, subtotal - discount - loyaltyDiscount);
+    const commissionBase = m.commission_base != null && m.commission_base !== "" ? Number(m.commission_base) : serviceAmount;
+    const commission_amount = await posCommissionFor(m.barber_id || null, commissionBase);
     const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
     // Real Stripe fee for this card sale (split 50/50 barber/shop at read time).
     // Best-effort → 0.
@@ -63,7 +70,7 @@ export async function POST(request: NextRequest) {
       tip,
       tax,
       stripe_fee: stripeFee,
-      commission_amount: m.commission_amount ? Number(m.commission_amount) : null,
+      commission_amount,
       payment_method: "card",
       type: m.type || "service",
       stripe_session_id: session_id,

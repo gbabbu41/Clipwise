@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     discount: number;
     total: number;
     tax: number;
-    commission_amount: number | null;
+    commission_base?: number | null; // service subtotal after discount; server applies the barber's DB rate
     type: string;
     products: { id: string; qty: number }[];
     items?: { n: string; q: number; p: number }[]; // cart lines → itemized receipt (carried in metadata)
@@ -104,7 +104,9 @@ export async function POST(request: NextRequest) {
           discount: String(body.discount ?? 0),
           total: String(body.total),
           tax: String(body.tax ?? 0),
-          commission_amount: body.commission_amount != null ? String(body.commission_amount) : "",
+          // Service subtotal after discount — the base the server recomputes
+          // commission from (the browser no longer dictates the commission amount).
+          commission_base: body.commission_base != null ? String(body.commission_base) : "",
           type: body.type,
           promo_code: body.promo_code ?? "",
           redeem_loyalty: body.redeem_loyalty ? "1" : "",
