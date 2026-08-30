@@ -29,12 +29,25 @@ export type BarberEarnings = {
   avgTicket: number;
 };
 
+// A stored commission cut is only trustworthy if it's POSSIBLE. A real cut is
+// amount × pct/100, and pct ≤ 100, so a cut can never exceed the sale it's on (nor
+// be negative). A bad POS write once stored cuts ~466× too large (fixed
+// 2026-08-11); every read here did `commission_amount ?? derived`, trusting those
+// corrupt values verbatim and inflating the commission line by thousands. This is
+// the ONE guard: trust a stored cut only when sane; otherwise fall back to the
+// derived amount × pct/100. `pct` is the barber's whole-number percentage.
+export function safeCommission(amount: number | null | undefined, stored: number | null | undefined, pct: number): number {
+  const amt = Math.max(0, amount ?? 0);
+  const derived = (amt * pct) / 100;
+  if (stored == null || !Number.isFinite(stored) || stored < 0 || stored > amt) return derived;
+  return stored;
+}
+
 // What the barber earned on ONE transaction — their service commission + their
 // tip. The card fee is applied only at the aggregate (halved), same as the
 // summary, so a row is the pre-fee cut and the period headline nets the fee out.
 export function barberRowCut(t: EarningTx, commissionPercent: number): number {
-  const commission = t.commission_amount ?? (t.amount * commissionPercent) / 100;
-  return commission + (t.tip ?? 0);
+  return safeCommission(t.amount, t.commission_amount, commissionPercent) + (t.tip ?? 0);
 }
 
 // Shop-wide barber commission for a set of transactions — the SAME ledger + the
@@ -54,7 +67,7 @@ export function shopBarberCommission(
     // they never pay commission (matches the Dashboard + barber-portal rule).
     if (t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee")) return sum;
     const pct = pctByBarber[t.barber_id] ?? 0;
-    return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
+    return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);
 }
 
@@ -65,7 +78,7 @@ export function computeBarberEarnings(txs: EarningTx[], commissionPercent: numbe
   const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
   const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
   const revenue = serviceAmount + tips;
-  const commission = list.reduce((s, t) => s + (t.commission_amount ?? (t.amount * commissionPercent) / 100), 0);
+  const commission = list.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0);
   const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   const barberFeeShare = stripeFee / 2;
   const youKeep = Math.max(0, commission + tips - barberFeeShare);

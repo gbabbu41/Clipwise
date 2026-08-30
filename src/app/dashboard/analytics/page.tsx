@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { safeCommission } from "@/lib/barber-earnings";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -212,7 +213,7 @@ export default function AnalyticsPage() {
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
       if (t2.refunded || !t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
       const p = pct[t2.barber_id] ?? 0;
-      return sum + (t2.commission_amount ?? ((t2.amount ?? 0) * p) / 100);
+      return sum + safeCommission(t2.amount, t2.commission_amount, p);
     }, 0);
     const commission = apptCommission + posCommission;
     // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),

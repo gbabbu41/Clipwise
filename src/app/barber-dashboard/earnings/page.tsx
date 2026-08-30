@@ -8,6 +8,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AppointmentWithDetails } from "@/lib/database.types";
+import { safeCommission } from "@/lib/barber-earnings";
 
 interface Tx {
   id: string;
@@ -118,7 +119,7 @@ export default function BarberPaymentsPage() {
     if (isOwner && pct >= 100) return grossOf(t) - feeOf(t);
     // Staff (or an owner on a partial cut): commission on the service + all tips,
     // minus HALF the card fee — the barber and shop split processing 50/50.
-    const commission = t.commission_amount ?? (t.amount * pct) / 100;
+    const commission = safeCommission(t.amount, t.commission_amount, pct);
     return commission + tipAmt - feeOf(t) / 2;
   }, [isOwner, pct, feeOf]);
 

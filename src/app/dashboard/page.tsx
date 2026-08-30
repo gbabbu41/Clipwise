@@ -24,6 +24,7 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -500,7 +501,7 @@ export default function DashboardPage() {
   const posCommission = countablePosTxs(revenueApptsInRange, txnsInRange).reduce((sum, t) => {
     if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return sum;
     const pct = commissionPct[t.barber_id] ?? 0;
-    return sum + (t.commission_amount ?? ((t.amount ?? 0) * pct) / 100);
+    return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);
   const commission = apptCommission + posCommission;
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
