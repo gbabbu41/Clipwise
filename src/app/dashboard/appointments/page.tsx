@@ -821,6 +821,10 @@ export default function AppointmentsPage() {
 
   const addAppointment = async () => {
     if (!shop || !addForm.client_name || !addForm.service_id) { showToast("Fill in required fields"); return; }
+    // Require a barber — a barber-less appointment is invisible on every calendar
+    // and earns no one (it's the owner-side twin of the online-booking null we
+    // already guard server-side). Never persist one from here.
+    if (!addForm.barber_id) { showToast("Pick a barber for this appointment"); return; }
     const today = formatDateForDb(new Date());
     if (addForm.date < today) { showToast("Please select a future date"); return; }
     setSavingAdd(true);
@@ -1716,8 +1720,8 @@ export default function AppointmentsPage() {
               </div>
               <Input label="Client Name *" value={addForm.client_name} onChange={e => setAddForm(p => ({ ...p, client_name: e.target.value }))} placeholder="Marcus Johnson" />
               <Input label="Phone" value={addForm.client_phone} onChange={e => setAddForm(p => ({ ...p, client_phone: formatPhone(e.target.value) }))} placeholder="506-555-0000" />
-              <Select label="Barber" value={addForm.barber_id} onChange={e => setAddForm(p => ({ ...p, barber_id: e.target.value }))}>
-                <option value="">Any Barber</option>
+              <Select label="Barber *" value={addForm.barber_id} onChange={e => setAddForm(p => ({ ...p, barber_id: e.target.value }))}>
+                <option value="">Select a barber</option>
                 {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </Select>
               <Select label="Service *" value={addForm.service_id} onChange={e => setAddForm(p => ({ ...p, service_id: e.target.value }))}>
