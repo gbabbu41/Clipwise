@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Notify the assigned barber that one of their appointments changed state
 // (cancelled by the customer, rejected by the shop, or marked no-show). The
@@ -10,6 +11,11 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 // callers (booking page, my-bookings, dashboard). Fire-and-forget — callers
 // don't block on it, and a missing barber/email is a silent no-op.
 export async function POST(req: NextRequest) {
+  // Public fan-out route (keyed only by appointment id) — throttle so a leaked
+  // appointment UUID can't be used to spam a customer's phone / a barber's inbox.
+  const limited = enforceRateLimit(req, "notify-cancellation", 20, 60_000);
+  if (limited) return limited;
+
   const { appointment_id, statusLabel, notifyCustomer } = await req.json() as {
     appointment_id?: string;
     statusLabel?: string;
@@ -19,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, client_name, client_phone, service_id, date, time_slot")
+    .select("id, shop_id, barber_id, status, client_name, client_phone, service_id, date, time_slot")
     .eq("id", appointment_id).maybeSingle();
   if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
 
@@ -39,7 +45,10 @@ export async function POST(req: NextRequest) {
   // cancellation they didn't initiate. Skipped for no-show and for customer
   // self-cancels (those don't pass notifyCustomer). Short + GSM-7 (one segment);
   // awaited so a serverless freeze can't drop it. This was the missing text.
-  if (notifyCustomer && !isNoShow && appt.client_phone && isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status))) {
+  // Only text a REAL cancellation — the row must actually be cancelled. Without
+  // this, a POST with notifyCustomer:true could push a false "you're cancelled"
+  // SMS to a customer whose booking is still active.
+  if (notifyCustomer && !isNoShow && appt.status === "cancelled" && appt.client_phone && isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status))) {
     await sendSmsBestEffort(
       appt.client_phone,
       `Your appointment on ${appt.date} at ${appt.time_slot} has been cancelled. Please contact us to rebook.`,

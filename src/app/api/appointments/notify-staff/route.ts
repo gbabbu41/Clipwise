@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDateWithContext } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Fire-and-forget staff alerts for a NEW booking — the pieces the booking
@@ -19,6 +20,12 @@ import { insertNotifications } from "@/lib/notify-server";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Public fan-out (no auth by design — called from the anon booking page), so
+    // throttle per-IP: a leaked appointment UUID mustn't be replayable to spam the
+    // shop owner/barber with SMS + "needs approval" alerts.
+    const limited = enforceRateLimit(request, "notify-staff", 20, 60_000);
+    if (limited) return limited;
+
     const { appointment_id, notify_owner = true } = await request.json() as { appointment_id?: string; notify_owner?: boolean };
     if (!appointment_id) return NextResponse.json({ error: "Missing appointment_id" }, { status: 400 });
 
