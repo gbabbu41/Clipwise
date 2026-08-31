@@ -2321,7 +2321,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
-            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))` }}>
+            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
                 className="flex items-center justify-center py-1.5 transition-colors hover:bg-card-raised">
@@ -2349,7 +2349,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))`, height: `${rowH}px` }}>
+              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
                 <div className="relative text-right pr-2">
                   <span className="text-[10px] text-grey">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -2361,7 +2361,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
             ))}
 
-            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))` }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
               <div />
               {cols.map((b) => {
                 const colAppts = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id);
@@ -2383,7 +2383,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       return (
                         <button key={`e${slot}`}
                           title={outside ? "Outside working hours — tap to add" : "Add appointment"}
-                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute" }}
                           className={cn(
                             "rounded-lg transition-colors pointer-events-auto overflow-hidden",
                             outside ? "bg-transparent hover:bg-card-raised" : "bg-card-raised hover:bg-surface-overlay",
@@ -2399,7 +2399,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={`blk${bl.id}`}
                           title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
                           onClick={() => canBlock && removeBlock(bl)} disabled={!canBlock}
-                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute",
                             backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--border-strong) 6px, var(--border-strong) 12px)" }}
                           className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
                             bl.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
@@ -2423,6 +2423,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             top: `${top + 2}px`, height: `${height}px`,
                             left: `calc(${lane * widthPct}% + 2px)`,
                             width: `calc(${widthPct}% - 4px)`,
+                            maxWidth: "400px",
                             position: "absolute",
                           }}
                           className={cn(
@@ -2478,7 +2479,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         return (
                           <button key={`freed-${fa.id}`}
                             title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
-                            style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
+                            style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute" }}
                             onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
                             className="rounded-lg border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors">
                             <p className={cn("text-[10px] font-semibold leading-tight truncate text-[#ff8a8a]", !noShow && "line-through")}>
