@@ -2383,7 +2383,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       return (
                         <button key={`e${slot}`}
                           title={outside ? "Outside working hours — tap to add" : "Add appointment"}
-                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute" }}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                           // Every slot gets the same fill so all barber columns read
                           // consistently, regardless of schedule (no more half-shaded
                           // columns). The tooltip still notes outside-hours.
@@ -2399,7 +2399,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={`blk${bl.id}`}
                           title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
                           onClick={() => canBlock && removeBlock(bl)} disabled={!canBlock}
-                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute",
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
                             backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--border-strong) 6px, var(--border-strong) 12px)" }}
                           className={cn("rounded-lg border border-dashed pointer-events-auto overflow-hidden px-1.5 py-0.5 text-left",
                             bl.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
@@ -2479,7 +2479,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         return (
                           <button key={`freed-${fa.id}`}
                             title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
-                            style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute" }}
+                            style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                             onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
                             className="rounded-lg border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors">
                             <p className={cn("text-[10px] font-semibold leading-tight truncate text-[#ff8a8a]", !noShow && "line-through")}>
