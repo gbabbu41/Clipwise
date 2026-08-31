@@ -24,6 +24,26 @@ locked out.
 4. **Only then** re-enable Supabase "Confirm email". (Existing accounts were
    already backfilled as confirmed via SQL, so they stay logged-in-able.)
 
+5. **🔒 Stop leaking your personal email as the Reply-To** (found 2026-08-31).
+   ClipWise's platform emails to SHOP OWNERS (signup / "You're Approved" / admin
+   alerts) set **Reply-To = the `ADMIN_EMAIL` env var**, which is currently your
+   personal **`gbabbu41@gmail.com`** — so every shop owner sees + replies to your
+   personal inbox. (Verified from a real "You're Approved" header: From
+   `Hello@clipwise.ca` ✅ but Reply-To `gbabbu41@gmail.com` ✗. Code:
+   `src/lib/emailer.ts:1270`, `ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@clipwise.ca"`.)
+   Root cause: no ClipWise inbox, so the admin address was pointed at personal gmail
+   to actually receive replies. (Customer-facing emails are FINE — they reply to the
+   shop's own contact email, e.g. real shops use `desidripdrop@gmail.com`, not this.)
+   Fix — pick one, then set the Vercel env:
+   - **Recommended — Google Workspace (~$6/mo):** a real `support@clipwise.ca` (or
+     `hello@`) mailbox. Read AND reply from it; personal gmail never involved.
+   - **Free — Cloudflare Email Routing + Gmail "Send mail as":** forward
+     `support@clipwise.ca` → your gmail (to READ), then Gmail → Settings → Accounts →
+     "Send mail as" `support@clipwise.ca` (to REPLY as it; needs an SMTP, e.g. Resend).
+   - **Then, in Vercel:** set `ADMIN_EMAIL=support@clipwise.ca` (or `hello@`) and
+     redeploy. Done — professional reply-to, replies still reach you, no personal leak.
+   (No code change needed; `ADMIN_EMAIL` is only ever used as the reply-to fallback.)
+
 ---
 
 ## 🟢 0. GO-LIVE CHECKLIST — switch from sandbox to real money
