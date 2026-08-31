@@ -66,8 +66,13 @@ export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, emai
 // appointment already counts them, so folding them again would double-count.
 type TxRow = { client_name?: string | null; client_email?: string | null; created_at?: string | null; amount?: number | null; source?: string | null; refunded?: boolean | null; appointment_id?: string | null };
 export const txToId = (t: TxRow): IdRecord => ({ email: t.client_email, name: t.client_name });
+// A POS sale is only folded into a client when it carries an EMAIL — a strong id.
+// Attributing by name alone is unreliable (two different same-named walk-ins would
+// merge and over-count), so name-only POS sales are left unattributed rather than
+// inflate someone's visits/spend.
 const countableTx = (t: TxRow): boolean =>
-  !t.refunded && !t.appointment_id && t.source !== "completion" && t.source !== "no_show";
+  !t.refunded && !t.appointment_id && t.source !== "completion" && t.source !== "no_show"
+  && !!normEmail(t.client_email);
 const txDate = (t: TxRow): string => (t.created_at ?? "").slice(0, 10);
 
 /** A client row's own id is its identity anchor. */
@@ -114,13 +119,19 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
   };
 
   // ── Activity per component (completed = a visit) ──
+  const today = new Date().toISOString().slice(0, 10);
   type Agg = { visits: number; spent: number; last: string };
   const stats = new Map<string, Agg>();
   for (const a of apptRows) {
     const key = compOf(apptToId(a)); if (!key) continue;
     const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
-    if (a.status === "completed") { g.visits++; g.spent += a.total_amount ?? 0; }
-    if ((a.date ?? "") > g.last) g.last = a.date ?? "";
+    // A visit — and "last visit" — is a COMPLETED appointment that has already
+    // happened. A future/confirmed booking is NOT a past visit (it was showing up
+    // as a "last visit" date in the future).
+    if (a.status === "completed") {
+      g.visits++; g.spent += a.total_amount ?? 0;
+      if ((a.date ?? "") <= today && (a.date ?? "") > g.last) g.last = a.date ?? "";
+    }
     stats.set(key, g);
   }
   // Fold in POS / walk-in sales (each countable sale = a visit + its amount),
