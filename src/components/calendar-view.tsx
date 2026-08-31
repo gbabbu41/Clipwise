@@ -2423,7 +2423,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             top: `${top + 2}px`, height: `${height}px`,
                             left: `calc(${lane * widthPct}% + 2px)`,
                             width: `calc(${widthPct}% - 4px)`,
-                            maxWidth: "400px",
                             position: "absolute",
                           }}
                           className={cn(
