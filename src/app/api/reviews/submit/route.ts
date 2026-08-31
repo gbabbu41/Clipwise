@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, barber_id, client_name, client_email, client_phone, shops(slug)")
+    .select("id, shop_id, barber_id, status, client_name, client_email, client_phone, shops(slug)")
     .eq("id", booking_id).single();
   if (!appt) return NextResponse.json({ ok: false, error: "Appointment not found" }, { status: 404 });
 
@@ -29,6 +29,15 @@ export async function POST(request: NextRequest) {
     : (appt.shops as { slug?: string } | null)?.slug;
   if (shopslug && slug && slug !== shopslug) {
     return NextResponse.json({ ok: false, error: "Shop mismatch" }, { status: 400 });
+  }
+
+  // A review must reflect a REAL, completed visit. The review link is sent on
+  // completion, so enforce it server-side: possession of a booking id must not let
+  // anyone review a future, pending, cancelled, or no-show booking (a visit that
+  // never actually happened). Without this, a booking that merely EXISTS could be
+  // rated — how a review landed 3 days before its own appointment.
+  if (appt.status !== "completed") {
+    return NextResponse.json({ ok: false, error: "You can leave a review once your visit is complete." }, { status: 400 });
   }
 
   // reviews.client_id is a FK to clients.id — resolve the appointment's
