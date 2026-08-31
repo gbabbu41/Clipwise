@@ -151,12 +151,12 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
   // (that's why a VIP client was showing as "Returning" and the VIP count read 0). ──
   const TAG_RANK: Record<string, number> = { VIP: 4, "At Risk": 3, Returning: 2, New: 1 };
   const rep = new Map<string, Client>();
-  const bestTag = new Map<string, string>();
+  const bestTag = new Map<string, Client["tag"]>();
   for (const row of clientRows) {
     const key = compOf(clientToId(row)); if (!key) continue;
     const cur = rep.get(key);
     if (!cur || (row.loyalty_points ?? 0) > (cur.loyalty_points ?? 0)) rep.set(key, row);
-    const t = row.tag ?? "New";
+    const t: Client["tag"] = row.tag ?? "New";
     const bt = bestTag.get(key);
     if (!bt || (TAG_RANK[t] ?? 0) > (TAG_RANK[bt] ?? 0)) bestTag.set(key, t);
   }
