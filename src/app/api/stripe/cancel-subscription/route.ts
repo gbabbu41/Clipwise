@@ -55,7 +55,12 @@ export async function POST(request: NextRequest) {
       // blocked by a stale id, and a stray future event can't map back to this row.
       // Keep stripe_customer_id so a re-subscribe reuses the same Stripe customer.
       const { error: upErr } = await supabaseAdmin.from("shops")
-        .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null, stripe_subscription_id: null })
+        .update({
+          subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null, stripe_subscription_id: null,
+          // If this cancel ended a running trial, record when — permanent history
+          // (trial_ends_at is cleared because a set value reads as "on trial").
+          ...(shop.trial_ends_at ? { trial_ended_at: new Date().toISOString() } : {}),
+        })
         .eq("id", shop.id);
       if (upErr) {
         console.error("[cancel-subscription] immediate downgrade write failed", upErr);

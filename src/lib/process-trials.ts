@@ -41,7 +41,10 @@ export async function processTrials(nowMs: number): Promise<{ reminded: number; 
       // Trial expired with no card → downgrade to Starter. The extra guards keep
       // us from racing a shop that just subscribed between the SELECT and here.
       await supabaseAdmin.from("shops")
-        .update({ subscription_status: "inactive", trial_ends_at: null })
+        // Keep a permanent record of when the trial ended (the scheduled end that
+        // just passed) — trial_ends_at itself is nulled because a set value means
+        // "currently trialing" in the UI.
+        .update({ subscription_status: "inactive", trial_ends_at: null, trial_ended_at: shop.trial_ends_at })
         .eq("id", shop.id).eq("subscription_status", "active").is("stripe_subscription_id", null)
         .then(null, () => null);
       if (shop.owner_id) {

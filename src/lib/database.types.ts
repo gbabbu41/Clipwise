@@ -41,6 +41,11 @@ export interface Shop {
    *  trial ends or is cancelled (trial_ends_at gets wiped, this does not). The
    *  server (start-trial) enforces it; the client uses it to gate trial CTAs. */
   trial_used?: boolean | null;
+  /** When the trial actually ended (expired or cancelled early) — permanent
+   *  history (phase55). Unlike trial_ends_at (nulled on trial-end so a set value
+   *  reads as "currently trialing"), this is kept so an audit can tell that past
+   *  paid-feature usage happened during a trial. Never read for entitlement. */
+  trial_ended_at?: string | null;
   stripe_connected?: boolean;
   stripe_connect_status?: "pending" | "active";
   instagram?: string;
