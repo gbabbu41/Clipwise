@@ -1164,6 +1164,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
+  // Monotonic load counter — only the newest fetch may commit its result, so a
+  // slow earlier request can't overwrite a newer one on quick date navigation.
+  const loadSeqRef = useRef(0);
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
   // Direction of the last navigation, fed to the view-transition variants:
   // +1 next, -1 previous, 0 = zoom/cross-fade (drill into a day / switch view).
@@ -1292,6 +1295,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   const load = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
+    // Guard against a stale response winning the race: navigating dates fires a
+    // new fetch each time, and an earlier one can resolve AFTER a later one and
+    // overwrite it — leaving the previous day's/month's appointments under the new
+    // date (and an off-duty barber column). Only the latest load may commit.
+    const seq = ++loadSeqRef.current;
     setLoading(true);
 
     let rangeStart: Date, rangeEnd: Date;
@@ -1345,6 +1353,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       blocksQ,
     ]);
 
+    if (seq !== loadSeqRef.current) return; // a newer load started — discard this stale response
     setAppointments((appts ?? []) as AppointmentWithDetails[]);
     setBarbers((bs ?? []) as Barber[]);
     setBlocks((blk ?? []) as BlockRow[]);
