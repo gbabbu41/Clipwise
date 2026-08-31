@@ -3,8 +3,9 @@
 -- ============================================================
 -- Step 1: Create the admin user in Supabase Authentication
 --   Dashboard → Authentication → Users → Add user
---   Email: admin@clipwise.com
---   Password: ClipWise2026!
+--   Email: admin@clipwise.com   (or your own admin email)
+--   Password: <choose a strong, unique password — store it in a password
+--             manager, NEVER commit it here>
 --   Click "Create User" then copy the UUID shown
 --
 -- Step 2: Replace 'PASTE-UUID-HERE' below with the actual UUID
