@@ -58,7 +58,9 @@ export function OnboardingBanner({ shop }: Props) {
         },
         {
           label: "Share your booking link",
-          description: `book.clipwise.ca/${shop.slug}`,
+          // The real public URL is clipwise.ca/book/<slug> — the old `book.clipwise.ca`
+          // subdomain has no DNS record, so every owner was shown a dead link to share.
+          description: `clipwise.ca/book/${shop.slug}`,
           href: "/dashboard/share",
           done: hasShared,
         },
