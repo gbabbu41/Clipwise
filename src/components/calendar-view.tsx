@@ -2299,7 +2299,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
-            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
                 className="flex items-center justify-center py-1.5 transition-colors hover:bg-card-raised">
@@ -2327,7 +2327,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, 1fr)`, height: `${rowH}px` }}>
+              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))`, height: `${rowH}px` }}>
                 <div className="relative text-right pr-2">
                   <span className="text-[10px] text-grey">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
@@ -2339,7 +2339,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               </div>
             ))}
 
-            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `56px repeat(${cols.length}, 1fr)` }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 420px))` }}>
               <div />
               {cols.map((b) => {
                 const colAppts = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id);
