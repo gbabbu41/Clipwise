@@ -2384,10 +2384,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={`e${slot}`}
                           title={outside ? "Outside working hours — tap to add" : "Add appointment"}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", maxWidth: "400px", position: "absolute" }}
-                          className={cn(
-                            "rounded-lg transition-colors pointer-events-auto overflow-hidden",
-                            outside ? "bg-transparent hover:bg-card-raised" : "bg-card-raised hover:bg-surface-overlay",
-                          )}
+                          // Every slot gets the same fill so all barber columns read
+                          // consistently, regardless of schedule (no more half-shaded
+                          // columns). The tooltip still notes outside-hours.
+                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden bg-card-raised hover:bg-surface-overlay"
                           onClick={() => openAdd(b.id, b.name, slot, minutes)} />
                       );
                     })}
