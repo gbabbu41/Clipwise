@@ -145,18 +145,26 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
     stats.set(key, g);
   }
 
-  // ── Representative real row per component (most points wins on dupes) ──
+  // ── Representative real row per component (most points wins on dupes). Also keep
+  // the highest-priority TAG across duplicates, so a manually-set "VIP" isn't lost
+  // when a duplicate record with more loyalty points but a lesser tag wins the rep
+  // (that's why a VIP client was showing as "Returning" and the VIP count read 0). ──
+  const TAG_RANK: Record<string, number> = { VIP: 4, "At Risk": 3, Returning: 2, New: 1 };
   const rep = new Map<string, Client>();
+  const bestTag = new Map<string, string>();
   for (const row of clientRows) {
     const key = compOf(clientToId(row)); if (!key) continue;
     const cur = rep.get(key);
     if (!cur || (row.loyalty_points ?? 0) > (cur.loyalty_points ?? 0)) rep.set(key, row);
+    const t = row.tag ?? "New";
+    const bt = bestTag.get(key);
+    if (!bt || (TAG_RANK[t] ?? 0) > (TAG_RANK[bt] ?? 0)) bestTag.set(key, t);
   }
 
   const out = new Map<string, Client>();
   for (const [key, row] of Array.from(rep)) {
     const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
-    out.set(key, { ...row, total_visits: g.visits, total_spent: g.spent, last_visit: g.last || row.last_visit });
+    out.set(key, { ...row, tag: bestTag.get(key) ?? row.tag, total_visits: g.visits, total_spent: g.spent, last_visit: g.last || row.last_visit });
   }
 
   // Synthetic rows for people who only exist in appointments.

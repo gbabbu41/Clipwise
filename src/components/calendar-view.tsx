@@ -1236,6 +1236,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return next;
     });
   }, []);
+  // Bring dismissed no-show/cancelled markers back (the ✕ was one-way before, so a
+  // no-show you cleared to declutter — and its no-show fee — became impossible to
+  // review). Un-dismisses the given ids.
+  const revealFreed = useCallback((ids: string[]) => {
+    setDismissedFreed(prev => {
+      const next = new Set(prev); ids.forEach(id => next.delete(id));
+      try { localStorage.setItem("cw_dismissed_freed", JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -2296,6 +2306,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             {showUnscheduled ? `Hide ${unscheduledCount} off today` : `+${unscheduledCount} off today · show`}
           </button>
         )}
+        {/* Bring back no-shows the owner dismissed (✕) — they carry a charged fee,
+            so hiding them permanently made "why was this billed?" unanswerable. */}
+        {(() => {
+          const dn = appointments.filter(a => a.date === dateStr && a.status === "no-show" && dismissedFreed.has(a.id));
+          if (dn.length === 0) return null;
+          return (
+            <button type="button" onClick={() => revealFreed(dn.map(a => a.id))}
+              className="self-start mx-3 my-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-500/15 border border-zinc-500/30 text-zinc-300 hover:text-foreground transition-colors flex-shrink-0">
+              {dn.length} no-show{dn.length === 1 ? "" : "s"} · show
+            </button>
+          );
+        })()}
         <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
