@@ -331,6 +331,12 @@ export function timeGreeting(hour: number = new Date().getHours()): string {
   return "Good evening";
 }
 
+/** "1 review" / "2 reviews" — count + correctly pluralized word. Pass an explicit
+ *  plural for irregulars (e.g. plural(n, "entry", "entries")). */
+export function plural(n: number, word: string, pluralWord?: string): string {
+  return `${n} ${n === 1 ? word : pluralWord ?? `${word}s`}`;
+}
+
 export function prettyDate(d: string | null | undefined): string {
   if (!d) return "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already formatted / not a date-only string

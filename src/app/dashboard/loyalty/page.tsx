@@ -253,7 +253,7 @@ export default function LoyaltyPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Loyalty & Marketing</h1>
+            <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Loyalty & Promos</h1>
             <button type="button" onClick={() => setShowHelp(true)} aria-label="How loyalty points work"
               className="w-6 h-6 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-card-raised transition-colors">
               <Info size={16} />

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, plural } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
@@ -232,9 +232,9 @@ export default function MarketingPage() {
             <h2 className="text-sm font-semibold text-grey uppercase tracking-wider mb-3">Quick Campaigns</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { label: "Win-Back At-Risk", desc: `Re-engage ${clients.filter(c=>c.tag==="At Risk"&&!!c.email).length} at-risk clients who haven't been back`, icon: "🔄", template: "winback", segment: "atrisk" },
-                { label: "Fill Slow Days", desc: `Send a promo to all ${clients.filter(c=>!!c.email).length} clients with email`, icon: "📅", template: "fillyourseat", segment: "all" },
-                { label: "Reward Your VIPs", desc: `Appreciate ${clients.filter(c=>c.tag==="VIP"&&!!c.email).length} VIP clients`, icon: "🏆", template: "loyalty", segment: "vip" },
+                { label: "Win-Back At-Risk", desc: `Re-engage ${plural(clients.filter(c=>c.tag==="At Risk"&&!!c.email).length, "at-risk client")} who haven't been back`, icon: "🔄", template: "winback", segment: "atrisk" },
+                { label: "Fill Slow Days", desc: `Send a promo to all ${plural(clients.filter(c=>!!c.email).length, "client")} with email`, icon: "📅", template: "fillyourseat", segment: "all" },
+                { label: "Reward Your VIPs", desc: `Appreciate ${plural(clients.filter(c=>c.tag==="VIP"&&!!c.email).length, "VIP client")}`, icon: "🏆", template: "loyalty", segment: "vip" },
               ].map(qa => (
                 <button
                   key={qa.label}

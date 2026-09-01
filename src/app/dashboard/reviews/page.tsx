@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, prettyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -64,7 +64,8 @@ export default function ReviewsPage() {
     if (barberFilter !== "all") list = list.filter(r => r.barber_id === barberFilter);
     if (ratingFilter === "5") list = list.filter(r => r.rating === 5);
     else if (ratingFilter === "4") list = list.filter(r => r.rating === 4);
-    else if (ratingFilter === "below3") list = list.filter(r => r.rating <= 3);
+    else if (ratingFilter === "3") list = list.filter(r => r.rating === 3);
+    else if (ratingFilter === "below3") list = list.filter(r => r.rating <= 2);
     return list;
   }, [reviews, ratingFilter, barberFilter]);
 
@@ -170,7 +171,7 @@ export default function ReviewsPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {[["all","All"],["5","5★"],["4","4★"],["below3","Below 3★"]].map(([v,l]) => (
+              {[["all","All"],["5","5★"],["4","4★"],["3","3★"],["below3","Below 3★"]].map(([v,l]) => (
                 <button key={v} onClick={() => setRatingFilter(v)}
                   className={cn("px-3 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", ratingFilter === v ? "bg-gold text-black" : "text-grey hover:text-foreground bg-card-raised")}>
                   {l}
@@ -206,7 +207,7 @@ export default function ReviewsPage() {
                     <div>
                       <p className="text-foreground font-semibold">{review.client_name ?? "Anonymous"}</p>
                       <p className="text-xs text-grey">
-                        {barbers.find(b => b.id === review.barber_id)?.name ?? "Shop"} · {review.created_at.split("T")[0]}
+                        {barbers.find(b => b.id === review.barber_id)?.name ?? "Shop"} · {prettyDate(review.created_at.slice(0, 10))}
                       </p>
                     </div>
                   </div>

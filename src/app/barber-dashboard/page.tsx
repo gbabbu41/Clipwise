@@ -4,7 +4,7 @@ import { Calendar, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb, timeToMinutes, plural } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
@@ -203,7 +203,7 @@ export default function BarberOverviewPage() {
             {
               label: "Rating",
               value: barber?.rating ? barber.rating.toFixed(1) : "—",
-              sub: `${barber?.total_reviews ?? 0} reviews`,
+              sub: plural(barber?.total_reviews ?? 0, "review"),
               tone: "muted",
             },
           ];

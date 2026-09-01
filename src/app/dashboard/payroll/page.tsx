@@ -208,11 +208,13 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Summary stats. Hours tile only shows once clock-in is actually used —
+          an always-zero "0.0h" reads as broken, so hide it until there's data. */}
+      <div className={cn("grid grid-cols-2 gap-4", totalHours > 0 ? "md:grid-cols-4" : "md:grid-cols-3")}>
         <Card className="p-4">
           <p className="text-xs text-grey">Total Service Revenue</p>
           <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(totalServiceRevenue)}</p>
+          <p className="text-[10px] text-grey-muted mt-1">Services only — excludes products &amp; tips</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-grey">Total Commission Out</p>
@@ -222,10 +224,12 @@ export default function PayrollPage() {
           <p className="text-xs text-grey">Shop Keeps</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(shopRevenue)}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs text-grey">Total Hours Worked</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{totalHours.toFixed(1)}h</p>
-        </Card>
+        {totalHours > 0 && (
+          <Card className="p-4">
+            <p className="text-xs text-grey">Total Hours Worked</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{totalHours.toFixed(1)}h</p>
+          </Card>
+        )}
       </div>
 
       {/* Earnings chart — at-a-glance comparison of each barber's payout
@@ -285,8 +289,8 @@ export default function PayrollPage() {
                     </div>
                   </div>
 
-                  {/* Stats row */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                  {/* Stats row. Hours tile hidden until clock-in is used (see above). */}
+                  <div className={cn("grid grid-cols-2 gap-3 mt-4", totalHours > 0 ? "md:grid-cols-4" : "md:grid-cols-3")}>
                     <div className="text-center bg-card shadow-sm rounded-xl p-3">
                       <p className="text-lg font-bold text-foreground">{p.appointments.length}</p>
                       <p className="text-xs text-grey">Appointments</p>
@@ -299,10 +303,12 @@ export default function PayrollPage() {
                       <p className="text-lg font-bold text-emerald-400">{formatCurrency(p.commissionEarned)}</p>
                       <p className="text-xs text-grey">Commission ({p.barber.commission_percent}%)</p>
                     </div>
-                    <div className="text-center bg-card shadow-sm rounded-xl p-3">
-                      <p className="text-lg font-bold text-foreground">{p.hoursWorked.toFixed(1)}h</p>
-                      <p className="text-xs text-grey">Hours Worked</p>
-                    </div>
+                    {totalHours > 0 && (
+                      <div className="text-center bg-card shadow-sm rounded-xl p-3">
+                        <p className="text-lg font-bold text-foreground">{p.hoursWorked.toFixed(1)}h</p>
+                        <p className="text-xs text-grey">Hours Worked</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Revenue bar */}
