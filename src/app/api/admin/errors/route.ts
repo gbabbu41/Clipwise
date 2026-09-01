@@ -19,5 +19,17 @@ export async function GET(req: NextRequest) {
     // Pre-migration — return empty + a flag so the UI shows a "run migration" note.
     return NextResponse.json({ entries: [], unavailable: true });
   }
-  return NextResponse.json({ entries: data ?? [] });
+
+  // Resolve shop_id → shop name so the panel shows WHICH shop broke (shop_id is a
+  // plain text column, not a FK, so this is a separate lookup rather than a join).
+  const rows = data ?? [];
+  const shopIds = Array.from(new Set(rows.map((r) => r.shop_id).filter(Boolean))) as string[];
+  let names: Record<string, string> = {};
+  if (shopIds.length) {
+    const { data: shops } = await supabaseAdmin.from("shops").select("id, name").in("id", shopIds);
+    names = Object.fromEntries((shops ?? []).map((s) => [s.id, s.name]));
+  }
+  const entries = rows.map((r) => ({ ...r, shop_name: r.shop_id ? (names[r.shop_id] ?? null) : null }));
+
+  return NextResponse.json({ entries });
 }

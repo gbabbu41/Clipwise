@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
           level: "warn", source: "ai-phone-release",
           message: `Twilio release failed (shop ${shop.id}, sid ${shop.twilio_phone_sid}): ${err instanceof Error ? err.message : "error"}`.slice(0, 1000),
           path: "/api/ai-phone/release",
+          shop_id: shop.id,
         }).then(null, () => null);
       }
     }

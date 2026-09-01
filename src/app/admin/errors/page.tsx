@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, ChevronDown } from "lucide-react";
+import { AlertTriangle, RefreshCw, ChevronDown, Store } from "lucide-react";
 
 interface ErrorRow {
   id: string;
@@ -14,6 +14,9 @@ interface ErrorRow {
   stack: string | null;
   path: string | null;
   user_agent: string | null;
+  shop_id: string | null;
+  user_id: string | null;
+  shop_name: string | null;
 }
 
 function Skeleton({ className }: { className?: string }) {
@@ -99,7 +102,14 @@ export default function AdminErrorsPage() {
                         <AlertTriangle size={14} className={tone} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-white break-words">{e.message}</p>
+                        <div className="flex items-start gap-2">
+                          <p className="text-sm text-white break-words flex-1">{e.message}</p>
+                          {e.shop_name
+                            ? <span className="flex items-center gap-1 flex-shrink-0 px-2 py-0.5 rounded-full bg-gold/10 text-gold text-[10px] font-medium"><Store size={9} /> {e.shop_name}</span>
+                            : e.user_id
+                              ? <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-surface-raised text-[#8f8f8f] text-[10px] font-medium">Signed-in user</span>
+                              : <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-surface-raised text-[#8f8f8f] text-[10px] font-medium">Platform / logged-out</span>}
+                        </div>
                         <p className="text-xs text-[#8f8f8f] mt-0.5">
                           <span className={tone}>{e.source ?? "error"}</span>
                           {e.path && <span> · {e.path}</span>}

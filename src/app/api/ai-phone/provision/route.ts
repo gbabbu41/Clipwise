@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       level: "error", source: "ai-phone-provision",
       message: `Provision failed (shop ${shop.id}): ${msg}`.slice(0, 1000),
       path: "/api/ai-phone/provision",
+      shop_id: shop.id,
     }).then(null, () => null);
     return NextResponse.json(
       { error: `Couldn't get a ${areaCode} number: ${msg}. No charge was made.` },
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
       level: "error", source: "ai-phone-provision",
       message: `Provisioned ${provisioned.phoneNumber} (sid ${provisioned.sid}) but shop save failed: ${saveErr.message}`.slice(0, 1000),
       path: "/api/ai-phone/provision",
+      shop_id: shop.id,
     }).then(null, () => null);
     return NextResponse.json({ error: "Number acquired but saving failed — contact support to finish setup." }, { status: 500 });
   }

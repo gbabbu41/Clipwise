@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
       level: "error", source: "payments-summary",
       message: `payments-summary Stripe error (shop ${shop_id ?? "?"}): ${msg}`.slice(0, 1000),
       path: "/api/stripe/payments-summary",
+      shop_id: shop_id ?? null,
     }).then(null, () => null);
     return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: msg });
   }
