@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Megaphone, Mail, Users, Tag, TrendingUp, Send, Clock, CheckCircle2, Plus, ChevronRight, Zap } from "lucide-react";
 import type { Client } from "@/lib/database.types";
+import { groupClients } from "@/lib/client-identity";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 
@@ -97,11 +98,19 @@ export default function MarketingPage() {
 
   const loadClients = useCallback(async () => {
     if (!shop) return;
-    const [clientRes, campaignRes] = await Promise.all([
+    const [clientRes, apptRes, txRes, campaignRes] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id),
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id),
+      supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
       supabase.from("campaigns").select("*").eq("shop_id", shop.id).order("sent_at", { ascending: false }),
     ]);
-    if (clientRes.data) setClients(clientRes.data);
+    // Same de-duped list the Clients page shows — by IDENTITY (email/phone), incl.
+    // past/walk-in customers surfaced from appointments + POS — so the client count
+    // and every segment match across pages instead of contradicting each other.
+    const baseRows = (clientRes.data ?? []) as Client[];
+    const apptRows = (apptRes.error ? [] : apptRes.data ?? []) as unknown as Parameters<typeof groupClients>[0]["apptRows"];
+    const txRows = (txRes.error ? [] : txRes.data ?? []) as unknown as Parameters<typeof groupClients>[0]["txRows"];
+    setClients(groupClients({ shopId: shop.id, clientRows: baseRows, apptRows, txRows }));
     if (campaignRes.data) setCampaigns(campaignRes.data as Campaign[]);
   }, [shop]);
 
@@ -124,6 +133,7 @@ export default function MarketingPage() {
   };
 
   const sendCampaign = async () => {
+    if (!shop) return;
     if (!recipientsWithEmail.length) { showToast("No recipients with email addresses."); return; }
     if (!subject.trim() || !body.trim()) { showToast("Subject and message are required."); return; }
     setSending(true);
@@ -131,11 +141,29 @@ export default function MarketingPage() {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca";
     let sent = 0;
     for (const client of recipientsWithEmail.slice(0, 50)) {
+      // Everyone we email needs a working unsubscribe, which resolves by a real
+      // clients.id. Past/walk-in recipients surfaced from history are synthetic
+      // (no saved row) — save them to the client book first so the link works AND
+      // they permanently become a client (the counts converge). If that fails,
+      // skip them rather than email someone who can't opt out.
+      let clientId = client.id;
+      if (!clientId || clientId.startsWith("synthetic:")) {
+        try {
+          const up = await fetch("/api/clients/upsert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shop_id: shop.id, name: client.name, email: client.email, phone: client.phone }),
+          });
+          const upData = await up.json();
+          if (!up.ok || !upData?.id) continue;
+          clientId = upData.id;
+        } catch { continue; }
+      }
       const personalizedBody = body
         .replace(/{name}/g, client.name ?? "there")
         .replace(/{shop}/g, shop?.name ?? "our shop")
         .replace(/{link}/g, bookingUrl);
-      const unsubscribeUrl = `${origin}/api/unsubscribe?c=${client.id}`;
+      const unsubscribeUrl = `${origin}/api/unsubscribe?c=${clientId}`;
 
       await fetch("/api/send-email", {
         method: "POST",
