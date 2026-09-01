@@ -6,6 +6,8 @@ import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
 import { upsertClient } from "@/lib/clients-server";
 import { sendPaymentReceipt } from "@/lib/payment-notify";
 import { posCommissionFor } from "@/lib/commission-server";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 import { type TaxConfig } from "@/lib/pricing";
 
 /**
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
     const shop_id = b.shop_id as string | undefined;
     if (!shop_id) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
 
-    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id, name, email, booking_settings").eq("id", shop_id).maybeSingle();
+    const { data: shop } = await supabaseAdmin.from("shops").select("owner_id, name, email, booking_settings, subscription_plan, subscription_status").eq("id", shop_id).maybeSingle();
     if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
     let allowed = shop.owner_id === user.id;
     if (!allowed) {
@@ -41,6 +43,18 @@ export async function POST(req: Request) {
       allowed = !!barber;
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Plan gate — POS is a PAID feature (Pro + Premium), blocked on free Starter.
+    // The card path (pos-checkout) already gates; this closes the cash path so both
+    // doors behave the same and a Starter shop can't record POS sales via the API.
+    await ensurePlansHydrated();
+    const plan = effectivePlan(
+      (shop as { subscription_plan?: string | null }).subscription_plan ?? undefined,
+      (shop as { subscription_status?: string | null }).subscription_status ?? undefined,
+    );
+    if (!planHasFeature(plan, "pos")) {
+      return NextResponse.json({ error: "POS is available on the Pro and Premium plans." }, { status: 403 });
+    }
 
     // Promo enforcement (server-authoritative) — validate the applied code's cap +
     // expiry + once-per-customer here (the POS only checks it in the browser).

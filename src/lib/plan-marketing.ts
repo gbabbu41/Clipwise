@@ -29,7 +29,7 @@ export interface PlanMarketing {
 
 export const PLAN_MARKETING: PlanMarketing[] = [
   { n: "Starter", plan: "starter", p: "Free", per: "forever", forWho: "For a solo barber starting out", pop: false, yes: ["1 barber", "Online booking page", "Appointment management", "Email confirmations & reminders"], no: ["SMS / text alerts", "Reviews & loyalty", "Marketing & analytics", "Walk-in & waitlist", "Customer payments", "POS system"], cta: "Get started free" },
-  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "SMS reminders & alerts", "Reviews, loyalty & marketing", "Walk-in & waitlist", "Tips, tax & analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
+  { n: "Pro", plan: "pro", p: "$23", per: "/mo", forWho: "For solo barbers & small shops — add a shop anytime", pop: true, yes: ["21-day free trial — no card", "Up to 4 barbers", "Online booking + payments", "In-person POS (cash & card)", "SMS reminders & alerts", "Reviews, loyalty & marketing", "Walk-in & waitlist", "Tips, tax & analytics", "Stripe payouts"], no: ["Inventory"], cta: "Start free trial" },
   { n: "Premium", plan: "premium", p: "$79", per: "/mo", forWho: "For established shops with a bigger team", pop: false, yes: ["21-day free trial — no card", "Up to 9 barbers", "Everything in Pro", "Full POS terminal", "Inventory", "Staff & payroll", "2 locations — add more $30/mo each (up to 5)"], no: [], cta: "Start free trial" },
 ];
 

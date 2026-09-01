@@ -559,7 +559,7 @@ export default function POSPage() {
   // Plan gate — POS is a Premium feature. Backs up the hidden sidebar link so a
   // direct URL visit doesn't grant access on a plan that doesn't include it.
   if (!planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "pos")) {
-    return <FeatureLock title="Point of Sale" description="The in-person POS / card terminal is available on the Premium plan." />;
+    return <FeatureLock title="Point of Sale" description="The in-person POS (cash & card) is available on the Pro and Premium plans." />;
   }
 
   if (success && lastCharge) {

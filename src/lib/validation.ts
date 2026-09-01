@@ -135,7 +135,7 @@ export interface PlanConfigEntry {
 
 const DEFAULT_PLAN_CONFIG: Record<string, PlanConfigEntry> = {
   starter: { barberLimit: 1, features: [], locationLimit: 1 },
-  pro: { barberLimit: 4, features: ["payments", "loyalty"], locationLimit: 1 },
+  pro: { barberLimit: 4, features: ["payments", "loyalty", "pos"], locationLimit: 1 },
   // Premium: 2 locations included ($79). A 3rd+ is a $30/mo add-on, up to MAX.
   premium: { barberLimit: 9, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], locationLimit: 2 },
   business: { barberLimit: Infinity, features: ["payments", "loyalty", "pos", "inventory", "staff_portal", "commission", "multi_location"], locationLimit: 5 },
