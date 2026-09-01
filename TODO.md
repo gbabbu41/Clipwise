@@ -61,7 +61,15 @@ Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code 
 A security audit (2026-08-30) closed the dangerous **write-side takeover** holes already
 (`phase54_rls_privilege_lockdown.sql`, APPLIED + verified on prod):
 super_admin self-elevation, uninvited barber self-registration, barber self-escalating
-their own pay/active/shop. What's left is **read-only exposure** — safe to defer while it's
+their own pay/active/shop.
+> ⚠️ **The real super_admin self-elevation guard is the RESTRICTIVE policy
+> `users_no_self_elevate`** on `public.users` (FOR UPDATE, WITH CHECK
+> `role IS DISTINCT FROM 'super_admin' OR is_super_admin()`). Re-verified live 2026-09-01.
+> `protect_admin_role` is a PERMISSIVE policy and is NOT the guard (permissive only widens);
+> do NOT drop `users_no_self_elevate` assuming `protect_admin_role` covers it — it doesn't.
+> (An external audit that predates phase54 may still say "escalation is open" — that's stale.)
+
+What's left is **read-only exposure** — safe to defer while it's
 only sandbox/test shops, but the trigger to fix is **before real shop owners onboard** (that's
 when real owner contact + billing becomes scrapeable via the public anon key):
 - [ ] **PII read leak (the important one).** `shops` + `barbers` have public/anon SELECT
