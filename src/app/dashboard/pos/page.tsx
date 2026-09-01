@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDown } from "lucide-react";
+import { User, Search, X, UserPlus, AlertCircle, Check, ShoppingCart, ChevronDown, CreditCard, Banknote, Link2, Gift, Star, Receipt } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
@@ -131,7 +131,9 @@ export default function POSPage() {
       // and the Clients page both read from.
       supabase.from("clients").select("id, name, email, phone").eq("shop_id", shop.id).order("name"),
     ]);
-    if (barbersRes.data) { setBarbers(barbersRes.data); if (barbersRes.data.length > 0) setBarberId(barbersRes.data[0].id); }
+    // No auto-select — staff must explicitly pick who performed the service, so a
+    // sale (and its commission) is never silently credited to the wrong barber.
+    if (barbersRes.data) setBarbers(barbersRes.data);
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
     if (promoRes.data) setPromoCodes(promoRes.data);
@@ -386,6 +388,12 @@ export default function POSPage() {
     }
     // A customer must be chosen (existing client or a name entered) before charging.
     if (!client.trim()) { showToast("Select or add a customer first"); setPickerOpen(true); return; }
+    // A barber must be explicitly assigned for any SERVICE sale — commission +
+    // attribution ride on it, so it can't be silently credited to a default.
+    // Product-only retail sales don't need one.
+    if (cart.some(i => i.type === "service") && barbers.length > 0 && !barberId) {
+      showToast("Select a barber for this service"); return;
+    }
     const tipPct = tipPercent !== null ? tipPercent : customTip ? (Number(customTip) / subtotal) * 100 : 0;
     if (tipPct > 100) { showToast("Tip cannot exceed 100%"); return; }
     // Gift card + a card/online remainder = a split payment we don't support
@@ -533,14 +541,14 @@ export default function POSPage() {
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
     setAddName(""); setAddPhone(""); setAddEmail(""); setCartOpen(false);
     finalizedRef.current = false; // allow the next card sale to finalize
-    if (barbers.length > 0) setBarberId(barbers[0].id);
+    setBarberId(""); // reset to "Select barber" — force an explicit pick each sale
   };
 
   if (!shop) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-3xl mb-3">💳</p>
+          <CreditCard className="w-9 h-9 text-grey-muted mx-auto mb-3" />
           <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
           <p className="text-sm text-grey">POS will be available once your shop is set up.</p>
         </div>
@@ -559,7 +567,7 @@ export default function POSPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-md space-y-6 text-center">
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto">
-            <span className="text-4xl">✓</span>
+            <Check className="w-12 h-12 text-emerald-500" strokeWidth={3} />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground">Payment Received!</h2>
@@ -598,7 +606,7 @@ export default function POSPage() {
           <div className="flex gap-3">
             {lastReceiptId && (
               <a href={`/receipt/${lastReceiptId}`} target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button variant="outline" className="w-full" size="lg">🧾 View Receipt</Button>
+                <Button variant="outline" className="w-full" size="lg"><Receipt size={16} /> View Receipt</Button>
               </a>
             )}
             <Button className={lastReceiptId ? "flex-1" : "w-full"} size="lg" onClick={reset}>New Sale</Button>
@@ -635,7 +643,7 @@ export default function POSPage() {
   const cartItemsList = (
     <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
       {cart.length === 0 ? (
-        <div className="text-center py-8"><p className="text-2xl mb-1">🛒</p><p className="text-xs text-grey-muted">No items added</p></div>
+        <div className="text-center py-8"><ShoppingCart className="w-7 h-7 text-grey-muted mx-auto mb-1.5" /><p className="text-xs text-grey-muted">No items added</p></div>
       ) : cart.map(item => (
         <div key={item.id} className="flex items-center gap-2 p-3 bg-card-raised rounded-xl border border-border">
           <div className="flex-1 min-w-0">
@@ -672,7 +680,7 @@ export default function POSPage() {
           {/* Gift card as tender */}
           {giftCard ? (
             <div className="flex items-center justify-between rounded-lg border border-[#00e5a0]/40 bg-[#00e5a0]/10 px-3 py-2">
-              <span className="text-xs text-foreground">🎁 {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
+              <span className="text-xs text-foreground flex items-center gap-1.5"><Gift size={13} /> {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
               <button onClick={() => { setGiftCard(null); setGiftCode(""); }} className="text-grey hover:text-foreground"><X size={14} /></button>
             </div>
           ) : (
@@ -687,7 +695,7 @@ export default function POSPage() {
               className={cn("w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                 redeemLoyalty ? "border-[#00e5a0]/40 bg-[#00e5a0]/10" : "border-border hover:border-[#00e5a0]/40")}>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground">⭐ Use loyalty points</p>
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Star size={13} /> Use loyalty points</p>
                 <p className="text-[10px] text-grey-muted">{posLoyalty.points} pts · up to {formatCurrency(posLoyalty.value)} off</p>
               </div>
               <span className={cn("w-9 h-5 rounded-full relative transition-colors flex-shrink-0", redeemLoyalty ? "bg-[#00e5a0]" : "bg-[#2a2a2a]")}>
@@ -706,9 +714,9 @@ export default function POSPage() {
           <p className="text-[11px] text-grey-muted text-center pt-0.5">Pick a payment method — the customer adds a tip next</p>
           <div className="grid grid-cols-3 gap-2">
             {(["card","cash","online"] as PM[]).map(m => (
-              <button key={m} onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } setPaymentMethod(m); setCheckoutStep("tip"); }}
+              <button key={m} onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } if (cart.some(i => i.type === "service") && barbers.length > 0 && !barberId) { showToast("Select a barber for this service"); return; } setPaymentMethod(m); setCheckoutStep("tip"); }}
                 className="py-3 rounded-[12px] text-xs font-semibold border border-border bg-surface-overlay text-foreground hover:border-[#00e5a0]/60 active:scale-95 transition-all flex flex-col items-center gap-1">
-                <span className="text-lg leading-none">{m === "card" ? "💳" : m === "cash" ? "💵" : "🌐"}</span>
+                {m === "card" ? <CreditCard size={20} /> : m === "cash" ? <Banknote size={20} /> : <Link2 size={20} />}
                 {m === "card" ? "Card / Tap" : m === "cash" ? "Cash" : "Link"}
               </button>
             ))}
@@ -810,7 +818,7 @@ export default function POSPage() {
           <div className="relative flex-1 min-w-0">
             <select value={barberId} onChange={e => setBarberId(e.target.value)}
               className="w-full h-11 appearance-none rounded-xl border border-border bg-card-raised pl-3 pr-8 text-sm text-foreground focus:outline-none focus:border-[#00e5a0]/50">
-              {barbers.length === 0 && <option value="">No barbers</option>}
+              <option value="" disabled={barbers.length > 0}>{barbers.length === 0 ? "No barbers" : "Select barber"}</option>
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <ChevronDown size={15} className="text-grey-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />

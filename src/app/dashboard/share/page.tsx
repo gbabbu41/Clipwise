@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { Link2, Copy, Check, QrCode, Code, Share2, ExternalLink, AtSign, Smartphone } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export default function SharePage() {
   const { shop } = useAuth();
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
+  const qrRef = useRef<HTMLCanvasElement>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -32,13 +34,27 @@ export default function SharePage() {
 
   const BASE_URL = typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca";
   const bookingUrl = `${BASE_URL}/book/${shop.slug}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(bookingUrl)}&bgcolor=1C1C1E&color=C9A84C&margin=20`;
 
   const copy = async (text: string, label = "Copied!") => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     showToast(label);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Self-hosted QR: rendered locally by qrcode.react (no third-party image API),
+  // so a shop's booking link never leaves the browser to a service like
+  // api.qrserver.com. Download reads the canvas straight to a PNG data URL.
+  const downloadQr = () => {
+    const canvas = qrRef.current;
+    if (!canvas) { showToast("QR code isn't ready yet"); return; }
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `${shop.slug}-booking-qr.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("QR code downloaded");
   };
 
   const embedCode = `<!-- ClipWise Booking Widget -->
@@ -124,28 +140,28 @@ export default function SharePage() {
           <CardContent>
             <div className="flex flex-col items-center gap-4">
               <div className="bg-card-raised border border-border rounded-2xl p-4">
-                {/* QR code via free API */}
-                <img
-                  src={qrUrl}
-                  alt="Booking QR Code"
-                  width={200}
-                  height={200}
+                {/* QR generated locally (qrcode.react) — no third-party image API.
+                    Rendered at 2× and shown at 200px so the download PNG is crisp. */}
+                <QRCodeCanvas
+                  ref={qrRef}
+                  value={bookingUrl}
+                  size={400}
+                  bgColor="#1C1C1E"
+                  fgColor="#C9A84C"
+                  level="M"
+                  marginSize={2}
+                  title="Booking QR Code"
                   className="rounded-xl"
+                  style={{ width: 200, height: 200 }}
                 />
               </div>
               <p className="text-xs text-grey text-center">
                 Point your phone camera at this code to open your booking page
               </p>
               <div className="flex gap-3 w-full">
-                <a
-                  href={qrUrl}
-                  download={`${shop.slug}-qr.png`}
-                  className="flex-1"
-                >
-                  <Button variant="outline" className="w-full" size="sm">
-                    Download QR Code
-                  </Button>
-                </a>
+                <Button variant="outline" className="flex-1" size="sm" onClick={downloadQr}>
+                  Download QR Code
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -175,7 +191,7 @@ export default function SharePage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => s.copy ? copy(s.copy, `${s.title} copied!`) : showToast("Right-click the QR code to save")}
+                  onClick={() => s.qr ? downloadQr() : s.copy ? copy(s.copy, `${s.title} copied!`) : showToast("")}
                   className="mt-3 w-full text-xs font-medium text-foreground hover:text-foreground bg-black/5 hover:bg-black/10 border border-border rounded-lg py-1.5 transition-colors"
                 >
                   {s.action}
