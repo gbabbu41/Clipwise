@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronRight, ChevronLeft, Plus, Trash2, Copy, ExternalLink, AlertCircle, User, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -10,7 +10,9 @@ import { useAuth } from "@/lib/auth-context";
 import { generate24hSlots, cn } from "@/lib/utils";
 import { validateEmail, getPlanLimit } from "@/lib/validation";
 
-const STEPS = ["Shop Details", "Logo", "Barbers", "Hours", "Services", "Done!"];
+// Logo used to be its own step; it's now an optional picker folded into Shop
+// Details, so setup is one screen shorter.
+const STEPS = ["Shop Details", "Barbers", "Hours", "Services", "Done!"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_SLOTS = generate24hSlots();
 const SERVICE_CATEGORIES = ["Hair", "Beard", "Packages", "Kids"];
@@ -28,6 +30,8 @@ export default function OnboardingPage() {
   // Message shown in the footer when a greyed "Continue" is tapped while the step
   // isn't complete (e.g. Starter must add themselves as a barber first).
   const [blockHint, setBlockHint] = useState("");
+  // The step content container — used to autofocus its first field on each step.
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Only shop owners belong in the setup wizard. A barber or customer who lands
   // here (a stale link, or a role-mismatched redirect) is sent to their own home
@@ -115,14 +119,22 @@ export default function OnboardingPage() {
     })();
   }, [user, createdShopId]);
 
+  // Autofocus the first text field when a step opens, so keyboard/mobile users can
+  // start typing right away instead of reaching for the mouse. Skips file/checkbox
+  // inputs and steps that have no text field (nothing to focus → no-op).
+  useEffect(() => {
+    const el = contentRef.current?.querySelector<HTMLElement>("input:not([type=file]):not([type=checkbox]), textarea");
+    el?.focus();
+  }, [step]);
+
   const canProceed = () => {
     if (step === 0) return shop.name && shop.address && shop.city;
     // Starter is solo — the owner MUST add themselves as a barber before moving on.
     // Staff is hidden on Starter, so this step is their one chance to get set up;
     // skipping it strands them with a shop but no bookable barber. Paid plans keep
     // the step optional (they can add/manage barbers later from Staff).
-    if (step === 2 && planLimit === 1) return selfAdded;
-    if (step === 4) return services.length > 0 && services.every((s) => s.name && s.price);
+    if (step === 1 && planLimit === 1) return selfAdded;
+    if (step === 3) return services.length > 0 && services.every((s) => s.name && s.price);
     return true;
   };
 
@@ -130,8 +142,8 @@ export default function OnboardingPage() {
   // (greyed) Continue button when it's tapped while blocked.
   const blockReason = (): string => {
     if (step === 0) return "Add your shop name, address, and city to continue.";
-    if (step === 2 && planLimit === 1 && !selfAdded) return "Add yourself as a barber to continue — tap the card above.";
-    if (step === 4) return "Add at least one service (with a name and price) to continue.";
+    if (step === 1 && planLimit === 1 && !selfAdded) return "Add yourself as a barber to continue — tap the card above.";
+    if (step === 3) return "Add at least one service (with a name and price) to continue.";
     return "Please finish this step to continue.";
   };
 
@@ -148,33 +160,49 @@ export default function OnboardingPage() {
     setError("");
     setSaving(true);
     try {
-      if (step === 0 && !createdShopId) {
-        // Skip if a shop already exists for this owner (restored on resume, or a
-        // re-click) — the server also guards this, so no duplicate shop is created.
-        // Shop creation is server-side now: the API forces status='pending' /
-        // plan='starter' and only grants a paid plan + auto-approval after
-        // VERIFYING the Stripe subscription belongs to this user. The plan/
-        // status can no longer be set from the browser.
-        const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
-        const res = await fetch("/api/shops/create", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: shop.name, address: shop.address, city: shop.city, province: shop.province,
-            postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
-            subscription_id: planData.subscriptionId ?? undefined,
-            // No-card trial: picking Pro/Premium starts a 21-day trial server-side.
-            trial_plan: planData.trial ? planData.plan : undefined,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.shop) throw new Error(data.error || "Couldn't create your shop. Please try again.");
-        setCreatedShopId(data.shop.id);
-        setCreatedShopSlug(data.shop.slug);
-        setCreatedShopStatus(data.shop.status ?? "pending");
+      if (step === 0) {
+        // Create the shop server-side if it doesn't exist yet. Skip if one already
+        // exists (restored on resume, or a re-click) — the server also guards this,
+        // so no duplicate shop is created. The API forces status='pending' /
+        // plan='starter' and only grants a paid plan + auto-approval after VERIFYING
+        // the Stripe subscription belongs to this user. The plan/status can no
+        // longer be set from the browser.
+        let shopId = createdShopId;
+        if (!shopId) {
+          const planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}");
+          const res = await fetch("/api/shops/create", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: shop.name, address: shop.address, city: shop.city, province: shop.province,
+              postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
+              subscription_id: planData.subscriptionId ?? undefined,
+              // No-card trial: picking Pro/Premium starts a 21-day trial server-side.
+              trial_plan: planData.trial ? planData.plan : undefined,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.shop) throw new Error(data.error || "Couldn't create your shop. Please try again.");
+          shopId = data.shop.id;
+          setCreatedShopId(data.shop.id);
+          setCreatedShopSlug(data.shop.slug);
+          setCreatedShopStatus(data.shop.status ?? "pending");
+        }
+        // Optional logo (folded in from the old Logo step) — uploaded now that we
+        // have a shop id. Best-effort: a logo failure must NOT block setup (they can
+        // add it later in Settings), so we swallow the error and move on.
+        if (logoFile && shopId) {
+          try {
+            const fd = new FormData();
+            fd.append("file", logoFile);
+            fd.append("shopId", shopId);
+            const up = await fetch("/api/upload-logo", { method: "POST", headers: { Authorization: `Bearer ${accessToken ?? ""}` }, body: fd });
+            if (up.ok) { const { url } = await up.json() as { url: string }; setLogoPreview(url); setLogoFile(null); }
+          } catch { /* logo is optional — never block onboarding on it */ }
+        }
       }
 
-      if (step === 3) {
+      if (step === 2) {
         // Hours → apply the chosen working hours to EVERY barber added so far.
         // These live on each barber (time_slots), NOT the shop — a barber's
         // schedule is what actually opens appointments, so this step follows
@@ -199,7 +227,7 @@ export default function OnboardingPage() {
         }
       }
 
-      if (step === 4) {
+      if (step === 3) {
         const { error: err } = await supabase.from("services").insert(
           services.map((s) => ({ shop_id: createdShopId, name: s.name, price: parseFloat(s.price), duration_minutes: parseInt(s.duration), category: s.category, is_active: true }))
         );
@@ -237,31 +265,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleLogoStep = async () => {
-    if (!logoFile) { setStep((s) => s + 1); return; }
-    setSaving(true);
-    setError("");
-    try {
-      const form = new FormData();
-      form.append("file", logoFile);
-      form.append("shopId", createdShopId);
-      const res = await fetch("/api/upload-logo", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken ?? ""}` },
-        body: form,
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error((json as { error?: string }).error ?? "Logo upload failed");
-      }
-      const { url } = await res.json() as { url: string };
-      setLogoPreview(url);
-      setStep((s) => s + 1);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Logo upload failed");
-    } finally {
-      setSaving(false);
-    }
+  // Shared "advance this step" action — used by the footer Continue button AND by
+  // Enter-to-continue on the data-entry step. Greyed-but-tappable: a blocked step
+  // explains WHY instead of silently doing nothing.
+  const proceed = () => {
+    if (saving) return;
+    if (!canProceed()) { setBlockHint(blockReason()); return; }
+    setBlockHint("");
+    handleNext();
   };
 
   // ── Step 2: add barbers (reuses the invite route; never touches RLS) ────────
@@ -351,7 +362,18 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6 pb-24">
+      <div
+        ref={contentRef}
+        onKeyDown={(e) => {
+          // Enter advances the pure data-entry step (Shop Details). Later steps have
+          // sub-forms / multi-row inputs where a global Enter-to-advance would be
+          // surprising, so it's scoped to where typing→continue is the obvious intent.
+          if (e.key === "Enter" && step === 0 && (e.target as HTMLElement).tagName === "INPUT") {
+            e.preventDefault();
+            proceed();
+          }
+        }}
+        className="flex-1 max-w-lg mx-auto w-full px-4 py-6 pb-24">
         {error && (
           <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
             <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
@@ -390,28 +412,27 @@ export default function OnboardingPage() {
                 className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
               <p className="text-xs text-[#8f8f8f] text-right">{shop.description.length}/500</p>
             </div>
-          </div>
-        )}
 
-        {step === 1 && (
-          <div className="space-y-6 animate-fade-in">
-            <h2 className="text-xl font-bold text-white">Upload your shop logo</h2>
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-32 h-32 rounded-2xl bg-surface-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
-                {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> :
-                  <div className="text-center"><div className="text-4xl mb-1">✂️</div><p className="text-xs text-[#8f8f8f]">No logo yet</p></div>}
+            {/* Logo (optional) — folded in from the old dedicated Logo step so setup
+                is one screen shorter. Uploaded on Continue, once the shop exists. */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-300">Shop Logo (optional)</label>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl bg-surface-raised border border-dashed border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-2xl">✂️</span>}
+                </div>
+                <label className="cursor-pointer">
+                  <div className="px-4 py-2 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">{logoPreview ? "Change image" : "Choose image"}</div>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
+                </label>
               </div>
-              <label className="cursor-pointer">
-                <div className="px-4 py-2 rounded-xl border border-border text-sm text-white hover:bg-surface-raised transition-colors">Choose Image</div>
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); } }} />
-              </label>
-              <p className="text-xs text-[#8f8f8f] text-center">You can add your logo later from Settings.</p>
+              <p className="text-xs text-[#8f8f8f]">Shown on your booking page. You can add or change it anytime in Settings.</p>
             </div>
           </div>
         )}
 
-        {step === 2 && (
+        {step === 1 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">{planLimit === 1 ? "You're the barber" : "Add your barbers"}</h2>
             <p className="text-[#8f8f8f] text-sm">{planLimit === 1 ? "On the free plan it's just you — add yourself and you're ready. Upgrade anytime to add your team." : "Add yourself if you cut hair, and invite your team. You can always do this later from Staff."}</p>
@@ -486,7 +507,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Add your services</h2>
             <p className="text-sm text-grey -mt-1">We&apos;ve added a few common services to start — edit the prices or remove any that don&apos;t fit. These go live on your booking page.</p>
@@ -533,7 +554,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">{planLimit === 1 ? `Set hours for ${addedBarbers[0]?.name || selfBarberName}` : "Set working hours"}</h2>
             <p className="text-[#8f8f8f] text-sm">{planLimit === 1
@@ -569,7 +590,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 5 && (
+        {step === 4 && (
           <div className="text-center animate-fade-in relative py-8">
             <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
               {confetti.map((c, i) => (
@@ -618,7 +639,7 @@ export default function OnboardingPage() {
         )}
       </div>
 
-      {step < 5 && (
+      {step < 4 && (
         <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 py-3">
           <div className="max-w-lg mx-auto">
             {blockHint && (
@@ -629,13 +650,8 @@ export default function OnboardingPage() {
             {/* Greyed but still tappable when the step isn't done, so tapping can
                 explain WHY (a truly-disabled button gives no feedback). */}
             <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving}
-              onClick={() => {
-                if (saving) return;
-                if (!canProceed()) { setBlockHint(blockReason()); return; }
-                setBlockHint("");
-                (step === 1 ? handleLogoStep : handleNext)();
-              }}>
-              {saving ? (step === 1 ? "Uploading..." : "Saving...") : step === 1 ? (logoFile ? "Continue" : "Skip — Add Later") : step === 4 ? "Finish Setup" : (step === 2 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
+              onClick={proceed}>
+              {saving ? "Saving..." : step === 3 ? "Finish Setup" : (step === 1 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
             </div>

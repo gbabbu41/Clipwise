@@ -108,8 +108,12 @@ export default function SignupPage() {
     if (!form.name.trim()) errors.name = "Full name is required";
     const emailErr = validateEmail(form.email);
     if (emailErr) errors.email = emailErr;
-    const phoneErr = validatePhone(form.phone);
-    if (phoneErr) errors.phone = phoneErr;
+    // Phone is optional at signup — only validate what's actually entered. The
+    // shop's public phone is collected (also optional) later in onboarding.
+    if (form.phone.trim()) {
+      const phoneErr = validatePhone(form.phone);
+      if (phoneErr) errors.phone = phoneErr;
+    }
     if (pwStrength.issues.length > 0) errors.password = pwStrength.issues.join(" · ");
     if (form.confirmPassword !== form.password) errors.confirmPassword = "Passwords do not match";
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
@@ -186,7 +190,7 @@ export default function SignupPage() {
   const fields = [
     { key: "name" as const, label: "Full Name", placeholder: "Marcus Johnson", icon: User, type: "text" },
     { key: "email" as const, label: "Email Address", placeholder: "you@example.com", icon: Mail, type: "email" },
-    { key: "phone" as const, label: "Phone Number", placeholder: "(506) 555-0123", icon: Phone, type: "tel" },
+    { key: "phone" as const, label: "Phone Number (optional)", placeholder: "(506) 555-0123", icon: Phone, type: "tel" },
   ];
 
   if (signupsPaused) {
@@ -283,7 +287,7 @@ export default function SignupPage() {
                   <label className="text-sm font-medium text-gray-300">{label}</label>
                   <div className="relative">
                     <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                    <input type={type} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
+                    <input type={type} autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
                       className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                         fieldErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
                   </div>
