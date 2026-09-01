@@ -224,11 +224,24 @@ export default function AdminPage() {
     return { month: label, shops: monthCounts[key] ?? 0 };
   });
 
-  // Plans — counts of approved shops per tier, priced from the live plans table.
+  // ── MRR: only shops actually BILLING today. A shop on a free trial has
+  // subscription_status "active" with a future trial_ends_at — it isn't paying
+  // yet, so it's pipeline, not revenue. Rejected/suspended shops (status not
+  // "approved") never count. This keeps "Your MRR" honest — the number you'd
+  // quote to an investor — instead of overstating it by counting trials. ──
+  const isTrialing = (s: ShopWithOwner) => !!s.trial_ends_at && new Date(s.trial_ends_at) > new Date();
+  const billingShops = shops.filter((s) => s.status === "approved" && s.subscription_status === "active" && !isTrialing(s));
+  const trialingShops = shops.filter((s) => s.status === "approved" && isTrialing(s));
+  const rejectedCount = shops.filter((s) => s.status === "rejected").length;
+
+  // Plan tiers priced from the live plans table — counted over BILLING shops only.
   const planCounts: Record<string, number> = {};
   Object.keys(planPrices).forEach((id) => { planCounts[id] = 0; });
-  shops.filter((s) => s.status === "approved").forEach((s) => { planCounts[s.subscription_plan] = (planCounts[s.subscription_plan] ?? 0) + 1; });
+  billingShops.forEach((s) => { planCounts[s.subscription_plan] = (planCounts[s.subscription_plan] ?? 0) + 1; });
   const mrr = Object.entries(planCounts).reduce((sum, [plan, count]) => sum + (planPrices[plan] ?? 0) * count, 0);
+  // Pipeline: what the current free trials will bill once they convert.
+  const trialingMrr = trialingShops.reduce((sum, s) => sum + (planPrices[s.subscription_plan] ?? 0), 0);
+  const payingCount = billingShops.length;
 
   // Filtered shops for All Shops tab
   const filteredShops = shops.filter((s) =>
@@ -277,9 +290,9 @@ export default function AdminPage() {
       {tab === "overview" && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            <KpiCard label="Your MRR" value={formatCurrency(mrr)} sub="Subscription revenue" icon={DollarSign} color="gold" />
+            <KpiCard label="Your MRR" value={formatCurrency(mrr)} sub={`${payingCount} paying${trialingShops.length > 0 ? ` · ${formatCurrency(trialingMrr)}/mo in trials` : ""}`} icon={DollarSign} color="gold" />
             <KpiCard label="GMV Processed" value={formatCurrency(platformRevenue)} sub="Money through shops" icon={TrendingUp} color="green" />
-            <KpiCard label="Active Shops" value={String(activeShops)} sub={`${totalShops} total · ${suspendedCount} suspended`} icon={Store} color="blue" />
+            <KpiCard label="Active Shops" value={String(activeShops)} sub={`${totalShops} total · ${suspendedCount} suspended · ${rejectedCount} rejected`} icon={Store} color="blue" />
             <KpiCard label="Pending Approval" value={String(pendingShops.length)} sub="Awaiting review" icon={Clock} color="orange" />
             <KpiCard label="Stripe Connect" value={`${connectPct}%`} sub={`${connectDone}/${activeShops} can take online pay`} icon={Check as React.ElementType} color={connectPct >= 80 ? "green" : "orange"} />
             <KpiCard label="Total Appointments" value={String(totalAppts)} sub="All shops" icon={Calendar} color="purple" />
@@ -540,12 +553,12 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Plan Distribution</CardTitle>
-              <p className="text-xs text-[#8f8f8f]">Active shops only ({activeShops} total)</p>
+              <p className="text-xs text-[#8f8f8f]">Paying shops only ({payingCount} total)</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {Object.entries(planCounts).map(([plan, count]) => {
-                  const pct = activeShops > 0 ? (count / activeShops) * 100 : 0;
+                  const pct = payingCount > 0 ? (count / payingCount) * 100 : 0;
                   return (
                     <div key={plan}>
                       <div className="flex justify-between text-sm mb-1">
@@ -560,9 +573,15 @@ export default function AdminPage() {
                 })}
               </div>
               <div className="border-t border-border mt-4 pt-4 flex justify-between items-center">
-                <span className="text-sm text-[#8f8f8f] font-medium">Total Estimated MRR</span>
+                <span className="text-sm text-[#8f8f8f] font-medium">Total MRR (billing now)</span>
                 <span className="text-gold font-bold text-xl">{formatCurrency(mrr)}</span>
               </div>
+              {trialingShops.length > 0 && (
+                <div className="flex justify-between items-center mt-2 text-xs text-[#8f8f8f]">
+                  <span>In free trial ({trialingShops.length}) — not billing yet</span>
+                  <span>+{formatCurrency(trialingMrr)}/mo pipeline</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

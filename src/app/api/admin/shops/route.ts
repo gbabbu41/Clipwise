@@ -30,8 +30,12 @@ export async function PATCH(req: NextRequest) {
   // Grab the prior status/name so the audit entry is meaningful.
   const { data: prior } = await supabaseAdmin.from("shops").select("name, status").eq("id", id).maybeSingle();
 
-  const update: Record<string, string> = { status };
+  const update: Record<string, string | null> = { status };
   if (rejection_reason) update.rejection_reason = rejection_reason;
+  // Rejecting a shop must also stop its subscription from lingering as "active"
+  // revenue — otherwise a rejected shop keeps counting toward MRR. (Trials carry
+  // no real Stripe subscription, so this is a DB status fix, not a Stripe call.)
+  if (status === "rejected") { update.subscription_status = "cancelled"; update.trial_ends_at = null; }
 
   const { error } = await supabaseAdmin.from("shops").update(update).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
