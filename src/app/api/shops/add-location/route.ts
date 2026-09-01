@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { planAllowsMultiLocation, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
+import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
 
 // Add ANOTHER location for an existing owner.
@@ -108,12 +109,17 @@ export async function POST(request: NextRequest) {
   const primaryBooking = existingShops[0].booking_settings as Record<string, unknown> | null;
   const inheritedBooking = primaryBooking ? { ...primaryBooking, bookings_paused: false } : null;
 
+  const rawProvince = (body.province ?? "").trim();
+  const province = rawProvince ? (rawProvince.length === 2 ? rawProvince.toUpperCase() : rawProvince) : null;
+  const timezone = tzForProvince(province) ?? DEFAULT_TZ;
+
   const baseRow = {
     owner_id: user.id,
     name: body.name.trim(),
     address: body.address ?? null,
     city: body.city ?? null,
-    province: body.province ?? null,
+    province,
+    timezone,
     postal_code: body.postal_code ?? null,
     phone: body.phone ?? null,
     // Reuse the owner's account email — no new email / login for a location.

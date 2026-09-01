@@ -3,7 +3,10 @@
 // in the SHOP's timezone, not UTC. These use the built-in Intl API (no deps) and
 // work identically in Node and the browser.
 
-export const DEFAULT_TZ = "America/Toronto";
+// Atlantic Canada is the launch market, so an unknown/blank location falls back
+// to Halifax rather than Toronto. A shop's real timezone is set from its province
+// on create (see tzForProvince), so this only affects rows with no province.
+export const DEFAULT_TZ = "America/Halifax";
 
 // Canadian zones for the shop-settings picker (label → IANA value).
 export const CANADA_TIMEZONES: { value: string; label: string }[] = [

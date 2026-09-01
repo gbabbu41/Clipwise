@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort } from "@/lib/twilio";
-import { effectivePlan, planHasFeature } from "@/lib/validation";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
@@ -16,9 +16,9 @@ import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
  * calendar day — so a re-run on the same day won't double-send noticeably, and
  * there are no per-row "sent" flags to migrate.
  *
- * Per shop that has loyalty on plan AND a reminder toggled on
- * (booking_settings.reminders):
- *   • appointment_24h → SMS + email for appointments dated tomorrow
+ * Per shop with a reminder toggled on (booking_settings.reminders) — on EVERY
+ * plan, free Starter included. SMS is paid-plan only; email goes to all:
+ *   • appointment_24h → email (all plans) + SMS (paid plans) for appts tomorrow
  *   • rebooking_30d   → email to clients whose last_visit was exactly 30 days ago
  *   • winback_60d     → email to clients whose last_visit was exactly 60 days ago
  *   • birthday        → email to clients whose birthday is today
@@ -98,9 +98,12 @@ async function run() {
       }
     }
 
-    // ── Reminders (plan + per-toggle gated) ─────────────────────────────────
+    // ── Reminders (per-toggle gated) ────────────────────────────────────────
+    // Reminders reach EVERY shop, including the free Starter plan — by EMAIL.
+    // SMS (Twilio, a real per-message cost) stays a paid-plan perk, so a free
+    // shop gets email reminders and no texts.
     const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
-    if (!planHasFeature(plan, "loyalty")) continue;
+    const smsAllowed = isPaidPlan(plan);
     const reminders = (shop.booking_settings as { reminders?: Record<string, boolean> } | null)?.reminders ?? {};
     const bookingUrl = `${BASE_URL}/book/${shop.slug ?? ""}`;
 
@@ -113,7 +116,7 @@ async function run() {
       for (const a of appts ?? []) {
         if (sends >= MAX_SENDS) break;
         const when = a.time_slot ?? "";
-        if (a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment at ${shop.name} is tomorrow${when ? ` at ${when}` : ""}. See you then!`, shop.name); texts++; sends++; }
+        if (smsAllowed && a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment at ${shop.name} is tomorrow${when ? ` at ${when}` : ""}. See you then!`, shop.name); texts++; sends++; }
         if (a.client_email) {
           await sendEmail("appointment_reminder", {
             clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,
@@ -161,7 +164,7 @@ async function run() {
             const when = a.time_slot ?? "";
             // shop name is prepended by sendSmsBestEffort, so it's not repeated
             // in the body; one GSM-7 segment.
-            if (a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment is coming up at ${when}. See you soon!`, shop.name); texts++; sends++; }
+            if (smsAllowed && a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment is coming up at ${when}. See you soon!`, shop.name); texts++; sends++; }
             if (a.client_email) {
               await sendEmail("appointment_reminder", {
                 clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,

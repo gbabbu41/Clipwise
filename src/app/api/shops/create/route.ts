@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { clampLen, FIELD_CAPS } from "@/lib/validation";
+import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 
 // Server-authoritative shop creation for onboarding.
 //
@@ -97,6 +98,14 @@ export async function POST(request: NextRequest) {
     if (platform.auto_approve_shops) status = "approved";
   }
 
+  // Normalize the province (2-letter codes to upper-case) and derive the shop's
+  // timezone from it, so every past-slot / cancellation-window / reminder decision
+  // runs in the shop's real local time. Falls back to the market default only when
+  // no province is given. (An owner can still override the tz later in Settings.)
+  const rawProvince = (body.province ?? "").trim();
+  const province = rawProvince ? (rawProvince.length === 2 ? rawProvince.toUpperCase() : rawProvince) : null;
+  const timezone = tzForProvince(province) ?? DEFAULT_TZ;
+
   // Whitelist the fields the client may set — everything privileged is derived
   // above, so a crafted body can't inject status/plan/subscription_*.
   const baseRow = {
@@ -104,7 +113,8 @@ export async function POST(request: NextRequest) {
     name: body.name.trim(),
     address: body.address ?? null,
     city: body.city ?? null,
-    province: body.province ?? null,
+    province,
+    timezone,
     postal_code: body.postal_code ?? null,
     phone: body.phone ?? null,
     email: body.email ?? null,
