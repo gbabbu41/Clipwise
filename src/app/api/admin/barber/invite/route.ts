@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendAppEmail } from "@/lib/emailer";
+import { effectivePlan, getPlanLimit } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
   // shop_id the caller doesn't own resolves to nothing → 404. With no shop_id we
   // fall back to the owner's first shop. (Previously `.single()` here threw for
   // any owner with more than one shop — the multi-location bug.)
-  let shopQuery = supabaseAdmin.from("shops").select("id, name, email").eq("owner_id", user.id);
+  let shopQuery = supabaseAdmin.from("shops").select("id, name, email, subscription_plan, subscription_status").eq("owner_id", user.id);
   if (shop_id) shopQuery = shopQuery.eq("id", shop_id);
   const { data: shopRows } = await shopQuery.order("created_at", { ascending: true }).limit(1);
   const shop = shopRows?.[0];
@@ -86,6 +88,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, barber: existing, ownerSelf: true, already: true });
     }
     return NextResponse.json({ error: "A barber with this email is already on your team" }, { status: 409 });
+  }
+
+  // Plan barber-limit — enforced SERVER-SIDE. The onboarding + Staff UIs check it
+  // too, but a direct API call must not be able to exceed the plan (the barber
+  // count is the core thing plans sell). Owner self-add and duplicate re-links
+  // already returned above, so this only guards adding a NEW barber.
+  await ensurePlansHydrated();
+  const plan = effectivePlan(
+    (shop as { subscription_plan?: string | null }).subscription_plan ?? undefined,
+    (shop as { subscription_status?: string | null }).subscription_status ?? undefined,
+  );
+  const limit = getPlanLimit(plan);
+  const { count: barberCount } = await supabaseAdmin
+    .from("barbers").select("id", { count: "exact", head: true }).eq("shop_id", shop.id);
+  if ((barberCount ?? 0) >= limit) {
+    return NextResponse.json(
+      { error: `Your plan includes ${limit} barber${limit === 1 ? "" : "s"}. Upgrade from Billing to add more.`, code: "barber_limit" },
+      { status: 403 },
+    );
   }
 
   // Create the barber record. For owner self-add, link user_id immediately so
