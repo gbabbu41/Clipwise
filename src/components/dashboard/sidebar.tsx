@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown, Wallet, Phone, List, CalendarCheck,
+  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, List, CalendarCheck,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -114,43 +114,64 @@ interface NavItem {
   feature?: PlanFeature;
   paidOnly?: boolean; // hidden on the free Starter plan (reviews, marketing, analytics, waitlist…)
   hidden?: boolean;   // temporarily hidden from the nav on ALL plans (page/logic kept)
+  pendingBadge?: boolean; // show the count of pending (awaiting-approval) bookings (Calendar)
 }
 
-// Simple sidebar (mirrors the barber portal): the primary items sit flat on top,
-// everything else lives under a collapsible "Business" group, and account items
-// (Settings/Billing) pin to the bottom. Items that don't pass the ownerOnly +
-// feature-gating filter are skipped at render time.
-const primaryItems: NavItem[] = [
+// Sidebar grouped by WHEN a shop touches each page, not by what kind of thing it
+// is — so positions stay fixed and build muscle memory (replaces the old 14-item
+// "Business" accordion). Four always-visible sections under uppercase headers,
+// with account items pinned at the bottom. Items that don't pass the ownerOnly +
+// plan-gating filter are skipped at render time.
+type NavSection = { label: string; items: NavItem[] };
+
+// TODAY — the at-the-chair set, hit many times a day. Always on top.
+const todayItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays, pendingBadge: true },
   { href: "/dashboard/appointments", label: "Appointments", icon: List, ownerOnly: true },
-  { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
   { href: "/dashboard/pos", label: "Checkout", icon: Receipt, feature: "pos" },
-  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
-  { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
+  { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
 ];
 
-const businessItems: NavItem[] = [
+// MONEY — cash in, cash out. Reconciling, paying staff, selling gift cards.
+const moneyItems: NavItem[] = [
+  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
+  { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
+  { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
+];
+
+// SHOP — configuring the business and its people. Rarely urgent, sits lower.
+const shopItems: NavItem[] = [
   { href: "/dashboard/services", label: "Services", icon: Scissors, ownerOnly: true },
+  { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
   { href: "/dashboard/time-off", label: "Time Off", icon: UmbrellaOff, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
   { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/check-in", label: "Check-in", icon: CalendarCheck, ownerOnly: true },
+];
+
+// GROW — aimed outward at customers (and where a paid add-on becomes findable).
+const growItems: NavItem[] = [
+  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
+  { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
   { href: "/dashboard/phone", label: "AI Phone", icon: Phone, ownerOnly: true },
+  { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
   // Messages: temporarily hidden from the nav on ALL plans — page + send logic
   // are kept intact. Delete `hidden: true` to bring it back for Pro/Premium.
   { href: "/dashboard/messages", label: "Messages", icon: MessageSquare, paidOnly: true, hidden: true },
-  { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
-  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true, paidOnly: true },
-  { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
-  { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
-  { href: "/dashboard/loyalty", label: "Loyalty & Promos", icon: Gift, ownerOnly: true, feature: "loyalty" },
-  { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
-  { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
-  { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
+];
+
+const NAV_SECTIONS: NavSection[] = [
+  { label: "Today", items: todayItems },
+  { label: "Money", items: moneyItems },
+  { label: "Shop", items: shopItems },
+  { label: "Grow", items: growItems },
 ];
 
 const accountItems: NavItem[] = [
@@ -193,6 +214,7 @@ export function Sidebar() {
     if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut();
   };
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0); // bookings awaiting approval → Calendar badge
   // Remembers where the owner was before opening Clients so the toggle can return
   // there — never router.back(), which would leave the app entirely if Clients was
   // the first page (deep link / refresh / no in-app history).
@@ -210,7 +232,6 @@ export function Sidebar() {
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   // Collapsible "Business" group in the sidebar (primary items stay flat on top).
-  const [businessOpen, setBusinessOpen] = useState(false);
 
   // Auto-close the mobile drawer whenever the route changes (i.e. the user
   // tapped a nav item) so they're not staring at the drawer on the new page.
@@ -390,11 +411,21 @@ export function Sidebar() {
   // for barbers, who don't see the Clients shortcut.
   useEffect(() => { if (!isBarber) router.prefetch("/dashboard/clients"); }, [router, isBarber]);
 
+  // Pending (awaiting-approval) bookings → the Calendar badge. Owner-only; a new
+  // booking fires a notification, so we refresh it on the same realtime channel.
+  const loadPending = () => {
+    if (!shop?.id || isBarber) { setPendingCount(0); return; }
+    supabase.from("appointments").select("id", { count: "exact", head: true })
+      .eq("shop_id", shop.id).eq("status", "pending")
+      .then(({ count }) => setPendingCount(count ?? 0));
+  };
+
   useEffect(() => {
     if (!user) return;
 
     // Initial load — scoped to the active shop.
     fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
+    loadPending();
 
     // Real-time updates. postgres_changes can only filter by user_id, so we
     // subscribe by user and recompute the shop-scoped count on any change.
@@ -402,10 +433,12 @@ export function Sidebar() {
       .channel(`notifications:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => {
         fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
+        loadPending();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, shop?.id]);
 
   const displayName = profile?.name ?? user?.email ?? "User";
@@ -711,45 +744,42 @@ export function Sidebar() {
               >
                 {isActive && <span aria-hidden className="absolute left-1 top-2.5 bottom-2.5 w-[3px] rounded-full bg-emerald-400" />}
                 <Icon size={18} className={cn(isActive ? "text-emerald-400" : "text-grey group-hover:text-foreground")} />
-                <span className="flex-1">{item.label}</span>
+                <span className="cw-nav-label flex-1">{item.label}</span>
                 {item.badge && unreadCount > 0 && (
                   <span className="text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
                     {unreadCount}
                   </span>
                 )}
+                {item.pendingBadge && pendingCount > 0 && (
+                  <span title={`${pendingCount} booking${pendingCount === 1 ? "" : "s"} awaiting approval`}
+                    className="text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             );
           };
-          const business = businessItems.filter(passes);
+          // A section: an uppercase header + its passing rows. Hidden entirely when
+          // nothing in it passes the plan/role filter (so a Starter shop doesn't see
+          // an empty "Grow", etc.).
+          const renderSection = (label: string, items: NavItem[]) => {
+            const visible = items.filter(passes);
+            if (visible.length === 0) return null;
+            return (
+              <div key={label} className="mt-4 first:mt-0">
+                <p className="cw-section-label px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey">{label}</p>
+                <div className="space-y-0.5">{visible.map(renderItem)}</div>
+              </div>
+            );
+          };
           const account = accountItems.filter(passes);
-          const businessActive = business.some(i => i.href === pathname);
-          const showBusiness = businessOpen || businessActive;
           return (
             <>
-              {/* Primary items — flat on top, no group labels (mirrors the barber portal). */}
-              {primaryItems.filter(passes).map(renderItem)}
+              {/* Four always-visible sections grouped by WHEN the shop uses them —
+                  fixed positions, no accordion, so nothing shifts under a click. */}
+              {NAV_SECTIONS.map(s => renderSection(s.label, s.items))}
 
-              {/* Everything else tucked under a collapsible Business group. */}
-              {business.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <button
-                    type="button"
-                    onClick={() => setBusinessOpen(o => !o)}
-                    aria-expanded={showBusiness}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-grey hover:text-foreground hover:bg-card-raised transition-all duration-200 group"
-                  >
-                    <Briefcase size={18} className="text-grey group-hover:text-foreground" />
-                    <span className="flex-1 text-left">Business</span>
-                    {/* Surfaces a buried unread — Notifications lives in this group,
-                        so its badge would otherwise be hidden while collapsed. */}
-                    {!showBusiness && unreadCount > 0 && <span aria-hidden className="w-[7px] h-[7px] rounded-full bg-emerald-400 flex-shrink-0" />}
-                    <ChevronDown size={16} className={cn("transition-transform duration-200", showBusiness && "rotate-180")} />
-                  </button>
-                  {showBusiness && <div className="mt-0.5 space-y-0.5">{business.map(renderItem)}</div>}
-                </div>
-              )}
-
-              {/* Account (Settings / Billing) pinned at the bottom. */}
+              {/* Account (Settings / Plan & Billing) pinned at the bottom. */}
               {account.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-border space-y-0.5">
                   {account.map(renderItem)}
