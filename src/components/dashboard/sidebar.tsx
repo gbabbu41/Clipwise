@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, List, CalendarCheck, ChevronDown,
+  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, CalendarCheck, ChevronDown,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -128,7 +128,6 @@ type NavSection = { label: string; items: NavItem[]; collapsible?: boolean };
 const todayItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays, pendingBadge: true },
-  { href: "/dashboard/appointments", label: "Appointments", icon: List, ownerOnly: true },
   { href: "/dashboard/pos", label: "Checkout", icon: Receipt, feature: "pos" },
   { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
   { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
@@ -787,17 +786,19 @@ export function Sidebar() {
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
             const open = !collapsible || !!openSections[label] || hasActive;
             return (
-              <div key={label} className="mt-4 first:mt-0">
+              <div key={label} className="mt-5 first:mt-1">
                 {collapsible ? (
+                  // A real, tappable dropdown row (padded, rounded, hover) — reads as
+                  // a control, not a cramped little label.
                   <button type="button" onClick={() => toggleSection(label)} aria-expanded={open}
-                    className="cw-section-label w-full flex items-center gap-2 px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey hover:text-foreground transition-colors">
-                    <span className="flex-1 text-left">{label}</span>
-                    <ChevronDown size={13} className={cn("transition-transform duration-200", open && "rotate-180")} />
+                    className="cw-section-label group w-full flex items-center justify-between px-3 py-2 mb-0.5 rounded-xl text-grey hover:text-foreground hover:bg-card-raised transition-colors">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">{label}</span>
+                    <ChevronDown size={15} className={cn("text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
-                  <p className="cw-section-label px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey">{label}</p>
+                  <p className="cw-section-label px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
                 )}
-                <div className={cn("cw-section-body space-y-0.5", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
+                <div className={cn("cw-section-body space-y-1", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>
             );
           };
@@ -810,7 +811,7 @@ export function Sidebar() {
 
               {/* Account (Settings / Plan & Billing) pinned at the bottom. */}
               {account.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border space-y-0.5">
+                <div className="mt-5 pt-4 border-t border-border space-y-1">
                   {account.map(renderItem)}
                 </div>
               )}
