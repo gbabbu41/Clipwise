@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, CalendarCheck, ChevronDown,
+  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, CalendarCheck, ChevronDown, Store, TrendingUp,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -122,7 +122,7 @@ interface NavItem {
 // "Business" accordion). Four always-visible sections under uppercase headers,
 // with account items pinned at the bottom. Items that don't pass the ownerOnly +
 // plan-gating filter are skipped at render time.
-type NavSection = { label: string; items: NavItem[]; collapsible?: boolean };
+type NavSection = { label: string; items: NavItem[]; collapsible?: boolean; icon?: React.ElementType };
 
 // TODAY — the at-the-chair set, hit many times a day. Always on top.
 const todayItems: NavItem[] = [
@@ -171,8 +171,8 @@ const NAV_SECTIONS: NavSection[] = [
   { label: "Money", items: moneyItems },
   // Shop + Grow are the occasional sections — collapsed by default to keep the
   // rail short; they auto-open when you're on one of their pages.
-  { label: "Shop", items: shopItems, collapsible: true },
-  { label: "Grow", items: growItems, collapsible: true },
+  { label: "Shop", items: shopItems, collapsible: true, icon: Store },
+  { label: "Grow", items: growItems, collapsible: true, icon: TrendingUp },
 ];
 
 const accountItems: NavItem[] = [
@@ -780,7 +780,7 @@ export function Sidebar() {
           // The body stays in the DOM even when collapsed (just display:none via
           // cw-section-body-collapsed) so the collapsed RAIL can still show its icons.
           const renderSection = (section: NavSection) => {
-            const { label, items, collapsible } = section;
+            const { label, items, collapsible, icon: SectionIcon } = section;
             const visible = items.filter(passes);
             if (visible.length === 0) return null;
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
@@ -788,12 +788,14 @@ export function Sidebar() {
             return (
               <div key={label} className="mt-5 first:mt-1">
                 {collapsible ? (
-                  // A real, tappable dropdown row (padded, rounded, hover) — reads as
-                  // a control, not a cramped little label.
+                  // Styled exactly like a nav link (icon + name + row padding) so it
+                  // sits in the list instead of reading as a stray label — just with
+                  // a chevron on the right and its children indented when open.
                   <button type="button" onClick={() => toggleSection(label)} aria-expanded={open}
-                    className="cw-section-label group w-full flex items-center justify-between px-3 py-2 mb-0.5 rounded-xl text-grey hover:text-foreground hover:bg-card-raised transition-colors">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">{label}</span>
-                    <ChevronDown size={15} className={cn("text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
+                    className="cw-nav-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-grey hover:text-foreground hover:bg-card-raised transition-all duration-200">
+                    {SectionIcon && <SectionIcon size={18} className="text-grey group-hover:text-foreground" />}
+                    <span className="cw-nav-label flex-1 text-left">{label}</span>
+                    <ChevronDown size={16} className={cn("cw-nav-badge text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
                   <p className="cw-section-label px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
