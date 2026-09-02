@@ -723,7 +723,7 @@ export function Sidebar() {
       <div className="cw-hide-rail"><ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} /></div>
 
       {/* Nav */}
-      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
         {(() => {
           const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
           const passes = (item: NavItem) => {
@@ -786,7 +786,9 @@ export function Sidebar() {
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
             const open = !collapsible || !!openSections[label] || hasActive;
             return (
-              <div key={label} className="mt-6 first:mt-1">
+              // first:mt-2 + the nav's pt-4 = 24px, matching mt-6 on the rest, so
+              // every section title has the SAME room above it.
+              <div key={label} className="mt-6 first:mt-2">
                 {collapsible ? (
                   // Styled exactly like a nav link (icon + name + row padding) so it
                   // sits in the list instead of reading as a stray label — just with
@@ -798,7 +800,7 @@ export function Sidebar() {
                     <ChevronDown size={16} className={cn("cw-nav-badge text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
-                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
+                  <p className="cw-section-label px-3 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
                 )}
                 <div className={cn("cw-section-body space-y-1", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>
