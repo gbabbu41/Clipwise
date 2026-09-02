@@ -779,16 +779,22 @@ export function Sidebar() {
           // the section you're currently on auto-opens so the active row shows.
           // The body stays in the DOM even when collapsed (just display:none via
           // cw-section-body-collapsed) so the collapsed RAIL can still show its icons.
-          const renderSection = (section: NavSection) => {
+          const firstCollapsibleIdx = NAV_SECTIONS.findIndex(s => s.collapsible);
+          const renderSection = (section: NavSection, idx: number) => {
             const { label, items, collapsible, icon: SectionIcon } = section;
             const visible = items.filter(passes);
             if (visible.length === 0) return null;
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
             const open = !collapsible || !!openSections[label] || hasActive;
+            // Spacing rhythm: labeled groups (Today/Money) get an equal 20px gap
+            // above (first:mt-1 + the nav's pt-4 == mt-5). Collapsible rows (Shop,
+            // Grow) sit IN the list like normal links — a light gap before the
+            // first one, then a normal row gap — so they don't float apart.
+            const gap = collapsible
+              ? (idx === firstCollapsibleIdx ? "mt-3" : "mt-1")
+              : "mt-5 first:mt-1";
             return (
-              // first:mt-2 + the nav's pt-4 = 24px, matching mt-6 on the rest, so
-              // every section title has the SAME room above it.
-              <div key={label} className="mt-6 first:mt-2">
+              <div key={label} className={gap}>
                 {collapsible ? (
                   // Styled exactly like a nav link (icon + name + row padding) so it
                   // sits in the list instead of reading as a stray label — just with
@@ -800,7 +806,7 @@ export function Sidebar() {
                     <ChevronDown size={16} className={cn("cw-nav-badge text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
-                  <p className="cw-section-label px-3 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
+                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
                 )}
                 <div className={cn("cw-section-body space-y-1", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>
