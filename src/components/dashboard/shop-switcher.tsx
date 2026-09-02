@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Building2, ChevronDown, Check } from "lucide-react";
+import { Store, ChevronDown, Check } from "lucide-react";
 import { cn, titleCase } from "@/lib/utils";
 import type { Shop } from "@/lib/database.types";
 
@@ -28,7 +28,9 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-transparent border border-border hover:border-foreground/30 transition-colors text-left"
       >
-        <Building2 size={14} className="text-grey flex-shrink-0" />
+        {shop?.logo
+          ? <img src={shop.logo} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />
+          : <Store size={15} className="text-grey flex-shrink-0" />}
         <span className="flex-1 text-sm text-foreground truncate">{shop?.name ? titleCase(shop.name) : "Select Shop"}</span>
         <ChevronDown size={15} className="text-grey flex-shrink-0" />
       </button>

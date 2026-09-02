@@ -786,7 +786,7 @@ export function Sidebar() {
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
             const open = !collapsible || !!openSections[label] || hasActive;
             return (
-              <div key={label} className="mt-5 first:mt-1">
+              <div key={label} className="mt-6 first:mt-1">
                 {collapsible ? (
                   // Styled exactly like a nav link (icon + name + row padding) so it
                   // sits in the list instead of reading as a stray label — just with
@@ -798,7 +798,7 @@ export function Sidebar() {
                     <ChevronDown size={16} className={cn("cw-nav-badge text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
-                  <p className="cw-section-label px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
+                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
                 )}
                 <div className={cn("cw-section-body space-y-1", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>
