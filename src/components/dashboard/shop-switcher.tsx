@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Store, ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import { cn, titleCase } from "@/lib/utils";
 import type { Shop } from "@/lib/database.types";
 
@@ -22,6 +22,11 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
 
   if (shops.length < 2) return null;
 
+  // Fallback badge when a shop has no logo: its initials (first letter of the
+  // first two words), e.g. "Fade Mechanic" → "FM".
+  const initials = (shop?.name ?? "")
+    .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+
   return (
     <div ref={ref} className="relative px-3 pt-3">
       <button
@@ -30,7 +35,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
       >
         {shop?.logo
           ? <img src={shop.logo} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />
-          : <Store size={15} className="text-grey flex-shrink-0" />}
+          : <span className="w-5 h-5 rounded bg-card-raised border border-border text-foreground text-[9px] font-bold flex items-center justify-center flex-shrink-0">{initials}</span>}
         <span className="flex-1 text-sm text-foreground truncate">{shop?.name ? titleCase(shop.name) : "Select Shop"}</span>
         <ChevronDown size={15} className="text-grey flex-shrink-0" />
       </button>
