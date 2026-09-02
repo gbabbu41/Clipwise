@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown, Wallet,
+  PanelLeft, PanelLeftClose, Plus, Briefcase, ChevronDown, Wallet, Phone, List, CalendarCheck,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -123,8 +123,9 @@ interface NavItem {
 const primaryItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/appointments", label: "Appointments", icon: List, ownerOnly: true },
   { href: "/dashboard/schedule", label: "Schedule", icon: Clock, ownerOnly: true },
-  { href: "/dashboard/pos", label: "Point of Sale", icon: Receipt, feature: "pos" },
+  { href: "/dashboard/pos", label: "Checkout", icon: Receipt, feature: "pos" },
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
   { href: "/dashboard/staff", label: "Staff", icon: UserCheck, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
@@ -136,6 +137,8 @@ const businessItems: NavItem[] = [
   { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
   { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
+  { href: "/dashboard/check-in", label: "Check-in", icon: CalendarCheck, ownerOnly: true },
+  { href: "/dashboard/phone", label: "AI Phone", icon: Phone, ownerOnly: true },
   // Messages: temporarily hidden from the nav on ALL plans — page + send logic
   // are kept intact. Delete `hidden: true` to bring it back for Pro/Premium.
   { href: "/dashboard/messages", label: "Messages", icon: MessageSquare, paidOnly: true, hidden: true },
@@ -152,7 +155,7 @@ const businessItems: NavItem[] = [
 
 const accountItems: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
-  { href: "/dashboard/billing", label: "Billing", icon: Wallet, ownerOnly: true },
+  { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true },
 ];
 
 
@@ -161,7 +164,8 @@ const accountItems: NavItem[] = [
 // barTitleFor) so NO page shows a blank bar. Mirrors the barber portal.
 const BAR_TITLE: Record<string, string> = {
   "/dashboard": "Home",
-  "/dashboard/pos": "POS",
+  "/dashboard/pos": "Checkout",
+  "/dashboard/phone": "AI Phone",
   "/dashboard/my-stats": "My Stats",
   "/dashboard/waitlist": "Waitlist",
   "/dashboard/waitlist-requests": "Spot Waitlist",
@@ -686,7 +690,11 @@ export function Sidebar() {
           };
           const renderItem = (item: NavItem) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            // Light the row for its own page AND any nested route (e.g. standing on
+            // /dashboard/payments/tax lights Payments). The "/" boundary prevents a
+            // prefix collision — /dashboard/waitlist must NOT light on
+            // /dashboard/waitlist-requests.
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
             return (
               <Link
                 key={item.href}
@@ -819,8 +827,10 @@ export function MobileNav() {
       <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
         <Plus size={26} strokeWidth={2.6} />
       </button>
-      {navLink("/dashboard/payments", "Payments", Banknote)}
-      {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Settings…). */}
+      {/* Checkout (the till) is the most-repeated at-the-chair action, so it gets
+          the permanent tab; Payments (a reporting screen) lives in the More drawer. */}
+      {navLink("/dashboard/pos", "Checkout", Receipt)}
+      {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Payments…). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
         <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
