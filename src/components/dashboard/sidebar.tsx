@@ -8,7 +8,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, List, CalendarCheck,
+  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, List, CalendarCheck, ChevronDown,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -122,7 +122,7 @@ interface NavItem {
 // "Business" accordion). Four always-visible sections under uppercase headers,
 // with account items pinned at the bottom. Items that don't pass the ownerOnly +
 // plan-gating filter are skipped at render time.
-type NavSection = { label: string; items: NavItem[] };
+type NavSection = { label: string; items: NavItem[]; collapsible?: boolean };
 
 // TODAY — the at-the-chair set, hit many times a day. Always on top.
 const todayItems: NavItem[] = [
@@ -170,8 +170,10 @@ const growItems: NavItem[] = [
 const NAV_SECTIONS: NavSection[] = [
   { label: "Today", items: todayItems },
   { label: "Money", items: moneyItems },
-  { label: "Shop", items: shopItems },
-  { label: "Grow", items: growItems },
+  // Shop + Grow are the occasional sections — collapsed by default to keep the
+  // rail short; they auto-open when you're on one of their pages.
+  { label: "Shop", items: shopItems, collapsible: true },
+  { label: "Grow", items: growItems, collapsible: true },
 ];
 
 const accountItems: NavItem[] = [
@@ -215,6 +217,17 @@ export function Sidebar() {
   };
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0); // bookings awaiting approval → Calendar badge
+  // Which collapsible sections (Shop / Grow) the owner has expanded. Persisted so
+  // it survives navigation/reload; the section you're currently on auto-opens too.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try { const raw = localStorage.getItem("cw_nav_sections"); if (raw) setOpenSections(JSON.parse(raw)); } catch { /* storage unavailable */ }
+  }, []);
+  const toggleSection = (label: string) => setOpenSections(s => {
+    const next = { ...s, [label]: !s[label] };
+    try { localStorage.setItem("cw_nav_sections", JSON.stringify(next)); } catch { /* storage unavailable */ }
+    return next;
+  });
   // Remembers where the owner was before opening Clients so the toggle can return
   // there — never router.back(), which would leave the app entirely if Clients was
   // the first page (deep link / refresh / no in-app history).
@@ -686,7 +699,7 @@ export function Sidebar() {
       {/* Sidebar wordmark — plain solid CLIPWISE (theme-aware colour, no gradient),
           same 26px as the barber portal so both sidebars match exactly. */}
       <div
-        className="cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
+        className="cw-brand cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
           fontFamily: "'Sora', var(--font-body), system-ui, sans-serif",
           fontWeight: 800,
@@ -696,19 +709,19 @@ export function Sidebar() {
           height: "3.5rem",
         }}
       >
-        CLIPWISE
-        {/* Desktop: collapse the sidebar (mobile uses the drawer + backdrop tap) */}
+        <span className="cw-brand-text">CLIPWISE</span>
+        {/* Desktop: collapse the sidebar / expand it back from the rail. */}
         <button
           type="button"
           onClick={toggleDesktopSidebar}
-          aria-label="Hide sidebar"
-          className="hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-grey hover:text-foreground hover:bg-surface-raised items-center justify-center"
+          aria-label="Toggle sidebar"
+          className="cw-collapse-btn hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-grey hover:text-foreground hover:bg-surface-raised items-center justify-center"
         >
           <PanelLeftClose size={18} />
         </button>
       </div>
 
-      <ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} />
+      <div className="cw-hide-rail"><ShopSwitcher shop={shop} shops={shops} setActiveShop={setActiveShop} /></div>
 
       {/* Nav */}
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
@@ -732,11 +745,13 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                title={item.label}
                 className={cn(
                   // Calm active state: a soft raised row + green accent bar + green
                   // icon (no loud white pill, no trailing arrow) so "you are here"
                   // reads clearly without out-shouting the page content.
-                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                  // cw-nav-item is the hook the collapsed rail uses to center icons.
+                  "cw-nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                   isActive
                     ? "bg-card-raised text-foreground"
                     : "text-grey hover:text-foreground hover:bg-card-raised",
@@ -746,13 +761,13 @@ export function Sidebar() {
                 <Icon size={18} className={cn(isActive ? "text-emerald-400" : "text-grey group-hover:text-foreground")} />
                 <span className="cw-nav-label flex-1">{item.label}</span>
                 {item.badge && unreadCount > 0 && (
-                  <span className="text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
+                  <span className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
                     {unreadCount}
                   </span>
                 )}
                 {item.pendingBadge && pendingCount > 0 && (
                   <span title={`${pendingCount} booking${pendingCount === 1 ? "" : "s"} awaiting approval`}
-                    className="text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                    className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-amber-500/20 text-amber-500 border border-amber-500/30">
                     {pendingCount}
                   </span>
                 )}
@@ -760,24 +775,38 @@ export function Sidebar() {
             );
           };
           // A section: an uppercase header + its passing rows. Hidden entirely when
-          // nothing in it passes the plan/role filter (so a Starter shop doesn't see
-          // an empty "Grow", etc.).
-          const renderSection = (label: string, items: NavItem[]) => {
+          // nothing passes the plan/role filter. Today + Money are always open;
+          // Shop + Grow are collapsible (click the header) to keep the list short —
+          // the section you're currently on auto-opens so the active row shows.
+          // The body stays in the DOM even when collapsed (just display:none via
+          // cw-section-body-collapsed) so the collapsed RAIL can still show its icons.
+          const renderSection = (section: NavSection) => {
+            const { label, items, collapsible } = section;
             const visible = items.filter(passes);
             if (visible.length === 0) return null;
+            const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
+            const open = !collapsible || !!openSections[label] || hasActive;
             return (
               <div key={label} className="mt-4 first:mt-0">
-                <p className="cw-section-label px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey">{label}</p>
-                <div className="space-y-0.5">{visible.map(renderItem)}</div>
+                {collapsible ? (
+                  <button type="button" onClick={() => toggleSection(label)} aria-expanded={open}
+                    className="cw-section-label w-full flex items-center gap-2 px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey hover:text-foreground transition-colors">
+                    <span className="flex-1 text-left">{label}</span>
+                    <ChevronDown size={13} className={cn("transition-transform duration-200", open && "rotate-180")} />
+                  </button>
+                ) : (
+                  <p className="cw-section-label px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-grey">{label}</p>
+                )}
+                <div className={cn("cw-section-body space-y-0.5", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>
             );
           };
           const account = accountItems.filter(passes);
           return (
             <>
-              {/* Four always-visible sections grouped by WHEN the shop uses them —
-                  fixed positions, no accordion, so nothing shifts under a click. */}
-              {NAV_SECTIONS.map(s => renderSection(s.label, s.items))}
+              {/* Four sections grouped by WHEN the shop uses them. Today + Money are
+                  always open; Shop + Grow collapse to keep the sidebar uncluttered. */}
+              {NAV_SECTIONS.map(renderSection)}
 
               {/* Account (Settings / Plan & Billing) pinned at the bottom. */}
               {account.length > 0 && (
@@ -793,27 +822,27 @@ export function Sidebar() {
             a solo Starter owner has ONE view (the barber portal bounces them back
             anyway), so showing this link would just be a dead-end loop. */}
         {isAlsoBarber && isPaidPlan(effectivePlan(shop?.subscription_plan, shop?.subscription_status)) && (
-          <Link href="/barber-dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-grey hover:text-foreground hover:bg-card-raised mt-4 pt-4 border-t border-border">
+          <Link href="/barber-dashboard" title="My Barber View"
+            className="cw-nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group text-grey hover:text-foreground hover:bg-card-raised mt-4 pt-4 border-t border-border">
             <Scissors size={18} className="text-grey group-hover:text-foreground" />
-            <span className="flex-1">My Barber View</span>
-            <ChevronRight size={14} className="opacity-50" />
+            <span className="cw-nav-label flex-1">My Barber View</span>
+            <ChevronRight size={14} className="cw-nav-badge opacity-50" />
           </Link>
         )}
       </nav>
 
       {/* User */}
-      <div className="px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border">
+      <div className="cw-user px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-semibold text-sm overflow-hidden flex-shrink-0">
             <AvatarImage src={profile?.avatar || ownerPhoto} alt={displayName} className="w-full h-full object-cover" fallback={<>{initial}</>} />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="cw-hide-rail flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
             <p className="text-xs text-grey truncate">{formatRole(profile?.role)}</p>
           </div>
-          <PortalThemeToggle className="w-8 h-8 flex-shrink-0" />
-          <button onClick={confirmSignOut} className="text-grey hover:text-red-500 transition-colors">
+          <PortalThemeToggle className="cw-hide-rail w-8 h-8 flex-shrink-0" />
+          <button onClick={confirmSignOut} className="cw-hide-rail text-grey hover:text-red-500 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

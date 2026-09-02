@@ -1897,13 +1897,35 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 /* Tighten the label/input stack that <Input>/<Select> wrap in `space-y-1`. */
 .cw-modal-compact .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.12rem; }
 
+/* A collapsible section body (Shop / Grow) that the owner has closed — hidden in
+   the normal wide sidebar and the mobile drawer. The collapsed RAIL re-shows it
+   (below) so every icon is still reachable there. */
+.cw-section-body-collapsed{ display:none; }
+
 /* ── Desktop-collapsible sidebar (lg+) ────────────────────────────────────────
    The collapse/expand buttons toggle `cw-sidebar-collapsed` on <html>. When set,
-   the docked sidebar slides out and the content reclaims its left margin. Mobile
+   the sidebar shrinks to a slim 62px ICON RAIL (it no longer disappears): the
+   owner reclaims width but keeps every destination one hover-tooltip away. Mobile
    is unaffected (it uses the slide-in drawer). */
 .cw-main{transition:margin-left .2s ease}
+.cw-sidebar{transition:width .2s ease, transform .2s ease}
 @media (min-width:1024px){
-  html.cw-sidebar-collapsed .cw-sidebar{transform:translateX(-100%)}
-  html.cw-sidebar-collapsed .cw-main{margin-left:0}
-  html.cw-sidebar-collapsed .cw-sidebar-expand{display:flex}
+  html.cw-sidebar-collapsed .cw-sidebar{ width:62px; overflow:hidden; }
+  html.cw-sidebar-collapsed .cw-main{ margin-left:62px; }
+  /* The rail carries its own toggle, so the floating expand button isn't needed. */
+  html.cw-sidebar-collapsed .cw-sidebar-expand{ display:none; }
+  /* Icons only — hide every label / header / badge / brand text / footer text. */
+  html.cw-sidebar-collapsed .cw-nav-label,
+  html.cw-sidebar-collapsed .cw-section-label,
+  html.cw-sidebar-collapsed .cw-nav-badge,
+  html.cw-sidebar-collapsed .cw-brand-text,
+  html.cw-sidebar-collapsed .cw-hide-rail{ display:none !important; }
+  /* Center the icons in the 62px rail. */
+  html.cw-sidebar-collapsed .cw-nav-item{ justify-content:center; padding-left:0; padding-right:0; gap:0; }
+  html.cw-sidebar-collapsed .cw-brand{ padding-left:0; justify-content:center; }
+  html.cw-sidebar-collapsed .cw-collapse-btn{ position:static; transform:none; }
+  html.cw-sidebar-collapsed .cw-user > div{ justify-content:center; }
+  /* In the rail, show ALL section icons even if the section is collapsed in the
+     wide view (collapsing is a wide-sidebar convenience, not a rail one). */
+  html.cw-sidebar-collapsed .cw-section-body-collapsed{ display:block; }
 }
