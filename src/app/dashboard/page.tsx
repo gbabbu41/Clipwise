@@ -473,11 +473,10 @@ export default function DashboardPage() {
   // Analytics/Payroll/Earnings — tax is shown separately as "collected".
   const paidCompleted = completed.filter((a) => isPaid(a.payment_status));
   const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-  const taxCollected = paidCompleted.reduce((s, a) => s + (a.tax_amount ?? 0), 0);
   // Headline revenue = everything COLLECTED in the window — appointments PLUS
   // POS / gift-card / walk-in transactions (incl. cash) — so it matches the
-  // Payments page. `revenue`/`taxCollected` above stay appointment-only because
-  // they feed Avg Ticket + the trend chart (per-completed-visit metrics).
+  // Payments page. `revenue` above stays appointment-only because it feeds Avg
+  // Ticket (a per-completed-visit metric).
   const [rangeStart, rangeEnd] = getDateRange(dateFilter, customStart, customEnd);
   const txnsInRange = txns.filter((t) => {
     const d = formatDateForDb(new Date(t.created_at)); // LOCAL date, matches Payments
@@ -492,6 +491,10 @@ export default function DashboardPage() {
     return d >= rangeStart && d <= rangeEnd;
   });
   const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi);
+  // Count on the SAME money-moved basis as Collected (paid appts, dated by paid_at,
+  // no-show fees excluded) so the sub-line under Collected reconciles with the
+  // dollar figure instead of mixing a paid-date total with an appointment-date count.
+  const paidVisits = revenueApptsInRange.filter((a) => a.status !== "no-show").length;
   // Barber commission — read from the ONE source: the transactions ledger, the
   // SAME rows + formula the barber portal (and Payments per-barber view) use, so
   // the dashboard's commission equals what the barbers actually earned. POS rows
@@ -705,7 +708,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
               filterControl={
                 <div className="cwd-filter">
                   <div className="relative">

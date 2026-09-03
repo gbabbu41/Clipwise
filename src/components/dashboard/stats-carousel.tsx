@@ -20,7 +20,7 @@ const CHART_COLORS = { bookings: "#6366f1", barbers: "#6ea8fe" } as const;
 const SLIDE_NAMES = ["Revenue", "Bookings", "Top barbers", "Booking status"] as const;
 
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, appointments, completed, topBarbers, filterControl,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, paidVisits = 0, appointments, completed, topBarbers, filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -30,6 +30,7 @@ export function StatsCarousel({
   commission?: number;     // barber commission tallied for the period (services only — subtracted)
   netRevenue?: number;     // what the shop KEEPS = Collected − tax − tips − commission
   feesLoading?: boolean;   // true until live Stripe fee data resolves → skeleton the Gross/fee rows
+  paidVisits?: number;     // paid appts in the window (money-moved basis) — reconciles with Collected
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
   topBarbers: { name: string; revenue: number }[]; // precomputed by the page on the money-moved basis (incl. POS)
@@ -80,7 +81,7 @@ export function StatsCarousel({
   // — so tapping a bar shows its value without the popup covering / blocking the
   // neighbouring bars. Shared by every chart so the behaviour is global.
   const tip = {
-    contentStyle: { borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(20,22,28,0.18)" },
+    contentStyle: { borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.15)" },
     wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
     position: { y: 0 },
     allowEscapeViewBox: { x: true, y: true },
@@ -90,17 +91,16 @@ export function StatsCarousel({
   const slides = [
     // 1 — Revenue (area)
     <div key="rev" className={card}>
-      {/* Right side is kept clear (pr) for the Today ▾ filter the parent overlays
+      {/* pr keeps the right side clear for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
-      <div className="flex items-start justify-between gap-2 pr-24">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Collected</p>
-      </div>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Collected</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
-      {/* Booking count sits right under the big collected number. */}
-      <span className={cn("mt-1.5 block text-[12px] font-medium", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
-        {hasCompleted ? `${completed.length} completed this period` : "No bookings yet"}
+      {/* Count is on the SAME money-moved basis as Collected (paid this period), so
+          the two lines describe the same window. */}
+      <span className={cn("mt-1.5 block text-[12px] font-medium", paidVisits > 0 ? "text-emerald-400" : "text-grey-muted")}>
+        {paidVisits > 0 ? `${paidVisits} paid this period` : "Nothing paid yet"}
       </span>
       {/* Spacer so the receipt ledger settles toward the bottom of the card and
           the empty state ($0) isn't top-heavy. (The old placeholder bar graph —
