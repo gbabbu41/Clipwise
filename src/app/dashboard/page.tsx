@@ -191,6 +191,11 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
+  // Client rows (id + created_at) for the "New Clients" KPI — a client is "new"
+  // in a period if their record was first created (their first booking/POS
+  // auto-registers them) in that window. Loaded once per shop; filtered by date
+  // client-side so it tracks the period picker.
+  const [clients, setClients] = useState<{ id: string; created_at: string }[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [totalReviews, setTotalReviews] = useState(0);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
@@ -368,13 +373,15 @@ export default function DashboardPage() {
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     if (!shop || !profile) return;
-    const [{ data: b }, notifRes, { data: rev }] = await Promise.all([
+    const [{ data: b }, notifRes, { data: rev }, { data: cli }] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
       // Scoped to the active shop so a multi-shop owner's alerts don't bleed in.
       fetchShopNotifications(supabase, { userId: profile.id, shopId: shop.id, limit: 5 }),
       supabase.from("reviews").select("rating").eq("shop_id", shop.id),
+      supabase.from("clients").select("id, created_at").eq("shop_id", shop.id),
     ]);
     setBarbers((b ?? []) as Barber[]);
+    setClients((cli ?? []) as { id: string; created_at: string }[]);
     setNotifications((notifRes.data ?? []) as unknown as Notification[]);
     if (rev && rev.length > 0) {
       const avg = rev.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / rev.length;
@@ -452,11 +459,13 @@ export default function DashboardPage() {
   const todayAppts = appointments.filter((a) => a.date === todayStr);
 
   const completed = appointments.filter((a) => a.status === "completed");
-  // Revenue figures exclude refunded completed appts (money handed back); the
-  // completion COUNT keeps them (the service was still rendered). Revenue is
-  // PRE-TAX (total_amount includes GST/HST) so it matches Analytics/Payroll/
-  // Earnings — tax is shown separately as "collected".
-  const paidCompleted = completed.filter((a) => a.payment_status !== "refunded");
+  // Revenue figures count only PAID/captured completed appts (money actually
+  // collected) — refunded AND unpaid/null are both excluded, so Avg Ticket matches
+  // the headline "Collected" basis (isPaid) instead of a second, looser definition.
+  // The completion COUNT (`completed`) still keeps them all (the service was
+  // rendered). Revenue is PRE-TAX (total_amount includes GST/HST) so it matches
+  // Analytics/Payroll/Earnings — tax is shown separately as "collected".
+  const paidCompleted = completed.filter((a) => isPaid(a.payment_status));
   const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const taxCollected = paidCompleted.reduce((s, a) => s + (a.tax_amount ?? 0), 0);
   // Headline revenue = everything COLLECTED in the window — appointments PLUS
@@ -504,10 +513,30 @@ export default function DashboardPage() {
     return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);
   const commission = apptCommission + posCommission;
+  // Top barbers by revenue — SAME basis as the headline: money-moved paid
+  // appointments in the window + POS sales, both barber-attributed. Mirrors
+  // commission/Payroll so the slide reconciles with Collected instead of using a
+  // separate appointment-date basis that counted unpaid and excluded POS. Full
+  // names (two barbers who share a first name stay distinct).
+  const barberRevMap: Record<string, number> = {};
+  revenueApptsInRange.forEach((a) => {
+    if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return;
+    barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+  });
+  countablePosTxs(revenueApptsInRange, txnsInRange).forEach((t) => {
+    if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return;
+    barberRevMap[t.barber_id] = (barberRevMap[t.barber_id] ?? 0) + (t.amount ?? 0);
+  });
+  const topBarbers = Object.entries(barberRevMap)
+    .map(([id, rev]) => ({ name: barbers.find((b) => b.id === id)?.name ?? "—", revenue: rev }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
   // (gov't) − tips (barber) − barber commission (barber/owner pay).
   const netRevenue = Math.max(0, collected.net - collected.tax - collected.tips - commission);
-  const avgTicket = completed.length > 0 ? revenue / completed.length : 0;
+  // Avg Ticket = paid revenue ÷ the SAME paid rows (not all completions — dividing
+  // by completed.length, which includes refunds, understated it).
+  const avgTicket = paidCompleted.length > 0 ? revenue / paidCompleted.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
 
@@ -663,16 +692,19 @@ export default function DashboardPage() {
       {loadingAppts ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
-        const newClients = appointments.filter((a) => {
-          const s = filterDateRange[0]; const e = filterDateRange[1];
-          return a.created_at.slice(0, 10) >= s && a.created_at.slice(0, 10) <= e;
+        // New Clients = distinct client RECORDS first created in the window (each
+        // clients row is one person), on the LOCAL date — was counting appointments
+        // (so repeat bookings inflated it) against a UTC date.
+        const newClients = clients.filter((c) => {
+          const d = formatDateForDb(new Date(c.created_at));
+          return d >= filterDateRange[0] && d <= filterDateRange[1];
         }).length;
         const hasAppts = appointments.length > 0;
         const hasCompleted = completed.length > 0;
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} barbers={barbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
               filterControl={
                 <div className="cwd-filter">
                   <div className="relative">

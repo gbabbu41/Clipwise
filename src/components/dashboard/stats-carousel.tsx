@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
+import type { AppointmentWithDetails } from "@/lib/database.types";
 
 /**
  * Swipeable stats carousel — the dashboard's premium visual anchor. Real
@@ -15,7 +15,7 @@ import type { AppointmentWithDetails, Barber } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, barbers, filterControl,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, topBarbers, filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -27,7 +27,7 @@ export function StatsCarousel({
   chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
-  barbers: Barber[];
+  topBarbers: { name: string; revenue: number }[]; // precomputed by the page on the money-moved basis (incl. POS)
   periodLabel?: string;    // active date-filter label ("Today", "This Week", …)
   filterControl?: ReactNode; // the date-filter (Today ▾) — overlaid at the first card's top-right
 }) {
@@ -44,13 +44,10 @@ export function StatsCarousel({
       .map(([date, count]) => ({ day: new Date(date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" }), count }));
   })();
 
-  const revenueByBarber = (() => {
-    const m: Record<string, number> = {};
-    completed.forEach(a => { if (a.barber_id && a.payment_status !== "refunded") m[a.barber_id] = (m[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)); });
-    return Object.entries(m)
-      .map(([id, rev]) => ({ name: (barbers.find(b => b.id === id)?.name ?? "—").split(" ")[0], revenue: rev }))
-      .sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-  })();
+  // Precomputed by the page on the SAME basis as the Collected headline (money-
+  // moved paid appointments + POS), so this reconciles with slide 1 instead of the
+  // old appointment-date, POS-excluding, unpaid-counting basis.
+  const revenueByBarber = topBarbers;
 
   const statusMix = (() => {
     const labels: Record<string, { name: string; color: string }> = {
