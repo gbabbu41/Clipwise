@@ -787,14 +787,18 @@ export function Sidebar() {
             const hasActive = visible.some(i => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href + "/")));
             const open = !collapsible || !!openSections[label] || hasActive;
             // Spacing rhythm: labeled groups (Today/Money) get an equal 20px gap
-            // above (first:mt-1 + the nav's pt-4 == mt-5). Collapsible rows (Shop,
-            // Grow) sit IN the list like normal links — a light gap before the
-            // first one, then a normal row gap — so they don't float apart.
+            // above (first:mt-1 + the nav's pt-4 == mt-5). The collapsible group
+            // (Shop, Grow) sits under a shared "More" header with the same gap;
+            // Grow then sits a normal row-gap below Shop so they read as one group.
+            const isFirstCollapsible = collapsible && idx === firstCollapsibleIdx;
             const gap = collapsible
-              ? (idx === firstCollapsibleIdx ? "mt-3" : "mt-1")
+              ? (isFirstCollapsible ? "mt-5" : "mt-1")
               : "mt-5 first:mt-1";
             return (
               <div key={label} className={gap}>
+                {isFirstCollapsible && (
+                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">More</p>
+                )}
                 {collapsible ? (
                   // Styled exactly like a nav link (icon + name + row padding) so it
                   // sits in the list instead of reading as a stray label — just with
