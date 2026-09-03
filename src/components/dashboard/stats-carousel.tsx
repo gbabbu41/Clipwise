@@ -14,8 +14,13 @@ import type { AppointmentWithDetails } from "@/lib/database.types";
  * scroll-snap slides (Revenue area chart, Bookings bars, Top barbers, Status
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
+// Single source for the chart SERIES colors (the status donut keeps its own
+// semantic hues: green = completed, red = no-show, etc.).
+const CHART_COLORS = { bookings: "#6366f1", barbers: "#6ea8fe" } as const;
+const SLIDE_NAMES = ["Revenue", "Bookings", "Top barbers", "Booking status"] as const;
+
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, appointments, completed, topBarbers, filterControl,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, appointments, completed, topBarbers, filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -24,14 +29,16 @@ export function StatsCarousel({
   tips?: number;           // tips collected (the barber's — subtracted in the waterfall)
   commission?: number;     // barber commission tallied for the period (services only — subtracted)
   netRevenue?: number;     // what the shop KEEPS = Collected − tax − tips − commission
+  feesLoading?: boolean;   // true until live Stripe fee data resolves → skeleton the Gross/fee rows
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
   topBarbers: { name: string; revenue: number }[]; // precomputed by the page on the money-moved basis (incl. POS)
   periodLabel?: string;    // active date-filter label ("Today", "This Week", …)
   filterControl?: ReactNode; // the date-filter (Today ▾) — overlaid at the first card's top-right
 }) {
-  // Fall back to computing net revenue locally if the parent didn't pass it.
-  const netRev = netRevenue ?? Math.max(0, revenue - taxCollected - tips - commission);
+  // Fall back to computing net revenue locally if the parent didn't pass it. NOT
+  // floored — a real loss shows as a red negative (see the Net row below).
+  const netRev = netRevenue ?? (revenue - taxCollected - tips - commission);
   const [idx, setIdx] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -86,7 +93,7 @@ export function StatsCarousel({
       {/* Right side is kept clear (pr) for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
       <div className="flex items-start justify-between gap-2 pr-24">
-        <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Collected</p>
+        <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Collected</p>
       </div>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
@@ -95,10 +102,6 @@ export function StatsCarousel({
       <span className={cn("mt-1.5 block text-[12px] font-medium", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
         {hasCompleted ? `${completed.length} completed this period` : "No bookings yet"}
       </span>
-      {/* Cash included in the net (already in hand). */}
-      {cashIncluded > 0 && (
-        <p className="text-[11px] text-grey-muted mt-1">incl. {formatCurrency(cashIncluded)} cash</p>
-      )}
       {/* Spacer so the receipt ledger settles toward the bottom of the card and
           the empty state ($0) isn't top-heavy. (The old placeholder bar graph —
           which drew dummy bars with no data — was removed here.) */}
@@ -109,20 +112,34 @@ export function StatsCarousel({
           a solo/cash shop's receipt stays clean. */}
       {revenue + feesPaid > 0 && (
         <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
-          <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
-          {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
-          <div className="flex justify-between border-t border-dashed border-border pt-2 text-[12px]"><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
+          {/* Gross + Stripe fees: skeleton until the live fee data resolves (so it
+              doesn't briefly show Gross == Collected then jump); once loaded, the
+              rows are hidden entirely on a no-fee (all-cash) day so Collected is the
+              single top line. */}
+          {feesLoading ? (
+            <>
+              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
+            </>
+          ) : feesPaid > 0 ? (
+            <>
+              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
+            </>
+          ) : null}
+          <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
+          {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey-muted"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
           {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
           {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
           {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
-          <div className="flex justify-between border-t border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Net revenue</span><span className="font-mono tabular-nums font-bold text-emerald-400 text-[14px]">{formatCurrency(netRev)}</span></div>
+          <div className="flex justify-between border-t border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-emerald-400")}>{formatCurrency(netRev)}</span></div>
         </div>
       )}
     </div>,
 
     // 2 — Bookings (bars)
     <div key="bk" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Bookings</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Bookings</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">{totalBookings}</p>
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-grey")}>
         {hasCompleted
@@ -136,9 +153,9 @@ export function StatsCarousel({
         {bookingsByDay.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
-              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
-              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: "var(--grey)" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
+              <Bar dataKey="count" fill={CHART_COLORS.bookings} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
+              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={{ fill: "rgba(128,128,128,0.15)" }} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
@@ -147,15 +164,15 @@ export function StatsCarousel({
 
     // 3 — Top barbers (horizontal bars)
     <div key="tb" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Top barbers · revenue</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Top barbers · revenue</p>
       <div className="flex-1 min-h-[112px] mt-2">
         {revenueByBarber.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={revenueByBarber} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
               <XAxis type="number" hide />
-              <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <Bar dataKey="revenue" fill="#6ea8fe" radius={[0, 4, 4, 0]} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+              <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 11, fill: "var(--grey)" }} axisLine={false} tickLine={false} />
+              <Bar dataKey="revenue" fill={CHART_COLORS.barbers} radius={[0, 4, 4, 0]} isAnimationActive={false} />
+              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "rgba(128,128,128,0.15)" }} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
@@ -164,7 +181,7 @@ export function StatsCarousel({
 
     // 4 — Status mix (donut)
     <div key="st" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#8a8a8a]">Booking status</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Booking status</p>
       <div className="flex-1 min-h-[112px] mt-2 flex items-center">
         {statusMix.length > 0 ? (
           <>
@@ -206,11 +223,20 @@ export function StatsCarousel({
             box back so layout doesn't move — so the carousel card shows the SAME
             soft shadow as the KPI cards instead of needing a border. */}
         <div ref={ref} onScroll={onScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-3 py-5 -my-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          role="region" aria-roledescription="carousel" aria-label="Shop stats" tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") { e.preventDefault(); goTo(Math.min(idx + 1, slides.length - 1)); }
+            else if (e.key === "ArrowLeft") { e.preventDefault(); goTo(Math.max(idx - 1, 0)); }
+          }}
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3 py-5 -my-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-accent/50 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {/* min-h holds the tallest (populated slide 1 with the full ledger) so the
+              carousel doesn't shrink/grow as the period filter changes. */}
           {slides.map((s, i) => (
-            <div key={i} className="min-w-full snap-center min-h-[180px]">{s}</div>
+            <div key={i} className="min-w-full snap-center min-h-[290px]">{s}</div>
           ))}
         </div>
+        {/* Announce the current slide to screen readers as it changes. */}
+        <div className="sr-only" aria-live="polite">{SLIDE_NAMES[idx]}</div>
         {/* Desktop-only prev/next — mobile navigates by swipe. Hidden at the ends. */}
         <button type="button" aria-label="Previous" onClick={() => goTo(idx - 1)} disabled={idx === 0}
           className={cn(arrowBtn, "left-1.5")}>
@@ -229,8 +255,8 @@ export function StatsCarousel({
       </div>
       <div className="flex justify-center gap-1.5 mt-2">
         {slides.map((_, i) => (
-          <button key={i} type="button" onClick={() => goTo(i)} aria-label={`Slide ${i + 1}`}
-            className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-4 bg-accent" : "w-1.5 bg-[#262626]")} />
+          <button key={i} type="button" onClick={() => goTo(i)} aria-label={SLIDE_NAMES[i] ?? `Slide ${i + 1}`} aria-current={i === idx ? "true" : undefined}
+            className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-4 bg-accent" : "w-1.5 bg-border-strong")} />
         ))}
       </div>
     </div>

@@ -179,6 +179,10 @@ export default function DashboardPage() {
   // Exact Stripe net/fees per charge (same source the Payments page uses) so the
   // dashboard headline shows NET after fees, not gross.
   const [stripeByPi, setStripeByPi] = useState<ByPi>({});
+  // True until the live Stripe fee data resolves — so the money card can skeleton
+  // the Gross/fees rows instead of briefly showing Gross == Collected (no fees)
+  // and then visibly changing once the fees load.
+  const [feesLoading, setFeesLoading] = useState(true);
   // Appointments fetched specifically for the calendar-selected date, so
   // clicking a day outside the active dateFilter range still surfaces the
   // bookings underneath (the main `appointments` array is bound to dateFilter).
@@ -341,8 +345,9 @@ export default function DashboardPage() {
   // of truth). Bearer-authorized; owner or active barber of the shop. Lets the
   // dashboard headline show NET after Stripe fees instead of gross.
   useEffect(() => {
-    if (!shop || !accessToken) return;
+    if (!shop || !accessToken) { setFeesLoading(false); return; }
     let active = true;
+    setFeesLoading(true);
     fetch("/api/stripe/payments-summary", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -350,7 +355,8 @@ export default function DashboardPage() {
     })
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (active && d && !d.error) setStripeByPi(d.byPi ?? {}); })
-      .catch(() => { /* transient — keep gross fallback */ });
+      .catch(() => { /* transient — keep gross fallback */ })
+      .finally(() => { if (active) setFeesLoading(false); });
     return () => { active = false; };
   }, [shop, accessToken]);
 
@@ -533,12 +539,18 @@ export default function DashboardPage() {
     .slice(0, 5);
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
   // (gov't) − tips (barber) − barber commission (barber/owner pay).
-  const netRevenue = Math.max(0, collected.net - collected.tax - collected.tips - commission);
+  // NOT floored at 0 — a genuine loss (heavy refunds, high commission on a slow
+  // week) should show as a red negative, not a misleading $0.00.
+  const netRevenue = collected.net - collected.tax - collected.tips - commission;
   // Avg Ticket = paid revenue ÷ the SAME paid rows (not all completions — dividing
   // by completed.length, which includes refunds, understated it).
   const avgTicket = paidCompleted.length > 0 ? revenue / paidCompleted.length : 0;
   const noShows = appointments.filter((a) => a.status === "no-show").length;
-  const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
+  // Rate = no-shows ÷ appointments that were SUPPOSED to happen. Cancellations
+  // (cancelled in advance) are excluded from the denominator — counting them
+  // dilutes the rate (industry convention).
+  const scheduledCount = appointments.filter((a) => a.status !== "cancelled").length;
+  const noShowRate = scheduledCount > 0 ? (noShows / scheduledCount * 100) : 0;
 
   // (Calendar rendering is now handled by the shared <CalendarPicker>; we
   // only keep apptCounts keyed by YYYY-MM-DD for the day-badge slot.)
@@ -693,7 +705,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
               filterControl={
                 <div className="cwd-filter">
                   <div className="relative">
@@ -763,7 +775,7 @@ export default function DashboardPage() {
               </div>
               <div className="cwd-kpi">
                 <div className="cwd-klbl">No-Show Rate</div>
-                <div className="cwd-kval cwd-mono">{hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}</div>
+                <div className="cwd-kval cwd-mono">{scheduledCount > 0 ? `${noShowRate.toFixed(1)}%` : "—"}</div>
               </div>
               <div className="cwd-kpi">
                 {/* Rating is cumulative (not period-filtered like its neighbours),
