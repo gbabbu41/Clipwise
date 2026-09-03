@@ -15,7 +15,7 @@ import type { AppointmentWithDetails } from "@/lib/database.types";
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, chartData, appointments, completed, topBarbers, filterControl,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, appointments, completed, topBarbers, filterControl,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -24,7 +24,6 @@ export function StatsCarousel({
   tips?: number;           // tips collected (the barber's — subtracted in the waterfall)
   commission?: number;     // barber commission tallied for the period (services only — subtracted)
   netRevenue?: number;     // what the shop KEEPS = Collected − tax − tips − commission
-  chartData: { day: string; revenue: number }[];
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
   topBarbers: { name: string; revenue: number }[]; // precomputed by the page on the money-moved basis (incl. POS)
@@ -94,7 +93,7 @@ export function StatsCarousel({
       </p>
       {/* Booking count sits right under the big collected number. */}
       <span className={cn("mt-1.5 block text-[12px] font-medium", hasCompleted ? "text-emerald-400" : "text-grey-muted")}>
-        {hasCompleted ? `${completed.length} booking${completed.length !== 1 ? "s" : ""}` : "No bookings yet"}
+        {hasCompleted ? `${completed.length} completed this period` : "No bookings yet"}
       </span>
       {/* Cash included in the net (already in hand). */}
       {cashIncluded > 0 && (
@@ -130,7 +129,10 @@ export function StatsCarousel({
           ? `${completed.length} completed`
           : totalBookings > 0 ? "None completed yet" : "No bookings yet"}
       </p>
-      <div className="flex-1 min-h-[96px] mt-2 -mx-1">
+      {/* The big number is the period total; the bars below are only the most recent
+          14 dated days — label it so the two aren't read as the same figure. */}
+      {bookingsByDay.length > 0 && <p className="text-[10px] text-grey-muted mt-1">Last 14 days</p>}
+      <div className="flex-1 min-h-[96px] mt-1 -mx-1">
         {bookingsByDay.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>

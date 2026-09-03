@@ -540,17 +540,6 @@ export default function DashboardPage() {
   const noShows = appointments.filter((a) => a.status === "no-show").length;
   const noShowRate = appointments.length > 0 ? (noShows / appointments.length * 100) : 0;
 
-  // Revenue chart data — aggregate by date
-  const revenueByDate: Record<string, number> = {};
-  paidCompleted.forEach((a) => { revenueByDate[a.date] = (revenueByDate[a.date] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)); });
-  const chartData = Object.entries(revenueByDate)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-30)
-    .map(([date, rev]) => ({
-      day: new Date(date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
-      revenue: rev,
-    }));
-
   // (Calendar rendering is now handled by the shared <CalendarPicker>; we
   // only keep apptCounts keyed by YYYY-MM-DD for the day-badge slot.)
 
@@ -704,7 +693,7 @@ export default function DashboardPage() {
         return (
           <>
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} chartData={chartData} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
               filterControl={
                 <div className="cwd-filter">
                   <div className="relative">
@@ -777,7 +766,9 @@ export default function DashboardPage() {
                 <div className="cwd-kval cwd-mono">{hasAppts ? `${noShowRate.toFixed(1)}%` : "0%"}</div>
               </div>
               <div className="cwd-kpi">
-                <div className="cwd-klbl">Avg Rating</div>
+                {/* Rating is cumulative (not period-filtered like its neighbours),
+                    so it's labelled all-time to avoid implying it moves with the picker. */}
+                <div className="cwd-klbl">Rating · all-time</div>
                 <div className="cwd-kval cwd-mono">{avgRating != null ? `${avgRating}★` : "—"}</div>
               </div>
             </div>
@@ -787,7 +778,7 @@ export default function DashboardPage() {
               <button type="button" onClick={() => setShowAddWalkin(true)}><span className="cwd-qic"><Plus size={22} /></span><span className="cwd-qlb">Walk In</span></button>
               <Link href="/dashboard/pos"><span className="cwd-qic"><CreditCard size={21} /></span><span className="cwd-qlb">POS</span></Link>
               <Link href="/dashboard/appointments"><span className="cwd-qic"><Calendar size={21} /></span><span className="cwd-qlb">Appointments</span></Link>
-              <Link href="/dashboard/analytics"><span className="cwd-qic"><BarChart3 size={21} /></span><span className="cwd-qlb">Reports</span></Link>
+              <Link href="/dashboard/analytics"><span className="cwd-qic"><BarChart3 size={21} /></span><span className="cwd-qlb">Analytics</span></Link>
             </div>
           </>
         );
