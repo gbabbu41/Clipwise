@@ -898,12 +898,13 @@ export default function POSPage() {
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
           bar + drawer. PC (lg): order summary as a side panel on the RIGHT
           (flex-row-reverse keeps DOM order but renders the panel last). */}
-      {/* Height mirrors the layout's own mobile <main> insets — it reserves
-          3.5rem+safe-top for the top bar and 6rem+safe-bottom for the bottom nav.
-          Deriving the shell height from the SAME insets (instead of a hardcoded
-          68px) keeps the scroll area fully above the nav in the standalone / "add
-          to home screen" PWA too, where the viewport + safe-areas differ. */}
-      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-3.5rem-6rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-screen overflow-hidden">
+      {/* MOBILE: no fixed height/overflow — the content flows and the PAGE scrolls
+          natively. The layout's <main> already reserves 3.5rem+safe-top on top and
+          6rem+safe-bottom for the nav, so native scroll always reaches the bottom
+          (in the browser AND the installed PWA) regardless of banners/safe-areas —
+          no fragile height math. DESKTOP (lg): the fixed side-panel shell with its
+          own internal scroll, as before. */}
+      <div className="flex flex-col lg:flex-row-reverse lg:h-screen lg:overflow-hidden">
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
@@ -923,8 +924,11 @@ export default function POSPage() {
             Sits above the workflow bar; the grid (flex-1) absorbs its height. */}
         <div className="shrink-0 px-3"><DashboardHeader title="Point of Sale" /></div>
 
-        {/* 1 ─ TOP BAR (fixed): Customer | Barber side by side, no labels */}
-        <div className="shrink-0 flex gap-2 p-3 border-b border-white/[0.07]">
+        {/* 1 ─ TOP BAR: Customer | Barber side by side, no labels. On mobile it
+            sticks just under the app's fixed top bar during native page scroll so
+            the customer/barber pickers stay reachable; on desktop it's static in
+            the fixed shell. */}
+        <div className="shrink-0 sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 bg-background lg:static lg:top-auto lg:z-auto flex gap-2 p-3 border-b border-white/[0.07]">
           <button type="button" onClick={() => { setAddOpen(false); setPickerOpen(true); }}
             className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-card-raised px-3 text-sm text-left transition-colors",
               client ? "border-border" : needCustomer ? "border-red-500 bg-red-500/10 animate-pulse" : "border-[#00e5a0]/40")}>
@@ -945,9 +949,10 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* 2 ─ SERVICE GRID (scrollable). pb clears the sticky cart bar; the shell
-            height (above) keeps the whole area above the bottom nav. */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-28">
+        {/* 2 ─ SERVICE GRID. MOBILE: flows with the page (native scroll). DESKTOP:
+            its own internal scroll inside the fixed shell. pb clears the sticky
+            cart bar (mobile) / gives the last row room (desktop). */}
+        <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto px-3 pt-3 pb-28">
 
         {!dataLoaded ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
