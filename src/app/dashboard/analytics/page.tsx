@@ -205,9 +205,20 @@ export default function AnalyticsPage() {
     // Completion rows are taken from the appointment, and no-show fees never pay
     // commission.
     const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
+    // Commission follows the money ACTUALLY collected, not total_amount: a price
+    // edited above the held card captures less than total_amount, so read the
+    // pre-tax service from the completion ledger row (keyed by PaymentIntent) and
+    // fall back to total_amount − tax only when there's no completion row
+    // (online-paid bookings, where they're equal). Matches the Dashboard fix.
+    const collectedServiceByPi = new Map<string, number>();
+    for (const t2 of filteredTx) {
+      if (t2.source !== "completion" || t2.refunded || !t2.payment_intent_id) continue;
+      collectedServiceByPi.set(t2.payment_intent_id, Math.max(0, t2.amount ?? 0));
+    }
     const apptCommission = revenueApptsInRange.reduce((sum, a) => {
       if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
-      const service = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+      const collected = a.payment_intent_id ? collectedServiceByPi.get(a.payment_intent_id) : undefined;
+      const service = collected != null ? collected : Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
       return sum + (service * (pct[a.barber_id] ?? 0)) / 100;
     }, 0);
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
