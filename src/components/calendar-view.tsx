@@ -5,7 +5,7 @@ import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock, Phone, Mail, MessageSquare, Search, Check, Scissors } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { DashboardHeader } from "@/components/dashboard/page-header";
+import { HeaderControls } from "@/components/dashboard/header-controls";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   cn, formatCurrency, formatDateForDb, friendlyDate, timeAgo, paymentTag,
@@ -1935,12 +1935,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : null;
 
   // ── WEEK STRIP (sits atop the Day view) ─────────────────────────────────────
-  // Independent, horizontally-scrollable date rail. Swiping it browses days
-  // WITHOUT switching the selected day — only a tap selects (and loads that
-  // day's schedule below). It renders a wide window centered on the selected
-  // day and is auto-centered by an effect; touch events stopPropagation so the
-  // calendar-wide period swipe never fires from a rail scroll.
-  const STRIP_RANGE = 28; // days rendered each side of the selected day
+  // A compact 7-day week rail: 3 days each side of the selected day, so the 7
+  // cells fill the full width (each basis-1/7 = 14.2857%) with NO horizontal
+  // scroll — a clean week at a glance instead of a long scrolly rail. Tapping a
+  // day selects it (loads that day's schedule below) and re-centers the week on
+  // it. Touch events stopPropagation so the calendar-wide period swipe never
+  // fires from the rail. (The auto-center effect is a no-op here since there's
+  // nothing to scroll, but it stays harmless and keeps the wide-window option.)
+  const STRIP_RANGE = 3; // days rendered each side of the selected day (→ 7 total)
   const renderWeekStrip = () => {
     const selectedStr = formatDateForDb(currentDate);
     const days = Array.from({ length: STRIP_RANGE * 2 + 1 }, (_, i) => addDays(currentDate, i - STRIP_RANGE));
@@ -2882,17 +2884,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
     <div data-no-swipe className={cn("flex flex-col h-full bg-background text-foreground overflow-x-clip", embedded && "min-h-[100dvh]")}>
-      {/* Page title (owner standalone only) — the universal top header, so the
-          calendar's top matches every other page. The date-nav toolbar below
-          stays as-is. Grid area (flex-1) absorbs the header height. */}
-      {pageTitle && (
-        <div className="shrink-0 px-4 sm:px-6">
-          <DashboardHeader title={pageTitle} />
-        </div>
-      )}
-      {/* Header — one row: date hero (left) · controls (right). The barber
-          filter is a compact avatar+caret so it all fits on a single line. */}
-      <div className="border-b border-border px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+      {/* Header — ONE unified row: date hero (left) · calendar controls +
+          universal bell/avatar (right). We fold the bell+avatar into this
+          toolbar (owner standalone only, via HeaderControls) instead of a
+          separate title band above it — that reclaims the full ~88px the tall
+          page header used to eat on desktop, which is dead weight on a
+          calendar whose real title IS the date shown here. On mobile the
+          sidebar's fixed top bar still carries the bell+avatar (HeaderControls
+          is max-lg:hidden), so nothing doubles up. */}
+      <div className="border-b border-border px-4 sm:px-6 py-2 lg:pt-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
@@ -2962,6 +2962,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               Today
             </button>
           )}
+          {/* Universal bell + avatar (owner standalone only) — desktop-only, so
+              the calendar keeps the same top-right controls as every other
+              owner page without a separate header band. */}
+          {pageTitle && <HeaderControls />}
         </div>
       </div>
 
