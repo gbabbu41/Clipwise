@@ -363,7 +363,7 @@ export function makeApptActions(opts: {
       if (checkoutBlocked(appt)) return;
       setBusy("capture");
       toast(appt.payment_status === "held" ? "Charging held card…" : "Charging card on file…");
-      let data: { ok?: boolean; error?: string };
+      let data: { ok?: boolean; error?: string; amount?: number };
       try {
         const res = await fetch("/api/stripe/capture-appointment", {
           method: "POST",
@@ -393,7 +393,18 @@ export function makeApptActions(opts: {
       await runCompletionEffects(supabase, { ...appt, payment_status: "captured" }, shop, accessToken);
       setBusy("");
       onDone();
-      toast("Charged · Completed");
+      // Tell the truth about what actually went through: a held card only captures
+      // up to what it authorized, so a price raised above the hold collects less
+      // than the total. Surface the captured amount + any balance still owed so the
+      // barber knows to collect the rest (cash / payment link).
+      const captured = typeof data.amount === "number" ? data.amount : null;
+      const owed = Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0);
+      const balance = captured != null ? Math.round((owed - captured) * 100) / 100 : 0;
+      if (captured != null && balance > 0.005) {
+        toast(`Charged ${formatCurrency(captured)} · ${formatCurrency(balance)} left to collect`);
+      } else {
+        toast(captured != null ? `Charged ${formatCurrency(captured)} · Completed` : "Charged · Completed");
+      }
     },
     cashComplete: async (appt) => {
       if (!shop) return;
@@ -588,7 +599,7 @@ function DAction({ icon, label, onClick, disabled, tone = "default" }: {
 }
 
 // ── Appointment detail — a bottom sheet / drawer that slides up on tap ──────────
-export function ApptDetail({ appt, barbers, services, onClose, actions, busy, readOnly = false, tz, noShowFeePercent }: {
+export function ApptDetail({ appt, barbers, services, onClose, actions, busy, readOnly = false, tz, noShowFeePercent, accessToken }: {
   appt: AppointmentWithDetails;
   barbers: Barber[];
   tz?: string;                    // shop timezone → decides when a no-show can be marked
@@ -600,8 +611,28 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   actions: ApptActions;
   busy: string;
   readOnly?: boolean;   // hide all action buttons (e.g. barber without manage_appointments)
+  accessToken?: string | null;  // to read the true held amount for the Capture button
 }) {
   const barber = barbers.find(b => b.id === appt.barber_id);
+  // True amount currently HELD on the card (capturable), for held cards only. A
+  // price raised after booking can sit above the hold, and Stripe can't capture
+  // more than it authorized — so the Capture button must show what it'll ACTUALLY
+  // charge, not the stored total. null = not loaded / not applicable → the button
+  // falls back to the total.
+  const [heldCapturable, setHeldCapturable] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (appt.payment_status !== "held" || !appt.payment_intent_id || !accessToken) { setHeldCapturable(null); return; }
+    fetch("/api/stripe/held-amount", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: appt.id }),
+    })
+      .then(r => r.json())
+      .then(d => { if (alive && typeof d?.capturable === "number") setHeldCapturable(d.capturable); })
+      .catch(() => { if (alive) setHeldCapturable(null); });
+    return () => { alive = false; };
+  }, [appt.id, appt.payment_status, appt.payment_intent_id, accessToken]);
   const [payChoice, setPayChoice] = useState(false);
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
   // The email field only appears after tapping "Send payment link".
@@ -784,6 +815,13 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const tipAmt = Number(appt.tip_amount ?? 0);
   const taxAmt = Number(appt.tax_amount ?? 0);
   const amtPaid = amt + tipAmt;
+  // What a "Capture" will ACTUALLY charge: a HELD card can only be captured up to
+  // what it authorized, so if the price was raised above the hold, cap the shown
+  // amount at the hold and surface the balance still to collect. Saved / cash
+  // cards charge the full amount fresh, so they use amtPaid unchanged.
+  const isHeld = appt.payment_status === "held";
+  const willCapture = isHeld && heldCapturable != null ? Math.min(heldCapturable, amtPaid) : amtPaid;
+  const heldBalance = Math.max(0, Math.round((amtPaid - willCapture) * 100) / 100);
   // A checkout link is out and the customer hasn't paid yet — keep the Check out
   // button but surface that we're waiting (paying the link auto-completes).
   const awaiting = !paid && !refunded && !!appt.stripe_checkout_session_id;
@@ -984,7 +1022,14 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ) : (
                 <>
                   {(heldOrSaved || cardOnFile) && (
-                    <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                    <>
+                      <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                      {isHeld && heldBalance > 0 && (
+                        <p className="text-[11px] text-grey-muted text-center px-2 -mt-0.5">
+                          Card holds {formatCurrency(willCapture)} · {formatCurrency(heldBalance)} balance — collect in person or send a link
+                        </p>
+                      )}
+                    </>
                   )}
                   {!showEmail ? (
                     <DAction icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
@@ -3037,6 +3082,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             readOnly={!canManage}
             tz={safeTz((shop as { timezone?: string } | null)?.timezone)}
             noShowFeePercent={(shop?.booking_settings as { no_show_fee_percent?: number } | null)?.no_show_fee_percent}
+            accessToken={accessToken}
           />
         </Portal>
       )}
