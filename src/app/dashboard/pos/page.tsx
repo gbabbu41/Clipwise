@@ -898,7 +898,12 @@ export default function POSPage() {
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
           bar + drawer. PC (lg): order summary as a side panel on the RIGHT
           (flex-row-reverse keeps DOM order but renders the panel last). */}
-      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-68px-env(safe-area-inset-top))] lg:h-screen overflow-hidden">
+      {/* Height mirrors the layout's own mobile <main> insets — it reserves
+          3.5rem+safe-top for the top bar and 6rem+safe-bottom for the bottom nav.
+          Deriving the shell height from the SAME insets (instead of a hardcoded
+          68px) keeps the scroll area fully above the nav in the standalone / "add
+          to home screen" PWA too, where the viewport + safe-areas differ. */}
+      <div className="flex flex-col lg:flex-row-reverse h-[calc(100dvh-3.5rem-6rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-screen overflow-hidden">
 
         {/* PC order-summary side panel (right). Hidden below lg, where the sticky
             cart bar + drawer take over. Reuses the shared cart body. */}
@@ -940,10 +945,9 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* 2 ─ SERVICE GRID (scrollable). Generous bottom padding so the last row —
-            and the Appointments "Show more" button — clears BOTH the sticky cart
-            bar and the bottom nav (+ the home-indicator safe area) on phones. */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-[calc(9rem+env(safe-area-inset-bottom))]">
+        {/* 2 ─ SERVICE GRID (scrollable). pb clears the sticky cart bar; the shell
+            height (above) keeps the whole area above the bottom nav. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-28">
 
         {!dataLoaded ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
