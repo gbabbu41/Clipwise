@@ -940,8 +940,10 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* 2 ─ SERVICE GRID (scrollable). pb-28 keeps the last row clear of the sticky bar */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-28">
+        {/* 2 ─ SERVICE GRID (scrollable). Generous bottom padding so the last row —
+            and the Appointments "Show more" button — clears BOTH the sticky cart
+            bar and the bottom nav (+ the home-indicator safe area) on phones. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-[calc(9rem+env(safe-area-inset-bottom))]">
 
         {!dataLoaded ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
