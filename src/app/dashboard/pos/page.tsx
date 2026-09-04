@@ -47,7 +47,7 @@ export default function POSPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   // POS grid tabs — split services from physical products so a big inventory
   // doesn't bury the service menu. Products are further grouped by category.
-  const [posTab, setPosTab] = useState<"services" | "products" | "appointments">("services");
+  const [posTab, setPosTab] = useState<"services" | "products" | "appointments">("appointments");
   const [productSearch, setProductSearch] = useState("");
   // Appointments tab — charge booked appointments (capture held card / take cash /
   // send link) right from the till, using the SAME pop-up card + buttons the
@@ -952,6 +952,11 @@ export default function POSPage() {
             {/* Catalog / Appointments tabs. Services + Appointments always;
                 Products only when there's inventory to split out. */}
             <div className="flex gap-1 p-1 rounded-xl bg-card-raised border border-border mb-3">
+              <button type="button" onClick={() => setPosTab("appointments")}
+                className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
+                  posTab === "appointments" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
+                Appointments{apptNeedCount > 0 ? ` (${apptNeedCount})` : ""}
+              </button>
               <button type="button" onClick={() => setPosTab("services")}
                 className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
                   posTab === "services" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
@@ -964,11 +969,6 @@ export default function POSPage() {
                   Products ({inventory.length})
                 </button>
               )}
-              <button type="button" onClick={() => setPosTab("appointments")}
-                className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
-                  posTab === "appointments" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
-                Appointments{apptNeedCount > 0 ? ` (${apptNeedCount})` : ""}
-              </button>
             </div>
 
             {posTab === "services" && Object.entries(servicesByCategory).map(([cat, svcs]) => (
