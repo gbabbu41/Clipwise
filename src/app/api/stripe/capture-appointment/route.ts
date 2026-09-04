@@ -185,9 +185,19 @@ export async function POST(request: NextRequest) {
         }
         return NextResponse.json({ ok: false, error: "This card hold is no longer chargeable (it may have expired). Please take payment another way." }, { status: 400 });
       }
-      const captureCents = feeCents > 0 ? Math.min(feeCents, capturable) : capturable;
-      // Omit amount_to_capture when taking the whole hold — Stripe captures the
-      // full authorization by default (and releases nothing extra).
+      // For a COMPLETION, capture the appointment's CURRENT total (service + tax +
+      // tip), not the whole hold: if the price was edited DOWN after booking, the
+      // hold is still the higher original amount, so capturing it in full would
+      // OVERCHARGE the customer. Cap at the hold either way — a price edited UP
+      // can't pull more than Stripe authorized (that gap is warned about at edit
+      // time). A degenerate $0 target falls back to the full hold (never captures
+      // 0, which Stripe rejects). A no-show fee captures the fee, capped at the hold.
+      const targetCents = Math.round(((appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) * 100);
+      const captureCents = feeCents > 0
+        ? Math.min(feeCents, capturable)
+        : (targetCents > 0 ? Math.min(capturable, targetCents) : capturable);
+      // Omit amount_to_capture only when taking the whole hold — otherwise capture
+      // the (smaller) target and Stripe releases the remaining authorization.
       const captureParams = captureCents < capturable ? { amount_to_capture: captureCents } : {};
       pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
     }
