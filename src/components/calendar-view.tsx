@@ -842,7 +842,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     : refunded
       ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
-      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
       : cardOnFile
         ? { text: `Pay at shop · card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#f5c542]/10 text-[#f5c542]" }
       : awaiting
