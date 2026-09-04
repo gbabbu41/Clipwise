@@ -14,8 +14,11 @@ import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { Barber, Service, InventoryItem, PromoCode } from "@/lib/database.types";
+import type { Barber, Service, InventoryItem, PromoCode, AppointmentWithDetails } from "@/lib/database.types";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { ApptDetail, makeApptActions, Portal } from "@/components/calendar-view";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { safeTz } from "@/lib/timezone";
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
@@ -41,8 +44,15 @@ export default function POSPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   // POS grid tabs — split services from physical products so a big inventory
   // doesn't bury the service menu. Products are further grouped by category.
-  const [posTab, setPosTab] = useState<"services" | "products">("services");
+  const [posTab, setPosTab] = useState<"services" | "products" | "appointments">("services");
   const [productSearch, setProductSearch] = useState("");
+  // Appointments tab — charge booked appointments (capture held card / take cash /
+  // send link) right from the till, using the SAME pop-up card + buttons the
+  // calendar uses. Shows today's + anything still needing payment, newest first.
+  const [appts, setAppts] = useState<AppointmentWithDetails[]>([]);
+  const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
+  const [actionBusy, setActionBusy] = useState("");
+  const { confirm } = useConfirm();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [client, setClient] = useState(""); // empty until a customer is chosen
@@ -142,6 +152,52 @@ export default function POSPage() {
   }, [shop]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Appointments for the Appointments tab: today's + anything still needing
+  // payment (held/saved/unpaid/failed), joined to the service name for the card.
+  const loadAppts = useCallback(async () => {
+    if (!shop) return;
+    const today = new Date().toLocaleDateString("en-CA"); // local (= shop) YYYY-MM-DD
+    const { data } = await supabase
+      .from("appointments")
+      .select("*, services(name)")
+      .eq("shop_id", shop.id)
+      .neq("status", "cancelled")
+      .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed)`)
+      .order("created_at", { ascending: false })
+      .limit(60);
+    setAppts((data ?? []) as AppointmentWithDetails[]);
+  }, [shop]);
+  useEffect(() => { loadAppts(); }, [loadAppts]);
+
+  // An appointment still has money to collect (drives the tab badge + ordering).
+  const needsPayment = useCallback((a: AppointmentWithDetails) =>
+    a.status !== "cancelled"
+    && !["paid", "captured", "refunded"].includes(a.payment_status ?? "")
+    && (Number(a.total_amount ?? 0) > 0 || a.payment_status === "held" || a.payment_status === "saved" || !!a.stripe_payment_method_id),
+  []);
+
+  // Sort: unpaid first, then newest — so the one to charge is right at the top.
+  const apptsSorted = useMemo(() => [...appts].sort((a, b) => {
+    const an = needsPayment(a) ? 0 : 1, bn = needsPayment(b) ? 0 : 1;
+    if (an !== bn) return an - bn;
+    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+  }), [appts, needsPayment]);
+  const apptNeedCount = useMemo(() => appts.filter(needsPayment).length, [appts, needsPayment]);
+
+  // Update a row locally (+ the open card) after an action, so the list reflects
+  // a capture/cash/complete without a refetch. Mirrors the calendar's patch.
+  const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
+    setAppts(prev => prev.map(a => a.id === id ? { ...a, ...p } : a));
+    setSelectedAppt(prev => prev && prev.id === id ? { ...prev, ...p } : prev);
+  }, []);
+
+  // The SAME action factory the calendar uses → identical buttons + behaviour.
+  const apptActions = useMemo(() => makeApptActions({
+    shop, accessToken, patch: patchAppt, setBusy: setActionBusy,
+    toast: showToast, onDone: () => setSelectedAppt(null),
+    confirm: (m) => confirm({ message: m }),
+  }), [shop, accessToken, patchAppt, confirm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save the customer as a client when contact details are given and they're
   // not already on file (matched by phone or email). Keeps the book growing
@@ -780,6 +836,24 @@ export default function POSPage() {
     <div data-no-swipe className="bg-background">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
+      {/* Charge a booked appointment from the till — the SAME pop-up card + buttons
+          the calendar uses (capture held card / take cash / send link). */}
+      {selectedAppt && (
+        <Portal>
+          <ApptDetail
+            appt={selectedAppt}
+            barbers={barbers}
+            services={services}
+            onClose={() => setSelectedAppt(null)}
+            actions={apptActions}
+            busy={actionBusy}
+            tz={safeTz((shop as { timezone?: string } | null)?.timezone)}
+            noShowFeePercent={(shop?.booking_settings as { no_show_fee_percent?: number } | null)?.no_show_fee_percent}
+            accessToken={accessToken}
+          />
+        </Portal>
+      )}
+
       {/* App shell — mobile/tablet: top bar + grid stacked, with a sticky cart
           bar + drawer. PC (lg): order summary as a side panel on the RIGHT
           (flex-row-reverse keeps DOM order but renders the panel last). */}
@@ -834,20 +908,29 @@ export default function POSPage() {
           </div>
         ) : (
           <>
-            {/* Services / Products tabs — only when there's inventory to split out */}
-            {inventory.length > 0 && (
-              <div className="flex gap-1 p-1 rounded-xl bg-card-raised border border-border mb-3">
-                {(["services", "products"] as const).map(t => (
-                  <button key={t} type="button" onClick={() => setPosTab(t)}
-                    className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
-                      posTab === t ? "bg-white text-black" : "text-grey hover:text-foreground")}>
-                    {t === "products" ? `Products (${inventory.length})` : "Services"}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Catalog / Appointments tabs. Services + Appointments always;
+                Products only when there's inventory to split out. */}
+            <div className="flex gap-1 p-1 rounded-xl bg-card-raised border border-border mb-3">
+              <button type="button" onClick={() => setPosTab("services")}
+                className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
+                  posTab === "services" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
+                Services
+              </button>
+              {inventory.length > 0 && (
+                <button type="button" onClick={() => setPosTab("products")}
+                  className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
+                    posTab === "products" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
+                  Products ({inventory.length})
+                </button>
+              )}
+              <button type="button" onClick={() => setPosTab("appointments")}
+                className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
+                  posTab === "appointments" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
+                Appointments{apptNeedCount > 0 ? ` (${apptNeedCount})` : ""}
+              </button>
+            </div>
 
-            {(inventory.length === 0 || posTab === "services") && Object.entries(servicesByCategory).map(([cat, svcs]) => (
+            {posTab === "services" && Object.entries(servicesByCategory).map(([cat, svcs]) => (
               <div key={cat}>
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -917,6 +1000,39 @@ export default function POSPage() {
                   </div>
                 ))}
               </>
+            )}
+
+            {posTab === "appointments" && (
+              apptsSorted.length === 0 ? (
+                <p className="text-center text-xs text-grey-muted py-10">No appointments today, and nothing waiting on payment.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {apptsSorted.map(a => {
+                    const owed = Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0);
+                    const paidRow = a.payment_status === "paid" || a.payment_status === "captured";
+                    const badge = paidRow ? { t: "Paid", c: "bg-[#00e5a0]/10 text-[#00e5a0]" }
+                      : a.payment_status === "held" ? { t: "Card held", c: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+                      : (a.payment_status === "saved" || a.stripe_payment_method_id) ? { t: "Card on file", c: "bg-[#f5c542]/10 text-[#f5c542]" }
+                      : a.payment_status === "refunded" ? { t: "Refunded", c: "bg-white/5 text-grey" }
+                      : { t: "Unpaid", c: "bg-white/5 text-grey" };
+                    const svcName = (a.services as { name?: string } | null)?.name ?? "Service";
+                    const when = new Date(a.date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                    return (
+                      <button key={a.id} type="button" onClick={() => setSelectedAppt(a)}
+                        className="w-full text-left p-3 rounded-xl border border-border bg-card hover:border-white/20 transition-colors flex items-center gap-3 active:scale-[0.99]">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground truncate">{a.client_name || "Walk-in"}</p>
+                          <p className="text-[12px] text-grey-muted truncate">{svcName} · {when} · {a.time_slot}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {owed > 0 && <span className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(owed)}</span>}
+                          <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", badge.c)}>{badge.t}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
             )}
           </>
         )}
