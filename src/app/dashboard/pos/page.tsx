@@ -185,6 +185,41 @@ export default function POSPage() {
   }), [appts, needsPayment]);
   const apptNeedCount = useMemo(() => appts.filter(needsPayment).length, [appts, needsPayment]);
 
+  // Split into two labelled sections, mirroring the Services layout: everything
+  // still owing money (any day) on top, then the rest of today's roster.
+  const apptGroups = useMemo(() => {
+    const today = new Date().toLocaleDateString("en-CA");
+    const needs = apptsSorted.filter(a => needsPayment(a));
+    const todayRest = apptsSorted.filter(a => !needsPayment(a) && a.date === today);
+    return { needs, todayRest };
+  }, [apptsSorted, needsPayment]);
+
+  // One appointment card — reused by both sections so they look identical.
+  const apptCard = (a: AppointmentWithDetails) => {
+    const owed = Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0);
+    const paidRow = a.payment_status === "paid" || a.payment_status === "captured";
+    const badge = paidRow ? { t: "Paid", c: "bg-[#00e5a0]/10 text-[#00e5a0]" }
+      : a.payment_status === "held" ? { t: "Card held", c: "bg-[#4a9eff]/10 text-[#4a9eff]" }
+      : (a.payment_status === "saved" || a.stripe_payment_method_id) ? { t: "Card on file", c: "bg-[#f5c542]/10 text-[#f5c542]" }
+      : a.payment_status === "refunded" ? { t: "Refunded", c: "bg-white/5 text-grey" }
+      : { t: "Unpaid", c: "bg-white/5 text-grey" };
+    const svcName = (a.services as { name?: string } | null)?.name ?? "Service";
+    const when = new Date(a.date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    return (
+      <button key={a.id} type="button" onClick={() => setSelectedAppt(a)}
+        className="w-full text-left p-3 rounded-xl border border-border bg-card hover:border-white/20 transition-colors flex items-center gap-3 active:scale-[0.99]">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground truncate">{a.client_name || "Walk-in"}</p>
+          <p className="text-[12px] text-grey-muted truncate">{svcName} · {when} · {a.time_slot}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {owed > 0 && <span className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(owed)}</span>}
+          <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", badge.c)}>{badge.t}</span>
+        </div>
+      </button>
+    );
+  };
+
   // Update a row locally (+ the open card) after an action, so the list reflects
   // a capture/cash/complete without a refetch. Mirrors the calendar's patch.
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
@@ -1006,32 +1041,24 @@ export default function POSPage() {
               apptsSorted.length === 0 ? (
                 <p className="text-center text-xs text-grey-muted py-10">No appointments today, and nothing waiting on payment.</p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {apptsSorted.map(a => {
-                    const owed = Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0);
-                    const paidRow = a.payment_status === "paid" || a.payment_status === "captured";
-                    const badge = paidRow ? { t: "Paid", c: "bg-[#00e5a0]/10 text-[#00e5a0]" }
-                      : a.payment_status === "held" ? { t: "Card held", c: "bg-[#4a9eff]/10 text-[#4a9eff]" }
-                      : (a.payment_status === "saved" || a.stripe_payment_method_id) ? { t: "Card on file", c: "bg-[#f5c542]/10 text-[#f5c542]" }
-                      : a.payment_status === "refunded" ? { t: "Refunded", c: "bg-white/5 text-grey" }
-                      : { t: "Unpaid", c: "bg-white/5 text-grey" };
-                    const svcName = (a.services as { name?: string } | null)?.name ?? "Service";
-                    const when = new Date(a.date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-                    return (
-                      <button key={a.id} type="button" onClick={() => setSelectedAppt(a)}
-                        className="w-full text-left p-3 rounded-xl border border-border bg-card hover:border-white/20 transition-colors flex items-center gap-3 active:scale-[0.99]">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-foreground truncate">{a.client_name || "Walk-in"}</p>
-                          <p className="text-[12px] text-grey-muted truncate">{svcName} · {when} · {a.time_slot}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {owed > 0 && <span className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(owed)}</span>}
-                          <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", badge.c)}>{badge.t}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <>
+                  {apptGroups.needs.length > 0 && (
+                    <div>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">Needs payment ({apptGroups.needs.length})</p>
+                      <div className="flex flex-col gap-2">
+                        {apptGroups.needs.map(apptCard)}
+                      </div>
+                    </div>
+                  )}
+                  {apptGroups.todayRest.length > 0 && (
+                    <div>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-6 mb-2">Today</p>
+                      <div className="flex flex-col gap-2">
+                        {apptGroups.todayRest.map(apptCard)}
+                      </div>
+                    </div>
+                  )}
+                </>
               )
             )}
           </>
