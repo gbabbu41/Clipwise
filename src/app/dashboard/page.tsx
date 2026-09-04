@@ -511,10 +511,27 @@ export default function DashboardPage() {
   //  · counted paid appointments → (total − tax) × that barber's rate
   //  · counted POS sales with a barber → stored cut (or amount × rate)
   // No-show penalty fees never pay commission — they're not a service performed.
+  // Service revenue ACTUALLY COLLECTED for an appointment, pre-tax. Prefer the
+  // completion ledger row the capture wrote (the real money that came in) over
+  // the appointment's total_amount: a price edited ABOVE the held card captures
+  // LESS than total_amount (Stripe can't take more than it authorized), and
+  // commission must follow the money, not the label — otherwise a bumped price
+  // inflates commission past what was collected and drives Net revenue negative.
+  // Online-paid bookings have no completion row → fall back to total_amount − tax
+  // (exactly what they paid at booking). Mirrors the barber portal + Payroll,
+  // which already read this ledger, so all three now agree to the penny.
+  const collectedServiceByPi = new Map<string, number>();
+  for (const t of txns) {
+    if (t.source !== "completion" || t.refunded || !t.payment_intent_id) continue;
+    collectedServiceByPi.set(t.payment_intent_id, Math.max(0, t.amount ?? 0));
+  }
+  const apptServiceCollected = (a: RevApptRow) => {
+    const viaLedger = a.payment_intent_id ? collectedServiceByPi.get(a.payment_intent_id) : undefined;
+    return viaLedger != null ? viaLedger : Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+  };
   const apptCommission = revenueApptsInRange.reduce((sum, a) => {
     if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
-    const service = Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
-    return sum + (service * (commissionPct[a.barber_id] ?? 0)) / 100;
+    return sum + (apptServiceCollected(a) * (commissionPct[a.barber_id] ?? 0)) / 100;
   }, 0);
   const posCommission = countablePosTxs(revenueApptsInRange, txnsInRange).reduce((sum, t) => {
     if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return sum;
@@ -530,7 +547,7 @@ export default function DashboardPage() {
   const barberRevMap: Record<string, number> = {};
   revenueApptsInRange.forEach((a) => {
     if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return;
-    barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+    barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + apptServiceCollected(a);
   });
   countablePosTxs(revenueApptsInRange, txnsInRange).forEach((t) => {
     if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") return;
