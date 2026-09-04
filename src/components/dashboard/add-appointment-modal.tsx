@@ -71,6 +71,7 @@ export function AddAppointmentModal({
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);            // drives the slide-up + swipe transform
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const clientFieldRef = useRef<HTMLDivElement | null>(null); // scroll the search into view on focus
 
   const [barbers, setBarbers] = useState<BarberLite[]>([]);
   const [services, setServices] = useState<ServiceLite[]>([]);
@@ -347,19 +348,24 @@ export function AddAppointmentModal({
               )}
 
               {/* Client — searchable */}
-              <div className="mb-3.5">
+              <div className="mb-3.5" ref={clientFieldRef} style={{ scrollMarginTop: 8 }}>
                 <label className={LABEL}>Client <span className="text-emerald-400">*</span></label>
                 <div className="relative">
                   <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
                   <input
                     value={query} onChange={e => onQueryChange(e.target.value)}
+                    // Focusing pops the keyboard, which eats the bottom half of the
+                    // sheet. Scroll the Client field to the top so the results list
+                    // sits in the space that's left, not behind the keyboard/status
+                    // bar. Delayed so it runs AFTER the keyboard has animated in.
+                    onFocus={() => { if (window.innerWidth >= 640) return; window.setTimeout(() => clientFieldRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 300); }}
                     placeholder="Search or add a client"
                     className={cn(FIELD, "pl-10", mode === "existing" && "pr-9")}
                   />
                   {mode === "existing" && <Check size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />}
                 </div>
                 {showResults && (
-                  <div className="mt-1.5 bg-card-raised border border-border rounded-xl overflow-hidden">
+                  <div className="mt-1.5 bg-card-raised border border-border rounded-xl overflow-y-auto overscroll-contain max-h-[min(45vh,320px)]">
                     {matches.map(c => (
                       <button key={c.id} type="button" onClick={() => pickExisting(c)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-t border-border first:border-t-0 hover:bg-surface-overlay transition-colors">
