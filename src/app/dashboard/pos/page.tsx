@@ -950,9 +950,11 @@ export default function POSPage() {
         </div>
 
         {/* 2 ─ SERVICE GRID. MOBILE: flows with the page (native scroll). DESKTOP:
-            its own internal scroll inside the fixed shell. pb clears the sticky
-            cart bar (mobile) / gives the last row room (desktop). */}
-        <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto px-3 pt-3 pb-28">
+            its own internal scroll inside the fixed shell. Big bottom padding only
+            when the sticky cart bar is actually showing (cart has items) — on the
+            Appointments tab there's no cart bar, so a tight pad avoids a big empty
+            gap under the last row. The layout's <main> pb already clears the nav. */}
+        <div className={cn("lg:flex-1 lg:min-h-0 lg:overflow-y-auto px-3 pt-3 lg:pb-28", cart.length > 0 ? "pb-28" : "pb-4")}>
 
         {!dataLoaded ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
