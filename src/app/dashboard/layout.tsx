@@ -11,6 +11,7 @@ import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SwipeNavigator } from "@/components/swipe-navigator";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -139,6 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <ConfirmProvider>
       <ModalChrome />
       <NotificationListener />
+      <PullToRefresh />
       <Sidebar />
       {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
           main's background follows the active page so that spacer is the page's

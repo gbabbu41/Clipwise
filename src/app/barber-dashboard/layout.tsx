@@ -12,6 +12,7 @@ import { BarberNotificationListener } from "@/components/barber/barber-notificat
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SwipeNavigator } from "@/components/swipe-navigator";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { PortalThemeProvider } from "@/components/portal-theme";
 
 // Order mirrors the barber bottom nav so a swipe slides between tabs.
@@ -156,6 +157,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
           <ConfirmProvider>
           <ModalChrome />
           <BarberNotificationListener />
+          <PullToRefresh />
           <BarberSidebar />
           {/* Matches the shop portal: docked sidebar at lg+, drawer + bottom nav
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
