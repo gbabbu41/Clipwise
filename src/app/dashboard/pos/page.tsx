@@ -1102,7 +1102,7 @@ export default function POSPage() {
       {/* 3 ─ STICKY CART BAR — mobile/tablet only (lg uses the side panel).
           Above the bottom nav on mobile; flush bottom on md. */}
       {cart.length > 0 && !cartOpen && (
-        <div className="lg:hidden fixed left-0 right-0 bottom-[68px] z-40 p-3 bg-surface-sunken/95 backdrop-blur-xl border-t border-border">
+        <div className="lg:hidden fixed left-0 right-0 bottom-[calc(68px+env(safe-area-inset-bottom))] z-40 p-3 bg-surface-sunken/95 backdrop-blur-xl border-t border-border">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } setCheckoutStep("review"); setCartOpen(true); }} className="flex-1 min-w-0 flex items-center gap-2 text-left">
               <ShoppingCart size={18} className="text-[#00e5a0] shrink-0" />
