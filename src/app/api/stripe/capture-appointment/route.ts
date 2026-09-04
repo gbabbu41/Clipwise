@@ -239,7 +239,19 @@ export async function POST(request: NextRequest) {
     // tax is stored separately (matching the online + POS ledger rows) — so
     // receipts can show a Subtotal/Tax breakdown and analytics can total tax
     // collected. A no-show fee carries no tax.
-    const txTax = reason === "no_show" ? 0 : Math.max(0, Number(appt.tax_amount ?? 0));
+    //
+    // Scale the tax to what was ACTUALLY captured, not the appointment's full tax.
+    // When a held card caps the capture BELOW the appointment total (a price
+    // raised above the hold), only part of the intended service+tax was collected
+    // — stamping the full tax on a partial charge over-reports tax and understates
+    // the service (and thus commission). Split the captured amount (net of tip) by
+    // the appointment's tax ratio: in a full capture this equals appt.tax_amount
+    // exactly; in a capped capture it's the tax on the portion that came in.
+    const collectedNetOfTip = Math.max(0, amountReceived / 100 - tipDollars);
+    const apptTotal = Math.max(0, Number(appt.total_amount ?? 0));
+    const apptTax = Math.max(0, Number(appt.tax_amount ?? 0));
+    const taxRatio = apptTotal > 0 ? Math.min(1, apptTax / apptTotal) : 0;
+    const txTax = reason === "no_show" ? 0 : Math.round(collectedNetOfTip * taxRatio * 100) / 100;
     const txBase = {
       shop_id: appt.shop_id,
       barber_id: appt.barber_id || null,
