@@ -8,6 +8,7 @@ import { sendAppEmail } from "@/lib/emailer";
 import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
+import { taxOnAmount, type TaxConfig } from "@/lib/pricing";
 
 /**
  * Edit an appointment with an authoritative double-booking guard.
@@ -116,6 +117,45 @@ export async function POST(request: NextRequest) {
     }
   }
   if (Object.keys(update).length === 0) return NextResponse.json({ ok: true, noop: true });
+
+  // ── Price change → recompute tax on the SERVER + keep the stored total honest.
+  // The client sends total_amount as the PRE-TAX subtotal of the picked services
+  // (it's the only side that knows a multi-service combo). Never trust a
+  // client-computed tax/total: mirror the booking convention here — the one place
+  // tax is trusted — so an edited price can't store a pre-tax total with a stale
+  // tax (the $55 total / $5.25 tax bug). Stamp total_amount = subtotal + tax and
+  // tax_amount = tax, from THIS shop's config (tax is a paid-plan feature).
+  let priceWarning: string | null = null;
+  if ("total_amount" in update) {
+    const subtotal = Math.max(0, Number(update.total_amount) || 0);
+    const shopRow = auth.shop as { booking_settings?: TaxConfig | null; subscription_plan?: string | null; subscription_status?: string | null };
+    const plan = effectivePlan(shopRow.subscription_plan ?? undefined, shopRow.subscription_status ?? undefined);
+    const taxCfg = isPaidPlan(plan) ? (shopRow.booking_settings ?? null) : null;
+    const tax = taxOnAmount(subtotal, taxCfg);
+    update.total_amount = Math.round((subtotal + tax) * 100) / 100;
+    update.tax_amount = tax;
+
+    // Guardrail — a raise the card on file can't absorb. A HELD authorization can
+    // only be captured up to what it authorized, and a charge already SETTLED
+    // can't be topped up. If staff raise the price on one of those, the extra
+    // won't be auto-collected at checkout — warn so nobody thinks they charged the
+    // new price. A saved card (charged fresh off-session at completion) and an
+    // unpaid/cash booking can still collect the full new total, so they're fine.
+    const a = auth.appointment as {
+      total_amount?: number | null; payment_status?: string | null;
+    };
+    const oldTotal = Number(a.total_amount ?? 0);
+    const newTotal = Number(update.total_amount);
+    const status = a.payment_status ?? null;
+    const heldHold = status === "held";
+    const alreadyPaid = status === "paid" || status === "captured";
+    if (newTotal > oldTotal + 0.005 && (heldHold || alreadyPaid)) {
+      const extra = (newTotal - oldTotal).toFixed(2);
+      priceWarning = alreadyPaid
+        ? `This appointment was already paid ($${oldTotal.toFixed(2)}). The extra $${extra} won't be charged automatically — collect it in person or send a payment link.`
+        : `Only about $${oldTotal.toFixed(2)} is authorized on the card on file. The extra $${extra} can't be auto-charged at checkout — collect it in person or send a payment link.`;
+    }
+  }
 
   let { error } = await supabaseAdmin.from("appointments").update(update).eq("id", appointment_id);
   // duration_minutes may not exist yet (pre-phase14) — retry without it.
@@ -277,5 +317,5 @@ export async function POST(request: NextRequest) {
     } catch { /* notifications are best-effort — the save already succeeded */ }
   }
 
-  return NextResponse.json({ ok: true, applied: update });
+  return NextResponse.json({ ok: true, applied: update, warning: priceWarning ?? undefined });
 }

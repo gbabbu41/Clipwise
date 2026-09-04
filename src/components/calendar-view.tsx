@@ -337,8 +337,14 @@ export function makeApptActions(opts: {
         toast(data.error || "Update failed — please try again.");
         return;
       }
-      patch(appt.id, clean as Partial<AppointmentWithDetails>);
-      toast("Appointment updated");
+      // Patch from the SERVER's applied values (not the raw `clean`): on a price
+      // change the server stamps the tax-inclusive total_amount + tax_amount, so
+      // local state must reflect that, not the pre-tax subtotal we sent.
+      patch(appt.id, (data.applied ?? clean) as Partial<AppointmentWithDetails>);
+      // A raise the card on file can't cover comes back as a warning — surface it
+      // in an acknowledged dialog (not a 3.5s toast) so it can't be missed.
+      if (data.warning) await ask(String(data.warning));
+      else toast("Appointment updated");
     },
     complete: async (appt) => {
       if (!shop) return;
@@ -742,6 +748,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     if (services && servicesChanged && ids.length > 0) {
       const svcs = ids.map(id => svcById(id)).filter(Boolean) as { name: string; price: number; duration_minutes: number }[];
       fields.service_id = ids[0];
+      // PRE-TAX subtotal of the picked services. The server adds sales tax and
+      // stamps the tax-inclusive total_amount + tax_amount (mirrors booking), so
+      // we never store a pre-tax total with a stale tax.
       fields.total_amount = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
       fields.duration_minutes = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
       // Record the combined list in notes — but don't clobber a non-service note.
