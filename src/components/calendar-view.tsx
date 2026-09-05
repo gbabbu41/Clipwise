@@ -252,6 +252,7 @@ export type ApptActions = {
   cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
   sendLink: (a: AppointmentWithDetails, email: string) => void;
   collectBalance: (a: AppointmentWithDetails, method: "cash" | "card") => void; // collect a leftover balance_due
+  sendBalanceLink: (a: AppointmentWithDetails) => void; // email/text a Stripe link for the balance
   reject: (a: AppointmentWithDetails) => void;
   noShow: (a: AppointmentWithDetails, amountCents: number) => void; // mark no-show (+ charge fee when amountCents > 0 and a card is on file)
   edit: (a: AppointmentWithDetails, fields: ApptEditFields) => void; // change time/day/client/barber
@@ -489,6 +490,25 @@ export function makeApptActions(opts: {
       patch(appt.id, { balance_due: 0 } as Partial<AppointmentWithDetails>);
       onDone();
       toast(`Balance collected${typeof data.amount === "number" ? ` · ${formatCurrency(data.amount)}` : ""}`);
+    },
+    sendBalanceLink: async (appt) => {
+      if (!shop || !accessToken) return;
+      setBusy("balance-link");
+      const email = (appt.client_email ?? "").trim();
+      const phone = (appt.client_phone ?? "").trim();
+      const res = await fetch("/api/stripe/balance-link", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id, send_email: !!email, email: email || undefined, send_sms: !!phone, phone: phone || undefined }),
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
+      setBusy("");
+      if (!res || !res.ok) { toast(`Failed: ${data.error ?? "try again"}`); return; }
+      if (data.emailed && data.texted) toast("Balance link sent · email + text");
+      else if (data.emailed) toast("Balance link emailed to customer");
+      else if (data.texted) toast("Balance link texted to customer");
+      else if (data.url) { try { await navigator.clipboard.writeText(data.url); toast("Balance link copied to clipboard"); } catch { toast("Balance link ready"); } }
+      else toast("Balance link ready");
     },
     reject: async (appt) => {
       if (!shop) return;
@@ -988,11 +1008,14 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     label={busy === "balance-card" ? "Charging…" : `Charge card on file · ${formatCurrency(balanceDue)}`}
                     disabled={!!busy} onClick={() => actions.collectBalance(appt, "card")} />
                 )}
+                <DAction icon="↗"
+                  label={busy === "balance-link" ? "Sending…" : "Send payment link"}
+                  disabled={!!busy} onClick={() => actions.sendBalanceLink(appt)} />
                 <DAction icon="$"
                   label={busy === "balance-cash" ? "Saving…" : `Mark collected · cash`}
                   disabled={!!busy} onClick={() => actions.collectBalance(appt, "cash")} />
               </div>
-              <p className="mt-2 text-[11px] text-grey-muted">No card on file? Take it in person, or send a payment link for the balance.</p>
+              <p className="mt-2 text-[11px] text-grey-muted">Charge the card on file, email/text a link, or take it in person.</p>
             </div>
           )}
 

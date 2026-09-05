@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
@@ -69,6 +69,44 @@ export async function POST(request: NextRequest) {
             const r = await finalizeGiftFromSession(session, gShop, BASE_URL);
             if (r.status === "error") console.warn("[webhook] gift fallback error:", r.message);
           }
+          break;
+        }
+
+        // ── Balance link paid ──────────────────────────────────────────────────
+        // Owner sent a link for the leftover balance on an appointment (a raised
+        // price the held card couldn't cover). Record ONE balance ledger row +
+        // clear balance_due — never re-marks the appointment (already captured).
+        // Deduped by PaymentIntent so a retry / reconcile is a no-op.
+        if (session.metadata?.flow === "balance" && session.metadata?.appointment_id) {
+          const apptId = session.metadata.appointment_id;
+          const balPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
+          const acct = (event.account as string | undefined) ?? null;
+          const balService = Math.max(0, Number(session.metadata.bal_service ?? 0));
+          const balTax = Math.max(0, Number(session.metadata.bal_tax ?? 0));
+          const { data: existingBal } = balPi
+            ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", balPi).limit(1).maybeSingle()
+            : { data: null };
+          if (!existingBal) {
+            const { data: bAppt } = await supabaseAdmin
+              .from("appointments").select("client_name, barber_id").eq("id", apptId).maybeSingle();
+            const fee = balPi ? (await stripeFeeCents(balPi, acct)) / 100 : 0;
+            const row: Record<string, unknown> = {
+              shop_id: session.metadata.shop_id,
+              barber_id: bAppt?.barber_id ?? (session.metadata.barber_id || null),
+              client_name: bAppt?.client_name ?? null,
+              service_name: "Balance",
+              amount: balService, tip: 0, tax: balTax,
+              payment_method: "card", type: "service",
+              appointment_id: apptId, payment_intent_id: balPi,
+              source: "balance", stripe_fee: fee,
+            };
+            const res = await supabaseAdmin.from("transactions").insert(row);
+            if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
+              const { stripe_fee: _f, tax: _t, ...base } = row; void _f; void _t;
+              await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax }).then(null, () => null);
+            }
+          }
+          await supabaseAdmin.from("appointments").update({ balance_due: 0 }).eq("id", apptId).then(null, () => null);
           break;
         }
 
