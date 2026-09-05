@@ -9,7 +9,9 @@ import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import type { Barber, Appointment } from "@/lib/database.types";
+import { countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx } from "@/lib/revenue";
+import { safeCommission } from "@/lib/barber-earnings";
+import type { Barber } from "@/lib/database.types";
 
 // Theme-aware (renders inside `.portal`, CSS vars resolve to the active theme).
 const CHART_TOOLTIP = {
@@ -26,9 +28,18 @@ interface StaffHour {
   hours_worked: number | null;
 }
 
+// Paid appointment row (money-moved basis) — the columns Payroll needs to compute
+// collected service + commission and to list a barber's visits.
+type PayAppt = {
+  id: string; date: string; client_name: string | null;
+  total_amount: number | null; tax_amount: number | null; balance_due: number | null;
+  payment_status: string | null; status: string | null; barber_id: string | null;
+  paid_at: string | null; created_at: string | null;
+};
+
 interface BarberPayroll {
   barber: Barber;
-  appointments: Appointment[];
+  appointments: PayAppt[];
   serviceRevenue: number;
   commissionEarned: number;
   hoursWorked: number;
@@ -80,41 +91,82 @@ export default function PayrollPage() {
     setLoading(true);
     const { from, to } = getDateRange(period);
 
+    // 1-day buffer on the tx window so a sale near a period edge in Atlantic time
+    // (created_at is UTC) isn't cut off before the local-date filter runs below.
+    const fromBuf = formatDateForDb(new Date(new Date(from + "T00:00:00").getTime() - 86400000));
+    const toBuf = formatDateForDb(new Date(new Date(to + "T00:00:00").getTime() + 86400000));
+
     const [{ data: bData }, { data: apptData }, { data: hoursData }, txRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
-      supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", from).lte("date", to).eq("status", "completed"),
+      // Paid/captured appointments, fetched broad and windowed by paid_at below —
+      // the SAME money-moved basis the Dashboard uses (so commission only counts
+      // COLLECTED money, and a booking paid today for a future day is included).
+      supabase.from("appointments")
+        .select("id, date, client_name, total_amount, tax_amount, balance_due, payment_status, status, barber_id, paid_at, created_at")
+        .eq("shop_id", shop.id).in("payment_status", ["paid", "captured"])
+        .order("created_at", { ascending: false }).limit(5000),
       supabase.from("staff_hours").select("*").eq("shop_id", shop.id).gte("date", from).lte("date", to),
-      // Real card fees for the period, to net the barber's half out of commission.
-      // Selecting stripe_fee errors on a pre-phase38 schema → falls back to no fee.
-      supabase.from("transactions").select("barber_id, stripe_fee, refunded, created_at")
-        .eq("shop_id", shop.id).gte("created_at", from).lte("created_at", `${to}T23:59:59`),
+      // Transactions for the period — POS commission + real card fees. Selecting
+      // the full set errors on a pre-migration schema → falls back to a lean set.
+      supabase.from("transactions")
+        .select("client_name, amount, tip, tax, commission_amount, barber_id, stripe_fee, refunded, source, service_name, payment_method, payment_intent_id, stripe_session_id, created_at")
+        .eq("shop_id", shop.id).gte("created_at", `${fromBuf}T00:00:00`).lte("created_at", `${toBuf}T23:59:59`)
+        .limit(5000),
     ]);
 
     const barberList = (bData ?? []) as Barber[];
-    const appts = (apptData ?? []) as Appointment[];
     const hours = (hoursData ?? []) as StaffHour[];
+
+    // Window appointments by WHEN THE MONEY MOVED (paid_at, else created_at), local
+    // calendar day — mirrors the Dashboard/Payments so pay-period totals agree.
+    const inRange = (ts: string | null | undefined) => {
+      if (!ts) return false;
+      const d = formatDateForDb(new Date(ts));
+      return d >= from && d <= to;
+    };
+    const apptsInRange = ((apptData ?? []) as unknown as PayAppt[]).filter(a => inRange(a.paid_at ?? a.created_at));
+    const txsInRange = ((txRes.data ?? []) as unknown as (RevTx & { created_at: string })[]).filter(t => inRange(t.created_at));
 
     // Sum each barber's real Stripe fees for the period (skip refunded). Empty
     // until the phase38 migration runs — then commission nets the barber's half.
     const feeByBarber = new Map<string, number>();
-    for (const t of (txRes.data ?? []) as { barber_id: string | null; stripe_fee: number | null; refunded: boolean | null }[]) {
+    for (const t of txsInRange as { barber_id: string | null; stripe_fee?: number | null; refunded?: boolean | null }[]) {
       if (t.refunded || !t.barber_id) continue;
       feeByBarber.set(t.barber_id, (feeByBarber.get(t.barber_id) ?? 0) + (t.stripe_fee ?? 0));
     }
 
+    // Service ACTUALLY COLLECTED on a paid appointment, pre-tax — subtract any
+    // still-owed balance_due (a price raised above the held card) and scale the tax
+    // to the collected fraction. Identical to the Dashboard's apptServiceCollected.
+    const apptServiceCollected = (a: PayAppt) => {
+      const total = Math.max(0, a.total_amount ?? 0);
+      const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
+      const collectedTotal = Math.max(0, total - bal);
+      const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
+      return Math.max(0, collectedTotal - collectedTax);
+    };
+    // POS sales that carry commission (product / walk-in) — completion & no-show
+    // rows are dropped (the appointment already covers those), de-duped vs paid
+    // appointments. SAME rule as the Dashboard, so nothing is double-counted.
+    const countablePos = countablePosTxs(apptsInRange as unknown as RevAppt[], txsInRange as RevTx[])
+      .filter(t => !t.refunded && !!t.barber_id && !isNoShowTx(t) && t.source !== "completion");
+
     const result: BarberPayroll[] = barberList.map(b => {
-      // A refunded appointment keeps status "completed" (only payment_status
-      // flips to "refunded"), so exclude it — otherwise the barber earns
-      // commission on money that was handed back to the customer.
-      const bAppts = appts.filter(a => a.barber_id === b.id && a.payment_status !== "refunded");
-      // Commission is on PRE-TAX service revenue — total_amount includes GST/HST,
-      // and a barber doesn't earn commission on tax (it's remitted to the govt).
-      // Matches the barber Earnings page, which also computes on pre-tax amounts.
-      const serviceRevenue = bAppts.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-      // Barber and shop split the card processing fee 50/50 — subtract the
-      // barber's half so this matches their Earnings-page take-home.
+      const pct = b.commission_percent ?? 0;
+      // Paid, non-no-show appointments this barber performed (money-moved basis).
+      const bAppts = apptsInRange.filter(a => a.barber_id === b.id && isPaid(a.payment_status) && a.status !== "no-show");
+      const apptService = bAppts.reduce((s, a) => s + apptServiceCollected(a), 0);
+      const apptCommission = (apptService * pct) / 100;
+      // POS commission — prefer the stored cut (safeCommission guards a corrupt one).
+      const bPos = countablePos.filter(t => t.barber_id === b.id);
+      const posService = bPos.reduce((s, t) => s + Math.max(0, t.amount ?? 0), 0);
+      const posCommission = bPos.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, pct), 0);
+      // Revenue base = collected service + POS product sales (matches the commission).
+      const serviceRevenue = apptService + posService;
+      // Barber and shop split the card processing fee 50/50 — subtract the barber's
+      // half so this matches their Earnings-page take-home.
       const feeShare = (feeByBarber.get(b.id) ?? 0) / 2;
-      const commissionEarned = Math.max(0, serviceRevenue * (b.commission_percent / 100) - feeShare);
+      const commissionEarned = Math.max(0, apptCommission + posCommission - feeShare);
       const bHours = hours.filter(h => h.barber_id === b.id);
       const hoursWorked = bHours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
       return { barber: b, appointments: bAppts, serviceRevenue, commissionEarned, hoursWorked };
@@ -212,9 +264,9 @@ export default function PayrollPage() {
           an always-zero "0.0h" reads as broken, so hide it until there's data. */}
       <div className={cn("grid grid-cols-2 gap-4", totalHours > 0 ? "md:grid-cols-4" : "md:grid-cols-3")}>
         <Card className="p-4">
-          <p className="text-xs text-grey">Total Service Revenue</p>
+          <p className="text-xs text-grey">Total Revenue Base</p>
           <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(totalServiceRevenue)}</p>
-          <p className="text-[10px] text-grey-muted mt-1">Services only — excludes products &amp; tips</p>
+          <p className="text-[10px] text-grey-muted mt-1">Collected services + product sales, pre-tax (excludes tips)</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-grey">Total Commission Out</p>
@@ -335,7 +387,7 @@ export default function PayrollPage() {
                       {p.appointments.map(a => (
                         <div key={a.id} className="flex items-center justify-between text-xs text-grey">
                           <span>{prettyDate(a.date)} — {a.client_name}</span>
-                          <span className="text-foreground">{formatCurrency(a.total_amount)}</span>
+                          <span className="text-foreground">{formatCurrency(a.total_amount ?? 0)}</span>
                         </div>
                       ))}
                     </div>
