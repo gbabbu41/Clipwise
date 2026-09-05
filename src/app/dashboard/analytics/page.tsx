@@ -205,20 +205,18 @@ export default function AnalyticsPage() {
     // Completion rows are taken from the appointment, and no-show fees never pay
     // commission.
     const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
-    // Commission follows the money ACTUALLY collected, not total_amount: a price
-    // edited above the held card captures less than total_amount, so read the
-    // pre-tax service from the completion ledger row (keyed by PaymentIntent) and
-    // fall back to total_amount − tax only when there's no completion row
-    // (online-paid bookings, where they're equal). Matches the Dashboard fix.
-    const collectedServiceByPi = new Map<string, number>();
-    for (const t2 of filteredTx) {
-      if (t2.source !== "completion" || t2.refunded || !t2.payment_intent_id) continue;
-      collectedServiceByPi.set(t2.payment_intent_id, Math.max(0, t2.amount ?? 0));
-    }
+    // Commission follows the money ACTUALLY collected: a price edited above the
+    // held card captures less than total_amount, leaving a balance_due. Base the
+    // cut on (total − balance_due) − the tax on that collected part; it rises to
+    // the full amount once the balance is collected (balance_due → 0). Matches the
+    // Dashboard fix + collectedTotals.
     const apptCommission = revenueApptsInRange.reduce((sum, a) => {
       if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
-      const collected = a.payment_intent_id ? collectedServiceByPi.get(a.payment_intent_id) : undefined;
-      const service = collected != null ? collected : Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
+      const total = Math.max(0, a.total_amount ?? 0);
+      const bal = Math.min(Math.max(0, (a as { balance_due?: number | null }).balance_due ?? 0), total);
+      const collectedTotal = Math.max(0, total - bal);
+      const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
+      const service = Math.max(0, collectedTotal - collectedTax);
       return sum + (service * (pct[a.barber_id] ?? 0)) / 100;
     }, 0);
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {

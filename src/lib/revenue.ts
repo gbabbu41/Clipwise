@@ -60,6 +60,11 @@ export function countablePosTxs<T extends RevTx>(appts: RevAppt[], txs: T[]): T[
   return txs.filter(t => {
     if (isNoShowTx(t)) return true;
     if (t.source === "completion") return false;
+    // A "balance" tx is a later collection on an appointment whose card charge fell
+    // short — its money is added via a dedicated loop in collectedTotals (and the
+    // appointment counts its full total once balance_due hits 0), so it must NOT
+    // also count here as a standalone POS sale.
+    if (t.source === "balance") return false;
     if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
     return true;
   });
@@ -160,6 +165,21 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     const { net: n, fee: f } = lineNetFee(pi, tip, byPi);
     net += n; fees += f;
     if (t.payment_method === "cash") cash += tip;
+  }
+
+  // Collected BALANCES (source "balance") — money taken later on an appointment
+  // whose card charge fell short (a price raised above the hold). Once collected,
+  // balance_due is 0, so the appointment above already counts the FULL total in
+  // GROSS + TAX. Here we add only the balance's real NET money + fee (and cash),
+  // which the appointment's own PaymentIntent never saw — so gross − fees = net
+  // reconciles without double-counting the gross/tax.
+  for (const t of txs) {
+    if (t.source !== "balance" || t.refunded) continue;
+    const amt = (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
+    if (amt <= 0) continue;
+    const { net: n, fee: f } = lineNetFee(t.payment_intent_id ?? null, amt, byPi);
+    net += n; fees += f;
+    if (t.payment_method === "cash") cash += amt;
   }
 
   return { gross, fees, net, tax, cash, tips, preTax: Math.max(0, gross - tax) };

@@ -251,6 +251,7 @@ export type ApptActions = {
   captureComplete: (a: AppointmentWithDetails) => void; // held / saved card → auto-charge
   cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
   sendLink: (a: AppointmentWithDetails, email: string) => void;
+  collectBalance: (a: AppointmentWithDetails, method: "cash" | "card") => void; // collect a leftover balance_due
   reject: (a: AppointmentWithDetails) => void;
   noShow: (a: AppointmentWithDetails, amountCents: number) => void; // mark no-show (+ charge fee when amountCents > 0 and a card is on file)
   edit: (a: AppointmentWithDetails, fields: ApptEditFields) => void; // change time/day/client/barber
@@ -465,6 +466,29 @@ export function makeApptActions(opts: {
         try { await navigator.clipboard.writeText(data.url); toast("Payment link copied to clipboard"); }
         catch { toast("Payment link ready"); }
       } else { toast("Payment link ready"); }
+    },
+    collectBalance: async (appt, method) => {
+      if (!shop || !accessToken) return;
+      setBusy(method === "card" ? "balance-card" : "balance-cash");
+      let data: { ok?: boolean; error?: string; amount?: number };
+      try {
+        const res = await fetch("/api/appointments/collect-balance", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id, method }),
+        });
+        data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      } catch {
+        setBusy("");
+        toast("Network dropped — refresh to check before collecting again.");
+        return;
+      }
+      setBusy("");
+      if (!data.ok) { toast(`Couldn't collect: ${data.error ?? "try again"}`); return; }
+      // Balance cleared → it leaves Checkout · Unpaid and the sale reads as fully paid.
+      patch(appt.id, { balance_due: 0 } as Partial<AppointmentWithDetails>);
+      onDone();
+      toast(`Balance collected${typeof data.amount === "number" ? ` · ${formatCurrency(data.amount)}` : ""}`);
     },
     reject: async (appt) => {
       if (!shop) return;
@@ -822,6 +846,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const isHeld = appt.payment_status === "held";
   const willCapture = isHeld && heldCapturable != null ? Math.min(heldCapturable, amtPaid) : amtPaid;
   const heldBalance = Math.max(0, Math.round((amtPaid - willCapture) * 100) / 100);
+  // A leftover balance from a partial capture (price raised above the held card) —
+  // the owner collects it here (card on file / cash). Shows even when the row is
+  // otherwise "paid".
+  const balanceDue = Math.max(0, Math.round(Number((appt as { balance_due?: number | null }).balance_due ?? 0) * 100) / 100);
   // A checkout link is out and the customer hasn't paid yet — keep the Check out
   // button but surface that we're waiting (paying the link auto-completes).
   const awaiting = !paid && !refunded && !!appt.stripe_checkout_session_id;
@@ -943,6 +971,29 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
 
           {appt.notes && (
             <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">{appt.notes}</div>
+          )}
+
+          {/* Leftover balance (a price raised above the held card collected less
+              than the total). Collect it here — charge the card on file or take
+              cash. Shows above the normal actions, even when the row reads paid. */}
+          {!editMode && !readOnly && balanceDue > 0 && (
+            <div className="mx-[18px] mt-3 rounded-xl border border-[#f5c542]/40 bg-[#f5c542]/10 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground">Balance to collect</span>
+                <span className="text-base font-extrabold text-foreground tabular-nums">{formatCurrency(balanceDue)}</span>
+              </div>
+              <div className="mt-2.5 flex flex-col gap-2">
+                {!!appt.stripe_payment_method_id && (
+                  <DAction tone="primary" icon="✓"
+                    label={busy === "balance-card" ? "Charging…" : `Charge card on file · ${formatCurrency(balanceDue)}`}
+                    disabled={!!busy} onClick={() => actions.collectBalance(appt, "card")} />
+                )}
+                <DAction icon="$"
+                  label={busy === "balance-cash" ? "Saving…" : `Mark collected · cash`}
+                  disabled={!!busy} onClick={() => actions.collectBalance(appt, "cash")} />
+              </div>
+              <p className="mt-2 text-[11px] text-grey-muted">No card on file? Take it in person, or send a payment link for the balance.</p>
+            </div>
           )}
 
           {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
