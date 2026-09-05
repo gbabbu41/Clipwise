@@ -35,8 +35,11 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-// How many PAID boxes to show before the "Show more" toggle (unpaid always shows all).
+// How many PAID boxes to show before the "Show more" toggle.
 const APPT_PREVIEW = 4;
+// How many recent DAYS of unpaid to show before the "See more" toggle — keeps the
+// Paid section reachable instead of buried under every past owed day.
+const NEEDS_DAYS_PREVIEW = 3;
 
 // Money still owed on an appointment beyond what its own charge collected — a
 // partial capture (price raised above the held card) leaves this remainder.
@@ -60,6 +63,7 @@ export default function POSPage() {
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
   const [actionBusy, setActionBusy] = useState("");
   const [paidExpanded, setPaidExpanded] = useState(false);
+  const [needsExpanded, setNeedsExpanded] = useState(false);
   const { confirm } = useConfirm();
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -1101,7 +1105,7 @@ export default function POSPage() {
                   {apptSections.needsCount > 0 && (
                     <div>
                       <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">Needs payment ({apptSections.needsCount})</p>
-                      {apptSections.needs.map(g => (
+                      {(needsExpanded ? apptSections.needs : apptSections.needs.slice(0, NEEDS_DAYS_PREVIEW)).map(g => (
                         <div key={g.date} className="mb-3 last:mb-0">
                           <p className="text-[11px] font-semibold text-grey-muted mb-1.5">{g.label}</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -1109,6 +1113,14 @@ export default function POSPage() {
                           </div>
                         </div>
                       ))}
+                      {apptSections.needs.length > NEEDS_DAYS_PREVIEW && (
+                        <button type="button" onClick={() => setNeedsExpanded(v => !v)}
+                          className="w-full mt-1 h-9 rounded-lg border border-border bg-card-raised text-sm font-medium text-grey hover:text-foreground transition-colors">
+                          {needsExpanded
+                            ? "Show less"
+                            : `See ${apptSections.needs.slice(NEEDS_DAYS_PREVIEW).reduce((n, g) => n + g.items.length, 0)} more from older days`}
+                        </button>
+                      )}
                     </div>
                   )}
                   {apptSections.paid.length > 0 && (
