@@ -1784,6 +1784,23 @@ button.cwp-tile:hover{background:var(--surface-overlay)}
 .cwp-tile.cwp-warn .cwp-tv{color:#f5b544}
 .cwp-tn{font-size:11px;color:var(--grey-2);margin-top:3px}
 
+/* Needs-review strip — money in Stripe with no ClipWise record (owner only).
+   Amber, informative (not alarming red). --rev is the accent, swapped for a
+   darker amber in light so text stays legible on the pale tint. */
+.cwp-review{--rev:#e0a53a;margin:14px 0 4px;border:1px solid rgba(245,181,68,.35);background:rgba(245,181,68,.08);border-radius:16px;padding:14px 14px 8px}
+html[data-theme="light"] .portal .cwp-review{--rev:#a5710f}
+.cwp-review-head{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--rev)}
+.cwp-review-sub{margin:6px 0 10px;font-size:12px;line-height:1.45;color:var(--grey-2)}
+.cwp-review-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(245,181,68,.18)}
+.cwp-review-info{min-width:0}
+.cwp-review-amt{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:15px;font-weight:600;color:var(--foreground);display:flex;align-items:center;gap:8px}
+.cwp-review-tag{font-family:inherit;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--rev);background:rgba(245,181,68,.16);padding:2px 7px;border-radius:999px}
+.cwp-review-meta{font-size:11.5px;color:var(--grey-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cwp-review-acts{display:flex;align-items:center;gap:8px;flex:none}
+.cwp-review-stripe{font-size:11.5px;color:var(--grey);display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer}
+.cwp-review-stripe:disabled{opacity:.5}
+.cwp-review-ok{font-size:11.5px;font-weight:600;color:var(--rev);background:rgba(245,181,68,.16);border:none;border-radius:999px;padding:6px 12px;cursor:pointer}
+
 /* statement */
 .cwp-txhead{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}
 .cwp-txhead h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--foreground)}

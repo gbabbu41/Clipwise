@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -120,6 +120,25 @@ export default function PaymentsPage() {
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid" | "refunded">("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
+  // Owner-only safety net: money that hit Stripe but isn't recorded in ClipWise
+  // (e.g. a webhook Stripe never delivered). Read-only detection — surfaced in a
+  // "Needs review" strip; acknowledged items are hidden per-browser (localStorage)
+  // so a reviewed one never nags again. Never counted in any total.
+  type UnrecItem = { id: string; flow: string; label: string; amountCents: number; created: number; email: string | null; name: string | null; last4: string | null };
+  const [unrecorded, setUnrecorded] = useState<UnrecItem[]>([]);
+  const [unrecDismissed, setUnrecDismissed] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem("cw_unrec_dismissed") || "[]") as string[]); }
+    catch { return new Set(); }
+  });
+  const dismissUnrec = (id: string) => {
+    setUnrecDismissed(prev => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("cw_unrec_dismissed", JSON.stringify(Array.from(next))); } catch { /* private mode */ }
+      return next;
+    });
+  };
+
   // Per-barber earnings window — mirrors the barber's own earnings page so the
   // owner can see a single barber's collected revenue for any pay cycle.
   // Per-barber view: swipeable carousel (this week → this month → all time) +
@@ -227,6 +246,23 @@ export default function PaymentsPage() {
       .catch(() => {});
     return () => { active = false; };
   }, [accessToken, shop?.id, loadData]);
+
+  // Owner-only: scan Stripe for money that isn't recorded in ClipWise. Read-only,
+  // best-effort — a failure just shows nothing (never blocks the page).
+  useEffect(() => {
+    if (!accessToken || !shop?.id) return;
+    let active = true;
+    fetch("/api/stripe/unrecorded-payments", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ shop_id: shop.id }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && Array.isArray(d?.items)) setUnrecorded(d.items as UnrecItem[]); })
+      .catch(() => {});
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, shop?.id]);
 
   useEffect(() => {
     if (!shop) return;
@@ -554,6 +590,8 @@ export default function PaymentsPage() {
   const pending = pendingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
   const outstandingCount = outstandingAppts.length + partialBalances.length;
   const pendingCount = pendingAppts.length;
+  // Unrecorded Stripe payments the owner hasn't acknowledged yet (per-browser).
+  const visibleUnrecorded = unrecorded.filter(u => !unrecDismissed.has(u.id));
 
   const openStripeDashboard = async () => {
     if (!shop || !accessToken) return;
@@ -865,6 +903,40 @@ export default function PaymentsPage() {
           <div className="cwp-tv">{formatCurrency(pending)}</div>
         </div>
       </div>
+
+      {/* ── Needs review: money in Stripe not recorded in ClipWise (owner only) ──
+          Read-only safety net. Appears ONLY when there's a confirmed unmatched
+          Stripe payment — nothing on a normal day. Never counted in any total;
+          "Got it" just hides the row on this device. */}
+      {!barberMode && visibleUnrecorded.length > 0 && (
+        <div className="cwp-review">
+          <div className="cwp-review-head">
+            <AlertTriangle size={15} />
+            <span>Received in Stripe, not recorded here</span>
+          </div>
+          <p className="cwp-review-sub">
+            {visibleUnrecorded.length === 1 ? "1 payment" : `${visibleUnrecorded.length} payments`} landed in your Stripe but ClipWise has no matching record — likely a missed sync. Check it in Stripe, then mark it reviewed.
+          </p>
+          {visibleUnrecorded.map(u => (
+            <div key={u.id} className="cwp-review-row">
+              <div className="cwp-review-info">
+                <div className="cwp-review-amt">{formatCurrency(u.amountCents / 100)} <span className="cwp-review-tag">{u.label}</span></div>
+                <div className="cwp-review-meta">
+                  {new Date(u.created * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                  {u.name ? ` · ${u.name}` : (u.email ? ` · ${u.email}` : "")}
+                  {u.last4 ? ` · ····${u.last4}` : ""}
+                </div>
+              </div>
+              <div className="cwp-review-acts">
+                <button className="cwp-review-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
+                  Stripe <ExternalLink size={11} />
+                </button>
+                <button className="cwp-review-ok" onClick={() => dismissUnrec(u.id)}>Got it</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Tax collected (own page) — shop-level (tax is remitted by the shop,
           not a barber), so hide it under a per-barber filter. ────────────────── */}
