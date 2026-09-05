@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
     // customer "$60.00 refunded" is wrong and pollutes the audit trail.
     let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
     try {
-      const refund = await stripe.refunds.create({ payment_intent: appt.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+      const refund = await stripe.refunds.create(
+        { payment_intent: appt.payment_intent_id },
+        { stripeAccount: shop.stripe_account_id, idempotencyKey: `refund-appt-${appt.payment_intent_id}` },
+      );
       if (typeof refund.amount === "number") refundedCents = refund.amount;
     } catch (err) {
       if (!isAlreadyRefunded(err)) {
@@ -134,7 +137,10 @@ export async function POST(request: NextRequest) {
 
   let refundedCents = Math.round((tx.amount ?? 0) * 100);
   try {
-    const refund = await stripe.refunds.create({ payment_intent: tx.payment_intent_id }, { stripeAccount: shop.stripe_account_id });
+    const refund = await stripe.refunds.create(
+      { payment_intent: tx.payment_intent_id },
+      { stripeAccount: shop.stripe_account_id, idempotencyKey: `refund-tx-${tx.payment_intent_id}` },
+    );
     if (typeof refund.amount === "number") refundedCents = refund.amount;
   } catch (err) {
     if (!isAlreadyRefunded(err)) {

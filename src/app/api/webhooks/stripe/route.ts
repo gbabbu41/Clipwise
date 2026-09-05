@@ -211,7 +211,10 @@ export async function POST(request: NextRequest) {
               mode = "refund_failed";
               if (newPi && shopRow?.stripe_account_id) {
                 try {
-                  await stripe.refunds.create({ payment_intent: newPi }, { stripeAccount: shopRow.stripe_account_id });
+                  await stripe.refunds.create(
+                    { payment_intent: newPi },
+                    { stripeAccount: shopRow.stripe_account_id, idempotencyKey: `refund-dup-${newPi}` },
+                  );
                   mode = "auto_refunded";
                 } catch { /* leave as refund_failed — owner alerted to do it manually */ }
               }

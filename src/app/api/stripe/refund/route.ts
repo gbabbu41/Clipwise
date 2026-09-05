@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
       try {
         const refund = await stripe.refunds.create(
           { payment_intent: appt.payment_intent_id },
-          { stripeAccount: shop.stripe_account_id }
+          // Idempotency: two concurrent refund taps both pass the status guard, so
+          // key the call by the intent — Stripe collapses the retry into one refund.
+          { stripeAccount: shop.stripe_account_id, idempotencyKey: `refund-appt-${appt.payment_intent_id}` }
         );
         if (typeof refund.amount === "number") refundedCents = refund.amount;
       } catch (e) {

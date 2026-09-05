@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { AvatarImage } from "@/components/ui/avatar-image";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
@@ -122,10 +122,13 @@ export default function AnalyticsPage() {
     return () => { active = false; };
   }, [accessToken, shop?.id]);
 
-  const today = new Date().toISOString().split("T")[0];
+  // LOCAL calendar day/month/year (not UTC). A transaction's created_at is a UTC
+  // timestamp, so bucketing by its UTC date filed every evening Atlantic-time sale
+  // a day late; the Dashboard + Payments use formatDateForDb (local) — match them.
+  const today = formatDateForDb(new Date());
   const thisMonth = today.slice(0, 7);
   const thisYear = today.slice(0, 4);
-  const lastMonth = new Date(new Date(today).setMonth(new Date(today).getMonth() - 1)).toISOString().slice(0, 7);
+  const lastMonth = (() => { const d = new Date(); return formatDateForDb(new Date(d.getFullYear(), d.getMonth() - 1, 1)).slice(0, 7); })();
 
   const filteredTx = useMemo(() => {
     // Drop refunded transactions everywhere — a refunded charge must not keep
@@ -133,13 +136,16 @@ export default function AnalyticsPage() {
     // earnings API already excludes these; analytics was the odd one out).
     let list = transactions.filter(t => !t.refunded);
     if (barberFilter !== "all") list = list.filter(t => t.barber_id === barberFilter);
-    if (period === "today") list = list.filter(t => t.created_at.startsWith(today));
+    // Bucket each tx by its LOCAL calendar day (created_at is UTC) so an evening
+    // sale isn't filed on the next day.
+    const ld = (t: Transaction) => formatDateForDb(new Date(t.created_at));
+    if (period === "today") list = list.filter(t => ld(t) === today);
     else if (period === "week") {
-      const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7); weekAgo.setHours(0, 0, 0, 0);
       list = list.filter(t => new Date(t.created_at) >= weekAgo);
-    } else if (period === "month") list = list.filter(t => t.created_at.startsWith(thisMonth));
-    else if (period === "year") list = list.filter(t => t.created_at.startsWith(thisYear));
-    else if (period === "last") list = list.filter(t => t.created_at.startsWith(lastMonth));
+    } else if (period === "month") list = list.filter(t => ld(t).startsWith(thisMonth));
+    else if (period === "year") list = list.filter(t => ld(t).startsWith(thisYear));
+    else if (period === "last") list = list.filter(t => ld(t).startsWith(lastMonth));
     return list;
   }, [transactions, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
 
@@ -175,7 +181,7 @@ export default function AnalyticsPage() {
   const revenueByDay = useMemo<DayRevenue[]>(() => {
     const map: Record<string, { revenue: number; appointments: number }> = {};
     for (const tx of filteredTx) {
-      const d = tx.created_at.split("T")[0];
+      const d = formatDateForDb(new Date(tx.created_at)); // local day, matches the filter
       if (!map[d]) map[d] = { revenue: 0, appointments: 0 };
       map[d].revenue += tx.amount + tx.tip;
       map[d].appointments += 1;
@@ -227,14 +233,20 @@ export default function AnalyticsPage() {
     const commission = apptCommission + posCommission;
     // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
-    const netRevenue = Math.max(0, t.net - t.tax - t.tips - commission);
+    // NOT floored at 0 — mirrors the Dashboard, which shows a real negative (e.g. a
+    // price raised above the held card) instead of hiding it behind a clamp.
+    const netRevenue = t.net - t.tax - t.tips - commission;
     return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: t.tips, commission, netRevenue };
   }, [revenueApptsInRange, filteredTx, byPi, barbers]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
-  const noShowRate = totalAppts > 0 ? ((noShows / totalAppts) * 100).toFixed(1) : "0.0";
+  // Rate = no-shows ÷ appointments that were SUPPOSED to happen. Cancellations
+  // (cancelled in advance) are excluded from the denominator — same as the
+  // Dashboard, so the two screens report the same no-show rate.
+  const scheduledCount = filteredAppts.filter(a => a.status !== "cancelled").length;
+  const noShowRate = scheduledCount > 0 ? ((noShows / scheduledCount) * 100).toFixed(1) : "0.0";
   // Avg ticket = pre-tax SERVICE revenue per completed appointment (matches the
   // Dashboard). Using gross (which includes POS, tips, tax) over an appointment
   // count inflated it.

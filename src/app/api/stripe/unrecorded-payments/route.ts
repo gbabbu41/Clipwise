@@ -26,9 +26,20 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // The webhook-recorded revenue flows. Booking sessions carry no `flow` (and are
 // holds / already covered by reconcile-payments), so they're intentionally out.
+// NOTE: pos_terminal_sale is listed for completeness, but Stripe Terminal makes a
+// bare PaymentIntent with NO Checkout Session, so this session-based scan can't
+// see card-present sales — a coverage gap (never a false flag). Revisit when
+// tap-to-pay ships (would need a PaymentIntent scan).
 const REVENUE_FLOWS = new Set([
   "gift_card_purchase", "tip", "balance", "post_booking_payment", "pos_sale", "pos_terminal_sale",
 ]);
+
+// Hard floor: never look at anything created before this feature shipped. All of a
+// shop's historical "slippage" (old rows recorded before payment_intent_id was
+// stored, manual fixes, test data) predates this, so it can NEVER be flagged. The
+// detector only judges payments taken from go-live forward, where the Stripe key
+// is reliably stored — which is what makes "never a false flag" actually hold.
+const SAFETY_NET_FLOOR_SEC = Math.floor(Date.parse("2026-09-05T00:00:00Z") / 1000);
 
 const FLOW_LABEL: Record<string, string> = {
   gift_card_purchase: "Gift card",
@@ -51,19 +62,31 @@ export async function POST(req: NextRequest) {
 
   const opts = { stripeAccount: shop.stripe_account_id! };
   const nowSec = Math.floor(Date.now() / 1000);
-  const windowStart = nowSec - 45 * 86400;   // look back 45 days
+  // Scan window = last 45 days, but NEVER earlier than the go-live floor, so old
+  // slippage is out of range by construction.
+  const windowStart = Math.max(nowSec - 45 * 86400, SAFETY_NET_FLOOR_SEC);
   const lagCutoff = nowSec - 20 * 60;        // ignore anything newer than 20 min
 
   try {
     // What ClipWise already has on record for this shop — the keys we match on.
+    // We match on THREE exact keys (any hit = recorded): the PaymentIntent id, the
+    // Checkout Session id (rescues a row saved with a session but no PI), and — for
+    // gift cards, which store neither — the card code carried in session metadata.
     const [{ data: txRows }, { data: apptRows }, { data: giftRows }] = await Promise.all([
-      supabaseAdmin.from("transactions").select("payment_intent_id").eq("shop_id", shop.id).not("payment_intent_id", "is", null).limit(5000),
-      supabaseAdmin.from("appointments").select("payment_intent_id").eq("shop_id", shop.id).not("payment_intent_id", "is", null).limit(5000),
+      supabaseAdmin.from("transactions").select("payment_intent_id, stripe_session_id").eq("shop_id", shop.id).limit(5000),
+      supabaseAdmin.from("appointments").select("payment_intent_id, stripe_checkout_session_id").eq("shop_id", shop.id).limit(5000),
       supabaseAdmin.from("gift_cards").select("code").eq("shop_id", shop.id).limit(5000),
     ]);
     const knownPIs = new Set<string>();
-    for (const r of (txRows ?? []) as { payment_intent_id: string | null }[]) if (r.payment_intent_id) knownPIs.add(r.payment_intent_id);
-    for (const r of (apptRows ?? []) as { payment_intent_id: string | null }[]) if (r.payment_intent_id) knownPIs.add(r.payment_intent_id);
+    const knownSessions = new Set<string>();
+    for (const r of (txRows ?? []) as { payment_intent_id: string | null; stripe_session_id: string | null }[]) {
+      if (r.payment_intent_id) knownPIs.add(r.payment_intent_id);
+      if (r.stripe_session_id) knownSessions.add(r.stripe_session_id);
+    }
+    for (const r of (apptRows ?? []) as { payment_intent_id: string | null; stripe_checkout_session_id: string | null }[]) {
+      if (r.payment_intent_id) knownPIs.add(r.payment_intent_id);
+      if (r.stripe_checkout_session_id) knownSessions.add(r.stripe_checkout_session_id);
+    }
     const giftCodes = new Set<string>();
     for (const r of (giftRows ?? []) as { code: string | null }[]) if (r.code) giftCodes.add(r.code);
 
@@ -83,9 +106,11 @@ export async function POST(req: NextRequest) {
         const flow = s.metadata?.flow ?? "";
         if (!REVENUE_FLOWS.has(flow)) continue;                     // not a webhook-recorded revenue flow
         const pi = typeof s.payment_intent === "string" ? s.payment_intent : null;
-        const recorded = flow === "gift_card_purchase"
+        // Session-id match rescues any row saved with a checkout session but no PI.
+        const bySession = knownSessions.has(s.id);
+        const recorded = bySession || (flow === "gift_card_purchase"
           ? (!!s.metadata?.code && giftCodes.has(s.metadata.code))  // gift → exact card-code match
-          : (!!pi && knownPIs.has(pi));                             // everything else → exact PI match
+          : (!!pi && knownPIs.has(pi)));                            // everything else → exact PI match
         if (!recorded) candidates.push(s);
       }
       if (!list.has_more) break;
