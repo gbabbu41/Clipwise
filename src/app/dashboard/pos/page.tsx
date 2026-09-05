@@ -39,7 +39,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 const APPT_PREVIEW = 4;
 
 export default function POSPage() {
-  const { shop, accessToken } = useAuth();
+  const { shop, accessToken, profile, user } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -146,8 +146,6 @@ export default function POSPage() {
       // and the Clients page both read from.
       supabase.from("clients").select("id, name, email, phone").eq("shop_id", shop.id).order("name"),
     ]);
-    // No auto-select — staff must explicitly pick who performed the service, so a
-    // sale (and its commission) is never silently credited to the wrong barber.
     if (barbersRes.data) setBarbers(barbersRes.data);
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
@@ -157,6 +155,19 @@ export default function POSPage() {
   }, [shop]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // The logged-in account's OWN barber row (a barber, or an owner who also cuts
+  // hair) — matched by user_id then email; "" when they aren't a barber. Drives
+  // the default barber pick so the till starts on whoever is logged in.
+  const myBarberId = useMemo(() => {
+    const m = barbers.find(b => !!profile?.id && b.user_id === profile.id)
+      ?? barbers.find(b => !!user?.email && (b.email ?? "").toLowerCase() === user.email!.toLowerCase());
+    return m?.id ?? "";
+  }, [barbers, profile?.id, user?.email]);
+
+  // Default the barber selector to the logged-in account once barbers load. Only
+  // fills an EMPTY pick, so it never clobbers a manual choice mid-sale.
+  useEffect(() => { if (myBarberId) setBarberId(prev => prev || myBarberId); }, [myBarberId]);
 
   // Appointments for the Appointments tab: today's + anything still needing
   // payment (held/saved/unpaid/failed), joined to the service name for the card.
@@ -638,7 +649,9 @@ export default function POSPage() {
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
     setAddName(""); setAddPhone(""); setAddEmail(""); setCartOpen(false);
     finalizedRef.current = false; // allow the next card sale to finalize
-    setBarberId(""); // reset to "Select barber" — force an explicit pick each sale
+    // Back to the logged-in barber (self) for the next sale — or "Select barber"
+    // when the account isn't a barber, so a shop owner still picks who performed it.
+    setBarberId(myBarberId);
   };
 
   if (!shop) {
