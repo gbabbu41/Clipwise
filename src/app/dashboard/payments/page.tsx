@@ -268,6 +268,22 @@ export default function PaymentsPage() {
   // (src/lib/revenue.ts), so the two can never disagree.
   const posTxs = countablePosTxs(appts, txs);
 
+  // Balances collected LATER on an appointment (source "balance" txns — a raised
+  // price the held card couldn't cover, paid via link/charge-on-file/cash). Each
+  // is shown as its OWN feed row below, so the appointment must count only the
+  // money its OWN card charge captured. We subtract this per-appointment sum (on
+  // top of any still-owed balance_due) from the appointment line in balanceOf(),
+  // so the appt + the balance row together sum to the real total with no double
+  // count. Mirrors the dedicated "balance" loop in collectedTotals().
+  const collectedBalanceByAppt = new Map<string, number>();
+  for (const t of txs) {
+    if (t.source !== "balance" || t.refunded) continue;
+    if (!t.appointment_id) continue;
+    const amt = (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
+    if (amt <= 0) continue;
+    collectedBalanceByAppt.set(t.appointment_id, (collectedBalanceByAppt.get(t.appointment_id) ?? 0) + amt);
+  }
+
   // PaymentIntents of paid appointments — a booking tip rides the appointment's
   // OWN intent, so its money is already inside that appointment row. Post-visit
   // tips (the tip-link flow) have their own intent and are dropped by
@@ -333,6 +349,27 @@ export default function PaymentsPage() {
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false,
       })),
+    // Collected BALANCES (source "balance") — the leftover on a raised price the
+    // held card couldn't cover, paid later by link / card-on-file / cash. Real
+    // money on its OWN intent, so it shows as its own line; the appointment row it
+    // belongs to counts only its own charge (balanceOf subtracts this), so the two
+    // never double-count. Key prefix `b` → refundItem's key.slice(1) yields the tx id.
+    ...txs
+      .filter(t => t.source === "balance" && !t.refunded && ((t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0)) > 0)
+      .map((t): FeedItem => {
+        const bName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
+        return {
+          key: `b${t.id}`, name: t.client_name || "Client",
+          sub: `Balance collected${bName ? ` · ${bName}` : ""}`,
+          amount: (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0), tax: t.tax ?? 0,
+          statusLabel: t.payment_method === "cash" ? "Balance · Cash" : "Balance · Card",
+          tone: "good",
+          settled: true, tsIso: t.created_at,
+          ts: new Date(t.created_at).getTime(),
+          pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false,
+          client_email: t.client_email, barberName: bName,
+        };
+      }),
   ];
 
   // Net + fee per charge — the SAME shared helper the Dashboard's revenue math
@@ -342,7 +379,17 @@ export default function PaymentsPage() {
   // tipped booking's line matches the real Stripe charge; SUBTRACT the gift value
   // (counted at sale) and any still-owed balance_due (a partial capture collected
   // less than total). Matches src/lib/revenue.ts so the two never differ.
-  const balanceOf = (i: FeedItem) => Math.max(0, (i.appt as { balance_due?: number | null } | undefined)?.balance_due ?? 0);
+  // What of this appointment's total is NOT on its own charge line: still-owed
+  // balance_due PLUS any balance already collected on a separate "balance" row
+  // (shown as its own line above). Subtracting both leaves the appointment
+  // counting exactly the money its own intent captured — no double-count.
+  const balanceOf = (i: FeedItem) => {
+    const a = i.appt as { id?: string; balance_due?: number | null } | undefined;
+    if (!a) return 0;
+    const due = Math.max(0, a.balance_due ?? 0);
+    const collectedElsewhere = a.id ? (collectedBalanceByAppt.get(a.id) ?? 0) : 0;
+    return due + collectedElsewhere;
+  };
   const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
   const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
   const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;

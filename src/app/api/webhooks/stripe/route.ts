@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
             : { data: null };
           if (!existingBal) {
             const { data: bAppt } = await supabaseAdmin
-              .from("appointments").select("client_name, barber_id").eq("id", apptId).maybeSingle();
+              .from("appointments")
+              .select("client_name, client_email, barber_id, date, time_slot, services(name)")
+              .eq("id", apptId).maybeSingle();
             const fee = balPi ? (await stripeFeeCents(balPi, acct)) / 100 : 0;
             const row: Record<string, unknown> = {
               shop_id: session.metadata.shop_id,
@@ -104,6 +106,65 @@ export async function POST(request: NextRequest) {
             if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
               const { stripe_fee: _f, tax: _t, ...base } = row; void _f; void _t;
               await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax }).then(null, () => null);
+            }
+
+            // The balance link is usually paid when nobody's in the app, so the
+            // money would otherwise land silently (no chime, no receipt, no owner
+            // email). Fire the SAME three alerts the post-booking-payment path does
+            // — in-app pop-up (owner + barber), customer receipt, owner email —
+            // inside the dedup guard so a webhook retry never double-sends.
+            const balTotal = Math.round((balService + balTax) * 100) / 100;
+            const { data: balShop } = await supabaseAdmin
+              .from("shops").select("name, email, owner_id, booking_settings, timezone")
+              .eq("id", session.metadata.shop_id).maybeSingle();
+            const balSvc = Array.isArray(bAppt?.services)
+              ? (bAppt!.services[0]?.name ?? "")
+              : ((bAppt?.services as { name?: string } | null | undefined)?.name ?? "");
+            const balSvcLabel = balSvc ? `${balSvc} (balance)` : "Balance";
+
+            notifyBalancePaid({
+              ownerId: balShop?.owner_id ?? null,
+              barberId: bAppt?.barber_id ?? null,
+              shopId: session.metadata.shop_id ?? null,
+              clientName: bAppt?.client_name ?? null,
+              amountCents: Math.round(balTotal * 100),
+              date: bAppt?.date ?? null,
+            });
+
+            if (bAppt?.client_email) {
+              await sendPaymentReceipt(BASE_URL, {
+                clientEmail: bAppt.client_email,
+                clientName: bAppt.client_name,
+                shopName: balShop?.name,
+                shopEmail: balShop?.email,
+                serviceName: balSvcLabel,
+                date: bAppt?.date ?? null,
+                amountCents: Math.round(balTotal * 100),
+                context: "Balance paid",
+                // Itemise service + tax (the balance carries its own tax split).
+                taxCents: Math.round(balTax * 100),
+                taxConfig: balShop?.booking_settings as TaxConfig | null,
+                time: bAppt?.time_slot ?? null,
+                timezone: (balShop as { timezone?: string | null } | null)?.timezone ?? null,
+              });
+            }
+
+            if (balShop?.email) {
+              fetch(`${BASE_URL}/api/send-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "owner_payment_received",
+                  data: {
+                    ownerEmail: balShop.email,
+                    clientName: bAppt?.client_name ?? "A client",
+                    serviceName: balSvcLabel,
+                    amount: `$${balTotal.toFixed(2)}`,
+                    date: bAppt?.date ?? "",
+                    time: bAppt?.time_slot ?? "",
+                  },
+                }),
+              }).catch(() => null);
             }
           }
           await supabaseAdmin.from("appointments").update({ balance_due: 0 }).eq("id", apptId).then(null, () => null);

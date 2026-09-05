@@ -138,6 +138,38 @@ export async function notifyNoShowCharged(args: {
 }
 
 /**
+ * In-app (web) alert that a leftover appointment BALANCE was paid — to the owner
+ * AND the assigned barber. Fires the realtime portal pop-up + chime via the
+ * notifications table. Used when a balance payment link is paid (webhook) so the
+ * shop sees the money land even when nobody was in the app. type "booking"
+ * (CHECK-allowed) — it's money in, same bucket as a completion charge.
+ */
+export async function notifyBalancePaid(args: {
+  ownerId?: string | null;
+  barberId?: string | null;   // barbers.id (resolved to its linked user)
+  shopId?: string | null;
+  clientName?: string | null;
+  amountCents?: number;
+  date?: string | null;
+}): Promise<void> {
+  const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const niceDate = prettyDate(args.date);
+  const message = `${args.clientName ?? "A client"} paid the${amt} balance${niceDate ? ` for ${niceDate}` : ""}.`;
+
+  const recipients = new Set<string>();
+  if (args.ownerId) recipients.add(args.ownerId);
+  if (args.barberId) {
+    const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", args.barberId).maybeSingle();
+    if (b?.user_id) recipients.add(b.user_id);
+  }
+  if (recipients.size === 0) return;
+
+  await insertNotifications(
+    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "✅ Balance paid", message, type: "booking" })),
+  );
+}
+
+/**
  * In-app alert to the owner + assigned barber that a payment was refunded.
  * Fired from the in-app Refund route and (de-duped) from the Stripe webhook so
  * dashboard-initiated refunds notify too. type "cancellation" (CHECK-allowed).
