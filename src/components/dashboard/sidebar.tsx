@@ -149,7 +149,9 @@ const shopItems: NavItem[] = [
   { href: "/dashboard/waitlist", label: "Waitlist", icon: ClipboardList, paidOnly: true },
   { href: "/dashboard/waitlist-requests", label: "Spot Waitlist", icon: BellRing, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/kiosk", label: "Walk-in Kiosk", icon: Tablet, ownerOnly: true, paidOnly: true },
-  { href: "/dashboard/check-in", label: "Check-in", icon: CalendarCheck, ownerOnly: true },
+  // Check-in: hidden from the nav on ALL plans for now (page + backend kept intact —
+  // remove `hidden: true` to bring it back).
+  { href: "/dashboard/check-in", label: "Check-in", icon: CalendarCheck, ownerOnly: true, hidden: true },
 ];
 
 // GROW — aimed outward at customers (and where a paid add-on becomes findable).
@@ -159,7 +161,9 @@ const growItems: NavItem[] = [
   { href: "/dashboard/reviews", label: "Reviews", icon: Star, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true, paidOnly: true },
   { href: "/dashboard/inventory", label: "Inventory", icon: Package, ownerOnly: true, feature: "inventory" },
-  { href: "/dashboard/phone", label: "AI Phone", icon: Phone, ownerOnly: true },
+  // AI Phone: hidden from the nav on ALL plans for now (page + backend kept intact —
+  // remove `hidden: true` to bring it back).
+  { href: "/dashboard/phone", label: "AI Phone", icon: Phone, ownerOnly: true, hidden: true },
   { href: "/dashboard/share", label: "Share Link", icon: Share2, ownerOnly: true },
   // Messages: temporarily hidden from the nav on ALL plans — page + send logic
   // are kept intact. Delete `hidden: true` to bring it back for Pro/Premium.

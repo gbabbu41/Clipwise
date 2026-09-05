@@ -133,6 +133,11 @@ export function AddAppointmentModal({
           const b = (data ?? []) as BarberLite[];
           const sorted = [...b].sort((x, y) => (x.user_id === preferUserId ? 0 : 1) - (y.user_id === preferUserId ? 0 : 1));
           setBarbers(sorted);
+          // Default the barber to the logged-in user's own row — they're usually
+          // booking their own client. Only fills an empty pick (never overrides a
+          // manual choice); a non-barber owner gets no match → stays on "Select".
+          const mine = sorted.find(x => !!preferUserId && x.user_id === preferUserId);
+          if (mine) setBarberId(prev => prev || mine.id);
         });
     }
     supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name")

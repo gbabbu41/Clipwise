@@ -769,6 +769,23 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background px-4 sm:px-6 pb-28 space-y-5">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
 
+      {/* Auto-save is silent + the inline status sits far down the page, so show a
+          fixed top-center pill whenever a change is being saved / just saved — the
+          owner sees "Saving… → Saved" without scrolling to find it. */}
+      {(saving || !!savedFlash) && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[110] top-[calc(env(safe-area-inset-top)+3.75rem)] lg:top-4 pointer-events-none">
+          {saving ? (
+            <div className="flex items-center gap-2 rounded-full bg-card-raised border border-border shadow-lg px-3.5 py-1.5 text-xs font-semibold text-grey">
+              <span className="w-3 h-3 rounded-full border-2 border-grey/40 border-t-grey animate-spin" /> Saving…
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 rounded-full bg-[#00e5a0]/15 border border-[#00e5a0]/30 shadow-lg px-3.5 py-1.5 text-xs font-semibold text-[#00e5a0]">
+              <Check size={13} /> Saved
+            </div>
+          )}
+        </div>
+      )}
+
       <DashboardHeader title="Settings" subtitle="Manage your shop & account" />
 
       {/* Tabs — horizontally scrollable pill strip (never wraps to stacked rows). */}
@@ -1300,6 +1317,8 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            {/* AI Phone / Business Number — hidden for now; page + backend kept intact. */}
+            {false && (
             <Card className="border-border">
               <CardHeader>
                 <div>
@@ -1347,6 +1366,7 @@ export default function SettingsPage() {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
         );
       })()}

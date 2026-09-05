@@ -16,13 +16,14 @@ import { PortalThemeProvider } from "@/components/portal-theme";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
-// Order mirrors the mobile bottom nav so a swipe feels like sliding between tabs.
+// Order MIRRORS the mobile bottom nav (Home · Calendar · Checkout) so a swipe
+// slides between the same tabs the nav shows — a stale order sent swipes to the
+// wrong pages. The calendar is data-no-swipe (its own swipe shifts the day), so
+// you swipe in/out to its neighbours and the day-swipe takes over while on it.
 const OWNER_SWIPE_ORDER = [
   "/dashboard",
-  "/dashboard/schedule",
   "/dashboard/calendar",
   "/dashboard/pos",
-  "/dashboard/payments",
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

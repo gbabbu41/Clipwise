@@ -2063,14 +2063,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : null;
 
   // ── WEEK STRIP (sits atop the Day view) ─────────────────────────────────────
-  // A compact 7-day week rail: 3 days each side of the selected day, so the 7
-  // cells fill the full width (each basis-1/7 = 14.2857%) with NO horizontal
-  // scroll — a clean week at a glance instead of a long scrolly rail. Tapping a
-  // day selects it (loads that day's schedule below) and re-centers the week on
-  // it. Touch events stopPropagation so the calendar-wide period swipe never
-  // fires from the rail. (The auto-center effect is a no-op here since there's
-  // nothing to scroll, but it stays harmless and keeps the wide-window option.)
-  const STRIP_RANGE = 3; // days rendered each side of the selected day (→ 7 total)
+  // Shows ~7 days at a time (each cell basis-1/7 = 14.2857%) but renders a wider
+  // window so the rail is horizontally SWIPEABLE to browse days/weeks — auto-
+  // centered on the selected day by an effect. Tapping a day selects it (loads
+  // that day's schedule below). Touch events stopPropagation so the calendar-wide
+  // period swipe never fires from the rail.
+  const STRIP_RANGE = 14; // days rendered each side of the selected day (swipeable window)
   const renderWeekStrip = () => {
     const selectedStr = formatDateForDb(currentDate);
     const days = Array.from({ length: STRIP_RANGE * 2 + 1 }, (_, i) => addDays(currentDate, i - STRIP_RANGE));
