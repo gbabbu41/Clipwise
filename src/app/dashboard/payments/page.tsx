@@ -340,8 +340,10 @@ export default function PaymentsPage() {
   // What the customer actually paid on this line = amount + booking tip − gift
   // already applied. ADD the booking tip (POS tips are already in `amount`) so a
   // tipped booking's line matches the real Stripe charge; SUBTRACT the gift value
-  // (counted at sale). Matches src/lib/revenue.ts exactly so the two never differ.
-  const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0));
+  // (counted at sale) and any still-owed balance_due (a partial capture collected
+  // less than total). Matches src/lib/revenue.ts so the two never differ.
+  const balanceOf = (i: FeedItem) => Math.max(0, (i.appt as { balance_due?: number | null } | undefined)?.balance_due ?? 0);
+  const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
   const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
   const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
 
@@ -497,9 +499,13 @@ export default function PaymentsPage() {
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
   const pendingAppts = scopedAppts.filter(a => a.payment_status === "held" || a.payment_status === "saved");
-  const outstanding = outstandingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  // Money still owed on SETTLED appointments (a price raised above the held card
+  // left an uncollected balance) — count it as outstanding alongside unpaid ones.
+  const partialBalances = scopedAppts.filter(a => isPaid(a.payment_status) && ((a as { balance_due?: number | null }).balance_due ?? 0) > 0);
+  const partialBalanceTotal = partialBalances.reduce((s, a) => s + Math.max(0, (a as { balance_due?: number | null }).balance_due ?? 0), 0);
+  const outstanding = outstandingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0) + partialBalanceTotal;
   const pending = pendingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const outstandingCount = outstandingAppts.length;
+  const outstandingCount = outstandingAppts.length + partialBalances.length;
   const pendingCount = pendingAppts.length;
 
   const openStripeDashboard = async () => {

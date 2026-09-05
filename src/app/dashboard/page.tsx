@@ -327,7 +327,7 @@ export default function DashboardPage() {
     // it to the period by paid_at at compute time. Barber sees only their own.
     let revQ = supabase
       .from("appointments")
-      .select("client_name, total_amount, tax_amount, tip_amount, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
+      .select("client_name, total_amount, tax_amount, tip_amount, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
       .eq("shop_id", shop.id)
       .in("payment_status", ["paid", "captured"])
       .order("created_at", { ascending: false })

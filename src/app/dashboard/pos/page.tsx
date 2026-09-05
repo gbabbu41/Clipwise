@@ -35,8 +35,12 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-// How many appointment boxes to show per section before the "Show more" toggle.
+// How many PAID boxes to show before the "Show more" toggle (unpaid always shows all).
 const APPT_PREVIEW = 4;
+
+// Money still owed on an appointment beyond what its own charge collected — a
+// partial capture (price raised above the held card) leaves this remainder.
+const balanceDueOf = (a: AppointmentWithDetails) => Math.max(0, Number((a as { balance_due?: number | null }).balance_due ?? 0));
 
 export default function POSPage() {
   const { shop, accessToken, profile, user } = useAuth();
@@ -55,8 +59,7 @@ export default function POSPage() {
   const [appts, setAppts] = useState<AppointmentWithDetails[]>([]);
   const [selectedAppt, setSelectedAppt] = useState<AppointmentWithDetails | null>(null);
   const [actionBusy, setActionBusy] = useState("");
-  const [todayExpanded, setTodayExpanded] = useState(false);
-  const [unpaidExpanded, setUnpaidExpanded] = useState(false);
+  const [paidExpanded, setPaidExpanded] = useState(false);
   const { confirm } = useConfirm();
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -169,8 +172,8 @@ export default function POSPage() {
   // fills an EMPTY pick, so it never clobbers a manual choice mid-sale.
   useEffect(() => { if (myBarberId) setBarberId(prev => prev || myBarberId); }, [myBarberId]);
 
-  // Appointments for the Appointments tab: today's + anything still needing
-  // payment (held/saved/unpaid/failed), joined to the service name for the card.
+  // Appointments for the Appointments tab: today's + anything still OWING money —
+  // unpaid/held/saved/failed OR a leftover balance_due from a partial capture.
   const loadAppts = useCallback(async () => {
     if (!shop) return;
     const today = new Date().toLocaleDateString("en-CA"); // local (= shop) YYYY-MM-DD
@@ -179,47 +182,68 @@ export default function POSPage() {
       .select("*, services(name)")
       .eq("shop_id", shop.id)
       .neq("status", "cancelled")
-      .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed)`)
+      .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed),balance_due.gt.0`)
       .order("created_at", { ascending: false })
-      .limit(60);
+      .limit(80);
     setAppts((data ?? []) as AppointmentWithDetails[]);
   }, [shop]);
   useEffect(() => { loadAppts(); }, [loadAppts]);
 
-  // An appointment still has money to collect (drives the tab badge + ordering).
-  const needsPayment = useCallback((a: AppointmentWithDetails) =>
-    a.status !== "cancelled"
-    && !["paid", "captured", "refunded"].includes(a.payment_status ?? "")
-    && (Number(a.total_amount ?? 0) > 0 || a.payment_status === "held" || a.payment_status === "saved" || !!a.stripe_payment_method_id),
-  []);
-
-  // Sort: unpaid first, then newest — so the one to charge is right at the top.
-  const apptsSorted = useMemo(() => [...appts].sort((a, b) => {
-    const an = needsPayment(a) ? 0 : 1, bn = needsPayment(b) ? 0 : 1;
-    if (an !== bn) return an - bn;
-    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
-  }), [appts, needsPayment]);
+  // Amount still to collect on an appointment: a leftover balance from a partial
+  // capture, else the full owed amount when it isn't settled, else 0.
+  const outstandingOf = useCallback((a: AppointmentWithDetails) => {
+    if (a.status === "cancelled") return 0;
+    const bal = balanceDueOf(a);
+    if (bal > 0) return bal;
+    const unsettled = !["paid", "captured", "refunded"].includes(a.payment_status ?? "");
+    if (unsettled && (Number(a.total_amount ?? 0) > 0 || a.payment_status === "held" || a.payment_status === "saved" || !!a.stripe_payment_method_id)) {
+      return Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0);
+    }
+    return 0;
+  }, []);
+  const needsPayment = useCallback((a: AppointmentWithDetails) => outstandingOf(a) > 0, [outstandingOf]);
   const apptNeedCount = useMemo(() => appts.filter(needsPayment).length, [appts, needsPayment]);
 
-  // Two sections: TODAY (all of today's, by time) and UNPAID (still owing, past
-  // days), so the till reads "who's in today" then "who still owes."
-  const apptGroups = useMemo(() => {
+  // NEEDS PAYMENT on top, grouped by day (Today first, then most-recent day back),
+  // each day's appointments by time; then TODAY's already-PAID at the bottom. So
+  // what's owed always rises to the top and paid sinks — one glance at "who to
+  // charge," including same-day unpaids for a quick checkout.
+  const apptSections = useMemo(() => {
     const today = new Date().toLocaleDateString("en-CA");
-    const todays = appts.filter(a => a.date === today)
-      .sort((a, b) => timeToMinutes(a.time_slot ?? "") - timeToMinutes(b.time_slot ?? ""));
-    const unpaid = apptsSorted.filter(a => needsPayment(a) && a.date !== today);
-    return { todays, unpaid };
-  }, [appts, apptsSorted, needsPayment]);
+    const byDate = new Map<string, AppointmentWithDetails[]>();
+    for (const a of appts) {
+      if (!needsPayment(a)) continue;
+      const arr = byDate.get(a.date) ?? [];
+      arr.push(a); byDate.set(a.date, arr);
+    }
+    const dates = Array.from(byDate.keys()).sort((d1, d2) => {
+      if (d1 === today) return -1;
+      if (d2 === today) return 1;
+      return d2.localeCompare(d1); // most-recent past day first
+    });
+    const byTime = (a: AppointmentWithDetails, b: AppointmentWithDetails) => timeToMinutes(a.time_slot ?? "") - timeToMinutes(b.time_slot ?? "");
+    const needs = dates.map(date => ({
+      date,
+      label: date === today ? "Today"
+        : new Date(date + "T00:00:00").toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" }),
+      items: (byDate.get(date) ?? []).sort(byTime),
+    }));
+    const needsCount = Array.from(byDate.values()).reduce((n, arr) => n + arr.length, 0);
+    const paid = appts.filter(a => a.date === today && !needsPayment(a)).sort(byTime);
+    return { needs, needsCount, paid };
+  }, [appts, needsPayment]);
 
-  // One appointment BOX — same shape as the service/product tiles, so the tab
-  // matches the rest of the till. Shared by both sections.
+  // One appointment BOX — same tile shape as the service/product grid. Shows the
+  // amount still owed (a partial balance, or the full total) + a status chip.
   const apptBox = (a: AppointmentWithDetails) => {
-    const owed = Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0);
-    const paidRow = a.payment_status === "paid" || a.payment_status === "captured";
-    const badge = paidRow ? { t: "Paid", c: "bg-[#00e5a0]/15 text-[#00e5a0]" }
+    const bal = balanceDueOf(a);
+    const settled = a.payment_status === "paid" || a.payment_status === "captured";
+    const owed = bal > 0 ? bal : (Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0));
+    const badge = bal > 0 ? { t: "Balance", c: "bg-[#f5c542]/15 text-[#f5c542]" }
       : a.payment_status === "held" ? { t: "Held", c: "bg-[#4a9eff]/15 text-[#4a9eff]" }
       : (a.payment_status === "saved" || a.stripe_payment_method_id) ? { t: "On file", c: "bg-[#f5c542]/15 text-[#f5c542]" }
       : a.payment_status === "refunded" ? { t: "Refund", c: "bg-white/10 text-grey" }
+      : settled ? { t: "Paid", c: "bg-[#00e5a0]/15 text-[#00e5a0]" }
       : { t: "Unpaid", c: "bg-white/10 text-grey" };
     const svcName = (a.services as { name?: string } | null)?.name ?? "Service";
     return (
@@ -1070,34 +1094,33 @@ export default function POSPage() {
             )}
 
             {posTab === "appointments" && (
-              (apptGroups.todays.length === 0 && apptGroups.unpaid.length === 0) ? (
-                <p className="text-center text-xs text-grey-muted py-10">No appointments today, and nothing waiting on payment.</p>
+              (apptSections.needsCount === 0 && apptSections.paid.length === 0) ? (
+                <p className="text-center text-xs text-grey-muted py-10">Nothing to collect — no unpaid appointments or balances.</p>
               ) : (
                 <>
-                  {apptGroups.todays.length > 0 && (
+                  {apptSections.needsCount > 0 && (
                     <div>
-                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">Today ({apptGroups.todays.length})</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {(todayExpanded ? apptGroups.todays : apptGroups.todays.slice(0, APPT_PREVIEW)).map(apptBox)}
-                      </div>
-                      {apptGroups.todays.length > APPT_PREVIEW && (
-                        <button type="button" onClick={() => setTodayExpanded(v => !v)}
-                          className="w-full mt-2 h-9 rounded-lg border border-border bg-card-raised text-sm font-medium text-grey hover:text-foreground transition-colors">
-                          {todayExpanded ? "Show less" : `Show ${apptGroups.todays.length - APPT_PREVIEW} more`}
-                        </button>
-                      )}
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">Needs payment ({apptSections.needsCount})</p>
+                      {apptSections.needs.map(g => (
+                        <div key={g.date} className="mb-3 last:mb-0">
+                          <p className="text-[11px] font-semibold text-grey-muted mb-1.5">{g.label}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {g.items.map(apptBox)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  {apptGroups.unpaid.length > 0 && (
+                  {apptSections.paid.length > 0 && (
                     <div>
-                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-6 mb-2">Unpaid ({apptGroups.unpaid.length})</p>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-6 mb-2">Paid · today ({apptSections.paid.length})</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {(unpaidExpanded ? apptGroups.unpaid : apptGroups.unpaid.slice(0, APPT_PREVIEW)).map(apptBox)}
+                        {(paidExpanded ? apptSections.paid : apptSections.paid.slice(0, APPT_PREVIEW)).map(apptBox)}
                       </div>
-                      {apptGroups.unpaid.length > APPT_PREVIEW && (
-                        <button type="button" onClick={() => setUnpaidExpanded(v => !v)}
+                      {apptSections.paid.length > APPT_PREVIEW && (
+                        <button type="button" onClick={() => setPaidExpanded(v => !v)}
                           className="w-full mt-2 h-9 rounded-lg border border-border bg-card-raised text-sm font-medium text-grey hover:text-foreground transition-colors">
-                          {unpaidExpanded ? "Show less" : `Show ${apptGroups.unpaid.length - APPT_PREVIEW} more`}
+                          {paidExpanded ? "Show less" : `Show ${apptSections.paid.length - APPT_PREVIEW} more`}
                         </button>
                       )}
                     </div>

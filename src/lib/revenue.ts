@@ -16,6 +16,7 @@ export type RevAppt = {
   tax_amount?: number | null;
   tip_amount?: number | null;     // booking tip, charged on the SAME intent
   gift_applied?: number | null;   // gift-card value applied — already counted at sale
+  balance_due?: number | null;    // uncollected part of total_amount (partial capture)
   payment_status?: string | null;
   payment_method?: string | null;
   payment_intent_id?: string | null;
@@ -112,12 +113,19 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     //    excluded the tip while net (from the real Stripe charge) included it — so
     //    net could read HIGHER than gross. Now gross ≥ net always, and every tip
     //    is counted consistently (same as POS + post-visit tips).
-    const svcTax = Math.max(0, (a.total_amount ?? 0) - (a.gift_applied ?? 0));
+    // Only the COLLECTED part counts. A partial capture (a price raised above the
+    // held card) leaves `balance_due` of the service+tax still owed — subtract it,
+    // and scale the tax to the collected fraction. 0/absent balance_due behaves
+    // exactly like a fully-collected appointment (no change for the common case).
+    const total = a.total_amount ?? 0;
+    const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
+    const collectedSvcTax = Math.max(0, total - bal);
+    const svcTax = Math.max(0, collectedSvcTax - (a.gift_applied ?? 0));
     const apptTip = Math.max(0, a.tip_amount ?? 0);
     const lineGross = svcTax + apptTip;
     const { net: n, fee: f } = lineNetFee(a.payment_intent_id, lineGross, byPi);
     gross += lineGross; net += n; fees += f;
-    tax += a.tax_amount ?? 0;
+    tax += total > 0 ? (a.tax_amount ?? 0) * (collectedSvcTax / total) : (a.tax_amount ?? 0);
     tips += apptTip;
     if (a.payment_method === "cash") cash += lineGross;
     if (a.payment_intent_id) apptPis.add(a.payment_intent_id);

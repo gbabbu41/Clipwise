@@ -224,6 +224,21 @@ export async function POST(request: NextRequest) {
     // Email the customer a receipt for the charge (fire-and-forget).
     const amountReceived = pi.amount_received ?? 0;
     console.log("[capture-appointment] charged", { appointment_id, reason, isSaved, amountReceived, pi_id: pi.id });
+
+    // Track any uncollected remainder of the SERVICE+TAX so it surfaces in
+    // Checkout → Unpaid: a price raised above the held card captures less than the
+    // total, leaving a balance the owner collects later (link/cash). Measured on
+    // total_amount (service+tax), net of whatever tip was collected; 0 on a full
+    // capture. Completions only (a no-show fee has no "balance"). Best-effort —
+    // the balance_due column may lag on prod, and this must never fail a real charge.
+    if (reason === "completed") {
+      const receivedD = amountReceived / 100;
+      const tipCollected = Math.min(Math.max(0, Number(appt.tip_amount ?? 0)), receivedD);
+      const serviceTaxCollected = Math.max(0, receivedD - tipCollected);
+      const balanceDue = Math.max(0, Math.round(((appt.total_amount ?? 0) - serviceTaxCollected) * 100) / 100);
+      await supabaseAdmin.from("appointments")
+        .update({ balance_due: balanceDue }).eq("id", appointment_id).then(null, () => null);
+    }
     const { data: svc } = appt.service_id
       ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
       : { data: null as { name: string } | null };
