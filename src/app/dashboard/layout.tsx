@@ -136,7 +136,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isCalendar = pathname === "/dashboard/calendar";
   return (
     <PortalThemeProvider>
-    <div className="portal min-h-[100dvh] bg-background">
+    {/* min-h uses the LARGE viewport (lvh), not dvh: dvh shrinks when the keyboard
+        opens (e.g. the add-appointment sheet) and iOS can leave it stale on close,
+        exposing the pure-black <body> below the fixed nav. lvh stays full-screen,
+        so the portal's own ground always fills the bottom — no black band. */}
+    <div className="portal min-h-[100lvh] bg-background">
       <ConfirmProvider>
       <ModalChrome />
       <NotificationListener />
@@ -146,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own sunken canvas so
           the spacer matches it; everything else uses the calm page background. */}
-      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background h-[100dvh] overflow-hidden" : ""}`}>
+      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background h-[100lvh] overflow-hidden" : ""}`}>
         <MaintenanceBanner />
         <TrialBanner />
         <StripeWarningBanner />
