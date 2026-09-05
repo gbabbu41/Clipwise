@@ -142,17 +142,30 @@ export async function POST(request: NextRequest) {
     // new price. A saved card (charged fresh off-session at completion) and an
     // unpaid/cash booking can still collect the full new total, so they're fine.
     const a = auth.appointment as {
-      total_amount?: number | null; payment_status?: string | null;
+      total_amount?: number | null; payment_status?: string | null; balance_due?: number | null;
     };
     const oldTotal = Number(a.total_amount ?? 0);
+    const oldBalance = Math.max(0, Number(a.balance_due ?? 0));
     const newTotal = Number(update.total_amount);
     const status = a.payment_status ?? null;
     const heldHold = status === "held";
     const alreadyPaid = status === "paid" || status === "captured";
+
+    // Editing the price of an ALREADY-SETTLED appointment: the money already
+    // collected is (oldTotal − oldBalance). Whatever the new total exceeds that by
+    // becomes the uncollected balance — so reports count only what came in and the
+    // shortfall surfaces in Checkout → Unpaid. Without this, a portal price bump on
+    // a captured appointment left balance_due null, so the full new total counted
+    // as collected → inflated tax/commission → negative net.
+    if (alreadyPaid) {
+      const collectedSoFar = Math.max(0, oldTotal - oldBalance);
+      update.balance_due = Math.max(0, Math.round((newTotal - collectedSoFar) * 100) / 100);
+    }
+
     if (newTotal > oldTotal + 0.005 && (heldHold || alreadyPaid)) {
       const extra = (newTotal - oldTotal).toFixed(2);
       priceWarning = alreadyPaid
-        ? `This appointment was already paid ($${oldTotal.toFixed(2)}). The extra $${extra} won't be charged automatically — collect it in person or send a payment link.`
+        ? `This appointment was already paid ($${(oldTotal - oldBalance).toFixed(2)}). The extra $${extra} won't be charged automatically — collect it in Checkout · Unpaid (charge / cash / link).`
         : `Only about $${oldTotal.toFixed(2)} is authorized on the card on file. The extra $${extra} can't be auto-charged at checkout — collect it in person or send a payment link.`;
     }
   }
