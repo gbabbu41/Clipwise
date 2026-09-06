@@ -6,7 +6,7 @@ import { Building2, Plus, ExternalLink, Check, AlertTriangle } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { effectivePlan, planHasFeature, planAllowsMultiLocation, getLocationLimit, MAX_LOCATIONS, NO_SHOW_DEFAULT_PCT } from "@/lib/validation";
 import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
-import { taxPresetFor, clampTaxRate, isValidGstNumber } from "@/lib/pricing";
+import { taxPresetFor, clampTaxRate, isValidGstNumber, isLikelyPlaceholderGstNumber, normalizeGstNumber } from "@/lib/pricing";
 import { marketingFor } from "@/lib/plan-marketing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +87,8 @@ const bookingKeyOf = (bk: BookingSettings, allowPIP: boolean) => JSON.stringify(
 const bookingBlockOf = (b: BookingSettings): string | null =>
   b.tax_enabled && !isValidGstNumber(b.tax_number)
     ? "Add a valid GST/HST number to save tax (e.g. 123456789RT0001), or turn Charge GST/HST off."
+  : b.tax_enabled && isLikelyPlaceholderGstNumber(b.tax_number)
+    ? "That GST/HST number looks like a placeholder (e.g. 123456789). Enter your REAL registration number — it prints on every customer receipt."
   : b.tax_enabled && !(Number(b.tax_rate) > 0)
     ? "Set a tax rate above 0% to charge tax, or turn Charge GST/HST off."
   : b.tax_enabled && b.pst_enabled && !(Number(b.pst_rate) > 0)
@@ -1221,6 +1223,14 @@ export default function SettingsPage() {
                         {(booking.tax_number ?? "").trim()
                           ? "That doesn’t look like a valid GST/HST number (e.g. 123456789RT0001)."
                           : "A valid GST/HST number is required to charge tax — you can only collect GST/HST if you’re registered."}
+                      </p>
+                    ) : booking.tax_enabled && isLikelyPlaceholderGstNumber(booking.tax_number) ? (
+                      <p className="text-[11px] text-red-400 mt-1">
+                        That looks like a placeholder, not a real registration number. It won’t save — enter your actual GST/HST number, because it prints on every customer receipt.
+                      </p>
+                    ) : booking.tax_enabled && isValidGstNumber(booking.tax_number) ? (
+                      <p className="text-[11px] mt-1 px-2 py-1.5 rounded-lg bg-surface-overlay text-grey">
+                        🧾 Receipts will show <span className="text-foreground font-medium">GST/HST No. {normalizeGstNumber(booking.tax_number)}</span> — please double-check this is exactly your registered number. It’s <span className="text-foreground">shared across all your locations</span>.
                       </p>
                     ) : (
                       <p className="text-[11px] text-grey mt-1">

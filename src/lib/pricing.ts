@@ -9,7 +9,7 @@
 export const CANADA_TAX_PRESETS: { province: string; label: string; rate: number; note?: string }[] = [
   { province: "NB", label: "HST", rate: 15 },
   { province: "NL", label: "HST", rate: 15 },
-  { province: "NS", label: "HST", rate: 15 },
+  { province: "NS", label: "HST", rate: 14 }, // dropped from 15% to 14% on 2025-04-01
   { province: "PE", label: "HST", rate: 15 },
   { province: "ON", label: "HST", rate: 13 },
   { province: "QC", label: "GST+QST", rate: 14.975 },
@@ -36,6 +36,27 @@ export function normalizeGstNumber(raw: string | null | undefined): string {
 export function isValidGstNumber(raw: string | null | undefined): boolean {
   const s = normalizeGstNumber(raw);
   return /^\d{9}$/.test(s) || /^\d{9}RT\d{4}$/.test(s);
+}
+
+/**
+ * Best-effort "this is obviously a placeholder, not a real registration" check —
+ * used at ENTRY (settings) to stop a fabricated number from printing on customer
+ * receipts as a real GST/HST No. It's a heuristic, NOT registry verification, so
+ * it only flags the clearly-fake (sequential, all-one-digit, ≤2 distinct digits,
+ * or a known dummy) and is intentionally NOT wired into shopChargesTax — a shop's
+ * live tax charging must never silently flip off on a guess.
+ */
+export function isLikelyPlaceholderGstNumber(raw: string | null | undefined): boolean {
+  const s = normalizeGstNumber(raw);
+  const m = s.match(/^(\d{9})/);
+  if (!m) return false;               // not even the right shape — a format error, not a placeholder
+  const bn = m[1];
+  const KNOWN = new Set(["123456789", "000000000", "111111111", "999999999", "444466665", "987654321"]);
+  if (KNOWN.has(bn)) return true;
+  if (new Set(bn.split("")).size <= 2) return true;          // e.g. 111111111, 121212121
+  const asc = "0123456789", desc = "9876543210";
+  if (asc.includes(bn) || desc.includes(bn)) return true;    // strict run like 123456789 / 456789012? (substring of asc)
+  return false;
 }
 
 /** A shop only charges tax when it's flagged taxable AND a GST/HST number is on

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { isValidGstNumber, normalizeGstNumber } from "@/lib/pricing";
+import { isValidGstNumber, isLikelyPlaceholderGstNumber, normalizeGstNumber } from "@/lib/pricing";
 
 /**
  * Save the owner's GST/HST registration number ONCE for ALL their shops. A
@@ -22,6 +22,14 @@ export async function POST(request: NextRequest) {
   if (raw && !isValidGstNumber(raw)) {
     return NextResponse.json(
       { error: "That doesn't look like a valid GST/HST number (e.g. 123456789RT0001)." },
+      { status: 400 },
+    );
+  }
+  // Never let an obvious placeholder become the number printed on receipts, even if
+  // a caller bypasses the client gate.
+  if (raw && isLikelyPlaceholderGstNumber(raw)) {
+    return NextResponse.json(
+      { error: "That GST/HST number looks like a placeholder. Enter your real registration number — it prints on customer receipts." },
       { status: 400 },
     );
   }
