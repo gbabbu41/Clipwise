@@ -998,7 +998,19 @@ export default function DashboardPage() {
                 <p className="text-sm text-grey text-center py-4">No notifications</p>
               ) : notifications.map((n) => {
                 const text = `${n.title} ${n.message}`;
-                const kind = n.type === "no-show" ? "warn" : n.type === "review" ? "rev" : /payment|paid|charged|collected|refund/i.test(text) ? "pay" : "book";
+                // A FAILED charge (no money moved) and a REFUND / chargeback (money OUT)
+                // both mention "payment/charge/refund", so they were wrongly painted as
+                // green "+income". Split them out: fail → warn (no +), refund/chargeback →
+                // out (−, red), only a genuine collection → pay (+, green).
+                const isFail = /fail|could\S*t charge|declin|unpaid/i.test(text);
+                const isOut = /refund|chargeback|charge.?back|dispute|returned/i.test(text);
+                const isPay = !isFail && !isOut && /payment|paid|charged|collected/i.test(text);
+                const kind = n.type === "no-show" ? "warn"
+                  : n.type === "review" ? "rev"
+                  : isFail ? "warn"
+                  : isOut ? "out"
+                  : isPay ? "pay"
+                  : "book";
                 // Pull an amount out of the title (or message), show it aligned
                 // right in tabular figures; strip it from the shown text so it
                 // isn't duplicated. Payments read green with a "+".
@@ -1012,7 +1024,7 @@ export default function DashboardPage() {
                     <div className="cwd-lgrow">
                       <div className="cwd-l1">
                         <span className="cwd-lnm">{title}</span>
-                        {amt && <span className={cn("cwd-lamt cwd-num", kind === "pay" ? "pay" : "hold")}>{kind === "pay" ? `+${amt}` : amt}</span>}
+                        {amt && <span className={cn("cwd-lamt cwd-num", kind === "pay" ? "pay" : kind === "out" ? "out" : "hold")}>{kind === "pay" ? `+${amt}` : kind === "out" ? `−${amt}` : amt}</span>}
                       </div>
                       <div className="cwd-l2">
                         <span className="cwd-lam">{message}</span>

@@ -228,6 +228,7 @@ html[data-theme="light"] .portal .cwd-led.book { background:#2c6cb0; }
 html[data-theme="light"] .portal .cwd-led.rev  { background:#966412; }
 html[data-theme="light"] .portal .cwd-led.warn { background:#b23127; }
 html[data-theme="light"] .portal .cwd-lamt.pay { color:#157a4a; }
+html[data-theme="light"] .portal .cwd-lamt.out { color:#b23127; }
 
 /* Calendar appointment pills: dark readable text on a soft tint (was pale-on-pale). */
 html[data-theme="light"] .portal .cwd-ev { color:#157a4a; background:#e7f4ed; border-left-color:#2f9e6b; }
@@ -1685,6 +1686,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-lamt { font-size:12.5px; font-weight:700; white-space:nowrap; flex-shrink:0; }
 .cwd-lamt.pay  { color:#00e5a0; }
 .cwd-lamt.hold { color:var(--grey); }
+.cwd-lamt.out  { color:#f43f5e; }   /* refund / chargeback — money OUT, shown as −$ */
 .cwd-l2 { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:1px; }
 .cwd-lam { font-size:11.5px; color:var(--grey); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cwd-lrt { font-size:11px; color:var(--grey); opacity:.7; white-space:nowrap; flex-shrink:0; }
