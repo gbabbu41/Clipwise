@@ -8,6 +8,7 @@ import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
+import { backfillMissingStripeFees } from "@/lib/backfill-fees";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -227,6 +228,7 @@ export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await processTrials(Date.now()).catch(() => null);      // trial reminders + downgrades (same daily cron)
   await reconcileSubscriptions().catch(() => null);       // safety-net for a missed subscription webhook
+  await backfillMissingStripeFees().catch(() => null);    // fill stripe_fee that wasn't ready at charge time
   return run();
 }
 export async function GET(req: NextRequest) {

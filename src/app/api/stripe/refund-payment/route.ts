@@ -163,6 +163,18 @@ export async function POST(request: NextRequest) {
   }
   await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
 
+  // If this tx is a no-show fee (or any charge) tied to an appointment via its
+  // PaymentIntent, flip that appointment's payment_status to "refunded" too — the
+  // tx-only flag left served/no-show appointments reading "captured", so anything
+  // that reads the appointment directly still looked collected. Served rows keep
+  // their status (the slot was used); only the money state changes.
+  await supabaseAdmin.from("appointments")
+    .update({ payment_status: "refunded" })
+    .eq("payment_intent_id", tx.payment_intent_id)
+    .neq("payment_status", "refunded")
+    .in("status", ["completed", "no-show"])
+    .then(null, () => null);
+
   // Dated refund record for the audit trail + GST/HST claim-back (M6). Split by the
   // POS row's own service / tax / tip.
   {

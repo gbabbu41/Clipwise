@@ -331,3 +331,16 @@ until flipped. `e2e/clipwise-e2e.mjs` is route/login smoke only (no payment code
 
 **Ranked "what actually matters" (money-first):** F4 (live missing fees, real $) → F1/A5
 (unproven refund code — smoke it) → F3 (dispute books) → F2 (row cleanup) → F8/F5/F6 (hygiene).
+
+**Fixed 2026-09-06 (this pass):**
+- **F4 ✅ fixed** — new `lib/backfill-fees.ts` runs on the daily cron: fills any recent
+  card row's `stripe_fee` from Stripe when it landed 0 at charge time (fee-only, best-effort,
+  never overwrites a real fee). The 16 current $0-fee rows fill on the next cron run.
+- **F2 ✅ fixed** — the POS/tx refund route now also flips the linked appointment to
+  `payment_status='refunded'` (was tx-only). Cleaned up the 2 existing rows (now refunded).
+- **F8 ✅ fixed** — the 3 corrupt commission rows recomputed to the correct cut (17.50 /
+  17.50 / 12.50 for Gill @ 50%). Optional follow-up: a `commission_amount <= amount` CHECK
+  constraint (a migration — left for the owner to run).
+- **Still open (need a human / bigger call):** F1/A5 (sandbox-test the refund path), F3
+  (dispute → adjust books, not just notify), F5/F6 (legacy hygiene), Interac on Terminal,
+  and the pre-live items (money-safety gates, PII leak, platform webhook).
