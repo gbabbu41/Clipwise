@@ -727,31 +727,40 @@ export default function DashboardPage() {
         const hasCompleted = completed.length > 0;
         return (
           <>
-            {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]}
-              filterControl={
-                <div className="cwd-filter">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setFilterMenuOpen(o => !o)}
-                      className={cn("cwd-trigger", filterMenuOpen && "open")}
-                    >
-                      {DATE_FILTER_LABELS[dateFilter]}
-                      <ChevronDown size={15} />
+            {/* Period filter — a pill row ABOVE the carousel (daily presets inline,
+                the longer ranges + custom under "More"), so the menu never covers the
+                card the way the old overlaid dropdown did. */}
+            {(() => {
+              const DAILY: DateFilterKey[] = ["today", "this-week", "this-month", "this-year"];
+              const MORE: DateFilterKey[] = ["last-month", "last-3-months", "last-6-months"];
+              const moreActive = MORE.includes(dateFilter) || dateFilter === "custom";
+              const pill = (active: boolean) => cn(
+                "flex-none inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-[12.5px] font-semibold whitespace-nowrap border transition-colors",
+                active ? "bg-accent text-black border-accent" : "bg-card text-grey border-border hover:text-foreground",
+              );
+              return (
+                <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {DAILY.map((k) => (
+                    <button key={k} type="button" className={pill(dateFilter === k)}
+                      onClick={() => { setDateFilter(k); setSelectedCalDate(null); }}>
+                      {DATE_FILTER_LABELS[k]}
+                    </button>
+                  ))}
+                  <div className="relative flex-none">
+                    <button type="button" className={pill(moreActive)} onClick={() => setFilterMenuOpen((o) => !o)}>
+                      {moreActive ? DATE_FILTER_LABELS[dateFilter] : "More"}
+                      <ChevronDown size={14} />
                     </button>
                     {filterMenuOpen && (
                       <>
                         <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
                         <div className="cwd-menu cwd-menu--right">
-                          {(Object.entries(DATE_FILTER_LABELS) as [DateFilterKey, string][])
-                            .filter(([k]) => k !== "custom")
-                            .map(([k, v]) => (
-                              <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
-                                onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
-                                {v}
-                              </button>
-                            ))}
+                          {MORE.map((k) => (
+                            <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
+                              onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
+                              {DATE_FILTER_LABELS[k]}
+                            </button>
+                          ))}
                           <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
                           <button type="button" className="flex items-center gap-2"
                             onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
@@ -782,8 +791,11 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </div>
-              }
-            />
+              );
+            })()}
+
+            {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),
                 borderless tiles on the canvas (dividers removed via globals). */}

@@ -97,7 +97,7 @@ export function StatsCarousel({
     <div key="rev" className={card}>
       {/* pr keeps the right side clear for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Collected</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Collected</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
@@ -157,7 +157,7 @@ export function StatsCarousel({
 
     // 2 — Bookings (bars)
     <div key="bk" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Bookings</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Bookings</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">{totalBookings}</p>
       <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-grey")}>
         {hasCompleted
@@ -182,7 +182,7 @@ export function StatsCarousel({
 
     // 3 — Top barbers (horizontal bars)
     <div key="tb" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Top barbers · revenue</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Top barbers · revenue</p>
       <div className="flex-1 min-h-[112px] mt-2">
         {revenueByBarber.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -199,7 +199,7 @@ export function StatsCarousel({
 
     // 4 — Status mix (donut)
     <div key="st" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted pr-24">Booking status</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Booking status</p>
       <div className="flex-1 min-h-[112px] mt-2 flex items-center">
         {statusMix.length > 0 ? (
           <>
