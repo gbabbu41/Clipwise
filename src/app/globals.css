@@ -1487,7 +1487,7 @@ textarea:focus-visible {
    desktop — matches the barber portal's "Hi, …" so it reads as a calm greeting
    under the top bar, not a loud uppercase block. Scoped with .cwd-greeting so the
    shared page-header titles on OTHER owner pages keep their uppercase treatment. */
-.cwd-hdr h1.cwd-greeting { font-size:1.25rem; letter-spacing:-0.02em; text-transform:none; line-height:1.25; }
+.cwd-hdr h1.cwd-greeting { font-size:1.25rem; letter-spacing:-0.02em; text-transform:none; line-height:1.25; color:#b3b8bf; }
 @media (min-width:1024px) { .cwd-hdr h1.cwd-greeting { font-size:1.5rem; } }
 /* Tiny shop-name eyebrow above the greeting (Home v3): calm, uppercase, grey — the
    shop name is present but never competes with the time-of-day greeting below it. */
