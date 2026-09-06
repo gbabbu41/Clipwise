@@ -164,6 +164,10 @@ export default function DashboardPage() {
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [loadingAppts, setLoadingAppts] = useState(true);
+  // True once the first load has finished. After that, a filter-change refetch keeps
+  // the hero/carousel MOUNTED (only the first load shows the skeleton) — otherwise
+  // the carousel remounts and snaps back to slide 1 every time the filter changes.
+  const [everLoaded, setEverLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   // Transactions (POS / gift-card / walk-in sales) for the active range — so the
@@ -339,6 +343,7 @@ export default function DashboardPage() {
     setRevenueAppts((revData ?? []) as RevApptRow[]);
     setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
     setLoadingAppts(false);
+    setEverLoaded(true);
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
 
   // Live Stripe net/fees (same endpoint the Payments page uses — the money source
@@ -705,8 +710,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Hero + KPIs + Quick actions */}
-      {loadingAppts ? (
+      {/* Hero + KPIs + Quick actions. Skeleton only on the FIRST load — after that a
+          filter change refetches without unmounting the carousel, so it keeps the
+          slide you're on (and its scroll position) instead of snapping to slide 1. */}
+      {loadingAppts && !everLoaded ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each
