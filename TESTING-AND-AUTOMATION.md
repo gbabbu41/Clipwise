@@ -275,3 +275,59 @@ Run against `avetaceptfpdovkuihcf`. No data changed.
 | B9 public PII SELECT policies | 2 (`shops`, `barbers`) | 0 pre-live | ⚠️ anon PII read leak still open — fix before real owners onboard (TODO §0). |
 
 **Net:** only two things a human should act on — **B5** (tidy/complete the 3 dead test shops) and **B9** (close the PII read leak before live). B1/B7 are harmless data hygiene; B3 is transient; B2/B4 are clean.
+
+---
+
+## Results — 2026-09-06 (Section A preflight — Section A itself NOT run)
+
+Section A's card flows **cannot** be run read-only or from the cloud (needs a card typed
+into Stripe + egress to the site, which the container lacks). Below is the **preflight**
+(gates + "has each path ever executed in prod?") produced by a copilot session, with my
+**verification verdicts** against the live DB. Card flows still to be run **by a human in
+sandbox** against a throwaway shop (never FADE MECHANIC).
+
+**Preflight gates:** ✅ test keys only (no `sk_live_`). ✅ 11 webhook events now enabled
+(was 3). ❌ platform "Your account" endpoint absent → A11 dunning still can't fire.
+⚠️ the three money-safety gates still `false` (TODO §0) → A2/A3 would "pass" vacuously
+until flipped. `e2e/clipwise-e2e.mjs` is route/login smoke only (no payment code).
+
+**Findings (copilot-surfaced; verdicts mine):**
+- **F1 — the refund ledger has never run in prod.** `recordRefundLedger` shipped today
+  (`28ebe02`); last actual refund was 2026-08-19. So the newest money-writing code has 0
+  production executions → **run A5 (refund) first** when you smoke-test. *Verdict: valid.*
+- **F2 — 2 no-show-fee refunds left the appointment reading `captured`** (`$5.75` 08-03,
+  `$19.25` 08-19). ✅ **Verified (2 rows).** BUT the money impact is **overstated**:
+  `collectedTotals` skips no-show appointments entirely *and* skips refunded txns, so the
+  app's real revenue is **not** overstated. It's a **row-state inconsistency** (the POS/tx
+  refund branch doesn't flip the appointment's `payment_status` for a no-show fee) — worth
+  a small fix + 2-row cleanup, low urgency. *Verdict: real but not a money bug.*
+- **F3 — a chargeback adjusts nothing but the notification.** `charge.dispute.*` only calls
+  `notifyDispute`; a lost dispute pulls money from the shop's balance while revenue /
+  commission / tax stay unchanged. *Verdict: valid — real correctness gap (by design, for now).*
+- **F4 — the Stripe-fee capture is a live race, not just legacy.** ✅ **Verified: 16 card
+  charges since Aug 1 have `stripe_fee = 0` with a PI set, $419.85 gross** (copilot: 18 /
+  $494.85 on looser criteria). The balance-transaction isn't ready when the row is written,
+  so net revenue is overstated by the missing fees. *Verdict: valid — worth a real fix
+  (fetch the fee async / backfill).* → new check **B10**.
+- **F5 — 26 paid+completed appts (June 12–24) have no `transactions` row, $810.** Legacy
+  window; all-time revenue differs by $810 between the two tables. *Verdict: plausible,
+  legacy.* → new check **B11** (should stay flat; a new one = ledger write broke).
+- **F6 — 18 card txns carry no Stripe reference;** 2 are August `gift_card_sale` ($25/$50)
+  → card gift sales can't be reconciled to Stripe. *Verdict: plausible.*
+- **F7 — thin notification coverage** on money paths (1 refund note for 10 refunds, 0
+  balance-paid, 0 dispute). *Verdict: observational.*
+- **F8 — the 3 corrupt commission rows** are $16,329.60 / $16,329.60 / $11,664 on $35/$35/$25
+  sales (one shop, Aug 8) = ~$44k phantom, **clamped on-screen by `safeCommission`.** ✅
+  Consistent with B1. *Verdict: real data, no wrong number shown; any raw SQL/CSV export
+  bypassing the clamp would be wrong.*
+- **Interac (product gap):** Terminal uses `card_present` + plain `manual` capture, no
+  `interac_present` → declines Interac debit (~60% of Canadian in-person). Blocks the POS
+  story in Atlantic Canada. *Verdict: valid, product decision.*
+
+**Suggested new §B checks (adopt):**
+- **B2b** — `no_show` tx `refunded=true` whose appointment isn't `payment_status='refunded'` (now **2**).
+- **B10** — card tx in the last 30 days with `stripe_fee=0` AND a `payment_intent_id` (now **16**, $419.85) — the live fee-race detector.
+- **B11** — paid|captured + completed appts with no `transactions` row (now **26**, legacy — must stay flat).
+
+**Ranked "what actually matters" (money-first):** F4 (live missing fees, real $) → F1/A5
+(unproven refund code — smoke it) → F3 (dispute books) → F2 (row cleanup) → F8/F5/F6 (hygiene).
