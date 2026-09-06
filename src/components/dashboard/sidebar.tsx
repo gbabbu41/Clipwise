@@ -478,7 +478,7 @@ export function Sidebar() {
             whisper-quiet grey label because its big greeting sits right beneath it;
             every other page — where this is the only heading on mobile — uses a small
             but SOLID dark title so the page never reads headless. */}
-        <h1 className="flex-1 min-w-0 truncate tracking-tight text-xl font-bold text-foreground">{barTitleFor(pathname)}</h1>
+        <h1 className="flex-1 min-w-0 truncate text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground">{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
             again (while on it) to return where you were. Owner-only, matching the
             sidebar's ownerOnly Clients item. Highlights while active. */}
