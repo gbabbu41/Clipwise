@@ -49,11 +49,32 @@ locked out.
 ## 🟢 0. GO-LIVE CHECKLIST — switch from sandbox to real money
 Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code rewrite.
 
-- [ ] **Turn ON the check-out / completion barrier.** It's deliberately OFF for testing
-      (`BARRIER_ENABLED = false` in `src/lib/utils.ts:179`) so future test bookings can be
-      completed early. At go-live flip it to `true` so staff can only mark an appointment
-      complete / charge it from `CHECKOUT_LEAD_HOURS` (3h) before its start onward. (Owner
-      decided 2026-08-12: leave off until launch.)
+- [ ] **Turn ON the money-safety time gates (do ALL of a–d together).** Deliberately OFF for
+      testing so test bookings can be completed / no-showed early. Together they currently let
+      staff — or a crafted request — charge a completion or no-show fee on an appointment that
+      hasn't happened yet. Flip these before real cards are charged (verified still open
+      2026-09-06):
+    - [ ] **a. Completion barrier** — `BARRIER_ENABLED = false` → `true` in `src/lib/utils.ts:179`.
+          Restores the "check out only from `CHECKOUT_LEAD_HOURS` (3h) before start onward" rule
+          that `isCheckoutAllowed()` (and so `capture-appointment` for `reason:"completed"`) enforces.
+    - [ ] **b. No-show client gate (calendar)** — `NO_SHOW_TIME_GATE = false` → `true` in
+          `src/components/calendar-view.tsx:692`.
+    - [ ] **c. No-show client gate (appointments list)** — `NO_SHOW_TIME_GATE = false` → `true` in
+          `src/app/dashboard/appointments/page.tsx:687`.
+    - [ ] **d. ADD the missing SERVER-side no-show gate (the important one — a/b/c are client-only).**
+          `src/app/api/stripe/capture-appointment/route.ts` gates `reason:"completed"` via
+          `isCheckoutAllowed` (~line 70) but `reason:"no_show"` has NO time check, so a crafted
+          request bypasses b/c. Add a check right after the `completed` block (~line 75) that
+          rejects a no-show capture before the slot start, judged in the shop's timezone. Reuse
+          `isBookingInPast(appt.date, appt.time_slot, tz)` from `src/lib/timezone.ts` (a no-show
+          is chargeable exactly when the booking is already past); `safeTz` is already imported.
+          Rules: allow from slot start onward; a past calendar day always allowed; a future day
+          always rejected; unparseable `time_slot` on today → allow (fail open on the minute check,
+          same convention as `isBookingInPast`). Return `{ ok:false, error:"…" }` status 400 in the
+          voice of the existing "Too early — check out is allowed from N hours before the appointment."
+    - Verify after: `grep -rn "BARRIER_ENABLED\|NO_SHOW_TIME_GATE" src/` all read `= true`; a
+      real `next build`; and by hand, marking a FUTURE appointment no-show is blocked in the UI
+      AND rejected by the API. (Owner decided 2026-09-06: leave off until launch, save the steps.)
 - ✅ **SQL migrations: nothing to run** — a full `information_schema` audit on 2026-08-12
       confirmed prod is fully migrated (see §2). Premium is already $79 with multi-location.
 
