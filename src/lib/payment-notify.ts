@@ -199,6 +199,42 @@ export async function notifyRefundIssued(args: {
   );
 }
 
+/**
+ * In-app alert to the OWNER about a card chargeback (dispute). With Connect direct
+ * charges the disputed amount is pulled straight from the shop's balance, and
+ * they'd otherwise only learn from a Stripe email — so surface it in-app too,
+ * with the response deadline. Owner-only (barbers can't act on a dispute).
+ * type "system" (CHECK-allowed ops alert).
+ */
+export async function notifyDispute(args: {
+  ownerId?: string | null;
+  shopId?: string | null;
+  clientName?: string | null;
+  amountCents?: number;
+  status: "opened" | "won" | "lost" | "closed";
+  dueBy?: number | null; // unix seconds — evidence_details.due_by
+}): Promise<void> {
+  if (!args.ownerId) return;
+  const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
+  const who = args.clientName ? ` from ${args.clientName}` : "";
+  let title: string, message: string;
+  if (args.status === "opened") {
+    const due = args.dueBy ? new Date(args.dueBy * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" }) : null;
+    title = "⚠️ Chargeback opened";
+    message = `A customer disputed a card payment${amt}${who}. Stripe has held those funds. Respond with evidence in your Stripe dashboard${due ? ` by ${due}` : ""}, or the amount plus a dispute fee is lost.`;
+  } else if (args.status === "won") {
+    title = "✅ Chargeback won";
+    message = `You won the disputed payment${amt}${who} — the funds were returned to your balance.`;
+  } else if (args.status === "lost") {
+    title = "❌ Chargeback lost";
+    message = `The disputed payment${amt}${who} was lost — the amount plus the dispute fee stays withdrawn from your balance.`;
+  } else {
+    title = "Chargeback closed";
+    message = `The card dispute${amt}${who} was closed.`;
+  }
+  await insertNotifications({ user_id: args.ownerId, shop_id: args.shopId ?? null, title, message, type: "system" });
+}
+
 export async function notifyChargeFailed(args: {
   ownerId?: string | null;
   shopId?: string | null;

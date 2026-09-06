@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid } from "@/lib/payment-notify";
+import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid, notifyDispute } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
@@ -621,6 +621,43 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+        break;
+      }
+      // ── Chargeback / dispute (Connect direct charge = money pulled from the shop's
+      // own balance). Stripe emails the owner, but surface it in-app too with the
+      // response deadline. Requires the webhook to be subscribed to charge.dispute.*
+      // events for connected accounts. ──────────────────────────────────────────
+      case "charge.dispute.created":
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const acct = (event.account as string | undefined) ?? null;
+        if (!acct) break; // disputes ride the connected account
+        const { data: dShop } = await supabaseAdmin
+          .from("shops").select("id, owner_id").eq("stripe_account_id", acct).maybeSingle();
+        if (!dShop) break;
+        const pi = typeof dispute.payment_intent === "string" ? dispute.payment_intent : (dispute.payment_intent?.id ?? null);
+        let clientName: string | null = null;
+        if (pi) {
+          const { data: dAppt } = await supabaseAdmin.from("appointments").select("client_name").eq("payment_intent_id", pi).maybeSingle();
+          clientName = dAppt?.client_name ?? null;
+          if (!clientName) {
+            const { data: dTx } = await supabaseAdmin.from("transactions").select("client_name").eq("payment_intent_id", pi).limit(1).maybeSingle();
+            clientName = dTx?.client_name ?? null;
+          }
+        }
+        const status: "opened" | "won" | "lost" | "closed" =
+          event.type === "charge.dispute.created" ? "opened"
+            : dispute.status === "won" ? "won"
+              : dispute.status === "lost" ? "lost"
+                : "closed";
+        notifyDispute({
+          ownerId: dShop.owner_id ?? null,
+          shopId: dShop.id ?? null,
+          clientName,
+          amountCents: dispute.amount ?? 0,
+          status,
+          dueBy: dispute.evidence_details?.due_by ?? null,
+        });
         break;
       }
     }
