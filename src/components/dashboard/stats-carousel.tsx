@@ -5,7 +5,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 
@@ -41,6 +41,10 @@ export function StatsCarousel({
   // floored — a real loss shows as a red negative (see the Net row below).
   const netRev = netRevenue ?? (revenue - taxCollected - tips - commission);
   const [idx, setIdx] = useState(0);
+  // Revenue card keeps a CALM default — Gross → − Stripe fees → Net — and tucks the
+  // full breakdown (Collected, cash, tax, tips, commission) behind a tap.
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const hasBreakdown = cashIncluded > 0 || taxCollected > 0 || tips > 0 || commission > 0;
   const ref = useRef<HTMLDivElement>(null);
 
   // ── Datasets (from already-loaded data) ──
@@ -127,12 +131,26 @@ export function StatsCarousel({
               <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
             </>
           ) : null}
-          <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
-          {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey-muted"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
-          {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
-          {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
-          {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
+          {/* The full breakdown (Collected, cash, tax, tips, commission) stays hidden
+              until the owner taps "Show breakdown" — the default receipt is just
+              Gross → − Stripe fees → Net revenue. */}
+          {showBreakdown && (
+            <>
+              <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
+              {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey-muted"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
+              {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
+              {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
+              {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
+            </>
+          )}
           <div className="flex justify-between border-t border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-emerald-400")}>{formatCurrency(netRev)}</span></div>
+          {hasBreakdown && (
+            <button type="button" onClick={() => setShowBreakdown(v => !v)}
+              className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey-muted hover:text-foreground transition-colors">
+              {showBreakdown ? "Hide breakdown" : "Show breakdown"}
+              <ChevronDown size={12} className={cn("transition-transform", showBreakdown && "rotate-180")} />
+            </button>
+          )}
         </div>
       )}
     </div>,
