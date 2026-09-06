@@ -104,6 +104,10 @@ export default function PaymentsPage() {
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
+  // Whether the live Stripe fee map has loaded. Until it does (or if it fails),
+  // netOf() falls back to gross → Net reads HIGH. Surface that instead of showing
+  // a confident, fee-free number as if it were final.
+  const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -188,8 +192,16 @@ export default function PaymentsPage() {
         body: JSON.stringify({ shop_id: shop.id }),
       });
       const d = r.ok ? await r.json() : null;
-      if (d && !d.error) setStripeNet(d);
-    } catch { /* transient/offline — keep last known figures */ }
+      if (d && !d.error) { setStripeNet(d); setFeesStatus("ready"); }
+      // A shop with no Stripe connection has no fees to load — that's "ready", not
+      // an error (Net = gross is correct there). A real failure (or connected but
+      // errored) leaves fees unknown → flag it so Net isn't trusted as final.
+      else if (d && d.connected === false) setFeesStatus("ready");
+      else setFeesStatus(prev => (prev === "ready" ? "ready" : "error"));
+    } catch {
+      // transient/offline — keep last known figures; only flag if we never loaded.
+      setFeesStatus(prev => (prev === "ready" ? "ready" : "error"));
+    }
   }, [shop, accessToken]);
 
   const loadData = useCallback(async () => {
@@ -199,15 +211,20 @@ export default function PaymentsPage() {
     // select without it so a shop that hasn't run the migration yet still loads its
     // transaction feed (the email row just doesn't show for POS until then).
     const TX_COLS = "id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source";
+    // Limit raised 2000 → 10000: at ~30 sales/day a 3-chair shop crossed 2000 in
+    // ~10 weeks, and (ordered desc) the OLDEST rows silently dropped, so "All time"
+    // under-reported. 10000 buys ~11 months; the real fix is windowing the query to
+    // the selected period + paginating (tracked, bigger change).
+    const ROW_CAP = 10000;
     const fetchTx = async (): Promise<{ data: unknown[] | null }> => {
-      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(2000);
+      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(ROW_CAP);
       const withEmail = await run(`${TX_COLS}, client_email`);
       return withEmail.error ? await run(TX_COLS) : withEmail;
     };
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase.from("appointments")
         .select("*, services(name), barbers(name)")
-        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(2000),
+        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(ROW_CAP),
       fetchTx(),
     ]);
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -889,6 +906,16 @@ export default function PaymentsPage() {
           <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
             {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />
           </button>
+        </div>
+      )}
+
+      {/* Until the live Stripe fee map loads, Net falls back to gross (reads HIGH).
+          Say so instead of showing a confident fee-free number as final. */}
+      {!barberMode && stripeNet?.connected !== false && feesStatus !== "ready" && (
+        <div className={cn("cwp-feesnote", feesStatus === "error" && "cwp-feesnote--warn")}>
+          {feesStatus === "loading"
+            ? "Calculating Stripe fees… Net updates in a moment."
+            : "Couldn't load Stripe fees just now — Net may read a little high until it refreshes."}
         </div>
       )}
 

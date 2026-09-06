@@ -1801,6 +1801,11 @@ html[data-theme="light"] .portal .cwp-review{--rev:#a5710f}
 .cwp-review-stripe:disabled{opacity:.5}
 .cwp-review-ok{font-size:11.5px;font-weight:600;color:var(--rev);background:rgba(245,181,68,.16);border:none;border-radius:999px;padding:6px 12px;cursor:pointer}
 
+/* Fees loading/failed note under the payout line — keeps Net honest while the
+   live Stripe fee map is still loading (or failed to load). */
+.cwp-feesnote{font-size:11px;color:var(--grey-2);margin-top:6px;padding:6px 10px;border-radius:10px;background:var(--surface-overlay)}
+.cwp-feesnote--warn{color:var(--rev,#a5710f);background:rgba(245,181,68,.1)}
+
 /* statement */
 .cwp-txhead{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}
 .cwp-txhead h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--foreground)}

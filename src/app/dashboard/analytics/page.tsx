@@ -25,6 +25,17 @@ const DARK_TOOLTIP = {
 // Chart palette — medium tones chosen to read on BOTH the dark and light theme
 // (the old cream/white marks vanished on the white light-theme plot).
 const GOLD_PALETTE = ["#4a86d8","#2f9e6b","#d99a2e","#8b7bd6","#e07a5f","#64748b"];
+
+// Service ACTUALLY COLLECTED on a paid appointment, pre-tax — subtract any still-
+// owed balance_due and scale the tax to the collected fraction. Identical to the
+// Dashboard's apptServiceCollected, so charts + commission share ONE basis.
+function apptServiceCollectedOf(a: { total_amount?: number | null; tax_amount?: number | null; balance_due?: number | null }): number {
+  const total = Math.max(0, a.total_amount ?? 0);
+  const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
+  const collectedTotal = Math.max(0, total - bal);
+  const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
+  return Math.max(0, collectedTotal - collectedTax);
+}
 const STATUS_COLORS: Record<string, string> = {
   completed: "#10B981", confirmed: "#4a86d8", pending: "#F59E0B",
   cancelled: "#EF4444", "no-show": "#F97316",
@@ -87,13 +98,15 @@ export default function AnalyticsPage() {
     else /* month (default) */ since = `${iso(now).slice(0, 7)}-01`;
 
     const [txRes, apptRes, barberRes, svcRes, revApptRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }).limit(5000),
+      // Limits raised 5000 → 10000 as a stopgap; these are already period-scoped, so
+      // only a very high-volume "This Year" view would approach the cap.
+      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }).limit(10000),
       supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", since),
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("id, name").eq("shop_id", shop.id),
       // Paid/captured appointments (broad — filtered to the period by paid_at at
       // compute time), so revenue counts on the day money moved, not booked date.
-      supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).order("created_at", { ascending: false }).limit(5000),
+      supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).order("created_at", { ascending: false }).limit(10000),
     ]);
     if (txRes.data) setTransactions(txRes.data);
     if (apptRes.data) setAppointments(apptRes.data);
@@ -218,12 +231,7 @@ export default function AnalyticsPage() {
     // Dashboard fix + collectedTotals.
     const apptCommission = revenueApptsInRange.reduce((sum, a) => {
       if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
-      const total = Math.max(0, a.total_amount ?? 0);
-      const bal = Math.min(Math.max(0, (a as { balance_due?: number | null }).balance_due ?? 0), total);
-      const collectedTotal = Math.max(0, total - bal);
-      const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
-      const service = Math.max(0, collectedTotal - collectedTax);
-      return sum + (service * (pct[a.barber_id] ?? 0)) / 100;
+      return sum + (apptServiceCollectedOf(a) * (pct[a.barber_id] ?? 0)) / 100;
     }, 0);
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
       if (t2.refunded || !t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
@@ -255,42 +263,43 @@ export default function AnalyticsPage() {
     .reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const avgTicket = completedAppts > 0 ? completedApptRevenue / completedAppts : 0;
 
-  // Revenue by barber
+  // Revenue by barber — SAME basis as the money headline + the Dashboard's top
+  // barbers: collected service on paid appointments (money-moved) + POS sales,
+  // de-duped (completion/no-show excluded). No longer the raw tx sum (which mixed
+  // date bases and could double-count completion rows against the appointment).
   const barberRevenue = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const tx of filteredTx) {
-      if (!tx.barber_id) continue;
-      map[tx.barber_id] = (map[tx.barber_id] ?? 0) + tx.amount + tx.tip;
+    for (const a of revenueApptsInRange) {
+      if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) continue;
+      map[a.barber_id] = (map[a.barber_id] ?? 0) + apptServiceCollectedOf(a);
     }
-    // Fallback to appointments if no transactions
-    if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
-        map[a.barber_id] = (map[a.barber_id] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
-      }
+    for (const t of countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[])) {
+      if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") continue;
+      map[t.barber_id] = (map[t.barber_id] ?? 0) + Math.max(0, t.amount ?? 0);
     }
     return barbers.map(b => ({ name: b.name.split(" ")[0], revenue: Math.round(map[b.id] ?? 0) })).filter(b => b.revenue > 0);
-  }, [filteredTx, filteredAppts, barbers]);
+  }, [revenueApptsInRange, filteredTx, barbers]);
 
-  // Revenue by service name
+  // Revenue by service name — same collected basis: paid appointments (by service)
+  // + POS sales (by service_name), completion/no-show excluded so nothing double-
+  // counts against the appointment it belongs to.
   const serviceRevenue = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const tx of filteredTx) {
-      if (!tx.service_name) continue;
-      map[tx.service_name] = (map[tx.service_name] ?? 0) + tx.amount;
+    for (const a of revenueApptsInRange) {
+      if (!isPaid(a.payment_status) || a.status === "no-show") continue;
+      const key = (a.service_id && serviceNames[a.service_id]) || "Service";
+      map[key] = (map[key] ?? 0) + apptServiceCollectedOf(a);
     }
-    if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
-        // Resolve the service_id to its real name; fall back to "Unknown"
-        // so the chart never renders a raw UUID.
-        const key = (a.service_id && serviceNames[a.service_id]) || "Unknown";
-        map[key] = (map[key] ?? 0) + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
-      }
+    for (const t of countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[])) {
+      if (t.refunded || isNoShowTx(t) || t.source === "completion") continue;
+      const key = t.service_name || "Sale";
+      map[key] = (map[key] ?? 0) + Math.max(0, t.amount ?? 0);
     }
     return Object.entries(map)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 6)
       .map(([name, value], i) => ({ name, value, color: GOLD_PALETTE[i] ?? "#666" }));
-  }, [filteredTx, filteredAppts, serviceNames]);
+  }, [revenueApptsInRange, filteredTx, serviceNames]);
 
   // Appointment status breakdown
   const apptStatuses = useMemo(() => {

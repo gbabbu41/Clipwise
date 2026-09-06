@@ -1,8 +1,12 @@
 import Stripe from "stripe";
 
-// Server-only — never import in "use client" components
-// (apiVersion omitted → uses the SDK's pinned default)
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Server-only — never import in "use client" components.
+// apiVersion is pinned EXPLICITLY (matches this SDK's default) so a future
+// `stripe` package bump can't silently move the API version under us and change
+// behaviour. Bump this deliberately, together with the SDK, after testing.
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2026-05-27.dahlia",
+});
 
 /**
  * True when running on LIVE Stripe keys (real money). Used to gate the

@@ -108,18 +108,24 @@ export async function POST(req: NextRequest) {
     // and payouts are naturally skipped.
     const byPi: Record<string, { gross: number; fee: number; net: number }> = {};
     let startingAfter: string | undefined;
-    // Walk until Stripe says there are no more pages (was hard-capped at 6 pages /
-    // ~600 balance txns, so an established shop's older charges had no fee data and
-    // Net read too high). Bounded at 50 pages (~5,000 txns) to stay within the
-    // serverless time budget.
-    for (let page = 0; page < 50; page++) {
+    // Bound the walk by DATE, not by page count. The old page cap (50 × 100) meant
+    // a shop past ~5,000 balance txns silently lost fee data on older charges and
+    // Net read too high — the same failure we already hit once at 600. A ~13-month
+    // lookback covers every window the page can show (max preset is "This Year"
+    // plus a custom range) while capping the walk for any shop. The page-count cap
+    // stays as a hard safety stop against an unbounded loop.
+    const feeLookbackStart = Math.floor(Date.now() / 1000) - 400 * 86400;
+    for (let page = 0; page < 60; page++) {
       const list = await stripe.balanceTransactions.list(
-        { limit: 100, expand: ["data.source"], ...(startingAfter ? { starting_after: startingAfter } : {}) },
+        { limit: 100, created: { gte: feeLookbackStart }, expand: ["data.source"], ...(startingAfter ? { starting_after: startingAfter } : {}) },
         opts,
       );
       for (const bt of list.data) {
         const src = bt.source as { payment_intent?: string | null } | null;
         const pi = src && typeof src === "object" ? src.payment_intent ?? null : null;
+        // One PaymentIntent can have several balance txns (e.g. a later partial
+        // refund BT). Refund/dispute BTs carry no payment_intent, so today only the
+        // original charge BT lands here; if that changes, prefer the charge BT.
         if (pi) byPi[pi] = { gross: bt.amount / 100, fee: bt.fee / 100, net: bt.net / 100 };
       }
       if (!list.has_more) break;
