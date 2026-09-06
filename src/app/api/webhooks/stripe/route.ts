@@ -7,6 +7,7 @@ import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
 import { insertNotifications } from "@/lib/notify-server";
+import { recordRefundLedger } from "@/lib/refund-ledger";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { runServerCompletionEffects } from "@/lib/completion-server";
 import { getLocationLimit } from "@/lib/validation";
@@ -603,12 +604,15 @@ export async function POST(request: NextRequest) {
             .update({ payment_status: "refunded" })
             .eq("payment_intent_id", pi)
             .neq("payment_status", "refunded")
-            .select("shop_id, barber_id, client_name, total_amount, date")
+            .select("id, shop_id, barber_id, client_name, total_amount, tax_amount, tip_amount, date, services(name)")
             .maybeSingle();
           await supabaseAdmin.from("transactions")
             .update({ refunded: true })
             .eq("payment_intent_id", pi)
+            .neq("source", "refund")   // never flag the audit rows themselves
             .then(null, () => null);
+          // The real amount handed back (partial or full) straight from Stripe.
+          const refundedCents = ch.amount_refunded ?? ch.amount ?? 0;
           if (flipped) {
             const { data: refShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", flipped.shop_id).maybeSingle();
             notifyRefundIssued({
@@ -616,9 +620,38 @@ export async function POST(request: NextRequest) {
               barberId: flipped.barber_id ?? null,
               shopId: flipped.shop_id ?? null,
               clientName: flipped.client_name,
-              amountCents: Math.round((flipped.total_amount ?? 0) * 100),
+              amountCents: refundedCents,
               date: flipped.date,
             });
+            // Dated refund record (deduped in the helper, so an in-app refund that
+            // already wrote it is a no-op here).
+            const chargeCents = Math.round((flipped.total_amount ?? 0) * 100) + Math.round((flipped.tip_amount ?? 0) * 100);
+            const svcName = Array.isArray(flipped.services) ? (flipped.services[0]?.name ?? null) : ((flipped.services as { name?: string } | null)?.name ?? null);
+            await recordRefundLedger({
+              shopId: flipped.shop_id, barberId: flipped.barber_id, clientName: flipped.client_name,
+              serviceName: svcName,
+              refundedCents,
+              taxCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((flipped.tax_amount ?? 0) * 100) / chargeCents)) : 0,
+              tipCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((flipped.tip_amount ?? 0) * 100) / chargeCents)) : 0,
+              appointmentId: flipped.id, paymentIntentId: pi,
+            });
+          } else {
+            // POS / standalone charge refunded from the Stripe dashboard — record it
+            // from the matching transaction row (deduped by PI in the helper).
+            const { data: rtx } = await supabaseAdmin.from("transactions")
+              .select("shop_id, barber_id, client_name, service_name, amount, tax, tip")
+              .eq("payment_intent_id", pi).neq("source", "refund").limit(1).maybeSingle();
+            if (rtx?.shop_id) {
+              const chargeCents = Math.round((rtx.amount ?? 0) * 100) + Math.round((rtx.tax ?? 0) * 100) + Math.round((rtx.tip ?? 0) * 100);
+              await recordRefundLedger({
+                shopId: rtx.shop_id, barberId: rtx.barber_id, clientName: rtx.client_name,
+                serviceName: (rtx.service_name as string | null) ?? null,
+                refundedCents,
+                taxCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((rtx.tax ?? 0) * 100) / chargeCents)) : 0,
+                tipCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((rtx.tip ?? 0) * 100) / chargeCents)) : 0,
+                paymentIntentId: pi,
+              });
+            }
           }
         }
         break;

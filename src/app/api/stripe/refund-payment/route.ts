@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
+import { recordRefundLedger } from "@/lib/refund-ledger";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
@@ -82,11 +83,24 @@ export async function POST(request: NextRequest) {
     // correct immediately instead of relying on the charge.refunded webhook.
     if (appt.payment_intent_id) {
       const { error: txErr } = await supabaseAdmin.from("transactions")
-        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id);
+        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund");
       // A silent failure here (e.g. a lagging `refunded` column) means the money
       // is refunded on Stripe but the row keeps counting as revenue/commission —
       // log it so the drift is visible instead of vanishing.
       if (txErr) console.warn("[refund-payment] failed to flag transaction refunded:", txErr.message);
+    }
+
+    // Dated refund record for the audit trail + GST/HST claim-back (M6).
+    {
+      const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
+      const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
+      const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
+      await recordRefundLedger({
+        shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
+        serviceName: (appt.services as { name: string } | null)?.name ?? null,
+        refundedCents, taxCents: taxPart, tipCents: tipPart,
+        appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+      });
     }
     if (!served) {
       fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
@@ -124,7 +138,7 @@ export async function POST(request: NextRequest) {
 
   // ── POS / standalone transaction refund ─────────────────────────────────────
   const { data: tx } = await supabaseAdmin
-    .from("transactions").select("id, shop_id, payment_intent_id, refunded, amount, client_name, barber_id, created_at").eq("id", transaction_id!).single();
+    .from("transactions").select("id, shop_id, payment_intent_id, refunded, amount, tax, tip, service_name, client_name, barber_id, created_at").eq("id", transaction_id!).single();
   if (!tx) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
 
   const { data: shop } = await supabaseAdmin
@@ -148,6 +162,21 @@ export async function POST(request: NextRequest) {
     }
   }
   await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
+
+  // Dated refund record for the audit trail + GST/HST claim-back (M6). Split by the
+  // POS row's own service / tax / tip.
+  {
+    const chargeCents = Math.round((tx.amount ?? 0) * 100) + Math.round((tx.tax ?? 0) * 100) + Math.round((tx.tip ?? 0) * 100);
+    const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((tx.tax ?? 0) * 100) / chargeCents)) : 0;
+    const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((tx.tip ?? 0) * 100) / chargeCents)) : 0;
+    await recordRefundLedger({
+      shopId: tx.shop_id, barberId: tx.barber_id, clientName: tx.client_name,
+      serviceName: (tx.service_name as string | null) ?? null,
+      refundedCents, taxCents: taxPart, tipCents: tipPart,
+      paymentIntentId: tx.payment_intent_id,
+    });
+  }
+
   notifyRefundIssued({
     ownerId: shop.owner_id,
     barberId: tx.barber_id,

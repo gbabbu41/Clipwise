@@ -65,6 +65,11 @@ export function countablePosTxs<T extends RevTx>(appts: RevAppt[], txs: T[]): T[
     // appointment counts its full total once balance_due hits 0), so it must NOT
     // also count here as a standalone POS sale.
     if (t.source === "balance") return false;
+    // A "refund" tx is an AUDIT-ONLY dated record of money handed back (see
+    // lib/refund-ledger). The revenue reduction already happens via the original
+    // row's refunded flag / payment_status, so this must NEVER count as income —
+    // otherwise a refund would be subtracted twice.
+    if (t.source === "refund") return false;
     if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
     return true;
   });

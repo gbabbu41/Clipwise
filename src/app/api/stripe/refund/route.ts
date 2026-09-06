@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
+import { recordRefundLedger } from "@/lib/refund-ledger";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
@@ -26,11 +27,10 @@ export async function POST(request: NextRequest) {
     .from("shops").select("id, name, email, slug, owner_id, stripe_account_id").eq("id", appt.shop_id).single();
   if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // 30-day window
-  const apptDate = new Date(appt.date);
-  const daysSince = (Date.now() - apptDate.getTime()) / 86400000;
-  if (daysSince > 30) return NextResponse.json({ error: "Refunds are only available within 30 days of the appointment." }, { status: 400 });
-
+  // No self-imposed time limit (was a 30-day block measured from the appointment
+  // DATE — inconsistent with the other refund route, which had none, and stricter
+  // than Stripe's own ~180-day window). Stripe enforces its real limit and returns
+  // an error we surface; that's the one source of truth for "too old to refund".
   if (appt.payment_status === "refunded") return NextResponse.json({ error: "This appointment was already refunded." }, { status: 400 });
 
   // Report the amount actually refunded (a no-show fee refund returns only the
@@ -75,8 +75,23 @@ export async function POST(request: NextRequest) {
     // charge.refunded webhook (which may be missed or not registered as a
     // Connect event). Best-effort; the webhook still syncs as a backstop.
     if (appt.payment_intent_id) {
-      await supabaseAdmin.from("transactions")
-        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).then(null, () => null);
+      const { error: txErr } = await supabaseAdmin.from("transactions")
+        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund");
+      if (txErr) console.warn("[refund] failed to flag transaction refunded:", txErr.message);
+    }
+
+    // Dated refund record for the audit trail + GST/HST claim-back (M6). Split the
+    // refunded amount into service / tax / tip by the appointment's own ratio.
+    {
+      const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
+      const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
+      const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
+      await recordRefundLedger({
+        shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
+        serviceName: (appt.services as { name: string } | null)?.name ?? null,
+        refundedCents, taxCents: taxPart, tipCents: tipPart,
+        appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+      });
     }
 
     // In-app alert to owner + barber (realtime pop-up + chime).
