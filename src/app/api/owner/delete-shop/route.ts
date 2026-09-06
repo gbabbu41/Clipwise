@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("id, name, owner_id, stripe_subscription_id, subscription_plan")
+    .select("id, name, owner_id, stripe_subscription_id, subscription_plan, stripe_account_id")
     .eq("id", shop_id)
     .single();
   if (!shop || shop.owner_id !== user.id) {
@@ -51,6 +52,21 @@ export async function POST(request: NextRequest) {
   // Erase the shop's uploaded files (public buckets → orphans stay fetchable).
   await deleteShopLogoFile(shop_id);
   for (const b of shopBarbers ?? []) if (b.id) await deleteBarberPhotoFile(b.id);
+
+  // Tear down the shop's Stripe CONNECTED account so we don't leave an orphaned
+  // Express merchant record with no shop behind it (a KYC record for a business
+  // that no longer exists). Express accounts are platform-managed, so this deletes
+  // the connected account only — it never touches a person's own Stripe login.
+  // Best-effort: the shop is already gone, and Stripe refuses to delete an account
+  // that still holds a balance, so a failure here must NOT fail the deletion — log
+  // it and move on (leaves at worst the same orphan we have today).
+  if (shop.stripe_account_id) {
+    try {
+      await stripe.accounts.del(shop.stripe_account_id);
+    } catch (err) {
+      console.warn("[delete-shop] could not delete Stripe connected account", shop.stripe_account_id, err instanceof Error ? err.message : err);
+    }
+  }
 
   // A barber whose ONLY shop was this one should lose their login too. One who
   // also works at another shop (same login) keeps their account — only this

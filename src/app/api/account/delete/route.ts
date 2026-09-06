@@ -28,12 +28,24 @@ export async function POST(request: NextRequest) {
   // billing hiccup must never block a privacy erasure request). Subscriptions
   // live on the platform account, so no connected-account opts.
   const { data: shops } = await supabaseAdmin
-    .from("shops").select("id, stripe_subscription_id").eq("owner_id", user.id);
+    .from("shops").select("id, stripe_subscription_id, stripe_account_id").eq("owner_id", user.id);
   const subIds = Array.from(
     new Set((shops ?? []).map(s => s.stripe_subscription_id).filter(Boolean)),
   ) as string[];
   for (const sub of subIds) {
     await stripe.subscriptions.cancel(sub).catch(() => {});
+  }
+
+  // Tear down each shop's Stripe CONNECTED (Express) account too, so erasure
+  // doesn't leave orphaned merchant/KYC records behind. Platform-managed, so this
+  // deletes only the connected account, never a person's own Stripe login.
+  // Best-effort (Stripe refuses to delete an account holding a balance) — a
+  // failure must never block a right-to-erasure request.
+  const acctIds = Array.from(
+    new Set((shops ?? []).map(s => s.stripe_account_id).filter(Boolean)),
+  ) as string[];
+  for (const acct of acctIds) {
+    await stripe.accounts.del(acct).catch(() => {});
   }
 
   // Capture the barbers across all of this owner's shops BEFORE the delete —
