@@ -739,57 +739,59 @@ export default function DashboardPage() {
                 active ? "bg-accent text-black border-accent" : "bg-card text-grey border-border hover:text-foreground",
               );
               return (
-                <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {DAILY.map((k) => (
-                    <button key={k} type="button" className={pill(dateFilter === k)}
-                      onClick={() => { setDateFilter(k); setSelectedCalDate(null); }}>
-                      {DATE_FILTER_LABELS[k]}
-                    </button>
-                  ))}
-                  <div className="relative flex-none">
+                // z-40 lifts the whole filter above the carousel; the menu + picker
+                // live OUTSIDE the horizontal-scroll row so its overflow can't clip them.
+                <div className="relative z-40">
+                  <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {DAILY.map((k) => (
+                      <button key={k} type="button" className={pill(dateFilter === k)}
+                        onClick={() => { setDateFilter(k); setSelectedCalDate(null); }}>
+                        {DATE_FILTER_LABELS[k]}
+                      </button>
+                    ))}
                     <button type="button" className={pill(moreActive)} onClick={() => setFilterMenuOpen((o) => !o)}>
                       {moreActive ? DATE_FILTER_LABELS[dateFilter] : "More"}
                       <ChevronDown size={14} />
                     </button>
-                    {filterMenuOpen && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
-                        <div className="cwd-menu cwd-menu--right">
-                          {MORE.map((k) => (
-                            <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
-                              onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
-                              {DATE_FILTER_LABELS[k]}
-                            </button>
-                          ))}
-                          <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
-                          <button type="button" className="flex items-center gap-2"
-                            onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
-                            <Calendar size={14} /> Pick a date…
-                          </button>
-                        </div>
-                      </>
-                    )}
-                    {showDatePicker && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
-                        <div className="absolute right-0 top-full mt-2 z-40 w-[320px] max-w-[calc(100vw-2.5rem)]">
-                          <CalendarPicker
-                            className="shadow-xl w-full max-w-none"
-                            value={new Date(filterDateRange[0] + "T00:00:00")}
-                            minDate={null}
-                            onChange={(d) => {
-                              const ds = formatDateForDb(d);
-                              setCustomStart(ds);
-                              setCustomEnd(ds);
-                              setDateFilter("custom" as DateFilterKey);
-                              setSelectedCalDate(null);
-                              setShowDatePicker(false);
-                            }}
-                          />
-                        </div>
-                      </>
-                    )}
                   </div>
+                  {filterMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setFilterMenuOpen(false)} />
+                      <div className="cwd-menu cwd-menu--right" style={{ zIndex: 50 }}>
+                        {MORE.map((k) => (
+                          <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
+                            onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
+                            {DATE_FILTER_LABELS[k]}
+                          </button>
+                        ))}
+                        <div className="my-1 mx-1 h-px bg-[var(--cwd-div)]" />
+                        <button type="button" className="flex items-center gap-2"
+                          onClick={() => { setFilterMenuOpen(false); setShowDatePicker(true); }}>
+                          <Calendar size={14} /> Pick a date…
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {showDatePicker && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowDatePicker(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-50 w-[320px] max-w-[calc(100vw-2.5rem)]">
+                        <CalendarPicker
+                          className="shadow-xl w-full max-w-none"
+                          value={new Date(filterDateRange[0] + "T00:00:00")}
+                          minDate={null}
+                          onChange={(d) => {
+                            const ds = formatDateForDb(d);
+                            setCustomStart(ds);
+                            setCustomEnd(ds);
+                            setDateFilter("custom" as DateFilterKey);
+                            setSelectedCalDate(null);
+                            setShowDatePicker(false);
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })()}
