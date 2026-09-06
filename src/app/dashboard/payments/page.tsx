@@ -465,7 +465,14 @@ export default function PaymentsPage() {
         // No-show penalty fees aren't the barber's earnings — exclude them so this
         // per-barber view matches what the barber sees in their own portal.
         && t.source !== "no_show" && !(t.service_name ?? "").startsWith("No-show fee"))
-        .map(t => ({ ...t, ts: new Date(t.created_at).getTime() }))
+        // Net the barber's card fee from the SAME live Stripe fees (byPi) the owner
+        // view uses — the stored stripe_fee is 0 on many rows, which made this
+        // per-barber view (and the barber's own portal) read a higher take-home
+        // than the owner's real net. Prefer the live fee; fall back to stored.
+        .map(t => {
+          const live = t.payment_intent_id ? stripeNet?.byPi?.[t.payment_intent_id]?.fee : undefined;
+          return { ...t, stripe_fee: (typeof live === "number" && live > 0) ? live : t.stripe_fee, ts: new Date(t.created_at).getTime() };
+        })
     : [];
   // Earnings for one window = the shared barber-earnings math over that barber's
   // transactions in [from, to], plus a per-bucket take-home series for the spark.

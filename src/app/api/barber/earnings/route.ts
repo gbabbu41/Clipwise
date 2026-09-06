@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { computeBarberEarnings } from "@/lib/barber-earnings";
+import { fetchStripeByPi } from "@/lib/stripe-fees";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -76,6 +77,26 @@ export async function GET(request: NextRequest) {
   const isNoShowFee = (t: { source?: string | null; service_name?: string | null }) =>
     t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
   const list = (transactions ?? []).filter(t => !t.refunded && !isNoShowFee(t));
+
+  // Net the barber's card fee from the SAME live Stripe source the owner's
+  // Payments page uses — the stored `stripe_fee` column is 0 on many older rows,
+  // which made the barber's take-home read higher than what the owner sees for the
+  // same charge. Pull the real fee per PaymentIntent and prefer it; fall back to
+  // the stored value if Stripe can't be reached. Only worth a lookup when a card
+  // row is actually missing its stored fee.
+  const needsFee = list.some(t => t.payment_method !== "cash" && t.payment_intent_id && !(Number(t.stripe_fee) > 0));
+  if (needsFee && effShopId) {
+    const { data: feeShop } = await supabaseAdmin
+      .from("shops").select("stripe_account_id, stripe_connected").eq("id", effShopId).maybeSingle();
+    if (feeShop?.stripe_account_id && feeShop.stripe_connected) {
+      const byPi = await fetchStripeByPi(feeShop.stripe_account_id);
+      for (const t of list) {
+        const pi = t.payment_intent_id as string | null;
+        const live = pi ? byPi[pi]?.fee : undefined;
+        if (typeof live === "number" && live > 0) t.stripe_fee = live;
+      }
+    }
+  }
   const e = computeBarberEarnings(list, commissionPercent);
 
   return NextResponse.json({
