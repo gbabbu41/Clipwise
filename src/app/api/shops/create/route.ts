@@ -123,7 +123,11 @@ export async function POST(request: NextRequest) {
     // Loyalty starts OFF for a NEW shop — the owner turns it on + sets the rate in
     // Loyalty settings. (Existing shops with no config are left untouched: the code
     // still treats a null config as on-by-default, so this only affects new signups.)
-    booking_settings: { loyalty: { enabled: false } },
+    // The day-before (24h) appointment reminder starts ON — it cuts no-shows and
+    // costs nothing (email on every plan; SMS only fires on paid plans). The
+    // same-day (4h) reminder follows this toggle and auto-activates once the cron
+    // runs frequently enough (a Pro/external schedule) — no redeploy needed.
+    booking_settings: { loyalty: { enabled: false }, reminders: { appointment_24h: true } },
     status,
     subscription_plan: plan,
     subscription_status: subscriptionStatus,

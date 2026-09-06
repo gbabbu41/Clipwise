@@ -128,7 +128,7 @@ async function run() {
       }
     }
 
-    // ── 2-hour reminder (SMS + email, ~2h before the appointment) ────────────
+    // ── 4-hour reminder (SMS + email, ~4h before the appointment) ────────────
     // On Vercel Hobby this cron only runs daily, so this block stays DORMANT (a
     // daily run's "gap since last run" is ~24h → the frequency gate below is
     // false). It AUTO-ACTIVATES the moment the cron starts running often — a
@@ -136,16 +136,16 @@ async function run() {
     // endpoint every 15–30 min with x-cron-secret. No code change, no toggle, no
     // redeploy needed: the owner just tightens the schedule and it turns on.
     //
-    // Idempotent by a per-shop checkpoint (booking_settings.reminders._h2_last_ms):
-    // each appointment's "2h before" instant is crossed by exactly ONE run's
-    // window (2 − gap < h ≤ 2), so the customer is texted once even under a
+    // Idempotent by a per-shop checkpoint (booking_settings.reminders._sameday_last_ms):
+    // each appointment's "4h before" instant is crossed by exactly ONE run's
+    // window (4 − gap < h ≤ 4), so the customer is messaged once even under a
     // 15-min cron. Defaults to follow the day-before toggle, so a shop that has
     // reminders on gets this for free once the schedule is frequent.
     const rm = reminders as Record<string, unknown>;
-    const want2h = (rm.appointment_2h as boolean | undefined) ?? reminders.appointment_24h;
-    if (want2h) {
+    const want4h = (rm.appointment_4h as boolean | undefined) ?? reminders.appointment_24h;
+    if (want4h) {
       const nowMs = Date.now();
-      const lastMs = Number(rm._h2_last_ms ?? 0);
+      const lastMs = Number(rm._sameday_last_ms ?? 0);
       const gapH = lastMs ? (nowMs - lastMs) / 3_600_000 : Infinity;
       // "Frequent enough" = the previous run was within ~100 min. A daily cron's
       // ~24h gap fails this, keeping the whole block dormant until upgrade.
@@ -157,10 +157,10 @@ async function run() {
         for (const a of soon ?? []) {
           if (sends >= MAX_SENDS) break;
           const h = hoursUntilBooking(a.date, a.time_slot, tz);
-          // Fire once, when "2h before" fell between the last run and now:
-          // 2 − gap < h ≤ 2, never for a past appointment. Window width = the
+          // Fire once, when "4h before" fell between the last run and now:
+          // 4 − gap < h ≤ 4, never for a past appointment. Window width = the
           // cron gap, so consecutive runs tile the timeline without overlap.
-          if (h > 0 && h <= 2 && h > 2 - gapH) {
+          if (h > 0 && h <= 4 && h > 4 - gapH) {
             const when = a.time_slot ?? "";
             // shop name is prepended by sendSmsBestEffort, so it's not repeated
             // in the body; one GSM-7 segment.
@@ -185,7 +185,7 @@ async function run() {
       const bs = ((fresh?.booking_settings ?? shop.booking_settings) as Record<string, unknown> | null) ?? {};
       const freshRm = (bs.reminders as Record<string, unknown> | null) ?? {};
       await supabaseAdmin.from("shops").update({
-        booking_settings: { ...bs, reminders: { ...freshRm, _h2_last_ms: nowMs } },
+        booking_settings: { ...bs, reminders: { ...freshRm, _sameday_last_ms: nowMs } },
       }).eq("id", shop.id).then(null, () => null);
     }
 

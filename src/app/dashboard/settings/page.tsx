@@ -520,7 +520,7 @@ export default function SettingsPage() {
     // this tab, so it would be confusing to have separate save buttons.
     // MERGE onto the existing blob (don't replace) — the form only knows its own
     // fields, so a wholesale write wiped internal keys the server owns (e.g. the
-    // reminder cron's `_h2_last_ms` bookkeeping). Shallow-merge top level, and
+    // reminder cron's `_sameday_last_ms` bookkeeping). Shallow-merge top level, and
     // deep-merge `reminders` so that scheduler state survives every save.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingBS = ((shop.booking_settings ?? {}) as Record<string, any>);
