@@ -1479,7 +1479,9 @@ textarea:focus-visible {
 .cwd-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
 /* Match the inline page headers used on the other ~25 pages
    (text-2xl / font-bold / tracking-wide) so every portal header is identical. */
-.cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:0.025em; text-transform:uppercase; color:var(--foreground); line-height:1.2; }
+/* Owner page title — matched to the barber portal's title (text-2xl / bold /
+   tracking-tight, title-case) instead of the old loud uppercase label. */
+.cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:-0.025em; text-transform:none; color:var(--foreground); line-height:1.25; }
 /* Home greeting (shop name): title-case, tight tracking, 20px mobile / 24px
    desktop — matches the barber portal's "Hi, …" so it reads as a calm greeting
    under the top bar, not a loud uppercase block. Scoped with .cwd-greeting so the

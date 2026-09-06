@@ -479,10 +479,10 @@ export function Sidebar() {
             every other page — where this is the only heading on mobile — uses a small
             but SOLID dark title so the page never reads headless. */}
         <h1 className={cn(
-          "flex-1 min-w-0 truncate",
+          "flex-1 min-w-0 truncate tracking-tight",
           pathname === "/dashboard"
             ? "text-[15px] font-semibold text-grey"
-            : "text-[17px] font-semibold text-foreground",
+            : "text-xl font-bold text-foreground",
         )}>{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
             again (while on it) to return where you were. Owner-only, matching the
