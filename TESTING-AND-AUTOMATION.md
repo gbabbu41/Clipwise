@@ -255,3 +255,23 @@ WHERE schemaname='public' AND tablename IN ('shops','barbers') AND cmd='SELECT';
   propose-first, human-approved.
 - **Cross-refs:** go-live + security items live in `TODO.md §0`; subsystem how-it-works in
   `KNOWLEDGE-BOOK.md`.
+
+---
+
+## Results — 2026-09-06 (Section B, read-only)
+
+Run against `avetaceptfpdovkuihcf`. No data changed.
+
+| Check | Result | Healthy | Verdict |
+|---|---|---|---|
+| B1 corrupt commission rows | 3 (max stored $16,329.60) | 0 | ⚠️ data only — clamped on-screen by `safeCommission`, no wrong number shown. Optional backfill + check-constraint. |
+| B2 refunded appt, tx not flagged | 0 | 0 | ✅ clean (was 7; backfilled + `charge.refunded` webhook now enabled). |
+| B3 stuck expired trials | 1 (Dope Cuts) | 0 | ✅ not a bug — expired 0.5h ago; the downgrade cron runs 13:00 UTC, so it clears at the next run. Transient. |
+| B4 approved shops missing 24h reminder | 0 | 0 | ✅ clean (backfilled + new-shop default). |
+| B5 approved shops that can't book | 3 | 0 | ⚠️ dead booking pages — **Zip cuts** (0 barbers/0 services), **Riverview** (1 barber, 0 services), **Cut and nut** (0/0). Almost certainly test shops; complete or set to `pending` before live. |
+| B6 trial audit | 5 trialed: 1 auto-expiry, 1 manual downgrade (New lane), 1 converted, +Dope Cuts now expiring | — | ℹ️ informational. |
+| B7 card tx with no stored fee | 46 | informational | ℹ️ historical rows; now netted live from Stripe (`fetchStripeByPi`). Full column backfill optional. |
+| B8 unrecorded Stripe payments | (detector) | — | ℹ️ automated + read-only at `api/stripe/unrecorded-payments`; nothing to run here. |
+| B9 public PII SELECT policies | 2 (`shops`, `barbers`) | 0 pre-live | ⚠️ anon PII read leak still open — fix before real owners onboard (TODO §0). |
+
+**Net:** only two things a human should act on — **B5** (tidy/complete the 3 dead test shops) and **B9** (close the PII read leak before live). B1/B7 are harmless data hygiene; B3 is transient; B2/B4 are clean.
