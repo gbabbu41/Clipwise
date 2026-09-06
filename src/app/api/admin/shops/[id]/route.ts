@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     status?: string; rejection_reason?: string; subscription_plan?: string; admin_note?: string;
   };
 
-  const { data: shop } = await supabaseAdmin.from("shops").select("name, status, subscription_plan").eq("id", id).maybeSingle();
+  const { data: shop } = await supabaseAdmin.from("shops").select("name, status, subscription_plan, trial_ends_at, trial_ended_at").eq("id", id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // ── Status change ──
@@ -78,7 +78,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const newPlan = body.subscription_plan as string;
     const planUpdate: Record<string, unknown> = { subscription_plan: newPlan };
     planUpdate.subscription_status = newPlan === "starter" ? "inactive" : "active";
-    if (newPlan === "starter") planUpdate.trial_ends_at = null;
+    if (newPlan === "starter") {
+      planUpdate.trial_ends_at = null;
+      // Keep a permanent record of when a trial ended even on a manual admin
+      // downgrade (matches processTrials) — only if a trial was running and no end
+      // is recorded yet, so we don't overwrite a real end date.
+      if (shop.trial_ends_at && !shop.trial_ended_at) planUpdate.trial_ended_at = shop.trial_ends_at;
+    }
     const { error } = await supabaseAdmin.from("shops").update(planUpdate).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await logAdminAction(admin, {

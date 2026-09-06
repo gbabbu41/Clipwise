@@ -230,6 +230,16 @@ export default function AdminPage() {
   // "approved") never count. This keeps "Your MRR" honest — the number you'd
   // quote to an investor — instead of overstating it by counting trials. ──
   const isTrialing = (s: ShopWithOwner) => !!s.trial_ends_at && new Date(s.trial_ends_at) > new Date();
+  // Billing lifecycle pill for the shops list — at-a-glance who's trialing, active,
+  // past due, or has churned out of a trial onto free Starter.
+  const billingPill = (s: ShopWithOwner): { text: string; cls: string } | null => {
+    if (s.status !== "approved") return null;
+    if (isTrialing(s)) return { text: "Trialing", cls: "bg-sky-500/15 text-sky-300" };
+    if (s.subscription_status === "past_due") return { text: "Past due", cls: "bg-red-500/15 text-red-300" };
+    if (s.subscription_status === "active") return { text: "Active", cls: "bg-emerald-500/15 text-emerald-300" };
+    if (s.trial_used) return { text: "Trial expired", cls: "bg-amber-500/15 text-amber-300" };
+    return null;
+  };
   const billingShops = shops.filter((s) => s.status === "approved" && s.subscription_status === "active" && !isTrialing(s));
   const trialingShops = shops.filter((s) => s.status === "approved" && isTrialing(s));
   const rejectedCount = shops.filter((s) => s.status === "rejected").length;
@@ -501,7 +511,10 @@ export default function AdminPage() {
                         <td className="px-3 py-3 text-sm text-gray-300">{s.users?.name ?? "—"}</td>
                         <td className="px-3 py-3 text-sm text-gray-300">{s.city}, {s.province}</td>
                         <td className="px-3 py-3">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-gray-300 capitalize">{s.subscription_plan}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-gray-300 capitalize">{s.subscription_plan}</span>
+                            {(() => { const b = billingPill(s); return b ? <span className={`text-xs px-2 py-0.5 rounded-full ${b.cls}`}>{b.text}</span> : null; })()}
+                          </div>
                         </td>
                         <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
                         <td className="px-3 py-3 text-xs text-[#8f8f8f]">{s.created_at.slice(0, 10)}</td>

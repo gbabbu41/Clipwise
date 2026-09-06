@@ -30,20 +30,55 @@ export function TrialBanner() {
     } catch { setSnoozed(false); }
   }, [shopId]);
 
-  if (!shop?.trial_ends_at || shop.stripe_subscription_id) return null;
-  const endMs = new Date(shop.trial_ends_at).getTime();
-  if (Number.isNaN(endMs)) return null;
-  const daysLeft = Math.ceil((endMs - Date.now()) / 86_400_000);
-  if (daysLeft <= 0) return null;
-  if (snoozed) return null;
+  if (shop?.stripe_subscription_id) return null; // real subscriber — no trial UI
 
-  const urgent = daysLeft <= 3;
-  const label = daysLeft === 1 ? "1 day" : `${daysLeft} days`;
+  const endMs = shop?.trial_ends_at ? new Date(shop.trial_ends_at).getTime() : NaN;
+  const daysLeft = Number.isNaN(endMs) ? -1 : Math.ceil((endMs - Date.now()) / 86_400_000);
+  const activeTrial = !!shop?.trial_ends_at && !Number.isNaN(endMs) && daysLeft > 0;
+
+  // Trial is OVER (used a trial, no active countdown, not currently paying) → the
+  // shop has dropped to free Starter. Shown even when `trial_ended_at` wasn't
+  // stamped (older/manual downgrades), by leaning on `trial_used`.
+  const trialEnded = !activeTrial
+    && !!shop?.trial_used
+    && shop?.subscription_status !== "active";
+
+  if (!activeTrial && !trialEnded) return null;
+  if (snoozed) return null;
 
   const snooze = () => {
     try { if (shopId) localStorage.setItem(`cw_trial_snooze_${shopId}`, String(Date.now())); } catch { /* storage unavailable */ }
     setSnoozed(true);
   };
+
+  // ── Trial ENDED → on free Starter. Persistent (but snoozable) nudge to add a card.
+  if (trialEnded) {
+    const endedOn = shop?.trial_ended_at
+      ? new Date(shop.trial_ended_at).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" })
+      : null;
+    return (
+      <div className="px-4 md:px-6 pt-4">
+        <div className="flex items-start gap-3 border rounded-2xl p-4 bg-amber-500/10 border-amber-500/30 text-amber-300">
+          <Clock size={18} className="flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">
+              Your free trial has ended{endedOn ? ` (${endedOn})` : ""} — you&rsquo;re on the free Starter plan
+            </p>
+            <p className="text-xs opacity-80 mt-0.5">
+              Add a card to switch your paid features back on (online payments, POS, loyalty &amp; extra barbers). Your account &amp; bookings are safe.
+            </p>
+            <Link href="/dashboard/billing" className="inline-flex items-center gap-1 text-xs font-semibold mt-2 hover:underline">
+              Add your card <ArrowRight size={13} />
+            </Link>
+          </div>
+          <button onClick={snooze} className="text-sm leading-none opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Dismiss for now">✕</button>
+        </div>
+      </div>
+    );
+  }
+
+  const urgent = daysLeft <= 3;
+  const label = daysLeft === 1 ? "1 day" : `${daysLeft} days`;
 
   const tone = urgent
     ? "bg-red-500/10 border-red-500/30 text-red-300"
