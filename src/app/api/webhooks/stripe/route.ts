@@ -691,6 +691,52 @@ export async function POST(request: NextRequest) {
           status,
           dueBy: dispute.evidence_details?.due_by ?? null,
         });
+
+        // A LOST dispute = money truly gone from the shop's balance. Stripe fires
+        // charge.dispute.*, NOT charge.refunded, so nothing else corrects the books.
+        // Reverse it the SAME way a refund does — flag the charge refunded (revenue +
+        // commission drop, consistent with a refund) and write the dated refund /
+        // GST-claim-back ledger row. An OPENED dispute (money only held) or a WON one
+        // (money returned) changes nothing. Deduped by the ledger's PI check.
+        if (status === "lost" && pi) {
+          const lostCents = dispute.amount ?? 0;
+          await supabaseAdmin.from("appointments")
+            .update({ payment_status: "refunded" })
+            .eq("payment_intent_id", pi).neq("payment_status", "refunded").then(null, () => null);
+          await supabaseAdmin.from("transactions")
+            .update({ refunded: true })
+            .eq("payment_intent_id", pi).neq("source", "refund").then(null, () => null);
+          const { data: dA } = await supabaseAdmin.from("appointments")
+            .select("id, shop_id, barber_id, client_name, total_amount, tax_amount, tip_amount, services(name)")
+            .eq("payment_intent_id", pi).maybeSingle();
+          if (dA?.shop_id) {
+            const chargeCents = Math.round((dA.total_amount ?? 0) * 100) + Math.round((dA.tip_amount ?? 0) * 100);
+            const svc = Array.isArray(dA.services) ? (dA.services[0]?.name ?? null) : ((dA.services as { name?: string } | null)?.name ?? null);
+            await recordRefundLedger({
+              shopId: dA.shop_id, barberId: dA.barber_id, clientName: dA.client_name,
+              serviceName: svc ? `${svc} (chargeback)` : "Chargeback",
+              refundedCents: lostCents,
+              taxCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dA.tax_amount ?? 0) * 100) / chargeCents)) : 0,
+              tipCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dA.tip_amount ?? 0) * 100) / chargeCents)) : 0,
+              appointmentId: dA.id, paymentIntentId: pi,
+            });
+          } else {
+            const { data: dTx } = await supabaseAdmin.from("transactions")
+              .select("shop_id, barber_id, client_name, service_name, amount, tax, tip")
+              .eq("payment_intent_id", pi).neq("source", "refund").limit(1).maybeSingle();
+            if (dTx?.shop_id) {
+              const chargeCents = Math.round((dTx.amount ?? 0) * 100) + Math.round((dTx.tax ?? 0) * 100) + Math.round((dTx.tip ?? 0) * 100);
+              await recordRefundLedger({
+                shopId: dTx.shop_id, barberId: dTx.barber_id, clientName: dTx.client_name,
+                serviceName: dTx.service_name ? `${dTx.service_name} (chargeback)` : "Chargeback",
+                refundedCents: lostCents,
+                taxCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dTx.tax ?? 0) * 100) / chargeCents)) : 0,
+                tipCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dTx.tip ?? 0) * 100) / chargeCents)) : 0,
+                paymentIntentId: pi,
+              });
+            }
+          }
+        }
         break;
       }
     }

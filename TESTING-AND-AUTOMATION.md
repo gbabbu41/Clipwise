@@ -341,6 +341,13 @@ until flipped. `e2e/clipwise-e2e.mjs` is route/login smoke only (no payment code
 - **F8 ✅ fixed** — the 3 corrupt commission rows recomputed to the correct cut (17.50 /
   17.50 / 12.50 for Gill @ 50%). Optional follow-up: a `commission_amount <= amount` CHECK
   constraint (a migration — left for the owner to run).
-- **Still open (need a human / bigger call):** F1/A5 (sandbox-test the refund path), F3
-  (dispute → adjust books, not just notify), F5/F6 (legacy hygiene), Interac on Terminal,
-  and the pre-live items (money-safety gates, PII leak, platform webhook).
+- **F3 ✅ fixed** — a LOST chargeback now reverses the books the same way a refund does:
+  the webhook flags the charge refunded (revenue + commission drop) and writes the dated
+  refund/GST-claim-back ledger row (labelled "(chargeback)"). Opened/won disputes change
+  nothing. Commission claws back automatically (consistent with refunds). NOTE: this only
+  fires once the platform webhook delivers `charge.dispute.*` for connected accounts — the
+  connected-accounts endpoint carries them, so it's live in sandbox now.
+- **Still open (need a human / bigger call):** F1/A5 (sandbox-test the refund path — the
+  refund + now the dispute reversal both share that code, so proving A5 covers both),
+  F5/F6 (legacy hygiene), Interac on Terminal, and the pre-live items (money-safety gates,
+  PII leak, platform webhook for subscriptions/dunning).
