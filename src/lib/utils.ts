@@ -449,6 +449,7 @@ export function getSlotsInRange(
 
 export type DateFilterKey =
   | "today"
+  | "yesterday"
   | "this-week"
   | "this-month"
   | "last-month"
@@ -459,6 +460,7 @@ export type DateFilterKey =
 
 export const DATE_FILTER_LABELS: Record<DateFilterKey, string> = {
   "today": "Today",
+  "yesterday": "Yesterday",
   "this-week": "This Week",
   "this-month": "This Month",
   "last-month": "Last Month",
@@ -481,6 +483,12 @@ export function getDateRange(
   switch (filter) {
     case "today":
       return [today, today];
+    case "yesterday": {
+      const y = startOf(new Date(now));
+      y.setDate(now.getDate() - 1);
+      const ys = formatDateForDb(y);
+      return [ys, ys];
+    }
     case "this-week": {
       const s = startOf(new Date(now));
       s.setDate(now.getDate() - now.getDay());

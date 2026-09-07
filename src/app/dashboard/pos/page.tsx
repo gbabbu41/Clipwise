@@ -206,7 +206,6 @@ export default function POSPage() {
     return 0;
   }, []);
   const needsPayment = useCallback((a: AppointmentWithDetails) => outstandingOf(a) > 0, [outstandingOf]);
-  const apptNeedCount = useMemo(() => appts.filter(needsPayment).length, [appts, needsPayment]);
 
   // NEEDS PAYMENT on top, grouped by day (Today first, then most-recent day back),
   // each day's appointments by time; then TODAY's already-PAID at the bottom. So
@@ -1009,7 +1008,7 @@ export default function POSPage() {
               <button type="button" onClick={() => setPosTab("appointments")}
                 className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
                   posTab === "appointments" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
-                Appointments{apptNeedCount > 0 ? ` (${apptNeedCount})` : ""}
+                Appointments
               </button>
               <button type="button" onClick={() => setPosTab("services")}
                 className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
@@ -1020,7 +1019,7 @@ export default function POSPage() {
                 <button type="button" onClick={() => setPosTab("products")}
                   className={cn("flex-1 h-9 rounded-lg text-sm font-semibold transition-colors",
                     posTab === "products" ? "bg-white text-black" : "text-grey hover:text-foreground")}>
-                  Products ({inventory.length})
+                  Products
                 </button>
               )}
             </div>

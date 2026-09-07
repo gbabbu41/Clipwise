@@ -732,7 +732,7 @@ export default function DashboardPage() {
                 card the way the old overlaid dropdown did. */}
             {(() => {
               const DAILY: DateFilterKey[] = ["today", "this-week", "this-month", "this-year"];
-              const MORE: DateFilterKey[] = ["last-month", "last-3-months", "last-6-months"];
+              const MORE: DateFilterKey[] = ["yesterday", "last-month", "last-3-months", "last-6-months"];
               const moreActive = MORE.includes(dateFilter) || dateFilter === "custom";
               const pill = (active: boolean) => cn(
                 "flex-none inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-[12.5px] font-semibold whitespace-nowrap border transition-colors",
