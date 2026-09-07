@@ -736,7 +736,7 @@ export default function DashboardPage() {
               const moreActive = MORE.includes(dateFilter) || dateFilter === "custom";
               const pill = (active: boolean) => cn(
                 "flex-none inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-[12.5px] font-semibold whitespace-nowrap border transition-colors",
-                active ? "bg-accent text-black border-accent" : "bg-card text-grey border-border hover:text-foreground",
+                active ? "bg-white text-black border-white" : "bg-card text-grey border-border hover:text-foreground",
               );
               return (
                 // z-40 lifts the whole filter above the carousel; the menu + picker
