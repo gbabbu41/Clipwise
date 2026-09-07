@@ -354,12 +354,13 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
       total; only ONE appointment is created. Send all services (or block multi-service online).
 
 **Payments:**
-- [~] **Refund amount + email + ledger — FIXED (verified 2026-09-07).** `refund/route.ts` now
+- [x] **Refund amount + email + ledger + held-card — FIXED (verified 2026-09-07).** `refund/route.ts`
       reports the real refunded amount (`refund.amount`), emails that figure, is idempotent, and
-      writes a dated refund-ledger row. **Remaining edge:** a held/**uncaptured** PI (a no-show
-      hold never captured) still hits `refunds.create` → Stripe 500. To fully close: retrieve the
-      PI, and if `status === "requires_capture"` call `paymentIntents.cancel()` (release the hold,
-      $0 moved) instead of refunding — and report it as "hold released", not a $0 refund.
+      writes a dated refund-ledger row. The held/**uncaptured** case was already handled by the
+      dedicated `release-hold` route + UI routing (held→release-hold, paid/captured→refund); as a
+      backstop, both refund routes now share `lib/stripe-refund.ts#refundOrReleaseHold`, which
+      cancels an uncaptured hold instead of 500-ing and marks the appointment `voided` (skipping
+      the $-refund ledger/email/alert). So no refund path can 500 on a hold.
 - [x] **POS revenue overstated by discounts — FIXED (verified 2026-09-07).** Both `pos-finalize`
       (`amount: subtotal - discount - loyaltyDiscount`) and `terminal/capture` record the
       actually-collected amount.

@@ -3,16 +3,9 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
 import { recordRefundLedger } from "@/lib/refund-ledger";
+import { isAlreadyRefunded, refundOrReleaseHold } from "@/lib/stripe-refund";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
-
-// Stripe throws when a charge was already refunded (e.g. an earlier attempt
-// went through but our record drifted). Treat that as success and sync.
-function isAlreadyRefunded(err: unknown): boolean {
-  const e = err as { code?: string; raw?: { code?: string }; message?: string };
-  const code = e?.code ?? e?.raw?.code ?? "";
-  return code === "charge_already_refunded" || /already been refunded|already refunded/i.test(e?.message ?? "");
-}
 
 /**
  * Refund a *settled* card payment from the Payments page WITHOUT cancelling the
@@ -52,55 +45,66 @@ export async function POST(request: NextRequest) {
     // fee refund only returns the fee (e.g. $10 on a $60 booking) — telling the
     // customer "$60.00 refunded" is wrong and pollutes the audit trail.
     let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
+    // A card that was only HELD (uncaptured) has no charge to refund — release the
+    // hold instead of erroring, and skip the $-refund side effects below.
+    let releasedHold = false;
     try {
-      const refund = await stripe.refunds.create(
-        { payment_intent: appt.payment_intent_id },
-        { stripeAccount: shop.stripe_account_id, idempotencyKey: `refund-appt-${appt.payment_intent_id}` },
-      );
-      if (typeof refund.amount === "number") refundedCents = refund.amount;
-    } catch (err) {
-      if (!isAlreadyRefunded(err)) {
-        return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
+      const r = await refundOrReleaseHold(appt.payment_intent_id, shop.stripe_account_id, `refund-appt-${appt.payment_intent_id}`);
+      releasedHold = r.released;
+      if (r.released) {
+        refundedCents = 0;
+      } else if (r.alreadyRefunded) {
+        // Already refunded on Stripe — read the true captured amount off the PI so
+        // we still report the right figure rather than the full total.
+        try {
+          const pi = await stripe.paymentIntents.retrieve(appt.payment_intent_id, undefined, { stripeAccount: shop.stripe_account_id });
+          if (typeof pi.amount_received === "number" && pi.amount_received > 0) refundedCents = pi.amount_received;
+        } catch { /* keep the total_amount fallback */ }
+      } else if (r.refundedCents != null) {
+        refundedCents = r.refundedCents;
       }
-      // Already refunded on Stripe — read the true captured amount off the PI so
-      // we still report the right figure rather than the full total.
-      try {
-        const pi = await stripe.paymentIntents.retrieve(appt.payment_intent_id, undefined, { stripeAccount: shop.stripe_account_id });
-        if (typeof pi.amount_received === "number" && pi.amount_received > 0) refundedCents = pi.amount_received;
-      } catch { /* keep the total_amount fallback */ }
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
     }
 
     // Free the chair only when the service HASN'T happened yet: an upcoming
     // (pending/confirmed) booking is cancelled so its slot re-opens (and the
     // waitlist is pinged); a completed/no-show booking keeps its record — the
-    // slot was already used — and we just flag the money refunded.
+    // slot was already used — and we just flag the money refunded (or voided,
+    // for a released hold).
     const served = appt.status === "completed" || appt.status === "no-show";
+    const moneyStatus = releasedHold ? "voided" : "refunded";
     await supabaseAdmin.from("appointments")
-      .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
+      .update(served ? { payment_status: moneyStatus } : { status: "cancelled", payment_status: moneyStatus })
       .eq("id", appointment_id);
 
-    // Flag the completion/no-show ledger row too, so barber earnings + analytics
-    // correct immediately instead of relying on the charge.refunded webhook.
-    if (appt.payment_intent_id) {
-      const { error: txErr } = await supabaseAdmin.from("transactions")
-        .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund");
-      // A silent failure here (e.g. a lagging `refunded` column) means the money
-      // is refunded on Stripe but the row keeps counting as revenue/commission —
-      // log it so the drift is visible instead of vanishing.
-      if (txErr) console.warn("[refund-payment] failed to flag transaction refunded:", txErr.message);
-    }
+    // Money-side effects only apply when money actually moved — a released hold
+    // ($0) skips the revenue flag, the refund ledger, the owner alert, and the
+    // customer email, but still frees the slot + pings the waitlist below.
+    if (!releasedHold) {
+      // Flag the completion/no-show ledger row too, so barber earnings + analytics
+      // correct immediately instead of relying on the charge.refunded webhook.
+      if (appt.payment_intent_id) {
+        const { error: txErr } = await supabaseAdmin.from("transactions")
+          .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund");
+        // A silent failure here (e.g. a lagging `refunded` column) means the money
+        // is refunded on Stripe but the row keeps counting as revenue/commission —
+        // log it so the drift is visible instead of vanishing.
+        if (txErr) console.warn("[refund-payment] failed to flag transaction refunded:", txErr.message);
+      }
 
-    // Dated refund record for the audit trail + GST/HST claim-back (M6).
-    {
-      const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
-      const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
-      const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
-      await recordRefundLedger({
-        shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
-        serviceName: (appt.services as { name: string } | null)?.name ?? null,
-        refundedCents, taxCents: taxPart, tipCents: tipPart,
-        appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
-      });
+      // Dated refund record for the audit trail + GST/HST claim-back (M6).
+      {
+        const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
+        const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
+        const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
+        await recordRefundLedger({
+          shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
+          serviceName: (appt.services as { name: string } | null)?.name ?? null,
+          refundedCents, taxCents: taxPart, tipCents: tipPart,
+          appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+        });
+      }
     }
     if (!served) {
       fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
@@ -109,31 +113,33 @@ export async function POST(request: NextRequest) {
       }).catch(() => null);
     }
 
-    // In-app alert to owner + barber (realtime pop-up + chime).
-    notifyRefundIssued({
-      ownerId: shop.owner_id,
-      barberId: appt.barber_id,
-      shopId: appt.shop_id,
-      clientName: appt.client_name,
-      amountCents: refundedCents,
-      date: appt.date,
-    });
+    if (!releasedHold) {
+      // In-app alert to owner + barber (realtime pop-up + chime).
+      notifyRefundIssued({
+        ownerId: shop.owner_id,
+        barberId: appt.barber_id,
+        shopId: appt.shop_id,
+        clientName: appt.client_name,
+        amountCents: refundedCents,
+        date: appt.date,
+      });
 
-    if (appt.client_email) {
-      fetch(`${BASE_URL}/api/send-email`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "refund_issued",
-          data: {
-            clientName: appt.client_name, clientEmail: appt.client_email,
-            shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-            date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
-          },
-        }),
-      }).catch(() => null);
+      if (appt.client_email) {
+        fetch(`${BASE_URL}/api/send-email`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "refund_issued",
+            data: {
+              clientName: appt.client_name, clientEmail: appt.client_email,
+              shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+              serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+              date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
+            },
+          }),
+        }).catch(() => null);
+      }
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, released: releasedHold });
   }
 
   // ── POS / standalone transaction refund ─────────────────────────────────────
