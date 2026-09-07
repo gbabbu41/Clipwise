@@ -12,6 +12,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { runServerCompletionEffects } from "@/lib/completion-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addons";
+import { cancelDuplicateSubscriptions } from "@/lib/stripe-subscription";
 import { finalizeGiftFromSession } from "@/lib/finalize-gift-session";
 import type { TaxConfig } from "@/lib/pricing";
 
@@ -396,9 +397,14 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-          // On upgrade, cancel the previous subscription so they aren't billed twice
-          if (oldSubId && oldSubId !== newSubId) {
-            await stripe.subscriptions.cancel(oldSubId).catch(() => null);
+          // On upgrade, cancel the previous subscription(s) so they aren't billed
+          // twice. Sweep ALL other active subs on the customer (not just the
+          // captured old id) — this is the safety net for an owner who completes
+          // checkout but never returns to the Billing page (so confirm-subscription
+          // never runs). Shared helper logs any cancel it can't complete.
+          {
+            const custId = typeof session.customer === "string" ? session.customer : null;
+            await cancelDuplicateSubscriptions(custId, newSubId, oldSubId);
           }
           // Re-attach the add-ons onto the new subscription (a plan change makes a
           // fresh sub, so add-on items don't carry over). Without this the owner

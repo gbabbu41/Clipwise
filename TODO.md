@@ -364,9 +364,13 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
 - [x] **POS revenue overstated by discounts — FIXED (verified 2026-09-07).** Both `pos-finalize`
       (`amount: subtotal - discount - loyaltyDiscount`) and `terminal/capture` record the
       actually-collected amount.
-- [ ] **Subscription upgrade can double-bill** (`webhooks/stripe:82`) — old sub cancelled only
-      in the webhook and the error is swallowed (`.catch(()=>null)`). Also cancel synchronously
-      in the upgrade route / reconcile.
+- [x] **Subscription upgrade double-bill — FIXED (verified 2026-09-07).** Both new-subscription
+      paths now share `lib/stripe-subscription.ts#cancelDuplicateSubscriptions`, which sweeps ALL
+      other active subs on the customer (not just the captured old id) and LOGS any cancel it
+      can't complete instead of swallowing it. `confirm-subscription` (sync, on return from
+      Checkout) already swept; the **webhook** now does the same sweep, so an owner who closes the
+      tab and never returns is still protected. `change-plan` is unaffected — it modifies the
+      existing subscription in-place with proration, creating no duplicate.
 - [ ] **Stale `PLAN_PRICING` fallback in checkout** (`api/stripe/checkout/route.ts`) — if a plan
       is deactivated/repriced, checkout falls back to the hardcoded map → can charge the old
       price for a retired plan. Reject when the DB plan is missing/inactive.
