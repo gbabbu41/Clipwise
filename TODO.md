@@ -354,12 +354,15 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
       total; only ONE appointment is created. Send all services (or block multi-service online).
 
 **Payments:**
-- [ ] **Refund is always full + wrong email + can't release holds** (`api/stripe/refund/route.ts:38`)
-      — `refunds.create({payment_intent})` (no amount); email shows `total_amount` even for a
-      partial no-show capture; a held/uncaptured PI throws (500). Refund the captured amount,
-      email the real figure, `cancel()` uncaptured holds.
-- [ ] **POS revenue overstated by discounts** (`api/stripe/pos-finalize/route.ts:46`) — stores
-      `amount: subtotal`, ignoring `discount`. Record the actually-collected amount.
+- [~] **Refund amount + email + ledger — FIXED (verified 2026-09-07).** `refund/route.ts` now
+      reports the real refunded amount (`refund.amount`), emails that figure, is idempotent, and
+      writes a dated refund-ledger row. **Remaining edge:** a held/**uncaptured** PI (a no-show
+      hold never captured) still hits `refunds.create` → Stripe 500. To fully close: retrieve the
+      PI, and if `status === "requires_capture"` call `paymentIntents.cancel()` (release the hold,
+      $0 moved) instead of refunding — and report it as "hold released", not a $0 refund.
+- [x] **POS revenue overstated by discounts — FIXED (verified 2026-09-07).** Both `pos-finalize`
+      (`amount: subtotal - discount - loyaltyDiscount`) and `terminal/capture` record the
+      actually-collected amount.
 - [ ] **Subscription upgrade can double-bill** (`webhooks/stripe:82`) — old sub cancelled only
       in the webhook and the error is swallowed (`.catch(()=>null)`). Also cancel synchronously
       in the upgrade route / reconcile.
@@ -371,12 +374,11 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
 - [ ] **Self-signup barbers stranded** (`signup/barber/page.tsx`) — creates user + role `barber`
       but never links a `barbers` row → "Account not linked"; only owner-invite links them.
       Clarify to invite-only, or auto-create a pending link.
-- [ ] **Multi-shop owners lose active shop hourly** (`lib/auth-context.tsx:72`) — `onAuthStateChange`
-      resets `shop` to `shops[0]` on EVERY event (incl. TOKEN_REFRESHED / focus), overwriting
-      `setActiveShop`. Only reset on real sign-in.
-- [ ] **Onboarding `.maybeSingle()` throws for multi-shop owners** (`onboarding/page.tsx:65`) —
-      restore-by-owner_id errors when an owner has 2+ shops. Use `.limit(1).maybeSingle()` /
-      order by created_at.
+- [x] **Multi-shop owners lose active shop — FIXED (verified 2026-09-07).** `auth-context.tsx`
+      restores the last-selected shop from `localStorage` (`ACTIVE_SHOP_KEY`) on every auth event,
+      so a token refresh no longer snaps back to `shops[0]`.
+- [x] **Onboarding multi-shop owner — FIXED (verified 2026-09-07).** `onboarding/page.tsx` uses
+      `.order("created_at").limit(1)` instead of `.maybeSingle()`.
 - [ ] **Google OAuth has no callback/role routing** (`login/page.tsx:64`) — redirects straight to
       `/dashboard`; non-owners land wrong, owner-via-Google impossible. Add a role-aware callback.
 - [ ] **Rejected/suspended shops dead-end on `/pending`** (`dashboard/layout.tsx`) — owner can't
