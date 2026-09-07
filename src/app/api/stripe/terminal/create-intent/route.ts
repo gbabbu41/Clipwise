@@ -58,8 +58,21 @@ export async function POST(req: NextRequest) {
     const pi = await stripe.paymentIntents.create({
       amount: cents,
       currency: "cad",
-      payment_method_types: ["card_present"],
-      capture_method: "manual",
+      // Accept both tap/insert credit (card_present) AND Interac debit
+      // (interac_present) — Interac is most of the cards Canadians carry, so
+      // without it every debit tap declines.
+      payment_method_types: ["card_present", "interac_present"],
+      // Interac runs on a single-message network and CANNOT be held/captured
+      // later — it's take-it-now only, and top-level manual capture is rejected
+      // for interac_present. So capture is set per-method: manual_preferred means
+      // "hold for credit cards (keeps the no-show deposit flow working), but
+      // auto-take for Interac." /terminal/capture already only captures a PI
+      // still in requires_capture, so an auto-captured Interac PI is recorded
+      // without a (rejected) capture call.
+      capture_method: "automatic",
+      payment_method_options: {
+        card_present: { capture_method: "manual_preferred" },
+      },
       // No application_fee_amount → 0% platform fee (shop is merchant of record),
       // matching every other ClipWise payment path.
       metadata: {

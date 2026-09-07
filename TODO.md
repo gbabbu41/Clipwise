@@ -121,6 +121,23 @@ when real owner contact + billing becomes scrapeable via the public anon key):
 > (Separate from the **Customer Portal**, which only manages the owner's own
 > ClipWise *subscription*.)
 
+### 💳 Interac refunds — terminal-only flow (DEFERRED to go-live, 2026-09-07)
+Interac **card acceptance** is now live in code (`terminal/create-intent` sends
+`payment_method_types: ["card_present","interac_present"]` + `card_present.capture_method:
+"manual_preferred"`; `terminal/capture` already skips capture for the auto-captured Interac PI).
+What's **still missing** is the **refund** side:
+- [ ] **Interac refunds cannot be done from the dashboard.** Canadian network rules require the
+      customer to be physically at the reader and tap the **same** debit card to receive the refund —
+      it's impossible from ClipWise, Stripe, or a phone. Our current Refund button
+      (`api/stripe/refund/route.ts` + `api/stripe/refund-payment/route.ts`) only knows the
+      credit-card path (`refunds.create`), so a barber refunding an **Interac** sale will hit an
+      error and call the owner.
+- [ ] **Fix before shops go live:** detect the sale's payment method (the PI /charge network is
+      `interac`), and for Interac show a *"Bring the card to the reader"* flow that runs the refund
+      through the **Terminal** (card-present refund via the reader SDK) instead of the API refund.
+      This is a **new screen**, only reachable once physical Tap-to-Pay hardware is in play
+      (ties in with §4b). Credit-card refunds are unchanged.
+
 ### A. Switch Stripe from test/sandbox → live (in Vercel env)
 - [ ] `STRIPE_SECRET_KEY` → change `sk_test_...` to `sk_live_...`
 - [ ] `STRIPE_PUBLISHABLE_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` → `pk_test_` to `pk_live_`

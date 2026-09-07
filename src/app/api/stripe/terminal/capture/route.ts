@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Capture once the reader has processed it; tolerate an already-captured PI.
+    // Interac (interac_present) auto-captures at collection — the PI arrives as
+    // "succeeded", so we must NOT call capture (Stripe rejects capturing an
+    // Interac PI). Only credit-card holds land in "requires_capture".
     if (pi.status === "requires_capture") {
       pi = await stripe.paymentIntents.capture(payment_intent_id, {}, acct);
     }
