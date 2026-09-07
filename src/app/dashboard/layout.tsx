@@ -53,7 +53,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       refreshShop().finally(() => setRecovering(false));
       return;
     }
-    if (shop && shop.status !== "approved" && pathname !== "/dashboard/pending") {
+    // A non-approved shop (pending / rejected / suspended) is normally parked on
+    // the pending screen. Still let it reach its OWN billing + settings so a
+    // suspended or rejected owner can manage or pay their subscription and fix
+    // their account instead of dead-ending — every operational route (calendar,
+    // POS, bookings, staff…) stays blocked until approved.
+    const accountRoutes = ["/dashboard/pending", "/dashboard/billing", "/dashboard/settings"];
+    const onAccountRoute = accountRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
+    if (shop && shop.status !== "approved" && !onAccountRoute) {
       router.push("/dashboard/pending");
     }
   }, [user, profile, shop, loading, router, pathname, ownerShopMissing, refreshShop]);

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Clock, CheckCircle, XCircle, RefreshCw, CreditCard } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -75,6 +76,14 @@ export default function PendingPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {(shop?.status === "suspended" || shop?.status === "rejected") && (
+          <Link href="/dashboard/billing" className="block mb-3">
+            <Button className="w-full">
+              <CreditCard size={16} /> Manage billing
+            </Button>
+          </Link>
         )}
 
         <div className="flex gap-3">

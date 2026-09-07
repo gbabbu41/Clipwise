@@ -349,9 +349,11 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
       race on two *overlapping different-start* slots for the same barber isn't 100%
       DB-guaranteed. Add a Postgres exclusion constraint (needs `btree_gist` + a generated
       time-range from date+slot+duration; duration must be denormalised onto `appointments`).
-- [ ] **Multi-service ONLINE booking** (`book/[shopslug]/page.tsx` confirmBooking) — the online
-      path sends only the primary `service_id` + start slot but charges the full multi-service
-      total; only ONE appointment is created. Send all services (or block multi-service online).
+- [x] **Multi-service ONLINE booking — already handled (verified 2026-09-07).** `booking-client.tsx`
+      confirmBooking sends `service_ids` (full list) + combined `duration_minutes` + a "A + B"
+      `service_name` on BOTH the online (`booking-checkout`) and in-person paths; the server
+      recomputes the real price from `service_ids` and creates ONE combined appointment spanning
+      the total duration (the intended design), with the service list in notes. Not a bug.
 
 **Payments:**
 - [x] **Refund amount + email + ledger + held-card — FIXED (verified 2026-09-07).** `refund/route.ts`
@@ -386,8 +388,12 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
       `.order("created_at").limit(1)` instead of `.maybeSingle()`.
 - [ ] **Google OAuth has no callback/role routing** (`login/page.tsx:64`) — redirects straight to
       `/dashboard`; non-owners land wrong, owner-via-Google impossible. Add a role-aware callback.
-- [ ] **Rejected/suspended shops dead-end on `/pending`** (`dashboard/layout.tsx`) — owner can't
-      reach billing/settings to re-apply/upgrade. Allow those routes.
+- [x] **Rejected/suspended shops dead-end on `/pending` — FIXED (verified 2026-09-07).**
+      `dashboard/layout.tsx` now exempts `/dashboard/billing` and `/dashboard/settings` from the
+      non-approved redirect, so a suspended/rejected owner can manage or pay their subscription
+      and fix their account; every operational route stays blocked. The pending page shows a
+      "Manage billing" button for suspended/rejected. (Whether "suspended" should be self-serve
+      reinstatable vs support-only is still a business call — this only removes the dead-end.)
 
 **Plan-gating (page + booking UI gates DONE — commits `706639d`, `9c81844`; deployed):**
 - [x] Page-level `<FeatureLock>` on POS / Inventory / Gift Cards / Payments (were sidebar-hide only).
