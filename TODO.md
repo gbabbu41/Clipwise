@@ -344,11 +344,14 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
 (commit `2cc263f`). The rest are open, ranked, with file:line + a proposed fix:
 
 **Follow-ups to the booking fix (recommended next):**
-- [ ] **Race-proof double-booking (DB-level)** — current overlap guard is app-level
-      (booking-checkout + booking-finalize + in-person pre-check + slot grid). A simultaneous
-      race on two *overlapping different-start* slots for the same barber isn't 100%
-      DB-guaranteed. Add a Postgres exclusion constraint (needs `btree_gist` + a generated
-      time-range from date+slot+duration; duration must be denormalised onto `appointments`).
+- [~] **Double-booking — DB-level overlap guard EXISTS (`phase18_no_overlap.sql`, applied).** A
+      BEFORE INSERT/UPDATE trigger blocks any *overlapping* booking (not just an identical start
+      slot) for the same barber/date, using `clipwise_slot_minutes(time_slot)` + `duration_minutes`.
+      Combined with the app-level checks this covers the real cases. **Residual (optional):** a
+      trigger that SELECTs isn't as atomic as a constraint, so a sub-millisecond concurrent race on
+      two overlapping different-start slots is still theoretically possible. True race-proofing =
+      a `btree_gist` EXCLUDE constraint on a generated time-range — a careful, testable migration
+      (existing overlapping rows would fail its creation), deferred as hardening, not launch-blocking.
 - [x] **Multi-service ONLINE booking — already handled (verified 2026-09-07).** `booking-client.tsx`
       confirmBooking sends `service_ids` (full list) + combined `duration_minutes` + a "A + B"
       `service_name` on BOTH the online (`booking-checkout`) and in-person paths; the server
@@ -378,16 +381,18 @@ Full verified findings are in `SESSION-16-NOTES.md`. **#1–#3 are FIXED + DEPLO
       price for a retired plan. Reject when the DB plan is missing/inactive.
 
 **Auth / account:**
-- [ ] **Self-signup barbers stranded** (`signup/barber/page.tsx`) — creates user + role `barber`
-      but never links a `barbers` row → "Account not linked"; only owner-invite links them.
-      Clarify to invite-only, or auto-create a pending link.
+- [x] **Self-signup barbers — FIXED (verified 2026-09-07).** `signup/barber/page.tsx` is now a
+      redirect to the single unified `/signup` flow (barber vs owner is just the plan picked), so
+      no one self-registers into an unlinked `barber` role anymore.
 - [x] **Multi-shop owners lose active shop — FIXED (verified 2026-09-07).** `auth-context.tsx`
       restores the last-selected shop from `localStorage` (`ACTIVE_SHOP_KEY`) on every auth event,
       so a token refresh no longer snaps back to `shops[0]`.
 - [x] **Onboarding multi-shop owner — FIXED (verified 2026-09-07).** `onboarding/page.tsx` uses
       `.order("created_at").limit(1)` instead of `.maybeSingle()`.
-- [ ] **Google OAuth has no callback/role routing** (`login/page.tsx:64`) — redirects straight to
-      `/dashboard`; non-owners land wrong, owner-via-Google impossible. Add a role-aware callback.
+- [x] **Google OAuth callback/role routing — FIXED (verified 2026-09-07).** Login now redirects to
+      `/auth/callback` (with an internal `next` deep link), and `auth/callback/page.tsx` resolves the
+      signed-in user's role → routes super_admin→/admin, barber→/barber-dashboard,
+      shop_owner→/dashboard or /onboarding.
 - [x] **Rejected/suspended shops dead-end on `/pending` — FIXED (verified 2026-09-07).**
       `dashboard/layout.tsx` now exempts `/dashboard/billing` and `/dashboard/settings` from the
       non-approved redirect, so a suspended/rejected owner can manage or pay their subscription
