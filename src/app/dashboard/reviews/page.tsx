@@ -21,7 +21,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 function Stars({ rating, size = "md" }: { rating: number; size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "text-sm", md: "text-base", lg: "text-xl" };
-  return <span className={cn("text-foreground", sizes[size])}>{"★".repeat(rating)}{"☆".repeat(5 - rating)}</span>;
+  return <span className={cn("text-amber-400", sizes[size])}>{"★".repeat(rating)}<span className="text-grey-muted">{"☆".repeat(5 - rating)}</span></span>;
 }
 
 export default function ReviewsPage() {
@@ -82,6 +82,20 @@ export default function ReviewsPage() {
     setSaving(false);
   };
 
+  // Copy the review (comment + rating + client) to the clipboard so the owner can
+  // paste it into Google, Instagram, a website, etc. Was a fake button that only
+  // toasted "Link copied!" without copying anything.
+  const shareReview = async (r: Review) => {
+    const stars = "★".repeat(r.rating);
+    const text = (r.comment ? `"${r.comment}"\n— ${r.client_name ?? "Client"}  ${stars}` : `${r.client_name ?? "Client"} — ${stars} (${r.rating}/5)`).trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Review copied — paste it anywhere!");
+    } catch {
+      showToast("Couldn't copy on this device");
+    }
+  };
+
   if (shop && !isPaidPlan(effectivePlan(shop.subscription_plan, shop.subscription_status))) {
     return <FeatureLock title="Reviews" description="Customer reviews are available on the Pro plan and up." />;
   }
@@ -125,7 +139,7 @@ export default function ReviewsPage() {
                       <div key={r.stars} className="flex items-center gap-2">
                         <span className="text-xs text-grey w-4">{r.stars}★</span>
                         <div className="flex-1 h-2 rounded-full bg-card-raised overflow-hidden">
-                          <div className="h-full bg-gold rounded-full transition-all"
+                          <div className="h-full bg-amber-400 rounded-full transition-all"
                             style={{ width: reviews.length > 0 ? `${(r.count / reviews.length) * 100}%` : "0%" }} />
                         </div>
                         <span className="text-xs text-grey w-3">{r.count}</span>
@@ -146,7 +160,7 @@ export default function ReviewsPage() {
                       <p className="text-xl font-bold text-foreground">{replied.length} / {reviews.length}</p>
                     </div>
                     <div className="w-full h-3 rounded-full bg-card-raised overflow-hidden">
-                      <div className="h-full bg-gold rounded-full" style={{ width: reviews.length > 0 ? `${(replied.length / reviews.length) * 100}%` : "0%" }} />
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: reviews.length > 0 ? `${(replied.length / reviews.length) * 100}%` : "0%" }} />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
@@ -173,7 +187,7 @@ export default function ReviewsPage() {
             <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {[["all","All"],["5","5★"],["4","4★"],["3","3★"],["below3","Below 3★"]].map(([v,l]) => (
                 <button key={v} onClick={() => setRatingFilter(v)}
-                  className={cn("px-3 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", ratingFilter === v ? "bg-gold text-black" : "text-grey hover:text-foreground bg-card-raised")}>
+                  className={cn("px-3 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", ratingFilter === v ? "bg-foreground text-background" : "text-grey hover:text-foreground bg-card-raised")}>
                   {l}
                 </button>
               ))}
@@ -201,7 +215,7 @@ export default function ReviewsPage() {
               <Card key={review.id}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-card-raised border border-border flex items-center justify-center text-foreground font-bold text-sm">
                       {(review.client_name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div>
@@ -236,7 +250,7 @@ export default function ReviewsPage() {
                       Edit Reply
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => showToast("Link copied!")}>Share</Button>
+                  <Button variant="ghost" size="sm" onClick={() => shareReview(review)}>Share</Button>
                 </div>
 
                 {replyingTo === review.id && (

@@ -14,7 +14,9 @@ export async function GET(req: NextRequest) {
 
   const { data: appt, error } = await supabaseAdmin
     .from("appointments")
-    .select("id, client_name, date, time_slot, shop_id, barber_id, service_id, barbers(name), services(name), shops(name, slug)")
+    // client_email/phone are read to resolve the reviewer for the dedupe check
+    // below, but are NEVER returned to the browser (curated object at the end).
+    .select("id, client_name, client_email, client_phone, date, time_slot, status, shop_id, barber_id, service_id, barbers(name), services(name), shops(name, slug)")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -28,8 +30,43 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data: existingReview } = await supabaseAdmin
-    .from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_id", bookingId).maybeSingle();
+  // Already-reviewed: reviews.client_id is a FK to clients.id, so resolve the
+  // reviewer by the appointment's email then phone (same as the submit route)
+  // and check by that — the old `.eq("client_id", bookingId)` compared a client
+  // id to an APPOINTMENT id and so never matched.
+  let clientId: string | null = null;
+  const email = (appt.client_email ?? "").trim();
+  const phone = (appt.client_phone ?? "").trim();
+  if (email) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).ilike("email", email).maybeSingle();
+    clientId = data?.id ?? null;
+  }
+  if (!clientId && phone) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", appt.shop_id).eq("phone", phone).maybeSingle();
+    clientId = data?.id ?? null;
+  }
+  let alreadyReviewed = false;
+  if (clientId) {
+    const { data: existingReview } = await supabaseAdmin
+      .from("reviews").select("id").eq("shop_id", appt.shop_id).eq("client_id", clientId).maybeSingle();
+    alreadyReviewed = !!existingReview;
+  }
 
-  return NextResponse.json({ appointment: appt, alreadyReviewed: !!existingReview });
+  // Curated response — display fields only, no PII (email/phone stripped).
+  return NextResponse.json({
+    appointment: {
+      id: appt.id,
+      client_name: appt.client_name,
+      date: appt.date,
+      time_slot: appt.time_slot,
+      status: appt.status,
+      shop_id: appt.shop_id,
+      barber_id: appt.barber_id,
+      service_id: appt.service_id,
+      barbers: appt.barbers,
+      services: appt.services,
+      shops: appt.shops,
+    },
+    alreadyReviewed,
+  });
 }
