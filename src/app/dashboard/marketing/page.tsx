@@ -22,7 +22,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 type Segment = { id: string; label: string; desc: string; filter: (c: Client[]) => Client[] };
-type Template = { id: string; label: string; subject: string; body: string; tag: string };
+type Template = { id: string; label: string; subject: string; body: string; tag: string; coupon?: { code: string; percent: number } };
 // A real, persisted campaign row (public.campaigns).
 type Campaign = { id: string; name: string | null; segment: string | null; subject: string | null; recipients: number; status: string; sent_at: string };
 
@@ -41,7 +41,8 @@ const TEMPLATES: Template[] = [
     label: "Win-Back",
     tag: "Re-engage",
     subject: "We miss you — Come back for a fresh cut 💈",
-    body: "Hey {name},\n\nIt's been a while! We'd love to see you back at {shop}.\n\nBook your next appointment today and get 10% off with code COMEBACK10.\n\n👇 Book Now: {link}",
+    body: "Hey {name},\n\nIt's been a while! We'd love to see you back at {shop}.\n\nHere's a little welcome-back treat to say thanks — book your next appointment and it's yours.\n\n👇 Book Now: {link}",
+    coupon: { code: "COMEBACK10", percent: 10 },
   },
   {
     id: "fillyourseat",
@@ -93,6 +94,12 @@ export default function MarketingPage() {
   const [subject, setSubject] = useState(TEMPLATES[0].subject);
   const [body, setBody] = useState(TEMPLATES[0].body);
   const [campaignName, setCampaignName] = useState("");
+  // Optional coupon attached to the campaign — the server creates it as a real
+  // promo code (works at checkout) and shows it as a banner in the email.
+  const [couponEnabled, setCouponEnabled] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPercent, setCouponPercent] = useState(10);
+  const [couponExpiryDays, setCouponExpiryDays] = useState(30);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -130,6 +137,9 @@ export default function MarketingPage() {
       setSubject("");
       setBody("");
     }
+    // Each template defines its own offer — pre-fill (or clear) the coupon.
+    if (t.coupon) { setCouponEnabled(true); setCouponCode(t.coupon.code); setCouponPercent(t.coupon.percent); }
+    else { setCouponEnabled(false); }
   };
 
   const sendCampaign = async () => {
@@ -156,6 +166,9 @@ export default function MarketingPage() {
             phone: c.phone,
             clientId: c.id && !c.id.startsWith("synthetic:") ? c.id : undefined,
           })),
+          coupon: couponEnabled && couponCode.trim()
+            ? { code: couponCode.trim(), percent: couponPercent, expiryDays: couponExpiryDays }
+            : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -390,6 +403,55 @@ export default function MarketingPage() {
                   />
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader><Tag size={18} className="text-foreground" /><CardTitle>Coupon</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Attach a discount code</p>
+                      <p className="text-xs text-grey">Creates a real code that works at checkout and shows in the email.</p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-pressed={couponEnabled}
+                      onClick={() => setCouponEnabled(v => !v)}
+                      className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", couponEnabled ? "bg-emerald-500" : "bg-card-raised border border-border")}
+                    >
+                      <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", couponEnabled ? "left-[22px]" : "left-0.5")} />
+                    </button>
+                  </div>
+                  {couponEnabled && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          label="Code"
+                          value={couponCode}
+                          placeholder="COMEBACK10"
+                          onChange={e => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20))}
+                        />
+                        <Input
+                          label="% off"
+                          type="number"
+                          value={String(couponPercent)}
+                          onChange={e => setCouponPercent(Math.max(1, Math.min(100, Number(e.target.value) || 0)))}
+                        />
+                      </div>
+                      <Input
+                        label="Expires in (days · 0 = never)"
+                        type="number"
+                        value={String(couponExpiryDays)}
+                        onChange={e => setCouponExpiryDays(Math.max(0, Number(e.target.value) || 0))}
+                      />
+                      <p className="text-xs text-grey">
+                        Clients get <span className="text-foreground font-medium">{couponPercent}% off</span> with code{" "}
+                        <span className="font-mono text-foreground">{couponCode || "—"}</span>
+                        {couponExpiryDays > 0 ? `, valid ${couponExpiryDays} days.` : "."}
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Right: Summary */}
@@ -414,6 +476,10 @@ export default function MarketingPage() {
                     <div className="flex justify-between text-grey">
                       <span>Type</span>
                       <span className="text-foreground">Email</span>
+                    </div>
+                    <div className="flex justify-between text-grey">
+                      <span>Coupon</span>
+                      <span className="text-foreground">{couponEnabled && couponCode.trim() ? `${couponCode.trim()} · ${couponPercent}% off` : "None"}</span>
                     </div>
                   </div>
                 </CardContent>

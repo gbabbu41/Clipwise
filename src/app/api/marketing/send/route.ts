@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     shop_id?: string; campaignName?: string; segmentLabel?: string;
     subject?: string; body?: string; recipients?: InRecipient[];
+    coupon?: { code?: string; percent?: number; expiryDays?: number };
   };
   const { shop_id } = body;
   const subject = (body.subject ?? "").trim();
@@ -73,7 +74,44 @@ export async function POST(req: NextRequest) {
   const shopName = shop.name || "our shop";
   const bookingUrl = `${BASE_URL}/book/${shop.slug ?? ""}`;
   const capped = recipients.slice(0, MAX_RECIPIENTS);
-  let overflow = recipients.length - capped.length;
+  const overflow = recipients.length - capped.length;
+
+  // Optional coupon: auto-create (or refresh) a REAL promo_codes row so the code
+  // the email advertises actually works at checkout — the original bug was a
+  // template writing "COMEBACK10" that nothing ever created. The owner controls
+  // the code + %. If creation fails we DROP the banner rather than promise a
+  // code the booking flow will reject.
+  let couponHtml = "";
+  let couponCode: string | null = null;
+  const rawCode = (body.coupon?.code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
+  const pct = Math.round(Number(body.coupon?.percent ?? 0));
+  if (rawCode && pct >= 1 && pct <= 100) {
+    const days = Math.round(Number(body.coupon?.expiryDays ?? 0));
+    const expires_at = days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10) : null;
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from("promo_codes").select("id").eq("shop_id", shop_id).eq("code", rawCode).maybeSingle();
+      if (existing) {
+        await supabaseAdmin.from("promo_codes")
+          .update({ discount_type: "percent", discount_value: pct, is_active: true, expires_at })
+          .eq("id", existing.id);
+      } else {
+        await supabaseAdmin.from("promo_codes").insert({
+          shop_id, code: rawCode, discount_type: "percent", discount_value: pct,
+          uses_left: null, total_uses: 0, expires_at, is_active: true,
+        });
+      }
+      couponCode = rawCode;
+      const expLine = expires_at
+        ? `<div style="font-size:12px;color:#047857;margin-top:6px;">Valid until ${expires_at}</div>` : "";
+      couponHtml = `<div style="margin:22px 0;padding:18px;border:2px dashed #10b981;border-radius:14px;text-align:center;background:#ecfdf5;">
+        <div style="font-size:13px;color:#065f46;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">${pct}% off your next visit</div>
+        <div style="font-size:26px;font-weight:800;color:#065f46;letter-spacing:.06em;margin-top:4px;">${esc(rawCode)}</div>
+        <div style="font-size:12px;color:#047857;margin-top:6px;">Enter this code at checkout</div>
+        ${expLine}
+      </div>`;
+    } catch { couponHtml = ""; couponCode = null; }
+  }
 
   let sent = 0;
   let skipped = 0;
@@ -120,11 +158,13 @@ export async function POST(req: NextRequest) {
     const personalized = message
       .replace(/\{name\}/g, name || "there")
       .replace(/\{shop\}/g, shopName)
-      .replace(/\{link\}/g, bookingUrl);
+      .replace(/\{link\}/g, bookingUrl)
+      .replace(/\{code\}/g, couponCode ?? "");
     const unsubscribeUrl = `${BASE_URL}/api/unsubscribe?c=${clientId}`;
     const htmlBody = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#ffffff;">
       <h2 style="color:#111827;margin:0 0 16px;font-size:20px;">${esc(shopName)}</h2>
       <div style="white-space:pre-line;color:#333333;line-height:1.6;font-size:15px;">${esc(personalized)}</div>
+      ${couponHtml}
       <div style="margin-top:28px;text-align:center;">
         <a href="${esc(bookingUrl)}" style="display:inline-block;background:#10b981;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 26px;border-radius:9999px;font-size:15px;">Book Now</a>
       </div>
