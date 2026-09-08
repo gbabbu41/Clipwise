@@ -137,73 +137,40 @@ export default function MarketingPage() {
     if (!recipientsWithEmail.length) { showToast("No recipients with email addresses."); return; }
     if (!subject.trim() || !body.trim()) { showToast("Subject and message are required."); return; }
     setSending(true);
-
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca";
-    let sent = 0;
-    for (const client of recipientsWithEmail.slice(0, 50)) {
-      // Everyone we email needs a working unsubscribe, which resolves by a real
-      // clients.id. Past/walk-in recipients surfaced from history are synthetic
-      // (no saved row) — save them to the client book first so the link works AND
-      // they permanently become a client (the counts converge). If that fails,
-      // skip them rather than email someone who can't opt out.
-      let clientId = client.id;
-      if (!clientId || clientId.startsWith("synthetic:")) {
-        try {
-          const up = await fetch("/api/clients/upsert", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shop_id: shop.id, name: client.name, email: client.email, phone: client.phone }),
-          });
-          const upData = await up.json();
-          if (!up.ok || !upData?.id) continue;
-          clientId = upData.id;
-        } catch { continue; }
-      }
-      const personalizedBody = body
-        .replace(/{name}/g, client.name ?? "there")
-        .replace(/{shop}/g, shop?.name ?? "our shop")
-        .replace(/{link}/g, bookingUrl);
-      const unsubscribeUrl = `${origin}/api/unsubscribe?c=${clientId}`;
-
-      await fetch("/api/send-email", {
+    // One server call sends the whole batch reliably (not tab-dependent), resolves
+    // each recipient to a real client row, re-enforces marketing opt-out, counts
+    // only genuine successes, and records the campaign once. See /api/marketing/send.
+    try {
+      const res = await fetch("/api/marketing/send", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
         body: JSON.stringify({
-          type: "marketing_campaign",
-          data: {
-            to: client.email,
-            subject,
-            shopEmail: shop?.email,
-            htmlBody: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-              <h2 style="color:#F5F0E6;margin-bottom:16px;">${shop?.name ?? "Your Barber"}</h2>
-              <div style="white-space:pre-line;color:#333;line-height:1.6;">${personalizedBody}</div>
-              <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#999;">
-                You're receiving this because you're a client of ${shop?.name ?? "our shop"}.
-                <br><a href="${unsubscribeUrl}" style="color:#999;text-decoration:underline;">Unsubscribe</a> from marketing emails.
-              </div>
-            </div>`,
-          },
+          shop_id: shop.id,
+          campaignName: campaignName.trim(),
+          segmentLabel: selectedSegment.label,
+          subject: subject.trim(),
+          body: body.trim(),
+          recipients: recipientsWithEmail.map(c => ({
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            clientId: c.id && !c.id.startsWith("synthetic:") ? c.id : undefined,
+          })),
         }),
-      }).catch(() => null);
-      sent++;
-    }
-
-    // Persist the campaign so it shows in history (and the stats are real).
-    if (sent > 0 && shop) {
-      await supabase.from("campaigns").insert({
-        shop_id: shop.id,
-        name: campaignName.trim() || subject.trim(),
-        segment: selectedSegment.label,
-        subject: subject.trim(),
-        recipients: sent,
-        status: "sent",
-      }).then(null, () => null);
+      });
+      const data = await res.json().catch(() => ({}));
+      setSending(false);
+      if (!res.ok || !data.ok) { showToast(data.error || "Couldn't send the campaign. Please try again."); return; }
       await loadClients();
+      const parts = [`Sent to ${data.sent} client${data.sent !== 1 ? "s" : ""}`];
+      if (data.skipped) parts.push(`${data.skipped} skipped`);
+      if (data.overflow) parts.push(`${data.overflow} over the limit (not sent)`);
+      showToast(parts.join(" · "));
+      setTab("campaigns");
+    } catch {
+      setSending(false);
+      showToast("Connection error. Please try again.");
     }
-
-    setSending(false);
-    showToast(`Campaign sent to ${sent} client${sent !== 1 ? "s" : ""}!`);
-    setTab("campaigns");
   };
 
   const totalEmailsSent = campaigns.reduce((s, c) => s + (c.recipients ?? 0), 0);
@@ -239,8 +206,8 @@ export default function MarketingPage() {
             <Card key={stat.label}>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-border flex items-center justify-center">
-                    <Icon size={16} className="text-foreground" />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <Icon size={16} className="text-emerald-500" />
                   </div>
                   <div>
                     <p className="text-xs text-grey">{stat.label}</p>
@@ -274,7 +241,7 @@ export default function MarketingPage() {
                     setCampaignName(qa.label);
                     setTab("create");
                   }}
-                  className="text-left p-4 bg-card shadow-sm border border-border rounded-2xl hover:border-black transition-all group"
+                  className="text-left p-4 bg-card shadow-sm border border-border rounded-2xl hover:border-emerald-500/50 transition-all group"
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{qa.icon}</span>
@@ -314,7 +281,7 @@ export default function MarketingPage() {
                     </thead>
                     <tbody>
                       {campaigns.map(c => (
-                        <tr key={c.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/50 transition-colors">
+                        <tr key={c.id} className="border-b border-border hover:bg-card-raised/50 transition-colors">
                           <td className="px-3 py-3 text-sm font-medium text-foreground">{c.name || c.subject || "Campaign"}</td>
                           <td className="px-3 py-3 text-xs text-grey">{c.segment ?? "—"}</td>
                           <td className="px-3 py-3 text-xs text-grey">{new Date(c.sent_at).toLocaleDateString("en-CA")}</td>
@@ -367,8 +334,8 @@ export default function MarketingPage() {
                             className={cn(
                               "text-left p-3 rounded-xl border transition-all",
                               selectedSegment.id === seg.id
-                                ? "border-black bg-black/5 text-foreground"
-                                : "border-border text-grey hover:border-[#2a2a2a]/80"
+                                ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                                : "border-border text-grey hover:border-foreground/30"
                             )}
                           >
                             <p className="text-sm font-medium">{seg.label}</p>
@@ -395,8 +362,8 @@ export default function MarketingPage() {
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                             selectedTemplate.id === t.id
-                              ? "border-black bg-black/10 text-foreground"
-                              : "border-border text-grey hover:text-foreground hover:border-[#2a2a2a]/80"
+                              ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                              : "border-border text-grey hover:text-foreground hover:border-foreground/30"
                           )}
                         >
                           {t.label}
@@ -456,11 +423,11 @@ export default function MarketingPage() {
                 <CardHeader><Clock size={18} className="text-foreground" /><CardTitle>Delivery</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <button className="w-full p-3 rounded-xl border border-black bg-black/5 text-sm font-medium text-foreground text-left">
+                    <button className="w-full p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-sm font-medium text-foreground text-left">
                       ● Send Now
                     </button>
                     <button
-                      className="w-full p-3 rounded-xl border border-border text-sm text-grey text-left hover:border-[#2a2a2a]/80"
+                      className="w-full p-3 rounded-xl border border-border text-sm text-grey text-left hover:border-foreground/30"
                       onClick={() => showToast("Scheduling coming soon!")}
                     >
                       ○ Schedule for Later

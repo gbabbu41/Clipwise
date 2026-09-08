@@ -1,0 +1,157 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendAppEmail } from "@/lib/emailer";
+import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
+// One campaign can reach at most this many recipients — protects the email
+// provider's rate/volume limits and is a sane abuse ceiling. Anything beyond is
+// reported back as skipped so the owner is never misled about how many were sent.
+const MAX_RECIPIENTS = 500;
+
+type InRecipient = { name?: string | null; email?: string | null; phone?: string | null; clientId?: string | null };
+
+function esc(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string
+  ));
+}
+
+/**
+ * Send an email marketing campaign to a shop's clients — server-side, in one
+ * call. Replaces the old per-recipient fetch loop in the Marketing page, which:
+ *   • silently capped at 50 (the "Send to N" button then lied for bigger lists),
+ *   • counted a send even when the request failed (fetch().catch → sent++), and
+ *   • stopped dead if the owner closed the tab mid-send.
+ * Here the whole batch runs on the server: ownership + paid-plan checked once,
+ * each recipient is resolved to a real client row (so unsubscribe works),
+ * marketing opt-out is re-enforced server-side (CASL), only genuine successes
+ * are counted, and the campaign is recorded once with the true number sent.
+ *
+ * Auth: the shop's owner on a paid plan. Body: { shop_id, campaignName,
+ * segmentLabel, subject, body, recipients:[{name,email,phone,clientId?}] }.
+ */
+export async function POST(req: NextRequest) {
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: "Email isn't configured." }, { status: 500 });
+  }
+  // Abuse guard: a handful of campaigns per window per shop/IP.
+  const limited = enforceRateLimit(req, "marketing-send", 6, 10 * 60_000);
+  if (limited) return limited;
+
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!bearer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user } } = await supabaseAdmin.auth.getUser(bearer);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = (await req.json().catch(() => ({}))) as {
+    shop_id?: string; campaignName?: string; segmentLabel?: string;
+    subject?: string; body?: string; recipients?: InRecipient[];
+  };
+  const { shop_id } = body;
+  const subject = (body.subject ?? "").trim();
+  const message = (body.body ?? "").trim();
+  const recipients = Array.isArray(body.recipients) ? body.recipients : [];
+  if (!shop_id) return NextResponse.json({ error: "Missing shop" }, { status: 400 });
+  if (!subject || !message) return NextResponse.json({ error: "Subject and message are required." }, { status: 400 });
+  if (recipients.length === 0) return NextResponse.json({ error: "No recipients." }, { status: 400 });
+
+  // Ownership + paid plan (IDOR guard: only the owner of THIS shop can blast it).
+  const { data: shop } = await supabaseAdmin
+    .from("shops").select("id, name, email, slug, owner_id, subscription_plan, subscription_status")
+    .eq("id", shop_id).maybeSingle();
+  if (!shop || shop.owner_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  await ensurePlansHydrated();
+  if (!isPaidPlan(effectivePlan(shop.subscription_plan ?? undefined, shop.subscription_status ?? undefined))) {
+    return NextResponse.json({ error: "Marketing campaigns are available on the Pro and Premium plans." }, { status: 403 });
+  }
+
+  const shopName = shop.name || "our shop";
+  const bookingUrl = `${BASE_URL}/book/${shop.slug ?? ""}`;
+  const capped = recipients.slice(0, MAX_RECIPIENTS);
+  let overflow = recipients.length - capped.length;
+
+  let sent = 0;
+  let skipped = 0;
+  for (const r of capped) {
+    const email = (r.email ?? "").trim();
+    if (!email) { skipped++; continue; }
+    const name = (r.name ?? "").trim();
+    const phone = (r.phone ?? "").trim();
+
+    // Resolve the recipient to a real client row so the unsubscribe link works
+    // and so past/walk-in recipients permanently join the client book.
+    let clientId = (r.clientId ?? "").trim();
+    if (!clientId || clientId.startsWith("synthetic:")) clientId = "";
+    if (!clientId) {
+      let existing: { id: string; marketing_opt_out?: boolean | null } | null = null;
+      const { data: byEmail } = await supabaseAdmin
+        .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).ilike("email", email).maybeSingle();
+      existing = byEmail;
+      if (!existing && phone) {
+        const { data: byPhone } = await supabaseAdmin
+          .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).eq("phone", phone).maybeSingle();
+        existing = byPhone;
+      }
+      if (existing) {
+        if (existing.marketing_opt_out) { skipped++; continue; }
+        clientId = existing.id;
+      } else {
+        const { data: created, error: cErr } = await supabaseAdmin.from("clients").insert({
+          shop_id, name: name || "Client", email: email.slice(0, 120), phone: phone.slice(0, 30),
+          total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
+        }).select("id").single();
+        if (cErr || !created) { skipped++; continue; }
+        clientId = created.id;
+      }
+    } else {
+      // Client id supplied — re-check opt-out AND that it belongs to this shop
+      // (never email a client the caller doesn't own).
+      const { data: c } = await supabaseAdmin
+        .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).eq("id", clientId).maybeSingle();
+      if (!c) { skipped++; continue; }
+      if (c.marketing_opt_out) { skipped++; continue; }
+    }
+
+    const personalized = message
+      .replace(/\{name\}/g, name || "there")
+      .replace(/\{shop\}/g, shopName)
+      .replace(/\{link\}/g, bookingUrl);
+    const unsubscribeUrl = `${BASE_URL}/api/unsubscribe?c=${clientId}`;
+    const htmlBody = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#ffffff;">
+      <h2 style="color:#111827;margin:0 0 16px;font-size:20px;">${esc(shopName)}</h2>
+      <div style="white-space:pre-line;color:#333333;line-height:1.6;font-size:15px;">${esc(personalized)}</div>
+      <div style="margin-top:28px;text-align:center;">
+        <a href="${esc(bookingUrl)}" style="display:inline-block;background:#10b981;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 26px;border-radius:9999px;font-size:15px;">Book Now</a>
+      </div>
+      <div style="margin-top:28px;padding-top:16px;border-top:1px solid #eeeeee;font-size:12px;color:#999999;">
+        You're receiving this because you're a client of ${esc(shopName)}.
+        <br><a href="${esc(unsubscribeUrl)}" style="color:#999999;text-decoration:underline;">Unsubscribe</a> from marketing emails.
+      </div>
+    </div>`;
+
+    const result = await sendAppEmail("marketing_campaign", {
+      to: email, subject, shopEmail: shop.email ?? "", htmlBody,
+    });
+    if (result && "error" in result) { skipped++; continue; }
+    sent++;
+  }
+
+  // Record the campaign once, with the TRUE number sent (best-effort).
+  if (sent > 0) {
+    await supabaseAdmin.from("campaigns").insert({
+      shop_id,
+      name: (body.campaignName ?? "").trim() || subject,
+      segment: (body.segmentLabel ?? "").trim() || null,
+      subject,
+      recipients: sent,
+      status: "sent",
+    }).then(null, () => null);
+  }
+
+  return NextResponse.json({ ok: true, sent, skipped, overflow: Math.max(0, overflow) });
+}
