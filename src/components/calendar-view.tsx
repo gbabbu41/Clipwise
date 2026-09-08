@@ -3194,9 +3194,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               >
                 <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
               </div>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-extrabold tracking-tight text-foreground">{addMode === "block" ? "Block time" : "New appointment"}</h3>
-                <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
+              {/* Header — the barber rides in the header (next to Close) so it
+                  doesn't need its own row below the toggle. */}
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-extrabold tracking-tight text-foreground truncate">{addMode === "block" ? "Block time" : "New appointment"}</h3>
+                <div className="flex items-center gap-2 flex-none">
+                  <span className="inline-flex items-center gap-1.5 max-w-[8.5rem] bg-card border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
+                    <Scissors size={12} className="flex-none" /> <span className="truncate">{addCtx.barberName}</span>
+                  </span>
+                  <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
+                </div>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
               {canManage && canBlock && (
@@ -3207,11 +3214,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     className={cn("py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5", addMode === "block" ? "bg-white text-black" : "text-grey hover:text-foreground")}><Ban size={14} /> Block</button>
                 </div>
               )}
-              <div>
-                <span className="inline-flex items-center gap-1.5 bg-card border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
-                  <Scissors size={12} /> {addCtx.barberName}
-                </span>
-              </div>
               {addMode === "block" ? (
                 <>
                   <div className="grid grid-cols-2 gap-3">
@@ -3249,7 +3251,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {/* Client — searchable: pick an existing client (fills their contact)
                   or add a new one. Same as the global quick-add sheet. */}
               <div>
-                <label className={ADD_LABEL}>Client <span className="text-emerald-400">*</span></label>
                 <div className="relative">
                   <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
                   <input value={addForm.client_name} onChange={e => onAddNameChange(e.target.value)}
@@ -3287,9 +3288,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </div>
               )}
 
-              {/* Services — dropdown rows; "+" adds another for a combined appointment */}
+              {/* Services — dropdown rows; the "Select a service" placeholder names
+                  the field, and "Add another service" appears after the first pick. */}
               <div>
-                <label className={ADD_LABEL}>Service <span className="text-emerald-400">*</span> <span className="text-grey-muted font-normal">(add one or more)</span></label>
                 <div className="space-y-2">
                   {(addForm.service_ids.length ? addForm.service_ids : [""]).map((sid, idx) => {
                     const windowLen = addWindow ? addWindow.freeUntil - addWindow.boxStart : Infinity;
@@ -3316,10 +3317,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     );
                   })}
                 </div>
-                <button type="button" onClick={addServiceRow}
-                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
-                  <Plus size={15} /> Add another service
-                </button>
+                {/* "Add another service" only appears once a first service is picked. */}
+                {addForm.service_ids.filter(Boolean).length > 0 && (
+                  <button type="button" onClick={addServiceRow}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
+                    <Plus size={15} /> Add another service
+                  </button>
+                )}
                 {addForm.service_ids.filter(Boolean).length > 0 && (
                   <p className="text-xs text-grey mt-2">Total: {addTotalDuration} min · {formatCurrency(addTotalPrice)}</p>
                 )}
@@ -3348,7 +3352,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={cn(ADD_FIELD, "text-left [&::-webkit-date-and-time-value]:text-left")} />
                 </div>
                 <div>
-                  <label className={ADD_LABEL}>Available time</label>
+                  <label className={ADD_LABEL}>Time</label>
                   <div className="relative">
                     <select value={addForm.time} onChange={e => setAddForm(p => ({ ...p, time: e.target.value }))} className={cn(ADD_FIELD, "appearance-none pr-9")}>
                       {addTimeOptions.length === 0 && <option value="">No open times this day</option>}

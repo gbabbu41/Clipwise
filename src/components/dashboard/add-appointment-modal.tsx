@@ -328,20 +328,23 @@ export function AddAppointmentModal({
                 <div className="w-10 h-1.5 rounded-full bg-border" />
               </div>
 
-              <div className="flex items-center justify-between pt-1 pb-1">
-                <h2 className="text-xl font-extrabold tracking-tight text-foreground">New appointment</h2>
-                <button onClick={() => !saving && close()} aria-label="Close" className="w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-grey hover:text-foreground"><X size={19} /></button>
+              {/* Header — the fixed barber rides in the header (next to Close) so it
+                  doesn't need its own row; a multi-barber owner gets a picker below. */}
+              <div className="flex items-center justify-between gap-2 pt-1 pb-1">
+                <h2 className="text-xl font-extrabold tracking-tight text-foreground truncate">New appointment</h2>
+                <div className="flex items-center gap-2 flex-none">
+                  {fixedBarber && (
+                    <span className="inline-flex items-center gap-1.5 max-w-[8.5rem] bg-card-raised border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
+                      <Scissors size={12} className="flex-none" /> <span className="truncate">{fixedBarber.name}</span>
+                    </span>
+                  )}
+                  <button onClick={() => !saving && close()} aria-label="Close" className="w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-grey hover:text-foreground"><X size={19} /></button>
+                </div>
               </div>
 
-              {/* Barber — a small chip when fixed (barber portal or single-barber shop),
-                  a picker when the owner has several to choose from. */}
-              {fixedBarber ? (
-                <span className="inline-flex items-center gap-1.5 bg-card-raised border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full mb-4">
-                  <Scissors size={12} /> {fixedBarber.name}
-                </span>
-              ) : (
+              {/* Barber picker — only when the owner has several to choose from. */}
+              {!fixedBarber && (
                 <div className="mb-3.5 mt-1">
-                  <label className={LABEL}>Barber <span className="text-emerald-400">*</span></label>
                   <div className="relative">
                     <select value={barberId} onChange={e => setBarberId(e.target.value)} className={cn(FIELD, "appearance-none pr-9")}>
                       <option value="">{barbers.length === 0 ? "No barbers" : "Select a barber"}</option>
@@ -352,9 +355,9 @@ export function AddAppointmentModal({
                 </div>
               )}
 
-              {/* Client — searchable */}
+              {/* Client — searchable (the search field + placeholder name it, so no
+                  separate label). */}
               <div className="mb-3.5" ref={clientFieldRef} style={{ scrollMarginTop: 8 }}>
-                <label className={LABEL}>Client <span className="text-emerald-400">*</span></label>
                 <div className="relative">
                   <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
                   <input
@@ -398,9 +401,8 @@ export function AddAppointmentModal({
                 </div>
               )}
 
-              {/* Services */}
+              {/* Services — the "Select a service" placeholder names the field. */}
               <div className="mb-3.5">
-                <label className={LABEL}>Service <span className="text-emerald-400">*</span></label>
                 <div className="space-y-2">
                   {rows.map((sid, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
@@ -420,9 +422,12 @@ export function AddAppointmentModal({
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={addServiceRow} className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
-                  <Plus size={15} /> Add another service
-                </button>
+                {/* "Add another service" only appears once a first service is picked. */}
+                {chosenServices.length > 0 && (
+                  <button type="button" onClick={addServiceRow} className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
+                    <Plus size={15} /> Add another service
+                  </button>
+                )}
                 {chosenServices.length > 0 && (
                   <p className="text-xs text-grey mt-2">Total: {totalDuration} min · {formatCurrency(totalPrice)}</p>
                 )}
