@@ -358,8 +358,8 @@ export default function LandingPage() {
 }
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
-  :root{--bg:#000;--bg2:#0a0a0d;--panel:#101014;--raised:#17171d;--line:#24242c;--line2:#31313a;--ink:#f6f6f8;--ink2:#a6a6b0;--ink3:#74747e;--accent:#6ea8fe;--good:#37d987;--sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;--display:'Anton',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&display=swap');
+  :root{--bg:#000;--bg2:#0a0a0d;--panel:#101014;--raised:#17171d;--line:#24242c;--line2:#31313a;--ink:#f6f6f8;--ink2:#a6a6b0;--ink3:#74747e;--accent:#6ea8fe;--good:#37d987;--sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;--display:'Big Shoulders Display',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   html{overflow-x:hidden;scroll-padding-top:70px}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;letter-spacing:-.012em;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100vw}
   body img,body svg,body table{max-width:100%}
@@ -407,10 +407,10 @@ const CSS = `
   .hero h1 .grad{background:linear-gradient(100deg,#fff,#a9c6ff 55%,#c9b3ff);-webkit-background-clip:text;background-clip:text;color:transparent}
   /* Watermark: solid white on the landing page — no blue gradient tail. */
   nav .cw-grad,footer .cw-grad{background:none;-webkit-text-fill-color:#fff;color:#fff}
-  /* Squire-style display type — bold, condensed, uppercase (free Anton lookalike) */
-  nav .cw-grad,footer .cw-grad{font-family:var(--display);letter-spacing:.02em;font-weight:400}
-  .hero h1{font-family:var(--display);font-weight:400;text-transform:uppercase;letter-spacing:.005em;line-height:.94}
-  .display{font-family:var(--display);font-weight:400;text-transform:uppercase;letter-spacing:.005em}
+  /* Squire-style display type — bold, condensed, uppercase (Big Shoulders Display) */
+  nav .cw-grad,footer .cw-grad{font-family:var(--display);letter-spacing:.02em;font-weight:800}
+  .hero h1{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.005em;line-height:.94}
+  .display{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.005em}
   .hero h1 .grad{background:none;-webkit-text-fill-color:#fff;color:#fff}
   .hero .lead{color:var(--ink2);max-width:46ch;margin:26px auto 0}
   .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
