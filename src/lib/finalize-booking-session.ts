@@ -7,6 +7,7 @@ import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { insertNotifications } from "@/lib/notify-server";
+import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
@@ -254,12 +255,10 @@ export async function finalizeBookingFromSession(params: {
     });
   }
 
-  // Barber in-app notification + SMS to owner & barber.
-  fetch(`${baseUrl}/api/appointments/notify-staff`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ appointment_id: appt.id, notify_owner: false }),
-  }).catch(() => null);
+  // Barber in-app notification + SMS to owner & barber. Direct server-side call
+  // (owner already got the richer "New Booking · $X" notif above → notifyOwner
+  // false), replacing a self-fetch that could no-op on a missing base URL.
+  await notifyNewBookingStaff(appt.id, { notifyOwner: false });
 
   // Text the customer a confirmation (best-effort). AWAITED — a fire-and-forget
   // send can be killed when the serverless function returns, so the text never

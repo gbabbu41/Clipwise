@@ -16,6 +16,7 @@ import { redeemGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { sendNewBookingStaffEmails, sendCustomerBookingEmail } from "@/lib/notify-booking-emails";
+import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 
 /**
  * Create a pay-in-person (or no-charge) appointment server-side.
@@ -333,14 +334,11 @@ export async function POST(request: NextRequest) {
   // before this serverless invocation returns; notify-staff is internally
   // best-effort and never throws.
   if (!callerIsStaff) {
-    const notifyOrigin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
-    if (notifyOrigin) {
-      await fetch(`${notifyOrigin}/api/appointments/notify-staff`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: inserted.data.id, notify_owner: true }),
-      }).catch(() => null);
-    }
+    // Alert the owner + assigned barber DIRECTLY (server-side) — was a fetch to
+    // our own /api/appointments/notify-staff built from the request Origin header
+    // with an empty-string fallback, so a booking request without an Origin (and
+    // no NEXT_PUBLIC_APP_URL) silently skipped the owner's booking notification.
+    await notifyNewBookingStaff(inserted.data.id, { notifyOwner: true });
     // Owner + barber "new booking" EMAILS — sent here (service role can look up
     // their real addresses) because the public page can't. Awaited so the
     // serverless invocation doesn't freeze before they go out.
@@ -361,7 +359,7 @@ export async function POST(request: NextRequest) {
   // SMS (Starter is email-only). Sent here, not from the public page, so
   // /api/twilio/send-sms can require auth (no open SMS relay).
   if (b.client_phone && isPaidPlan(plan)) {
-    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
     const manageLink = `${origin}/my-booking/${inserted.data.id}`;
     const shopName = (shop as { name?: string }).name ?? "the shop";
     // Keep it short + GSM-7 only (no em dash, which forces UCS-2 and triples the
