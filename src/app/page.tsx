@@ -231,26 +231,16 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="showcase">
-        <div className="stage">
-          <div className="hcard" id="hcard">
-            <div className="hbar"><span className="d" style={{ background: "#ff5f57" }} /><span className="d" style={{ background: "#febc2e" }} /><span className="d" style={{ background: "#28c840" }} /><div className="hu">app.clipwise.ca/dashboard</div></div>
-            <div className="hbody">
-              <div className="hs"><div className="l">Appointments</div><div className="v" data-count="12">12</div></div>
-              <div className="hs"><div className="l">Revenue today</div><div className="v g" data-count="485" data-prefix="$">$485</div></div>
-              <div className="hs"><div className="l">Tips collected</div><div className="v b" data-count="96" data-prefix="$">$96</div></div>
-              <div className="hs"><div className="l">Avg rating</div><div className="v" data-count="49" data-div="10" data-suffix="★">4.9★</div></div>
-              <div className="hrow">
-                <div className="hp"><h4>Today&rsquo;s schedule</h4>
-                  <div className="ap"><span className="av">M</span><div><div className="n">Marcus J.</div><div className="s">Skin fade + beard</div></div><span className="pill" style={{ background: "rgba(55,217,135,.16)", color: "#37d987" }}>Paid</span></div>
-                  <div className="ap"><span className="av">D</span><div><div className="n">Darius K.</div><div className="s">Haircut</div></div><span className="t">2:30 PM</span></div>
-                  <div className="ap"><span className="av">T</span><div><div className="n">Trevor M.</div><div className="s">Cut + hot towel</div></div><span className="pill" style={{ background: "rgba(110,168,254,.16)", color: "#6ea8fe" }}>Confirmed</span></div>
-                </div>
-                <div className="hp"><h4>This week</h4>
-                  <div className="spark">{[44, 62, 50, 78, 66, 95, 71].map((h, i) => <span key={i} style={{ height: `${h}%`, animationDelay: `${0.05 + i * 0.07}s` }} />)}</div>
-                </div>
-              </div>
-            </div>
+      <section className="showcase" id="showcase">
+        <div className="devices rv">
+          <div className="phone phone-side phone-l">
+            <img src="/marketing/cw_payments.png" alt="ClipWise Payments — ClipWise takes 0%, net collected with a weekly payout chart" loading="lazy" decoding="async" />
+          </div>
+          <div className="phone phone-main">
+            <img src="/marketing/cw_home.png" alt="ClipWise owner dashboard — collected revenue, net revenue, average ticket, no-show rate and rating" loading="lazy" decoding="async" />
+          </div>
+          <div className="phone phone-side phone-r">
+            <img src="/marketing/IMG_2450.PNG" alt="ClipWise calendar — month view across all barbers" loading="lazy" decoding="async" />
           </div>
         </div>
       </section>
@@ -264,34 +254,37 @@ export default function LandingPage() {
 
           <div className="tpair rv-zoom">
             <div className="tcopy"><div className="tnum">01 — Booking</div><h3>Clients book you in seconds.</h3><p>A booking page that&rsquo;s yours alone — no app to download, no marketplace showing your rivals. Real-time availability, 24/7.</p></div>
-            <div className="tvis">
-              <h5>Booking · Fri, Jul 18</h5>
-              <div className="slotgrid">{["9:00", "9:30 ✓", "10:00", "10:30", "11:00", "Booked"].map((s, i) => <div key={i} className={`slot ${i === 1 ? "sel" : ""} ${s === "Booked" ? "off" : ""}`}>{s}</div>)}</div>
-              <div className="tcard"><div className="row"><span className="mini">M</span><div><div className="tn">Marcus J.</div><div className="tsub">Skin fade + beard · 9:30 AM</div></div><span className="tag" style={{ background: "rgba(55,217,135,.16)", color: "#37d987" }}>Confirmed</span></div></div>
-            </div>
+            <div className="tvis tvis-shot"><img src="/marketing/IMG_2499.JPEG" alt="Customer booking — pick a day, choose a barber, and tap an open time slot" loading="lazy" decoding="async" /></div>
           </div>
 
           <div className="tpair rv-zoom rev">
             <div className="tcopy"><div className="tnum">02 — Payments</div><h3>Get paid, tips and all.</h3><p>Card, cash and online payments with sales tax handled for you. Clients tip at checkout or from a post-visit link — 100% yours.</p></div>
-            <div className="tvis">
-              <h5>Checkout</h5>
-              <div className="tcard"><div className="row"><span>Skin fade + beard</span><b className="mono">$45.00</b></div></div>
-              <div className="tcard"><div className="row"><span>HST (15%)</span><b className="mono">$6.75</b></div></div>
-              <div className="tiplbl">Add a tip</div>
-              <div className="tiprow"><div className="slot">18%</div><div className="slot sel">20% · $9</div><div className="slot">25%</div></div>
-              <div className="tcard sel"><div className="row"><b>Total</b><b className="mono">$60.75</b></div></div>
-            </div>
+            <div className="tvis tvis-shot"><img src="/marketing/IMG_2452.PNG" alt="ClipWise checkout — order summary with tax and loyalty, pay by card, Interac or cash" loading="lazy" decoding="async" /></div>
           </div>
 
           <div className="tpair rv-zoom">
             <div className="tcopy"><div className="tnum">03 — Grow</div><h3>See everything, grow faster.</h3><p>Revenue, no-shows, barber performance and loyalty — one clean dashboard, updating live as your day unfolds.</p></div>
-            <div className="tvis">
-              <h5>This month</h5>
-              <div className="kpis"><div className="kpi"><div className="l">Revenue</div><div className="v">$9,840</div></div><div className="kpi"><div className="l">No-show rate</div><div className="v">3.1%</div></div></div>
-              <div className="kpi" style={{ marginTop: 10 }}><div className="l">Weekly revenue</div><div className="tbars">{[48, 70, 58, 82, 74, 96, 80].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></div>
-            </div>
+            <div className="tvis tvis-shot"><img src="/marketing/IMG_2422.PNG" alt="ClipWise dashboard — gross, Stripe fees, tips, commission and true net revenue" loading="lazy" decoding="async" /></div>
           </div>
         </div>
+      </section>
+
+      {/* How clients book — the real customer booking flow */}
+      <section id="booking">
+        <div className="center rv"><span className="eyebrow">Your booking page</span><h2 className="display" style={{ marginTop: 12 }}>How your clients book.</h2><p className="lead">A page that&rsquo;s yours alone — no app, no account, no marketplace. Just your link.</p></div>
+        <div className="wide"><div className="bstrip rv stagger">
+          <div className="phone"><img src="/marketing/IMG_2496.PNG" alt="Your shop's booking landing page with rating, address and Book now" loading="lazy" decoding="async" /></div>
+          <div className="phone"><img src="/marketing/IMG_2497.PNG" alt="Choose services — pick one or more, combined in one visit" loading="lazy" decoding="async" /></div>
+          <div className="phone"><img src="/marketing/IMG_2500.PNG" alt="Confirm and pay online now or at the shop" loading="lazy" decoding="async" /></div>
+        </div></div>
+      </section>
+
+      {/* In motion */}
+      <section id="motion" className="motion">
+        <div className="center rv"><span className="eyebrow">See it move</span><h2 className="display" style={{ marginTop: 12 }}>Your whole day. One screen.</h2></div>
+        <div className="wide"><div className="vidwrap rv">
+          <video src="/marketing/clipwise-story-1.mp4" autoPlay muted loop playsInline preload="metadata" />
+        </div></div>
       </section>
 
       <section>
@@ -559,5 +552,22 @@ const CSS = `
     .final .lead{font-size:16px}
     footer{padding:40px 0 34px}.fg{gap:22px}
     .fb{flex-direction:column;gap:6px}
+    .devices{gap:0}
   }
+  /* ── real product screenshots + video ── */
+  .devices{display:flex;justify-content:center;align-items:center;gap:min(3vw,30px);perspective:1600px}
+  .phone{border-radius:34px;border:1px solid var(--line2);background:#000;overflow:hidden;flex:none;box-shadow:0 40px 120px -45px rgba(110,168,254,.28),0 40px 80px -50px #000}
+  .phone img{display:block;width:100%;height:auto}
+  .phone-main{width:min(300px,72vw);z-index:2}
+  .phone-side{width:min(220px,52vw);opacity:.92}
+  .phone-l{transform:translateX(26px) rotate(-4deg)}
+  .phone-r{transform:translateX(-26px) rotate(4deg)}
+  @media(max-width:760px){.phone-side{display:none}.phone-main{width:min(270px,76vw)}}
+  .tvis-shot{padding:0;background:transparent;border:0;box-shadow:none;display:flex;justify-content:center}
+  .tvis-shot img{width:min(280px,74%);height:auto;display:block;border-radius:32px;border:1px solid var(--line2);background:#000;box-shadow:0 40px 90px -50px #000}
+  .bstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:min(3vw,24px);max-width:880px;margin:44px auto 0;align-items:start}
+  .bstrip .phone{width:100%}
+  @media(max-width:760px){.bstrip{grid-template-columns:1fr;max-width:280px;gap:26px;justify-items:center}}
+  .motion .vidwrap{max-width:330px;margin:0 auto;border-radius:36px;overflow:hidden;border:1px solid var(--line2);background:#000;box-shadow:0 40px 120px -45px rgba(110,168,254,.3),0 40px 80px -55px #000}
+  .motion .vidwrap video{display:block;width:100%;height:auto}
 `;
