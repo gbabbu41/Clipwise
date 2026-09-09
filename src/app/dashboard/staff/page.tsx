@@ -695,7 +695,7 @@ export default function StaffPage() {
                     </label>
                     {barber.photo && photoBusyId !== barber.id && (
                       <button type="button" onClick={() => removePhoto(barber.id)} title="Remove photo"
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-foreground flex items-center justify-center border-2 border-black hover:bg-red-600 transition-colors">
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-foreground flex items-center justify-center border-2 border-background hover:bg-red-600 transition-colors">
                         <X size={10} />
                       </button>
                     )}
@@ -789,7 +789,7 @@ export default function StaffPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                    className="flex-1"
                     loading={resettingId === barber.id}
                     onClick={() => resetPassword(barber)}
                   >
@@ -810,7 +810,7 @@ export default function StaffPage() {
               {/* Schedule Preview */}
               <div className="mt-3 flex gap-1 flex-wrap">
                 {barber.schedule.map((day, i) => (
-                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-black/10 text-foreground" : "bg-card-raised text-grey")}>
+                  <span key={i} className={cn("text-xs px-1.5 py-0.5 rounded", day.isOpen ? "bg-emerald-500/15 text-emerald-400" : "bg-card-raised text-grey")}>
                     {DAYS_SHORT[i]}
                   </span>
                 ))}
@@ -857,8 +857,10 @@ export default function StaffPage() {
         </CardHeader>
         <CardContent>
           {staffHours.length === 0 ? (
-            <div className="py-8 text-center text-grey">
-              <p>No clock records found</p>
+            <div className="text-center py-12">
+              <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-2xl">⏱️</div>
+              <h3 className="text-base font-semibold text-foreground mb-1">No clock records yet</h3>
+              <p className="text-sm text-grey max-w-xs mx-auto">When your barbers clock in and out from their portal, their hours show up here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
