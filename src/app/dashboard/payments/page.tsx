@@ -1128,12 +1128,12 @@ export default function PaymentsPage() {
                 <div>
                   <label className="block text-xs text-grey mb-1">From</label>
                   <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
-                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50 [color-scheme:dark]" />
                 </div>
                 <div>
                   <label className="block text-xs text-grey mb-1">To</label>
                   <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
-                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50 [color-scheme:dark]" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -1183,7 +1183,7 @@ export default function PaymentsPage() {
                   </label>
                   <input type="email" value={linkEmail} onChange={e => setLinkEmail(e.target.value)}
                     placeholder="customer@email.com" disabled={!viaEmail}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-white disabled:opacity-40" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50 disabled:opacity-40" />
 
                   <label className="flex items-center gap-2 text-sm text-foreground pt-1">
                     <input type="checkbox" checked={viaSms} onChange={e => setViaSms(e.target.checked)} className="form-check-input" />
@@ -1191,7 +1191,7 @@ export default function PaymentsPage() {
                   </label>
                   <input type="tel" value={linkPhone} onChange={e => setLinkPhone(e.target.value)}
                     placeholder="(416) 555-0123" disabled={!viaSms}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-white disabled:opacity-40" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50 disabled:opacity-40" />
 
                   <button type="button" className="btn btn-primary w-full mt-1" disabled={busy === linkModal.id} onClick={submitSendLink}>
                     {busy === linkModal.id ? "Sending…" : "Send link"}

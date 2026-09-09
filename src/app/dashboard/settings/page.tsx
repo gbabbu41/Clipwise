@@ -781,7 +781,7 @@ export default function SettingsPage() {
               <span className="w-3 h-3 rounded-full border-2 border-grey/40 border-t-grey animate-spin" /> Saving…
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 rounded-full bg-[#00e5a0]/15 border border-[#00e5a0]/30 shadow-lg px-3.5 py-1.5 text-xs font-semibold text-[#00e5a0]">
+            <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 shadow-lg px-3.5 py-1.5 text-xs font-semibold text-emerald-400">
               <Check size={13} /> Saved
             </div>
           )}
@@ -849,7 +849,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-2"><Input label="City" value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))} /></div>
               <div>
-                <label className="text-sm font-medium text-gray-300">Province</label>
+                <label className="text-sm font-medium text-grey">Province</label>
                 <select
                   value={CANADA_PROVINCES.some(p => p.value === profile.province) ? profile.province : ""}
                   onChange={e => {
@@ -859,7 +859,7 @@ export default function SettingsPage() {
                     const tz = tzForProvince(prov);
                     setProfile(p => ({ ...p, province: prov, ...(tz ? { timezone: tz } : {}) }));
                   }}
-                  className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-gold/50"
+                  className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-400"
                 >
                   <option value="">Select…</option>
                   {CANADA_PROVINCES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -868,11 +868,11 @@ export default function SettingsPage() {
             </div>
             <Input label="Postal Code" value={profile.postal_code} onChange={e => setProfile(p => ({ ...p, postal_code: e.target.value }))} />
             <div>
-              <label className="text-sm font-medium text-gray-300">Timezone</label>
+              <label className="text-sm font-medium text-grey">Timezone</label>
               <select
                 value={profile.timezone}
                 onChange={e => setProfile(p => ({ ...p, timezone: e.target.value }))}
-                className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-gold/50"
+                className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-400"
               >
                 {CANADA_TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -1155,7 +1155,7 @@ export default function SettingsPage() {
                       if (preset) setBooking(p => ({ ...p, tax_rate: preset.rate, tax_label: preset.label }));
                       else showToast("Set your province in the Shop Profile tab first, then tap this again.");
                     }}
-                    className="text-xs text-gold hover:underline"
+                    className="text-xs text-emerald-400 hover:underline"
                   >
                     Use my province&rsquo;s rate{profile.province ? ` (${profile.province})` : ""} →
                   </button>
@@ -1164,14 +1164,14 @@ export default function SettingsPage() {
                       <label className="text-xs text-grey font-medium uppercase tracking-wide">Tax rate (%)</label>
                       <input type="number" min={0} max={30} step="0.001" value={String(booking.tax_rate)}
                         onChange={e => setBooking(p => ({ ...p, tax_rate: clampTaxRate(Number(e.target.value)) }))}
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold/50" />
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-400" />
                     </div>
                     <div>
                       <label className="text-xs text-grey font-medium uppercase tracking-wide">Label</label>
                       <input value={booking.tax_label}
                         onChange={e => setBooking(p => ({ ...p, tax_label: e.target.value.slice(0, 12) }))}
                         placeholder="HST"
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
                     </div>
                   </div>
                   {/* Optional separate provincial tax (PST/QST) — BC/SK/MB/QC only */}
@@ -1190,14 +1190,14 @@ export default function SettingsPage() {
                             <label className="text-xs text-grey font-medium uppercase tracking-wide">PST/QST rate (%)</label>
                             <input type="number" min={0} max={30} step="0.001" value={String(booking.pst_rate)}
                               onChange={e => setBooking(p => ({ ...p, pst_rate: clampTaxRate(Number(e.target.value)) }))}
-                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold/50" />
+                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-400" />
                           </div>
                           <div>
                             <label className="text-xs text-grey font-medium uppercase tracking-wide">Label</label>
                             <input value={booking.pst_label}
                               onChange={e => setBooking(p => ({ ...p, pst_label: e.target.value.slice(0, 12) }))}
                               placeholder="PST"
-                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
                           </div>
                         </div>
                         <div>
@@ -1205,7 +1205,7 @@ export default function SettingsPage() {
                           <input value={booking.pst_number}
                             onChange={e => setBooking(p => ({ ...p, pst_number: e.target.value.slice(0, 40) }))}
                             placeholder="PST-1234-5678"
-                            className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                            className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
                           <p className="text-[11px] text-grey mt-1">Unlike GST/HST, this is set per location (it&rsquo;s a provincial number).</p>
                         </div>
                       </div>
@@ -1217,7 +1217,7 @@ export default function SettingsPage() {
                     <input value={booking.tax_number}
                       onChange={e => setBooking(p => ({ ...p, tax_number: e.target.value.slice(0, 40) }))}
                       placeholder="123456789RT0001"
-                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50" />
+                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
                     {booking.tax_enabled && !isValidGstNumber(booking.tax_number) ? (
                       <p className="text-[11px] text-red-400 mt-1">
                         {(booking.tax_number ?? "").trim()
@@ -1243,7 +1243,7 @@ export default function SettingsPage() {
                   {/* Tap-to-expand plain-language guidance */}
                   <details className="rounded-lg border border-border bg-surface-raised/40 p-3">
                     <summary className="text-xs font-medium text-foreground cursor-pointer select-none list-none flex items-center gap-1">
-                      <span className="text-gold">ⓘ</span> How does tax work? (GST/HST vs PST)
+                      <span className="text-emerald-400">ⓘ</span> How does tax work? (GST/HST vs PST)
                     </summary>
                     <div className="mt-2.5 space-y-2 text-[11px] text-grey leading-relaxed">
                       <p><span className="text-foreground font-medium">GST/HST</span> — your main sales tax. In HST provinces it&rsquo;s one all-in rate (NB &amp; the Atlantic 15%, ON 13%); in Alberta &amp; the territories it&rsquo;s just 5% GST. Tap &ldquo;use my province&rsquo;s rate&rdquo; and you&rsquo;re set. You must be registered (have a number) to charge it.</p>
@@ -1351,12 +1351,12 @@ export default function SettingsPage() {
                       <Button variant="outline" size="sm" loading={aiBusy} onClick={cancelBusinessNumber}>
                         Cancel number
                       </Button>
-                      <a href="/dashboard/phone" className="text-sm text-gold hover:underline">View call activity →</a>
+                      <a href="/dashboard/phone" className="text-sm text-emerald-400 hover:underline">View call activity →</a>
                     </div>
                   </div>
                 ) : aiConfirm ? (
                   <div className="space-y-3">
-                    <p className="text-sm font-medium text-foreground">Add a ClipWise Business Number for <span className="text-gold">$15/mo</span>?</p>
+                    <p className="text-sm font-medium text-foreground">Add a ClipWise Business Number for <span className="text-emerald-400">$15/mo</span>?</p>
                     <p className="text-xs text-grey">A local number that answers 24/7, books appointments, texts missed callers a booking link, and keeps your personal number private. Added to your existing subscription.</p>
                     <div className="flex gap-2">
                       <Button size="sm" loading={aiBusy} onClick={getBusinessNumber}>Confirm — $15/mo</Button>
@@ -1387,7 +1387,7 @@ export default function SettingsPage() {
             <p className="text-sm text-grey">Customize the emails sent to your clients. Use <span className="text-foreground font-mono">{"{variable}"}</span> placeholders — they get replaced automatically.</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {["{clientName}","{shopName}","{barberName}","{serviceName}","{date}","{time}"].map(v => (
-                <span key={v} className="text-xs bg-black/5 border border-border text-foreground rounded-full px-2.5 py-1 font-mono">{v}</span>
+                <span key={v} className="text-xs bg-card-raised border border-border text-foreground rounded-full px-2.5 py-1 font-mono">{v}</span>
               ))}
             </div>
           </div>
@@ -1404,7 +1404,7 @@ export default function SettingsPage() {
                   <input
                     value={templates[key].subject}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1413,7 +1413,7 @@ export default function SettingsPage() {
                     rows={5}
                     value={templates[key].body}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-black/20 resize-none font-mono"
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none font-mono"
                   />
                 </div>
               </CardContent>
@@ -1455,17 +1455,17 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-3">
             {shops.map(s => (
-              <Card key={s.id} className={cn("border", s.id === shop?.id && "border-gray-400")}>
+              <Card key={s.id} className={cn("border", s.id === shop?.id && "border-border-strong")}>
                 <CardContent>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-card-raised flex items-center justify-center flex-shrink-0">
                         <Building2 size={18} className="text-foreground" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                          {s.id === shop?.id && <span className="text-xs text-foreground border border-black rounded-full px-2 py-0.5">Active</span>}
+                          {s.id === shop?.id && <span className="text-xs text-foreground border border-border-strong rounded-full px-2 py-0.5">Active</span>}
                         </div>
                         <p className="text-xs text-grey">{s.city}{s.province ? `, ${s.province}` : ""}</p>
                         <p className="text-xs text-grey mt-0.5">/book/{s.slug}</p>
@@ -1696,7 +1696,7 @@ export default function SettingsPage() {
                   return planCards.map(plan => {
                     const isCurrent = plan.key === activePlanKey;
                     return (
-                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-black bg-black/5" : "border-border")}>
+                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-foreground bg-card-raised" : "border-border")}>
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-bold text-foreground">{plan.name}</h3>
                           {isCurrent && <Badge variant="gold">Current</Badge>}

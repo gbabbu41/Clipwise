@@ -1026,7 +1026,7 @@ export default function POSPage() {
 
             {posTab === "services" && Object.entries(servicesByCategory).map(([cat, svcs]) => (
               <div key={cat}>
-                <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
+                <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-4 mb-2 first:mt-0">{cat}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {svcs.map(svc => {
                     const selected = cart.some(i => i.id === svc.id);
@@ -1066,7 +1066,7 @@ export default function POSPage() {
                   <p className="text-center text-xs text-grey-muted py-10">No products match &ldquo;{productSearch}&rdquo;</p>
                 ) : Object.entries(inventoryByCategory).map(([cat, items]) => (
                   <div key={cat}>
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">{cat}</p>
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-4 mb-2 first:mt-0">{cat}</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {items.map(inv => {
                         const selected = cart.some(i => i.id === `inv-${inv.id}`);
@@ -1103,7 +1103,7 @@ export default function POSPage() {
                 <>
                   {apptSections.needsCount > 0 && (
                     <div>
-                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-4 mb-2 first:mt-0">Needs payment ({apptSections.needsCount})</p>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-4 mb-2 first:mt-0">Needs payment ({apptSections.needsCount})</p>
                       {(needsExpanded ? apptSections.needs : apptSections.needs.slice(0, NEEDS_DAYS_PREVIEW)).map(g => (
                         <div key={g.date} className="mb-3 last:mb-0">
                           <p className="text-[11px] font-semibold text-grey-muted mb-1.5">{g.label}</p>
@@ -1124,7 +1124,7 @@ export default function POSPage() {
                   )}
                   {apptSections.paid.length > 0 && (
                     <div>
-                      <p className="text-[10px] tracking-[0.15em] uppercase text-[#444] mt-6 mb-2">Paid · today ({apptSections.paid.length})</p>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-6 mb-2">Paid · today ({apptSections.paid.length})</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         {(paidExpanded ? apptSections.paid : apptSections.paid.slice(0, APPT_PREVIEW)).map(apptBox)}
                       </div>
