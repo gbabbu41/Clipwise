@@ -285,13 +285,18 @@ export default function SignupPage() {
               </div>
             )}
 
-            <form onSubmit={handleRequestCode} className="space-y-4">
+            {/* noValidate: run OUR validation (validateEmail, password match) so
+                errors show inline, instead of the browser's native bubble
+                pre-empting submit and flashing away. */}
+            <form onSubmit={handleRequestCode} className="space-y-4" noValidate>
               {fields.map(({ key, label, placeholder, icon: Icon, type }) => (
                 <div key={key} className="space-y-1.5">
-                  <label className="text-sm font-medium text-grey">{label}</label>
+                  <label htmlFor={`signup-${key}`} className="text-sm font-medium text-grey">{label}</label>
                   <div className="relative">
                     <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                    <input type={type} autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
+                    <input type={type} id={`signup-${key}`} name={key}
+                      autoComplete={key === "email" ? "email" : key === "phone" ? "tel" : key === "name" ? "name" : "off"}
+                      autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
                       className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                         fieldErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
                   </div>
@@ -307,10 +312,10 @@ export default function SignupPage() {
               ))}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-grey">Password</label>
+                <label htmlFor="signup-password" className="text-sm font-medium text-grey">Password</label>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                  <input type={showPass ? "text" : "password"} value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
+                  <input type={showPass ? "text" : "password"} id="signup-password" name="password" autoComplete="new-password" value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
                     className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                       fieldErrors.password ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
                   <button type="button" aria-label={showPass ? "Hide password" : "Show password"} onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
@@ -337,10 +342,10 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-grey">Confirm Password</label>
+                <label htmlFor="signup-confirm-password" className="text-sm font-medium text-grey">Confirm Password</label>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                  <input type={showConfirm ? "text" : "password"} value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
+                  <input type={showConfirm ? "text" : "password"} id="signup-confirm-password" name="confirmPassword" autoComplete="new-password" value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
                     className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
                       fieldErrors.confirmPassword ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
                   <button type="button" aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
