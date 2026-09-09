@@ -50,8 +50,10 @@ export default function SchedulePage() {
       <DashboardHeader title="Schedule" subtitle="Set working hours, breaks & lunch — each barber gets emailed their schedule." />
 
       {barbers.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="text-sm text-grey mb-3">No barbers yet — add a barber to set their hours.</p>
+        <div className="text-center py-14">
+          <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-2xl">🗓️</div>
+          <h3 className="text-base font-semibold text-foreground mb-1">No barbers yet</h3>
+          <p className="text-sm text-grey max-w-xs mx-auto mb-4">Add a barber to set their working hours, breaks, and lunch — they&apos;ll get their schedule by email.</p>
           <Link href="/dashboard/staff" className="inline-flex items-center gap-1.5 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors">Add staff →</Link>
         </div>
       ) : (
@@ -192,10 +194,10 @@ function BookingWindowCard() {
         <input type="number" min={1} max={60} value={val}
           onChange={e => setVal(e.target.value)}
           onBlur={() => setVal(val.trim() === "" ? String(current) : String(parsed))}
-          className="w-20 rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white" />
+          className="w-20 rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-foreground/50" />
         <span className="text-sm text-grey">days in advance</span>
         <button onClick={save} disabled={!dirty || saving}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white text-black font-semibold text-xs px-3 py-2 hover:bg-[#eaeaea] disabled:opacity-40 transition-colors">
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white text-black font-semibold text-xs px-3 py-2 hover:bg-white/90 disabled:opacity-40 transition-colors">
           {saving ? "Saving…" : saved ? <><Check size={13} /> Saved</> : "Save"}
         </button>
       </div>

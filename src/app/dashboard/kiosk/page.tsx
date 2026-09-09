@@ -32,7 +32,7 @@ function KioskButton({ children, onClick, className, disabled }: {
       disabled={disabled}
       className={cn(
         "w-full p-5 rounded-2xl border-2 text-left transition-all active:scale-[0.98] touch-manipulation select-none",
-        "bg-card shadow-sm border-border hover:border-gray-400 hover:bg-card-raised",
+        "bg-card shadow-sm border-border hover:border-foreground/30 hover:bg-card-raised",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
@@ -181,7 +181,7 @@ export default function KioskPage() {
           {step === "welcome" && (
             <div className="text-center space-y-8">
               <div className="flex justify-center">
-                <div className="w-24 h-24 rounded-3xl bg-black/10 border-2 border-black flex items-center justify-center">
+                <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center">
                   <Scissors size={40} className="text-foreground" />
                 </div>
               </div>
@@ -219,7 +219,7 @@ export default function KioskPage() {
                   <KioskButton
                     key={svc.id}
                     onClick={() => { setData(d => ({ ...d, service: svc })); setStep("barber"); }}
-                    className={data.service?.id === svc.id ? "border-black bg-black/5" : ""}
+                    className={data.service?.id === svc.id ? "border-emerald-400 bg-emerald-500/10" : ""}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -262,10 +262,10 @@ export default function KioskPage() {
               <div className="space-y-3">
                 <KioskButton
                   onClick={() => { setData(d => ({ ...d, barber: null })); setStep("info"); }}
-                  className={!data.barber ? "border-black bg-black/5" : ""}
+                  className={!data.barber ? "border-emerald-400 bg-emerald-500/10" : ""}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-black/10 border border-border flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-card-raised border border-border flex items-center justify-center">
                       <Scissors size={20} className="text-foreground" />
                     </div>
                     <div>
@@ -279,7 +279,7 @@ export default function KioskPage() {
                   <KioskButton
                     key={barber.id}
                     onClick={() => { setData(d => ({ ...d, barber })); setStep("info"); }}
-                    className={data.barber?.id === barber.id ? "border-black bg-black/5" : ""}
+                    className={data.barber?.id === barber.id ? "border-emerald-400 bg-emerald-500/10" : ""}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-card shadow-sm border border-border flex items-center justify-center text-xl font-bold text-foreground overflow-hidden">
@@ -319,7 +319,7 @@ export default function KioskPage() {
                     value={data.name}
                     onChange={e => { const v = e.target.value; setData(d => ({ ...d, name: v })); setPickedClient(false); searchContacts(v); }}
                     placeholder="Start typing — we'll find you"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
                     autoComplete="off"
                     autoCorrect="off"
                   />
@@ -344,7 +344,7 @@ export default function KioskPage() {
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
                     autoComplete="off"
                   />
                 </div>
@@ -355,7 +355,7 @@ export default function KioskPage() {
                     value={data.email}
                     onChange={e => setData(d => ({ ...d, email: e.target.value }))}
                     placeholder="e.g. you@email.com"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
                     autoComplete="off"
                   />
                 </div>
@@ -419,7 +419,7 @@ export default function KioskPage() {
                 {submitting ? "Adding to waitlist…" : "✓ Join Waitlist"}
               </Button>
               {submitError && (
-                <p className="text-center text-sm text-rose-400">{submitError}</p>
+                <p className="text-center text-sm text-red-400">{submitError}</p>
               )}
             </div>
           )}
@@ -465,7 +465,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-grey">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
+        <p className="text-xs text-grey">Powered by <span className="text-emerald-400 font-semibold">ClipWise</span></p>
       </div>
     </div>
   );

@@ -353,14 +353,14 @@ export default function WaitlistPage() {
                 return (
                   <div key={entry.id} className={cn(
                     "flex items-start justify-between gap-4 p-4 rounded-2xl border transition-colors",
-                    entry.status === "called" ? "bg-black/5 border-black" : "bg-card-raised border-border",
+                    entry.status === "called" ? "bg-emerald-500/10 border-emerald-500/30" : "bg-card-raised border-border",
                     isLong && entry.status === "waiting" && "border-orange-500/30"
                   )}>
                     {/* Position */}
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0",
-                        entry.status === "called" ? "bg-black/10 text-foreground" : "bg-card shadow-sm text-grey"
+                        entry.status === "called" ? "bg-emerald-500/15 text-emerald-400" : "bg-card shadow-sm text-grey"
                       )}>
                         {idx + 1}
                       </div>
@@ -452,7 +452,7 @@ export default function WaitlistPage() {
             <CardContent>
               <div className="space-y-2">
                 {history.map(entry => (
-                  <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-[#2a2a2a]/50 opacity-60">
+                  <div key={entry.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-border/50 opacity-60">
                     <div>
                       <p className="text-sm text-foreground">{entry.client_name}</p>
                       {entry.client_phone && <p className="text-xs text-grey">{entry.client_phone}</p>}
@@ -487,7 +487,7 @@ export default function WaitlistPage() {
                     onKeyDown={e => e.key === "Enter" && addEntry()}
                     placeholder="John Smith"
                     autoFocus
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -498,7 +498,7 @@ export default function WaitlistPage() {
                       onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
                       placeholder="(416) 555-0123"
                       type="tel"
-                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -508,7 +508,7 @@ export default function WaitlistPage() {
                       onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
                       placeholder="you@email.com"
                       type="email"
-                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                     />
                   </div>
                 </div>
@@ -516,7 +516,7 @@ export default function WaitlistPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs text-grey">Preferred Barber</label>
                     <select value={form.barber_id} onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50">
                       <option value="">Any</option>
                       {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
@@ -524,7 +524,7 @@ export default function WaitlistPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs text-grey">Service</label>
                     <select value={form.service_id} onChange={e => setForm(p => ({ ...p, service_id: e.target.value }))}
-                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50">
                       <option value="">Not selected</option>
                       {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>

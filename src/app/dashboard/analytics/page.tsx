@@ -395,7 +395,7 @@ export default function AnalyticsPage() {
         <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[["today","Today"],["week","This Week"],["month","This Month"],["year","This Year"],["last","Last Month"]].map(([v,l]) => (
             <button key={v} onClick={() => setPeriod(v)}
-              className={cn("px-3 py-2 text-xs font-medium whitespace-nowrap shrink-0 transition-colors", period === v ? "bg-gold text-black" : "text-grey hover:text-foreground bg-card-raised")}>
+              className={cn("px-3 py-2 text-xs font-medium whitespace-nowrap shrink-0 transition-colors", period === v ? "bg-foreground text-background" : "text-grey hover:text-foreground bg-card-raised")}>
               {l}
             </button>
           ))}
@@ -581,10 +581,10 @@ export default function AnalyticsPage() {
                     const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (
-                      <tr key={b.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/20">
+                      <tr key={b.id} className="border-b border-border/50 hover:bg-card-raised/20">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-black/10 border border-black flex items-center justify-center text-foreground text-xs font-bold overflow-hidden">
+                            <div className="w-7 h-7 rounded-full bg-card-raised border border-border flex items-center justify-center text-foreground text-xs font-bold overflow-hidden">
                               <AvatarImage src={b.photo} alt={b.name} className="w-full h-full object-cover" fallback={<>{b.name[0]}</>} />
                             </div>
                             <span className="text-sm text-foreground font-medium">{b.name}</span>
@@ -598,7 +598,7 @@ export default function AnalyticsPage() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-card-raised rounded-full overflow-hidden">
-                              <div className="h-full bg-gold rounded-full" style={{ width: `${completionRate}%` }} />
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${completionRate}%` }} />
                             </div>
                             <span className="text-xs text-grey">{completionRate}%</span>
                           </div>

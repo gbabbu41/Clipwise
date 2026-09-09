@@ -204,7 +204,7 @@ export default function InventoryPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full bg-card shadow-sm border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+            className="w-full bg-card shadow-sm border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -213,7 +213,7 @@ export default function InventoryPage() {
               key={cat}
               onClick={() => setCatFilter(cat)}
               className={cn("px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors",
-                catFilter === cat ? "bg-black/10 border-black text-foreground" : "border-border text-grey hover:text-foreground")}
+                catFilter === cat ? "bg-foreground text-background border-foreground" : "border-border text-grey hover:text-foreground")}
             >
               {cat}
             </button>
@@ -254,12 +254,12 @@ export default function InventoryPage() {
                     const isEditing = editRow?.id === item.id;
                     const isLow = item.quantity <= item.low_stock_threshold;
                     return (
-                      <tr key={item.id} className={cn("border-b border-[#2a2a2a]/50 hover:bg-card-raised/20 transition-colors", isLow && "bg-red-500/5")}>
+                      <tr key={item.id} className={cn("border-b border-border/50 hover:bg-card-raised/20 transition-colors", isLow && "bg-red-500/5")}>
                         {isEditing ? (
                           <>
                             <td className="px-3 py-2">
                               <input value={editRow.name} onChange={e => setEditRow(p => p && ({ ...p, name: e.target.value }))}
-                                className="w-full bg-card border border-gray-400 rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none" />
+                                className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-foreground/50" />
                             </td>
                             <td className="px-3 py-2 hidden md:table-cell">
                               <select value={editRow.category} onChange={e => setEditRow(p => p && ({ ...p, category: e.target.value }))}
@@ -360,34 +360,34 @@ export default function InventoryPage() {
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs text-grey">Product Name *</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. American Crew Pomade"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Category</label>
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                    className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-black">
+                    className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50">
                     {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Retail Price ($)</label>
                   <input value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Cost Price ($)</label>
                   <input value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: e.target.value }))} type="number" min="0" step="0.01" placeholder="0.00"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Starting Qty</label>
                   <input value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))} type="number" min="0" placeholder="0"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Low Stock Alert At</label>
                   <input value={form.low_stock_threshold} onChange={e => setForm(p => ({ ...p, low_stock_threshold: e.target.value }))} type="number" min="0" placeholder="5"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">

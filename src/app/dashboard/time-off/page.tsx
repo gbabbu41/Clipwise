@@ -58,16 +58,11 @@ const STATUS_COLORS: Record<TimeOffStatus, string> = {
   denied: "text-red-400 bg-red-400/10 border-red-400/20",
 };
 
-const MOCK_REQUESTS: TimeOffRequest[] = [
-  { id: "1", barber_id: "b1", shop_id: "s1", type: "vacation", start_date: "2025-06-10", end_date: "2025-06-14", reason: "Family trip", status: "approved", created_at: "2025-05-20", barbers: { name: "Marcus Johnson" } },
-  { id: "2", barber_id: "b2", shop_id: "s1", type: "day_off", start_date: "2025-06-03", end_date: "2025-06-03", reason: "Personal", status: "pending", created_at: "2025-05-25", barbers: { name: "Devon Williams" } },
-  { id: "3", barber_id: "b1", shop_id: "s1", type: "blocked_hours", start_date: "2025-05-28", end_date: "2025-05-28", start_time: "12:00", end_time: "14:00", reason: "Doctor appointment", status: "approved", created_at: "2025-05-22", barbers: { name: "Marcus Johnson" } },
-];
-
 export default function TimeOffPage() {
   const { shop, profile, accessToken } = useAuth();
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [requests, setRequests] = useState<TimeOffRequest[]>(MOCK_REQUESTS);
+  const [requests, setRequests] = useState<TimeOffRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
   const [toast, setToast] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState<"all" | TimeOffStatus>("all");
@@ -96,12 +91,16 @@ export default function TimeOffPage() {
 
   const loadRequests = useCallback(async () => {
     if (!shop) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("time_off_requests")
       .select("*, barbers(name, user_id, email)")
       .eq("shop_id", shop.id)
       .order("start_date", { ascending: false });
-    if (data && data.length > 0) setRequests(data as unknown as TimeOffRequest[]);
+    // Always reflect the real DB state — never fall back to placeholder rows.
+    // Capture the error instead of silently keeping stale state.
+    if (error) { console.error("time_off load failed:", error.message); setLoadingRequests(false); return; }
+    setRequests((data ?? []) as unknown as TimeOffRequest[]);
+    setLoadingRequests(false);
   }, [shop]);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
@@ -253,16 +252,20 @@ export default function TimeOffPage() {
 
       {/* Requests list */}
       <div className="space-y-3">
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-grey">
-            <CalendarOff size={32} className="mx-auto mb-3 text-grey" />
-            <p>No time-off requests</p>
+        {loadingRequests ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-card-raised animate-pulse" />)}</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-14">
+            <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4">
+              <CalendarOff size={24} className="text-grey" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-1">No time-off requests</h3>
+            <p className="text-sm text-grey max-w-xs mx-auto">When you or your barbers block off a vacation, a day off, or specific hours, the requests show up here for you to approve.</p>
           </div>
-        )}
-        {filtered.map(req => (
-          <div key={req.id} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-border transition-colors">
+        ) : filtered.map(req => (
+          <div key={req.id} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-foreground/20 transition-colors">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-black/10 border border-border flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-card-raised border border-border flex items-center justify-center flex-shrink-0">
                 <User size={18} className="text-foreground" />
               </div>
               <div className="flex-1 min-w-0">
@@ -328,8 +331,8 @@ export default function TimeOffPage() {
                 .filter(r => r.status === "approved" && r.start_date >= today)
                 .sort((a, b) => a.start_date.localeCompare(b.start_date))
                 .map(req => (
-                  <div key={req.id} className="flex items-center gap-3 py-2 border-b border-[#2a2a2a]/50 last:border-0">
-                    <div className="w-2 h-2 rounded-full bg-gold flex-shrink-0" />
+                  <div key={req.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
                     <p className="text-sm text-foreground flex-1">{req.barbers?.name ?? "Unknown"}</p>
                     <p className="text-xs text-grey">
                       {req.start_date === req.end_date
@@ -362,7 +365,7 @@ export default function TimeOffPage() {
                 <select
                   value={form.barber_id}
                   onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/15"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
                 >
                   <option value="">Select barber…</option>
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -378,7 +381,7 @@ export default function TimeOffPage() {
                       onClick={() => setForm(p => ({ ...p, type: k }))}
                       className={cn(
                         "p-2.5 rounded-xl border text-sm text-left transition-all",
-                        form.type === k ? "border-black bg-black/5 text-foreground" : "border-border text-grey hover:text-foreground"
+                        form.type === k ? "border-emerald-400 bg-emerald-500/5 text-foreground" : "border-border text-grey hover:text-foreground"
                       )}
                     >
                       {v}

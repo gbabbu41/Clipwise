@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Info, X } from "lucide-react";
@@ -235,14 +236,10 @@ export default function LoyaltyPage() {
   const activePlan = effectivePlan(shop.subscription_plan, shop.subscription_status);
   if (!planHasFeature(activePlan, "loyalty")) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-4xl mb-4">🔒</p>
-        <h2 className="text-xl font-bold text-foreground mb-2">Loyalty Program</h2>
-        <p className="text-sm text-grey mb-6 max-w-sm">Loyalty points, promo codes, and automated reminders are available on the Pro and Premium plans.</p>
-        <a href="/dashboard/billing" className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
-          Upgrade to unlock
-        </a>
-      </div>
+      <FeatureLock
+        title="Loyalty Program"
+        description="Loyalty points, promo codes, and automated reminders are available on the Pro and Premium plans."
+      />
     );
   }
 
@@ -310,7 +307,7 @@ export default function LoyaltyPage() {
         {(["loyalty","promos"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn("px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              tab === t ? "border-black text-foreground" : "border-transparent text-grey hover:text-foreground")}>
+              tab === t ? "border-foreground text-foreground" : "border-transparent text-grey hover:text-foreground")}>
             {t === "loyalty" ? "Loyalty Program" : "Promo Codes"}
           </button>
         ))}
@@ -427,7 +424,11 @@ export default function LoyaltyPage() {
               {loading ? (
                 <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-card-raised animate-pulse" />)}</div>
               ) : clients.length === 0 ? (
-                <div className="text-center py-8"><p className="text-grey text-sm">No clients yet</p></div>
+                <div className="text-center py-12">
+                  <p className="text-3xl mb-3">🏆</p>
+                  <h3 className="text-base font-semibold text-foreground mb-1">No clients yet</h3>
+                  <p className="text-sm text-grey max-w-xs mx-auto">As clients book and check out, they earn points and this leaderboard fills in.</p>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -443,15 +444,15 @@ export default function LoyaltyPage() {
                     </thead>
                     <tbody>
                       {clients.map((client, idx) => (
-                        <tr key={client.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/30">
+                        <tr key={client.id} className="border-b border-border/50 hover:bg-card-raised/30">
                           <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-foreground" : idx === 1 ? "text-grey" : idx === 2 ? "text-orange-600" : "text-grey")}>
+                            <span className={cn("text-sm font-bold", idx === 0 ? "text-foreground" : idx === 1 ? "text-grey" : idx === 2 ? "text-amber-500" : "text-grey")}>
                               #{idx + 1}
                             </span>
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-xs text-foreground font-bold">
+                              <div className="w-7 h-7 rounded-full bg-card-raised border border-border flex items-center justify-center text-xs text-foreground font-bold">
                                 {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                               </div>
                               <span className="text-sm text-foreground">{client.name}</span>
@@ -461,7 +462,7 @@ export default function LoyaltyPage() {
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold text-foreground">{client.loyalty_points}</span>
                               <div className="w-16 h-1.5 rounded-full bg-card-raised overflow-hidden">
-                                <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
                               </div>
                             </div>
                             {client.loyalty_points > 0 && (
@@ -562,7 +563,7 @@ export default function LoyaltyPage() {
                     {totalAlloc > 0 && (
                       <div className="mb-4">
                         <div className="w-full h-2 rounded-full bg-card-raised overflow-hidden">
-                          <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
+                          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
                         </div>
                         <p className="text-xs text-grey mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
                       </div>

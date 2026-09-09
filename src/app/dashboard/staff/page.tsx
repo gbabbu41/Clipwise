@@ -90,7 +90,7 @@ function BookingLinkCopy({ slug, barberId, name }: { slug: string; barberId: str
   };
   return (
     <button type="button" onClick={share} disabled={!slug}
-      className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-grey hover:text-foreground hover:border-gray-500 transition-colors text-xs font-medium disabled:opacity-50">
+      className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-grey hover:text-foreground hover:border-foreground/30 transition-colors text-xs font-medium disabled:opacity-50">
       {copied ? <Check size={14} /> : <Copy size={14} />}
       {copied ? "Link copied!" : "Share booking link"}
     </button>
@@ -685,7 +685,7 @@ export default function StaffPage() {
                     <label className={cn("relative w-12 h-12 rounded-full cursor-pointer group block", photoBusyId === barber.id && "pointer-events-none opacity-70")}
                       title="Upload photo">
                       <AvatarImage src={barber.photo} alt={barber.name} className="w-12 h-12 rounded-full object-cover border border-border"
-                        fallback={<div className="w-12 h-12 rounded-full bg-black/10 border border-black flex items-center justify-center text-foreground font-bold text-xl">{barber.name[0]}</div>} />
+                        fallback={<div className="w-12 h-12 rounded-full bg-card-raised border border-border flex items-center justify-center text-foreground font-bold text-xl">{barber.name[0]}</div>} />
                       <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Camera size={14} className="text-foreground" />
                       </span>
@@ -705,7 +705,7 @@ export default function StaffPage() {
                     {barber.email && <p className="text-xs text-grey">{barber.email}</p>}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {isOwnerBarber && (
-                        <span className="text-xs bg-gold/15 border border-gold/30 text-gold rounded-full px-2 py-0.5">Owner</span>
+                        <span className="text-xs bg-amber-500/15 border border-amber-500/30 text-amber-500 rounded-full px-2 py-0.5">Owner</span>
                       )}
                       {barber.user_id ? (
                         <span className="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5">✓ Portal active</span>
@@ -744,7 +744,7 @@ export default function StaffPage() {
                   type="range" min={0} max={100} step={5}
                   value={commissions[barber.id]}
                   onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Math.min(100, Math.max(0, Number(e.target.value))) }))}
-                  className="w-full accent-[#F5F0E6] h-1.5 rounded-full cursor-pointer"
+                  className="w-full accent-emerald-500 h-1.5 rounded-full cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-grey mt-0.5"><span>0%</span><span>100%</span></div>
                 <p className="text-[11px] text-grey mt-1.5 leading-relaxed">
@@ -818,7 +818,7 @@ export default function StaffPage() {
 
               {/* Approved upcoming time-off */}
               {barber.upcomingTimeOff && barber.upcomingTimeOff.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-[#2a2a2a]/50 space-y-1">
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-1">
                   <p className="text-[10px] uppercase tracking-wider text-grey">Upcoming time off</p>
                   {barber.upcomingTimeOff.map(t => {
                     const dateLabel = t.start_date === t.end_date
@@ -872,7 +872,7 @@ export default function StaffPage() {
                 </thead>
                 <tbody>
                   {staffHours.map((sh) => (
-                    <tr key={sh.id} className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/30">
+                    <tr key={sh.id} className="border-b border-border/50 hover:bg-card-raised/30">
                       <td className="px-3 py-3 text-sm text-foreground">{sh.barbers?.name ?? "—"}</td>
                       <td className="px-3 py-3 text-sm text-grey">{prettyDate(sh.date)}</td>
                       <td className="px-3 py-3 text-sm text-emerald-400">{sh.clock_in}</td>
@@ -958,7 +958,7 @@ export default function StaffPage() {
                       onClick={() => changeInterval(min)}
                       className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                        scheduleInterval === min ? "bg-gold text-black" : "text-grey hover:text-foreground",
+                        scheduleInterval === min ? "bg-foreground text-background" : "text-grey hover:text-foreground",
                       )}
                     >
                       {min} min
@@ -1031,7 +1031,7 @@ export default function StaffPage() {
                             <select
                               value={editSchedule[dow].startTime}
                               onChange={(e) => updateScheduleDay(dow, "startTime", e.target.value)}
-                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-foreground/50"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -1039,7 +1039,7 @@ export default function StaffPage() {
                             <select
                               value={editSchedule[dow].endTime}
                               onChange={(e) => updateScheduleDay(dow, "endTime", e.target.value)}
-                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-black"
+                              className="flex-1 min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-foreground/50"
                             >
                               {scheduleSlotOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -1239,7 +1239,7 @@ export default function StaffPage() {
                                 email: user.email!,
                                 commission_percent: addForm.commission_percent,
                               })}
-                              className="text-foreground hover:text-white/80 font-medium underline-offset-2 hover:underline"
+                              className="text-foreground hover:text-foreground/80 font-medium underline-offset-2 hover:underline"
                             >
                               + Add me as a barber
                             </button>
@@ -1272,7 +1272,7 @@ export default function StaffPage() {
                         placeholder={placeholder}
                         required={required}
                         maxLength={maxLength}
-                        className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                        className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                       />
                       {isPct && (
                         <p className="text-[11px] text-grey leading-relaxed">

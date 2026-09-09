@@ -113,7 +113,7 @@ export default function SharePage() {
             <span className="text-foreground text-sm font-medium flex-1 truncate">{bookingUrl}</span>
             <button
               onClick={() => copy(bookingUrl)}
-              className="flex items-center gap-1.5 text-xs text-foreground bg-black/10 hover:bg-gold/30 border border-black rounded-lg px-3 py-1.5 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-foreground bg-card hover:bg-card-raised border border-border hover:border-foreground/30 rounded-lg px-3 py-1.5 transition-colors"
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? "Copied!" : "Copy"}
@@ -146,8 +146,8 @@ export default function SharePage() {
                   ref={qrRef}
                   value={bookingUrl}
                   size={400}
-                  bgColor="#1C1C1E"
-                  fgColor="#C9A84C"
+                  bgColor="#ffffff"
+                  fgColor="#111111"
                   level="M"
                   marginSize={2}
                   title="Booking QR Code"
@@ -180,10 +180,10 @@ export default function SharePage() {
           {strategies.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-black transition-colors">
+              <div key={i} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-emerald-500/50 transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-black/10 border border-border flex items-center justify-center flex-shrink-0">
-                    <Icon size={16} className="text-foreground" />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                    <Icon size={16} className="text-emerald-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{s.title}</p>
@@ -192,7 +192,7 @@ export default function SharePage() {
                 </div>
                 <button
                   onClick={() => s.qr ? downloadQr() : s.copy ? copy(s.copy, `${s.title} copied!`) : showToast("")}
-                  className="mt-3 w-full text-xs font-medium text-foreground hover:text-foreground bg-black/5 hover:bg-black/10 border border-border rounded-lg py-1.5 transition-colors"
+                  className="mt-3 w-full text-xs font-medium text-foreground bg-card-raised hover:border-foreground/30 border border-border rounded-lg py-1.5 transition-colors"
                 >
                   {s.action}
                 </button>
@@ -216,7 +216,7 @@ export default function SharePage() {
             </pre>
             <button
               onClick={() => copy(embedCode, "Embed code copied!")}
-              className="absolute top-3 right-3 text-xs text-foreground bg-black/10 hover:bg-gold/30 border border-black rounded-lg px-2.5 py-1 transition-colors"
+              className="absolute top-3 right-3 text-xs text-foreground bg-card hover:bg-card-raised border border-border hover:border-foreground/30 rounded-lg px-2.5 py-1 transition-colors"
             >
               <Copy size={11} className="inline mr-1" />Copy
             </button>
