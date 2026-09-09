@@ -146,7 +146,7 @@ export default function MyBookingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }
@@ -156,9 +156,9 @@ export default function MyBookingPage() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
         <Logo size="md" className="justify-center mb-8" />
         <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
-          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
+          <Scissors size={40} className="text-grey mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Booking Not Found</h1>
-          <p className="text-[#6e6e6e] text-sm">This booking link is invalid or has expired.</p>
+          <p className="text-grey-muted text-sm">This booking link is invalid or has expired.</p>
         </div>
       </div>
     );
@@ -190,7 +190,7 @@ export default function MyBookingPage() {
               <X size={28} className="text-red-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Appointment Cancelled</h1>
-            <p className="text-[#6e6e6e]">Your appointment on {prettyDate(appt.date)} at {appt.time_slot} has been cancelled.</p>
+            <p className="text-grey-muted">Your appointment on {prettyDate(appt.date)} at {appt.time_slot} has been cancelled.</p>
             <a href={`/book/${appt.shops?.slug ?? ""}`}>
               <Button className="w-full mt-4">Book a New Appointment</Button>
             </a>
@@ -201,11 +201,11 @@ export default function MyBookingPage() {
           <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gold/15 border border-gold/30 flex items-center justify-center mx-auto mb-4">
-                <Scissors size={28} className="text-gold" />
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <Scissors size={28} className="text-emerald-400" />
               </div>
               <h1 className="text-xl font-bold text-white">{appt.shops?.name}</h1>
-              <p className="text-[#6e6e6e] text-sm mt-1">Booking for {appt.client_name}</p>
+              <p className="text-grey-muted text-sm mt-1">Booking for {appt.client_name}</p>
               <div className="flex justify-center mt-3">
                 <Badge variant={status.variant}>{status.label}</Badge>
               </div>
@@ -213,53 +213,53 @@ export default function MyBookingPage() {
 
             {/* Details card */}
             <div className="bg-surface border border-border rounded-2xl p-6 space-y-4">
-              <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">Appointment Details</p>
+              <p className="text-xs text-grey uppercase tracking-wider font-medium">Appointment Details</p>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
-                    <Calendar size={15} className="text-gold" />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Calendar size={15} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#8f8f8f]">Date</p>
+                    <p className="text-xs text-grey">Date</p>
                     <p className="text-sm font-semibold text-white">
                       {new Date(appt.date + "T12:00:00").toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
-                    <Clock size={15} className="text-gold" />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Clock size={15} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#8f8f8f]">Time</p>
+                    <p className="text-xs text-grey">Time</p>
                     <p className="text-sm font-semibold text-white">{appt.time_slot}</p>
                   </div>
                 </div>
                 {appt.barbers && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
-                      <User size={15} className="text-gold" />
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                      <User size={15} className="text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-[#8f8f8f]">Barber</p>
+                      <p className="text-xs text-grey">Barber</p>
                       <p className="text-sm font-semibold text-white">{appt.barbers.name}</p>
                     </div>
                   </div>
                 )}
                 {appt.services && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
-                      <Scissors size={15} className="text-gold" />
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                      <Scissors size={15} className="text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-[#8f8f8f]">Service</p>
+                      <p className="text-xs text-grey">Service</p>
                       <p className="text-sm font-semibold text-white">{appt.services.name}</p>
                     </div>
                   </div>
                 )}
                 <div className="pt-3 border-t border-border flex justify-between">
-                  <span className="text-sm text-[#6e6e6e]">Total</span>
-                  <span className="text-gold font-bold">{formatCurrency(appt.total_amount)}</span>
+                  <span className="text-sm text-grey-muted">Total</span>
+                  <span className="text-emerald-400 font-bold">{formatCurrency(appt.total_amount)}</span>
                 </div>
               </div>
             </div>
@@ -267,13 +267,13 @@ export default function MyBookingPage() {
             {/* Shop info */}
             {appt.shops && (
               <div className="bg-surface border border-border rounded-2xl p-4 space-y-2">
-                <p className="text-xs text-[#8f8f8f] uppercase tracking-wider font-medium">Shop Info</p>
-                <div className="flex items-center gap-2 text-sm text-[#6e6e6e]">
-                  <MapPin size={13} className="text-gold flex-shrink-0" />
+                <p className="text-xs text-grey uppercase tracking-wider font-medium">Shop Info</p>
+                <div className="flex items-center gap-2 text-sm text-grey-muted">
+                  <MapPin size={13} className="text-emerald-400 flex-shrink-0" />
                   {appt.shops.address}, {appt.shops.city}, {appt.shops.province}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-[#6e6e6e]">
-                  <Phone size={13} className="text-gold flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-grey-muted">
+                  <Phone size={13} className="text-emerald-400 flex-shrink-0" />
                   {appt.shops.phone}
                 </div>
               </div>
@@ -325,7 +325,7 @@ export default function MyBookingPage() {
                 ) : (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 space-y-3">
                     <p className="text-sm font-semibold text-red-400">Cancel this appointment?</p>
-                    <p className="text-xs text-[#6e6e6e]">This cannot be undone. You&apos;ll need to rebook if you change your mind.</p>
+                    <p className="text-xs text-grey-muted">This cannot be undone. You&apos;ll need to rebook if you change your mind.</p>
                     {cancelError && <p className="text-xs text-red-300 bg-red-500/15 border border-red-500/30 rounded-lg px-3 py-2">{cancelError}</p>}
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => { setShowCancelConfirm(false); setCancelError(""); }}>Keep it</Button>
@@ -343,12 +343,12 @@ export default function MyBookingPage() {
             {isUpcoming && isCancellable && withinNoticeWindow && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-2">
                 <p className="text-sm font-semibold text-amber-400">This appointment can no longer be changed online</p>
-                <p className="text-xs text-[#8f8f8f]">
+                <p className="text-xs text-grey">
                   {appt.shops?.name ?? "This shop"} requires at least {noticeLabel} notice to cancel or reschedule.
                   To change this booking, please contact the shop directly.
                 </p>
                 {appt.shops?.phone && (
-                  <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-gold hover:text-white transition-colors pt-1">
+                  <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-white transition-colors pt-1">
                     <Phone size={14} /> {appt.shops.phone}
                   </a>
                 )}
@@ -356,7 +356,7 @@ export default function MyBookingPage() {
             )}
 
             <div className="text-center">
-              <a href={`/book/${appt.shops?.slug ?? ""}`} className="text-sm text-gold hover:text-white transition-colors">
+              <a href={`/book/${appt.shops?.slug ?? ""}`} className="text-sm text-emerald-400 hover:text-white transition-colors">
                 Book another appointment →
               </a>
             </div>
@@ -367,20 +367,20 @@ export default function MyBookingPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <button onClick={() => { setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); setRescheduleError(""); }}
-                className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-[#6e6e6e] hover:text-white transition-colors">
+                className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-grey-muted hover:text-white transition-colors">
                 <ArrowLeft size={18} />
               </button>
               <h2 className="text-xl font-bold text-white">Reschedule</h2>
             </div>
 
             <div className="bg-surface border border-border rounded-2xl p-4">
-              <p className="text-xs text-[#8f8f8f] mb-3 uppercase tracking-wider font-medium">Current Appointment</p>
+              <p className="text-xs text-grey mb-3 uppercase tracking-wider font-medium">Current Appointment</p>
               <p className="text-sm text-white">{prettyDate(appt.date)} at {appt.time_slot}</p>
             </div>
 
             {/* Date picker */}
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-3">Select a new date</p>
+              <p className="text-sm font-medium text-grey mb-3">Select a new date</p>
               <div className="grid grid-cols-4 gap-2">
                 {calendarDays.slice(0, 16).map(d => {
                   const ds = formatDateForDb(d);
@@ -391,7 +391,7 @@ export default function MyBookingPage() {
                       onClick={() => { setNewDate(d); loadSlots(d); }}
                       className={cn(
                         "p-2 rounded-xl border text-center transition-all",
-                        isSelected ? "border-gold bg-gold/15 text-gold" : "border-border text-[#6e6e6e] hover:border-gold/30 hover:text-white"
+                        isSelected ? "border-emerald-500 bg-emerald-500/15 text-emerald-400" : "border-border text-grey-muted hover:border-emerald-500/30 hover:text-white"
                       )}
                     >
                       <p className="text-xs">{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
@@ -406,13 +406,13 @@ export default function MyBookingPage() {
             {/* Time slots */}
             {newDate && (
               <div>
-                <p className="text-sm font-medium text-gray-300 mb-3">Select a new time</p>
+                <p className="text-sm font-medium text-grey mb-3">Select a new time</p>
                 {slotsLoading ? (
                   <div className="flex justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
                   </div>
                 ) : slots.length === 0 ? (
-                  <p className="text-sm text-[#8f8f8f] text-center py-4">No available slots for this date.</p>
+                  <p className="text-sm text-grey text-center py-4">No available slots for this date.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {slots.filter(s => s.available).map(s => (
@@ -421,7 +421,7 @@ export default function MyBookingPage() {
                         onClick={() => setNewTime(s.slot)}
                         className={cn(
                           "py-2.5 rounded-xl border text-sm font-medium transition-all",
-                          newTime === s.slot ? "border-gold bg-gold/15 text-gold" : "border-border text-gray-300 hover:border-gold/30"
+                          newTime === s.slot ? "border-emerald-500 bg-emerald-500/15 text-emerald-400" : "border-border text-grey hover:border-emerald-500/30"
                         )}
                       >
                         {s.slot}
@@ -447,8 +447,8 @@ export default function MyBookingPage() {
         )}
 
         <div className="mt-8 text-center">
-          <p className="text-xs text-[#999]">
-            Powered by <span className="text-gold font-semibold">ClipWise</span>
+          <p className="text-xs text-grey">
+            Powered by <span className="text-emerald-400 font-semibold">ClipWise</span>
           </p>
         </div>
       </div>

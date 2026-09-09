@@ -155,7 +155,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="login-email" className="text-sm font-medium text-gray-300">Email</label>
+              <label htmlFor="login-email" className="text-sm font-medium text-grey">Email</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                 <input
@@ -172,7 +172,7 @@ export default function LoginPage() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="login-password" className="text-sm font-medium text-gray-300">Password</label>
+                <label htmlFor="login-password" className="text-sm font-medium text-grey">Password</label>
                 <Link href="/forgot-password" className="text-xs text-gold hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">

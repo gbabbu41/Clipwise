@@ -18,7 +18,7 @@ const PLAN_STYLE: Record<string, {
   checkColor: string; btn: string; badgeBg: string;
 }> = {
   starter: {
-    icon: Zap, accent: "border-gray-700 hover:border-gray-500",
+    icon: Zap, accent: "border-border hover:border-border-strong",
     iconWrap: "bg-surface-raised", iconColor: "text-[#8f8f8f]", checkColor: "text-emerald-400",
     btn: "bg-surface-raised text-white hover:bg-surface border border-border", badgeBg: "bg-gold text-black",
   },
@@ -208,7 +208,7 @@ function PlanPageInner() {
 
                 <ul className="space-y-2.5 flex-1 mb-6">
                   {included.map(f => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm text-gray-300">
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-grey">
                       <Check size={15} className={cn("flex-shrink-0 mt-0.5", st.checkColor)} />
                       {f}
                     </li>

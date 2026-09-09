@@ -392,21 +392,21 @@ export default function OnboardingPage() {
               { key: "postal_code", label: "Postal Code", placeholder: "E1C 1A1" },
             ] as { key: string; label: string; placeholder: string; note?: string }[]).map(({ key, label, placeholder, note }) => (
               <div key={key} className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">{label}</label>
+                <label className="text-sm font-medium text-grey">{label}</label>
                 <input value={shop[key as keyof typeof shop]} onChange={(e) => setShop({ ...shop, [key]: e.target.value })} placeholder={placeholder}
                   className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                 {note && <p className="text-xs text-[#8f8f8f]">{note}</p>}
               </div>
             ))}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">Province</label>
+              <label className="text-sm font-medium text-grey">Province</label>
               <select value={shop.province} onChange={(e) => setShop({ ...shop, province: e.target.value })}
                 className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-gold/50">
                 {["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"].map((p) => <option key={p}>{p}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">Description (optional)</label>
+              <label className="text-sm font-medium text-grey">Description (optional)</label>
               <textarea value={shop.description} onChange={(e) => setShop({ ...shop, description: e.target.value.slice(0, 500) })}
                 placeholder="Tell clients what makes your shop special..." rows={3} maxLength={500}
                 className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
@@ -416,7 +416,7 @@ export default function OnboardingPage() {
             {/* Logo (optional) — folded in from the old dedicated Logo step so setup
                 is one screen shorter. Uploaded on Continue, once the shop exists. */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">Shop Logo (optional)</label>
+              <label className="text-sm font-medium text-grey">Shop Logo (optional)</label>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-surface-raised border border-dashed border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                   {logoPreview ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-2xl">✂️</span>}
@@ -480,7 +480,7 @@ export default function OnboardingPage() {
                     solo Starter (planLimit 1), shown on Pro/Premium. */}
                 {planLimit > 1 && (!showAddOther ? (
                   <button type="button" onClick={() => { setShowAddOther(true); setBarberError(""); }}
-                    className="w-full flex items-center gap-3 bg-surface border border-border hover:border-gray-500 rounded-2xl p-4 text-left transition-all">
+                    className="w-full flex items-center gap-3 bg-surface border border-border hover:border-border-strong rounded-2xl p-4 text-left transition-all">
                     <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#8f8f8f]" /></div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">Add someone else</p>
@@ -572,7 +572,7 @@ export default function OnboardingPage() {
                     {!hours[i].open && <span className="text-xs text-[#8f8f8f]">Closed</span>}
                   </div>
                   {hours[i].open && (
-                    <div className="flex items-center gap-2 ml-13">
+                    <div className="flex items-center gap-2 ml-12">
                       <select value={hours[i].start} onChange={(e) => setHours(hours.map((h, j) => j === i ? { ...h, start: e.target.value } : h))}
                         className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}

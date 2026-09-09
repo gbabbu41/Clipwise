@@ -60,11 +60,11 @@ export default function StripeConnectPage() {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <Shield size={16} className="text-gold flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-300">Stripe handles all security and verification — your banking details never touch ClipWise.</p>
+              <p className="text-sm text-grey">Stripe handles all security and verification — your banking details never touch ClipWise.</p>
             </div>
             <div className="flex items-start gap-3">
               <Clock size={16} className="text-gold flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-gray-300">Takes 2–3 minutes. You&apos;ll provide your legal name, address, and bank account.</p>
+              <p className="text-sm text-grey">Takes 2–3 minutes. You&apos;ll provide your legal name, address, and bank account.</p>
             </div>
           </div>
 
@@ -74,7 +74,7 @@ export default function StripeConnectPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="w-full text-center text-xs text-[#8f8f8f] hover:text-gray-300 transition-colors"
+            className="w-full text-center text-xs text-[#8f8f8f] hover:text-grey transition-colors"
           >
             I&apos;ll do this later →
           </button>

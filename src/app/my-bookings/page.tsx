@@ -42,7 +42,7 @@ export default function MyBookingsPage() {
             <div>
               <p className="text-sm font-semibold text-white">Check your email</p>
               <p className="text-xs text-[#8f8f8f] mt-0.5">
-                Open your booking confirmation and tap <span className="text-gray-300">&ldquo;View / Manage Booking&rdquo;</span> to make changes.
+                Open your booking confirmation and tap <span className="text-grey">&ldquo;View / Manage Booking&rdquo;</span> to make changes.
               </p>
             </div>
           </div>

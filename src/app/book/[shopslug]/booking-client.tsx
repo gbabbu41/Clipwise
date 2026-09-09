@@ -1422,7 +1422,7 @@ export default function BookingClient() {
             <p className="text-[#8f8f8f] mb-2">Your request was sent to {confirmedSummary?.shopName || shop.name}. You&apos;ll be notified once they confirm it — track it under &quot;My Bookings.&quot;</p>
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
-          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: confirmedSummary?.shopName || shop.name },
@@ -1489,7 +1489,7 @@ export default function BookingClient() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-gray-800" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-white/10" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -1570,7 +1570,7 @@ export default function BookingClient() {
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
               {lockedBarber.photo
                 ? <img src={lockedBarber.photo} alt={lockedBarber.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
-                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
+                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
                 <p className="text-base font-bold text-white truncate leading-tight mt-0.5">{lockedBarber.name}</p>

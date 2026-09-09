@@ -284,7 +284,7 @@ export default function SignupPage() {
             <form onSubmit={handleRequestCode} className="space-y-4">
               {fields.map(({ key, label, placeholder, icon: Icon, type }) => (
                 <div key={key} className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-300">{label}</label>
+                  <label className="text-sm font-medium text-grey">{label}</label>
                   <div className="relative">
                     <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                     <input type={type} autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
@@ -303,7 +303,7 @@ export default function SignupPage() {
               ))}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Password</label>
+                <label className="text-sm font-medium text-grey">Password</label>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                   <input type={showPass ? "text" : "password"} value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
@@ -333,7 +333,7 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Confirm Password</label>
+                <label className="text-sm font-medium text-grey">Confirm Password</label>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
                   <input type={showConfirm ? "text" : "password"} value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
