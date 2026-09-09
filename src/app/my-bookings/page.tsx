@@ -16,7 +16,7 @@ export default function MyBookingsPage() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <Link href="/"><Logo size="sm" /></Link>
           <div className="flex gap-3">
-            <Link href="/shops"><Button variant="outline" size="sm">Find a Barbershop</Button></Link>
+            <Link href="/shops"><Button variant="outline" size="sm">Find a Barber</Button></Link>
             <Link href="/login" className="hidden sm:block"><Button size="sm">Sign In</Button></Link>
           </div>
         </div>
@@ -66,7 +66,7 @@ export default function MyBookingsPage() {
             Contact the barbershop directly and they can look up or update your appointment for you.
           </p>
           <Link href="/shops">
-            <Button variant="outline" size="sm">Find a Barbershop</Button>
+            <Button variant="outline" size="sm">Find a Barber</Button>
           </Link>
         </div>
       </div>

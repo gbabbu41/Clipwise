@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
+import { formatPhone } from "@/lib/validation";
 import { hoursUntilBooking } from "@/lib/timezone";
 
 // Customer "manage my booking" screen. appointments RLS is stakeholder-only, so
@@ -274,7 +275,7 @@ export default function MyBookingPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-grey-muted">
                   <Phone size={13} className="text-emerald-400 flex-shrink-0" />
-                  {appt.shops.phone}
+                  {formatPhone(appt.shops.phone)}
                 </div>
               </div>
             )}
@@ -349,7 +350,7 @@ export default function MyBookingPage() {
                 </p>
                 {appt.shops?.phone && (
                   <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-white transition-colors pt-1">
-                    <Phone size={14} /> {appt.shops.phone}
+                    <Phone size={14} /> {formatPhone(appt.shops.phone)}
                   </a>
                 )}
               </div>

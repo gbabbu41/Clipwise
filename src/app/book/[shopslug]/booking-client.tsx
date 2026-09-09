@@ -1467,7 +1467,7 @@ export default function BookingClient() {
           <h1 className="text-2xl font-bold text-white mb-2">{paidThankYou ? "Payment received — thank you!" : bookingPending ? "Request sent!" : "Booking Confirmed!"}</h1>
           {bookingId && <p className="text-xs text-[#8f8f8f] mb-1">Booking ID: <span className="text-white font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
           {bookingPending && !paidThankYou && (
-            <p className="text-[#8f8f8f] mb-2">Your request was sent to {confirmedSummary?.shopName || shop.name}. You&apos;ll be notified once they confirm it — track it under &quot;My Bookings.&quot;</p>
+            <p className="text-[#8f8f8f] mb-2">Your request was sent to {confirmedSummary?.shopName || shop.name}. You&apos;ll be notified once they confirm it — use the link below to check its status anytime.</p>
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors mb-6 block">View & Manage Booking →</a>}
@@ -1987,7 +1987,7 @@ export default function BookingClient() {
                           ? `No barber has ${totalDuration} min open on this day`
                           : "No more openings on this day"}
                     </p>
-                    <p className="text-xs text-[#8f8f8f] mt-1">Try another day.</p>
+                    {!barberFilter && <p className="text-xs text-[#8f8f8f] mt-1">Try another day.</p>}
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
                       <p className="mt-3 text-xs text-emerald-400 flex items-center justify-center gap-1">
                         <Check size={13} /> You&apos;re on the waitlist for this day
