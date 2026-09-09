@@ -1459,6 +1459,25 @@ textarea:focus-visible {
   animation: slide-up 0.2s ease forwards;
 }
 
+/* ── Notification pop-ups ─────────────────────────────────────────────────────
+   The live toast should read as if it emerges FROM the notification bell (top-
+   right): it scales up + drops down out of that corner on entry, and reverses —
+   fading + shrinking back toward the corner — on auto-dismiss, instead of just
+   vanishing. transform-origin pins the scale to the bell corner. */
+@keyframes cw-notif-in {
+  from { opacity: 0; transform: translateY(-14px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cw-notif-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-12px) scale(0.92); }
+}
+.cw-notif-enter { animation: cw-notif-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top right; }
+.cw-notif-leave { animation: cw-notif-out 260ms cubic-bezier(0.4, 0, 1, 1) both; transform-origin: top right; }
+@media (prefers-reduced-motion: reduce) {
+  .cw-notif-enter, .cw-notif-leave { animation-duration: 1ms; }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Owner dashboard — 1:1 port of the approved layout preview. Namespaced
    `cwd-` so nothing collides with Tailwind or the app's `.card`/`.hero`/etc.

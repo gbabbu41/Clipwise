@@ -55,6 +55,9 @@ export function NotificationListener({ shopId }: { shopId?: string | null } = {}
   const pathname = usePathname();
   const isBarber = !!pathname?.startsWith("/barber-dashboard");
   const [popups, setPopups] = useState<Popup[]>([]);
+  // Ids currently playing their exit animation (so they render with the "leave"
+  // class for one beat before they're removed from the DOM).
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Lazily create + unlock the AudioContext on first user interaction.
@@ -97,9 +100,20 @@ export function NotificationListener({ shopId }: { shopId?: string | null } = {}
     } catch { /* audio not available — silently skip */ }
   }, []);
 
-  const dismiss = useCallback((id: string) => {
+  // Remove immediately — used when tapping through to a page, since we're
+  // navigating away and an exit animation would be pointless.
+  const removeNow = useCallback((id: string) => {
     setPopups(prev => prev.filter(p => p.id !== id));
+    setLeaving(prev => { const n = new Set(prev); n.delete(id); return n; });
   }, []);
+
+  // Smooth dismiss — play the fade-out-toward-the-bell animation, THEN remove
+  // from the DOM (so it eases away instead of blinking out). Used by auto-dismiss
+  // and the ✕ button. The 260ms matches the .cw-notif-leave animation duration.
+  const dismiss = useCallback((id: string) => {
+    setLeaving(prev => new Set(prev).add(id));
+    setTimeout(() => removeNow(id), 260);
+  }, [removeNow]);
 
   useEffect(() => {
     if (!user) return;
@@ -142,8 +156,8 @@ export function NotificationListener({ shopId }: { shopId?: string | null } = {}
         <button
           key={p.id}
           type="button"
-          onClick={() => { dismiss(p.id); router.push(popupHref(p, isBarber)); }}
-          className="pointer-events-auto text-left flex items-start gap-3 bg-card border border-gold/40 rounded-2xl p-4 shadow-2xl animate-slide-up ring-1 ring-gold/10 hover:border-gold transition-colors"
+          onClick={() => { removeNow(p.id); router.push(popupHref(p, isBarber)); }}
+          className={`pointer-events-auto text-left flex items-start gap-3 bg-card border border-gold/40 rounded-2xl p-4 shadow-2xl ring-1 ring-gold/10 hover:border-gold transition-colors ${leaving.has(p.id) ? "cw-notif-leave" : "cw-notif-enter"}`}
         >
           <span className="text-xl leading-none mt-0.5">{ICON[p.type] ?? "🔔"}</span>
           <div className="flex-1 min-w-0">
