@@ -114,7 +114,6 @@ interface NavItem {
   feature?: PlanFeature;
   paidOnly?: boolean; // hidden on the free Starter plan (reviews, marketing, analytics, waitlist…)
   hidden?: boolean;   // temporarily hidden from the nav on ALL plans (page/logic kept)
-  pendingBadge?: boolean; // show the count of pending (awaiting-approval) bookings (Calendar)
 }
 
 // Sidebar grouped by WHEN a shop touches each page, not by what kind of thing it
@@ -127,7 +126,7 @@ type NavSection = { label: string; items: NavItem[]; collapsible?: boolean; icon
 // TODAY — the at-the-chair set, hit many times a day. Always on top.
 const todayItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays, pendingBadge: true },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/pos", label: "Checkout", icon: Receipt, feature: "pos" },
   { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
   { href: "/dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
@@ -219,7 +218,6 @@ export function Sidebar() {
     if (await confirm({ title: "Sign out?", message: "You'll need to sign in again to get back in.", confirmText: "Sign out", cancelText: "Stay signed in" })) signOut();
   };
   const [unreadCount, setUnreadCount] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0); // bookings awaiting approval → Calendar badge
   // Which collapsible sections (Shop / Grow) the owner has expanded. Persisted so
   // it survives navigation/reload; the section you're currently on auto-opens too.
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -427,21 +425,11 @@ export function Sidebar() {
   // for barbers, who don't see the Clients shortcut.
   useEffect(() => { if (!isBarber) router.prefetch("/dashboard/clients"); }, [router, isBarber]);
 
-  // Pending (awaiting-approval) bookings → the Calendar badge. Owner-only; a new
-  // booking fires a notification, so we refresh it on the same realtime channel.
-  const loadPending = () => {
-    if (!shop?.id || isBarber) { setPendingCount(0); return; }
-    supabase.from("appointments").select("id", { count: "exact", head: true })
-      .eq("shop_id", shop.id).eq("status", "pending")
-      .then(({ count }) => setPendingCount(count ?? 0));
-  };
-
   useEffect(() => {
     if (!user) return;
 
     // Initial load — scoped to the active shop.
     fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
-    loadPending();
 
     // Real-time updates. postgres_changes can only filter by user_id, so we
     // subscribe by user and recompute the shop-scoped count on any change.
@@ -449,7 +437,6 @@ export function Sidebar() {
       .channel(`notifications:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => {
         fetchShopUnreadCount(supabase, user.id, shop?.id).then(setUnreadCount);
-        loadPending();
       })
       .subscribe();
 
@@ -761,12 +748,6 @@ export function Sidebar() {
                 {item.badge && unreadCount > 0 && (
                   <span className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
                     {unreadCount}
-                  </span>
-                )}
-                {item.pendingBadge && pendingCount > 0 && (
-                  <span title={`${pendingCount} booking${pendingCount === 1 ? "" : "s"} awaiting approval`}
-                    className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-amber-500/20 text-amber-500 border border-amber-500/30">
-                    {pendingCount}
                   </span>
                 )}
               </Link>
