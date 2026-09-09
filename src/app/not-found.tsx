@@ -18,14 +18,14 @@ export default function NotFound() {
         <div className="flex items-center justify-center gap-3">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-white hover:bg-black text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 bg-white hover:bg-white/90 text-black font-semibold px-6 py-3 rounded-xl transition-colors"
           >
             <Home className="w-4 h-4" />
             Go Home
           </Link>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 bg-black/10 hover:bg-black/15 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 border border-white/15 hover:bg-white/5 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
             Dashboard
           </Link>

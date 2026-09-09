@@ -34,19 +34,23 @@ export default function ShopsPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("shops")
         .select("id, name, slug, city, province, address, description, logo")
         .eq("status", "approved")
         .eq("is_active", true)
         .order("name");
-      if (!data) { setLoading(false); return; }
+      if (error || !data) { setLoading(false); return; }
 
-      // Fetch ratings and barber counts in parallel
+      // Ratings, active barbers, and active services in parallel. A shop only
+      // belongs in the public directory once it's actually bookable — at least
+      // one active barber AND one active service — so half-finished/empty shops
+      // (which would open a dead-end "No services" wizard) never appear.
       const shopIds = data.map((s: { id: string }) => s.id);
-      const [{ data: reviews }, { data: barbers }] = await Promise.all([
+      const [{ data: reviews }, { data: barbers }, { data: services }] = await Promise.all([
         supabase.from("reviews").select("shop_id, rating").in("shop_id", shopIds),
         supabase.from("barbers").select("shop_id").in("shop_id", shopIds).eq("is_active", true),
+        supabase.from("services").select("shop_id").in("shop_id", shopIds).eq("is_active", true),
       ]);
 
       const ratingMap: Record<string, { sum: number; count: number }> = {};
@@ -59,19 +63,31 @@ export default function ShopsPage() {
       (barbers ?? []).forEach((b: { shop_id: string }) => {
         barberCount[b.shop_id] = (barberCount[b.shop_id] ?? 0) + 1;
       });
+      const serviceCount: Record<string, number> = {};
+      (services ?? []).forEach((s: { shop_id: string }) => {
+        serviceCount[s.shop_id] = (serviceCount[s.shop_id] ?? 0) + 1;
+      });
 
-      setShops(data.map((s: ShopListing) => ({
-        ...s,
-        avgRating: ratingMap[s.id] ? ratingMap[s.id].sum / ratingMap[s.id].count : undefined,
-        reviewCount: ratingMap[s.id]?.count ?? 0,
-        barberCount: barberCount[s.id] ?? 0,
-      })));
+      setShops(
+        data
+          .filter((s: ShopListing) => (barberCount[s.id] ?? 0) > 0 && (serviceCount[s.id] ?? 0) > 0)
+          .map((s: ShopListing) => ({
+            ...s,
+            // Trim so "Moncton" and "Moncton " don't split into two filter chips,
+            // and an empty city doesn't render a blank chip / bare comma.
+            city: (s.city ?? "").trim(),
+            province: (s.province ?? "").trim(),
+            avgRating: ratingMap[s.id] ? ratingMap[s.id].sum / ratingMap[s.id].count : undefined,
+            reviewCount: ratingMap[s.id]?.count ?? 0,
+            barberCount: barberCount[s.id] ?? 0,
+          }))
+      );
       setLoading(false);
     })();
   }, []);
 
   const cities = useMemo(() => {
-    const c = new Set(shops.map(s => s.city));
+    const c = new Set(shops.map(s => s.city).filter(Boolean));
     return ["All", ...Array.from(c).sort()];
   }, [shops]);
 
@@ -177,10 +193,12 @@ export default function ShopsPage() {
                     } />
                   <div className="flex-1 min-w-0">
                     <h2 className="text-white font-bold text-lg group-hover:text-gold transition-colors truncate">{shop.name}</h2>
-                    <div className="flex items-center gap-1 text-[#8f8f8f] text-sm mt-0.5">
-                      <MapPin size={12} />
-                      <span className="truncate">{shop.city}, {shop.province}</span>
-                    </div>
+                    {(shop.city || shop.province) && (
+                      <div className="flex items-center gap-1 text-[#8f8f8f] text-sm mt-0.5">
+                        <MapPin size={12} />
+                        <span className="truncate">{[shop.city, shop.province].filter(Boolean).join(", ")}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -224,7 +242,7 @@ export default function ShopsPage() {
         <div className="mt-16 bg-surface border border-gold/20 rounded-2xl p-8 text-center">
           <p className="text-gold text-sm font-medium mb-2">Are you a barber or shop owner?</p>
           <h2 className="text-2xl font-bold text-white mb-3">Get Your Shop on ClipWise</h2>
-          <p className="text-[#6e6e6e] text-sm mb-6 max-w-lg mx-auto">Join hundreds of barbershops using ClipWise to manage bookings, staff, and payments — all in one place.</p>
+          <p className="text-[#6e6e6e] text-sm mb-6 max-w-lg mx-auto">Built in Moncton for Atlantic Canadian barbershops — manage bookings, staff, and payments in one place.</p>
           <Link href="/signup"><Button size="lg">Get Started Free →</Button></Link>
         </div>
       </div>
