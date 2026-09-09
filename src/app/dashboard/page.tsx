@@ -15,7 +15,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo, titleCase, timeGreeting } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo, titleCase } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
@@ -662,14 +662,12 @@ export default function DashboardPage() {
           other page. */}
       {shop && profile?.role === "shop_owner" && <OnboardingBanner shop={shop} />}
 
-      {/* Header — a tiny shop-name eyebrow above a warm time-of-day greeting, so the
-          shop name is present but never competes with the greeting (and the top bar's
-          "Home" is calmed to match). Subtitle carries the day + today's count. Bell +
-          profile are desktop-only here; the mobile sticky top bar carries them. */}
+      {/* Header — the shop name is the page title, with the day + today's count as
+          the subtitle. Bell + profile are desktop-only here; the mobile sticky top
+          bar carries them. */}
       <div className="cwd-hdr">
         <div className="min-w-0">
-          {shop?.name && <p className="cwd-eyebrow truncate">{titleCase(shop.name)}</p>}
-          <h1 className="cwd-greeting truncate">{timeGreeting()} 👋</h1>
+          <h1 className="truncate">{shop?.name ? titleCase(shop.name) : "Home"}</h1>
           <p className="cwd-sub truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>
