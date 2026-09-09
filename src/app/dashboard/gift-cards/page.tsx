@@ -69,11 +69,12 @@ export default function GiftCardsPage() {
   const load = useCallback(async () => {
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("gift_cards")
       .select("*")
       .eq("shop_id", shop.id)
       .order("created_at", { ascending: false });
+    if (error) console.error("gift_cards load failed:", error.message);
     setCards((data ?? []) as GiftCard[]);
     setLoading(false);
   }, [shop]);
@@ -176,13 +177,14 @@ export default function GiftCardsPage() {
   const lookupCard = async () => {
     if (!shop || !redeemCode.trim()) return;
     setRedeeming(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("gift_cards")
       .select("*")
       .eq("shop_id", shop.id)
       .eq("code", redeemCode.trim().toUpperCase().replace(/\s+/g, ""))
       .maybeSingle();
     setRedeeming(false);
+    if (error) { showToast("Couldn't look up that card — please try again."); return; }
     if (!data) { showToast("Gift card not found"); return; }
     setRedeemResult(data as GiftCard);
   };
@@ -196,12 +198,15 @@ export default function GiftCardsPage() {
     }
     setRedeeming(true);
     const newBalance = Math.max(0, redeemResult.remaining_value - amount);
-    await supabase.from("gift_cards").update({
+    // Capture the error — this moves money off the card, so a failed write must
+    // NEVER show a "Redeemed" success (which would double-spend the balance).
+    const { error } = await supabase.from("gift_cards").update({
       remaining_value: newBalance,
       is_active: newBalance > 0,
       redeemed_at: new Date().toISOString(),
     }).eq("id", redeemResult.id);
     setRedeeming(false);
+    if (error) { showToast(`Couldn't redeem — please try again.`); return; }
     showToast(`Redeemed ${formatCurrency(amount)} — Remaining: ${formatCurrency(newBalance)}`);
     setShowRedeem(false);
     setRedeemCode("");
@@ -230,7 +235,8 @@ export default function GiftCardsPage() {
   };
 
   const deactivate = async (id: string) => {
-    await supabase.from("gift_cards").update({ is_active: false }).eq("id", id);
+    const { error } = await supabase.from("gift_cards").update({ is_active: false }).eq("id", id);
+    if (error) { showToast("Couldn't deactivate — please try again."); return; }
     setCards(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
     showToast("Gift card deactivated");
   };
@@ -285,13 +291,13 @@ export default function GiftCardsPage() {
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by code, name..."
-            className="w-full bg-card shadow-sm border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+            className="w-full bg-card shadow-sm border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
         </div>
         <div className="flex gap-2">
           {(["all", "active", "used"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={cn("px-3 py-1.5 text-xs rounded-lg border font-medium capitalize transition-colors",
-                filter === f ? "bg-black/10 border-black text-foreground" : "border-border text-grey hover:text-foreground")}>
+                filter === f ? "bg-foreground text-background border-foreground" : "border-border text-grey hover:text-foreground")}>
               {f}
             </button>
           ))}
@@ -327,10 +333,10 @@ export default function GiftCardsPage() {
                     const pctLeft = card.initial_value > 0 ? (card.remaining_value / card.initial_value) * 100 : 0;
                     const isUsed = !card.is_active || card.remaining_value === 0;
                     return (
-                      <tr key={card.id} className={cn("border-b border-[#2a2a2a]/50 hover:bg-card-raised/20 transition-colors", isUsed && "opacity-50")}>
+                      <tr key={card.id} className={cn("border-b border-border/50 hover:bg-card-raised/20 transition-colors", isUsed && "opacity-50")}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <code className="text-sm font-mono text-foreground bg-black/5 px-2 py-0.5 rounded">{card.code}</code>
+                            <code className="text-sm font-mono text-foreground bg-card-raised px-2 py-0.5 rounded">{card.code}</code>
                             <button onClick={() => copyCode(card.code)} className="text-grey hover:text-foreground transition-colors">
                               <Copy size={13} />
                             </button>
@@ -399,13 +405,13 @@ export default function GiftCardsPage() {
                   {["25", "50", "75", "100", "150", "200"].map(v => (
                     <button key={v} onClick={() => setForm(p => ({ ...p, initial_value: v }))}
                       className={cn("px-3 py-1.5 text-sm rounded-lg border font-medium transition-colors",
-                        form.initial_value === v ? "bg-black/10 border-gray-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
+                        form.initial_value === v ? "bg-emerald-500/10 border-emerald-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
                       ${v}
                     </button>
                   ))}
                 </div>
                 <input value={form.initial_value} onChange={e => setForm(p => ({ ...p, initial_value: e.target.value }))} type="number" min="1" placeholder="Custom amount"
-                  className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                  className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
               </div>
 
               {/* How to collect payment — every option records REAL money. */}
@@ -419,7 +425,7 @@ export default function GiftCardsPage() {
                   ]).map(({ m, label }) => (
                     <button key={m} onClick={() => setForm(p => ({ ...p, payment_method: m }))}
                       className={cn("px-2 py-2 text-sm rounded-lg border font-medium transition-colors",
-                        form.payment_method === m ? "bg-black/10 border-gray-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
+                        form.payment_method === m ? "bg-emerald-500/10 border-emerald-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
                       {label}
                     </button>
                   ))}
@@ -436,22 +442,22 @@ export default function GiftCardsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Recipient Name</label>
                   <input value={form.recipient_name} onChange={e => setForm(p => ({ ...p, recipient_name: e.target.value }))} placeholder="Jane Smith"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Recipient Email (optional)</label>
                   <input value={form.recipient_email} onChange={e => setForm(p => ({ ...p, recipient_email: e.target.value }))} type="email" placeholder="jane@example.com"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Purchased By</label>
                   <input value={form.purchased_by} onChange={e => setForm(p => ({ ...p, purchased_by: e.target.value }))} placeholder="John Smith"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-grey">Note (optional)</label>
                   <input value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Birthday gift"
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black" />
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
                 </div>
               </div>
 
@@ -486,7 +492,7 @@ export default function GiftCardsPage() {
                       onChange={e => setRedeemCode(e.target.value.toUpperCase())}
                       onKeyDown={e => e.key === "Enter" && lookupCard()}
                       placeholder="XXXX-XXXX-XXXX"
-                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                       autoFocus
                     />
                   </div>
@@ -525,7 +531,7 @@ export default function GiftCardsPage() {
                           step="0.01"
                           max={redeemResult.remaining_value}
                           placeholder={`Max ${formatCurrency(redeemResult.remaining_value)}`}
-                          className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-black"
+                          className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
                           autoFocus
                         />
                       </div>

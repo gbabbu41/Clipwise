@@ -361,10 +361,14 @@ export default function ClientsPage() {
     setSaving(true);
     // Don't create a duplicate if this phone/email is already on file.
     let dupe: { id: string } | null = null;
-    const { data: byPhone } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
+    // Abort on a lookup error — silently proceeding would let a duplicate client
+    // slip in when the check itself failed (RLS/network), not when it's clear.
+    const { data: byPhone, error: dupPhoneErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
+    if (dupPhoneErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }
     dupe = byPhone;
     if (!dupe && email) {
-      const { data: byEmail } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
+      const { data: byEmail, error: dupEmailErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
+      if (dupEmailErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }
       dupe = byEmail;
     }
     if (dupe) { setSaving(false); showToast("A client with that phone or email already exists"); return; }
@@ -506,15 +510,15 @@ export default function ClientsPage() {
         <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {["All","VIP","New","Returning","At Risk"].map(t => (
             <button key={t} onClick={() => setTagFilter(t)}
-              className={cn("px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", tagFilter === t ? "bg-gold text-black" : "text-grey hover:text-foreground bg-card-raised")}>
+              className={cn("px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 transition-colors", tagFilter === t ? "bg-foreground text-background" : "text-grey hover:text-foreground bg-card-raised")}>
               {t}
             </button>
           ))}
         </div>
         <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="w-56" />
         <div className="flex gap-1 ml-auto">
-          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-black text-foreground" : "border-border text-grey")}>⊞</button>
-          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-black text-foreground" : "border-border text-grey")}>☰</button>
+          <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-foreground text-foreground" : "border-border text-grey")}>⊞</button>
+          <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-foreground text-foreground" : "border-border text-grey")}>☰</button>
         </div>
       </div>
 
@@ -545,7 +549,7 @@ export default function ClientsPage() {
       ) : viewMode === "grid" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
-            <Card key={client.id} className="hover:border-black transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
+            <Card key={client.id} className="hover:border-border-strong transition-all cursor-pointer card-hover" onClick={() => openClient(client)}>
               {/* Contact header — tap-to-call button (left), identity, status */}
               <div className="flex items-center gap-3.5 py-1">
                 {client.phone ? (
@@ -558,7 +562,7 @@ export default function ClientsPage() {
                     <Phone size={20} />
                   </a>
                 ) : (
-                  <div className="w-12 h-12 shrink-0 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-sm">
+                  <div className="w-12 h-12 shrink-0 rounded-full bg-card-raised flex items-center justify-center text-foreground font-bold text-sm">
                     {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
                 )}
@@ -613,7 +617,7 @@ export default function ClientsPage() {
             <tbody>
               {filtered.map(client => (
                 <tr key={client.id} onClick={() => openClient(client)}
-                  className="border-b border-[#2a2a2a]/50 hover:bg-card-raised/50 cursor-pointer">
+                  className="border-b border-border/50 hover:bg-card-raised/50 cursor-pointer">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{client.name}</td>
                   <td className="px-4 py-3 text-sm text-grey">{client.phone}</td>
                   <td className="px-4 py-3">
@@ -647,7 +651,7 @@ export default function ClientsPage() {
               <button onClick={() => setSelectedClient(null)} className="text-grey hover:text-foreground text-xl">✕</button>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-black/10 flex items-center justify-center text-foreground font-bold text-lg">
+              <div className="w-14 h-14 rounded-full bg-card-raised flex items-center justify-center text-foreground font-bold text-lg">
                 {selectedClient.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <div>
@@ -669,7 +673,7 @@ export default function ClientsPage() {
               {(["overview", "hair", "history"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
-                    activeTab === tab ? "bg-black/10 text-foreground border border-border" : "text-grey hover:text-foreground")}>
+                    activeTab === tab ? "bg-surface-overlay text-foreground border border-border" : "text-grey hover:text-foreground")}>
                   {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
                 </button>
               ))}
@@ -695,7 +699,7 @@ export default function ClientsPage() {
                               onChange={e => setFieldDraft(field === "phone" ? formatPhone(e.target.value) : e.target.value)}
                               onKeyDown={e => { if (e.key === "Enter") saveContactField(); if (e.key === "Escape") setEditField(null); }}
                               placeholder={field === "phone" ? "506-555-0000" : "name@email.com"}
-                              className="flex-1 min-w-0 bg-card border border-border rounded-lg px-2 py-1 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-black/20"
+                              className="flex-1 min-w-0 bg-card border border-border rounded-lg px-2 py-1 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-foreground/20"
                             />
                             <button onClick={saveContactField} disabled={savingField} aria-label="Save"
                               className="shrink-0 text-sm font-bold text-foreground disabled:opacity-50">✓</button>
@@ -709,7 +713,7 @@ export default function ClientsPage() {
                           </button>
                         ) : (
                           <button onClick={() => startEditField(field)}
-                            className="mt-0.5 text-sm text-accent-soft hover:text-foreground text-left">
+                            className="mt-0.5 text-sm text-emerald-400 hover:text-foreground text-left">
                             + Add {label.toLowerCase()}
                           </button>
                         )}
@@ -733,11 +737,11 @@ export default function ClientsPage() {
                   <label className="text-xs font-medium text-grey">Birthday</label>
                   <div className="flex gap-2">
                     <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
-                      className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-black/20 [color-scheme:dark]" />
+                      className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 [color-scheme:dark]" />
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
                   {selectedClient.email && birthday && (
-                    <Button size="sm" variant="outline" className="w-full text-foreground border-black hover:bg-black/5" loading={sendingBirthday} onClick={sendBirthdayEmail}>
+                    <Button size="sm" variant="outline" className="w-full text-foreground border-border hover:bg-card-raised" loading={sendingBirthday} onClick={sendBirthdayEmail}>
                       🎂 Send Birthday Email
                     </Button>
                   )}
@@ -777,7 +781,7 @@ export default function ClientsPage() {
                     <p className="text-xl font-bold text-foreground">{selectedClient.loyalty_points} pts</p>
                   </div>
                   <div className="w-full h-2 bg-card shadow-sm rounded-full overflow-hidden mb-3">
-                    <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
                   </div>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setAddPointsClient(selectedClient)}>+ Add Points</Button>
                 </div>
@@ -800,7 +804,7 @@ export default function ClientsPage() {
                         value={hairProfile[key]}
                         onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-black/20"
+                        className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-foreground/20"
                       />
                     </div>
                   ))}
@@ -812,7 +816,7 @@ export default function ClientsPage() {
                     <select
                       value={hairProfile.fadeType}
                       onChange={e => setHairProfile(p => ({ ...p, fadeType: e.target.value }))}
-                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-black/20"
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Low Fade", "Mid Fade", "High Fade", "Skin Fade", "Taper"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -823,7 +827,7 @@ export default function ClientsPage() {
                     <select
                       value={hairProfile.beardStyle}
                       onChange={e => setHairProfile(p => ({ ...p, beardStyle: e.target.value }))}
-                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-black/20"
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
                     >
                       <option value="">— select —</option>
                       {["None", "Shape Up", "Light Trim", "Full Trim", "Full Beard", "Shave"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -843,7 +847,7 @@ export default function ClientsPage() {
                       onChange={e => setHairProfile(p => ({ ...p, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={2}
-                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-black/20 resize-none"
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-1 focus:ring-foreground/20 resize-none"
                     />
                   </div>
                 ))}

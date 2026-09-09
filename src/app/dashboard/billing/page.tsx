@@ -56,8 +56,16 @@ export default function BillingPage() {
     // they're viewing — which is exactly why a fully-connected shop wrongly read
     // "Not connected" (Billing was showing a different, un-connected location).
     const url = shop?.id ? `/api/stripe/billing?shop_id=${encodeURIComponent(shop.id)}` : "/api/stripe/billing";
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (res.ok) setBilling(await res.json());
+    // Capture failures — a swallowed error here left the page in a misleading
+    // degraded state (plan from the shop fallback, Connect shown "Not connected")
+    // with no signal. Also guard the network throw so loading never hangs.
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (res.ok) setBilling(await res.json());
+      else console.error("billing load failed:", res.status);
+    } catch (e) {
+      console.error("billing load error:", e);
+    }
     setLoading(false);
   }, [accessToken, shop?.id]);
 
@@ -297,7 +305,7 @@ export default function BillingPage() {
       active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
       cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
       past_due: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-      inactive: "bg-gray-500/15 text-grey border-gray-500/30",
+      inactive: "bg-surface-overlay text-grey border-border",
     };
     const label: Record<string, string> = { active: "Active", cancelled: "Cancelled", past_due: "Past Due", inactive: "No subscription" };
     return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", map[status] ?? map.inactive)}>{label[status] ?? status}</span>;
@@ -306,7 +314,7 @@ export default function BillingPage() {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-black border-t-gold rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-border border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }
@@ -415,7 +423,7 @@ export default function BillingPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 mb-5">
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", onFreePlan ? "bg-card-raised" : "bg-black/10")}>
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", onFreePlan ? "bg-card-raised" : "bg-emerald-500/10")}>
               <Crown size={22} className={onFreePlan ? "text-grey" : "text-foreground"} />
             </div>
             <div>
@@ -431,7 +439,7 @@ export default function BillingPage() {
               <p className="text-xs font-medium text-grey uppercase tracking-wider mb-2">What&apos;s included</p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                 {currentHighlights.slice(0, 6).map(h => (
-                  <li key={h} className="flex items-start gap-2 text-xs text-gray-300">
+                  <li key={h} className="flex items-start gap-2 text-xs text-grey">
                     <Check size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" /> {h}
                   </li>
                 ))}
@@ -492,7 +500,7 @@ export default function BillingPage() {
                 <div key={p.id} className="p-4 bg-card-raised rounded-xl border border-border space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{p.name}{p.badge ? <span className="text-gold text-xs font-normal"> · {p.badge}</span> : null}</p>
+                      <p className="text-sm font-semibold text-foreground truncate">{p.name}{p.badge ? <span className="text-emerald-400 text-xs font-normal"> · {p.badge}</span> : null}</p>
                       <p className="text-xs text-grey">
                         <span className="text-foreground font-semibold">{formatPlanPrice(p.price_cents)}</span>/month
                         {p.barber_limit != null ? ` · up to ${p.barber_limit} barber${p.barber_limit === 1 ? "" : "s"}` : " · unlimited barbers"}
@@ -516,7 +524,7 @@ export default function BillingPage() {
                   {bulletsFor(p.id, p.highlights).length > 0 && (
                     <ul className="space-y-1">
                       {bulletsFor(p.id, p.highlights).slice(0, 6).map(h => (
-                        <li key={h} className="flex items-start gap-2 text-xs text-gray-300">
+                        <li key={h} className="flex items-start gap-2 text-xs text-grey">
                           <Check size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" /> {h}
                         </li>
                       ))}
@@ -558,7 +566,7 @@ export default function BillingPage() {
                   onChange={e => setCouponCode(e.target.value.toUpperCase().slice(0, 40))}
                   onKeyDown={e => { if (e.key === "Enter") redeemCoupon(); }}
                   placeholder="Enter your code"
-                  className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-gold/50 font-mono"
+                  className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400 font-mono"
                 />
                 <Button size="sm" loading={actionLoading === "coupon"} disabled={!couponCode.trim()} onClick={redeemCoupon}>Redeem</Button>
               </div>
@@ -599,7 +607,7 @@ export default function BillingPage() {
               </div>
               <div>
                 <p className="text-sm text-grey">Taking card payments online is a <span className="text-foreground font-medium">Pro &amp; Premium</span> feature. Your shop is on Starter, so bookings are cash / in-person only.</p>
-                <p className="text-xs text-gold mt-1">Choose a plan above to connect your bank and accept cards.</p>
+                <p className="text-xs text-grey mt-1">Choose a plan above to connect your bank and accept cards.</p>
               </div>
             </div>
           ) : (() => {
@@ -657,7 +665,7 @@ export default function BillingPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-foreground">${inv.amount.toFixed(2)}</span>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full", inv.status === "paid" ? "text-emerald-400 bg-emerald-500/10" : "text-grey bg-gray-500/10")}>{inv.status}</span>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full", inv.status === "paid" ? "text-emerald-400 bg-emerald-500/10" : "text-grey bg-surface-overlay")}>{inv.status}</span>
                     {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer" className="text-grey hover:text-foreground"><ExternalLink size={14} /></a>}
                   </div>
                 </div>

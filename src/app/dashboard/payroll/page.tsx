@@ -8,6 +8,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { cn, formatCurrency, formatDateForDb, prettyDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx } from "@/lib/revenue";
 import { safeCommission } from "@/lib/barber-earnings";
@@ -219,14 +220,10 @@ export default function PayrollPage() {
   const activePlan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
   if (!shop || !planHasFeature(activePlan, "commission")) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-4xl mb-4">🔒</p>
-        <h2 className="text-xl font-bold text-foreground mb-2">Payroll & Earnings</h2>
-        <p className="text-sm text-grey mb-6 max-w-sm">Staff commission tracking and payroll reports are available on the Premium plan.</p>
-        <a href="/dashboard/billing" className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
-          Upgrade to unlock
-        </a>
-      </div>
+      <FeatureLock
+        title="Payroll & Earnings"
+        description="Staff commission tracking and payroll reports are available on the Premium plan."
+      />
     );
   }
 
@@ -250,7 +247,7 @@ export default function PayrollPage() {
         {PERIOD_OPTIONS.map(opt => (
           <button key={opt.value} onClick={() => setPeriod(opt.value)}
             className={cn("px-4 py-2 text-sm font-medium rounded-xl border transition-colors",
-              period === opt.value ? "bg-black/10 border-black text-foreground" : "border-border text-grey hover:text-foreground")}>
+              period === opt.value ? "bg-foreground text-background border-foreground" : "border-border text-grey hover:text-foreground")}>
             {opt.label}
           </button>
         ))}
@@ -299,7 +296,7 @@ export default function PayrollPage() {
                 <YAxis tick={{ fontSize: 11, fill: "var(--grey)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
                 <Tooltip {...CHART_TOOLTIP} formatter={(v) => formatCurrency(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: 12, color: "var(--grey)" }} />
-                <Bar dataKey="Commission" stackId="a" fill="#C9A84C" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Commission" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Shop keeps" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -317,7 +314,11 @@ export default function PayrollPage() {
           {loading ? (
             <div className="py-12 text-center text-grey">Loading...</div>
           ) : payroll.length === 0 ? (
-            <div className="py-12 text-center text-grey">No barbers found</div>
+            <div className="text-center py-12">
+              <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-2xl">💈</div>
+              <h3 className="text-base font-semibold text-foreground mb-1">No barber earnings yet</h3>
+              <p className="text-sm text-grey max-w-xs mx-auto">Once your barbers complete paid appointments, their commission breakdown shows up here.</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {payroll.map(p => (
@@ -325,7 +326,7 @@ export default function PayrollPage() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     {/* Barber info */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-black/10 border border-black flex items-center justify-center text-foreground font-bold overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-card-raised border border-border flex items-center justify-center text-foreground font-bold overflow-hidden">
                         <AvatarImage src={p.barber.photo} alt={p.barber.name} className="w-full h-full object-cover" fallback={<>{p.barber.name[0]}</>} />
                       </div>
                       <div>
@@ -335,7 +336,7 @@ export default function PayrollPage() {
                     </div>
 
                     {/* Commission payout highlight */}
-                    <div className="bg-black/5 border border-border rounded-xl px-4 py-2 text-center">
+                    <div className="bg-card-raised border border-border rounded-xl px-4 py-2 text-center">
                       <p className="text-xs text-grey">Pay Out</p>
                       <p className="text-xl font-bold text-foreground">{formatCurrency(p.commissionEarned)}</p>
                     </div>
@@ -371,7 +372,7 @@ export default function PayrollPage() {
                         <span>{p.barber.commission_percent}% to barber / {100 - p.barber.commission_percent}% to shop</span>
                       </div>
                       <div className="h-2 bg-card shadow-sm rounded-full overflow-hidden flex">
-                        <div className="bg-gold h-full rounded-l-full" style={{ width: `${p.barber.commission_percent}%` }} />
+                        <div className="bg-amber-500 h-full rounded-l-full" style={{ width: `${p.barber.commission_percent}%` }} />
                         <div className="bg-emerald-500 h-full rounded-r-full flex-1" />
                       </div>
                       <div className="flex justify-between text-xs mt-1">

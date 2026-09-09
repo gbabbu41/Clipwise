@@ -33,9 +33,9 @@ const classify = (n: { title: string; message: string; type: string }) => {
     // booking is NOT action-required — flagging every booking pending was a
     // false alarm. Card-hold/paid are matched by earlier branches anyway.
     const p = /needs approval|tap to approve|pending|approval|approve|awaiting|requested/.test(s);
-    return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#e5e5e5]", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-[#bbb]", p ? "#f59e0b" : "var(--border-strong)", p);
+    return k(Calendar, p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-foreground", p ? "Pending" : "Booking", p ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-grey", p ? "#f59e0b" : "var(--border-strong)", p);
   }
-  return k(Info, "bg-white/10 text-[#cfcfcf]", "Update", "bg-white/10 text-[#bbb]", "var(--border-strong)");
+  return k(Info, "bg-white/10 text-grey", "Update", "bg-white/10 text-grey", "var(--border-strong)");
 };
 const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 // Drop any leading emoji/symbol the stored title carries (e.g. "✅ Paid" → "Paid").
@@ -106,7 +106,10 @@ export default function NotificationsPage() {
     // Scoped to the active shop so a multi-shop owner's list, counts, and the
     // "Mark all read" / "Clear all" actions (which act on the loaded ids) only
     // touch this shop's alerts.
-    const { data } = await fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 50 });
+    const { data, error } = await fetchShopNotifications(supabase, { userId: user.id, shopId: shop?.id, limit: 50 });
+    // On error, keep whatever's already shown rather than blanking to the
+    // "all caught up" empty state (which is indistinguishable from zero alerts).
+    if (error) { console.error("notifications load failed:", error); setLoading(false); return; }
     if (data) setNotifications(data as unknown as typeof notifications);
     setLoading(false);
   }, [user, shop?.id]);
@@ -188,7 +191,7 @@ export default function NotificationsPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {!notif.is_read && <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />}
-            <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
+            <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-grey" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
             <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
           </div>
           <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
