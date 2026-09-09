@@ -1458,8 +1458,11 @@ export default function BookingClient() {
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
         {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
         <div className="max-w-md w-full text-center">
-          <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6", bookingPending ? "bg-amber-500/20" : "bg-emerald-500/20")}>
-            <Check size={36} className={bookingPending ? "text-amber-400" : "text-emerald-400"} />
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <span aria-hidden className={cn("absolute inset-0 rounded-full cw-success-ring", bookingPending ? "bg-amber-500/30" : "bg-emerald-500/30")} />
+            <div className={cn("relative w-20 h-20 rounded-full flex items-center justify-center cw-success-pop", bookingPending ? "bg-amber-500/20" : "bg-emerald-500/20")}>
+              <Check size={36} className={bookingPending ? "text-amber-400" : "text-emerald-400"} />
+            </div>
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">{paidThankYou ? "Payment received — thank you!" : bookingPending ? "Request sent!" : "Booking Confirmed!"}</h1>
           {bookingId && <p className="text-xs text-[#8f8f8f] mb-1">Booking ID: <span className="text-white font-mono">{bookingId.slice(0, 8).toUpperCase()}</span></p>}
@@ -1468,7 +1471,7 @@ export default function BookingClient() {
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
           {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors mb-6 block">View & Manage Booking →</a>}
-          <div className="bg-black shadow-sm border border-[#2a2a2a] rounded-2xl p-6 text-left space-y-3 mb-6">
+          <div className="cw-rise bg-white/[0.03] border border-white/10 shadow-2xl rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: confirmedSummary?.shopName || shop.name },
               { label: "Barber", value: dispBarber },
@@ -1493,9 +1496,9 @@ export default function BookingClient() {
                 </div>
               </>
             )}
-            <div className="border-t border-[#2a2a2a] pt-3 flex justify-between font-bold">
+            <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
               <span className="text-white">Total</span>
-              <span className="text-white text-lg">{formatCurrency(dispTotal + (confirmedSummary?.tip ?? 0))}</span>
+              <span className="text-emerald-400 text-lg">{formatCurrency(dispTotal + (confirmedSummary?.tip ?? 0))}</span>
             </div>
             {confirmedSummary?.paymentNote && (
               <p className="text-xs text-[#8f8f8f] text-center pt-1">{confirmedSummary.paymentNote}</p>
