@@ -101,8 +101,8 @@ export default function SignupPage() {
 
   // ── Step 1: validate the form, then request an email verification code. No
   //    account is created yet — the server only stores {email, code} + emails it.
-  const handleRequestCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRequestCode = async (e?: React.FormEvent, opts?: { resend?: boolean }) => {
+    e?.preventDefault?.();
     setError("");
     const errors: Record<string, string> = {};
     if (!form.name.trim()) errors.name = "Full name is required";
@@ -117,7 +117,11 @@ export default function SignupPage() {
     if (pwStrength.issues.length > 0) errors.password = pwStrength.issues.join(" · ");
     if (form.confirmPassword !== form.password) errors.confirmPassword = "Passwords do not match";
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
-    if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the “I'm human” check."); return; }
+    // A resend skips the client captcha gate — the widget only shows on the form
+    // step, so requiring a fresh token here would dead-end "Resend code". The
+    // server still only exempts a resend that already has a pending (captcha-
+    // passed) code on file.
+    if (!opts?.resend && TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the “I'm human” check."); return; }
     setFieldErrors({});
     setLoading(true);
 
@@ -125,7 +129,7 @@ export default function SignupPage() {
       () => fetch("/api/auth/request-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email.trim().toLowerCase(), role: selectedRole || "customer", captchaToken }),
+        body: JSON.stringify({ email: form.email.trim().toLowerCase(), role: selectedRole || "customer", captchaToken, resend: !!opts?.resend }),
       }),
       () => setError("This is taking a while — check your connection and try again."),
     );
@@ -261,7 +265,7 @@ export default function SignupPage() {
             <div className="flex items-center justify-between mt-5 text-sm">
               <button onClick={() => { setStep("form"); setError(""); }} className="text-[#8f8f8f] hover:text-gold">← Edit details</button>
               <button
-                onClick={() => handleRequestCode(new Event("submit") as unknown as React.FormEvent)}
+                onClick={() => handleRequestCode(undefined, { resend: true })}
                 disabled={loading}
                 className="text-gold hover:underline disabled:opacity-50"
               >

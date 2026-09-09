@@ -16,7 +16,7 @@ const RESEND_COOLDOWN_MS = 30_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
-  let body: { email?: string; role?: string; captchaToken?: string };
+  let body: { email?: string; role?: string; captchaToken?: string; resend?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   const email = (body.email || "").trim().toLowerCase();
@@ -24,8 +24,18 @@ export async function POST(req: NextRequest) {
   if (!EMAIL_RE.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
 
   // Bot gate — skipped until TURNSTILE_SECRET_KEY is set, enforced once it is.
+  // A RESEND is exempt ONLY when the email already has a pending signup_code (i.e.
+  // it cleared the captcha on the first request). Without this, "Resend code"
+  // dead-ends once Turnstile is enabled, because the widget only shows on the
+  // form step. The 30s per-email cooldown below is the anti-abuse guard, and a
+  // bot still can't get a first code without passing the check.
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-  if (!(await verifyTurnstile(body.captchaToken, ip))) {
+  let humanOk = await verifyTurnstile(body.captchaToken, ip);
+  if (!humanOk && body.resend === true) {
+    const { data: pendingCaptcha } = await supabaseAdmin.from("signup_codes").select("email").eq("email", email).maybeSingle();
+    if (pendingCaptcha) humanOk = true;
+  }
+  if (!humanOk) {
     return NextResponse.json({ error: "Couldn't verify you're human. Please try again." }, { status: 400 });
   }
 

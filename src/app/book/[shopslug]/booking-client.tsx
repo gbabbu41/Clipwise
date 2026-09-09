@@ -345,28 +345,45 @@ export default function BookingClient() {
   }, [shopslug]);
 
   // ── Handle return from Stripe payment ──────────────────────────────────────
+  // Escape hatch: never strand the customer on the "Confirming…" spinner. If the
+  // finalize can't proceed (missing session_id), errors, or doesn't resolve
+  // within the safety window, `payError` flips and we show a contact-shop / retry
+  // screen instead of an endless spinner. The finalize LOGIC itself is unchanged.
+  const [payError, setPayError] = useState(false);
   useEffect(() => {
     if (!shop) return;
     if (searchParams.get("cancelled") === "1") {
       showToast("Payment cancelled — your booking was not created.", false);
       return;
     }
+    const isReturn = searchParams.get("paid") === "1" || !!searchParams.get("paid_appt");
+    if (!isReturn) return;
+    // If nothing resolves in time, surface the escape instead of spinning.
+    const failTimer = setTimeout(() => setPayError(true), 12000);
+
     if (searchParams.get("paid") === "1") {
       const sessionId = searchParams.get("session_id");
-      if (!sessionId) return;
+      if (!sessionId) { clearTimeout(failTimer); setPayError(true); return; }
       (async () => {
-        const res = await fetch("/api/stripe/booking-finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, shop_id: shop.id }),
-        });
-        const data = await res.json();
-        if (res.ok && data.paid && data.appointmentId) {
-          setBookingId(data.appointmentId);
-          if (data.summary) setConfirmedSummary(data.summary);
-          setConfirmed(true);
-        } else {
-          showToast("We couldn't confirm your payment. Contact the shop.", false);
+        try {
+          const res = await fetch("/api/stripe/booking-finalize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, shop_id: shop.id }),
+          });
+          const data = await res.json();
+          if (res.ok && data.paid && data.appointmentId) {
+            setBookingId(data.appointmentId);
+            if (data.summary) setConfirmedSummary(data.summary);
+            setConfirmed(true);
+          } else {
+            showToast("We couldn't confirm your payment. Contact the shop.", false);
+            setPayError(true);
+          }
+        } catch {
+          setPayError(true);
+        } finally {
+          clearTimeout(failTimer);
         }
       })();
     }
@@ -375,24 +392,32 @@ export default function BookingClient() {
     const paidAppt = searchParams.get("paid_appt");
     if (paidAppt) {
       const sessionId = searchParams.get("session_id");
-      if (!sessionId) return;
+      if (!sessionId) { clearTimeout(failTimer); setPayError(true); return; }
       (async () => {
-        const res = await fetch("/api/stripe/payment-link-finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, appointment_id: paidAppt }),
-        });
-        const data = await res.json();
-        if (res.ok && data.paid) {
-          setBookingId(data.appointmentId);
-          if (data.summary) setConfirmedSummary(data.summary);
-          setPaidThankYou(true);
-          setConfirmed(true);
-        } else {
-          showToast("We couldn't confirm your payment. Contact the shop.", false);
+        try {
+          const res = await fetch("/api/stripe/payment-link-finalize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, appointment_id: paidAppt }),
+          });
+          const data = await res.json();
+          if (res.ok && data.paid) {
+            setBookingId(data.appointmentId);
+            if (data.summary) setConfirmedSummary(data.summary);
+            setPaidThankYou(true);
+            setConfirmed(true);
+          } else {
+            showToast("We couldn't confirm your payment. Contact the shop.", false);
+            setPayError(true);
+          }
+        } catch {
+          setPayError(true);
+        } finally {
+          clearTimeout(failTimer);
         }
       })();
     }
+    return () => clearTimeout(failTimer);
   }, [shop, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Barber-specific booking link (?barber=<id>) ────────────────────────────
@@ -1388,12 +1413,32 @@ export default function BookingClient() {
 
   // Finalizing a payment that just came back from Stripe (before `confirmed`
   // flips) — show a spinner instead of the booking UI / paused screen.
-  if (isPaymentReturn && !confirmed) {
+  if (isPaymentReturn && !confirmed && !payError) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin mx-auto mb-3" />
           <p className="text-[#8f8f8f] text-sm">Confirming your payment…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Finalize couldn't complete (missing session_id, an error, or a timeout) —
+  // give the customer a real way out instead of an endless spinner.
+  if (isPaymentReturn && !confirmed && payError) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+            <Logo size="sm" showText={false} />
+          </div>
+          <h1 className="text-xl font-bold text-white">Couldn&apos;t confirm your booking</h1>
+          <p className="text-[#8f8f8f] mt-3 text-sm">If you were charged, your appointment is most likely booked — please contact the shop to confirm, or try booking again.</p>
+          {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-4 text-emerald-400 font-semibold">Call {shop.phone}</a>}
+          <div className="mt-5">
+            <a href={`/book/${shop.slug}`} className="text-sm text-[#8f8f8f] hover:text-white transition-colors">← Back to booking</a>
+          </div>
         </div>
       </div>
     );
