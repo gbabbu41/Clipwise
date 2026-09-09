@@ -105,25 +105,31 @@ export default function BarberNotificationsPage() {
   }, [user, load]);
 
   const markRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    if (error) return; // don't flip to read if the write failed
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
   const markAllRead = async () => {
     const ids = notifications.filter(n => !n.is_read).map(n => n.id);
     if (ids.length === 0) return;
-    await supabase.from("notifications").update({ is_read: true }).in("id", ids);
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", ids);
+    if (error) { showToast("Couldn't mark all read — please try again."); return; }
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     showToast("All marked as read");
   };
   const dismiss = async (id: string) => {
+    const snapshot = notifications;
     setNotifications(prev => prev.filter(n => n.id !== id));
-    await supabase.from("notifications").delete().eq("id", id);
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) { setNotifications(snapshot); showToast("Couldn't dismiss — please try again."); }
   };
   const clearAll = async () => {
     if (notifications.length === 0) return;
     const ids = notifications.map(n => n.id);
+    const snapshot = notifications;
     setNotifications([]);
-    await supabase.from("notifications").delete().in("id", ids);
+    const { error } = await supabase.from("notifications").delete().in("id", ids);
+    if (error) { setNotifications(snapshot); showToast("Couldn't clear — please try again."); return; }
     showToast("All cleared");
   };
 

@@ -88,12 +88,13 @@ export default function BarberOverviewPage() {
     if (!shop?.id || !barber?.id) return;
     const days = currentWeekDays();
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("appointments")
         .select("*, services(name, duration_minutes), barbers(name)")
         .eq("shop_id", shop.id).eq("barber_id", barber.id)
         .gte("date", formatDateForDb(days[0])).lte("date", formatDateForDb(days[6]))
         .order("time_slot");
+      if (error) { console.error("barber week appts load failed:", error.message); return; }
       setWeekAppts((data ?? []) as AppointmentWithDetails[]);
     })();
   }, [shop?.id, barber?.id]);
@@ -116,7 +117,7 @@ export default function BarberOverviewPage() {
 
   if (barberLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
     </div>
   );
 
@@ -125,7 +126,7 @@ export default function BarberOverviewPage() {
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
-          <span className="text-gold">✓</span> {toast}
+          <span className="text-emerald-400">✓</span> {toast}
         </div>
       )}
 
@@ -169,7 +170,7 @@ export default function BarberOverviewPage() {
         <button
           type="button"
           onClick={shareMyLink}
-          className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-2xl border border-border bg-card text-foreground text-sm font-semibold hover:border-gray-500 transition-colors"
+          className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-2xl border border-border bg-card text-foreground text-sm font-semibold hover:border-border-strong transition-colors"
         >
           🔗 Share my booking link
         </button>
@@ -269,7 +270,7 @@ export default function BarberOverviewPage() {
                             {evs.map(a => {
                               const pend = a.status === "pending";
                               return (
-                                <div key={a.id} className={cn("rounded text-[9.5px] px-1.5 py-0.5 leading-tight truncate border-l-2", pend ? "border-amber-500 bg-amber-500/[0.12] text-amber-200" : "border-[#00e5a0] bg-emerald-500/[0.12] text-emerald-100")}>
+                                <div key={a.id} className={cn("rounded text-[9.5px] px-1.5 py-0.5 leading-tight truncate border-l-2", pend ? "border-amber-500 bg-amber-500/[0.12] text-amber-200" : "border-emerald-400 bg-emerald-500/[0.12] text-emerald-100")}>
                                   {((a.services as { name?: string } | null)?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
                                 </div>
                               );

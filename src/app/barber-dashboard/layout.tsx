@@ -82,7 +82,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }
@@ -97,7 +97,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
           {/* Never a dead end — always a way out. */}
           <div className="flex items-center justify-center gap-4 mt-6">
             <Link href="/" className="text-sm text-grey hover:text-foreground underline underline-offset-2">Back to home</Link>
-            <button onClick={signOut} className="text-sm text-gold hover:underline">Sign out</button>
+            <button onClick={signOut} className="text-sm text-emerald-400 hover:underline">Sign out</button>
           </div>
         </div>
       </div>
@@ -113,7 +113,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Account suspended</h2>
           <p className="text-grey text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>
-          <button onClick={signOut} className="text-sm text-gold hover:underline mt-6 inline-block">Sign out</button>
+          <button onClick={signOut} className="text-sm text-emerald-400 hover:underline mt-6 inline-block">Sign out</button>
         </div>
       </div>
     );
@@ -138,7 +138,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }

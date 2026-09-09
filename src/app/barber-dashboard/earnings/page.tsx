@@ -309,7 +309,7 @@ export default function BarberPaymentsPage() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
       {toast && (
         <div className="fixed bottom-24 right-4 z-[200] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
-          <span className="text-[#00e5a0]">✓</span> {toast}
+          <span className="text-emerald-400">✓</span> {toast}
         </div>
       )}
 
@@ -506,12 +506,12 @@ export default function BarberPaymentsPage() {
                 <div>
                   <label className="block text-xs text-grey mb-1">From</label>
                   <input type="date" value={customFrom} max={customTo || undefined} onChange={e => setCustomFrom(e.target.value)}
-                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50 [color-scheme:dark]" />
                 </div>
                 <div>
                   <label className="block text-xs text-grey mb-1">To</label>
                   <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)}
-                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]" />
+                    className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/50 [color-scheme:dark]" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">

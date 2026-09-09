@@ -29,7 +29,7 @@ export default function BarberClientsPage() {
     // Aggregate clients from appointments
     const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
     fetch(`/api/barber/appointments${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(({ appointments }) => {
         const map = new Map<string, ClientRow>();
         for (const a of appointments ?? []) {
@@ -77,7 +77,7 @@ export default function BarberClientsPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="hidden lg:block text-2xl font-bold text-foreground uppercase tracking-wide">My Clients</h1>
-        <p className="text-grey text-sm mt-0.5">Everyone you've worked with at {barber ? "" : "the shop"}</p>
+        <p className="text-grey text-sm mt-0.5">Everyone you've worked with{barber ? "" : " at the shop"}</p>
       </div>
 
       {/* Search */}
@@ -88,7 +88,7 @@ export default function BarberClientsPage() {
           placeholder="Search by name or phone..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full bg-surface border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50"
+          className="w-full bg-surface border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
         />
       </div>
 
@@ -106,7 +106,7 @@ export default function BarberClientsPage() {
         <div className="space-y-2">
           {filtered.map((client, i) => (
             <div key={`${client.client_name}-${i}`} className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-gold/15 border border-gold/20 flex items-center justify-center text-gold font-semibold flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold flex-shrink-0">
                 {client.client_name?.charAt(0) ?? "?"}
               </div>
               <div className="flex-1 min-w-0">
@@ -129,7 +129,7 @@ export default function BarberClientsPage() {
                 <p className="text-xs text-grey truncate">{client.last_service}</p>
               </div>
               <div className="text-right min-w-[60px]">
-                <p className="text-sm font-medium text-gold">${client.total_spent.toFixed(0)}</p>
+                <p className="text-sm font-medium text-emerald-400">${client.total_spent.toFixed(0)}</p>
                 <p className="text-xs text-grey">total</p>
               </div>
             </div>

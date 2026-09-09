@@ -84,9 +84,9 @@ export default function BarberProfilePage() {
         {/* Avatar — tap to upload your photo (shown to clients on booking). */}
         <div className="flex items-center gap-5 mb-8 pb-8 border-b border-border">
           <label className={cn("relative w-20 h-20 rounded-full cursor-pointer group flex-shrink-0", uploadingPhoto && "pointer-events-none opacity-70")}>
-            <AvatarImage src={photo} alt={form.name} className="w-20 h-20 rounded-full object-cover border-2 border-gold/30"
+            <AvatarImage src={photo} alt={form.name} className="w-20 h-20 rounded-full object-cover border-2 border-emerald-500/30"
               fallback={
-                <div className="w-20 h-20 rounded-full bg-gold/20 border-2 border-gold/30 flex items-center justify-center text-gold font-bold text-3xl">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-3xl">
                   {initial}
                 </div>
               } />
@@ -114,35 +114,35 @@ export default function BarberProfilePage() {
 
         <form onSubmit={handleSave} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-300">Full Name</label>
+            <label className="text-sm font-medium text-grey">Full Name</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               placeholder="e.g. Marcus Johnson"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-300">Email</label>
+            <label className="text-sm font-medium text-grey">Email</label>
             <input
               type="email"
               value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               placeholder="you@example.com"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-300">Bio</label>
+            <label className="text-sm font-medium text-grey">Bio</label>
             <textarea
               value={form.bio}
               onChange={e => setForm({ ...form, bio: e.target.value })}
               rows={4}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none"
+              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
               placeholder="Tell clients a bit about yourself — specialties, years of experience, style..."
             />
           </div>
@@ -156,7 +156,7 @@ export default function BarberProfilePage() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-grey">Commission:</span>
-              <span className="text-gold font-semibold">{barber?.commission_percent ?? 50}%</span>
+              <span className="text-emerald-400 font-semibold">{barber?.commission_percent ?? 50}%</span>
               <span className="text-grey text-xs">(set by shop owner)</span>
             </div>
           </div>

@@ -13,7 +13,7 @@ import { CalendarOff, Plus, Clock, X } from "lucide-react";
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-surface-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
-      <span className="text-gold">✓</span>{message}
+      <span className="text-emerald-400">✓</span>{message}
       <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
@@ -80,12 +80,13 @@ export default function BarberTimeOffPage() {
   const loadRequests = useCallback(async () => {
     if (!barber?.id || !shop?.id) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("time_off_requests")
       .select("*")
       .eq("barber_id", barber.id)
       .eq("shop_id", shop.id)
       .order("start_date", { ascending: false });
+    if (error) console.error("barber time_off load failed:", error.message);
     setRequests((data ?? []) as TimeOffRequest[]);
     setLoading(false);
   }, [barber?.id, shop?.id]);
@@ -251,7 +252,7 @@ export default function BarberTimeOffPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Type</label>
+                <label className="text-sm font-medium text-grey">Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(TYPE_LABELS) as BlockType[]).map(t => (
                     <button key={t} onClick={() => setForm(f => ({
@@ -262,7 +263,7 @@ export default function BarberTimeOffPage() {
                       end_date: t === "blocked_hours" ? f.start_date : f.end_date,
                     }))}
                       className={cn("py-2 px-3 rounded-xl text-sm border transition-colors",
-                        form.type === t ? "bg-gold/15 text-gold border-gold/30" : "bg-surface-raised text-gray-300 border-border hover:border-gold/30")}>
+                        form.type === t ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-surface-raised text-grey border-border hover:border-emerald-500/30")}>
                       {TYPE_LABELS[t]}
                     </button>
                   ))}
@@ -287,7 +288,7 @@ export default function BarberTimeOffPage() {
                       onChange={v => setForm(f => ({ ...f, end_time: v }))} />
                   </div>
                   {form.start_date && form.start_time && form.end_time && (
-                    <div className="text-xs text-gold/90 bg-gold/5 border border-gold/20 rounded-xl px-3 py-2">
+                    <div className="text-xs text-emerald-400/90 bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-3 py-2">
                       {formatFriendlyDate(form.start_date)} · {formatFriendlyTime(form.start_time)} – {formatFriendlyTime(form.end_time)}
                     </div>
                   )}
@@ -309,10 +310,10 @@ export default function BarberTimeOffPage() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-300">Reason <span className="text-grey">(optional)</span></label>
+                <label className="text-sm font-medium text-grey">Reason <span className="text-grey">(optional)</span></label>
                 <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                   rows={2} placeholder="e.g. Doctor appointment, family event…"
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-gold/50 resize-none" />
+                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none" />
               </div>
 
               <p className="text-xs text-grey bg-surface-raised border border-border rounded-xl px-3 py-2">

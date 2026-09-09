@@ -44,7 +44,7 @@ export default function BarberWaitlistPage() {
   const load = useCallback(async () => {
     if (!shop?.id || !accessToken) { setLoading(false); return; }
     setLoading(true);
-    const [walk, { data: sData }] = await Promise.all([
+    const [walk, { data: sData, error: sErr }] = await Promise.all([
       fetch("/api/waitlist/walkins", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -53,6 +53,7 @@ export default function BarberWaitlistPage() {
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
     ]);
     setEntries((walk.entries ?? []) as WalkIn[]);
+    if (sErr) console.error("barber waitlist services load failed:", sErr.message);
     setServices((sData ?? []) as Service[]);
     setLoading(false);
   }, [shop?.id, accessToken]);
@@ -92,7 +93,7 @@ export default function BarberWaitlistPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-28 space-y-5">
       {toast && (
         <div className="fixed bottom-24 lg:bottom-6 right-4 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
-          <span className="text-[#00e5a0]">✓</span> {toast}
+          <span className="text-emerald-400">✓</span> {toast}
         </div>
       )}
 
