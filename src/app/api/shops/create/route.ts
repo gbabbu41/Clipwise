@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { clampLen, FIELD_CAPS } from "@/lib/validation";
+import { DEFAULT_BOOKING_SETTINGS } from "@/lib/booking-defaults";
 import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 
 // Server-authoritative shop creation for onboarding.
@@ -120,14 +121,12 @@ export async function POST(request: NextRequest) {
     email: body.email ?? null,
     description: clampLen(body.description ?? null, FIELD_CAPS.shop_description),
     ...(body.logo ? { logo: body.logo } : {}),
-    // Loyalty starts OFF for a NEW shop — the owner turns it on + sets the rate in
-    // Loyalty settings. (Existing shops with no config are left untouched: the code
-    // still treats a null config as on-by-default, so this only affects new signups.)
-    // The day-before (24h) appointment reminder starts ON — it cuts no-shows and
-    // costs nothing (email on every plan; SMS only fires on paid plans). The
-    // same-day (4h) reminder follows this toggle and auto-activates once the cron
-    // runs frequently enough (a Pro/external schedule) — no redeploy needed.
-    booking_settings: { loyalty: { enabled: false }, reminders: { appointment_24h: true } },
+    // Persist the FULL default booking policy (not just loyalty + reminders) so the
+    // DB matches what Settings → Booking shows. Writing only a partial object used
+    // to leave no_show_protection absent → the booking page read it as OFF → paid
+    // shops silently couldn't take online payments even though the toggle showed
+    // ON. See lib/booking-defaults for the full rationale + per-key notes.
+    booking_settings: DEFAULT_BOOKING_SETTINGS,
     status,
     subscription_plan: plan,
     subscription_status: subscriptionStatus,
