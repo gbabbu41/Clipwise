@@ -662,13 +662,15 @@ export default function DashboardPage() {
           other page. */}
       {shop && profile?.role === "shop_owner" && <OnboardingBanner shop={shop} />}
 
-      {/* Header — calm on purpose: a SMALL shop-name label + the day's appointment
-          count. No big title here — the mobile top bar already shows "Home", so a
-          large heading would just clash with it. Bell + profile are desktop-only;
-          the top bar carries them on mobile. */}
+      {/* Header — a clear two-level hierarchy: the shop name is the PRIMARY line
+          (title-case, semibold, bright), and the day + today's count is a smaller,
+          dimmer caption beneath it, so the two no longer read as equals fighting for
+          attention. Kept modest (16px) so it sits under the mobile top bar's "Home"
+          title without competing. Bell + profile are desktop-only; the top bar
+          carries them on mobile. */}
       <div className="cwd-hdr">
         <div className="min-w-0">
-          {shop?.name && <h1 className="cwd-eyebrow truncate">{titleCase(shop.name)}</h1>}
+          {shop?.name && <h1 className="cwd-shopname truncate">{titleCase(shop.name)}</h1>}
           <p className="cwd-sub truncate">
             {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
           </p>

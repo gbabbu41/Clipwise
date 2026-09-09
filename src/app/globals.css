@@ -1483,11 +1483,14 @@ textarea:focus-visible {
 /* Owner page title — matched to the barber portal's title (text-2xl / bold /
    tracking-tight, title-case) instead of the old loud uppercase label. */
 .cwd-hdr h1 { margin:0; font-size:1.5rem; font-weight:700; letter-spacing:-0.025em; text-transform:none; color:var(--foreground); line-height:1.25; }
-/* Small shop-name label at the top of Home — calm, uppercase, grey. Kept small on
-   purpose so it never competes with the mobile top bar's "Home" title. Styled via
-   its own two-class selector so it overrides the base .cwd-hdr h1 size. */
-.cwd-hdr .cwd-eyebrow { margin:0; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--grey); }
-.cwd-hdr .cwd-sub { margin:4px 0 0; font-size:13px; color:var(--grey); }
+/* Shop name — the PRIMARY line of the Home header. Title-case, semibold and in the
+   foreground colour so it clearly leads the date caption below it, but held to 16px
+   (well under the mobile top bar's 23px "Home") so it never reads as a second big
+   title. Its two-class selector overrides the base .cwd-hdr h1 size. */
+.cwd-hdr .cwd-shopname { margin:0 0 2px; font-size:16px; font-weight:700; letter-spacing:-0.01em; text-transform:none; color:var(--foreground); line-height:1.2; }
+/* Supporting caption — the day + today's count. Smaller + grey so it's clearly the
+   secondary line, not an equal of the shop name. */
+.cwd-hdr .cwd-sub { margin:0; font-size:13px; color:var(--grey); }
 .cwd-cluster { display:flex; gap:8px; flex-shrink:0; }
 .cwd-icobtn { width:38px; height:38px; border-radius:999px; background:var(--card-raised); border:0; display:flex; align-items:center; justify-content:center; color:#a9c6ff; position:relative; }
 .cwd-icobtn .cwd-dot { position:absolute; top:7px; right:7px; width:7px; height:7px; border-radius:999px; background:var(--foreground); border:2px solid var(--background); }
