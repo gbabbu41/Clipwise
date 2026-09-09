@@ -357,7 +357,7 @@ export default function LandingPage() {
             <div><h5>Company</h5><Link href="/why-clipwise">Why ClipWise</Link><Link href="/support">How payments work</Link><a href="mailto:support@clipwise.ca">Contact</a></div>
             <div><h5>Legal</h5><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link></div>
           </div>
-          <div className="fb"><span>© 2026 ClipWise Technologies Inc.</span><span>Privacy-first · PIPEDA-aware · 🇨🇦 Canadian-Made</span></div>
+          <div className="fb"><span>© 2026 ClipWise</span><span>Privacy-first · PIPEDA-aware · 🇨🇦 Canadian-Made</span></div>
         </div>
       </footer>
     </>

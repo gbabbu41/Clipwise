@@ -10,7 +10,7 @@ export default function PrivacyPage() {
   return (
     <LegalShell title="Privacy Policy" updated="August 12, 2026">
       <p>
-        <strong className="text-white">ClipWise Technologies Inc.</strong> (&ldquo;ClipWise,&rdquo;
+        <strong className="text-white">ClipWise</strong> (&ldquo;ClipWise,&rdquo;
         &ldquo;we&rdquo;) respects your privacy. This policy explains what personal information we
         collect, how we use and share it, and your rights. We handle personal information in accordance
         with Canada&rsquo;s Personal Information Protection and Electronic Documents Act (PIPEDA) and

@@ -10,7 +10,7 @@ export default function CookiesPage() {
   return (
     <LegalShell title="Cookie Policy" updated="July 18, 2026">
       <p>
-        This policy explains how <strong className="text-white">ClipWise Technologies Inc.</strong> uses
+        This policy explains how <strong className="text-white">ClipWise</strong> uses
         cookies and similar technologies (like browser local storage). It should be read alongside our{" "}
         <a href="/privacy" className="text-gold hover:underline">Privacy Policy</a>.
       </p>

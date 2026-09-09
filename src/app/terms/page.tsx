@@ -12,7 +12,7 @@ export default function TermsPage() {
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the ClipWise
         platform, websites, and apps (the &ldquo;Service&rdquo;) operated by{" "}
-        <strong className="text-white">ClipWise Technologies Inc.</strong> (&ldquo;ClipWise,&rdquo;
+        <strong className="text-white">ClipWise</strong> (&ldquo;ClipWise,&rdquo;
         &ldquo;we,&rdquo; &ldquo;us&rdquo;). By creating an account or using the Service, you agree to
         these Terms. If you do not agree, do not use the Service.
       </p>

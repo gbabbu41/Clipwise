@@ -161,7 +161,7 @@ export default function WhyClipWisePage() {
           reflect those users&rsquo; own experiences, not typical results. Squire&trade; and Booksy&trade; are
           trademarks of their respective owners; ClipWise is not affiliated with, endorsed by, or sponsored by them.
         </p>
-        <p className="text-xs text-[#8f8f8f]">© 2026 ClipWise Technologies Inc. · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
+        <p className="text-xs text-[#8f8f8f]">© 2026 ClipWise · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
       </footer>
     </div>
   );

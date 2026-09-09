@@ -31,7 +31,7 @@ export function LegalShell({
           <Link href="/terms" className="hover:text-gold">Terms of Service</Link>
           <Link href="/privacy" className="hover:text-gold">Privacy Policy</Link>
           <Link href="/cookies" className="hover:text-gold">Cookie Policy</Link>
-          <span className="ml-auto">© 2026 ClipWise Technologies Inc.</span>
+          <span className="ml-auto">© 2026 ClipWise</span>
         </div>
       </main>
     </div>
