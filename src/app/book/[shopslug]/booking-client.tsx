@@ -1721,7 +1721,16 @@ export default function BookingClient() {
             {filteredServices.length === 0 && (
               <div className="py-12 text-center text-[#8f8f8f]">
                 <Tag size={32} className="mx-auto mb-2 opacity-30" />
-                <p>No services found</p>
+                {services.length === 0 ? (
+                  <>
+                    <p className="text-white font-semibold">Not taking online bookings yet</p>
+                    <p className="text-sm mt-1">{shop.name} hasn&apos;t set up any services. {shop.phone ? "Give them a call to book." : "Please check back soon."}</p>
+                    {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-3 text-emerald-400 font-semibold">Call {shop.phone}</a>}
+                    <div className="mt-4"><button type="button" onClick={() => setView("landing")} className="text-sm text-white/60 hover:text-white transition-colors">← Back</button></div>
+                  </>
+                ) : (
+                  <p>No services in this category.</p>
+                )}
               </div>
             )}
             <div className="space-y-3">
@@ -1743,10 +1752,26 @@ export default function BookingClient() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-lg font-bold text-white">{formatCurrency(svc.price)}</span>
-                    <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
-                      className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors" aria-label="Add service">
-                      +
-                    </button>
+                    {count > 0 ? (
+                      // Stepper so a repeat service can be decremented (not only added).
+                      // Capped so a stray extra tap can't run a single service up to ×5+.
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => setSelectedServices(prev => { const i = prev.lastIndexOf(svc.id); if (i === -1) return prev; const n = [...prev]; n.splice(i, 1); return n; })}
+                          className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center text-lg font-bold hover:bg-white/20 transition-colors" aria-label={`Remove one ${svc.name}`}>
+                          −
+                        </button>
+                        <span className="w-5 text-center text-white font-bold tabular-nums">{count}</span>
+                        <button onClick={() => setSelectedServices(prev => (prev.filter(id => id === svc.id).length >= 5 ? prev : [...prev, svc.id]))} disabled={count >= 5}
+                          className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" aria-label={`Add another ${svc.name}`}>
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setSelectedServices(prev => [...prev, svc.id])}
+                        className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold hover:bg-white/90 transition-colors" aria-label={`Add ${svc.name}`}>
+                        +
+                      </button>
+                    )}
                   </div>
                 </div>);
               })}
@@ -2360,7 +2385,7 @@ export default function BookingClient() {
               type="button"
               disabled={!canNext()}
               onClick={() => setStep(step + 1)}
-              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               Continue <ChevronRight size={16} />
             </button>
@@ -2372,7 +2397,7 @@ export default function BookingClient() {
                 || (bothMethods && !payMethodChoice)
                 || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
               onClick={() => confirmBooking(effectiveMethod ?? undefined)}
-              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
             >
               {saving ? (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -2382,7 +2407,7 @@ export default function BookingClient() {
               ) : (
                 <Check size={16} />
               )}
-              {bothMethods && !payMethodChoice ? "Choose payment" : (effectiveMethod === "in_person" ? "Book" : "Confirm")}
+              {saving ? "Booking…" : bothMethods && !payMethodChoice ? "Choose payment" : (effectiveMethod === "in_person" ? "Book" : "Confirm")}
             </button>
           )}
         </div>
