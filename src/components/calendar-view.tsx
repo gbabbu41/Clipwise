@@ -2975,17 +2975,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     window.addEventListener("cw-appt-created", refresh);
     return () => window.removeEventListener("cw-appt-created", refresh);
   }, [load]);
-  // Key that re-triggers the slide transition whenever the visible period changes.
-  // Day view uses a STABLE key so day-to-day navigation updates in place instead of
-  // remounting + sliding — the owner found the per-day slide jumpy. The date strip
-  // keeps itself centered on its own (its scroll position persists across the
-  // in-place re-render), and switching INTO day view still animates once (the
-  // `view` prefix changes). Month/year keep their per-navigation transition.
+  // Key that re-triggers the transition whenever the visible period changes.
   const periodKey = view === "year"
     ? `y${currentDate.getFullYear()}`
     : view === "month"
       ? `m${currentDate.getFullYear()}-${currentDate.getMonth()}`
-      : "day"; // day view: stable → no slide/jump when changing days
+      : `d${formatDateForDb(currentDate)}`;
   const transitionKey = `${view}:${periodKey}`;
 
   // "Today" only matters once you've navigated away from the current period —
