@@ -12,7 +12,7 @@ import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { effectivePlan, planHasFeature, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
-import { redeemGift } from "@/lib/gift-redeem";
+import { redeemGift, findRedeemableGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { recordBookingConsent, clientIpFrom } from "@/lib/consent";
@@ -192,8 +192,23 @@ export async function POST(request: NextRequest) {
   // required AND pin_requires_card on → the customer must go through the save-card
   // flow instead). No longer gated on the legacy allow_pay_in_person flag.
   const allowInPerson = !cardRequired || !pinRequiresCard;
-  if (!callerIsStaff && b.pay_in_person && !allowInPerson) {
-    return NextResponse.json({ error: "This shop requires a card to book online." }, { status: 403 });
+  // A card-required shop must not let a CUSTOMER create an UNPAID in-person booking
+  // at all — gating on `b.pay_in_person` alone was a bypass (omit the flag and the
+  // check was skipped, yielding a free confirmed slot). The only no-card exception
+  // is a gift card that FULLY covers the bill; anything else must go through the
+  // online/save-card flow. Staff walk-ins are exempt.
+  if (!callerIsStaff && !allowInPerson) {
+    let giftCoversBill = false;
+    if (b.gift_code) {
+      const g = await findRedeemableGift(b.shop_id, b.gift_code);
+      const bs = (shop.booking_settings ?? {}) as TaxConfig;
+      const tax = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(bs) : 0) / 100;
+      const gross = Math.round((effectiveTotal + tax) * 100) / 100;
+      giftCoversBill = !!g && g.balance >= gross - 0.001;
+    }
+    if (!giftCoversBill) {
+      return NextResponse.json({ error: "This shop requires a card to book online." }, { status: 403 });
+    }
   }
   // Advance-booking window — can't book past today + advance_days (shop tz).
   const advanceDays = Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15);
@@ -358,7 +373,8 @@ export async function POST(request: NextRequest) {
     const bs = (shop.booking_settings ?? {}) as TaxConfig;
     const taxAmt = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(bs) : 0) / 100;
     const gross = Math.round((effectiveTotal + taxAmt) * 100) / 100;
-    const applied = await redeemGift(b.shop_id, b.gift_code, gross);
+    // All-or-nothing: never draw a partial amount that leaves the booking unpaid.
+    const applied = await redeemGift(b.shop_id, b.gift_code, gross, { requireFull: true });
     if (applied >= gross - 0.001) {
       await supabaseAdmin.from("appointments")
         .update({ total_amount: gross, payment_status: "paid" }).eq("id", inserted.data.id);

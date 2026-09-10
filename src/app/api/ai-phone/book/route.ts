@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio, sendSmsBestEffort, toE164 } from "@/lib/twilio";
 import { ensureClientRow } from "@/lib/ensure-client";
-import { isDoubleBookError } from "@/lib/booking-conflict";
-import { prettyDate } from "@/lib/utils";
+import { isDoubleBookError, barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
+import { prettyDate, timeToMinutes } from "@/lib/utils";
 
 // Create a booking taken over the phone by the AI. Secret-gated (voice server
 // only). Mirrors /api/book/in-person's insert; source='phone_ai', pay-in-person.
@@ -58,6 +58,24 @@ export async function POST(request: NextRequest) {
 
   const total = Number(service?.price ?? 0);
   const duration = service?.duration_minutes ?? null;
+
+  // Resolve an unresolved/"any" barber to a CONCRETE one and conflict-check.
+  // The DB overlap trigger can't range-check a NULL barber, so without this two
+  // phone bookings for the same slot would both land AND a null-barber row is
+  // invisible on every calendar. Mirrors the customer/checkout booking paths.
+  const startMin = timeToMinutes(b.time);
+  const endMin = startMin + (duration ?? 30);
+  if (barberId) {
+    if (await barberHasConflict(barberId, b.date, startMin, endMin)) {
+      return NextResponse.json({ error: "That time was just taken — please offer the customer another time.", conflict: true }, { status: 409 });
+    }
+  } else {
+    barberId = await findAvailableBarber(b.shop_id, b.date, startMin, endMin);
+    if (!barberId) {
+      return NextResponse.json({ error: "No barber is available at that time — please offer the customer another time.", conflict: true }, { status: 409 });
+    }
+  }
+
   const baseRow: Record<string, unknown> = {
     shop_id: b.shop_id,
     barber_id: barberId,

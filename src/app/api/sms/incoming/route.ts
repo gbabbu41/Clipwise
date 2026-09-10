@@ -25,7 +25,13 @@ export async function POST(request: NextRequest) {
   const proto = request.headers.get("x-forwarded-proto") ?? "https";
   const host = request.headers.get("host") ?? "";
   const url = `${proto}://${host}/api/sms/incoming`;
-  if (authToken && !Twilio.validateRequest(authToken, sig, url, params)) {
+  // Fail CLOSED in production: without a token we can't verify the request came
+  // from Twilio, and this route can grant/withdraw CASL consent — so an
+  // unverifiable POST must be rejected, never trusted. (No token in local dev is
+  // allowed through so the flow is testable.)
+  if (authToken) {
+    if (!Twilio.validateRequest(authToken, sig, url, params)) return new Response("Forbidden", { status: 403 });
+  } else if (process.env.NODE_ENV === "production") {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -57,11 +63,11 @@ export async function POST(request: NextRequest) {
     // A STOP text silences the whole number at the carrier level, so withdraw
     // promo consent AND turn off reminder texts (permanent hard block until START).
     await withdrawPromoConsent(await matchIds(), { source: "sms_stop", alsoStopReminderSms: true });
-    return twiml(`<Message>You're unsubscribed from ${shop?.name ?? "our"} messages. Reply START to opt back in.</Message>`);
+    return twiml(`<Message>You're unsubscribed from ${xmlEscape(shop?.name ?? "our")} messages. Reply START to opt back in.</Message>`);
   }
   if (START_WORDS.has(bodyText)) {
     await regrantPromoConsent(await matchIds(), "sms_start");
-    return twiml(`<Message>You're opted back in${shop?.name ? ` to ${shop.name} messages` : ""}. Reply STOP anytime to opt out.</Message>`);
+    return twiml(`<Message>You're opted back in${shop?.name ? ` to ${xmlEscape(shop.name)} messages` : ""}. Reply STOP anytime to opt out.</Message>`);
   }
 
   // No matching shop → reply with nothing (empty TwiML), so we never error.

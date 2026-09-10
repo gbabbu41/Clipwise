@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
     promo_consent?: boolean;        // CASL: express opt-in for promotional messages
   };
 
+  // Bound every free-text field from this PUBLIC route before it reaches Stripe
+  // metadata or the DB (mirrors /api/book/in-person) — an unbounded payload is the
+  // real abuse vector; Supabase params + finalize's clampLen handle the rest.
+  booking.client_name = String(booking.client_name ?? "").slice(0, 100);
+  if (booking.client_email) booking.client_email = String(booking.client_email).slice(0, 200);
+  if (booking.client_phone) booking.client_phone = String(booking.client_phone).slice(0, 30);
+  if (booking.service_name) booking.service_name = String(booking.service_name).slice(0, 200);
+  if (booking.service_names) booking.service_names = String(booking.service_names).slice(0, 200);
+
   const { data: shop } = await supabaseAdmin
     .from("shops").select("stripe_account_id, stripe_connected, subscription_plan, subscription_status, booking_settings, timezone")
     .eq("id", booking.shop_id).single();

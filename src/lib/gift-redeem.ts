@@ -26,7 +26,8 @@ export async function findRedeemableGift(shopId: string, code?: string | null): 
  * Best-effort: called after the booking exists, once (both booking paths de-dupe
  * the appointment), so it can't double-spend.
  */
-export async function redeemGift(shopId: string, code: string, applyDollars: number): Promise<number> {
+export async function redeemGift(shopId: string, code: string, applyDollars: number, opts?: { requireFull?: boolean }): Promise<number> {
+  const want = Math.max(0, Math.round(applyDollars * 100) / 100);
   // Compare-and-swap draw-down: the balance write only applies if the balance is
   // STILL what we read (`.eq("remaining_value", gift.balance)`). If two bookings
   // redeem the same code at the same instant, only one write lands; the other
@@ -35,7 +36,10 @@ export async function redeemGift(shopId: string, code: string, applyDollars: num
   for (let attempt = 0; attempt < 4; attempt++) {
     const gift = await findRedeemableGift(shopId, code);
     if (!gift) return 0;
-    const applied = Math.min(gift.balance, Math.max(0, Math.round(applyDollars * 100) / 100));
+    // All-or-nothing: when the caller needs the WHOLE bill covered, never draw a
+    // partial amount (that spends gift value but leaves the booking unpaid).
+    if (opts?.requireFull && gift.balance < want - 0.001) return 0;
+    const applied = Math.min(gift.balance, want);
     if (applied <= 0) return 0;
     const newBalance = Math.round((gift.balance - applied) * 100) / 100;
     const { data, error } = await supabaseAdmin.from("gift_cards").update({

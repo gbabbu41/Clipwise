@@ -15,6 +15,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 //       every grant/withdrawal (kind, granted, source, ip, when). This is what
 //       survives a CRTC inquiry; the row columns get overwritten, the log doesn't.
 
+import { isValidIp } from "@/lib/consent-rules";
+
 export { canReceivePromos, clientIpFrom } from "@/lib/consent-rules";
 export type { PromoEligibility } from "@/lib/consent-rules";
 
@@ -35,7 +37,7 @@ async function logConsentEvents(events: ConsentEvent[]): Promise<void> {
   await supabaseAdmin.from("consent_events").insert(
     events.map(e => ({
       client_id: e.client_id, shop_id: e.shop_id, kind: e.kind, granted: e.granted,
-      source: e.source, ip: e.ip ?? null, user_agent: e.user_agent ? String(e.user_agent).slice(0, 400) : null,
+      source: e.source, ip: isValidIp(e.ip) ? e.ip : null, user_agent: e.user_agent ? String(e.user_agent).slice(0, 400) : null,
     })),
   ).then(null, () => null);
 }
@@ -89,7 +91,7 @@ export async function recordBookingConsent(args: {
     if (args.promoConsent === true) {
       patch.promo_consent_status = "granted";
       patch.promo_consent_at = now;
-      if (args.ip) patch.promo_consent_ip = args.ip;
+      if (isValidIp(args.ip)) patch.promo_consent_ip = args.ip;
       patch.promo_consent_source = source;
       events.push({ client_id: clientId, shop_id: args.shopId, kind: "promo", granted: true, source, ip: args.ip, user_agent: args.userAgent });
     }

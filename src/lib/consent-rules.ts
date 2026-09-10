@@ -2,7 +2,16 @@
 // client components (e.g. the Marketing page's reachable-count) AND the server.
 // The DB-writing helpers live in ./consent (server-only, they need supabaseAdmin).
 
-const IMPLIED_CONSENT_DAYS = 24 * 30; // ~24 months (CASL existing-business-relationship window)
+const IMPLIED_CONSENT_DAYS = 730; // 24 months (CASL existing-business-relationship window)
+
+/** Does this string look like a real IP? Used to guard the `inet` columns —
+ *  a malformed proxy value would fail the DB cast and silently drop the whole
+ *  consent write, so we null it instead. */
+export function isValidIp(s: string | null | undefined): boolean {
+  if (!s) return false;
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(s)) return s.split(".").every((o) => Number(o) <= 255);
+  return s.includes(":") && /^[0-9a-fA-F:]+$/.test(s); // loose IPv6
+}
 
 export type PromoEligibility = {
   promo_consent_status?: string | null;
@@ -29,6 +38,6 @@ export function canReceivePromos(c: PromoEligibility): boolean {
  *  x-forwarded-for). Stored with an express-consent record as proof. */
 export function clientIpFrom(req: Request): string | null {
   const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim() || null;
-  return req.headers.get("x-real-ip");
+  const raw = xff ? xff.split(",")[0].trim() : req.headers.get("x-real-ip");
+  return isValidIp(raw) ? raw : null; // never hand a malformed value to an inet column
 }
