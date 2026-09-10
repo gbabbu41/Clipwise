@@ -9,7 +9,11 @@ import { prettyDate } from "@/lib/utils";
 // Requires CRON_SECRET header to prevent unauthorized calls.
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-cron-secret");
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET;
+  // Fail CLOSED in production when CRON_SECRET is unset — this legacy route blasts
+  // reminder emails + SMS to everyone booked tomorrow (the wired cron path is
+  // /api/cron/reminders). Only the no-secret local-dev case is allowed through.
+  if (cronSecret ? secret !== cronSecret : process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -93,7 +97,11 @@ export async function POST(req: NextRequest) {
 // GET /api/reminders — returns count of tomorrow's appointments (useful for admin)
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("x-cron-secret");
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET;
+  // Fail CLOSED in production when CRON_SECRET is unset — this legacy route blasts
+  // reminder emails + SMS to everyone booked tomorrow (the wired cron path is
+  // /api/cron/reminders). Only the no-secret local-dev case is allowed through.
+  if (cronSecret ? secret !== cronSecret : process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

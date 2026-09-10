@@ -10,6 +10,7 @@ import { stripe } from "@/lib/stripe";
 import { sendAppEmail } from "@/lib/emailer";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -70,6 +71,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  // The manage link is a capability URL (anyone holding it can act), so throttle
+  // per-IP — stops replaying cancel/reschedule to spam customer SMS + staff emails.
+  const limited = enforceRateLimit(req, "manage-booking", 12, 60_000);
+  if (limited) return limited;
   const { id } = params;
   const body = await req.json() as { action?: "cancel" | "reschedule"; date?: string; time_slot?: string };
 
@@ -162,6 +167,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (body.action === "reschedule") {
     if (!body.date || !body.time_slot) return NextResponse.json({ error: "Missing date/time" }, { status: 400 });
+    // No-op guard: rescheduling to the SAME date/time changes nothing — return
+    // success WITHOUT firing the customer SMS + customer/barber/owner emails
+    // (replaying it would otherwise spam everyone and burn Twilio/Resend).
+    if (body.date === appt.date && body.time_slot === appt.time_slot) {
+      return NextResponse.json({ ok: true, status: appt.status, unchanged: true });
+    }
     // Universal past-booking block (shop-timezone aware) — can't reschedule INTO
     // the past. Judged in the shop's timezone, not the server's UTC.
     const { data: shopTz } = await supabaseAdmin.from("shops").select("timezone").eq("id", appt.shop_id).maybeSingle();

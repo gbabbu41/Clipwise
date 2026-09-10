@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Public availability for the customer booking page.
@@ -39,6 +40,11 @@ async function loadAppointments(shopId: string, date: string): Promise<{ rows: A
 }
 
 export async function POST(request: NextRequest) {
+  // The hottest anonymous endpoint (fans out to several service-role queries per
+  // call). Throttle per-IP to blunt DB-amplification / cost abuse — set well
+  // above what a human clicking through days could ever hit.
+  const limited = enforceRateLimit(request, "availability", 60, 60_000);
+  if (limited) return limited;
   const { shop_id, date, barber_id } = await request.json() as {
     shop_id: string; date: string; barber_id?: string | null;
   };

@@ -54,7 +54,11 @@ export async function POST(request: NextRequest) {
       .eq("status", "waiting");
     // Only notify waiters who'll actually be served by the freed barber:
     // those who asked for "any" barber (null) or for this specific one.
-    if (barber_id) q = q.or(`barber_id.is.null,barber_id.eq.${barber_id}`);
+    // Only ever interpolate a well-formed UUID (never raw body text) into the
+    // PostgREST filter — filter-injection guard. A malformed barber_id falls
+    // back to notifying all of that day's waiters (safe, just broader).
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (barber_id && UUID_RE.test(barber_id)) q = q.or(`barber_id.is.null,barber_id.eq.${barber_id}`);
     const { data: waiters } = await q;
 
     if (!waiters || waiters.length === 0) return NextResponse.json({ notified: 0 });

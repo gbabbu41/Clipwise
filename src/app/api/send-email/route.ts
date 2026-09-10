@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendAppEmail, PRIVILEGED_EMAIL_TYPES } from "@/lib/emailer";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // HTTP boundary for the shared email engine (src/lib/emailer.ts). This route's
 // only extra job is the auth gate for privileged/abusable types so it can't be
@@ -13,6 +14,11 @@ export async function POST(req: NextRequest) {
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ error: "RESEND_API_KEY not configured" }, { status: 500 });
   }
+
+  // Volume cap on the whole email boundary — blunts any attempt to burn the
+  // Resend quota / torch sender-domain reputation by looping this endpoint.
+  const limited = enforceRateLimit(req, "send-email", 15, 60_000);
+  if (limited) return limited;
 
   try {
     const body = await req.json();
@@ -47,15 +53,21 @@ export async function POST(req: NextRequest) {
     if (PRIVILEGED_EMAIL_TYPES.has(type)) {
       const internal = req.headers.get("x-internal-secret");
       const okInternal = !!process.env.CRON_SECRET && internal === process.env.CRON_SECRET;
-      let okUser = false;
+      let okStaff = false;
       if (!okInternal) {
         const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
         if (bearer) {
           const { data: { user } } = await supabaseAdmin.auth.getUser(bearer);
-          okUser = !!user;
+          // Being logged in is NOT enough — signup is free, so a plain customer
+          // account could otherwise send branded payment_link / direct_message
+          // phishing from our verified domain. Require a real shop role.
+          if (user) {
+            const { data: prof } = await supabaseAdmin.from("users").select("role").eq("id", user.id).maybeSingle();
+            okStaff = prof?.role === "shop_owner" || prof?.role === "barber" || prof?.role === "super_admin";
+          }
         }
       }
-      if (!okInternal && !okUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!okInternal && !okStaff) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const result = await sendAppEmail(type, data);
@@ -66,6 +78,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error("[send-email] failed:", err);
+    return NextResponse.json({ error: "Failed to send email." }, { status: 500 });
   }
 }
