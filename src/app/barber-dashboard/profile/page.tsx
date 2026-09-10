@@ -10,8 +10,11 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { uploadBarberPhoto, removeBarberPhoto } from "@/lib/upload-barber-photo";
 
 export default function BarberProfilePage() {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, profile } = useAuth();
   const { barber, shop } = useBarber();
+  // The owner on their own chair keeps 100% (their cuts are shop profit, so their
+  // stored rate is 0 — never show that raw 0 as their "commission").
+  const isOwner = profile?.role === "shop_owner";
   const [form, setForm] = useState({ name: "", email: "", bio: "" });
   const [photo, setPhoto] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -156,8 +159,8 @@ export default function BarberProfilePage() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-grey">Commission:</span>
-              <span className="text-emerald-400 font-semibold">{barber?.commission_percent ?? 50}%</span>
-              <span className="text-grey text-xs">(set by shop owner)</span>
+              <span className="text-emerald-400 font-semibold">{isOwner ? "100%" : `${barber?.commission_percent ?? 50}%`}</span>
+              <span className="text-grey text-xs">{isOwner ? "(you own the shop)" : "(set by shop owner)"}</span>
             </div>
           </div>
 
