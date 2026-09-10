@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
     sms_reminder_consent: booking.sms_reminder_consent === false ? "0" : "1",
     promo_consent: booking.promo_consent ? "1" : "0",
     consent_ip: clientIpFrom(request) ?? "",
+    consent_ua: (request.headers.get("user-agent") ?? "").slice(0, 400),
   };
 
   try {

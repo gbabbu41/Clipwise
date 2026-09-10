@@ -230,6 +230,8 @@ export async function finalizeBookingFromSession(params: {
       smsReminderConsent: m.sms_reminder_consent === "1",
       promoConsent: m.promo_consent === "1",
       ip: m.consent_ip || null,
+      userAgent: m.consent_ua || null,
+      source: "booking_form",
     });
   }
 

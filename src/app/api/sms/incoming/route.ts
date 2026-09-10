@@ -41,8 +41,10 @@ export async function POST(request: NextRequest) {
   // record it too so our own promo sends (email + cron nudges) honor it. Match the
   // texter's number to this shop's client rows in JS (stored phones vary in
   // format), keyed by the last 10 digits. Best-effort — never throw.
-  const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"]);
-  const START_WORDS = new Set(["START", "UNSTOP", "YES"]);
+  // Bilingual — New Brunswick is officially bilingual, so honor the French
+  // keywords too (ARRÊT, with and without the accent + the verb form).
+  const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "ARRÊT", "ARRET", "ARRÊTER", "ARRETER", "DÉSABONNER", "DESABONNER"]);
+  const START_WORDS = new Set(["START", "UNSTOP", "YES", "DÉBUT", "DEBUT", "OUI"]);
   const fromDigits = from.replace(/\D/g, "").slice(-10);
   const matchIds = async (): Promise<string[]> => {
     if (!shop?.id || fromDigits.length < 10) return [];
@@ -54,11 +56,11 @@ export async function POST(request: NextRequest) {
   if (STOP_WORDS.has(bodyText)) {
     // A STOP text silences the whole number at the carrier level, so withdraw
     // promo consent AND turn off reminder texts (permanent hard block until START).
-    await withdrawPromoConsent(await matchIds(), { alsoStopReminderSms: true });
+    await withdrawPromoConsent(await matchIds(), { source: "sms_stop", alsoStopReminderSms: true });
     return twiml(`<Message>You're unsubscribed from ${shop?.name ?? "our"} messages. Reply START to opt back in.</Message>`);
   }
   if (START_WORDS.has(bodyText)) {
-    await regrantPromoConsent(await matchIds());
+    await regrantPromoConsent(await matchIds(), "sms_start");
     return twiml(`<Message>You're opted back in${shop?.name ? ` to ${shop.name} messages` : ""}. Reply STOP anytime to opt out.</Message>`);
   }
 

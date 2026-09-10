@@ -206,8 +206,8 @@ export interface Client {
   promo_consent_ip?: string;
   promo_consent_source?: string;
   promo_withdrawn_at?: string;
-  sms_reminder_consent?: boolean;
-  sms_reminder_consent_at?: string;
+  sms_reminder_opt_in?: boolean;      // a preference (defaults true), not a consent
+  sms_reminder_opt_in_at?: string;
 }
 
 export interface Transaction {

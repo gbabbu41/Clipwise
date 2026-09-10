@@ -343,6 +343,8 @@ export async function POST(request: NextRequest) {
       smsReminderConsent: b.sms_reminder_consent,
       promoConsent: b.promo_consent,
       ip: clientIpFrom(request),
+      userAgent: request.headers.get("user-agent"),
+      source: "booking_form",
     });
   }
 

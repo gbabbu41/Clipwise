@@ -53,9 +53,9 @@ type ClientRow = {
   id: string; name: string; email: string | null; phone: string | null;
   total_visits: number | null; last_visit: string | null; tag: string | null;
   birthday?: string | null;
-  // CASL consent (phase58) — read from select("*") below.
+  // CASL consent (phase58/59) — read from select("*") below.
   promo_consent_status?: string | null;
-  sms_reminder_consent?: boolean | null;
+  sms_reminder_opt_in?: boolean | null;
 };
 
 // New "at risk" / tier logic shared with the marketing segments.
@@ -101,7 +101,7 @@ async function run() {
     // customer who unticked "text me reminders".
     const reminderOptOut = new Set<string>();
     for (const c of list) {
-      if (c.sms_reminder_consent === false) {
+      if (c.sms_reminder_opt_in === false) {
         const e = toE164(c.phone);
         if (e) reminderOptOut.add(e);
       }

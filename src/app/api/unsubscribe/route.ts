@@ -20,7 +20,7 @@ function page(msg: string): NextResponse {
 export async function GET(req: NextRequest) {
   const clientId = new URL(req.url).searchParams.get("c");
   if (clientId) {
-    await withdrawPromoConsent([clientId]);
+    await withdrawPromoConsent([clientId], { source: "email_unsubscribe" });
   }
   return page("You're unsubscribed");
 }
