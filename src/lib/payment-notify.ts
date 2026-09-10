@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { prettyDate } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
-import { taxLabelDetailed, type TaxConfig } from "@/lib/pricing";
+import { taxLabelDetailed, receiptGstNumber, type TaxConfig } from "@/lib/pricing";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send
@@ -85,6 +85,11 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
     data.subtotal = money(subtotalCents);
     data.tax = money(taxCents);
     data.taxLabel = taxLabelDetailed(args.taxConfig ?? null);
+    // Print the shop's GST/HST number on the receipt (CRA requires it on receipts
+    // for sales $30+). Gated: only a real, registration-worthy number — a
+    // placeholder/demo number never reaches a customer receipt.
+    const gstNo = receiptGstNumber(args.taxConfig ?? null);
+    if (gstNo) data.taxNumber = gstNo;
     if (tipCents > 0) data.tip = money(tipCents);
   }
   await fetch(`${baseUrl}/api/send-email`, {

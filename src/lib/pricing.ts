@@ -66,6 +66,17 @@ export function shopChargesTax(bs: { tax_enabled?: boolean; tax_number?: string 
   return !!bs && bs.tax_enabled === true && isValidGstNumber(bs.tax_number);
 }
 
+/** The GST/HST number to actually PRINT on a customer receipt — only a
+ *  registration-worthy number (valid FORMAT *and* not an obvious placeholder).
+ *  A fabricated/demo number (e.g. 123456789RT0001) must never reach a real
+ *  receipt, so this returns null for it even though charging may still be on.
+ *  ONE gate used by every receipt surface (email, POS, web) so they agree. */
+export function receiptGstNumber(bs: { tax_number?: string | null } | null | undefined): string | null {
+  const raw = bs?.tax_number ?? null;
+  if (!isValidGstNumber(raw) || isLikelyPlaceholderGstNumber(raw)) return null;
+  return normalizeGstNumber(raw);
+}
+
 export type TaxConfig = {
   tax_enabled?: boolean; tax_number?: string | null; tax_rate?: number; tax_label?: string;
   pst_enabled?: boolean; pst_rate?: number; pst_label?: string; pst_number?: string | null;

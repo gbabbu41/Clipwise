@@ -508,6 +508,7 @@ function paymentReceipt(data: Record<string, string>) {
     ${data.tax ? `
     <div class="row"><span class="label">Subtotal</span><span class="val">${data.subtotal}</span></div>
     <div class="row"><span class="label">${data.taxLabel || "Tax"}</span><span class="val">${data.tax}</span></div>
+    ${data.taxNumber ? `<div class="row"><span class="label" style="font-size:12px;color:#6B7280">GST/HST No.</span><span class="val" style="font-size:12px;color:#6B7280">${data.taxNumber}</span></div>` : ""}
     ${data.tip ? `<div class="row"><span class="label">Tip</span><span class="val">${data.tip}</span></div>` : ""}
     <div class="row"><span class="label" style="color:#111827;font-weight:700">Amount Paid</span><span class="val" style="font-weight:700">${data.amount}</span></div>`
     : `<div class="row"><span class="label">Amount Paid</span><span class="val">${data.amount}</span></div>`}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { receiptGstNumber } from "@/lib/pricing";
 
 // Public receipt view, keyed by the unguessable transaction UUID (the "Share"
 // link on the receipt page). transactions RLS is owner/stakeholder-only, so the
@@ -40,7 +41,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       created_at: data.created_at,
       shop: shop ? {
         name: shop.name, address: shop.address, city: shop.city, province: shop.province, phone: shop.phone,
-        tax_number: bs.tax_number ?? null, pst_number: bs.pst_number ?? null, tax_label: bs.tax_label ?? null,
+        // Only a real, registration-worthy GST/HST number prints on the receipt —
+        // a placeholder/demo number is gated out (returns null) so it never shows.
+        tax_number: receiptGstNumber(bs), pst_number: bs.pst_number ?? null, tax_label: bs.tax_label ?? null,
       } : null,
       barber: barber ? { name: barber.name } : null,
     },
