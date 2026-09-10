@@ -99,6 +99,39 @@ export async function POST(request: NextRequest) {
   if (!confirmed && (shop.booking_settings as { bookings_paused?: boolean } | null)?.bookings_paused) {
     return NextResponse.json({ error: "This shop isn't accepting bookings right now." }, { status: 403 });
   }
+
+  // ── Anti-abuse guards (CUSTOMER self-bookings only) ─────────────────────────
+  // Booking needs no account/card and a pending booking still holds the slot, so
+  // one person could otherwise flood a shop's whole day for free. Staff walk-ins
+  // (callerIsStaff) are exempt — adding many bookings is their job.
+  if (!callerIsStaff) {
+    // 1) Per-IP hourly ceiling on top of the 12/min burst above — caps sustained
+    //    scripted spam from a single source (best-effort, per-instance).
+    const hourly = enforceRateLimit(request, "book-in-person-hourly", 8, 60 * 60_000);
+    if (hourly) return hourly;
+
+    // 2) Per-phone / per-shop / per-day cap (DB-backed, authoritative). A real
+    //    customer — even a small family booking together — won't exceed this;
+    //    it stops "hold every slot on Saturday from one number".
+    const MAX_PER_PHONE_PER_DAY = 4;
+    const phone = (b.client_phone ?? "").trim();
+    if (phone) {
+      const { count } = await supabaseAdmin
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", b.shop_id)
+        .eq("client_phone", phone)
+        .eq("date", b.date)
+        .neq("status", "cancelled");
+      if ((count ?? 0) >= MAX_PER_PHONE_PER_DAY) {
+        return NextResponse.json(
+          { error: "You already have several bookings with this shop for that day. Please call the shop if you need to add more." },
+          { status: 429 },
+        );
+      }
+    }
+  }
+
   const autoConfirm = !!(shop.booking_settings as { auto_confirm?: boolean } | null)?.auto_confirm;
 
   // ── Promo code (server-authoritative) ──────────────────────────────────────
