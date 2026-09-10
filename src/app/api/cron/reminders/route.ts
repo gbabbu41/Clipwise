@@ -54,8 +54,7 @@ type ClientRow = {
   total_visits: number | null; last_visit: string | null; tag: string | null;
   birthday?: string | null;
   // CASL consent (phase58) — read from select("*") below.
-  promo_consent?: boolean | null;
-  marketing_opt_out?: boolean | null;
+  promo_consent_status?: string | null;
   sms_reminder_consent?: boolean | null;
 };
 

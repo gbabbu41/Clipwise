@@ -9,6 +9,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Megaphone, Mail, Users, Tag, TrendingUp, Send, Clock, CheckCircle2, Plus, ChevronRight, Zap } from "lucide-react";
 import type { Client } from "@/lib/database.types";
 import { groupClients } from "@/lib/client-identity";
+import { canReceivePromos } from "@/lib/consent-rules";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 
@@ -124,8 +125,9 @@ export default function MarketingPage() {
   useEffect(() => { loadClients(); }, [loadClients]);
 
   const recipients = selectedSegment.filter(clients);
-  // Only clients with an email who haven't unsubscribed are reachable.
-  const recipientsWithEmail = recipients.filter(c => !!c.email && !c.marketing_opt_out);
+  // Reachable = has an email AND may lawfully receive promos (express consent or a
+  // recent visit; never if they've withdrawn). Matches the server-side send gate.
+  const recipientsWithEmail = recipients.filter(c => !!c.email && canReceivePromos(c));
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca"}/book/${shop?.slug ?? ""}`;
 
   const applyTemplate = (t: Template) => {
@@ -210,7 +212,7 @@ export default function MarketingPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Clients", value: clients.length, icon: Users },
-          { label: "Reachable (email)", value: clients.filter(c => !!c.email && !c.marketing_opt_out).length, icon: Mail },
+          { label: "Reachable (email)", value: clients.filter(c => !!c.email && canReceivePromos(c)).length, icon: Mail },
           { label: "Campaigns Sent", value: campaigns.length, icon: Send },
           { label: "Emails Delivered", value: totalEmailsSent, icon: TrendingUp },
         ].map(stat => {

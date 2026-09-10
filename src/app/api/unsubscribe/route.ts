@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { withdrawPromoConsent } from "@/lib/consent";
 
 // One-click email unsubscribe. The link in a marketing email points here with
-// ?c=<client_id> (an unguessable UUID). We flip marketing_opt_out and return a
-// tiny confirmation page — no login required, so it works straight from an
-// inbox. Always renders a friendly page (never leaks whether the id existed).
+// ?c=<client_id> (an unguessable UUID). We record a permanent promo-consent
+// withdrawal (CASL) and return a tiny confirmation page — no login required, so
+// it works straight from an inbox. Always renders a friendly page (never leaks
+// whether the id existed). Email unsubscribe doesn't touch SMS reminders.
 function page(msg: string): NextResponse {
   const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe · ClipWise</title></head>
 <body style="margin:0;background:#000;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;">
@@ -19,8 +20,7 @@ function page(msg: string): NextResponse {
 export async function GET(req: NextRequest) {
   const clientId = new URL(req.url).searchParams.get("c");
   if (clientId) {
-    await supabaseAdmin.from("clients")
-      .update({ marketing_opt_out: true }).eq("id", clientId).then(null, () => null);
+    await withdrawPromoConsent([clientId]);
   }
   return page("You're unsubscribed");
 }

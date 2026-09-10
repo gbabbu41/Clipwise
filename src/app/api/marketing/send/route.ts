@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     // the unsubscribe link works and past/walk-in recipients join the client book.
     // `select("*")` (not the new columns by name) so this keeps working even if the
     // phase58 consent columns haven't been migrated on prod yet.
-    type PromoClient = { id: string; promo_consent?: boolean | null; marketing_opt_out?: boolean | null; last_visit?: string | null };
+    type PromoClient = { id: string; promo_consent_status?: string | null; last_visit?: string | null };
     let client: PromoClient | null = null;
     let clientId = (r.clientId ?? "").trim();
     if (clientId.startsWith("synthetic:")) clientId = "";

@@ -1,58 +1,33 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-// CASL consent helpers — the ONE place the "can we send this person a
-// promotional message?" rule and the booking-time consent record live, so every
-// send path (email campaigns, cron nudges) and every booking path agree.
+// CASL consent — ONE model, ONE source of truth (see the phase58 migration).
+// The PURE rules (canReceivePromos, clientIpFrom) live in ./consent-rules so
+// client components can use them; this server-only module holds the DB writers
+// and re-exports the rules so existing server imports keep working.
 //
-// The rule, in plain terms:
-//   • Transactional messages (appointment reminders/confirmations) ride on the
-//     booked transaction — allowed unless the customer opted out of reminders.
-//   • Promotional messages need EXPRESS consent (they ticked the offers box) OR
-//     IMPLIED consent from an existing business relationship — a visit within the
-//     last 24 months (the CASL window). A STOP/unsubscribe (marketing_opt_out)
-//     always wins and blocks everything promotional.
+// Promotional consent is a TRI-STATE, because "never asked" and "opted out" are
+// legally different:
+//   • 'granted'   → express opt-in (they ticked the box). promo_consent_at / _ip /
+//                   _source are the proof of when + where it was given.
+//   • 'withdrawn' → they said STOP / unsubscribed. A HARD, PERMANENT block
+//                   (promo_withdrawn_at), overriding even implied consent.
+//   • null        → never asked. No express consent, but an existing business
+//                   relationship (a visit within 24 months) is implied consent.
+// Transactional reminders are a SEPARATE preference (sms_reminder_consent +
+// sms_reminder_consent_at), defaulting on because they ride on the booking.
 
-// CASL: implied consent from an existing business relationship lasts 24 months
-// from the client's last transaction/visit.
-const IMPLIED_CONSENT_DAYS = 24 * 30; // ~24 months
-
-export type PromoEligibility = {
-  promo_consent?: boolean | null;
-  marketing_opt_out?: boolean | null;
-  last_visit?: string | null;
-};
-
-/** Can this client receive PROMOTIONAL messages? Express consent (ticked the
- *  offers box) OR implied consent (visited within 24 months) — and NEVER if
- *  they've opted out. One gate for every promo path (campaigns + cron nudges). */
-export function canReceivePromos(c: PromoEligibility): boolean {
-  if (c.marketing_opt_out) return false;   // a STOP / unsubscribe always wins
-  if (c.promo_consent) return true;         // express consent on file
-  // Implied consent: an existing business relationship within the CASL window.
-  if (c.last_visit) {
-    const last = Date.parse(`${c.last_visit}T00:00:00Z`);
-    if (Number.isFinite(last) && last >= Date.now() - IMPLIED_CONSENT_DAYS * 86_400_000) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Best-effort client IP from proxy headers (Vercel/most proxies set
- *  x-forwarded-for). Stored with the consent record as proof of when/where the
- *  customer gave it. */
-export function clientIpFrom(req: Request): string | null {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim() || null;
-  return req.headers.get("x-real-ip");
-}
+export { canReceivePromos, clientIpFrom } from "@/lib/consent-rules";
+export type { PromoEligibility } from "@/lib/consent-rules";
 
 /**
- * Record the customer's consent choices on their client row at booking time,
- * with a timestamp + IP (the CASL proof-of-consent record). Best-effort: consent
- * bookkeeping must NEVER block or fail a booking. Only writes the flags that were
- * actually sent (a staff walk-in sends none → nothing is overwritten), and only
- * when we can resolve the client (a client id, or an email/phone on file).
+ * Record the customer's consent choices at booking time. Best-effort — consent
+ * bookkeeping must NEVER block or fail a booking.
+ *
+ * Promotional consent is only ever UPGRADED here: ticking the box records express
+ * 'granted' consent (with its proof). An UNticked box is "not now", NOT a
+ * withdrawal — withdrawal is only ever explicit (STOP / unsubscribe), so we never
+ * downgrade an existing 'granted' or 'withdrawn' from a blank booking box.
+ * The reminder preference follows its checkbox both ways.
  */
 export async function recordBookingConsent(args: {
   shopId: string;
@@ -62,12 +37,9 @@ export async function recordBookingConsent(args: {
   smsReminderConsent?: boolean;
   promoConsent?: boolean;
   ip?: string | null;
+  source?: string;
 }): Promise<void> {
-  if (args.smsReminderConsent === undefined && args.promoConsent === undefined) return;
-  const patch: Record<string, unknown> = { consent_at: new Date().toISOString() };
-  if (args.ip) patch.consent_ip = String(args.ip).slice(0, 60);
-  if (args.smsReminderConsent !== undefined) patch.sms_reminder_consent = !!args.smsReminderConsent;
-  if (args.promoConsent !== undefined) patch.promo_consent = !!args.promoConsent;
+  if (args.smsReminderConsent === undefined && args.promoConsent !== true) return;
   try {
     let clientId = (args.clientId ?? "").trim();
     if (!clientId) {
@@ -83,8 +55,43 @@ export async function recordBookingConsent(args: {
       }
     }
     if (!clientId) return;
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {};
+    if (args.smsReminderConsent !== undefined) {
+      patch.sms_reminder_consent = !!args.smsReminderConsent;
+      patch.sms_reminder_consent_at = now;
+    }
+    if (args.promoConsent === true) {
+      patch.promo_consent_status = "granted";
+      patch.promo_consent_at = now;
+      if (args.ip) patch.promo_consent_ip = String(args.ip).slice(0, 60);
+      patch.promo_consent_source = args.source ?? "booking_form";
+    }
+    if (Object.keys(patch).length === 0) return;
     // If the consent columns haven't been migrated on prod yet, the update errors
     // on the missing column — swallow it (best-effort) rather than fail anything.
     await supabaseAdmin.from("clients").update(patch).eq("id", clientId).then(null, () => null);
   } catch { /* consent is best-effort — never block a booking */ }
+}
+
+/** Withdraw promotional consent (a STOP text or an email unsubscribe) — a
+ *  permanent hard block. `alsoStopReminderSms` is set for an SMS STOP (the whole
+ *  number is silenced at the carrier level), not for an email unsubscribe. */
+export async function withdrawPromoConsent(clientIds: string[], opts?: { alsoStopReminderSms?: boolean }): Promise<void> {
+  if (!clientIds.length) return;
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = { promo_consent_status: "withdrawn", promo_withdrawn_at: now };
+  if (opts?.alsoStopReminderSms) { patch.sms_reminder_consent = false; patch.sms_reminder_consent_at = now; }
+  await supabaseAdmin.from("clients").update(patch).in("id", clientIds).then(null, () => null);
+}
+
+/** Re-opt-in (a START text) — an affirmative request to receive messages again,
+ *  so it records fresh express 'granted' consent and re-enables reminder texts. */
+export async function regrantPromoConsent(clientIds: string[], source = "sms_start"): Promise<void> {
+  if (!clientIds.length) return;
+  const now = new Date().toISOString();
+  await supabaseAdmin.from("clients").update({
+    promo_consent_status: "granted", promo_consent_at: now, promo_consent_source: source,
+    promo_withdrawn_at: null, sms_reminder_consent: true, sms_reminder_consent_at: now,
+  }).in("id", clientIds).then(null, () => null);
 }

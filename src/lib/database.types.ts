@@ -199,13 +199,15 @@ export interface Client {
   loyalty_points: number;
   tag: "New" | "Returning" | "VIP" | "At Risk";
   birthday?: string;
-  marketing_opt_out?: boolean;
-  // CASL consent (phase58): express promo opt-in, transactional reminder opt-in,
-  // and the proof-of-consent record (when + from where it was captured).
-  promo_consent?: boolean;
+  // CASL consent (phase58) — tri-state promo consent (never-asked vs granted vs
+  // withdrawn) with its own proof, plus a separate transactional-reminder toggle.
+  promo_consent_status?: "granted" | "withdrawn" | null;
+  promo_consent_at?: string;
+  promo_consent_ip?: string;
+  promo_consent_source?: string;
+  promo_withdrawn_at?: string;
   sms_reminder_consent?: boolean;
-  consent_at?: string;
-  consent_ip?: string;
+  sms_reminder_consent_at?: string;
 }
 
 export interface Transaction {

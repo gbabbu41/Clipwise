@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Twilio from "twilio";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { withdrawPromoConsent, regrantPromoConsent } from "@/lib/consent";
 
 // Twilio inbound-SMS webhook — Twilio POSTs here when someone texts a shop's
 // ClipWise Business Number. Replies with the shop's booking link (TwiML). Read
@@ -51,20 +52,13 @@ export async function POST(request: NextRequest) {
       .map((c) => c.id);
   };
   if (STOP_WORDS.has(bodyText)) {
-    const ids = await matchIds();
-    if (ids.length) {
-      // marketing_opt_out always exists; promo_consent may lag pre-migration, so
-      // set it in a separate best-effort call that can't fail the opt-out.
-      await supabaseAdmin.from("clients").update({ marketing_opt_out: true }).in("id", ids).then(null, () => null);
-      await supabaseAdmin.from("clients").update({ promo_consent: false }).in("id", ids).then(null, () => null);
-    }
-    return twiml(`<Message>You're unsubscribed from ${shop?.name ?? "our"} marketing messages. Reply START to opt back in.</Message>`);
+    // A STOP text silences the whole number at the carrier level, so withdraw
+    // promo consent AND turn off reminder texts (permanent hard block until START).
+    await withdrawPromoConsent(await matchIds(), { alsoStopReminderSms: true });
+    return twiml(`<Message>You're unsubscribed from ${shop?.name ?? "our"} messages. Reply START to opt back in.</Message>`);
   }
   if (START_WORDS.has(bodyText)) {
-    const ids = await matchIds();
-    if (ids.length) {
-      await supabaseAdmin.from("clients").update({ marketing_opt_out: false }).in("id", ids).then(null, () => null);
-    }
+    await regrantPromoConsent(await matchIds());
     return twiml(`<Message>You're opted back in${shop?.name ? ` to ${shop.name} messages` : ""}. Reply STOP anytime to opt out.</Message>`);
   }
 
