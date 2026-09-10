@@ -13,6 +13,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { computeRedemption } from "@/lib/loyalty-redeem";
 import { findRedeemableGift } from "@/lib/gift-redeem";
+import { clientIpFrom } from "@/lib/consent";
 
 // Customer pays for a booking — charge runs on the shop's connected account (0% platform fee).
 // The appointment is NOT created here; it's created on success via /booking-finalize.
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
     tip_amount?: number; // customer-chosen tip in dollars (immediate full payment only)
     redeem?: boolean;    // customer chose to spend loyalty points (amount computed server-side)
     gift_code?: string;  // gift card applied like cash to the amount due (server-validated)
+    sms_reminder_consent?: boolean; // CASL: transactional reminder texts (pre-checked)
+    promo_consent?: boolean;        // CASL: express opt-in for promotional messages
   };
 
   const { data: shop } = await supabaseAdmin
@@ -243,6 +246,10 @@ export async function POST(request: NextRequest) {
     redeem_points: String(redemption.points),
     gift_code: giftCodeMeta,
     gift_applied: String(giftAppliedCents / 100),
+    // CASL consent (proof-of-consent record written to the client row on finalize).
+    sms_reminder_consent: booking.sms_reminder_consent === false ? "0" : "1",
+    promo_consent: booking.promo_consent ? "1" : "0",
+    consent_ip: clientIpFrom(request) ?? "",
   };
 
   try {

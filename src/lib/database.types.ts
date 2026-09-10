@@ -200,6 +200,12 @@ export interface Client {
   tag: "New" | "Returning" | "VIP" | "At Risk";
   birthday?: string;
   marketing_opt_out?: boolean;
+  // CASL consent (phase58): express promo opt-in, transactional reminder opt-in,
+  // and the proof-of-consent record (when + from where it was captured).
+  promo_consent?: boolean;
+  sms_reminder_consent?: boolean;
+  consent_at?: string;
+  consent_ip?: string;
 }
 
 export interface Transaction {

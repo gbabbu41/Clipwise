@@ -4,6 +4,7 @@ import { sendAppEmail } from "@/lib/emailer";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { canReceivePromos } from "@/lib/consent";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 // One campaign can reach at most this many recipients — protects the email
@@ -121,46 +122,47 @@ export async function POST(req: NextRequest) {
     const name = (r.name ?? "").trim();
     const phone = (r.phone ?? "").trim();
 
-    // Resolve the recipient to a real client row so the unsubscribe link works
-    // and so past/walk-in recipients permanently join the client book.
+    // Resolve the recipient to a real client row (dedupe id → email → phone) so
+    // the unsubscribe link works and past/walk-in recipients join the client book.
+    // `select("*")` (not the new columns by name) so this keeps working even if the
+    // phase58 consent columns haven't been migrated on prod yet.
+    type PromoClient = { id: string; promo_consent?: boolean | null; marketing_opt_out?: boolean | null; last_visit?: string | null };
+    let client: PromoClient | null = null;
     let clientId = (r.clientId ?? "").trim();
-    if (!clientId || clientId.startsWith("synthetic:")) clientId = "";
-    if (!clientId) {
-      let existing: { id: string; marketing_opt_out?: boolean | null } | null = null;
-      const { data: byEmail } = await supabaseAdmin
-        .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).ilike("email", email).maybeSingle();
-      existing = byEmail;
-      if (!existing && phone) {
-        const { data: byPhone } = await supabaseAdmin
-          .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).eq("phone", phone).maybeSingle();
-        existing = byPhone;
-      }
-      if (existing) {
-        if (existing.marketing_opt_out) { skipped++; continue; }
-        clientId = existing.id;
-      } else {
-        const { data: created, error: cErr } = await supabaseAdmin.from("clients").insert({
-          shop_id, name: name || "Client", email: email.slice(0, 120), phone: phone.slice(0, 30),
-          total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
-        }).select("id").single();
-        if (cErr || !created) { skipped++; continue; }
-        clientId = created.id;
-      }
-    } else {
-      // Client id supplied — re-check opt-out AND that it belongs to this shop
-      // (never email a client the caller doesn't own).
-      const { data: c } = await supabaseAdmin
-        .from("clients").select("id, marketing_opt_out").eq("shop_id", shop_id).eq("id", clientId).maybeSingle();
-      if (!c) { skipped++; continue; }
-      if (c.marketing_opt_out) { skipped++; continue; }
+    if (clientId.startsWith("synthetic:")) clientId = "";
+    if (clientId) {
+      // Client id supplied — must belong to THIS shop (never email a client the caller doesn't own).
+      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("id", clientId).maybeSingle();
+      client = (data as PromoClient | null) ?? null;
     }
+    if (!client && email) {
+      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).ilike("email", email).maybeSingle();
+      client = (data as PromoClient | null) ?? null;
+    }
+    if (!client && phone) {
+      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone", phone).maybeSingle();
+      client = (data as PromoClient | null) ?? null;
+    }
+    if (!client) {
+      // Unknown contact — add them to the book, but never email without consent.
+      const { data: created } = await supabaseAdmin.from("clients").insert({
+        shop_id, name: name || "Client", email: email.slice(0, 120), phone: phone.slice(0, 30),
+        total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
+      }).select("*").single().then((res) => res, () => ({ data: null }));
+      client = (created as PromoClient | null) ?? null;
+    }
+    if (!client) { skipped++; continue; }
+    // CASL gate (the ONE rule): express consent OR a recent visit (implied),
+    // never if they've opted out. Non-eligible recipients are skipped, not emailed.
+    if (!canReceivePromos(client)) { skipped++; continue; }
+    const clientId2 = client.id;
 
     const personalized = message
       .replace(/\{name\}/g, name || "there")
       .replace(/\{shop\}/g, shopName)
       .replace(/\{link\}/g, bookingUrl)
       .replace(/\{code\}/g, couponCode ?? "");
-    const unsubscribeUrl = `${BASE_URL}/api/unsubscribe?c=${clientId}`;
+    const unsubscribeUrl = `${BASE_URL}/api/unsubscribe?c=${clientId2}`;
     const htmlBody = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#ffffff;">
       <h2 style="color:#111827;margin:0 0 16px;font-size:20px;">${esc(shopName)}</h2>
       <div style="white-space:pre-line;color:#333333;line-height:1.6;font-size:15px;">${esc(personalized)}</div>

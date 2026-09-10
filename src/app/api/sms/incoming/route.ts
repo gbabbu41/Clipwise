@@ -28,10 +28,45 @@ export async function POST(request: NextRequest) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const to = params.To ?? "";  // the shop's business number
+  const to = params.To ?? "";      // the shop's business number
+  const from = params.From ?? "";  // the texter's number (E.164)
+  const bodyText = (params.Body ?? "").trim().toUpperCase();
 
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, name, slug").eq("twilio_phone_number", to).maybeSingle();
+
+  // ── STOP / START (CASL opt-out) ─────────────────────────────────────────────
+  // Twilio's Messaging Service also blocks STOP at the carrier level, but we
+  // record it too so our own promo sends (email + cron nudges) honor it. Match the
+  // texter's number to this shop's client rows in JS (stored phones vary in
+  // format), keyed by the last 10 digits. Best-effort — never throw.
+  const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"]);
+  const START_WORDS = new Set(["START", "UNSTOP", "YES"]);
+  const fromDigits = from.replace(/\D/g, "").slice(-10);
+  const matchIds = async (): Promise<string[]> => {
+    if (!shop?.id || fromDigits.length < 10) return [];
+    const { data } = await supabaseAdmin.from("clients").select("id, phone").eq("shop_id", shop.id);
+    return (data ?? [])
+      .filter((c) => (c.phone ?? "").replace(/\D/g, "").slice(-10) === fromDigits)
+      .map((c) => c.id);
+  };
+  if (STOP_WORDS.has(bodyText)) {
+    const ids = await matchIds();
+    if (ids.length) {
+      // marketing_opt_out always exists; promo_consent may lag pre-migration, so
+      // set it in a separate best-effort call that can't fail the opt-out.
+      await supabaseAdmin.from("clients").update({ marketing_opt_out: true }).in("id", ids).then(null, () => null);
+      await supabaseAdmin.from("clients").update({ promo_consent: false }).in("id", ids).then(null, () => null);
+    }
+    return twiml(`<Message>You're unsubscribed from ${shop?.name ?? "our"} marketing messages. Reply START to opt back in.</Message>`);
+  }
+  if (START_WORDS.has(bodyText)) {
+    const ids = await matchIds();
+    if (ids.length) {
+      await supabaseAdmin.from("clients").update({ marketing_opt_out: false }).in("id", ids).then(null, () => null);
+    }
+    return twiml(`<Message>You're opted back in${shop?.name ? ` to ${shop.name} messages` : ""}. Reply STOP anytime to opt out.</Message>`);
+  }
 
   // No matching shop → reply with nothing (empty TwiML), so we never error.
   if (!shop?.slug) return twiml("");

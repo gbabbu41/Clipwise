@@ -261,6 +261,15 @@ export default function BookingClient() {
    *  has no-show protection on. In-person bookings never need it. */
   const [noShowConsent, setNoShowConsent] = useState(false);
 
+  // ── CASL consent (captured with the customer's contact details) ─────────────
+  // Reminders are transactional (they ride on the booking they just made), so the
+  // box is pre-checked; promotional messages need EXPRESS opt-in, so that box
+  // starts unchecked. Both are stored on the client row (with timestamp + IP)
+  // server-side; promos are never sent without consent (or an implied-consent
+  // recent visit). See src/lib/consent.ts.
+  const [smsReminderConsent, setSmsReminderConsent] = useState(true);
+  const [promoConsent, setPromoConsent] = useState(false);
+
   // ── Smart waitlist (notify me when a spot opens on a full day) ──────────────
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [waitlistSaving, setWaitlistSaving] = useState(false);
@@ -930,6 +939,8 @@ export default function BookingClient() {
             client_name: clientInfo.name,
             client_email: clientInfo.email,
             client_phone: clientInfo.phone,
+            sms_reminder_consent: smsReminderConsent,
+            promo_consent: promoConsent,
             date: formatDateForDb(selectedDate),
             time_slot: selectedTime,
             amount: chargeAmount,
@@ -991,6 +1002,8 @@ export default function BookingClient() {
         client_name: clientInfo.name,
         client_email: clientInfo.email,
         client_phone: clientInfo.phone,
+        sms_reminder_consent: smsReminderConsent,
+        promo_consent: promoConsent,
         date: formatDateForDb(selectedDate),
         time_slot: selectedTime,
         total_amount: total, // combined total (discount already applied)
@@ -2133,6 +2146,27 @@ export default function BookingClient() {
                     {clientErrors[key] && <p className="text-xs text-red-400 mt-1.5 ml-1">{clientErrors[key]}</p>}
                   </div>
                 ))}
+              </div>
+
+              {/* Messaging consent (CASL). Reminders are transactional → pre-checked;
+                  offers need express opt-in → unchecked. Stored with the booking. */}
+              <div className="mt-5 space-y-2.5">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input type="checkbox" checked={smsReminderConsent}
+                    onChange={(e) => setSmsReminderConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded accent-gold cursor-pointer" />
+                  <span className="text-[13px] leading-snug text-[#c9c9c9]">
+                    Text me appointment reminders &amp; confirmations for this booking.
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input type="checkbox" checked={promoConsent}
+                    onChange={(e) => setPromoConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded accent-gold cursor-pointer" />
+                  <span className="text-[13px] leading-snug text-[#c9c9c9]">
+                    Send me offers &amp; promotions from {shop.name}. You can unsubscribe anytime (reply STOP to texts).
+                  </span>
+                </label>
               </div>
             </div>
           </div>

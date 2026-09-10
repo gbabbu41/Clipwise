@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendSmsBestEffort } from "@/lib/twilio";
+import { sendSmsBestEffort, toE164 } from "@/lib/twilio";
+import { canReceivePromos } from "@/lib/consent";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
@@ -52,6 +53,10 @@ type ClientRow = {
   id: string; name: string; email: string | null; phone: string | null;
   total_visits: number | null; last_visit: string | null; tag: string | null;
   birthday?: string | null;
+  // CASL consent (phase58) — read from select("*") below.
+  promo_consent?: boolean | null;
+  marketing_opt_out?: boolean | null;
+  sms_reminder_consent?: boolean | null;
 };
 
 // New "at risk" / tier logic shared with the marketing segments.
@@ -90,6 +95,22 @@ async function run() {
     const { data: clients } = await supabaseAdmin
       .from("clients").select("*").eq("shop_id", shop.id);
     const list = (clients ?? []) as ClientRow[];
+
+    // Customers who opted OUT of reminder texts (CASL — the booking-form checkbox).
+    // Keyed by E164 so it matches the appointment's stored phone regardless of the
+    // format it was typed in. Reminders are transactional, but we still honor a
+    // customer who unticked "text me reminders".
+    const reminderOptOut = new Set<string>();
+    for (const c of list) {
+      if (c.sms_reminder_consent === false) {
+        const e = toE164(c.phone);
+        if (e) reminderOptOut.add(e);
+      }
+    }
+    const remindersOk = (phone: string | null | undefined) => {
+      const e = toE164(phone);
+      return !(e && reminderOptOut.has(e));
+    };
     for (const c of list) {
       const next = computeTag(c, todayMs);
       if (next !== c.tag) {
@@ -117,7 +138,7 @@ async function run() {
       for (const a of appts ?? []) {
         if (sends >= MAX_SENDS) break;
         const when = a.time_slot ?? "";
-        if (smsAllowed && a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment at ${shop.name} is tomorrow${when ? ` at ${when}` : ""}. See you then!`, shop.name); texts++; sends++; }
+        if (smsAllowed && a.client_phone && remindersOk(a.client_phone)) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment at ${shop.name} is tomorrow${when ? ` at ${when}` : ""}. See you then!`, shop.name); texts++; sends++; }
         if (a.client_email) {
           await sendEmail("appointment_reminder", {
             clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,
@@ -165,7 +186,7 @@ async function run() {
             const when = a.time_slot ?? "";
             // shop name is prepended by sendSmsBestEffort, so it's not repeated
             // in the body; one GSM-7 segment.
-            if (smsAllowed && a.client_phone) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment is coming up at ${when}. See you soon!`, shop.name); texts++; sends++; }
+            if (smsAllowed && a.client_phone && remindersOk(a.client_phone)) { await sendSmsBestEffort(a.client_phone, `Reminder: your appointment is coming up at ${when}. See you soon!`, shop.name); texts++; sends++; }
             if (a.client_email) {
               await sendEmail("appointment_reminder", {
                 clientEmail: a.client_email, clientName: a.client_name ?? "there", shopId: shop.id, shopName: shop.name,
@@ -196,7 +217,9 @@ async function run() {
     if (reminders.winback_60d) nudges.push({ when: d60, type: "no_show_followup" });
     for (const n of nudges) {
       if (sends >= MAX_SENDS) break;
-      const due = list.filter(c => c.last_visit === n.when && !!c.email);
+      // Rebooking / win-back are PROMOTIONAL — only to clients who can receive
+      // promos (express consent or an implied-consent recent visit, never opted out).
+      const due = list.filter(c => c.last_visit === n.when && !!c.email && canReceivePromos(c));
       for (const c of due) {
         if (sends >= MAX_SENDS) break;
         await sendEmail(n.type, {
@@ -209,7 +232,8 @@ async function run() {
 
     // Birthday (reads clients.birthday if the column exists)
     if (reminders.birthday && sends < MAX_SENDS) {
-      const bdays = list.filter(c => !!c.email && typeof c.birthday === "string" && c.birthday.slice(5) === todayMMDD);
+      // Birthday offers are PROMOTIONAL — gate on consent like the other nudges.
+      const bdays = list.filter(c => !!c.email && typeof c.birthday === "string" && c.birthday.slice(5) === todayMMDD && canReceivePromos(c));
       for (const c of bdays) {
         if (sends >= MAX_SENDS) break;
         await sendEmail("birthday_wish", {

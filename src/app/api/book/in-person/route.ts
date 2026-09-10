@@ -15,6 +15,7 @@ import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
+import { recordBookingConsent, clientIpFrom } from "@/lib/consent";
 import { sendNewBookingStaffEmails, sendCustomerBookingEmail } from "@/lib/notify-booking-emails";
 import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 
@@ -53,6 +54,8 @@ export async function POST(request: NextRequest) {
     note?: string;                   // extra note (e.g. "outside working hours")
     redeem?: boolean;                // customer chose to spend loyalty points (amount computed server-side)
     gift_code?: string;              // gift card that covers this booking (applied server-side)
+    sms_reminder_consent?: boolean;  // CASL: transactional reminder texts (pre-checked)
+    promo_consent?: boolean;         // CASL: express opt-in for promotional messages
   };
 
   if (!b.shop_id || !b.service_id || !b.client_name || !b.date || !b.time_slot) {
@@ -326,6 +329,21 @@ export async function POST(request: NextRequest) {
   const linkedClientId = await ensureClientRow(b.shop_id, { name: b.client_name, email: b.client_email, phone: b.client_phone });
   if (linkedClientId) {
     await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", inserted.data.id).then(null, () => null);
+  }
+
+  // Record the customer's messaging consent (CASL) with a timestamp + IP. Only
+  // for real customer self-bookings — a staff-added walk-in isn't the customer
+  // ticking a box, so it must never set/clear their consent. Best-effort.
+  if (!callerIsStaff && (b.sms_reminder_consent !== undefined || b.promo_consent !== undefined)) {
+    await recordBookingConsent({
+      shopId: b.shop_id,
+      clientId: linkedClientId,
+      email: b.client_email,
+      phone: b.client_phone,
+      smsReminderConsent: b.sms_reminder_consent,
+      promoConsent: b.promo_consent,
+      ip: clientIpFrom(request),
+    });
   }
 
   // Gift card that covers this online-intent booking (routed here as a $0 Stripe

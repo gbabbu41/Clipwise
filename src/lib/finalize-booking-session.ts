@@ -13,6 +13,7 @@ import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGift } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
+import { recordBookingConsent } from "@/lib/consent";
 import { sendAppEmail } from "@/lib/emailer";
 import { resolveAccountEmail } from "@/lib/notify-booking-emails";
 
@@ -215,6 +216,21 @@ export async function finalizeBookingFromSession(params: {
   const linkedClientId = await ensureClientRow(m.shop_id, { name: m.client_name, email: m.client_email, phone: m.client_phone });
   if (linkedClientId) {
     await supabaseAdmin.from("appointments").update({ client_id: linkedClientId }).eq("id", appt.id).then(null, () => null);
+  }
+
+  // Record the customer's messaging consent (CASL) captured at checkout — flags +
+  // the IP carried through the session metadata. Only when the checkout actually
+  // carried consent (a customer self-booking always does). Best-effort.
+  if (m.sms_reminder_consent !== undefined || m.promo_consent !== undefined) {
+    await recordBookingConsent({
+      shopId: m.shop_id,
+      clientId: linkedClientId,
+      email: m.client_email,
+      phone: m.client_phone,
+      smsReminderConsent: m.sms_reminder_consent === "1",
+      promoConsent: m.promo_consent === "1",
+      ip: m.consent_ip || null,
+    });
   }
 
   // Spend redeemed loyalty points now that the appointment exists + payment
