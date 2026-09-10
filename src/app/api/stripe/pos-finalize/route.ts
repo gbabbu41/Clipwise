@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     const commissionBase = m.commission_base != null && m.commission_base !== "" ? Number(m.commission_base) : serviceAmount;
     const commission_amount = await posCommissionFor(m.barber_id || null, commissionBase);
     const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
-    // Real Stripe fee for this card sale (split 50/50 barber/shop at read time).
+    // Real Stripe fee for this card sale — stored for the shop's Payments layer
+    // (the shop bears the whole fee; the barber portal never deducts it).
     // Best-effort → 0.
     const stripeFee = (await stripeFeeCents(piId, useConnect ? shop.stripe_account_id : null)) / 100;
     const fullRow: Record<string, unknown> = {

@@ -279,8 +279,9 @@ export async function POST(request: NextRequest) {
       payment_intent_id: pi.id ?? appt.payment_intent_id ?? null,
       source: reason === "no_show" ? "no_show" : "completion",
     };
-    // Real Stripe fee for this capture (split 50/50 barber/shop at read time).
-    // Same connected-account context the charge used. Best-effort → 0.
+    // Real Stripe fee for this capture — stored for the shop's Payments layer
+    // (the shop bears the whole fee; the barber portal never deducts it). Same
+    // connected-account context the charge used. Best-effort → 0.
     const feeDollars = (await stripeFeeCents(pi.id ?? appt.payment_intent_id, useConnect ? shop.stripe_account_id : null)) / 100;
     const txAmount = Math.max(0, amountReceived / 100 - tipDollars - txTax);
     // De-dup against a double-tap: two racing "Complete" requests both reach here

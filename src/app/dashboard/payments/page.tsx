@@ -465,14 +465,10 @@ export default function PaymentsPage() {
         // No-show penalty fees aren't the barber's earnings — exclude them so this
         // per-barber view matches what the barber sees in their own portal.
         && t.source !== "no_show" && !(t.service_name ?? "").startsWith("No-show fee"))
-        // Net the barber's card fee from the SAME live Stripe fees (byPi) the owner
-        // view uses — the stored stripe_fee is 0 on many rows, which made this
-        // per-barber view (and the barber's own portal) read a higher take-home
-        // than the owner's real net. Prefer the live fee; fall back to stored.
-        .map(t => {
-          const live = t.payment_intent_id ? stripeNet?.byPi?.[t.payment_intent_id]?.fee : undefined;
-          return { ...t, stripe_fee: (typeof live === "number" && live > 0) ? live : t.stripe_fee, ts: new Date(t.created_at).getTime() };
-        })
+        // The barber's take-home is commission + tips, with NO card fee deducted
+        // (the shop bears processing entirely). So this per-barber view doesn't
+        // need the live Stripe fee at all — just carry a sortable timestamp.
+        .map(t => ({ ...t, ts: new Date(t.created_at).getTime() }))
     : [];
   // Earnings for one window = the shared barber-earnings math over that barber's
   // transactions in [from, to], plus a per-bucket take-home series for the spark.
@@ -490,7 +486,7 @@ export default function PaymentsPage() {
       cur.net += barberRowCut(t, selPct); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
-    return { take: e.youKeep, commission: e.commission, tips: e.tips, feeShare: e.barberFeeShare, count: e.count, avg: e.avgTicket, data };
+    return { take: e.youKeep, commission: e.commission, tips: e.tips, count: e.count, avg: e.avgTicket, data };
   };
   // Statement rows for barber mode — one per transaction, showing that barber's
   // earned cut (commission + tip). `earn:true` tells the row/modal to show
@@ -586,17 +582,17 @@ export default function PaymentsPage() {
   type PeriodCard = {
     mode: "shop" | "barber"; label: string; range: string;
     headline: number;        // the big number (collected, or take-home)
-    commission: number; tips: number; feeShare: number; // barber-mode ledger
-    fees: number; tax: number; cash: number;            // shop-mode ledger
+    commission: number; tips: number;        // barber-mode ledger
+    fees: number; tax: number; cash: number; // shop-mode ledger
     count: number; avg: number; data: { label: string; net: number }[];
   };
   const mkCard = (from: number, to: number, monthly: boolean, label: string, range: string): PeriodCard => {
     if (barberMode) {
       const e = earnScope(from, to, monthly);
-      return { mode: "barber", label, range, headline: e.take, commission: e.commission, tips: e.tips, feeShare: e.feeShare, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
+      return { mode: "barber", label, range, headline: e.take, commission: e.commission, tips: e.tips, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
     }
     const s = computeScope(from, to, monthly);
-    return { mode: "shop", label, range, headline: s.net + s.cash, commission: 0, tips: 0, feeShare: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
+    return { mode: "shop", label, range, headline: s.net + s.cash, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
   };
   const carouselWindows = [
     { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
@@ -779,14 +775,14 @@ export default function PaymentsPage() {
     });
   })();
 
-  // One receipt-ledger renderer for both modes. Barber: Commission + Tips −
-  // fee share = Take-home. Shop: Gross − tax − fees = You keep.
+  // One receipt-ledger renderer for both modes. Barber: Commission + Tips =
+  // Take-home (no card fee — the shop bears processing). Shop: Gross − tax − fees
+  // = You keep (the full card fee lives here, on the shop layer).
   const renderLedger = (p: PeriodCard) => (
     p.mode === "barber" ? (
       <div className="cwp-ledger">
         <div className="cwp-lrow"><span className="cwp-lk">Commission{selPct ? ` (${selPct}%)` : ""}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
         {p.tips > 0 && <div className="cwp-lrow"><span className="cwp-lk">Tips</span><span className="cwp-lv">{formatCurrency(p.tips)}</span></div>}
-        {p.feeShare > 0 && <div className="cwp-lrow"><span className="cwp-lk">Card fee share</span><span className="cwp-lv">−{formatCurrency(p.feeShare)}</span></div>}
         <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
       </div>
     ) : (

@@ -58,7 +58,6 @@ export default function BarberPaymentsPage() {
   const [pct, setPct] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [stripeNet, setStripeNet] = useState<{ byPi: Record<string, { gross: number; fee: number; net: number }> } | null>(null);
 
   // Earnings window: the periods are the swipeable carousel cards (this week →
   // month → all → custom); the last card opens a from→to date picker.
@@ -89,39 +88,17 @@ export default function BarberPaymentsPage() {
     setLoading(false);
   }, [accessToken, shop?.id, notPermitted]);
 
-  // Exact Stripe net/fees per card payment (fees aren't stored in our DB).
-  const syncStripe = useCallback(async () => {
-    if (!shop?.id) return;
-    try {
-      const r = await fetch("/api/stripe/payments-summary", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shop_id: shop.id }),
-      });
-      const d = r.ok ? await r.json() : null;
-      if (d && !d.error) setStripeNet(d);
-    } catch { /* transient/offline — keep last known figures */ }
-  }, [shop?.id]);
+  useEffect(() => { loadEarnings(); }, [loadEarnings]);
 
-  useEffect(() => { loadEarnings(); syncStripe(); }, [loadEarnings, syncStripe]);
-
-  // Real Stripe fee for a card payment. Prefer the stored per-transaction fee
-  // (phase38); fall back to the live Stripe summary for rows taken before the
-  // column existed. Cash has no fee.
-  const feeOf = useCallback((t: Tx) => {
-    if (typeof t.stripe_fee === "number" && t.stripe_fee > 0) return t.stripe_fee;
-    return (t.payment_method !== "cash" && t.payment_intent_id && stripeNet?.byPi[t.payment_intent_id])
-      ? stripeNet.byPi[t.payment_intent_id].fee : 0;
-  }, [stripeNet]);
   const earnedOf = useCallback((t: Tx) => {
     const tipAmt = t.tip ?? 0;
-    // An owner keeping 100% nets gross − processing fee (it's all theirs, they
-    // bear the whole fee).
-    if (isOwner && pct >= 100) return grossOf(t) - feeOf(t);
-    // Staff (or an owner on a partial cut): commission on the service + all tips,
-    // minus HALF the card fee — the barber and shop split processing 50/50.
+    // Take-home = commission on the service + all tips. The card fee is NOT
+    // deducted here — the shop bears processing entirely (it shows on the shop's
+    // Payments layer, never in the barber portal). Applies to owners on their own
+    // chair too: their chair's earnings show pre-fee here; the fee lives shop-side.
     const commission = safeCommission(t.amount, t.commission_amount, pct);
-    return commission + tipAmt - feeOf(t) / 2;
-  }, [isOwner, pct, feeOf]);
+    return commission + tipAmt;
+  }, [pct]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -144,7 +121,6 @@ export default function BarberPaymentsPage() {
     const earned = inP.reduce((s, t) => s + earnedOf(t), 0);
     const gross = inP.reduce((s, t) => s + grossOf(t), 0);
     const tips = inP.reduce((s, t) => s + (t.tip ?? 0), 0);
-    const fees = inP.reduce((s, t) => s + feeOf(t), 0);
     // Cash is collected in hand; shown separately from the card/Stripe figure.
     const cash = inP.filter(t => t.payment_method === "cash").reduce((s, t) => s + earnedOf(t), 0);
     const cardEarned = earned - cash;
@@ -162,8 +138,8 @@ export default function BarberPaymentsPage() {
       cur.val += earnedOf(t); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, val: v.val, order: v.order })).sort((a, b) => a.order - b.order);
-    return { earned, cardEarned, gross, tips, fees, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
-  }, [txs, earnedOf, feeOf]);
+    return { earned, cardEarned, gross, tips, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
+  }, [txs, earnedOf]);
 
   const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const nowTs = Date.now();
@@ -226,10 +202,10 @@ export default function BarberPaymentsPage() {
   useEffect(() => { loadUnpaid(); }, [loadUnpaid]);
 
   // Realtime + refresh — a charge/no-show fee shows up without a manual reload.
-  // (Stripe state never fires a DB event, so also re-sync on focus + interval.)
+  // (Also re-check on focus + interval, since some money-moves don't fire a DB event.)
   useEffect(() => {
     if (!shop?.id) return;
-    const reload = () => { loadEarnings(); loadUnpaid(); syncStripe(); };
+    const reload = () => { loadEarnings(); loadUnpaid(); };
     const ch = supabase
       .channel(`barber-payments:${shop.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `shop_id=eq.${shop.id}` }, reload)
@@ -245,7 +221,7 @@ export default function BarberPaymentsPage() {
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(id);
     };
-  }, [shop?.id, loadEarnings, loadUnpaid, syncStripe]);
+  }, [shop?.id, loadEarnings, loadUnpaid]);
 
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
     setUnpaid(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
@@ -457,16 +433,8 @@ export default function BarberPaymentsPage() {
                       <div className="cwp-a cwp-apos">{formatCurrency(earnedOf(t))}</div>
                       <div className="cwp-m">
                         <span className="cwp-method">{cash ? "Cash" : "Card"}</span>
-                        {(() => {
-                          if (cash) return "";
-                          const fee = feeOf(t);
-                          if (fee <= 0) return "";
-                          // Owner keeping 100% bears the whole fee; everyone else
-                          // pays half (the 50/50 split with the shop).
-                          const ownerFull = isOwner && pct >= 100;
-                          const barberFee = ownerFull ? fee : fee / 2;
-                          return ` · after ${formatCurrency(barberFee)} card fee${ownerFull ? "" : " (your ½)"}`;
-                        })()}
+                        {/* No card-fee line in the barber portal — the shop bears
+                            the fee (it shows on the shop's Payments layer). */}
                       </div>
                     </div>
                   </div>

@@ -128,14 +128,6 @@ export default function PayrollPage() {
     const apptsInRange = ((apptData ?? []) as unknown as PayAppt[]).filter(a => inRange(a.paid_at ?? a.created_at));
     const txsInRange = ((txRes.data ?? []) as unknown as (RevTx & { created_at: string })[]).filter(t => inRange(t.created_at));
 
-    // Sum each barber's real Stripe fees for the period (skip refunded). Empty
-    // until the phase38 migration runs — then commission nets the barber's half.
-    const feeByBarber = new Map<string, number>();
-    for (const t of txsInRange as { barber_id: string | null; stripe_fee?: number | null; refunded?: boolean | null }[]) {
-      if (t.refunded || !t.barber_id) continue;
-      feeByBarber.set(t.barber_id, (feeByBarber.get(t.barber_id) ?? 0) + (t.stripe_fee ?? 0));
-    }
-
     // Service ACTUALLY COLLECTED on a paid appointment, pre-tax — subtract any
     // still-owed balance_due (a price raised above the held card) and scale the tax
     // to the collected fraction. Identical to the Dashboard's apptServiceCollected.
@@ -164,10 +156,9 @@ export default function PayrollPage() {
       const posCommission = bPos.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, pct), 0);
       // Revenue base = collected service + POS product sales (matches the commission).
       const serviceRevenue = apptService + posService;
-      // Barber and shop split the card processing fee 50/50 — subtract the barber's
-      // half so this matches their Earnings-page take-home.
-      const feeShare = (feeByBarber.get(b.id) ?? 0) / 2;
-      const commissionEarned = Math.max(0, apptCommission + posCommission - feeShare);
+      // Take-home = full commission (no card fee deducted — the shop bears Stripe
+      // processing entirely). Matches the barber's Earnings-page take-home.
+      const commissionEarned = Math.max(0, apptCommission + posCommission);
       const bHours = hours.filter(h => h.barber_id === b.id);
       const hoursWorked = bHours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
       return { barber: b, appointments: bAppts, serviceRevenue, commissionEarned, hoursWorked };

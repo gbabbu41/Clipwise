@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { computeBarberEarnings } from "@/lib/barber-earnings";
-import { fetchStripeByPi } from "@/lib/stripe-fees";
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -69,8 +68,9 @@ export async function GET(request: NextRequest) {
 
   // Earnings math lives in ONE place (src/lib/barber-earnings) so the owner's
   // Payments page — when filtered to this barber — shows the identical numbers.
-  // computeBarberEarnings excludes refunded rows and keeps the same 50/50 card-fee
-  // split as before (commission + tips − barber's half of the fee = take-home).
+  // computeBarberEarnings excludes refunded rows. Take-home is commission + tips
+  // with NO card fee deducted: the shop bears Stripe processing entirely, so the
+  // barber portal never touches the fee (it shows on the shop's Payments layer).
   // No-show penalty fees aren't a service the barber performed — they're a shop
   // penalty charge — so they don't pay commission or count as the barber's
   // earnings. Exclude them from both the totals and the returned list.
@@ -78,25 +78,6 @@ export async function GET(request: NextRequest) {
     t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
   const list = (transactions ?? []).filter(t => !t.refunded && !isNoShowFee(t));
 
-  // Net the barber's card fee from the SAME live Stripe source the owner's
-  // Payments page uses — the stored `stripe_fee` column is 0 on many older rows,
-  // which made the barber's take-home read higher than what the owner sees for the
-  // same charge. Pull the real fee per PaymentIntent and prefer it; fall back to
-  // the stored value if Stripe can't be reached. Only worth a lookup when a card
-  // row is actually missing its stored fee.
-  const needsFee = list.some(t => t.payment_method !== "cash" && t.payment_intent_id && !(Number(t.stripe_fee) > 0));
-  if (needsFee && effShopId) {
-    const { data: feeShop } = await supabaseAdmin
-      .from("shops").select("stripe_account_id, stripe_connected").eq("id", effShopId).maybeSingle();
-    if (feeShop?.stripe_account_id && feeShop.stripe_connected) {
-      const byPi = await fetchStripeByPi(feeShop.stripe_account_id);
-      for (const t of list) {
-        const pi = t.payment_intent_id as string | null;
-        const live = pi ? byPi[pi]?.fee : undefined;
-        if (typeof live === "number" && live > 0) t.stripe_fee = live;
-      }
-    }
-  }
   const e = computeBarberEarnings(list, commissionPercent);
 
   return NextResponse.json({

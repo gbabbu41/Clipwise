@@ -5,8 +5,10 @@
 // screens compute from the same rows (that barber's `transactions`) with the
 // same formula here. If this changes, both screens change together.
 //
-// Fee handling is intentionally left as-is (card fee split 50/50 with the shop);
-// the owner asked to keep the Stripe-fee treatment unchanged.
+// Card-fee handling: the SHOP bears the ENTIRE Stripe card fee. A barber's
+// take-home is never reduced by it (barberFeeShare is always 0); the shop's
+// "keeps" absorbs the whole fee. (Changed from the old 50/50 split — the owner
+// decided the shop covers processing entirely.)
 
 export type EarningTx = {
   amount: number;                    // service amount (pre-tip)
@@ -21,10 +23,10 @@ export type BarberEarnings = {
   serviceAmount: number;  // service only (pre-tip)
   commission: number;     // the barber's service cut (their %)
   tips: number;           // 100% the barber's
-  stripeFee: number;      // total card fee across these txs
-  barberFeeShare: number; // the barber's half of the fee
-  youKeep: number;        // TAKE-HOME = commission + tips − feeShare
-  shopKeeps: number;      // service − commission − feeShare
+  stripeFee: number;      // total card fee across these txs (borne by the shop)
+  barberFeeShare: number; // always 0 — the shop bears the whole card fee
+  youKeep: number;        // TAKE-HOME = commission + tips (no fee deducted)
+  shopKeeps: number;      // service − commission − full stripe fee
   count: number;
   avgTicket: number;
 };
@@ -44,8 +46,8 @@ export function safeCommission(amount: number | null | undefined, stored: number
 }
 
 // What the barber earned on ONE transaction — their service commission + their
-// tip. The card fee is applied only at the aggregate (halved), same as the
-// summary, so a row is the pre-fee cut and the period headline nets the fee out.
+// tip. No card fee is deducted (the shop bears it entirely), so both the row cut
+// and the period headline reflect the barber's full commission + tips.
 export function barberRowCut(t: EarningTx, commissionPercent: number): number {
   return safeCommission(t.amount, t.commission_amount, commissionPercent) + (t.tip ?? 0);
 }
@@ -80,9 +82,11 @@ export function computeBarberEarnings(txs: EarningTx[], commissionPercent: numbe
   const revenue = serviceAmount + tips;
   const commission = list.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0);
   const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
-  const barberFeeShare = stripeFee / 2;
-  const youKeep = Math.max(0, commission + tips - barberFeeShare);
-  const shopKeeps = Math.max(0, serviceAmount - commission - barberFeeShare);
+  // The shop bears the ENTIRE card fee: the barber's take-home is commission +
+  // tips with nothing deducted, and the shop's cut absorbs the full fee.
+  const barberFeeShare = 0;
+  const youKeep = commission + tips;
+  const shopKeeps = Math.max(0, serviceAmount - commission - stripeFee);
   return {
     revenue, serviceAmount, commission, tips, stripeFee, barberFeeShare,
     youKeep, shopKeeps, count: list.length, avgTicket: list.length ? revenue / list.length : 0,

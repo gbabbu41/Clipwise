@@ -69,8 +69,9 @@ export async function recordOnlinePaymentTx(args: {
     ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", paymentIntentId).limit(1)
     : await supabaseAdmin.from("transactions").select("id").eq("appointment_id", appointmentId).eq("source", "completion").limit(1);
   if ((dupe.data?.length ?? 0) > 0) return;
-  // Real Stripe processing fee for this card payment (split 50/50 barber/shop at
-  // read time). Read from the charge's balance_transaction on the shop's
+  // Real Stripe processing fee for this card payment — stored so the shop's
+  // Payments layer can show it (the shop bears the whole fee; the barber portal
+  // never deducts it). Read from the charge's balance_transaction on the shop's
   // connected account. Best-effort — a fee-lookup miss just stores 0.
   let feeDollars = 0;
   if (paymentIntentId) {

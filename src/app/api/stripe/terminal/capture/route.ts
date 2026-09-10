@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
     const tip = Number(m.tip ?? 0);
     const tax = Number(m.tax ?? 0);
     // Real Stripe fee for this sale (read from the connected account's balance
-    // transaction; split 50/50 barber/shop at read time elsewhere). Best-effort → 0.
+    // transaction) — stored for the shop's Payments layer (the shop bears the
+    // whole fee; the barber portal never deducts it). Best-effort → 0.
     const stripeFee = (await stripeFeeCents(payment_intent_id, useConnect ? shop.stripe_account_id : null)) / 100;
 
     const fullRow: Record<string, unknown> = {
