@@ -46,11 +46,12 @@ async function logConsentEvents(events: ConsentEvent[]): Promise<void> {
  * Record the customer's consent choices at booking time, on the row AND in the
  * audit log. Best-effort — consent bookkeeping must NEVER block or fail a booking.
  *
- * Promotional consent is only ever UPGRADED here: ticking the box records express
- * 'granted' consent (with its proof). An UNticked box is "not now", NOT a
- * withdrawal — withdrawal is only ever explicit (STOP / unsubscribe), so we never
- * downgrade an existing 'granted' or 'withdrawn' from a blank booking box.
- * The reminder preference follows its checkbox both ways.
+ * Promotional consent is only ever UPGRADED here, and only from a non-withdrawn
+ * state: ticking the box records express 'granted' consent (with its proof). An
+ * UNticked box is "not now", NOT a withdrawal. And a prior 'withdrawn' (a STOP /
+ * unsubscribe) is DURABLE — a booking checkbox can't resurrect it; only an
+ * explicit re-opt-in (START) can. So a blank box never downgrades, and a ticked
+ * box never overrides a withdrawal. The reminder preference follows its checkbox.
  */
 export async function recordBookingConsent(args: {
   shopId: string;
@@ -89,11 +90,19 @@ export async function recordBookingConsent(args: {
       events.push({ client_id: clientId, shop_id: args.shopId, kind: "reminder", granted: !!args.smsReminderConsent, source, ip: args.ip, user_agent: args.userAgent });
     }
     if (args.promoConsent === true) {
-      patch.promo_consent_status = "granted";
-      patch.promo_consent_at = now;
-      if (isValidIp(args.ip)) patch.promo_consent_ip = args.ip;
-      patch.promo_consent_source = source;
-      events.push({ client_id: clientId, shop_id: args.shopId, kind: "promo", granted: true, source, ip: args.ip, user_agent: args.userAgent });
+      // A prior STOP / unsubscribe is a DURABLE block: a booking-form checkbox can
+      // never resurrect it — only an explicit re-opt-in (texting START) can. So
+      // only grant when the client hasn't withdrawn. (The box is unchecked by
+      // default, so this read only happens when someone actively ticks it.)
+      const { data: cur } = await supabaseAdmin
+        .from("clients").select("promo_consent_status").eq("id", clientId).maybeSingle();
+      if (cur?.promo_consent_status !== "withdrawn") {
+        patch.promo_consent_status = "granted";
+        patch.promo_consent_at = now;
+        if (isValidIp(args.ip)) patch.promo_consent_ip = args.ip;
+        patch.promo_consent_source = source;
+        events.push({ client_id: clientId, shop_id: args.shopId, kind: "promo", granted: true, source, ip: args.ip, user_agent: args.userAgent });
+      }
     }
     if (Object.keys(patch).length === 0) return;
     // If the consent columns haven't been migrated on prod yet, the update errors
