@@ -622,10 +622,13 @@ gates (stale `false` values used to hide pay-in-person). Free/no-payments shops 
   (`total_amount` **includes** tax), `loyalty_awarded`, `paid_at`, `duration_minutes`,
   `client_id`, `source` (phone_ai/online/in_person), `gift_applied`.
 - **transactions**: `amount` (pre-tax), `tip`, `tax`, `commission_amount`, `stripe_fee` (real
-  fee, split 50/50 barber/shop), `payment_method` (card/cash/online), `type` (service/product/
+  fee — borne entirely by the shop; shown only on the shop Payments layer, never in the barber
+  portal), `payment_method` (card/cash/online), `type` (service/product/
   tip), `source` (pos/completion/no_show/gift_card_sale), `refunded`, `payment_intent_id`,
   `stripe_session_id` (unique — POS dedup), `barber_id`.
-- **barbers**: `commission_percent` (default 50), `permissions` (JSON), `bookings_paused`.
+- **barbers**: `commission_percent` (default 50 for staff; the **owner's own chair is 0** — its
+  cuts are shop profit, and the owner's take shows as 100% only in the per-barber earnings views;
+  see §9.3), `permissions` (JSON), `bookings_paused`.
 
 ### 5.4 Notable CHECK constraints
 
@@ -962,23 +965,41 @@ what the customer was charged (after discount), never after fees.
 
 The rule established this session: **barber pay comes from one source** — that barber's
 `transactions` rows — read by every screen through `barber-earnings.ts`:
-- `computeBarberEarnings(txs, pct)` — the barber's take-home = commission + tips − their half of
-  the card fee. Used by the barber's **own portal** (`/api/barber/earnings`) AND the owner's
-  **Payments page when filtered to one barber** (an exact mirror).
-- `shopBarberCommission(txs, pctByBarber)` — the shop-wide commission tally used by the
-  **Dashboard** revenue card and **Analytics** waterfall. Only rows with a `barber_id` count
-  (gift/product/no-barber sales carry no barber → shop revenue, no commission). commission =
-  stored `commission_amount` (POS) else `amount × pct` (appointment-completion rows store no
-  `commission_amount`, so they fall back to the barber's rate × service).
+- `computeBarberEarnings(txs, pct, isOwner?)` — the barber's take-home = **commission + tips, with
+  NO card fee deducted**. Used by the barber's **own portal** (`/api/barber/earnings`) AND the
+  owner's **Payments page when filtered to one barber** (an exact mirror). Pass `isOwner=true` for
+  the owner's own chair → take-home = **100% of the service + tips** (see below).
+- `shopBarberCommission(txs, pctByBarber)` — a shop-wide commission tally helper (currently
+  **unused**; the Dashboard/Analytics compute commission inline from `commission_percent` the same
+  way). Only rows with a `barber_id` count (gift/product/no-barber sales → shop revenue, no
+  commission). commission = stored `commission_amount` (POS) else `amount × pct`.
 
 **Model rules:** commission applies to **services only**, at the barber's rate, after discount —
 it's a **reporting tally, not an automatic payout** (ClipWise never moves it; the owner pays the
-barber separately). **Tips are 100% the barber's**, always, on top. The **shop eats the Stripe
-fee** on the owner's Net-revenue side (Gross − fee = Collected, then commission is on the service
-price); the barber portal separately applies a 50/50 fee split to the barber's *take-home* display
-(intentionally left unchanged). Owner-barber commission defaults to **0%** (his services stay as
-shop revenue until he sets a rate). The barber side is **Pro/Premium only** (Starter has no barber
-portal).
+barber separately). **Tips are 100% the barber's**, always, on top.
+
+**Card fee (changed 2026-09-10): the SHOP bears the ENTIRE Stripe fee.** A barber's take-home is
+**never** reduced by it — no more 50/50 split, no fee label anywhere in the barber portal. The fee
+shows **only on the shop's Payments layer** (shop mode "Stripe fees" row) and on the Dashboard
+Net-revenue math (Gross − fee = Collected). `barberFeeShare` is hard-0.
+
+**Owner-as-barber (changed 2026-09-10): the owner keeps 100% of their own chair, and it's locked.**
+An owner who cuts hair isn't in a commission relationship with themselves — they OWN the shop, so
+their cut is simultaneously their barber income AND the shop's profit (one pocket). Implementation:
+- The owner's chair is stored at `commission_percent = 0`. That is what the **shop-aggregate**
+  Dashboard/Analytics read, so the owner's own cuts count as **$0 commission expense → they stay in
+  shop profit** (Net revenue is not understated). Do NOT change this stored 0 to 100 — it would make
+  the dashboard show ~$0 profit on the owner's cuts.
+- The **per-barber earnings views** (barber portal, `/api/barber/earnings`, owner Payments barber-
+  mode, `dashboard/my-stats`) pass `isOwner=true` so the owner **sees their true 100% take-home**.
+  The API reports `commissionPercent: 100` for the owner (label only).
+- The **Staff page** shows the owner's chair as a **locked "You keep 100%"** — no editable slider
+  (the owner can't set a commission on themselves). `payroll` (a staff-payout lens) correctly shows
+  the owner at $0-to-pay / 100%-kept.
+- Owner detection = the barber row whose `user_id === shop.owner_id` (fallback: matching email),
+  the same rule the Staff page uses.
+
+The barber side is **Pro/Premium only** (Starter has no barber portal).
 
 ### 9.4 Where each number surfaces
 

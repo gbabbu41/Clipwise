@@ -94,11 +94,11 @@ export default function BarberPaymentsPage() {
     const tipAmt = t.tip ?? 0;
     // Take-home = commission on the service + all tips. The card fee is NOT
     // deducted here — the shop bears processing entirely (it shows on the shop's
-    // Payments layer, never in the barber portal). Applies to owners on their own
-    // chair too: their chair's earnings show pre-fee here; the fee lives shop-side.
-    const commission = safeCommission(t.amount, t.commission_amount, pct);
+    // Payments layer, never in the barber portal). An owner on their own chair
+    // keeps 100% of the service (they own the shop), so they take the full amount.
+    const commission = isOwner ? Math.max(0, t.amount) : safeCommission(t.amount, t.commission_amount, pct);
     return commission + tipAmt;
-  }, [pct]);
+  }, [pct, isOwner]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);

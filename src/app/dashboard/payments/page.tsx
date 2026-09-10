@@ -98,7 +98,7 @@ function Spark({ data }: { data: { net: number }[] }) {
 }
 
 export default function PaymentsPage() {
-  const { shop, accessToken } = useAuth();
+  const { shop, accessToken, user } = useAuth();
   const { confirm } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [appts, setAppts] = useState<ApptRow[]>([]);
@@ -114,7 +114,7 @@ export default function PaymentsPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Barber filter
-  const [barbers, setBarbers] = useState<{ id: string; name: string; commission_percent?: number }[]>([]);
+  const [barbers, setBarbers] = useState<{ id: string; name: string; commission_percent?: number; user_id?: string | null; email?: string | null }[]>([]);
   const [selectedBarber, setSelectedBarber] = useState("all");
   const [showBarberPicker, setShowBarberPicker] = useState(false);
 
@@ -174,8 +174,8 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (!shop) return;
-    supabase.from("barbers").select("id, name, commission_percent").eq("shop_id", shop.id).eq("is_active", true).order("name")
-      .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string; commission_percent?: number }[]));
+    supabase.from("barbers").select("id, name, commission_percent, user_id, email").eq("shop_id", shop.id).eq("is_active", true).order("name")
+      .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string; commission_percent?: number; user_id?: string | null; email?: string | null }[]));
   }, [shop]);
 
   // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
@@ -460,6 +460,15 @@ export default function PaymentsPage() {
   // stays the shop's collected-revenue / payout view.
   const barberMode = selectedBarber !== "all";
   const selPct = barberMode ? (barbers.find(b => b.id === selectedBarber)?.commission_percent ?? 0) : 0;
+  // Is the selected chair the OWNER's own? (matches the Staff page rule). An owner
+  // keeps 100% of their service, so this per-barber view must mirror what they see
+  // in their own portal — full take, not their stored 0% commission.
+  const selBarberRow = barberMode ? barbers.find(b => b.id === selectedBarber) : undefined;
+  const selIsOwner = !!selBarberRow && (
+    (!!selBarberRow.user_id && selBarberRow.user_id === user?.id) ||
+    (!!user?.email && selBarberRow.email?.toLowerCase() === user.email.toLowerCase())
+  );
+  const selDisplayPct = selIsOwner ? 100 : selPct;
   const barberEarnTx = barberMode
     ? txs.filter(t => t.barber_id === selectedBarber && !t.refunded
         // No-show penalty fees aren't the barber's earnings — exclude them so this
@@ -474,7 +483,7 @@ export default function PaymentsPage() {
   // transactions in [from, to], plus a per-bucket take-home series for the spark.
   const earnScope = (from: number, to: number, monthly: boolean) => {
     const inWin = barberEarnTx.filter(t => t.ts >= from && t.ts <= to);
-    const e = computeBarberEarnings(inWin, selPct);
+    const e = computeBarberEarnings(inWin, selPct, selIsOwner);
     const m = new Map<string, { order: number; net: number }>();
     inWin.forEach(t => {
       const dt = new Date(t.ts);
@@ -483,7 +492,7 @@ export default function PaymentsPage() {
         ? dt.toLocaleDateString("en-CA", { month: "short" })
         : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += barberRowCut(t, selPct); m.set(label, cur);
+      cur.net += barberRowCut(t, selPct, selIsOwner); m.set(label, cur);
     });
     const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
     return { take: e.youKeep, commission: e.commission, tips: e.tips, count: e.count, avg: e.avgTicket, data };
@@ -494,7 +503,7 @@ export default function PaymentsPage() {
   const barberFeed: FeedItem[] = barberEarnTx.map((t): FeedItem => ({
     key: `be${t.id}`, name: t.client_name || "Client",
     sub: t.service_name || "Service",
-    amount: barberRowCut(t, selPct), tax: 0,
+    amount: barberRowCut(t, selPct, selIsOwner), tax: 0,
     statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
     tone: "good", settled: true, tsIso: t.created_at, ts: t.ts,
     pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false, earn: true,
@@ -781,7 +790,7 @@ export default function PaymentsPage() {
   const renderLedger = (p: PeriodCard) => (
     p.mode === "barber" ? (
       <div className="cwp-ledger">
-        <div className="cwp-lrow"><span className="cwp-lk">Commission{selPct ? ` (${selPct}%)` : ""}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
+        <div className="cwp-lrow"><span className="cwp-lk">{selIsOwner ? "Your cuts (100%)" : `Commission${selDisplayPct ? ` (${selDisplayPct}%)` : ""}`}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
         {p.tips > 0 && <div className="cwp-lrow"><span className="cwp-lk">Tips</span><span className="cwp-lv">{formatCurrency(p.tips)}</span></div>}
         <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
       </div>
@@ -808,7 +817,7 @@ export default function PaymentsPage() {
       {/* ── Header (unchanged nav) ─────────────────────────────────────────── */}
       <DashboardHeader
         title="Payments"
-        subtitle={barberName ? `${barberFirst} · take-home${selPct ? ` · ${selPct}%` : ""}` : `${shop?.name ?? "Your shop"} · ClipWise takes 0%`}
+        subtitle={barberName ? `${barberFirst} · take-home${selDisplayPct ? ` · ${selDisplayPct}%` : ""}` : `${shop?.name ?? "Your shop"} · ClipWise takes 0%`}
       />
 
       {/* Barber chip — only when more than one barber (solo shops stay clean) */}

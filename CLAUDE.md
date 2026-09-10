@@ -102,6 +102,14 @@ never against a stale checkbox in TODO.md or a migration file header.
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
 ## Key facts / gotchas
+- **Card fee & barber pay (set 2026-09-10):** the **SHOP bears the ENTIRE Stripe card fee** — a
+  barber's take-home is commission + tips with **nothing** deducted (no 50/50 split, no fee label in
+  the barber portal). The fee shows only on the **shop's Payments layer** + Dashboard Net-revenue.
+  **Owner-as-barber keeps 100% of their own chair, locked** (no slider on Staff). Mechanism: the
+  owner's chair is stored `commission_percent = 0` so the **shop-aggregate** dashboard/analytics
+  count their cuts as **profit, not commission** — do NOT change that stored 0; the **per-barber**
+  earnings views pass `isOwner=true` (barber-earnings.ts) so the owner *sees* 100%. Full detail in
+  KNOWLEDGE-BOOK §9.3.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

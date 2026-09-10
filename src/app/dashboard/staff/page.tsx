@@ -729,31 +729,41 @@ export default function StaffPage() {
                   <p className="text-xs text-grey">Appts (mo.)</p>
                 </div>
                 <div className="text-center p-2.5 bg-card-raised rounded-xl">
-                  <p className="text-lg font-bold text-foreground">{commissions[barber.id] ?? barber.commission_percent}%</p>
-                  <p className="text-xs text-grey">Commission</p>
+                  <p className="text-lg font-bold text-foreground">{isOwnerBarber ? "100%" : `${commissions[barber.id] ?? barber.commission_percent}%`}</p>
+                  <p className="text-xs text-grey">{isOwnerBarber ? "You keep" : "Commission"}</p>
                 </div>
               </div>
 
-              {/* Commission Slider */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-grey">Commission Rate</p>
-                  <p className="text-sm font-bold text-foreground">{commissions[barber.id]}%</p>
+              {/* Commission — editable for staff; the owner always keeps 100% (their
+                  own chair isn't a commission relationship), so it's shown locked. */}
+              {isOwnerBarber ? (
+                <div className="mb-4 rounded-xl border border-border bg-card-raised px-3 py-2.5">
+                  <p className="text-sm font-semibold text-foreground">You keep 100%</p>
+                  <p className="text-[11px] text-grey mt-1 leading-relaxed">
+                    This is your own chair — you keep everything you make. Your cuts count as shop profit (not a commission expense), so there&apos;s nothing to set here.
+                  </p>
                 </div>
-                <input
-                  type="range" min={0} max={100} step={5}
-                  value={commissions[barber.id]}
-                  onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Math.min(100, Math.max(0, Number(e.target.value))) }))}
-                  className="w-full accent-emerald-500 h-1.5 rounded-full cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-grey mt-0.5"><span>0%</span><span>100%</span></div>
-                <p className="text-[11px] text-grey mt-1.5 leading-relaxed">
-                  Share of each service this barber performs (a tally, not an auto-payout). Tips stay 100% theirs; products/retail are shop revenue. It only changes how service money is split on reports — not what the customer pays.
-                </p>
-                <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
-                  Save Commission
-                </Button>
-              </div>
+              ) : (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-grey">Commission Rate</p>
+                    <p className="text-sm font-bold text-foreground">{commissions[barber.id]}%</p>
+                  </div>
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={commissions[barber.id]}
+                    onChange={(e) => setCommissions((prev) => ({ ...prev, [barber.id]: Math.min(100, Math.max(0, Number(e.target.value))) }))}
+                    className="w-full accent-emerald-500 h-1.5 rounded-full cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-grey mt-0.5"><span>0%</span><span>100%</span></div>
+                  <p className="text-[11px] text-grey mt-1.5 leading-relaxed">
+                    Share of each service this barber performs (a tally, not an auto-payout). Tips stay 100% theirs; products/retail are shop revenue. It only changes how service money is split on reports — not what the customer pays.
+                  </p>
+                  <Button variant="outline" size="sm" className="w-full mt-2" loading={savingCommission === barber.id} onClick={() => saveCommission(barber.id)}>
+                    Save Commission
+                  </Button>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-2">

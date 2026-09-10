@@ -78,7 +78,10 @@ export async function GET(request: NextRequest) {
     t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
   const list = (transactions ?? []).filter(t => !t.refunded && !isNoShowFee(t));
 
-  const e = computeBarberEarnings(list, commissionPercent);
+  // Owner on their own chair keeps 100% (their cuts are shop profit, so their
+  // stored commission is 0 — see barber-earnings header). Everyone else uses
+  // their configured rate.
+  const e = computeBarberEarnings(list, commissionPercent, isOwner);
 
   return NextResponse.json({
     transactions: list,
@@ -93,7 +96,9 @@ export async function GET(request: NextRequest) {
       isOwner,
       count: e.count,
       avgTicket: e.avgTicket,
-      commissionPercent,
+      // Report 100% for the owner's own chair so the portal label reads "you keep
+      // 100%" (stored is 0, meaning "no commission expense" on the shop side).
+      commissionPercent: isOwner ? 100 : commissionPercent,
     },
   });
 }

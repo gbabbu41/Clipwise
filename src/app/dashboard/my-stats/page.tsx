@@ -98,7 +98,10 @@ export default function MyStatsPage() {
   const revenue = completed.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   // Commission = the barber's full % of service revenue. No card fee is deducted —
   // the shop bears Stripe processing entirely. Matches the Earnings-page take-home.
-  const commission = Math.max(0, revenue * (commissionRate / 100));
+  // An owner on their own chair keeps 100% (they own the shop; their stored rate is
+  // 0 because their cuts are shop profit, not a commission expense).
+  const isOwner = profile?.role === "shop_owner";
+  const commission = isOwner ? revenue : Math.max(0, revenue * (commissionRate / 100));
   const noShows = appointments.filter(a => a.status === "no-show").length;
   const totalHours = hours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
   const avgRating = reviews.length > 0
@@ -158,7 +161,7 @@ export default function MyStatsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
           { label: "Service Revenue", value: formatCurrency(revenue), sub: `${periodLabel[period]}`, icon: DollarSign, color: "gold" },
-          { label: "My Commission", value: formatCurrency(commission), sub: `${commissionRate}% rate`, icon: Award, color: "green" },
+          { label: "My Commission", value: formatCurrency(commission), sub: isOwner ? "you keep 100%" : `${commissionRate}% rate`, icon: Award, color: "green" },
           { label: "Appointments", value: String(appointments.length), sub: `${completed.length} completed`, icon: Calendar, color: "blue" },
           { label: "Completion Rate", value: `${completionRate}%`, sub: `${noShows} no-shows`, icon: TrendingUp, color: "purple" },
           { label: "Hours Worked", value: `${totalHours.toFixed(1)}h`, sub: "Clock-in records", icon: Clock, color: "orange" },

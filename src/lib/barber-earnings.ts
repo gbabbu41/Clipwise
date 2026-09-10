@@ -9,6 +9,15 @@
 // take-home is never reduced by it (barberFeeShare is always 0); the shop's
 // "keeps" absorbs the whole fee. (Changed from the old 50/50 split — the owner
 // decided the shop covers processing entirely.)
+//
+// Owner's OWN chair: an owner who cuts hair isn't in a commission relationship
+// with themselves — they OWN the shop, so they keep 100% of the service they
+// perform (it's simultaneously their barber income and the shop's profit, one
+// pocket). So the owner's chair is stored at commission_percent = 0 — which is
+// what the SHOP-aggregate dashboard/analytics read, so their own cuts count as
+// $0 commission expense and stay in shop profit (not booked as a payout). The
+// PER-BARBER earnings views (this file's consumers) pass isOwner=true to flip
+// the take-home to the full 100% the owner actually keeps. Two lenses, one truth.
 
 export type EarningTx = {
   amount: number;                    // service amount (pre-tip)
@@ -46,10 +55,12 @@ export function safeCommission(amount: number | null | undefined, stored: number
 }
 
 // What the barber earned on ONE transaction — their service commission + their
-// tip. No card fee is deducted (the shop bears it entirely), so both the row cut
-// and the period headline reflect the barber's full commission + tips.
-export function barberRowCut(t: EarningTx, commissionPercent: number): number {
-  return safeCommission(t.amount, t.commission_amount, commissionPercent) + (t.tip ?? 0);
+// tip. No card fee is deducted (the shop bears it entirely). An owner on their
+// own chair keeps 100% of the service (isOwner), so both the row cut and the
+// period headline reflect the barber's full take + tips.
+export function barberRowCut(t: EarningTx, commissionPercent: number, isOwner = false): number {
+  const cut = isOwner ? Math.max(0, t.amount) : safeCommission(t.amount, t.commission_amount, commissionPercent);
+  return cut + (t.tip ?? 0);
 }
 
 // Shop-wide barber commission for a set of transactions — the SAME ledger + the
@@ -73,14 +84,18 @@ export function shopBarberCommission(
   }, 0);
 }
 
-export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number): BarberEarnings {
+export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number, isOwner = false): BarberEarnings {
   // Exclude refunded — a refunded charge must not keep inflating a barber's cut.
   // Filter in JS (not .neq) so rows where `refunded` is null/absent are kept.
   const list = txs.filter(t => !t.refunded);
   const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
   const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
   const revenue = serviceAmount + tips;
-  const commission = list.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0);
+  // Owner on their own chair keeps 100% of the service (see header note); a real
+  // barber keeps their configured % (stored cut when sane, else derived).
+  const commission = isOwner
+    ? serviceAmount
+    : list.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0);
   const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   // The shop bears the ENTIRE card fee: the barber's take-home is commission +
   // tips with nothing deducted, and the shop's cut absorbs the full fee.
