@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalShell title="Terms of Service" updated="July 18, 2026">
+    <LegalShell title="Terms of Service" updated="September 11, 2026">
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the ClipWise
         platform, websites, and apps (the &ldquo;Service&rdquo;) operated by{" "}
@@ -74,6 +74,14 @@ export default function TermsPage() {
         <p>
           <strong className="text-white">Taxes.</strong> Shops are solely responsible for determining,
           collecting, and remitting any taxes on their services and products.
+        </p>
+        <p>
+          <strong className="text-white">Card readers &amp; in-person hardware.</strong> To accept
+          in-person card payments, a Shop must obtain its own card reader (for example, a BBPOS
+          WisePad&nbsp;3) at its own expense, from Stripe or another supplier. ClipWise does not sell,
+          rent, lease, or supply payment hardware and is not responsible for its purchase, shipping,
+          warranty, or support. The reader connects to the Shop&rsquo;s own Stripe account, and the Shop
+          remains the merchant of record for in-person charges.
         </p>
       </LSection>
 
