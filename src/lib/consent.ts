@@ -16,6 +16,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 //       survives a CRTC inquiry; the row columns get overwritten, the log doesn't.
 
 import { isValidIp } from "@/lib/consent-rules";
+import { normPhone } from "@/lib/client-identity";
 
 export { canReceivePromos, clientIpFrom } from "@/lib/consent-rules";
 export type { PromoEligibility } from "@/lib/consent-rules";
@@ -74,9 +75,10 @@ export async function recordBookingConsent(args: {
         const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", args.shopId).ilike("email", email).maybeSingle();
         clientId = data?.id ?? "";
       }
-      if (!clientId && phone) {
-        const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", args.shopId).eq("phone", phone).maybeSingle();
-        clientId = data?.id ?? "";
+      const np = normPhone(phone);
+      if (!clientId && np) {
+        const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", args.shopId).eq("phone_normalized", np).limit(1);
+        clientId = data?.[0]?.id ?? "";
       }
     }
     if (!clientId) return;

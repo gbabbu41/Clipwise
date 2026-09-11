@@ -5,6 +5,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { canReceivePromos } from "@/lib/consent";
+import { normPhone } from "@/lib/client-identity";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 // One campaign can reach at most this many recipients — protects the email
@@ -139,9 +140,10 @@ export async function POST(req: NextRequest) {
       const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).ilike("email", email).maybeSingle();
       client = (data as PromoClient | null) ?? null;
     }
-    if (!client && phone) {
-      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone", phone).maybeSingle();
-      client = (data as PromoClient | null) ?? null;
+    const np = normPhone(phone);
+    if (!client && np) {
+      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
+      client = (data?.[0] as PromoClient | null) ?? null;
     }
     if (!client) {
       // Unknown contact — add them to the book, but never email without consent.

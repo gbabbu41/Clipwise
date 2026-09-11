@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { normPhone } from "@/lib/client-identity";
 
 /**
  * Register a customer into a shop's `clients` book — SERVICE ROLE, deduped by
@@ -32,10 +33,11 @@ export async function upsertClient(
         .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).ilike("email", e).maybeSingle();
       existing = data;
     }
-    if (!existing && p) {
+    const np = normPhone(p);
+    if (!existing && np) {
       const { data } = await supabaseAdmin
-        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).eq("phone", p).maybeSingle();
-      existing = data;
+        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
+      existing = data?.[0] ?? null;
     }
     if (existing) {
       // On file already → count THIS POS sale as a visit + spend (mirrors what

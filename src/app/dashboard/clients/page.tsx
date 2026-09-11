@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Phone } from "lucide-react";
-import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
+import { groupClients, sameIdentity, clientToId, apptToId, normPhone } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { clientMatchesQuery } from "@/lib/client-search";
@@ -363,9 +363,10 @@ export default function ClientsPage() {
     let dupe: { id: string } | null = null;
     // Abort on a lookup error — silently proceeding would let a duplicate client
     // slip in when the check itself failed (RLS/network), not when it's clear.
-    const { data: byPhone, error: dupPhoneErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
+    const np = normPhone(phone);
+    const { data: byPhone, error: dupPhoneErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
     if (dupPhoneErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }
-    dupe = byPhone;
+    dupe = byPhone?.[0] ?? null;
     if (!dupe && email) {
       const { data: byEmail, error: dupEmailErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
       if (dupEmailErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }

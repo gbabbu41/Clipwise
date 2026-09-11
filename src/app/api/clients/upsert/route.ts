@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { normPhone } from "@/lib/client-identity";
 
 // Upsert a client for a shop, deduped by email → phone (case-insensitive email).
 // Runs with the service role so it works from the anonymous customer booking
@@ -35,10 +36,11 @@ export async function POST(request: NextRequest) {
         .from("clients").select("id").eq("shop_id", shop_id).ilike("email", e).maybeSingle();
       existing = data;
     }
-    if (!existing && p) {
+    const np = normPhone(p);
+    if (!existing && np) {
       const { data } = await supabaseAdmin
-        .from("clients").select("id").eq("shop_id", shop_id).eq("phone", p).maybeSingle();
-      existing = data;
+        .from("clients").select("id").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
+      existing = data?.[0] ?? null;
     }
     if (existing) return NextResponse.json({ ok: true, id: existing.id, created: false });
 

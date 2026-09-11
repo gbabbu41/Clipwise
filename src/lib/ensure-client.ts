@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { normPhone } from "@/lib/client-identity";
 
 // Resolve a shop's client row for a booking, creating one if none exists, and
 // return its id — used by the booking paths to stamp appointments.client_id
@@ -20,9 +21,12 @@ export async function ensureClientRow(
       const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("email", email).maybeSingle();
       existing = data;
     }
-    if (!existing && phone) {
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).eq("phone", phone).maybeSingle();
-      existing = data;
+    const np = normPhone(phone);
+    if (!existing && np) {
+      // Match on the NORMALIZED phone (digits, last 10) so a returning customer
+      // whose number was typed in a different format is still recognized.
+      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
+      existing = data?.[0] ?? null;
     }
     if (existing) return existing.id;
     // Only create when there's an email or phone to dedupe on next time — a

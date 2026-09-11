@@ -1,5 +1,6 @@
 import Twilio from "twilio";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { normPhone } from "@/lib/client-identity";
 
 /**
  * Lazy-initialized Twilio REST client. Reads creds from env at first call so
@@ -83,10 +84,13 @@ export async function sendSmsBestEffort(
   // Durable SMS opt-out: never text a number that STOPped (inbound STOP or a prior
   // 21610). Best-effort lookup by the number we're texting — a hiccup here must not
   // block a send.
+  const np = normPhone(to);
   try {
-    const { data: opted } = await supabaseAdmin
-      .from("clients").select("id").eq("phone", to).not("sms_opted_out_at", "is", null).limit(1);
-    if (opted && opted.length) { console.log("[sms] skipped: recipient opted out"); return; }
+    if (np) {
+      const { data: opted } = await supabaseAdmin
+        .from("clients").select("id").eq("phone_normalized", np).not("sms_opted_out_at", "is", null).limit(1);
+      if (opted && opted.length) { console.log("[sms] skipped: recipient opted out"); return; }
+    }
   } catch { /* best-effort */ }
   const prefixed = shopName && !body.toLowerCase().startsWith(shopName.toLowerCase())
     ? `${shopName}: ${body}`
@@ -103,10 +107,10 @@ export async function sendSmsBestEffort(
     const e = err as { message?: string; code?: number };
     // 21610 = the recipient opted out at the carrier level (texted STOP). Record it
     // durably so we stop trying and every send path skips them from now on.
-    if (e?.code === 21610 && to) {
+    if (e?.code === 21610 && np) {
       await supabaseAdmin.from("clients")
         .update({ sms_opted_out_at: new Date().toISOString() })
-        .eq("phone", to).is("sms_opted_out_at", null).then(null, () => null);
+        .eq("phone_normalized", np).is("sms_opted_out_at", null).then(null, () => null);
     }
     console.warn("[sms] send failed:", JSON.stringify({ code: e?.code, message: e?.message ?? String(err) }));
   }

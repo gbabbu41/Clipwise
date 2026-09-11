@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import Twilio from "twilio";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { withdrawPromoConsent, regrantPromoConsent } from "@/lib/consent";
+import { normPhone } from "@/lib/client-identity";
 
 // Twilio inbound-SMS webhook — Twilio POSTs here when someone texts a shop's
 // ClipWise Business Number. Replies with the shop's booking link (TwiML). Read
@@ -45,19 +46,17 @@ export async function POST(request: NextRequest) {
   // ── STOP / START (CASL opt-out) ─────────────────────────────────────────────
   // Twilio's Messaging Service also blocks STOP at the carrier level, but we
   // record it too so our own promo sends (email + cron nudges) honor it. Match the
-  // texter's number to this shop's client rows in JS (stored phones vary in
-  // format), keyed by the last 10 digits. Best-effort — never throw.
+  // texter's number to this shop's clients via the indexed normalized-phone column
+  // (digits, last 10) so any stored format matches. Best-effort — never throw.
   // Bilingual — New Brunswick is officially bilingual, so honor the French
   // keywords too (ARRÊT, with and without the accent + the verb form).
   const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "ARRÊT", "ARRET", "ARRÊTER", "ARRETER", "DÉSABONNER", "DESABONNER"]);
   const START_WORDS = new Set(["START", "UNSTOP", "YES", "DÉBUT", "DEBUT", "OUI"]);
-  const fromDigits = from.replace(/\D/g, "").slice(-10);
+  const fromNorm = normPhone(from);
   const matchIds = async (): Promise<string[]> => {
-    if (!shop?.id || fromDigits.length < 10) return [];
-    const { data } = await supabaseAdmin.from("clients").select("id, phone").eq("shop_id", shop.id);
-    return (data ?? [])
-      .filter((c) => (c.phone ?? "").replace(/\D/g, "").slice(-10) === fromDigits)
-      .map((c) => c.id);
+    if (!shop?.id || !fromNorm) return [];
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shop.id).eq("phone_normalized", fromNorm);
+    return (data ?? []).map((c) => c.id);
   };
   if (STOP_WORDS.has(bodyText)) {
     // A STOP text silences the whole number at the carrier level, so withdraw
