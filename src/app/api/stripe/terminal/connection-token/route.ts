@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { authorizeShop } from "@/lib/api-auth";
-import { ensureTerminalLocation } from "@/lib/terminal";
+import { ensureTerminalLocation, cardPaymentsActive } from "@/lib/terminal";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 
@@ -32,6 +32,11 @@ export async function POST(req: NextRequest) {
   }
   if (!shop.stripe_account_id || !shop.stripe_connected) {
     return NextResponse.json({ error: "Finish Stripe setup before using a card reader." }, { status: 400 });
+  }
+  // A reader needs the card_payments capability ACTIVE (not just charges_enabled),
+  // else it fails at payment time — block token mint with a clear message.
+  if (!(await cardPaymentsActive(shop.stripe_account_id))) {
+    return NextResponse.json({ error: "Your Stripe account can't take card payments yet — finish Stripe onboarding first." }, { status: 400 });
   }
 
   try {

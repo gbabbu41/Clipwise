@@ -10,6 +10,7 @@ import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
 import { backfillMissingStripeFees } from "@/lib/backfill-fees";
+import { backfillTerminalLocations } from "@/lib/terminal";
 
 /**
  * Daily reminders + client auto-tagging. Runs once a day (Vercel cron, or an
@@ -254,6 +255,7 @@ export async function POST(req: NextRequest) {
   await processTrials(Date.now()).catch(() => null);      // trial reminders + downgrades (same daily cron)
   await reconcileSubscriptions().catch(() => null);       // safety-net for a missed subscription webhook
   await backfillMissingStripeFees().catch(() => null);    // fill stripe_fee that wasn't ready at charge time
+  await backfillTerminalLocations().catch(() => null);    // ensure a Terminal Location for already-onboarded shops
   return run();
 }
 export async function GET(req: NextRequest) {

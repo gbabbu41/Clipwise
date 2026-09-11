@@ -67,3 +67,38 @@ export async function ensureTerminalLocation(shop: ShopForLocation): Promise<str
     return null;
   }
 }
+
+/**
+ * Is the connected account's `card_payments` capability ACTIVE? A reader cannot
+ * take money without it, so the reader UI must gate on this — a 'pending' /
+ * 'inactive' capability means the shop still has Stripe onboarding to finish, and
+ * pairing a reader now would only fail at payment time. Best-effort: false on any
+ * error (treat "can't confirm" as "not ready").
+ */
+export async function cardPaymentsActive(accountId: string | null | undefined): Promise<boolean> {
+  if (!accountId) return false;
+  try {
+    const acct = await stripe.accounts.retrieve(accountId);
+    return acct.capabilities?.card_payments === "active";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Best-effort backfill: ensure a Terminal Location for every connected shop that
+ * doesn't have one yet (shops that onboarded before Location auto-creation ran).
+ * Called from the daily cron; idempotent via ensureTerminalLocation. Capped per
+ * run so it never becomes a heavy job.
+ */
+export async function backfillTerminalLocations(): Promise<void> {
+  const { data: shops } = await supabaseAdmin.from("shops")
+    .select("id, stripe_account_id, stripe_terminal_location_id, name, address, city, province, postal_code")
+    .eq("stripe_connected", true)
+    .is("stripe_terminal_location_id", null)
+    .not("stripe_account_id", "is", null)
+    .limit(50);
+  for (const shop of shops ?? []) {
+    await ensureTerminalLocation(shop as ShopForLocation);
+  }
+}
