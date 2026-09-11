@@ -1,0 +1,69 @@
+# Codemagic CI — build the ClipWise iOS app and ship it to TestFlight, with NO Mac.
+#
+# This wraps the live web app (capacitor.config.ts loads https://clipwise.ca), so
+# the build just packages the native iOS shell — it does NOT build the Next.js app.
+#
+# ⚠️ SCAFFOLD — untested (no Mac/Codemagic in the cloud env that wrote this). The
+# steps are the standard Capacitor→iOS→TestFlight flow; expect a tweak or two on
+# the first real run. Do the one-time setup in CAPACITOR.md ("Codemagic → TestFlight")
+# AFTER you buy the Apple Developer account, then push to run this.
+
+workflows:
+  ios-testflight:
+    name: ClipWise iOS → TestFlight
+    instance_type: mac_mini_m2      # Codemagic's Mac (this is why no Mac of your own is needed)
+    max_build_duration: 60
+    integrations:
+      # Create this in Codemagic → Team settings → Integrations → App Store Connect,
+      # using an App Store Connect API key (made in your Apple account). Put its name here.
+      app_store_connect: ClipWise ASC Key
+    environment:
+      ios_signing:
+        # Codemagic auto-manages the signing cert + provisioning profile from the
+        # App Store Connect integration above. The bundle id must exist in your
+        # Apple account (Certificates, Identifiers & Profiles → Identifiers).
+        distribution_type: app_store
+        bundle_identifier: ca.clipwise.app
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "ca.clipwise.app"
+        # Set APP_STORE_APP_ID (the numeric App ID from App Store Connect) as an
+        # environment variable in the Codemagic UI once the app record exists.
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install JS deps
+        script: npm ci
+      - name: Generate + sync the iOS project (Capacitor)
+        script: |
+          # The ios/ folder isn't committed, so generate it fresh, then copy the
+          # web shell + native plugins in. (If you later commit ios/, drop the add.)
+          npx cap add ios || true
+          npx cap sync ios
+      - name: Add reader permission strings (Bluetooth + location)
+        script: |
+          PLIST="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :NSBluetoothAlwaysUsageDescription string 'Connect to a card reader to take in-person payments.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSBluetoothPeripheralUsageDescription string 'Connect to a card reader to take in-person payments.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'Stripe uses your location to connect a card reader.'" "$PLIST" || true
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Bump the build number (next TestFlight build)
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo 0)
+          cd ios/App && agvtool new-version -all $(($LATEST + 1))
+      - name: Build the IPA
+        script: |
+          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true   # lands the build in TestFlight for you to install on your iPhone
+      email:
+        recipients:
+          - gbabbu41@gmail.com       # build-status emails

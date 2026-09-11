@@ -68,3 +68,47 @@ Payments realtime feed, and receipts all stay identical.
 Apple accepts web-wrapped apps when they add real native value — Tap to Pay
 qualifies. Add proper icons/splash, a privacy policy, and the NFC/payments
 usage strings before submitting.
+
+## Codemagic → TestFlight (no Mac needed)
+`codemagic.yaml` (repo root) builds the iOS app on Codemagic's Mac and ships it to
+TestFlight — you never touch a Mac. It's a **scaffold** (written without a Mac to
+test it), so expect a small tweak or two on the first run.
+
+### One-time setup (do this AFTER buying the Apple Developer account — ~$99/yr)
+1. **Apple Developer Program** — enrol at developer.apple.com ($99/yr). Required.
+2. **Register the app id** — App Store Connect → Certificates, Identifiers &
+   Profiles → Identifiers → add `ca.clipwise.app` (matches `capacitor.config.ts`).
+3. **Create the app record** — App Store Connect → Apps → New App → bundle id
+   `ca.clipwise.app`. Note the numeric **App ID**.
+4. **App Store Connect API key** — App Store Connect → Users and Access → Integrations
+   → App Store Connect API → generate a key (Admin/App Manager). Download the `.p8`,
+   note the **Key ID** + **Issuer ID**.
+5. **Codemagic** — sign up (free tier ≈ 500 Mac build-min/month), connect this
+   GitHub repo + branch `claude/gallant-euler-7fkw5h`. Team settings → Integrations
+   → **App Store Connect**: add the API key and name it **"ClipWise ASC Key"** (must
+   match `integrations.app_store_connect` in `codemagic.yaml`, or change both).
+6. In the workflow's env vars, set **`APP_STORE_APP_ID`** = the numeric App ID from
+   step 3. Codemagic auto-manages the signing cert + provisioning profile from the
+   API key (no certs to juggle).
+7. **Run** the `ios-testflight` workflow. When it goes green, the build appears in
+   **TestFlight** → install it on your iPhone from the TestFlight app.
+
+### Then: turn on the card reader (the WisePad 3 screen already exists on `main`)
+The reader screen ships from the live site (`/dashboard/pos/reader`), so it's
+already in the app. To make it actually pair:
+1. Install the Terminal plugin **matching your Capacitor major** (v6 here):
+   `npm i @capacitor-community/stripe@^6` (or a custom plugin over Stripe's native
+   Terminal SDK — confirm it supports the WisePad 3 Bluetooth transport), then
+   `npx cap sync`. Commit the updated `package.json` + lock on this branch.
+2. Confirm the plugin method names in `src/lib/terminal-native.ts` (each is TODO-
+   flagged) against the installed plugin.
+3. Add a native-only entry point to reach the screen — a "Card reader" button on
+   the POS page or a sidebar item, shown only when
+   `navigator.userAgent.includes("ClipWiseApp")` — linking to `/dashboard/pos/reader`.
+4. Rebuild via Codemagic → TestFlight, then test on your iPhone with the **simulated
+   reader** first, then the physical **WisePad 3** + the **Interac offline-PIN** test
+   card. Iterate: edit → push → new TestFlight build.
+
+Note: `codemagic.yaml` deliberately does NOT add the Terminal plugin yet, so the
+first build (just the app + all web features) is a clean, known-good Capacitor
+build. Add the plugin in step 1 above once the pipeline works end to end.
