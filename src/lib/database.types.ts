@@ -208,6 +208,7 @@ export interface Client {
   promo_withdrawn_at?: string;
   sms_reminder_opt_in?: boolean;      // a preference (defaults true), not a consent
   sms_reminder_opt_in_at?: string;
+  sms_opted_out_at?: string;          // durable carrier-level SMS block (STOP / 21610)
 }
 
 export interface Transaction {

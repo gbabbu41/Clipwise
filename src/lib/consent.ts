@@ -118,13 +118,15 @@ export async function recordBookingConsent(args: {
  *  email unsubscribe (which shouldn't kill transactional reminders). */
 export async function withdrawPromoConsent(clientIds: string[], opts?: { source?: string; alsoStopReminderSms?: boolean }): Promise<void> {
   if (!clientIds.length) return;
-  const source = opts?.source ?? "unsubscribe";
+  const source = opts?.source ?? "email_unsubscribe";
   const now = new Date().toISOString();
   // Fetch shop_id per client so each event is attributed to the right sender.
   const { data: rows } = await supabaseAdmin.from("clients").select("id, shop_id").in("id", clientIds);
   if (!rows?.length) return;
   const patch: Record<string, unknown> = { promo_consent_status: "withdrawn", promo_withdrawn_at: now };
-  if (opts?.alsoStopReminderSms) { patch.sms_reminder_opt_in = false; patch.sms_reminder_opt_in_at = now; }
+  // An SMS STOP is a carrier-level block on ALL texts — stamp the durable marker
+  // (never cleared except by an explicit START) and turn off the reminder pref.
+  if (opts?.alsoStopReminderSms) { patch.sms_reminder_opt_in = false; patch.sms_reminder_opt_in_at = now; patch.sms_opted_out_at = now; }
   await supabaseAdmin.from("clients").update(patch).in("id", clientIds).then(null, () => null);
   const events: ConsentEvent[] = [];
   for (const r of rows) {
@@ -144,6 +146,7 @@ export async function regrantPromoConsent(clientIds: string[], source = "sms_sta
   await supabaseAdmin.from("clients").update({
     promo_consent_status: "granted", promo_consent_at: now, promo_consent_source: source,
     promo_withdrawn_at: null, sms_reminder_opt_in: true, sms_reminder_opt_in_at: now,
+    sms_opted_out_at: null, // explicit re-opt-in clears the durable SMS block
   }).in("id", clientIds).then(null, () => null);
   const events: ConsentEvent[] = [];
   for (const r of rows) {
