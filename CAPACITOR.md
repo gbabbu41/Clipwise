@@ -60,18 +60,55 @@ const inApp = typeof navigator !== "undefined" && navigator.userAgent.includes("
    - `POST /api/stripe/terminal/connection-token` — connection token +
      (best-effort) the shop's Terminal Location id. Location logic in
      `src/lib/terminal.ts` (`ensureTerminalLocation`).
-   - `POST /api/stripe/terminal/create-intent` — card-present PaymentIntent
-     (`payment_method_types:["card_present"]`, manual capture). Sale details are
-     stamped into PI metadata server-side.
+   - `POST /api/stripe/terminal/status` — **readiness gate. Call this FIRST**,
+     before showing any reader UI. Returns `{ ready, reason?, location_id? }`.
+     `ready:false` reasons: `plan` (no payments plan), `connect_incomplete`,
+     `card_payments_pending` (Connect done but the `card_payments` capability
+     isn't ACTIVE yet — send them to finish Stripe onboarding, don't let them pair
+     a reader that fails at payment).
+   - `POST /api/stripe/terminal/create-intent` — card-present PaymentIntent.
+     For Canada it sets `payment_method_types:["card_present","interac_present"]`
+     (Interac debit is most Canadian cards — without it every debit tap declines)
+     and `capture_method:"automatic"` with `card_present.capture_method:
+     "manual_preferred"` (credit holds for the no-show deposit flow; Interac is
+     single-message / take-now and can't be held). Sale details stamped into PI
+     metadata server-side.
    - `POST /api/stripe/terminal/capture` — captures after the reader collects,
      then inserts the SAME `transactions` row POS writes (`payment_method:"card"`,
      `source:"pos"`, real Stripe fee), idempotent on `payment_intent_id`. Shows
      live in Payments + receipts with **zero feed changes**.
    - Migration: `phase41_terminal_location.sql` (adds `shops.stripe_terminal_location_id`).
-   - **Still TODO for a working tap:** the native plugin (§1) + Apple entitlement
-     (§2) + enable Terminal on Stripe (§3) + a native UI toggle so the shop picks
-     "WisePad 3" vs "Tap to Pay". The native app loads `clipwise.ca`, so these
-     prod routes are what it calls — nothing else is needed server-side.
+
+### WisePad 3 (Bluetooth) reader screen — the native build (do on-device)
+The backend above is done + test-mode-verified. What's left is native + needs the
+**physical WisePad 3** (build against the SDK's **simulated reader** first — free,
+no hardware). Build it in this order, calling the routes above:
+
+1. **Gate** — call `terminal/status`. If not `ready`, show the reason (e.g. "finish
+   Stripe setup") instead of the reader UI.
+2. **Init SDK** — call `terminal/connection-token` for the token (+ `location_id`).
+3. **Connect (step 4)** — scan over Bluetooth, list readers, connect using the
+   shop's `locationId`. Remember the last reader so they don't re-pair each shift.
+   Handle: reader off / low battery / already connected to another phone.
+4. **Firmware (step 5)** — the SDK can push a required update on connect (minutes).
+   Show a real progress screen, not a frozen app. Use the SDK's test hooks to
+   simulate it.
+5. **Take payment (step 6)** — `terminal/create-intent` → collect on the reader via
+   the SDK → `terminal/capture`.
+6. **Canadian PIN (step 7)** — test the decline-then-offline-PIN flow with the
+   simulated Interac + offline-PIN test cards, THEN the physical Interac test card.
+   This is the most likely thing to break in a real shop.
+   - **Do NOT** build a central `/admin/readers` pool (platform-owned readers is a
+     Stripe preview we're not using) and **do NOT** let a shop register a reader
+     with their own Stripe keys — the platform mints the token for the shop's
+     account (the routes above already do this), keeping charges direct.
+
+### Hardware: the shop buys its own reader
+ClipWise does **not** buy, rent, or resell readers — Stripe's Terminal terms bar
+renting/reselling without authorized-reseller status. So each shop buys its own
+WisePad 3 (or is given one at our cost). The reader screen should link them to buy
+one. This is stated in the Terms of Service (§5) and the plan copy
+("card reader sold separately").
 
 A Tap to Pay sale is just another card transaction — UI, transactions table,
 Payments realtime feed, and receipts all stay identical.
