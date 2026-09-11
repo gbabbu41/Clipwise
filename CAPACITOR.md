@@ -79,10 +79,33 @@ const inApp = typeof navigator !== "undefined" && navigator.userAgent.includes("
      live in Payments + receipts with **zero feed changes**.
    - Migration: `phase41_terminal_location.sql` (adds `shops.stripe_terminal_location_id`).
 
-### WisePad 3 (Bluetooth) reader screen — the native build (do on-device)
-The backend above is done + test-mode-verified. What's left is native + needs the
-**physical WisePad 3** (build against the SDK's **simulated reader** first — free,
-no hardware). Build it in this order, calling the routes above:
+### WisePad 3 (Bluetooth) reader screen — DRAFT built, finish on-device
+A working **draft screen** now ships in the web app (loads inside the native app,
+inert in a browser). Files:
+- `src/app/dashboard/pos/reader/page.tsx` — the full screen + state machine (gate →
+  pair → firmware progress → amount → collect → done/error), backend-wired,
+  remembers the last reader, "buy a WisePad 3" link, web fallback.
+- `src/lib/terminal-native.ts` — the **native-plugin seam** (reached via the
+  Capacitor global bridge, so the web build needs no native package). ⚠️ Every
+  plugin method here is marked TODO — confirm names/shapes against the installed
+  plugin on the Mac; the backend calls are already correct.
+- `src/lib/terminal-client.ts` — typed fetch wrappers for the routes below.
+
+To finish it on-device (needs a Mac + the **simulated reader** first, then the
+**physical WisePad 3**):
+1. Install a Terminal plugin on this branch (`@capacitor-community/stripe` or a
+   custom one over Stripe's native Terminal SDK) that registers as `StripeTerminal`;
+   `npx cap sync`.
+2. Confirm/adjust the method names in `terminal-native.ts` against that plugin.
+3. Add a **native-only entry point** (a "Card reader" button on the POS page or a
+   sidebar item, guarded by the `ClipWiseApp` user-agent) linking to
+   `/dashboard/pos/reader`.
+4. Apple *Tap to Pay* entitlement only if you also want Tap to Pay; the WisePad 3
+   itself just needs Bluetooth permission strings.
+5. Test the flow, especially the **Canadian offline-PIN** path (simulated Interac +
+   offline-PIN test cards, then the physical Interac test card).
+
+The screen calls, in order (all built + test-mode-verified):
 
 1. **Gate** — call `terminal/status`. If not `ready`, show the reason (e.g. "finish
    Stripe setup") instead of the reader UI.
