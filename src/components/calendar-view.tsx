@@ -2055,9 +2055,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : currentDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   }, [view, currentDate, isMobile]);
 
-  // Parent level the back arrow walks up to (null at the top = Year).
+  // Parent level the back arrow walks up to (null at the top = Year). Month name
+  // is abbreviated on phones ("Sept.") to save room in the tight top row.
   const backLabel = view === "day"
-    ? currentDate.toLocaleDateString("en-CA", { month: "long" })
+    ? currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long" })
     : view === "month"
       ? String(currentDate.getFullYear())
       : null;
@@ -3075,8 +3076,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
             </button>
           )}
-          {/* Day: add an appointment */}
-          {view === "day" && canManage && (
+          {/* Day: add an appointment. Desktop only — on mobile the bottom nav's
+              center "+" already adds one, so dropping it here declutters the top
+              row and gives the barber filter / layout / Today more touch room. */}
+          {view === "day" && canManage && !isMobile && (
             <button onClick={openAddGeneral} aria-label="Add appointment" title="Add appointment"
               className="p-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
               <Plus size={16} />
