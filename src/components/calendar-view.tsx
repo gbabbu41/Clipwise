@@ -1381,6 +1381,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const nowLineRef = useRef<HTMLDivElement>(null); // the red "current time" line (today only)
   // The day-view date rail (horizontally scrollable, browse without selecting).
   // Centering runs via a callback ref (not a state-keyed effect): with
   // AnimatePresence mode="wait" the new day's rail mounts AFTER the exit
@@ -1579,12 +1580,42 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); supabase.removeChannel(ch); };
   }, [shop]);
 
-  // Both the week and day grids are now bounded to business hours, so they
-  // start at the top of their visible window (no midnight scroll-past).
+  // Focus the timeline when you open or switch a Day / 3-Day view:
+  //  • a window that INCLUDES today → scroll so the red "now" line sits near the
+  //    top (a little of the past hour above it, everything upcoming below), so you
+  //    land on where the day actually is instead of at 7 AM.
+  //  • any other day → start at the top (7 AM, or earlier if there are earlier
+  //    appointments — the grid window already opens at the first booking).
+  // Only fires on navigation (view / day / barber changes), never on a data
+  // refresh and never while you're mid-scroll, so it won't yank the view.
   useEffect(() => {
-    if (!scrollRef.current) return;
-    if (view === "day") scrollRef.current.scrollTop = 0;
-  }, [view]);
+    const el = scrollRef.current;
+    if (!el) return;
+    if (dayLayout === "grid") return;                 // box view has no timeline
+    if (view !== "day" && view !== "multiday") return;
+    const count = isMobile ? 3 : 5;
+    const showsToday = view === "day"
+      ? isToday(currentDate)
+      : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
+    // Two rAFs so the row-height stretch (desktop) settles before we measure.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        const line = nowLineRef.current;
+        if (showsToday && line) {
+          const delta = line.getBoundingClientRect().top - el.getBoundingClientRect().top;
+          el.scrollTop = Math.max(0, el.scrollTop + delta - 72); // "now" ~72px below the top
+        } else {
+          el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
+        }
+      });
+      (el as unknown as { _raf2?: number })._raf2 = raf2;
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      const r2 = (el as unknown as { _raf2?: number })._raf2;
+      if (r2) cancelAnimationFrame(r2);
+    };
+  }, [view, currentDate, dayLayout, isMobile, barberFilter]);
 
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
@@ -2431,9 +2462,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       if (s) { starts.push(hourOfDb(s.start)); ends.push(hourOfDb(s.end)); }
     });
     dayAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
-    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 9;
+    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 7;
     let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
-    winStart = Math.min(9, Math.max(0, winStart));
+    winStart = Math.min(7, Math.max(0, winStart));
     // Always run the grid down to at least 10 PM so the canvas fills the
     // viewport (no black gap below) and there's room to book evening slots.
     winEnd = Math.min(24, Math.max(winEnd, 22));
@@ -2659,7 +2690,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               if (currentH < winStart || currentH > winEnd) return null;
               const top = (currentH - winStart) * rowH;
               return (
-                <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
+                <div ref={nowLineRef} className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                   <div className="flex items-center">
                     <div className="w-14 pr-2 text-right">
                       <div className="w-2 h-2 rounded-full bg-red-500 ml-auto" />
@@ -2699,9 +2730,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     visAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
     blocks.filter(b => b.barber_id === barber.id && setStrs.has(b.start_date) && b.start_time && b.end_time)
       .forEach(b => { starts.push(timeToMinutes(dbTimeToDisplay(b.start_time!)) / 60); ends.push(timeToMinutes(dbTimeToDisplay(b.end_time!)) / 60); });
-    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 9;
+    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 7;
     let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
-    winStart = Math.min(9, Math.max(0, winStart));
+    winStart = Math.min(7, Math.max(0, winStart));
     winEnd = Math.min(24, Math.max(winEnd, 22));
     const hours: number[] = [];
     for (let h = winStart; h < winEnd; h++) hours.push(h);
@@ -2809,7 +2840,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               if (currentH < winStart || currentH > winEnd) return null;
               const top = (currentH - winStart) * ROW_PX;
               return (
-                <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
+                <div ref={nowLineRef} className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
                   <div className="flex items-center">
                     <div className="w-12 pr-2 text-right"><div className="w-2 h-2 rounded-full bg-red-500 ml-auto" /></div>
                     <div className="flex-1 h-px bg-red-500" />
