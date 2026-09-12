@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { HeaderControls } from "@/components/dashboard/header-controls";
@@ -3268,35 +3268,38 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               "Box" is the day card-grid layout, "Day" the timeline. Trigger shows
               the current choice; the menu marks it with a check. */}
           {(() => {
-            const label =
-              view === "day" ? (dayLayout === "grid" ? "Box" : "Day")
-              : view === "multiday" ? `${multiDayCount}-Day`
-              : view === "month" ? "Month"
-              : "Year";
-            const opts: { key: string; label: string; active: boolean; apply: () => void }[] = [
-              { key: "day",   label: "Day",   active: view === "day" && dayLayout === "timeline", apply: () => { setView("day"); setDayLayout("timeline"); } },
-              { key: "box",   label: "Box",   active: view === "day" && dayLayout === "grid",     apply: () => { setView("day"); setDayLayout("grid"); } },
-              { key: "multi", label: `${multiDayCount}-Day`, active: view === "multiday",         apply: () => setView("multiday") },
-              { key: "month", label: "Month", active: view === "month",                          apply: () => setView("month") },
+            // Trigger is icon-only to save space in the tight header; the full
+            // labels ("Day", "3-Day"…) show inside the menu when it's opened.
+            const opts: { key: string; label: string; Icon: typeof Clock; active: boolean; apply: () => void }[] = [
+              { key: "day",   label: "Day",              Icon: Clock,        active: view === "day" && dayLayout === "timeline", apply: () => { setView("day"); setDayLayout("timeline"); } },
+              { key: "box",   label: "Box",              Icon: LayoutGrid,   active: view === "day" && dayLayout === "grid",     apply: () => { setView("day"); setDayLayout("grid"); } },
+              { key: "multi", label: `${multiDayCount}-Day`, Icon: Columns3, active: view === "multiday",                        apply: () => setView("multiday") },
+              { key: "month", label: "Month",            Icon: CalendarDays, active: view === "month",                          apply: () => setView("month") },
             ];
+            const current = opts.find(o => o.active) ?? opts[0];
+            const CurrentIcon = current.Icon;
             return (
               <div className="relative">
-                <button onClick={() => setViewPicker(o => !o)} aria-label="Calendar view" aria-expanded={viewPicker}
-                  className="flex items-center gap-1 pl-2.5 pr-1.5 py-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
-                  <span className="text-[11px] font-medium">{label}</span>
+                <button onClick={() => setViewPicker(o => !o)} aria-label={`Calendar view: ${current.label}`} aria-expanded={viewPicker}
+                  className="flex items-center gap-0.5 p-2 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
+                  <CurrentIcon size={18} />
                   <ChevronDown size={13} className="text-grey" />
                 </button>
                 {viewPicker && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setViewPicker(false)} />
-                    <div className="absolute right-0 mt-1.5 z-50 w-36 bg-card border border-border rounded-xl shadow-lg py-1">
-                      {opts.map(o => (
-                        <button key={o.key} onClick={() => { setNavDir(0); o.apply(); setViewPicker(false); }}
-                          className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-raised", o.active ? "text-foreground font-semibold" : "text-grey")}>
-                          <span className="flex-1 text-left">{o.label}</span>
-                          {o.active && <Check size={14} className="text-emerald-400" />}
-                        </button>
-                      ))}
+                    <div className="absolute right-0 mt-1.5 z-50 w-40 bg-card border border-border rounded-xl shadow-lg py-1">
+                      {opts.map(o => {
+                        const OptIcon = o.Icon;
+                        return (
+                          <button key={o.key} onClick={() => { setNavDir(0); o.apply(); setViewPicker(false); }}
+                            className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-card-raised", o.active ? "text-foreground font-semibold" : "text-grey")}>
+                            <OptIcon size={16} className={o.active ? "text-emerald-400" : "text-grey"} />
+                            <span className="flex-1 text-left">{o.label}</span>
+                            {o.active && <Check size={14} className="text-emerald-400" />}
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 )}
