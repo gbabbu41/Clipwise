@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { isNativeApp } from "@/lib/native-app";
 
 export default function PendingPage() {
   const { shop, refreshShop, signOut } = useAuth();
@@ -78,7 +79,8 @@ export default function PendingPage() {
           </div>
         )}
 
-        {(shop?.status === "suspended" || shop?.status === "rejected") && (
+        {/* Billing is managed on clipwise.ca — hidden in the native app (Apple IAP). */}
+        {(shop?.status === "suspended" || shop?.status === "rejected") && !isNativeApp() && (
           <Link href="/dashboard/billing" className="block mb-3">
             <Button className="w-full">
               <CreditCard size={16} /> Manage billing

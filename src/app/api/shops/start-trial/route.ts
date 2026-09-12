@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Start a no-card 21-day Pro/Premium trial for an EXISTING shop (the in-dashboard
 // equivalent of picking a trial at onboarding). Mirrors the trial grant in
@@ -13,6 +14,10 @@ const TRIAL_DAYS = 21;
 const PAID_PLANS = new Set(["pro", "premium", "business"]);
 
 export async function POST(request: NextRequest) {
+  // Apple IAP: trials/plans are a ClipWise-subscription surface — never in the app.
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);

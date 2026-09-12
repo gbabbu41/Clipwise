@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, PLAN_PRICING } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated, getPlanById } from "@/lib/plans-server";
+import { isNativeRequest } from "@/lib/native-app";
 
 export async function POST(request: NextRequest) {
+  // Apple IAP: the ClipWise subscription is never sold in the native app. The UI
+  // is already hidden there; this refuses at the server so a forged/native call
+  // can't open subscription checkout. (Barbers subscribe on clipwise.ca.)
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

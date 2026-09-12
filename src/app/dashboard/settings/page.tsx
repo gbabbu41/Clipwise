@@ -8,6 +8,7 @@ import { effectivePlan, planHasFeature, planAllowsMultiLocation, getLocationLimi
 import { CANADA_TIMEZONES, CANADA_PROVINCES, tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { taxPresetFor, clampTaxRate, isValidGstNumber, isLikelyPlaceholderGstNumber, normalizeGstNumber } from "@/lib/pricing";
 import { marketingFor } from "@/lib/plan-marketing";
+import { isNativeApp } from "@/lib/native-app";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -144,6 +145,10 @@ export default function SettingsPage() {
       }))
     : PLAN_INFO;
   const [tab, setTab] = useState("profile");
+  // Native app (Apple IAP): the whole ClipWise-subscription surface (the
+  // "Subscription" tab, upgrade/plan CTAs) is removed here. The barber's own
+  // money (services, POS, Terminal, payouts) is unaffected.
+  const native = isNativeApp();
 
   // Free (Starter) shops can't charge online, so pay-in-person is their ONLY
   // possible payment method — the toggle is locked ON for them (turning it off
@@ -648,7 +653,9 @@ export default function SettingsPage() {
     if (data.shop) setActiveShop(data.shop); // jump straight into the new location
   };
 
-  const TABS = ["profile","account","booking","notifications","subscription","locations","danger"];
+  // "subscription" is a ClipWise-billing surface — dropped entirely in the native app.
+  const TABS = ["profile","account","booking","notifications","subscription","locations","danger"]
+    .filter(t => !(native && t === "subscription"));
   // Clear, human tab labels — the shop's public info vs the owner's personal
   // account, and the "notifications" tab is really the client-facing email
   // templates (distinct from the owner's alert Notifications page).
@@ -1069,7 +1076,9 @@ export default function SettingsPage() {
                 <div className="p-4 bg-card-raised rounded-xl border border-border">
                   <p className="text-sm font-medium text-foreground">When someone books, how do they hold the spot?</p>
                   {!canRequireCard && (
-                    <p className="text-xs text-amber-500 mt-1">{isFreePlan
+                    <p className="text-xs text-amber-500 mt-1">{native
+                      ? "No-show protection isn’t part of your current plan, so bookings stay no-card."
+                      : isFreePlan
                       ? "The free plan can’t take cards, so bookings stay no-card. Upgrade to Pro for no-show protection."
                       : "No-show protection needs online payments — available on Pro and Premium."}</p>
                   )}
@@ -1271,7 +1280,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === "subscription" && (() => {
+      {tab === "subscription" && !native && (() => {
         const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
         const activePlan = planCards.find(p => p.key === activePlanKey) ?? planCards[0];
         const downgraded = shop?.subscription_plan && shop.subscription_plan !== "starter" && activePlanKey === "starter";
@@ -1440,8 +1449,14 @@ export default function SettingsPage() {
               </p>
             </div>
             {!canMultiLocation ? (
-              <Button size="sm" variant="outline" onClick={() => { showToast("Multiple locations are a Premium feature. Upgrade to Premium to add another location."); setTab("subscription"); }}>
-                <Plus size={14} /> Add Location · Premium
+              <Button size="sm" variant="outline" onClick={() => {
+                // Native app (Apple IAP): no plan names, no route to the (hidden)
+                // Subscription tab — just a neutral "not on your plan".
+                if (native) { showToast("Multiple locations aren’t part of your current plan."); return; }
+                showToast("Multiple locations are a Premium feature. Upgrade to Premium to add another location.");
+                setTab("subscription");
+              }}>
+                <Plus size={14} /> Add Location{native ? "" : " · Premium"}
               </Button>
             ) : atLocationLimit ? (
               <Button size="sm" variant="outline" onClick={() => showToast(`You've reached the maximum of ${MAX_LOCATIONS} locations.`)}>

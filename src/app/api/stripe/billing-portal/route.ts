@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Opens the Stripe-hosted Customer Portal for the owner's subscription, where
 // they can cancel (at period end — no refund, keeps access for the rest of the
 // paid period), update their card, and view invoices. Stripe handles the UI +
 // the cancellation email; our DB is kept in sync by the subscription webhooks.
 export async function POST(request: NextRequest) {
+  // Apple IAP: no ClipWise-subscription billing surface in the native app —
+  // refuse the billing portal there (managed on clipwise.ca).
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);

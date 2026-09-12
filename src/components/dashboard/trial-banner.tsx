@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Clock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { isNativeApp } from "@/lib/native-app";
 
 /**
  * Countdown banner for a shop on a no-card Pro/Premium free trial. Prompts the
@@ -29,6 +30,11 @@ export function TrialBanner() {
       setSnoozed(Date.now() - ts < SNOOZE_MS);
     } catch { setSnoozed(false); }
   }, [shopId]);
+
+  // Native app (Apple IAP): this banner is pure ClipWise-subscription billing
+  // ("add a card", "trial ended", link to /dashboard/billing). It must NOT exist
+  // in the app at all — return null so it's absent from the DOM, not just hidden.
+  if (isNativeApp()) return null;
 
   if (shop?.stripe_subscription_id) return null; // real subscriber — no trial UI
 

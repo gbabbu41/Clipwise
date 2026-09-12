@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Cancel / downgrade-to-free.
 //
@@ -15,6 +16,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // immediate=true ("switch to free now"): drop to Starter right away — cancel the
 // Stripe sub now (paid) or clear the trial (trial), and set plan=starter.
 export async function POST(request: NextRequest) {
+  // Apple IAP: subscription management lives on clipwise.ca, not in the app.
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);

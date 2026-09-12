@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensurePlansHydrated, getPlanById } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { changePlanPrice, reconcileLocationAddon } from "@/lib/stripe-addons";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Switch an EXISTING paid subscription to a different plan, WITH PRORATION and
 // no new checkout — the fix for two audit findings:
@@ -16,6 +17,11 @@ import { changePlanPrice, reconcileLocationAddon } from "@/lib/stripe-addons";
 // subscription (Starter / no-card trial / cancelled), we return 409 so the
 // client falls back to Checkout (which collects a card).
 export async function POST(request: NextRequest) {
+  // Apple IAP: changing the ClipWise plan is a subscription-billing action — not
+  // in the app. (Managed on clipwise.ca.)
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);

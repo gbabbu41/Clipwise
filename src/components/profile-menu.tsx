@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { isNativeApp } from "@/lib/native-app";
 
 /** A menu row is either a link (href) or an action (onClick), never both. */
 export type ProfileMenuItem = {
@@ -14,6 +15,7 @@ export type ProfileMenuItem = {
   icon: ElementType;
   href?: string;
   onClick?: () => void;
+  nativeHidden?: boolean; // dropped in the native app (Apple IAP — no subscription-billing surface)
 };
 
 /**
@@ -41,6 +43,8 @@ export function ProfileMenu({
   const ref = useRef<HTMLDivElement>(null);
   const initial = (name || "U").charAt(0).toUpperCase();
   const email = user?.email ?? "";
+  // Native app (Apple IAP): drop any subscription-billing rows entirely.
+  const visibleItems = isNativeApp() ? items.filter(i => !i.nativeHidden) : items;
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +95,7 @@ export function ProfileMenu({
 
             {/* Quick links / actions */}
             <div className="py-1.5">
-              {items.map(({ label, href, icon: Icon, onClick }) => {
+              {visibleItems.map(({ label, href, icon: Icon, onClick }) => {
                 // hover:bg-surface-overlay (a real token) not bg-foreground/5 —
                 // Tailwind can't apply an opacity modifier to the var-backed
                 // foreground colour, so /5 emitted no rule and hover did nothing.
@@ -131,7 +135,7 @@ export function ProfileMenu({
 export const OWNER_MENU_ITEMS: ProfileMenuItem[] = [
   { label: "Share booking link", href: "/dashboard/share", icon: Share2 },
   { label: "Account & settings", href: "/dashboard/settings", icon: Settings },
-  { label: "Billing & plan", href: "/dashboard/billing", icon: CreditCard },
+  { label: "Billing & plan", href: "/dashboard/billing", icon: CreditCard, nativeHidden: true },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
 ];
 

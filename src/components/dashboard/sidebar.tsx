@@ -99,6 +99,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, fetchShopUnreadCount } from "@/lib/notify";
 import { effectivePlan, planHasFeature, isPaidPlan, type PlanFeature } from "@/lib/validation";
+import { isNativeApp } from "@/lib/native-app";
 import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
 import { sendApprovalNotifications, sendRejectionEmail, notifyFreedSlot } from "@/lib/appointment-actions";
@@ -114,6 +115,7 @@ interface NavItem {
   feature?: PlanFeature;
   paidOnly?: boolean; // hidden on the free Starter plan (reviews, marketing, analytics, waitlist…)
   hidden?: boolean;   // temporarily hidden from the nav on ALL plans (page/logic kept)
+  nativeHidden?: boolean; // hidden in the native app (Apple IAP — no ClipWise-subscription billing surface)
 }
 
 // Sidebar grouped by WHEN a shop touches each page, not by what kind of thing it
@@ -180,7 +182,9 @@ const NAV_SECTIONS: NavSection[] = [
 
 const accountItems: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
-  { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true },
+  // Plan & Billing is ClipWise's own subscription — hidden entirely in the native
+  // app (Apple IAP). Barbers manage their plan on clipwise.ca.
+  { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true, nativeHidden: true },
 ];
 
 
@@ -712,8 +716,10 @@ export function Sidebar() {
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
         {(() => {
           const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+          const native = isNativeApp();
           const passes = (item: NavItem) => {
             if (item.hidden) return false;
+            if (item.nativeHidden && native) return false;
             if (item.ownerOnly && profile?.role === "barber") return false;
             if (item.paidOnly && !isPaidPlan(plan)) return false;
             if (item.feature) return planHasFeature(plan, item.feature);

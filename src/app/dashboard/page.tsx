@@ -23,6 +23,7 @@ import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
+import { isNativeApp } from "@/lib/native-app";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -643,17 +644,27 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Expired / past-due subscription banner */}
+      {/* Expired / past-due subscription banner. In the native app (Apple IAP) this
+          is a ClipWise-subscription surface, so it becomes a neutral note with NO
+          billing link, no "reactivate", and no plan name — the app is never blocked;
+          subscriptions are managed on clipwise.ca. */}
       {shop && profile?.role === "shop_owner" && (shop.subscription_status === "cancelled" || shop.subscription_status === "past_due") && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
-          <div className="flex items-center gap-3">
+        isNativeApp() ? (
+          <div className="mb-6 flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
             <AlertCircle size={18} className="text-orange-400 flex-shrink-0" />
-            <p className="text-sm text-orange-200">
-              Your subscription has {shop.subscription_status === "past_due" ? "a past-due payment" : "expired"}. Premium features are locked until you reactivate.
-            </p>
+            <p className="text-sm text-orange-200">Some features aren&rsquo;t included in your current plan.</p>
           </div>
-          <Link href="/dashboard/billing"><Button size="sm">Restore Features</Button></Link>
-        </div>
+        ) : (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={18} className="text-orange-400 flex-shrink-0" />
+              <p className="text-sm text-orange-200">
+                Your subscription has {shop.subscription_status === "past_due" ? "a past-due payment" : "expired"}. Premium features are locked until you reactivate.
+              </p>
+            </div>
+            <Link href="/dashboard/billing"><Button size="sm">Restore Features</Button></Link>
+          </div>
+        )
       )}
 
       {/* Onboarding banner — shown to new shop owners. No wrapper margin: the

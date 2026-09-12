@@ -5,12 +5,18 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addons";
 import { cancelDuplicateSubscriptions } from "@/lib/stripe-subscription";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Called by the Billing page when the owner returns from a subscription
 // Checkout (upgrade/switch). Verifies the session and applies the plan to the
 // owner's shop synchronously — so it works even when the platform webhook isn't
 // wired to receive subscription events. Idempotent (safe to call twice).
 export async function POST(request: NextRequest) {
+  // Apple IAP: no subscription checkout can be started in the app, so there's
+  // nothing to confirm here either — refuse.
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
