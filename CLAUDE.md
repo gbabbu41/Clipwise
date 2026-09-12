@@ -102,6 +102,26 @@ never against a stale checkbox in TODO.md or a migration file header.
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
 ## Key facts / gotchas
+- **📱 Native app = NO ClipWise-subscription billing surface (Apple IAP, set 2026-09-12).** The
+  iOS app is a Capacitor WebView that loads clipwise.ca and tags every request with the
+  `ClipWiseApp` user-agent (`appendUserAgent` in `capacitor.config.ts`, on branch). Apple forbids
+  selling a digital subscription outside IAP, so the app must show **none** of ClipWise's OWN
+  billing: pricing, plans, upgrade/subscribe/change-plan/start-trial, Stripe checkout/billing-portal,
+  the trial "add a card" banner, subscription invoices, or the login "Sign up" link. **The barber's
+  OWN money stays fully visible** (service prices, POS, tips/taxes, revenue/analytics, Stripe
+  **Terminal** card payments, refunds, Stripe **Connect** payout setup) — that's real-world commerce,
+  outside IAP. One source of truth: **`src/lib/native-app.ts`** — `isNativeApp()` (client),
+  `isNativeRequest()`/`isNativeUserAgent()` (server). Every gate keys off that, so **the website is
+  unchanged.** Three layers: (1) router block in `src/middleware.ts` (`/`→/dashboard, /signup→/login,
+  /dashboard/billing + /onboarding/plan→/dashboard); (2) NOT rendered (trial-banner, sidebar +
+  profile-menu billing nav, settings "Subscription" tab, FeatureLock upgrade link + plan names,
+  dashboard expired-sub banner, pending "Manage billing", login signup line resolved server-side,
+  Staff/booking/Locations plan-name copy); (3) server 403 on checkout, billing-portal, start-trial,
+  change-plan, cancel-subscription, confirm-subscription. **⚠️ When adding ANY new billing/plan/upgrade
+  UI or route, gate it the same way** or it will leak into the app and risk App Store rejection (the
+  **trial banner is the #1 rejection cause** — keep it null in the app). Because the app loads
+  production, the gating only works once it's on **main**. Reviewer notes + full rationale:
+  `APP-STORE-REVIEW-NOTES.md`.
 - **Card fee & barber pay (set 2026-09-10):** the **SHOP bears the ENTIRE Stripe card fee** — a
   barber's take-home is commission + tips with **nothing** deducted (no 50/50 split, no fee label in
   the barber portal). The fee shows only on the **shop's Payments layer** + Dashboard Net-revenue.
