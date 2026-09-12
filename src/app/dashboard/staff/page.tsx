@@ -15,7 +15,16 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { uploadBarberPhoto, removeBarberPhoto } from "@/lib/upload-barber-photo";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
 import { getPlanLimit, validateEmail } from "@/lib/validation";
+import { isNativeApp } from "@/lib/native-app";
 import { Tooltip } from "@/components/ui/tooltip";
+
+// Barber-limit message. In the native app (Apple IAP) it names no plan and offers
+// no "Upgrade" path — just the neutral limit; on the web it nudges to upgrade.
+function barberLimitMsg(planName: string | null | undefined, limit: number): string {
+  const n = `${limit} barber${limit > 1 ? "s" : ""}`;
+  if (isNativeApp()) return `You've reached the maximum of ${n} for your current plan.`;
+  return `${planName} plan allows max ${n}. Upgrade to add more.`;
+}
 import type { Barber, TimeSlot, DaySchedule } from "@/lib/database.types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -358,7 +367,7 @@ export default function StaffPage() {
 
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
-      showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
+      showToast(barberLimitMsg(shop.subscription_plan, limit));
       return;
     }
     if (!accessToken) return;
@@ -431,7 +440,7 @@ export default function StaffPage() {
     if (!shop || !accessToken || !user?.email) return;
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
-      showToast(`${shop.subscription_plan} plan allows max ${limit} barber${limit > 1 ? "s" : ""}. Upgrade to add more.`);
+      showToast(barberLimitMsg(shop.subscription_plan, limit));
       return;
     }
     setSavingAdd(true);
@@ -650,7 +659,7 @@ export default function StaffPage() {
             <Button variant="outline" loading={savingAdd} onClick={addSelfAsBarber}>+ Add myself as a barber</Button>
           )}
           {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
-            <Tooltip content={`${shop.subscription_plan} plan: max ${getPlanLimit(shop.subscription_plan)} barber${getPlanLimit(shop.subscription_plan) > 1 ? "s" : ""}. Upgrade to add more.`}>
+            <Tooltip content={barberLimitMsg(shop.subscription_plan, getPlanLimit(shop.subscription_plan))}>
               <Button disabled>+ Add Barber</Button>
             </Tooltip>
           ) : (

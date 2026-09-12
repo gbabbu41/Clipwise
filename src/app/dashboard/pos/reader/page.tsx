@@ -45,9 +45,12 @@ export default function ReaderPage() {
 
   const shopId = shop?.id ?? "";
 
+  // This screen only renders inside the native app (Apple IAP), so these messages
+  // never name a ClipWise plan or point at the (hidden) Billing page. They only
+  // describe the barber's own Stripe payout setup, which is real-world commerce.
   const notReadyMsg = (r: string) =>
-    r === "plan" ? "In-person card payments need the Pro or Premium plan."
-    : r === "connect_incomplete" ? "Finish your Stripe setup (Billing → Finish Stripe setup) before using a reader."
+    r === "plan" ? "In-person card payments aren't part of your current plan."
+    : r === "connect_incomplete" ? "Finish your Stripe payout setup (the banner on your dashboard) before using a reader."
     : r === "card_payments_pending" ? "Stripe hasn't finished enabling card payments on your account yet — complete Stripe onboarding, then try again."
     : "Card payments aren't available yet.";
 
