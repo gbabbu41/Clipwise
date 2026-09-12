@@ -3202,6 +3202,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           )}
           <h2 className="text-base sm:text-lg font-bold text-foreground truncate">{titleText}</h2>
+          {/* Previous / next period arrows — page by the current view's unit
+              (a window of days in 3-Day, one day in Day, a month, a year). Same
+              action as swiping; explicit controls the owner asked for. */}
+          <div className="flex items-center flex-shrink-0">
+            <button onClick={() => goPeriod(-1)} aria-label="Previous"
+              className="p-1 rounded-md text-grey hover:text-foreground hover:bg-card-raised transition-colors">
+              <ChevronLeft size={18} />
+            </button>
+            <button onClick={() => goPeriod(1)} aria-label="Next"
+              className="p-1 rounded-md text-grey hover:text-foreground hover:bg-card-raised transition-colors">
+              <ChevronRight size={18} />
+            </button>
+          </div>
           {loading && <span className="text-xs text-grey-muted animate-pulse flex-shrink-0">…</span>}
         </div>
 
