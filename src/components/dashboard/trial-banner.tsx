@@ -16,7 +16,13 @@ import { isNativeApp } from "@/lib/native-app";
  */
 const SNOOZE_MS = 12 * 60 * 60 * 1000; // 12h → at most ~2 reminders/day
 
-export function TrialBanner() {
+/**
+ * `native` is resolved on the SERVER (request User-Agent) by the dashboard layout
+ * wrapper and passed in, so this banner is known to be in the native app at SSR
+ * time — it can never be server-rendered in the app (Apple IAP). If ever mounted
+ * without the prop, it falls back to the client-side runtime check.
+ */
+export function TrialBanner({ native }: { native?: boolean } = {}) {
   const { shop } = useAuth();
   const shopId = shop?.id ?? null;
   // Start hidden, reveal after checking the persisted snooze — avoids a flash and
@@ -33,8 +39,9 @@ export function TrialBanner() {
 
   // Native app (Apple IAP): this banner is pure ClipWise-subscription billing
   // ("add a card", "trial ended", link to /dashboard/billing). It must NOT exist
-  // in the app at all — return null so it's absent from the DOM, not just hidden.
-  if (isNativeApp()) return null;
+  // in the app at all. Prefer the server-resolved `native` (known at SSR, so it's
+  // never even server-rendered in the app); fall back to the client runtime check.
+  if (native ?? isNativeApp()) return null;
 
   if (shop?.stripe_subscription_id) return null; // real subscriber — no trial UI
 
