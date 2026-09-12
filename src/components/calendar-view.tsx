@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, LayoutGrid, Clock, Phone, Mail, MessageSquare, Search, Check, Scissors } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { HeaderControls } from "@/components/dashboard/header-controls";
@@ -1346,6 +1346,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   );
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
+  const [viewPicker, setViewPicker] = useState(false); // Day/Box/3-Day/Month dropdown
   // Barber-column pagination for the all-barbers day view (arrows / swipe).
   const [colPage, setColPage] = useState(0);
   const [colWrapW, setColWrapW] = useState(0);
@@ -3205,16 +3206,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* View switcher — Day · N-Day · Month. N-Day shows 3 columns on a phone,
-              5 on a bigger screen. Compact so the row stays uncluttered. */}
-          <div className="flex items-center rounded-lg border border-border bg-card-raised p-0.5 text-[11px] font-medium">
-            {([["day", "Day"], ["multiday", `${multiDayCount}-Day`], ["month", "Month"]] as const).map(([v, label]) => (
-              <button key={v} type="button" onClick={() => { setNavDir(0); setView(v); }}
-                className={cn("px-2 py-1 rounded-md transition-colors", view === v ? "bg-surface-overlay text-foreground" : "text-grey hover:text-foreground")}>
-                {label}
-              </button>
-            ))}
-          </div>
           {/* Barber picker (avatar + caret → menu). Phone day view uses it; the
               multi-day view is always single-barber, so it shows there on every
               screen size (that's how you choose whose 3/5 days you're seeing). */}
@@ -3252,15 +3243,46 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 className="p-1 rounded hover:bg-card-raised disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={16} /></button>
             </div>
           )}
-          {/* Day: timeline ⇄ box (card) layout toggle */}
-          {view === "day" && (
-            <button onClick={() => setDayLayout(l => l === "timeline" ? "grid" : "timeline")}
-              aria-label={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              title={dayLayout === "timeline" ? "Box view" : "Timeline view"}
-              className="p-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
-              {dayLayout === "timeline" ? <LayoutGrid size={16} /> : <Clock size={16} />}
-            </button>
-          )}
+          {/* One view picker (dropdown) — Day · Box · N-Day · Month. Replaces the
+              old separate Day/3-Day/Month buttons AND the box/timeline toggle:
+              "Box" is the day card-grid layout, "Day" the timeline. Trigger shows
+              the current choice; the menu marks it with a check. */}
+          {(() => {
+            const label =
+              view === "day" ? (dayLayout === "grid" ? "Box" : "Day")
+              : view === "multiday" ? `${multiDayCount}-Day`
+              : view === "month" ? "Month"
+              : "Year";
+            const opts: { key: string; label: string; active: boolean; apply: () => void }[] = [
+              { key: "day",   label: "Day",   active: view === "day" && dayLayout === "timeline", apply: () => { setView("day"); setDayLayout("timeline"); } },
+              { key: "box",   label: "Box",   active: view === "day" && dayLayout === "grid",     apply: () => { setView("day"); setDayLayout("grid"); } },
+              { key: "multi", label: `${multiDayCount}-Day`, active: view === "multiday",         apply: () => setView("multiday") },
+              { key: "month", label: "Month", active: view === "month",                          apply: () => setView("month") },
+            ];
+            return (
+              <div className="relative">
+                <button onClick={() => setViewPicker(o => !o)} aria-label="Calendar view" aria-expanded={viewPicker}
+                  className="flex items-center gap-1 pl-2.5 pr-1.5 py-1.5 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
+                  <span className="text-[11px] font-medium">{label}</span>
+                  <ChevronDown size={13} className="text-grey" />
+                </button>
+                {viewPicker && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setViewPicker(false)} />
+                    <div className="absolute right-0 mt-1.5 z-50 w-36 bg-card border border-border rounded-xl shadow-lg py-1">
+                      {opts.map(o => (
+                        <button key={o.key} onClick={() => { setNavDir(0); o.apply(); setViewPicker(false); }}
+                          className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-raised", o.active ? "text-foreground font-semibold" : "text-grey")}>
+                          <span className="flex-1 text-left">{o.label}</span>
+                          {o.active && <Check size={14} className="text-emerald-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           {/* Day: add an appointment. Desktop only — on mobile the bottom nav's
               center "+" already adds one, so dropping it here declutters the top
               row and gives the barber filter / layout / Today more touch room. */}
