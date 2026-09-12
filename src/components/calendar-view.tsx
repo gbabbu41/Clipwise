@@ -2072,8 +2072,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   }, [view, currentDate, isMobile]);
 
   // Parent level the back arrow walks up to (null at the top = Year). Month name
-  // is abbreviated on phones ("Sept.") to save room in the tight top row.
-  const backLabel = view === "day"
+  // is abbreviated on phones ("Sept.") to save room in the tight top row. Day AND
+  // the 3-Day view both walk up to the month.
+  const backLabel = view === "day" || view === "multiday"
     ? currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long" })
     : view === "month"
       ? String(currentDate.getFullYear())
@@ -3128,7 +3129,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Back arrow → up one level (Day → Month → Year).
   const goBack = () => {
     setNavDir(0);
-    if (view === "day") setView("month");
+    if (view === "day" || view === "multiday") setView("month");
     else if (view === "month") setView("year");
   };
   // Header "+" → reuse the slot add-appointment modal, seeded with the day's
@@ -3178,7 +3179,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!s) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) goPeriod(dx < 0 ? 1 : -1);
+    // Horizontal swipe → previous/next period (all views).
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) { goPeriod(dx < 0 ? 1 : -1); return; }
+    // Month view also pages vertically: swipe UP → next month, DOWN → previous.
+    // The month grid fits without scrolling (non-embedded canvas is overflow-hidden),
+    // so an up/down drag is free to mean "change month".
+    if (view === "month" && !embedded && Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.4) goPeriod(dy < 0 ? 1 : -1);
   };
 
   return (
@@ -3206,7 +3212,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               (a window of days in 3-Day, one day in Day, a month, a year). Same
               action as swiping. Spaced apart with roomy padding so each is an
               easy, safe tap target (no mis-taps between them). */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+          <div className="flex items-center gap-3 flex-shrink-0 ml-2">
             <button onClick={() => goPeriod(-1)} aria-label="Previous"
               className="p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronLeft size={20} />
