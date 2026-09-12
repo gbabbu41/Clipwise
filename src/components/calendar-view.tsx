@@ -1269,7 +1269,7 @@ function AgendaSheet({
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
 
-export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId, shopOverride }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string; shopOverride?: Shop | null }) {
+export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId, shopOverride }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day" | "multiday"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string; shopOverride?: Shop | null }) {
   const { shop: authShop, profile, accessToken, user } = useAuth();
   // The barber portal drives its OWN active shop (a multi-shop owner-barber can be
   // viewing a different shop here than their owner dashboard). When given, use that
@@ -1279,7 +1279,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const { confirm } = useConfirm();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.
-  const [view, setView] = useState<"year" | "month" | "day">(defaultView ?? "day");
+  const [view, setView] = useState<"year" | "month" | "day" | "multiday">(defaultView ?? "day");
   // Barber portal (forceBarberId) isolates the calendar to that one barber —
   // even for an owner who also cuts: no other-barber chrome (selector/pager).
   const isolated = !!forceBarberId;
@@ -1754,9 +1754,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Open the tap modal for a slot. Carries both flows: add an appointment
   // (needs manage_appointments) and block the time (needs block_hours). Opens
   // as long as the user can do at least one; defaults to whichever they can.
-  const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false) => {
+  // `dateStr` lets a caller target a specific day (the multi-day view books into
+  // the tapped column, which isn't necessarily currentDate); defaults to currentDate.
+  const openAdd = (barberId: string, barberName: string, time: string, boxMinutes?: number, general = false, dateStr?: string) => {
     if (!canManage && !canBlock) return;
-    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time, date: formatDateForDb(currentDate) });
+    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time, date: dateStr ?? formatDateForDb(currentDate) });
     setClientMode("search");
     const startMin = timeToMinutes(time);
     setBlockForm({ start: minsTo24h(startMin), end: minsTo24h(startMin + (boxMinutes && boxMinutes > 0 ? boxMinutes : 60)), reason: "" });
@@ -1784,8 +1786,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
+        // addForm.date is set by openAdd (the tapped column's day in multi-day
+        // view); falls back to currentDate for the normal single-day tap.
         action: "create", shop_id: shop.id, barber_id: addCtx.barberId,
-        date: formatDateForDb(currentDate), start_time: blockForm.start, end_time: blockForm.end,
+        date: addForm.date || formatDateForDb(currentDate), start_time: blockForm.start, end_time: blockForm.end,
         reason: blockForm.reason || null,
       }),
     });
@@ -2050,6 +2054,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const titleText = useMemo(() => {
     if (view === "year") return String(currentDate.getFullYear());
     if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long", year: "numeric" });
+    if (view === "multiday") {
+      // Range label for the visible window, e.g. "Sep 5 – 9" (same month) or
+      // "Sep 30 – Oct 2". Count matches multiDayCount (kept inline — the derived
+      // consts are declared lower in the component).
+      const count = isMobile ? 3 : 5;
+      const first = currentDate, last = addDays(currentDate, count - 1);
+      const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+      const f = first.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+      const l = last.toLocaleDateString("en-CA", sameMonth ? { day: "numeric" } : { month: "short", day: "numeric" });
+      return `${f} – ${l}`;
+    }
     return isMobile
       ? currentDate.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })
       : currentDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -2659,6 +2674,153 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     );
   };
 
+  // ── MULTI-DAY ("3-Day") VIEW ────────────────────────────────────────────────
+  // One barber across a window of consecutive days (3 on phones, 5 on desktop).
+  // Columns are DAYS instead of barbers, but it reuses the day view's proven
+  // helpers (windowEmpties / blocksFor / layoutColumn) so behaviour matches and
+  // the single-day renderer stays untouched. All data is already in memory.
+  const renderMultiDayView = () => {
+    const barber = multiBarber;
+    if (!barber) {
+      return <div className="flex-1 flex items-center justify-center text-sm text-grey-muted py-12">No barber selected.</div>;
+    }
+    const dayStrs = multiDays.map(formatDateForDb);
+    const setStrs = new Set(dayStrs);
+    const visAppts = appointments.filter(a => setStrs.has(a.date) && a.barber_id === barber.id && !freesSlot(a));
+
+    // One shared hour window across every visible day, so rows line up column to
+    // column. Seed from the barber's hours today + all visible appts/blocks, then
+    // clamp to business hours (open by 9, run to at least 10 PM).
+    const starts: number[] = [], ends: number[] = [];
+    const sched = schedules.get(barber.id);
+    if (sched) { starts.push(hourOfDb(sched.start)); ends.push(hourOfDb(sched.end)); }
+    visAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
+    blocks.filter(b => b.barber_id === barber.id && setStrs.has(b.start_date) && b.start_time && b.end_time)
+      .forEach(b => { starts.push(timeToMinutes(dbTimeToDisplay(b.start_time!)) / 60); ends.push(timeToMinutes(dbTimeToDisplay(b.end_time!)) / 60); });
+    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 9;
+    let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
+    winStart = Math.min(9, Math.max(0, winStart));
+    winEnd = Math.min(24, Math.max(winEnd, 22));
+    const hours: number[] = [];
+    for (let h = winStart; h < winEnd; h++) hours.push(h);
+    const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
+
+    const gridCols = `48px repeat(${multiDayCount}, minmax(0, 1fr))`;
+    const anyToday = multiDays.some(isToday);
+
+    return (
+      <div className="flex flex-col h-full">
+        <div ref={scrollRef} className="overflow-auto flex-1">
+          {/* Day headers — tap a day to open its full single-day view. */}
+          <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
+            <div />
+            {multiDays.map(day => {
+              const ds = formatDateForDb(day);
+              const today = isToday(day);
+              const n = visAppts.filter(a => a.date === ds).length;
+              return (
+                <button key={ds} onClick={() => openDay(day)}
+                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors min-w-0", today && "bg-accent-muted")}>
+                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>{day.toLocaleDateString("en-CA", { weekday: "short" })}</p>
+                  <p className={cn("text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full", today ? "bg-accent text-foreground" : "text-foreground")}>{day.getDate()}</p>
+                  {n > 0 && <p className="text-[10px] text-grey-muted leading-none">{n}</p>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative">
+            {hours.map(hour => (
+              <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
+                <div className="text-[10px] text-grey text-right pr-2 pt-1">
+                  {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
+                </div>
+                {multiDays.map(day => (
+                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
+                ))}
+              </div>
+            ))}
+
+            <div className="absolute inset-0 pointer-events-none" style={{ display: "grid", gridTemplateColumns: gridCols }}>
+              <div />
+              {multiDays.map(day => {
+                const ds = formatDateForDb(day);
+                const colAppts = visAppts.filter(a => a.date === ds);
+                const laid = layoutColumn(colAppts);
+                const colBlocks = blocksFor(barber.id, ds);
+                const empties = windowEmpties(barber.id, ds, gridWin)
+                  .filter(e => { const s = timeToMinutes(e.slot); return !colBlocks.some(bl => s < bl.endMin && s + e.minutes > bl.startMin); });
+                return (
+                  <div key={ds} className="relative">
+                    {/* Free gaps — tap to add on THIS day (openAdd carries ds). */}
+                    {empties.map(({ slot, minutes }) => {
+                      const top = (parseTime(slot) - winStart) * ROW_PX;
+                      const height = Math.max(14, (minutes / 60) * ROW_PX - 3);
+                      return (
+                        <button key={`e${slot}`} title="Add appointment"
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
+                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden bg-card-raised hover:bg-surface-overlay"
+                          onClick={() => openAdd(barber.id, barber.name, slot, minutes, false, ds)} />
+                      );
+                    })}
+                    {/* Blocked-hours bands */}
+                    {colBlocks.map(bl => {
+                      const top = (bl.startMin / 60 - winStart) * ROW_PX;
+                      const height = Math.max(14, ((bl.endMin - bl.startMin) / 60) * ROW_PX - 3);
+                      return (
+                        <button key={`blk${bl.id}`} title={bl.status === "pending" ? "Block (pending approval)" : "Blocked — tap to remove"}
+                          onClick={() => canBlock && removeBlock(bl)} disabled={!canBlock}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute",
+                            backgroundImage: "repeating-linear-gradient(45deg, var(--surface-overlay), var(--surface-overlay) 6px, var(--border-strong) 6px, var(--border-strong) 12px)" }}
+                          className={cn("rounded border border-dashed pointer-events-auto overflow-hidden px-1", bl.status === "pending" ? "border-amber-500/50" : "border-border-strong")}>
+                          <p className="text-[10px] font-semibold text-[#cfcfcf] truncate leading-tight flex items-center gap-0.5"><Ban size={9} /> Blocked</p>
+                        </button>
+                      );
+                    })}
+                    {/* Booked appointments — overlaps split into lanes */}
+                    {laid.map(({ a: appt, lane, lanes }) => {
+                      const top = (parseTime(appt.time_slot) - winStart) * ROW_PX;
+                      const duration = apptDuration(appt);
+                      const height = Math.max(22, (duration / 60) * ROW_PX - 3);
+                      const dimmed = isDimmed(appt.status);
+                      const widthPct = 100 / lanes;
+                      return (
+                        <button key={appt.id}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: `calc(${lane * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`, position: "absolute" }}
+                          className={cn("rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
+                            apptBlock(appt), dimmed && "opacity-60 line-through", flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10")}
+                          onClick={() => setSelectedAppt(appt)}>
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 34 && <p className="text-[9px] text-[#bbb] truncate leading-tight">{appt.time_slot}</p>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Current-time line — drawn if any visible day is today. */}
+            {anyToday && (() => {
+              const now = new Date();
+              const currentH = now.getHours() + now.getMinutes() / 60;
+              if (currentH < winStart || currentH > winEnd) return null;
+              const top = (currentH - winStart) * ROW_PX;
+              return (
+                <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: `${top}px` }}>
+                  <div className="flex items-center">
+                    <div className="w-12 pr-2 text-right"><div className="w-2 h-2 rounded-full bg-red-500 ml-auto" /></div>
+                    <div className="flex-1 h-px bg-red-500" />
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── WEEK VIEW ──────────────────────────────────────────────────────────────
   const renderWeekView = () => {
     const weekStart = startOfWeek(currentDate);
@@ -2943,12 +3105,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // The single barber a phone / filtered day view shows (header dropdown value).
   const dayBarberId = forceBarberId ?? (barberFilter !== "all" ? barberFilter : (myBarberId ?? scheduledBarbers[0]?.id ?? orderedBarbers[0]?.id ?? null));
 
+  // Multi-day ("3-Day") view: one barber, a window of consecutive days starting at
+  // currentDate — 3 columns on phones (readable width), 5 on bigger screens. All
+  // the data is already loaded (the day-view fetch pulls ~3 weeks), so this is a
+  // pure render over what's in memory.
+  const multiDayCount = isMobile ? 3 : 5;
+  const multiDays = Array.from({ length: multiDayCount }, (_, i) => addDays(currentDate, i));
+  const multiBarber = barbers.find(b => b.id === dayBarberId) ?? null;
+
   // ── Navigation: within-level (swipe / arrows) moves by the view's unit;
   // drilling down / the back arrow walk the Year ⇄ Month ⇄ Day hierarchy. ─────
   const goPeriod = (dir: number) => {
     setNavDir(dir);
     if (view === "year") setCurrentDate(d => addMonths(d, dir * 12));
     else if (view === "month") setCurrentDate(d => addMonths(d, dir));
+    else if (view === "multiday") setCurrentDate(d => addDays(d, dir * multiDayCount));
     else setCurrentDate(d => addDays(d, dir));
   };
   const openMonth = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("month"); };
@@ -2989,6 +3160,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const todayNow = new Date();
   const onToday = view === "day"
     ? formatDateForDb(currentDate) === formatDateForDb(todayNow)
+    : view === "multiday"
+      ? multiDays.some(d => formatDateForDb(d) === formatDateForDb(todayNow))
     : view === "month"
       ? (currentDate.getFullYear() === todayNow.getFullYear() && currentDate.getMonth() === todayNow.getMonth())
       : currentDate.getFullYear() === todayNow.getFullYear();
@@ -3032,8 +3205,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Day · phone: barber filter as an avatar + caret (tap → menu) */}
-          {view === "day" && isMobile && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
+          {/* View switcher — Day · N-Day · Month. N-Day shows 3 columns on a phone,
+              5 on a bigger screen. Compact so the row stays uncluttered. */}
+          <div className="flex items-center rounded-lg border border-border bg-card-raised p-0.5 text-[11px] font-medium">
+            {([["day", "Day"], ["multiday", `${multiDayCount}-Day`], ["month", "Month"]] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => { setNavDir(0); setView(v); }}
+                className={cn("px-2 py-1 rounded-md transition-colors", view === v ? "bg-surface-overlay text-foreground" : "text-grey hover:text-foreground")}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* Barber picker (avatar + caret → menu). Phone day view uses it; the
+              multi-day view is always single-barber, so it shows there on every
+              screen size (that's how you choose whose 3/5 days you're seeing). */}
+          {(( view === "day" && isMobile) || view === "multiday") && !forceBarberId && profile?.role !== "barber" && barbers.length > 1 && (
             <div className="relative">
               <button onClick={() => setViewMenu(o => !o)} aria-label="Choose barber"
                 className="flex items-center gap-0.5 rounded-full border border-border bg-card-raised p-0.5 pr-1 hover:border-border transition-colors">
@@ -3101,7 +3286,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       {/* Barber selector row — profile-pic chips incl. an "All barbers" chip.
           Shown on the month/year overviews to filter; the day view has its own
           selection (columns on desktop, a dropdown on phone). */}
-      {!isolated && profile?.role !== "barber" && barbers.length > 0 && view !== "day" && (
+      {!isolated && profile?.role !== "barber" && barbers.length > 0 && view !== "day" && view !== "multiday" && (
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>
@@ -3139,7 +3324,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               transition={calTransition}
               className="h-full w-full"
             >
-              {view === "year" ? renderYearView() : view === "month" ? renderMonthView() : renderDayView()}
+              {view === "year" ? renderYearView() : view === "month" ? renderMonthView() : view === "multiday" ? renderMultiDayView() : renderDayView()}
             </motion.div>
           </AnimatePresence>
         </MotionConfig>
