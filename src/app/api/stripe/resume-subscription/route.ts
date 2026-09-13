@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Undo a scheduled cancel (before the period ends). Flips cancel_at_period_end
 // back off so the subscription keeps renewing normally.
 export async function POST(request: NextRequest) {
+  // Apple IAP: resuming is a ClipWise-subscription action — never from the app.
+  // (Matches the other subscription routes; managed on clipwise.ca.)
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);

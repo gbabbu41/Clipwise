@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 500 });
+    // Generic message to the client; real Stripe detail stays in the server logs.
+    console.error("[checkout] Stripe error", err);
+    return NextResponse.json({ error: "Couldn't start checkout — please try again." }, { status: 500 });
   }
 }

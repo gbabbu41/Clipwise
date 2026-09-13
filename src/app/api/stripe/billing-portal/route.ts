@@ -54,9 +54,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     // Most common cause: the Customer Portal hasn't been activated in the Stripe
-    // dashboard (Settings → Billing → Customer portal).
+    // dashboard (Settings → Billing → Customer portal). Log the detail server-side;
+    // return a generic message so no internal Stripe detail leaks to the client.
+    console.error("[billing-portal] Stripe error", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not open billing portal" },
+      { error: "Couldn't open the billing portal — please try again." },
       { status: 500 },
     );
   }
