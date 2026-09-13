@@ -1320,13 +1320,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     }
     return "timeline";
   });
+  // The user's Day-vs-3-Day preference, so drilling into a date (tapping a day in
+  // Month, or a 3-Day header) re-opens in their chosen day-level view instead of
+  // snapping back to single Day. Seeded from storage; kept current by the effect.
+  const dayGranRef = useRef<"day" | "multiday">((() => {
+    if (!embedded) {
+      try { const g = localStorage.getItem("cw_cal_dayview"); if (g === "day" || g === "multiday") return g; } catch { /* storage unavailable */ }
+    }
+    return view === "multiday" ? "multiday" : "day";
+  })());
   // Persist the view + layout per device so the choice sticks across sessions
   // (owner's main calendar only; the embedded mini-calendar is excluded).
   useEffect(() => {
+    if (view === "day" || view === "multiday") dayGranRef.current = view; // remember the day-level pick
     if (embedded) return;
     try {
       localStorage.setItem("cw_cal_view", view);
       localStorage.setItem("cw_cal_daylayout", dayLayout);
+      if (view === "day" || view === "multiday") localStorage.setItem("cw_cal_dayview", view);
     } catch { /* storage unavailable */ }
   }, [view, dayLayout, embedded]);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
@@ -2782,7 +2793,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return (
       <div className="flex flex-col h-full">
         <div ref={attachScroll} className="overflow-auto flex-1">
-          {/* Day headers — tap a day to open its full single-day view. */}
+          {/* Day headers — tap a day to open it in your day-level view (re-anchors
+              the 3-Day window to start on that day). */}
           <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
             <div />
             {multiDays.map(day => {
@@ -3194,7 +3206,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     else setCurrentDate(d => addDays(d, dir));
   };
   const openMonth = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("month"); };
-  const openDay = (day: Date) => { setNavDir(0); setCurrentDate(day); setView("day"); };
+  // Open a date in the user's preferred day-level view (Day or 3-Day), so a tap
+  // in Month keeps 3-Day instead of resetting to single Day.
+  const openDay = (day: Date) => { setNavDir(0); setCurrentDate(day); setView(dayGranRef.current); };
   // Back arrow → up one level (Day → Month → Year).
   const goBack = () => {
     setNavDir(0);
