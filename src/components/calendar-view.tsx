@@ -2801,10 +2801,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const ds = formatDateForDb(day);
               const today = isToday(day);
               const n = visAppts.filter(a => a.date === ds).length;
+              // Contextual label like the booking page — Today / Tomorrow /
+              // Yesterday, else the weekday. Date-relative so it stays correct
+              // when you page the window forward or back.
+              const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+              const dd = new Date(day); dd.setHours(0, 0, 0, 0);
+              const diff = Math.round((dd.getTime() - t0.getTime()) / 86_400_000);
+              const label = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday"
+                : day.toLocaleDateString("en-CA", { weekday: "short" });
               return (
                 <button key={ds} onClick={() => openDay(day)}
                   className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors min-w-0")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>{day.toLocaleDateString("en-CA", { weekday: "short" })}</p>
+                  <p className={cn("text-[10px] uppercase tracking-wider truncate px-0.5", today ? "text-foreground" : "text-grey-muted")}>{label}</p>
                   <p className={cn("text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full", today ? "bg-accent text-foreground" : "text-foreground")}>{day.getDate()}</p>
                   {n > 0 && <p className="text-[10px] text-grey-muted leading-none">{n}</p>}
                 </button>
