@@ -3478,7 +3478,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               initial="enter"
               animate="center"
               exit="exit"
-              transition={calTransition}
+              transition={{ ...calTransition, duration: view === "month" ? 0.42 : calTransition.duration }}
               className="h-full w-full"
             >
               {view === "year" ? renderYearView() : view === "month" ? renderMonthView() : view === "multiday" ? renderMultiDayView() : renderDayView()}
