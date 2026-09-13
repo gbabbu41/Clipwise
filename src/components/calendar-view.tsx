@@ -2803,7 +2803,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const n = visAppts.filter(a => a.date === ds).length;
               return (
                 <button key={ds} onClick={() => openDay(day)}
-                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors min-w-0", today && "bg-accent-muted")}>
+                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors min-w-0")}>
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>{day.toLocaleDateString("en-CA", { weekday: "short" })}</p>
                   <p className={cn("text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full", today ? "bg-accent text-foreground" : "text-foreground")}>{day.getDate()}</p>
                   {n > 0 && <p className="text-[10px] text-grey-muted leading-none">{n}</p>}
