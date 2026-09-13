@@ -440,7 +440,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className="font-mono tabular-nums font-bold text-emerald-400 text-base">{formatCurrency(money.netRevenue)}</span></div>
             </div>
             <p className="text-[11px] text-grey mt-3 leading-relaxed">
-              Gross sales is your revenue for taxes; the Stripe fee is a deductible expense. Tips &amp; commission are the barber&apos;s (see the barber breakdown for who got what) — for a solo shop that&apos;s still your money.
+              Gross sales is your revenue for taxes; the Stripe fee is a deductible expense. Tips &amp; commission are the barber&apos;s (see the barber breakdown for who got what) — for a one-chair shop that&apos;s still your money.
             </p>
           </CardContent>
         </Card>

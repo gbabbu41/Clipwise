@@ -1,92 +1,99 @@
 # App Store / TestFlight review notes — ClipWise
 
-Copy the **Review notes** block below into App Store Connect (App Review
-Information → Notes) and fill in the demo login. This file explains, for a
-reviewer, why the app contains **no in-app purchase** — and it documents, for us,
-exactly how the app stays inside Apple's rules.
+Copy the **Review notes** block into App Store Connect (App Review Information →
+Notes) and fill in the demo login. This file also records, for us, exactly why
+the app has no in-app purchase and how that's enforced — plus the appeal playbook,
+because a first-pass rejection on this category is likely and is cleared in the
+Resolution Center, not by crippling the product.
 
-> ⚠️ Do **not** commit real demo credentials to this repo. Fill them into App
-> Store Connect directly (or a private note). The placeholders below are a
-> template only.
+> ⚠️ Never commit real demo credentials to this repo. Put them into App Store
+> Connect (or a private note). Placeholders below are a template only.
 
 ---
 
 ## Review notes (paste into App Store Connect)
 
-ClipWise is a **business tool for existing barbershop owners and their staff** —
-a client for a service they already run on our website, clipwise.ca. It is not a
-consumer storefront.
+ClipWise is a **barbershop-management tool sold directly by us to barbershop
+businesses** — not to individual consumers. A shop signs up and manages its
+subscription on our website, clipwise.ca. The iOS app is the tool the shop's
+staff **log in to** to run the business.
 
-**Demo account (a seeded shop):**
+**Demo account (permanently active — not on a trial clock):**
 - Email: `<DEMO_OWNER_EMAIL>`
 - Password: `<DEMO_OWNER_PASSWORD>`
 
-Sign in with the above to see the full owner experience (calendar, appointments,
-checkout/POS, revenue).
+Sign in to see the full working system: calendar, appointments, clients,
+in-person checkout/POS, and revenue.
 
-**Accounts and any paid plan are created and managed only on clipwise.ca**, in a
-web browser — never in the app. The app is a companion client for businesses that
-already have an account. There is intentionally no sign-up, no pricing, no plan
-selection, and no subscription management inside the app.
+**There is no account creation and no purchasing mechanism of any kind in the
+app** — no sign-up, no pricing, no plan names, no subscribe/upgrade, no links to
+our website. A shop that isn't on a paid plan simply runs on our free tier.
 
-**Payments in the app are for real-world, in-person services, not digital
-content.** When a barber checks a customer out, they collect payment for a
-haircut using **Stripe Terminal** (a physical card reader) or record cash. These
-are payments between the barbershop and its walk-in customers for services
-performed in person, which fall outside In-App Purchase. The app never sells
-digital goods or subscriptions.
+**What the app is actually for:** operating **Stripe Terminal (WisePad 3)** and
+**Tap to Pay on iPhone** to take in-person card payment for **haircuts** —
+physical services delivered in person. Under Guideline **3.1.3(e)** those
+real-world services must not use in-app purchase.
 
-If you have any questions, contact `<SUPPORT_EMAIL>`.
+Our business subscription (what a shop pays ClipWise) is a **separate**
+transaction handled entirely outside the app under Guideline **3.1.3(c)** — it is
+sold by us to the business, never to individual consumers.
+
+Questions: `<SUPPORT_EMAIL>` · `<SUPPORT_PHONE>`.
 
 ---
 
-## Why there's no IAP (our internal rationale)
+## The two money flows — never let these get conflated
 
-- ClipWise's own subscription (what a barbershop pays us) is a **multiplatform
-  service**: it is sold and managed on the web, and the app is just another way
-  to sign in to it. Apple's guideline 3.1.3(b) permits an app to let existing
-  customers use content/features they bought elsewhere, as long as the app does
-  not **offer** the purchase or **direct** users to buy outside IAP.
-- So the app shows **no** ClipWise-subscription surface at all: no pricing, no
-  plan cards, no upgrade/subscribe/change-plan/start-trial buttons, no Stripe
-  Checkout or billing-portal links, no "add a card" trial banner, no
-  subscription invoices, and no "sign up" link on the login screen. A lapsed or
-  limited plan shows only a neutral "not included in your current plan" note —
-  no upgrade link, no clipwise.ca link, no tappable email — and never blocks the
-  rest of the app.
-- The **barber's own money stays fully usable**: service prices, POS/checkout
-  totals, tips and taxes, daily/weekly revenue and analytics, Stripe Terminal
-  card payments, customer refunds, and Stripe Connect payout setup. None of that
-  is a digital purchase, so none of it goes through IAP.
+A reviewer who blurs these rejects. Keep them explicitly separate everywhere
+(app, website, these notes):
 
-## How it's enforced in code (so it can't regress)
+| Flow | What it is | Guideline | Where it happens |
+|---|---|---|---|
+| **Haircut payment** | customer pays the shop for an in-person service | 3.1.3(e) — must NOT use IAP | in the app, via Stripe Terminal / Tap to Pay |
+| **ClipWise subscription** | the shop pays us to use the software | 3.1.3(c) — sold to the business, outside the app | clipwise.ca only |
 
-The app is a Capacitor WebView that loads clipwise.ca and tags every request with
-the `ClipWiseApp` user-agent (`appendUserAgent` in `capacitor.config.ts`). One
-helper, `src/lib/native-app.ts`, is the single source of truth for "am I in the
-app?" — `isNativeApp()` on the client, `isNativeRequest()` / `isNativeUserAgent()`
-on the server. Every gate keys off that, so the **website is completely
-unchanged** — only the app hides the billing surface. Three layers:
+The 3.1.3(c) trap: *"Consumer, single user, or family sales must use in-app
+purchase."* So ClipWise must read as sold **to barbershop businesses**, never to
+"individuals / solo barbers." Our site and plan copy use **shop / chair**
+language for exactly this reason.
 
-1. **Router block** (`src/middleware.ts`): in the app, `/` → `/dashboard`,
-   `/signup` → `/login`, and `/dashboard/billing` + `/onboarding/plan` →
-   `/dashboard`. Unreachable by deep link, back-nav, or a stale URL.
-2. **Not rendered** (absent from the DOM, never CSS-hidden): the trial "add a
-   card" banner returns null; the sidebar and profile menu drop "Plan &
-   Billing"; Settings drops the whole "Subscription" tab; `FeatureLock` shows a
-   neutral line with no plan name and no upgrade link; the dashboard's
-   expired-subscription banner becomes a neutral note with no "Restore Features"
-   link; the pending-shop page hides "Manage billing"; the login "Sign up" line
-   is resolved on the server so it never ships to the app; plan-name upsell copy
-   (Staff barber limit, booking no-show note, Locations) is neutralized.
-3. **Server refusal**: `checkout`, `billing-portal`, `start-trial`,
-   `change-plan`, `cancel-subscription`, and `confirm-subscription` all return
-   403 to a request from the app.
+## How the app stays clean (enforced in code)
 
-## When shipping a build
+The app is a Capacitor WebView loading clipwise.ca, tagged with the `ClipWiseApp`
+user-agent. `src/lib/native-app.ts` is the single source of truth; every gate
+keys off it, so **the website is unchanged** — only the app hides these:
 
-Because the app loads production (clipwise.ca), the gating only takes effect
-once these changes are **deployed to `main`** (Vercel → clipwise.ca). A build
-made before that deploy would still show the billing surface. After deploy,
-launch the app and confirm: no "Sign up" on login, no "Plan & Billing" in the
-menu/sidebar, no "Subscription" tab in Settings, and the trial banner is gone.
+1. **Login-only.** No sign-up link, `/signup` → `/login`, `/` → `/dashboard`,
+   `/dashboard/billing` + `/onboarding/plan` → `/dashboard` (middleware).
+2. **No purchase surface rendered:** no trial "add a card" banner, no "Plan &
+   Billing" in sidebar/menu, no "Subscription" tab in Settings, no prices/plan
+   names/upgrade links; `FeatureLock` shows a neutral line only.
+3. **Server refusal:** checkout, billing-portal, start-trial, change-plan,
+   cancel-subscription, confirm-subscription all 403 a request from the app.
+4. **Trial end = drop to the free tier** (app stays usable); a genuinely
+   suspended shop sees only "This shop isn't active — contact ClipWise" + a phone
+   number as plain text (no URL, no form, no price).
+
+Account deletion is available in-app (Settings) and states the timeframe +
+confirms on completion (5.1.1(v)).
+
+## Appeal playbook (expect a first-pass rejection — this is normal)
+
+- Reply in the **Resolution Center**, not the App Review Board. The confirmed
+  wins came through Resolution Center in ~3 days; Board appeals dragged for weeks.
+- **Request a phone call with the reviewer** — the one reliable way to find out
+  what they misread (usually the *website*, not the app).
+- Restate: no account creation and no purchase mechanism in the app; haircuts are
+  3.1.3(e); the subscription is 3.1.3(c), sold to businesses.
+- **Fallback if appeals fail:** enroll IAP on the Small Business Program (15% →
+  ~$3.45/mo per shop) and pass it through at no markup (as Booksy does). This is
+  the parachute, not the opening move.
+
+## Before you submit — website checklist (the reviewer reads clipwise.ca)
+
+- No "individual / solo / per-barber / for barbers" wording anywhere public —
+  say **barbershops / shops / businesses / chairs**.
+- Demo account flagged **never-expiring**, loaded with real bookings.
+- Privacy policy + support URL live and linked in App Store Connect.
+- Because the app loads production, all of the above must be **deployed to `main`**
+  before you submit.

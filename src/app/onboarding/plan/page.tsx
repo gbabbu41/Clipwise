@@ -40,9 +40,9 @@ const styleFor = (id: string) => PLAN_STYLE[id] ?? PLAN_STYLE.premium;
 // + team later without switching accounts. Keyed by plan id; unknown custom
 // plans simply show no tagline.
 const PLAN_GUIDANCE: Record<string, string> = {
-  starter: "Best for a solo barber just getting started.",
-  pro: "Best for solo barbers & small shops — start solo, add your shop and up to 4 chairs anytime.",
-  premium: "Best for established shops with a bigger team.",
+  starter: "Best for a single-chair shop just getting started.",
+  pro: "Best for a growing shop — start with one chair, add up to 4 anytime.",
+  premium: "Best for an established shop with a bigger team.",
 };
 
 // Shown until /api/plans resolves (and if it ever fails) — mirrors the seeded tiers.
@@ -151,7 +151,7 @@ function PlanPageInner() {
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
           <h1 className="text-3xl font-bold text-white">Choose your plan</h1>
-          <p className="text-[#8f8f8f] mt-2">Solo barber or a full shop — pick what fits today, upgrade anytime. Pro &amp; Premium include a 21-day free trial, no card needed.</p>
+          <p className="text-[#8f8f8f] mt-2">One chair or a full shop — pick what fits today, upgrade anytime. Pro &amp; Premium include a 21-day free trial, no card needed.</p>
         </div>
 
         {error && (
