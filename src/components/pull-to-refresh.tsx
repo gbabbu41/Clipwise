@@ -37,6 +37,10 @@ export function PullToRefresh() {
     // otherwise the page/body scroll governs.
     const canPull = (target: EventTarget | null): boolean => {
       if (document.body.style.overflow === "hidden") return false; // an open modal/sheet
+      // The calendar owns its own gestures (horizontal day/3-Day swipe, vertical
+      // month paging) and marks itself data-no-swipe — never hijack those to refresh.
+      const t = target as HTMLElement | null;
+      if (t && typeof t.closest === "function" && t.closest("[data-no-swipe]")) return false;
       let el = target as HTMLElement | null;
       while (el && el !== document.body && el !== document.documentElement) {
         const oy = getComputedStyle(el).overflowY;
