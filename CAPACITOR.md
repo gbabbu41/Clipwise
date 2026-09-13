@@ -126,12 +126,38 @@ The screen calls, in order (all built + test-mode-verified):
      with their own Stripe keys — the platform mints the token for the shop's
      account (the routes above already do this), keeping charges direct.
 
-### Hardware: the shop buys its own reader
+### Hardware: the barber buys their own reader, we credit their plan
 ClipWise does **not** buy, rent, or resell readers — Stripe's Terminal terms bar
-renting/reselling without authorized-reseller status. So each shop buys its own
-WisePad 3 (or is given one at our cost). The reader screen should link them to buy
-one. This is stated in the Terms of Service (§5) and the plan copy
-("card reader sold separately").
+renting/reselling without authorized-reseller status. The model (verified against
+Stripe's Connect/Terminal docs, Sept 2026):
+
+- **The barber buys the WisePad 3 DIRECTLY from Stripe** via Stripe's **hardware-shop
+  embedded component** (dropped into the web Card Reader page). Stripe is the seller
+  → the barber pays, gets the tax invoice, and **owns** it. ClipWise never touches
+  the hardware money, stock, tax, or warranty.
+- **Do NOT let the platform place the order** for them: a platform-placed hardware
+  order is billed to (and taxed to) the **platform**, not the barber.
+- **Incentive:** ClipWise credits the barber's OWN subscription by **min(50% of the
+  reader, $50)** — a Stripe **customer balance credit** on the platform account
+  (never a charge). `src/lib/hardware-credit.ts` (`grantHardwareCredit`), config in
+  `src/lib/hardware-credit-config.ts`, idempotent via `shops.hardware_credit_granted`
+  (migration `phase62_hardware_credit.sql` — run it).
+- **Credit trigger:** Stripe gives platforms **no reliable way to read an account's
+  self-placed hardware order**, so grant the credit from the **hardware-shop purchase
+  event** when it goes live (or on first Terminal payment as a proxy — but that would
+  also fire for Tap-to-Pay-only shops, so prefer the purchase event).
+
+**Web Card Reader page** (`/dashboard/stripe`, sidebar next to Settings) — built and
+shipped, **WEB ONLY** (nativeHidden + middleware redirect + self-guard: hardware
+purchase + the credit are money surfaces, kept out of the app for Apple IAP). It
+shows Connect status, the two ways to take cards, and the reader offer. **Go-live
+TODO:** swap the "Get your WisePad 3" link for Stripe's **hardware-shop embedded
+component** (needs `@stripe/connect-js` + an account-session route; validate Express
+support in the test dashboard), then wire its purchase event → `grantHardwareCredit`.
+Also confirm the real WisePad 3 CA price in `hardware-credit-config.ts`.
+
+This is stated in the Terms of Service (§5) and the plan copy ("card reader sold
+separately").
 
 A Tap to Pay sale is just another card transaction — UI, transactions table,
 Payments realtime feed, and receipts all stay identical.

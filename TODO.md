@@ -259,6 +259,11 @@ open items below are config/legal that only the owner can finish.
 > `[ ]` checkbox was never flipped. Do NOT re-run these hunting for a fix — the DB is fully
 > migrated. The per-phase notes below are kept only as a reference for what each one added.
 > Track only migrations added *after* this date as new to-dos.
+- [ ] 🔴 **Phase 62 — card-reader credit** (`supabase/migrations/phase62_hardware_credit.sql`) — **NEW, RUN IT.**
+      Adds `shops.hardware_credit_granted` / `hardware_credit_amount_cents` / `hardware_credit_at` for the
+      "buy a WisePad 3 → up to 50% (max $50) subscription credit" incentive (web Card Reader page +
+      `src/lib/hardware-credit.ts`). Safe/additive; the credit engine is dormant until the go-live wiring
+      (Stripe hardware-shop embedded component → purchase event → `grantHardwareCredit`). See CAPACITOR.md.
 - [x] 🟠 **Phase 15 transaction provenance** (`supabase/migrations/phase15_transaction_source.sql`)
       — **RUN BEFORE deploying the phase15 code** (transactions `source` +
       `appointment_id`). The POS finalize + cash inserts now set `source`; without

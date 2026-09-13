@@ -23,9 +23,11 @@ export async function middleware(request: NextRequest) {
     if (pathname === "/signup") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    // Subscription billing + plan-picker → back to a neutral in-app page.
+    // Subscription billing + plan-picker + the Card Reader page (hardware purchase
+    // + reader credit are money surfaces) → back to a neutral in-app page.
     if (
       pathname === "/dashboard/billing" || pathname.startsWith("/dashboard/billing/") ||
+      pathname === "/dashboard/stripe"  || pathname.startsWith("/dashboard/stripe/") ||
       pathname === "/onboarding/plan"   || pathname.startsWith("/onboarding/plan/")
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));

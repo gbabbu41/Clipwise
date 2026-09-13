@@ -182,6 +182,9 @@ const NAV_SECTIONS: NavSection[] = [
 
 const accountItems: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
+  // Card Reader (Stripe payouts + buy a WisePad 3 + the reader credit). Web only —
+  // hardware purchase + subscription credit are money surfaces (Apple IAP).
+  { href: "/dashboard/stripe", label: "Card Reader", icon: CreditCard, ownerOnly: true, nativeHidden: true },
   // Plan & Billing is ClipWise's own subscription — hidden entirely in the native
   // app (Apple IAP). Barbers manage their plan on clipwise.ca.
   { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true, nativeHidden: true },
