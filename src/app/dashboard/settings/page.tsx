@@ -1463,7 +1463,12 @@ export default function SettingsPage() {
                 <Plus size={14} /> {MAX_LOCATIONS} of {MAX_LOCATIONS} used
               </Button>
             ) : (
-              <Button size="sm" onClick={() => setShowAddLocation(true)}>
+              <Button size="sm" onClick={() => {
+                // Adding a location is a $30/mo add-on billed to the ClipWise
+                // subscription — a purchase surface, so never in the app (Apple IAP).
+                if (native) { showToast("Adding a location isn’t available in the app."); return; }
+                setShowAddLocation(true);
+              }}>
                 <Plus size={14} /> Add Location
               </Button>
             )}
@@ -1506,7 +1511,7 @@ export default function SettingsPage() {
             ))}
           </div>
 
-          {showAddLocation && (
+          {showAddLocation && !native && (
             <>
               <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowAddLocation(false)} />
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
@@ -1537,8 +1542,10 @@ export default function SettingsPage() {
             </>
           )}
 
-          {/* Paid add-on: explicit agreement to the $30/mo charge before billing */}
-          {confirmingAddon && (
+          {/* Paid add-on: explicit agreement to the $30/mo charge before billing.
+              Never in the native app (Apple IAP) — belt-and-suspenders on top of
+              the gated button + the server-side refusal in add-location. */}
+          {confirmingAddon && !native && (
             <>
               <div className="fixed inset-0 bg-black/75 z-[60]" onClick={() => setConfirmingAddon(false)} />
               <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">

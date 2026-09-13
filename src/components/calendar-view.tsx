@@ -1380,8 +1380,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   }, []);
   // Swipe origin for the calendar-wide gesture (next/prev period).
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const nowLineRef = useRef<HTMLDivElement>(null); // the red "current time" line (today only)
+  const monthGridRef = useRef<HTMLDivElement>(null); // month grid — to tell scroll from swipe
   // The day-view date rail (horizontally scrollable, browse without selecting).
   // Centering runs via a callback ref (not a state-keyed effect): with
   // AnimatePresence mode="wait" the new day's rail mounts AFTER the exit
@@ -1588,18 +1589,25 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   //    appointments — the grid window already opens at the first booking).
   // Only fires on navigation (view / day / barber changes), never on a data
   // refresh and never while you're mid-scroll, so it won't yank the view.
-  useEffect(() => {
+  // Scroll a freshly-mounted Day/3-Day timeline to the red "now" line (or the top
+  // for a non-today window). Driven by a callback ref on the scroll container
+  // (attachScroll) so it runs when the NEW view actually attaches — a parent
+  // effect fires against the OLD, exiting view under AnimatePresence mode="wait".
+  const focusRafRef = useRef<number[]>([]);
+  const focusTimeline = useCallback(() => {
+    focusRafRef.current.forEach(cancelAnimationFrame);
+    focusRafRef.current = [];
     const el = scrollRef.current;
     if (!el) return;
-    if (dayLayout === "grid") return;                 // box view has no timeline
+    if (view === "day" && dayLayout === "grid") return; // box layout has no timeline
     if (view !== "day" && view !== "multiday") return;
     const count = isMobile ? 3 : 5;
     const showsToday = view === "day"
       ? isToday(currentDate)
       : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
-    // Two rAFs so the row-height stretch (desktop) settles before we measure.
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
+    // Two rAFs so the desktop row-height stretch settles before we measure the line.
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => {
         const line = nowLineRef.current;
         if (showsToday && line) {
           const delta = line.getBoundingClientRect().top - el.getBoundingClientRect().top;
@@ -1608,14 +1616,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
         }
       });
-      (el as unknown as { _raf2?: number })._raf2 = raf2;
+      focusRafRef.current.push(r2);
     });
-    return () => {
-      cancelAnimationFrame(raf1);
-      const r2 = (el as unknown as { _raf2?: number })._raf2;
-      if (r2) cancelAnimationFrame(r2);
-    };
-  }, [view, currentDate, dayLayout, isMobile, barberFilter]);
+    focusRafRef.current.push(r1);
+  }, [view, currentDate, dayLayout, isMobile]);
+
+  // Callback ref for the timeline scroll container — fires when a new view mounts
+  // (after the outgoing one leaves), the correct moment to focus "now".
+  const attachScroll = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el;
+    if (el) focusTimeline();
+  }, [focusTimeline]);
 
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
@@ -2239,7 +2250,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <div key={d} className="px-2 py-2 text-xs font-medium text-grey-muted text-center">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 flex-1 auto-rows-min overflow-y-auto bg-card">
+        <div ref={monthGridRef} className="grid grid-cols-7 flex-1 auto-rows-min overflow-y-auto bg-card">
           {visibleDays.map((day) => {
             const inMonth = isSameMonth(day, currentDate);
             const dayStr = formatDateForDb(day);
@@ -2504,7 +2515,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           );
         })()}
-        <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden flex-1">
+        <div ref={attachScroll} className="overflow-y-auto overflow-x-hidden flex-1">
           <div>
             {!single && (
             <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
@@ -2743,7 +2754,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div className="flex flex-col h-full">
-        <div ref={scrollRef} className="overflow-auto flex-1">
+        <div ref={attachScroll} className="overflow-auto flex-1">
           {/* Day headers — tap a day to open its full single-day view. */}
           <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
             <div />
@@ -3212,10 +3223,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const dx = t.clientX - s.x, dy = t.clientY - s.y;
     // Horizontal swipe → previous/next period (all views).
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) { goPeriod(dx < 0 ? 1 : -1); return; }
-    // Month view also pages vertically: swipe UP → next month, DOWN → previous.
-    // The month grid fits without scrolling (non-embedded canvas is overflow-hidden),
-    // so an up/down drag is free to mean "change month".
-    if (view === "month" && !embedded && Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.4) goPeriod(dy < 0 ? 1 : -1);
+    // Month view also pages vertically: swipe UP → next month, DOWN → previous —
+    // but ONLY when the month grid isn't itself scrollable. On a short phone a
+    // 6-week month overflows and up/down must SCROLL the grid, not change month.
+    if (view === "month" && !embedded && Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+      const g = monthGridRef.current;
+      const gridScrolls = !!g && g.scrollHeight > g.clientHeight + 4;
+      if (!gridScrolls) goPeriod(dy < 0 ? 1 : -1);
+    }
   };
 
   return (

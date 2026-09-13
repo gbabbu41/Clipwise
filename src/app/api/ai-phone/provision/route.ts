@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio } from "@/lib/twilio";
 import { reconcileAiPhoneAddon } from "@/lib/stripe-addons";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Provision a ClipWise Business Number for a shop and switch the AI phone on.
 //
@@ -12,6 +13,11 @@ import { reconcileAiPhoneAddon } from "@/lib/stripe-addons";
 // Inert until the owner clicks "Get My Business Number": nothing here runs on
 // its own, and it never touches existing SMS / booking / Stripe flows.
 export async function POST(request: NextRequest) {
+  // Apple IAP: the Business Number is a $15/mo add-on on the ClipWise
+  // subscription — a purchase, so refuse it from the native app.
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);

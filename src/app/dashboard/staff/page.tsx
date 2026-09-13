@@ -422,7 +422,7 @@ export default function StaffPage() {
       // Existing account: no login link is issued (security). They sign in and accept.
       showToast(data.emailed
         ? `${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`
-        : `${addForm.name.trim()} already has a ClipWise account, but the email couldn't be sent${data.emailError ? ` (${data.emailError})` : ""}. Ask them to sign in at clipwise.ca/login and accept.`);
+        : `${addForm.name.trim()} already has a ClipWise account, but the email couldn't be sent${data.emailError ? ` (${data.emailError})` : ""}. Ask them to sign in and accept the invite.`);
     }
     loadBarbers();
   };

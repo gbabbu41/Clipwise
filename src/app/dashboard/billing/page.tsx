@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { isNativeApp } from "@/lib/native-app";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { formatPlanPrice } from "@/lib/plans";
 import { marketingFor } from "@/lib/plan-marketing";
@@ -39,6 +41,11 @@ const TRIAL_DAYS = 21;
 
 export default function BillingPage() {
   const { accessToken, refreshShop, plans, shop, shops } = useAuth();
+  const router = useRouter();
+  // Defense-in-depth (Apple IAP): middleware already redirects this route in the
+  // native app; this self-guard ensures the billing surface never renders in-app
+  // even if the ClipWiseApp user-agent is ever missed on a request.
+  useEffect(() => { if (isNativeApp()) router.replace("/dashboard"); }, [router]);
   const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");

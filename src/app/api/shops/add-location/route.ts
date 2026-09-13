@@ -4,6 +4,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { planAllowsMultiLocation, effectivePlan, getLocationLimit, MAX_LOCATIONS } from "@/lib/validation";
 import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { reconcileLocationAddon } from "@/lib/stripe-addons";
+import { isNativeRequest } from "@/lib/native-app";
 
 // Add ANOTHER location for an existing owner.
 //
@@ -26,6 +27,11 @@ const slugify = (s: string) =>
   (s || "shop").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "shop";
 
 export async function POST(request: NextRequest) {
+  // Apple IAP: a new location is a $30/mo add-on billed to the ClipWise
+  // subscription — a purchase, so refuse it from the native app.
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: "Not available in the app." }, { status: 403 });
+  }
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
