@@ -72,10 +72,19 @@ const ROW_PX = 62;                     // height of one hour row (~10% taller)
 
 // Apple-style view transitions. dir > 0 = forward (next), dir < 0 = back, dir 0
 // = a zoom/cross-fade (used when drilling month→day or switching view type).
+// Slide the transition along an axis chosen per view: month pages VERTICALLY
+// (swipe up = next), every other view horizontally. `custom` carries { dir, axis }.
+type CalDir = { dir: number; axis: "x" | "y" };
 const calVariants = {
-  enter: (dir: number) => (dir === 0 ? { opacity: 0, scale: 0.97 } : { opacity: 0, x: dir > 0 ? 30 : -30 }),
-  center: { opacity: 1, x: 0, scale: 1 },
-  exit:  (dir: number) => (dir === 0 ? { opacity: 0, scale: 1.03 } : { opacity: 0, x: dir > 0 ? -30 : 30 }),
+  enter: (c: CalDir) =>
+    c.dir === 0 ? { opacity: 0, scale: 0.97 }
+    : c.axis === "y" ? { opacity: 0, y: c.dir > 0 ? 34 : -34 }
+    : { opacity: 0, x: c.dir > 0 ? 34 : -34 },
+  center: { opacity: 1, x: 0, y: 0, scale: 1 },
+  exit: (c: CalDir) =>
+    c.dir === 0 ? { opacity: 0, scale: 1.03 }
+    : c.axis === "y" ? { opacity: 0, y: c.dir > 0 ? -34 : 34 }
+    : { opacity: 0, x: c.dir > 0 ? -34 : 34 },
 };
 const calTransition = { duration: 0.22, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
 
@@ -2288,7 +2297,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <div key={d} className="px-2 py-2 text-xs font-medium text-grey-muted text-center">{d}</div>
           ))}
         </div>
-        <div ref={monthGridRef} className="grid grid-cols-7 flex-1 auto-rows-min overflow-y-auto bg-card">
+        <div ref={monthGridRef} className={cn("grid grid-cols-7 flex-1 bg-card",
+          // Main calendar: equal rows that fill the height so the whole month fits
+          // with no internal scroll (vertical swipe pages the month). Embedded mini-
+          // calendar keeps its compact, scrollable layout.
+          embedded ? "auto-rows-min overflow-y-auto" : "auto-rows-fr overflow-hidden")}>
           {visibleDays.map((day) => {
             const inMonth = isSameMonth(day, currentDate);
             const dayStr = formatDateForDb(day);
@@ -2300,9 +2313,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 key={dayStr}
                 onClick={() => openDay(day)}
                 className={cn(
-                  "border-r border-b border-border p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors",
-                  embedded ? "min-h-[58px] sm:min-h-[88px]" : "min-h-[96px] sm:min-h-[132px]",
-                  "hover:bg-card-raised",
+                  "border-r border-b border-border p-1 sm:p-1.5 text-left flex flex-col gap-1 transition-colors overflow-hidden hover:bg-card-raised",
+                  // Embedded keeps a fixed min height (scrolls); the main calendar lets
+                  // the fr rows size each cell so the month fills the screen.
+                  embedded ? "min-h-[58px] sm:min-h-[88px]" : "min-h-0",
                   !inMonth && "bg-background",
                 )}
               >
@@ -3270,16 +3284,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!s) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    // Horizontal swipe → previous/next period (all views).
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) { goPeriod(dx < 0 ? 1 : -1); return; }
-    // Month view also pages vertically: swipe UP → next month, DOWN → previous —
-    // but ONLY when the month grid isn't itself scrollable. On a short phone a
-    // 6-week month overflows and up/down must SCROLL the grid, not change month.
-    if (view === "month" && !embedded && Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.4) {
-      const g = monthGridRef.current;
-      const gridScrolls = !!g && g.scrollHeight > g.clientHeight + 4;
-      if (!gridScrolls) goPeriod(dy < 0 ? 1 : -1);
+    // MONTH pages VERTICALLY: swipe up → next month, down → previous. The grid is
+    // laid out to fit the screen (no internal scroll), so up/down is free to page.
+    // (Guarded on scrollHeight anyway, in case a future layout makes it scroll.)
+    if (view === "month") {
+      if (!embedded && Math.abs(dy) > 55 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+        const g = monthGridRef.current;
+        const gridScrolls = !!g && g.scrollHeight > g.clientHeight + 4;
+        if (!gridScrolls) goPeriod(dy < 0 ? 1 : -1);
+      }
+      return;
     }
+    // Every other view pages HORIZONTALLY.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) goPeriod(dx < 0 ? 1 : -1);
   };
 
   return (
@@ -3453,10 +3470,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         onTouchEnd={onSwipeEnd}
       >
         <MotionConfig reducedMotion="user">
-          <AnimatePresence mode="wait" custom={navDir} initial={false}>
+          <AnimatePresence mode="wait" custom={{ dir: navDir, axis: view === "month" ? "y" : "x" }} initial={false}>
             <motion.div
               key={transitionKey}
-              custom={navDir}
+              custom={{ dir: navDir, axis: view === "month" ? "y" : "x" }}
               variants={calVariants}
               initial="enter"
               animate="center"
