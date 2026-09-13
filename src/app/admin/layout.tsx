@@ -5,13 +5,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm-dialog";
-import { LayoutDashboard, Store, Users, Settings, Shield, ChevronRight, LogOut, History, AlertTriangle, Ticket } from "lucide-react";
+import { LayoutDashboard, Store, Users, Settings, Shield, ChevronRight, LogOut, History, AlertTriangle, Ticket, CreditCard } from "lucide-react";
 
 const NAV = [
   { label: "Platform Overview", href: "/admin", icon: LayoutDashboard },
   { label: "Shops", href: "/admin/shops", icon: Store },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Coupons", href: "/admin/coupons", icon: Ticket },
+  { label: "Reader Credits", href: "/admin/reader-credits", icon: CreditCard },
   { label: "Activity", href: "/admin/activity", icon: History },
   { label: "Errors", href: "/admin/errors", icon: AlertTriangle },
   { label: "Settings", href: "/admin/settings", icon: Settings },

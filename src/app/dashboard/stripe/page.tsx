@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, Smartphone, Check, AlertTriangle, ExternalLink, Gift, Loader2 } from "lucide-react";
+import { CreditCard, Smartphone, Check, AlertTriangle, ExternalLink, Gift, Loader2, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
@@ -26,18 +26,45 @@ type ConnectStatus = { connected: boolean; status: string; checkError?: boolean 
  */
 export default function CardReaderPage() {
   const router = useRouter();
-  const { shop, accessToken } = useAuth();
+  const { shop, accessToken, refreshShop } = useAuth();
   // Defense-in-depth: this page is money-adjacent, so never render it in the app.
   useEffect(() => { if (isNativeApp()) router.replace("/dashboard"); }, [router]);
 
   const [connect, setConnect] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [optimisticPending, setOptimisticPending] = useState(false);
   useResetOnReturn(() => setConnecting(false));
 
   const creditLabel = formatCurrency(hardwareCreditCents() / 100);
   const capLabel = formatCurrency(HARDWARE_CREDIT_MAX_CENTS / 100);
-  const creditGranted = !!(shop as { hardware_credit_granted?: boolean } | null)?.hardware_credit_granted;
+  const shopCredit = shop as {
+    hardware_credit_granted?: boolean;
+    hardware_credit_requested_at?: string | null;
+    hardware_credit_rejected_at?: string | null;
+    hardware_credit_note?: string | null;
+  } | null;
+  const creditGranted = !!shopCredit?.hardware_credit_granted;
+  const creditPending = !creditGranted && (optimisticPending || !!shopCredit?.hardware_credit_requested_at);
+  const creditRejected = !creditGranted && !creditPending && !!shopCredit?.hardware_credit_rejected_at;
+  const creditNote = shopCredit?.hardware_credit_note;
+
+  // Interim manual credit: after buying a reader the barber requests the credit,
+  // an admin approves it. This only records the request (owner-scoped route).
+  const requestCredit = async () => {
+    if (!accessToken || requesting) return;
+    setRequesting(true);
+    try {
+      const res = await fetch("/api/stripe/terminal/hardware-credit", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shop?.id }),
+      });
+      if (res.ok) { setOptimisticPending(true); refreshShop?.(); }
+    } catch { /* leave button available to retry */ }
+    setRequesting(false);
+  };
 
   const load = useCallback(async () => {
     if (!accessToken || !shop?.id) return;
@@ -132,28 +159,46 @@ export default function CardReaderPage() {
           <Gift size={20} className="text-emerald-400" />
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
-            {creditGranted ? (
-              <p className="text-sm text-emerald-300 font-medium flex items-center gap-2"><Check size={16} /> Your reader credit has been applied to your plan. Thanks for getting set up!</p>
-            ) : (
-              <>
+          {creditGranted ? (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
+              <p className="text-sm text-emerald-300 font-medium flex items-center gap-2"><Check size={16} /> Your {creditLabel} reader credit has been applied to your plan. Thanks for getting set up!</p>
+            </div>
+          ) : creditPending ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-4">
+              <p className="text-sm text-amber-200 font-medium flex items-center gap-2"><Clock size={16} /> Credit request received</p>
+              <p className="text-xs text-amber-200/80 mt-1">We&rsquo;re reviewing it — your {creditLabel} credit will land on your next ClipWise invoice once approved. No need to do anything else.</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
                 <p className="text-sm font-semibold text-emerald-300">Buy a reader, get {creditLabel} back on your plan</p>
                 <p className="text-xs text-emerald-200/80 mt-1">
-                  We credit <span className="font-semibold">up to 50%</span> of your WisePad 3 (max {capLabel}) to your ClipWise subscription once you start taking payments on it. The reader is yours to keep.
+                  We credit <span className="font-semibold">up to 50%</span> of your WisePad 3 (max {capLabel}) to your ClipWise subscription after you buy it. The reader is yours to keep.
                 </p>
-              </>
-            )}
-          </div>
+              </div>
 
-          {/* Buy link for now. Stripe's in-page hardware-shop embedded component is
-              a PREVIEW feature not yet in the stable SDK; when it's available, swap
-              this link for it + wire onCheckoutFinished → /api/stripe/terminal/
-              hardware-credit (the account-session route + credit engine are ready). */}
-          <a href={READER_STORE} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
-            Get your WisePad 3 <ExternalLink size={15} />
-          </a>
-          <p className="text-[11px] text-grey-muted">Prices, taxes, and shipping are handled by Stripe. Don&rsquo;t need a reader? Tap to Pay on iPhone works with no hardware.</p>
+              {creditRejected && (
+                <div className="rounded-xl border border-border bg-card-raised p-3">
+                  <p className="text-xs text-grey">Your last credit request wasn&rsquo;t approved{creditNote ? `: ${creditNote}` : "."} Bought a reader? You can request again below.</p>
+                </div>
+              )}
+
+              {/* Buy link for now. Stripe's in-page hardware-shop embedded component
+                  is a PREVIEW feature not yet in the stable SDK; when it's available,
+                  swap this link for it. Meanwhile the barber buys directly and then
+                  requests the credit (an admin approves it). */}
+              <div className="flex flex-wrap items-center gap-3">
+                <a href={READER_STORE} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
+                  Get your WisePad 3 <ExternalLink size={15} />
+                </a>
+                <Button variant="outline" loading={requesting} onClick={requestCredit}>
+                  {creditRejected ? "Request credit again" : "Already bought one? Request credit"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-grey-muted">Prices, taxes, and shipping are handled by Stripe. Don&rsquo;t need a reader? Tap to Pay on iPhone works with no hardware.</p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
