@@ -2145,14 +2145,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (view === "year") return String(currentDate.getFullYear());
     if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long", year: "numeric" });
     if (view === "multiday") {
-      // Range label for the visible window, e.g. "Sep 5 – 9" (same month) or
-      // "Sep 30 – Oct 2". Count matches multiDayCount (kept inline — the derived
-      // consts are declared lower in the component).
+      // Range label for the visible window. The back label ("‹ Sep") already shows
+      // the month, so within one month we show just the day range ("13 – 15") — no
+      // repeated "Sep". Cross-month keeps both months ("Sep 30 – Oct 2").
       const count = isMobile ? 3 : 5;
       const first = currentDate, last = addDays(currentDate, count - 1);
       const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+      if (sameMonth) return `${first.getDate()} – ${last.getDate()}`;
       const f = first.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-      const l = last.toLocaleDateString("en-CA", sameMonth ? { day: "numeric" } : { month: "short", day: "numeric" });
+      const l = last.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       return `${f} – ${l}`;
     }
     return isMobile
