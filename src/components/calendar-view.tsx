@@ -1593,32 +1593,31 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // for a non-today window). Driven by a callback ref on the scroll container
   // (attachScroll) so it runs when the NEW view actually attaches — a parent
   // effect fires against the OLD, exiting view under AnimatePresence mode="wait".
-  const focusRafRef = useRef<number[]>([]);
+  const focusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const focusTimeline = useCallback(() => {
-    focusRafRef.current.forEach(cancelAnimationFrame);
-    focusRafRef.current = [];
-    const el = scrollRef.current;
-    if (!el) return;
-    if (view === "day" && dayLayout === "grid") return; // box layout has no timeline
-    if (view !== "day" && view !== "multiday") return;
-    const count = isMobile ? 3 : 5;
-    const showsToday = view === "day"
-      ? isToday(currentDate)
-      : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
-    // Two rAFs so the desktop row-height stretch settles before we measure the line.
-    const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => {
-        const line = nowLineRef.current;
-        if (showsToday && line) {
-          const delta = line.getBoundingClientRect().top - el.getBoundingClientRect().top;
-          el.scrollTop = Math.max(0, el.scrollTop + delta - 72); // "now" ~72px below the top
-        } else {
-          el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
-        }
-      });
-      focusRafRef.current.push(r2);
-    });
-    focusRafRef.current.push(r1);
+    focusTimersRef.current.forEach(clearTimeout);
+    const run = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      if (view === "day" && dayLayout === "grid") return; // box layout has no timeline
+      if (view !== "day" && view !== "multiday") return;
+      const count = isMobile ? 3 : 5;
+      const showsToday = view === "day"
+        ? isToday(currentDate)
+        : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
+      const line = nowLineRef.current;
+      if (showsToday && line) {
+        // scrollIntoView handles the sticky header + row math for us; centre keeps
+        // "now" clearly in view with the past above and upcoming below.
+        line.scrollIntoView({ block: "center", behavior: "auto" });
+      } else {
+        el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
+      }
+    };
+    // Several passes so it lands on "now" even as the timeline reflows — the enter
+    // slide (~220ms), appointments loading in, and the desktop row-height stretch
+    // all move the line after first paint.
+    focusTimersRef.current = [0, 120, 300, 600].map(d => setTimeout(run, d));
   }, [view, currentDate, dayLayout, isMobile]);
 
   // Callback ref for the timeline scroll container — fires when a new view mounts
