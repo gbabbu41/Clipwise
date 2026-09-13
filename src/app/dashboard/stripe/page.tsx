@@ -145,8 +145,10 @@ export default function CardReaderPage() {
             )}
           </div>
 
-          {/* Go-live: replace this with Stripe's hardware-shop embedded component so
-              the barber buys in-page (direct from Stripe). For now it links out. */}
+          {/* Buy link for now. Stripe's in-page hardware-shop embedded component is
+              a PREVIEW feature not yet in the stable SDK; when it's available, swap
+              this link for it + wire onCheckoutFinished → /api/stripe/terminal/
+              hardware-credit (the account-session route + credit engine are ready). */}
           <a href={READER_STORE} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-white/90 transition-colors">
             Get your WisePad 3 <ExternalLink size={15} />

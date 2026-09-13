@@ -150,11 +150,28 @@ Stripe's Connect/Terminal docs, Sept 2026):
 **Web Card Reader page** (`/dashboard/stripe`, sidebar next to Settings) — built and
 shipped, **WEB ONLY** (nativeHidden + middleware redirect + self-guard: hardware
 purchase + the credit are money surfaces, kept out of the app for Apple IAP). It
-shows Connect status, the two ways to take cards, and the reader offer. **Go-live
-TODO:** swap the "Get your WisePad 3" link for Stripe's **hardware-shop embedded
-component** (needs `@stripe/connect-js` + an account-session route; validate Express
-support in the test dashboard), then wire its purchase event → `grantHardwareCredit`.
-Also confirm the real WisePad 3 CA price in `hardware-credit-config.ts`.
+shows Connect status, the two ways to take cards, and the reader offer, and a
+"Get your WisePad 3" **link** to Stripe.
+
+READY backend (all built, dormant until the embed exists):
+- `POST /api/stripe/terminal/hardware-session` — creates a Stripe **Account Session**
+  with `terminal_hardware_shop` + `terminal_hardware_orders` enabled (components cast
+  — the Node SDK types lag these preview components).
+- `POST /api/stripe/terminal/hardware-credit` — grants the reader credit
+  (`grantHardwareCredit`), meant to fire from the shop's `onCheckoutFinished`.
+- Credit engine (`hardware-credit.ts`) + config (`hardware-credit-config.ts`,
+  WisePad 3 = **CA$79 confirmed** → ~$39.50 credit) + `phase62` flag.
+
+**Blocked go-live step — the in-page store:** Stripe's **hardware-shop embedded
+component is a PREVIEW feature not in the stable SDK** (`@stripe/react-connect-js`
+3.4.x exports no `ConnectTerminalHardwareShop`, and it's not in `useCreateComponent`'s
+union). When it reaches the stable SDK (or you take the preview build): `npm i
+@stripe/connect-js @stripe/react-connect-js`, add a client `<HardwareShop>` that
+`loadConnectAndInitialize({ publishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+fetchClientSecret: → hardware-session })` and renders `ConnectTerminalHardwareShop`
+with `onCheckoutFinished → hardware-credit`, and swap it in for the link on the page.
+Also enable "Terminal hardware shop" in the Stripe Dashboard Connect settings, set
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and validate Express support in the test dashboard.
 
 This is stated in the Terms of Service (§5) and the plan copy ("card reader sold
 separately").
