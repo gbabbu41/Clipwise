@@ -7,7 +7,7 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone } from "lucide-react";
+import { Phone, MessageSquare, Mail } from "lucide-react";
 import { groupClients, sameIdentity, clientToId, apptToId, normPhone } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -683,6 +683,28 @@ export default function ClientsPage() {
             {/* Overview tab */}
             {activeTab === "overview" && (
               <>
+                {/* Quick contact — Call · Text · Email (real-world contact, always
+                    fine in the app). Each is live when the client has that detail,
+                    greyed otherwise. tel:/sms:/mailto: open the phone's own apps. */}
+                {(selectedClient.phone || selectedClient.email) && (() => {
+                  const digits = selectedClient.phone ? selectedClient.phone.replace(/\D/g, "") : "";
+                  const base = "flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-colors";
+                  const on = "border-border bg-card-raised text-foreground hover:bg-surface-overlay active:scale-95";
+                  const off = "border-border/50 bg-card text-grey-muted opacity-50 pointer-events-none";
+                  return (
+                    <div className="grid grid-cols-3 gap-2">
+                      {digits
+                        ? <a href={`tel:${digits}`} aria-label={`Call ${selectedClient.name}`} className={cn(base, on)}><Phone size={16} /> Call</a>
+                        : <div aria-disabled className={cn(base, off)}><Phone size={16} /> Call</div>}
+                      {digits
+                        ? <a href={`sms:${digits}`} aria-label={`Text ${selectedClient.name}`} className={cn(base, on)}><MessageSquare size={16} /> Text</a>
+                        : <div aria-disabled className={cn(base, off)}><MessageSquare size={16} /> Text</div>}
+                      {selectedClient.email
+                        ? <a href={`mailto:${selectedClient.email}`} aria-label={`Email ${selectedClient.name}`} className={cn(base, on)}><Mail size={16} /> Email</a>
+                        : <div aria-disabled className={cn(base, off)}><Mail size={16} /> Email</div>}
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-2 gap-3">
                   {(["phone", "email"] as const).map(field => {
                     const label = field === "phone" ? "Phone" : "Email";
