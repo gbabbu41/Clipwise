@@ -1279,7 +1279,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const { confirm } = useConfirm();
   // Apple-style hierarchy: Year ⇄ Month ⇄ Day. Opens on today's Day view; the
   // back arrow walks up a level (Day → Month → Year). No manual view switcher.
-  const [view, setView] = useState<"year" | "month" | "day" | "multiday">(defaultView ?? "day");
+  const [view, setView] = useState<"year" | "month" | "day" | "multiday">(() => {
+    // Remember the last-used view per device; first-ever use → day. Skipped for the
+    // embedded mini-calendar so it always opens on its own defaultView.
+    if (!embedded) {
+      try {
+        const v = localStorage.getItem("cw_cal_view");
+        if (v === "day" || v === "multiday" || v === "month" || v === "year") return v;
+      } catch { /* storage unavailable */ }
+    }
+    return defaultView ?? "day";
+  });
   // Barber portal (forceBarberId) isolates the calendar to that one barber —
   // even for an owner who also cuts: no other-barber chrome (selector/pager).
   const isolated = !!forceBarberId;
@@ -1300,7 +1310,25 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // +1 next, -1 previous, 0 = zoom/cross-fade (drill into a day / switch view).
   const [navDir, setNavDir] = useState(0);
   // Day view layout: the vertical timeline, or the card/"box" grid of slots.
-  const [dayLayout, setDayLayout] = useState<"timeline" | "grid">("timeline");
+  // Persisted per device alongside the view (so "Box" sticks too); embedded skips.
+  const [dayLayout, setDayLayout] = useState<"timeline" | "grid">(() => {
+    if (!embedded) {
+      try {
+        const l = localStorage.getItem("cw_cal_daylayout");
+        if (l === "timeline" || l === "grid") return l;
+      } catch { /* storage unavailable */ }
+    }
+    return "timeline";
+  });
+  // Persist the view + layout per device so the choice sticks across sessions
+  // (owner's main calendar only; the embedded mini-calendar is excluded).
+  useEffect(() => {
+    if (embedded) return;
+    try {
+      localStorage.setItem("cw_cal_view", view);
+      localStorage.setItem("cw_cal_daylayout", dayLayout);
+    } catch { /* storage unavailable */ }
+  }, [view, dayLayout, embedded]);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
