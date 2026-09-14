@@ -50,6 +50,11 @@ export default function HomePage() {
         </div>
       </nav>
 
+      {/* Visually-hidden page title — the visible "headline" is baked into the hero
+          film, so this gives crawlers and screen readers a real h1 with no visual
+          change. */}
+      <h1 className="sr-only">ClipWise — barbershop management built for Canadian shops</h1>
+
       {/* hero film (client island) */}
       <HeroFilm />
 
@@ -200,7 +205,7 @@ export default function HomePage() {
             {PLAN_MARKETING.map((p) => (
               <div key={p.plan} className={`tier${p.pop ? " hi" : ""}`}>
                 <p className="tn">{p.n}</p>
-                <div className="pr"><span className="p">{p.p}</span><span className="u">{p.per === "forever" ? "forever" : p.per}</span></div>
+                <div className="pr"><span className="p">{p.p}</span><span className="u">{p.per}</span></div>
                 <ul>{p.yes.map((y, i) => <li key={i}>{y}</li>)}</ul>
                 <Link className={`pill ${p.pop ? "w" : "g"}`} href={`/signup?plan=${p.plan}`}>{p.cta}</Link>
               </div>
@@ -234,19 +239,19 @@ export default function HomePage() {
               <p className="fabout">The premium barbershop management platform. Made in Canada.</p>
             </div>
             <div>
-              <h5>Product</h5>
+              <h3>Product</h3>
               <a href="#app">Features</a>
               <a href="#price">Pricing</a>
               <Link href="/shops">Find a Barber</Link>
             </div>
             <div>
-              <h5>Company</h5>
+              <h3>Company</h3>
               <Link href="/why-clipwise">Why ClipWise</Link>
               <Link href="/support">How payments work</Link>
               <a href="mailto:support@clipwise.ca">Contact</a>
             </div>
             <div>
-              <h5>Legal</h5>
+              <h3>Legal</h3>
               <Link href="/privacy">Privacy</Link>
               <Link href="/terms">Terms</Link>
               <Link href="/cookies">Cookies</Link>
