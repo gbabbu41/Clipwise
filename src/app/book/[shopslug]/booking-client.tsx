@@ -139,7 +139,7 @@ function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
     <div className={cn(
       "fixed bottom-24 right-4 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-xl text-sm font-medium animate-slide-up",
-      toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300"
+      toast.ok ? "bg-black/80 border-white/25 text-white" : "bg-red-900/80 border-red-500/40 text-red-300"
     )}>
       {toast.ok ? <Check size={15} /> : "✕"} {toast.msg}
       <button onClick={onClose} aria-label="Dismiss" className="ml-2 opacity-60 hover:opacity-100">✕</button>
@@ -1443,12 +1443,12 @@ export default function BookingClient() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/25 flex items-center justify-center mx-auto mb-4">
             <Logo size="sm" showText={false} />
           </div>
           <h1 className="text-xl font-bold text-white">Couldn&apos;t confirm your booking</h1>
           <p className="text-[#8f8f8f] mt-3 text-sm">If you were charged, your appointment is most likely booked — please contact the shop to confirm, or try booking again.</p>
-          {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-4 text-emerald-400 font-semibold">Call {shop.phone}</a>}
+          {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-4 text-white font-semibold">Call {shop.phone}</a>}
           <div className="mt-5">
             <a href={`/book/${shop.slug}`} className="text-sm text-[#8f8f8f] hover:text-white transition-colors">← Back to booking</a>
           </div>
@@ -1472,9 +1472,9 @@ export default function BookingClient() {
         {toast && <ToastBar toast={toast} onClose={() => setToast(null)} />}
         <div className="max-w-md w-full text-center">
           <div className="relative w-20 h-20 mx-auto mb-6">
-            <span aria-hidden className={cn("absolute inset-0 rounded-full cw-success-ring", bookingPending ? "bg-amber-500/30" : "bg-emerald-500/30")} />
-            <div className={cn("relative w-20 h-20 rounded-full flex items-center justify-center cw-success-pop", bookingPending ? "bg-amber-500/20" : "bg-emerald-500/20")}>
-              <Check size={36} className={bookingPending ? "text-amber-400" : "text-emerald-400"} />
+            <span aria-hidden className={cn("absolute inset-0 rounded-full cw-success-ring", bookingPending ? "bg-amber-500/30" : "bg-white/15")} />
+            <div className={cn("relative w-20 h-20 rounded-full flex items-center justify-center cw-success-pop", bookingPending ? "bg-amber-500/20" : "bg-white/10")}>
+              <Check size={36} className={bookingPending ? "text-amber-400" : "text-white"} />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">{paidThankYou ? "Payment received — thank you!" : bookingPending ? "Request sent!" : "Booking Confirmed!"}</h1>
@@ -1483,7 +1483,7 @@ export default function BookingClient() {
             <p className="text-[#8f8f8f] mb-2">Your request was sent to {confirmedSummary?.shopName || shop.name}. You&apos;ll be notified once they confirm it — use the link below to check its status anytime.</p>
           )}
           {dispEmail && !bookingPending && <p className="text-[#8f8f8f] mb-2">{paidThankYou ? `We've emailed your receipt to ${dispEmail}` : `We'll send a confirmation to ${dispEmail}`}</p>}
-          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors mb-6 block">View & Manage Booking →</a>}
+          {bookingId && <a href={`/my-booking/${bookingId}`} className="text-xs text-white hover:text-white transition-colors mb-6 block">View & Manage Booking →</a>}
           <div className="cw-rise bg-white/[0.03] border border-white/10 shadow-2xl rounded-2xl p-6 text-left space-y-3 mb-6">
             {[
               { label: "Shop", value: confirmedSummary?.shopName || shop.name },
@@ -1511,7 +1511,7 @@ export default function BookingClient() {
             )}
             <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
               <span className="text-white">Total</span>
-              <span className="text-emerald-400 text-lg">{formatCurrency(dispTotal + (confirmedSummary?.tip ?? 0))}</span>
+              <span className="text-white text-lg">{formatCurrency(dispTotal + (confirmedSummary?.tip ?? 0))}</span>
             </div>
             {confirmedSummary?.paymentNote && (
               <p className="text-xs text-[#8f8f8f] text-center pt-1">{confirmedSummary.paymentNote}</p>
@@ -1631,12 +1631,12 @@ export default function BookingClient() {
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
               {lockedBarber.photo
                 ? <img src={lockedBarber.photo} alt={lockedBarber.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
-                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
+                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b2b31] to-[#0b0b0e] flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
                 <p className="text-base font-bold text-white truncate leading-tight mt-0.5">{lockedBarber.name}</p>
               </div>
-              <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2.5 py-1">
+              <span className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-white/10 border border-white/20 rounded-full px-2.5 py-1">
                 <Check size={12} /> Your barber
               </span>
             </div>
@@ -1652,11 +1652,11 @@ export default function BookingClient() {
               <div key={s + i} className="flex items-center gap-1 flex-1 last:flex-none">
                 <div className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
-                  i <= visibleStep ? "bg-emerald-400 text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
+                  i <= visibleStep ? "bg-white text-black" : "bg-[#141414] text-[#8f8f8f] border border-[#242424]"
                 )}>
                   {i < visibleStep ? <Check size={12} /> : i + 1}
                 </div>
-                {i < visibleSteps.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < visibleStep ? "bg-emerald-400" : "bg-[#242424]")} />}
+                {i < visibleSteps.length - 1 && <div className={cn("flex-1 h-[2px] rounded-full", i < visibleStep ? "bg-white" : "bg-[#242424]")} />}
               </div>
             ))}
           </div>
@@ -1676,7 +1676,7 @@ export default function BookingClient() {
             <h2 className="text-lg font-semibold text-white">Choose your barber</h2>
             {barbers.map((b) => (
               <button key={b.id} onClick={() => setSelectedBarber(b.id)}
-                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-gold bg-gold/10 ring-1 ring-gold/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
+                className={cn("w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all", selectedBarber === b.id ? "border-white/25 bg-white/10 ring-1 ring-white/30" : "border-[#2a2a2a] bg-black hover:border-[#333]")}
               >
                 {b.photo
                   ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-14 h-14 rounded-full object-cover border border-[#2a2a2a]" />
@@ -1691,7 +1691,7 @@ export default function BookingClient() {
                     </span>
                   )}
                 </div>
-                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-gold" />}
+                {selectedBarber === b.id && <Check size={18} className="ml-auto flex-shrink-0 text-white" />}
               </button>
             ))}
           </div>
@@ -1708,10 +1708,10 @@ export default function BookingClient() {
               <div className="bg-black/5 border border-[#2a2a2a] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
-                    <span key={s.id + idx} className="cw-cart inline-flex items-center gap-1.5 bg-gold/15 border border-gold/30 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
+                    <span key={s.id + idx} className="cw-cart inline-flex items-center gap-1.5 bg-white/10 border border-white/25 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
                       {s.name} · {formatCurrency(s.price)}
                       <button onClick={() => setSelectedServices(prev => prev.filter((_, i) => i !== idx))}
-                        className="ml-0.5 w-5 h-5 rounded-full bg-white/10 hover:bg-gold/40 flex items-center justify-center" aria-label="Remove">
+                        className="ml-0.5 w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center" aria-label="Remove">
                         <X size={11} />
                       </button>
                     </span>
@@ -1738,7 +1738,7 @@ export default function BookingClient() {
                   <>
                     <p className="text-white font-semibold">Not taking online bookings yet</p>
                     <p className="text-sm mt-1">{shop.name} hasn&apos;t set up any services. {shop.phone ? "Give them a call to book." : "Please check back soon."}</p>
-                    {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-3 text-emerald-400 font-semibold">Call {shop.phone}</a>}
+                    {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-3 text-white font-semibold">Call {shop.phone}</a>}
                     <div className="mt-4"><button type="button" onClick={() => setView("landing")} className="text-sm text-white/60 hover:text-white transition-colors">← Back</button></div>
                   </>
                 ) : (
@@ -1883,7 +1883,7 @@ export default function BookingClient() {
                         onClick={() => { if (!disabled) { autoAdvanceRef.current.active = false; setSelectedDate(day); setSelectedTime(null); } }}
                         className={cn(
                           "flex-shrink-0 w-[56px] py-2.5 rounded-2xl flex flex-col items-center transition-colors",
-                          isSelectedDay ? "bg-gold text-black"
+                          isSelectedDay ? "bg-white text-black"
                             : disabled ? "bg-[#0d0d0d] text-[#555] cursor-not-allowed"
                               : "bg-[#141414] text-white hover:bg-[#1c1c1c]",
                           isTodayDay && !isSelectedDay && !disabled && "ring-1 ring-white/25",
@@ -1975,14 +1975,14 @@ export default function BookingClient() {
                   <div className="py-12 text-center px-4">
                     <p className="text-[#8f8f8f] text-sm">No openings on this day.</p>
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
-                      <p className="mt-3 text-xs text-emerald-400 flex items-center justify-center gap-1">
+                      <p className="mt-3 text-xs text-white flex items-center justify-center gap-1">
                         <Check size={13} /> You&apos;re on the waitlist for this day
                       </p>
                     ) : (
                       <>
                         <button
                           onClick={openWaitlist}
-                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/20 transition-colors"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15 transition-colors"
                         >
                           🔔 Notify me if a spot opens
                         </button>
@@ -2002,13 +2002,13 @@ export default function BookingClient() {
                     </p>
                     {!barberFilter && <p className="text-xs text-[#8f8f8f] mt-1">Try another day.</p>}
                     {selectedDate && waitlistedDates.has(formatDateForDb(selectedDate)) ? (
-                      <p className="mt-3 text-xs text-emerald-400 flex items-center justify-center gap-1">
+                      <p className="mt-3 text-xs text-white flex items-center justify-center gap-1">
                         <Check size={13} /> You&apos;re on the waitlist for this day
                       </p>
                     ) : (
                       <button
                         onClick={openWaitlist}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/20 transition-colors"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15 transition-colors"
                       >
                         🔔 Notify me if a spot opens
                       </button>
@@ -2038,7 +2038,7 @@ export default function BookingClient() {
                                 className={cn(
                                   "rounded-xl py-3 text-sm font-semibold transition-colors",
                                   isSelectedSlot
-                                    ? "bg-gold text-black"
+                                    ? "bg-white text-black"
                                     : "bg-[#141414] hover:bg-[#1c1c1c] text-white",
                                 )}
                               >
@@ -2106,7 +2106,7 @@ export default function BookingClient() {
           <div className="animate-fade-in">
             <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5 sm:p-6">
               <div className="flex items-center gap-3 mb-5">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
                   <User size={17} />
                 </span>
                 <h2 className="text-[18px] font-bold text-white">Your details</h2>
@@ -2139,8 +2139,8 @@ export default function BookingClient() {
                           });
                         }}
                         placeholder={placeholder}
-                        className={cn("w-full bg-[#141414] border rounded-2xl pl-12 pr-4 py-[15px] text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-gold/50 transition-all",
-                          clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-gold/30")}
+                        className={cn("w-full bg-[#141414] border rounded-2xl pl-12 pr-4 py-[15px] text-[15px] text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:border-white/30 transition-all",
+                          clientErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-[#2a2a2a] focus:ring-white/30")}
                       />
                     </div>
                     {clientErrors[key] && <p className="text-xs text-red-400 mt-1.5 ml-1">{clientErrors[key]}</p>}
@@ -2182,12 +2182,12 @@ export default function BookingClient() {
             {loyalty?.eligible && (
               <button type="button" onClick={() => setRedeemPoints((v) => !v)}
                 className={cn("w-full flex items-center justify-between gap-3 p-4 rounded-xl border text-left transition-colors",
-                  redeemPoints ? "bg-emerald-500/10 border-emerald-500/40" : "bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a]")}>
+                  redeemPoints ? "bg-white/10 border-white/25" : "bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a]")}>
                 <div>
                   <p className="text-sm font-semibold text-white">⭐ Use your loyalty points</p>
                   <p className="text-xs text-[#8f8f8f] mt-0.5">{loyalty.points} pts · up to {formatCurrency(loyalty.value)} off this visit</p>
                 </div>
-                <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-emerald-500" : "bg-[#2a2a2a]")}>
+                <span className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", redeemPoints ? "bg-white/40" : "bg-[#2a2a2a]")}>
                   <span className={cn("cw-knob absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", redeemPoints ? "left-[22px]" : "left-0.5")} />
                 </span>
               </button>
@@ -2195,16 +2195,16 @@ export default function BookingClient() {
 
             {/* Applied promo / gift stay visible even when the inputs are collapsed. */}
             {promoApplied && (
-              <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                <Check size={16} className="text-emerald-400" />
-                <span className="text-sm text-emerald-400 font-medium">
+              <div className="flex items-center gap-2 p-3 bg-white/10 border border-white/25 rounded-xl">
+                <Check size={16} className="text-white" />
+                <span className="text-sm text-white font-medium">
                   {promoApplied.code} applied · save {promoApplied.discount_type === "percent" ? `${promoApplied.discount_value}%` : formatCurrency(promoApplied.discount_value)}
                 </span>
               </div>
             )}
             {giftCard && (
-              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                <span className="text-sm text-emerald-400 font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
+              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-white/10 border border-white/25">
+                <span className="text-sm text-white font-medium">🎁 {giftCard.code} · {formatCurrency(giftCard.balance)} available</span>
                 <button onClick={() => { setGiftCard(null); setGiftCodeInput(""); setGiftError(""); }} className="text-xs text-[#8f8f8f] hover:text-white">Remove</button>
               </div>
             )}
@@ -2223,7 +2223,7 @@ export default function BookingClient() {
                       <div>
                         <div className="flex gap-2">
                           <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" aria-label="Promo code"
-                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-white/30 uppercase tracking-widest" />
                           <Button onClick={applyPromo} variant="outline" loading={promoLoading}>Apply</Button>
                         </div>
                         {promoError && <p className="text-xs text-red-400 mt-1">{promoError}</p>}
@@ -2233,7 +2233,7 @@ export default function BookingClient() {
                       <div>
                         <div className="flex gap-2">
                           <input type="text" value={giftCodeInput} onChange={(e) => setGiftCodeInput(e.target.value.toUpperCase())} placeholder="Gift card code" aria-label="Gift card code"
-                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-gold/30 uppercase tracking-widest" />
+                            className="flex-1 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#6e6e6e] focus:outline-none focus:ring-2 focus:ring-white/30 uppercase tracking-widest" />
                           <Button onClick={applyGift} variant="outline" loading={giftLoading}>Apply</Button>
                         </div>
                         {giftError && <p className="text-xs text-red-400 mt-1">{giftError}</p>}
@@ -2275,14 +2275,14 @@ export default function BookingClient() {
                 ))}
                 {promoApplied && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-emerald-400">Discount ({promoApplied.code})</span>
-                    <span className="text-emerald-400">-{formatCurrency(discount)}</span>
+                    <span className="text-white">Discount ({promoApplied.code})</span>
+                    <span className="text-white">-{formatCurrency(discount)}</span>
                   </div>
                 )}
                 {loyaltyDiscount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-emerald-400">Loyalty points</span>
-                    <span className="text-emerald-400">-{formatCurrency(loyaltyDiscount)}</span>
+                    <span className="text-white">Loyalty points</span>
+                    <span className="text-white">-{formatCurrency(loyaltyDiscount)}</span>
                   </div>
                 )}
                 {taxEnabled && taxLines.map((line) => (
@@ -2298,15 +2298,15 @@ export default function BookingClient() {
                 {giftApplied > 0 && (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-emerald-400">Gift card ({giftCard!.code})</span>
-                      <span className="text-emerald-400">-{formatCurrency(giftApplied)}</span>
+                      <span className="text-white">Gift card ({giftCard!.code})</span>
+                      <span className="text-white">-{formatCurrency(giftApplied)}</span>
                     </div>
                     <div className="flex justify-between font-bold pt-1 border-t border-[#2a2a2a]/50">
                       <span className="text-white">Amount due today</span>
                       <span className="text-white text-lg">{formatCurrency(amountDue)}</span>
                     </div>
                     {amountDue <= 0.5 && (
-                      <p className="text-xs text-emerald-400 text-right">✓ Fully covered by your gift card</p>
+                      <p className="text-xs text-white text-right">✓ Fully covered by your gift card</p>
                     )}
                   </>
                 )}
@@ -2321,7 +2321,7 @@ export default function BookingClient() {
                 <div className="grid grid-cols-1 gap-2">
                   <button type="button" onClick={() => setPayMethodChoice("online")}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "online" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "online" ? "bg-white text-black border-white/25" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">💳</span>
                     <span className="flex-1 text-sm font-semibold">Pay online now
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "online" ? "text-black/60" : "text-[#8f8f8f]")}>Secure card · add a tip</span>
@@ -2329,7 +2329,7 @@ export default function BookingClient() {
                   </button>
                   <button type="button" onClick={() => { setPayMethodChoice("in_person"); setTipPercent(0); }}
                     className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border text-left transition-all active:scale-[0.99]",
-                      payMethodChoice === "in_person" ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                      payMethodChoice === "in_person" ? "bg-white text-black border-white/25" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                     <span className="text-lg leading-none">🏪</span>
                     <span className="flex-1 text-sm font-semibold">Pay at the shop
                       <span className={cn("block text-xs font-normal mt-0.5", payMethodChoice === "in_person" ? "text-black/60" : "text-[#8f8f8f]")}>{payInPersonSavesCard ? "Add a card to hold your spot · not charged unless you no-show" : "No card needed · pay after your cut"}</span>
@@ -2349,7 +2349,7 @@ export default function BookingClient() {
                   {[0, 15, 18, 20].map((p) => (
                     <button key={p} type="button" onClick={() => setTipPercent(p)}
                       className={cn("py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95",
-                        tipPercent === p ? "bg-gold text-black border-gold" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
+                        tipPercent === p ? "bg-white text-black border-white/25" : "bg-[#141414] text-white border-[#242424] hover:border-[#3a3a3a]")}>
                       {p === 0 ? "No tip" : `${p}%`}
                     </button>
                   ))}
@@ -2419,7 +2419,7 @@ export default function BookingClient() {
               type="button"
               disabled={!canNext()}
               onClick={() => setStep(step + 1)}
-              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-white text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-white/90 transition-colors flex-shrink-0"
             >
               Continue <ChevronRight size={16} />
             </button>
@@ -2431,7 +2431,7 @@ export default function BookingClient() {
                 || (bothMethods && !payMethodChoice)
                 || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
               onClick={() => confirmBooking(effectiveMethod ?? undefined)}
-              className="rounded-full bg-gold text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-gold/90 transition-colors flex-shrink-0"
+              className="rounded-full bg-white text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-white/90 transition-colors flex-shrink-0"
             >
               {saving ? (
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -2475,7 +2475,7 @@ export default function BookingClient() {
                   onChange={e => setWaitlistForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Your name"
                   aria-label="Your name"
-                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white/25"
                 />
                 <input
                   value={waitlistForm.email}
@@ -2483,7 +2483,7 @@ export default function BookingClient() {
                   placeholder="Email"
                   aria-label="Email"
                   type="email"
-                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white/25"
                 />
                 <input
                   value={waitlistForm.phone}
@@ -2491,7 +2491,7 @@ export default function BookingClient() {
                   placeholder="Phone (for a text alert)"
                   aria-label="Phone number"
                   type="tel"
-                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold"
+                  className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-white/25"
                 />
                 <p className="text-[11px] text-[#8f8f8f] -mt-1">Add at least an email or phone.</p>
               </div>

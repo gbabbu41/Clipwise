@@ -99,7 +99,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/25 border-t-emerald-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -112,7 +112,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
           <Scissors size={40} className="text-grey mx-auto mb-4" />
           <h1 className="text-xl font-bold text-foreground mb-2">Couldn&apos;t load this page</h1>
           <p className="text-grey text-sm mb-4">Check your connection and try again.</p>
-          <Button className="bg-emerald-500 hover:bg-emerald-600 text-black" onClick={() => load()}>Try again</Button>
+          <Button className="bg-white hover:bg-white/90 text-black" onClick={() => load()}>Try again</Button>
         </div>
       </div>
     );
@@ -135,9 +135,9 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
         <Logo size="md" className="justify-center mb-8" />
-        <div className="bg-card border border-emerald-500/30 rounded-2xl p-8 max-w-sm">
-          <div className="w-16 h-16 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check size={32} className="text-emerald-400" />
+        <div className="bg-card border border-white/25 rounded-2xl p-8 max-w-sm">
+          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check size={32} className="text-white" />
           </div>
           <h1 className="text-xl font-bold text-foreground mb-2">
             {submitted ? "Thanks for your review!" : "Already reviewed"}
@@ -166,8 +166,8 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
         <Logo size="md" className="justify-center mb-8" />
         <div className="bg-card border border-border rounded-2xl p-8 max-w-sm">
-          <div className="w-16 h-16 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CalendarClock size={30} className="text-emerald-400" />
+          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CalendarClock size={30} className="text-white" />
           </div>
           <h1 className="text-xl font-bold text-foreground mb-2">You&rsquo;re all booked!</h1>
           <p className="text-grey text-sm">
@@ -189,7 +189,7 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
 
         <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 text-emerald-400 text-2xl font-extrabold">
+            <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/25 flex items-center justify-center mx-auto mb-4 text-white text-2xl font-extrabold">
               {initial}
             </div>
             <h1 className="text-xl font-bold text-foreground">{appt.shops?.name}</h1>
@@ -256,13 +256,13 @@ function ReviewContent({ shopslug }: { shopslug: string }) {
               rows={3}
               maxLength={500}
               placeholder="Tell others about your experience…"
-              className="w-full bg-card-raised border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500/50 resize-none"
+              className="w-full bg-card-raised border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-white/30 resize-none"
             />
             <p className="text-xs text-grey mt-1 text-right">{comment.length}/500</p>
           </div>
 
           <Button
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-black disabled:opacity-50"
+            className="w-full bg-white hover:bg-white/90 text-black disabled:opacity-50"
             disabled={rating === 0}
             loading={submitting}
             onClick={submitReview}
@@ -284,7 +284,7 @@ export default function ReviewPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/25 border-t-emerald-400 rounded-full animate-spin" />
       </div>
     }>
       <ReviewContent shopslug={shopslug} />

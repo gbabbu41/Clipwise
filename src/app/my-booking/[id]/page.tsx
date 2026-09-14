@@ -147,7 +147,7 @@ export default function MyBookingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/25 border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }
@@ -202,8 +202,8 @@ export default function MyBookingPage() {
           <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
-                <Scissors size={28} className="text-emerald-400" />
+              <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/25 flex items-center justify-center mx-auto mb-4">
+                <Scissors size={28} className="text-white" />
               </div>
               <h1 className="text-xl font-bold text-white">{appt.shops?.name}</h1>
               <p className="text-grey-muted text-sm mt-1">Booking for {appt.client_name}</p>
@@ -217,8 +217,8 @@ export default function MyBookingPage() {
               <p className="text-xs text-grey uppercase tracking-wider font-medium">Appointment Details</p>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <Calendar size={15} className="text-emerald-400" />
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Calendar size={15} className="text-white" />
                   </div>
                   <div>
                     <p className="text-xs text-grey">Date</p>
@@ -228,8 +228,8 @@ export default function MyBookingPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <Clock size={15} className="text-emerald-400" />
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Clock size={15} className="text-white" />
                   </div>
                   <div>
                     <p className="text-xs text-grey">Time</p>
@@ -238,8 +238,8 @@ export default function MyBookingPage() {
                 </div>
                 {appt.barbers && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                      <User size={15} className="text-emerald-400" />
+                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <User size={15} className="text-white" />
                     </div>
                     <div>
                       <p className="text-xs text-grey">Barber</p>
@@ -249,8 +249,8 @@ export default function MyBookingPage() {
                 )}
                 {appt.services && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                      <Scissors size={15} className="text-emerald-400" />
+                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <Scissors size={15} className="text-white" />
                     </div>
                     <div>
                       <p className="text-xs text-grey">Service</p>
@@ -260,7 +260,7 @@ export default function MyBookingPage() {
                 )}
                 <div className="pt-3 border-t border-border flex justify-between">
                   <span className="text-sm text-grey-muted">Total</span>
-                  <span className="text-emerald-400 font-bold">{formatCurrency(appt.total_amount)}</span>
+                  <span className="text-white font-bold">{formatCurrency(appt.total_amount)}</span>
                 </div>
               </div>
             </div>
@@ -270,11 +270,11 @@ export default function MyBookingPage() {
               <div className="bg-surface border border-border rounded-2xl p-4 space-y-2">
                 <p className="text-xs text-grey uppercase tracking-wider font-medium">Shop Info</p>
                 <div className="flex items-center gap-2 text-sm text-grey-muted">
-                  <MapPin size={13} className="text-emerald-400 flex-shrink-0" />
+                  <MapPin size={13} className="text-white flex-shrink-0" />
                   {appt.shops.address}, {appt.shops.city}, {appt.shops.province}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-grey-muted">
-                  <Phone size={13} className="text-emerald-400 flex-shrink-0" />
+                  <Phone size={13} className="text-white flex-shrink-0" />
                   {formatPhone(appt.shops.phone)}
                 </div>
               </div>
@@ -349,7 +349,7 @@ export default function MyBookingPage() {
                   To change this booking, please contact the shop directly.
                 </p>
                 {appt.shops?.phone && (
-                  <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-white transition-colors pt-1">
+                  <a href={`tel:${appt.shops.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-white hover:text-white transition-colors pt-1">
                     <Phone size={14} /> {formatPhone(appt.shops.phone)}
                   </a>
                 )}
@@ -357,7 +357,7 @@ export default function MyBookingPage() {
             )}
 
             <div className="text-center">
-              <a href={`/book/${appt.shops?.slug ?? ""}`} className="text-sm text-emerald-400 hover:text-white transition-colors">
+              <a href={`/book/${appt.shops?.slug ?? ""}`} className="text-sm text-white hover:text-white transition-colors">
                 Book another appointment →
               </a>
             </div>
@@ -392,7 +392,7 @@ export default function MyBookingPage() {
                       onClick={() => { setNewDate(d); loadSlots(d); }}
                       className={cn(
                         "p-2 rounded-xl border text-center transition-all",
-                        isSelected ? "border-emerald-500 bg-emerald-500/15 text-emerald-400" : "border-border text-grey-muted hover:border-emerald-500/30 hover:text-white"
+                        isSelected ? "border-white/25 bg-white/10 text-white" : "border-border text-grey-muted hover:border-white/25 hover:text-white"
                       )}
                     >
                       <p className="text-xs">{d.toLocaleDateString("en-CA", { weekday: "short" })}</p>
@@ -410,7 +410,7 @@ export default function MyBookingPage() {
                 <p className="text-sm font-medium text-grey mb-3">Select a new time</p>
                 {slotsLoading ? (
                   <div className="flex justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-foreground rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-white/25 border-t-foreground rounded-full animate-spin" />
                   </div>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-grey text-center py-4">No available slots for this date.</p>
@@ -422,7 +422,7 @@ export default function MyBookingPage() {
                         onClick={() => setNewTime(s.slot)}
                         className={cn(
                           "py-2.5 rounded-xl border text-sm font-medium transition-all",
-                          newTime === s.slot ? "border-emerald-500 bg-emerald-500/15 text-emerald-400" : "border-border text-grey hover:border-emerald-500/30"
+                          newTime === s.slot ? "border-white/25 bg-white/10 text-white" : "border-border text-grey hover:border-white/25"
                         )}
                       >
                         {s.slot}
@@ -449,7 +449,7 @@ export default function MyBookingPage() {
 
         <div className="mt-8 text-center">
           <p className="text-xs text-grey">
-            Powered by <span className="text-emerald-400 font-semibold">ClipWise</span>
+            Powered by <span className="text-white font-semibold">ClipWise</span>
           </p>
         </div>
       </div>
