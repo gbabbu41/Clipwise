@@ -204,8 +204,8 @@ export default function SignupPage() {
         body: JSON.stringify({ name: `${firstName}'s Barbershop`, phone: form.phone.trim() || undefined }),
       });
     } catch { /* non-fatal — dashboard shows a "set up my shop" fallback if it didn't create */ }
-    if (typeof window !== "undefined") window.location.href = "/dashboard";
-    else router.push("/dashboard");
+    if (typeof window !== "undefined") window.location.href = "/dashboard/calendar";
+    else router.push("/dashboard/calendar");
   };
 
   const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {

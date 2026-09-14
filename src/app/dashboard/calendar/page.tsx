@@ -2,6 +2,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarView } from "@/components/calendar-view";
+import { CalendarSetupNudge } from "@/components/dashboard/calendar-setup-nudge";
 
 // Reads optional deep-link params from the dashboard mini-calendar:
 //   ?date=YYYY-MM-DD   → jump the calendar to that day
@@ -23,6 +24,7 @@ export default function CalendarPage() {
   return (
     <Suspense fallback={null}>
       <CalendarInner />
+      <CalendarSetupNudge />
     </Suspense>
   );
 }
