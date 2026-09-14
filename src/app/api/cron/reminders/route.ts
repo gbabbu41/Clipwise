@@ -75,7 +75,7 @@ async function run() {
 
   const { data: shops } = await supabaseAdmin
     .from("shops")
-    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone");
+    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone, google_place_id");
   if (!shops?.length) return NextResponse.json({ ok: true, shops: 0 });
 
   let emails = 0, texts = 0, retagged = 0, sends = 0;
@@ -241,6 +241,98 @@ async function run() {
         await sendEmail("birthday_wish", {
           clientEmail: c.email, clientName: c.name ?? "there", shopName: shop.name,
           shopEmail: shop.email, bookingUrl,
+        });
+        emails++; sends++;
+      }
+    }
+
+    // Barber + service lookups for this shop — used by the review safety-net and
+    // the Monday weekly digest below. Small tables; one cheap read each.
+    const barberNameById = new Map<string, string>();
+    const activeBarbers: { id: string; name: string; email: string }[] = [];
+    {
+      const { data: barberRows } = await supabaseAdmin
+        .from("barbers").select("id, name, email, is_active").eq("shop_id", shop.id);
+      for (const b of barberRows ?? []) {
+        barberNameById.set(b.id, b.name ?? "Your barber");
+        if (b.is_active !== false && b.email) activeBarbers.push({ id: b.id, name: b.name ?? "there", email: b.email });
+      }
+    }
+    const serviceNameById = new Map<string, string>();
+    {
+      const { data: svcRows } = await supabaseAdmin.from("services").select("id, name").eq("shop_id", shop.id);
+      for (const s of svcRows ?? []) serviceNameById.set(s.id, s.name ?? "Your service");
+    }
+
+    // ── Review requests — morning-after safety-net ──────────────────────────
+    // A "how was your visit?" the morning after an appointment that HAPPENED
+    // (completed, or confirmed-and-past — never cancelled/no-show/pending). This
+    // is what finally covers CASH / in-person visits the barber never taps
+    // "Complete" on. review_request_sent_at (set here AND by the immediate
+    // Complete-button / online-paid sends) guarantees a customer is asked once.
+    if (sends < MAX_SENDS) {
+      const yesterday = shiftYmd(today, -1);
+      const { data: visited } = await supabaseAdmin
+        .from("appointments")
+        .select("id, client_name, client_email, barber_id, service_id")
+        .eq("shop_id", shop.id).eq("date", yesterday)
+        .in("status", ["completed", "confirmed"])
+        .is("review_request_sent_at", null)
+        .not("client_email", "is", null);
+      for (const a of visited ?? []) {
+        if (sends >= MAX_SENDS) break;
+        if (!a.client_email) continue;
+        await sendEmail("review_request", {
+          clientName: a.client_name ?? "there", clientEmail: a.client_email,
+          shopName: shop.name, shopEmail: shop.email,
+          barberName: a.barber_id ? (barberNameById.get(a.barber_id) ?? "Your barber") : "Your barber",
+          serviceName: a.service_id ? (serviceNameById.get(a.service_id) ?? "Your service") : "Your service",
+          reviewUrl: `${BASE_URL}/book/${shop.slug ?? ""}/review?booking=${a.id}`,
+          appointmentId: a.id,
+          googlePlaceId: (shop as { google_place_id?: string }).google_place_id ?? "",
+        });
+        await supabaseAdmin.from("appointments")
+          .update({ review_request_sent_at: new Date().toISOString() }).eq("id", a.id).then(null, () => null);
+        emails++; sends++;
+      }
+    }
+
+    // ── Weekly schedule digest — Monday mornings, per active barber ──────────
+    // Each barber with appointments in the coming 7 days gets a Monday digest of
+    // their week. Barbers with an empty week are skipped so it's never spam.
+    const isMonday = new Date(today + "T00:00:00Z").getUTCDay() === 1;
+    if (isMonday && activeBarbers.length && sends < MAX_SENDS) {
+      const weekEnd = shiftYmd(today, 6);
+      const { data: weekAppts } = await supabaseAdmin
+        .from("appointments")
+        .select("id, date, time_slot, client_name, barber_id, service_id")
+        .eq("shop_id", shop.id).gte("date", today).lte("date", weekEnd)
+        .in("status", ["pending", "confirmed"])
+        .order("date", { ascending: true });
+      const byBarber = new Map<string, { date: string; time_slot: string | null; client_name: string | null; service_id: string | null }[]>();
+      for (const a of weekAppts ?? []) {
+        if (!a.barber_id) continue;
+        if (!byBarber.has(a.barber_id)) byBarber.set(a.barber_id, []);
+        byBarber.get(a.barber_id)!.push(a);
+      }
+      for (const b of activeBarbers) {
+        if (sends >= MAX_SENDS) break;
+        const appts = byBarber.get(b.id) ?? [];
+        if (!appts.length) continue; // no empty-week spam
+        let scheduleHtml = "";
+        let lastDate = "";
+        for (const a of appts) {
+          if (a.date !== lastDate) {
+            scheduleHtml += `<p style="font-weight:700;color:#111827;margin:14px 0 4px">${prettyDate(a.date)}</p>`;
+            lastDate = a.date;
+          }
+          const svc = a.service_id ? (serviceNameById.get(a.service_id) ?? "") : "";
+          scheduleHtml += `<div class="row"><span class="label">${a.time_slot ?? ""}</span><span class="val">${a.client_name ?? "—"}${svc ? " · " + svc : ""}</span></div>`;
+        }
+        scheduleHtml += `<p style="margin-top:14px;font-size:13px;color:#6B7280">${appts.length} appointment${appts.length === 1 ? "" : "s"} booked so far this week.</p>`;
+        await sendEmail("weekly_schedule", {
+          barberEmail: b.email, barberName: b.name, shopName: shop.name, shopEmail: shop.email ?? "",
+          scheduleHtml,
         });
         emails++; sends++;
       }

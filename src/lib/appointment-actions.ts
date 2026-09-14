@@ -89,7 +89,10 @@ export async function runCompletionEffects(
       body: JSON.stringify({ appointment_id: appt.id }),
     }).catch(() => null);
   }
-  if (appt.client_email) {
+  // Send the review request now — unless one was already sent (the daily cron's
+  // morning-after safety-net may have beaten us to it) — and stamp
+  // review_request_sent_at so the cron won't ask the customer a second time.
+  if (appt.client_email && !(appt as { review_request_sent_at?: string | null }).review_request_sent_at) {
     fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
@@ -108,6 +111,8 @@ export async function runCompletionEffects(
         },
       }),
     }).catch(() => null);
+    supabase.from("appointments")
+      .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
   }
 }
 

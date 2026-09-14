@@ -119,8 +119,10 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
     }
   }
 
-  // Review-request email.
-  if (appt.client_email) {
+  // Review-request email. Skip if one was already sent (the daily cron's
+  // morning-after safety-net), and stamp review_request_sent_at so it doesn't
+  // fire a second one.
+  if (appt.client_email && !(appt as { review_request_sent_at?: string | null }).review_request_sent_at) {
     const svcName = Array.isArray(appt.services) ? (appt.services[0]?.name ?? "") : ((appt.services as { name?: string } | null)?.name ?? "");
     const barberName = Array.isArray(appt.barbers) ? (appt.barbers[0]?.name ?? "Your barber") : ((appt.barbers as { name?: string } | null)?.name ?? "Your barber");
     await fetch(`${baseUrl}/api/send-email`, {
@@ -141,5 +143,7 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
         },
       }),
     }).catch(() => null);
+    await supabaseAdmin.from("appointments")
+      .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
   }
 }
