@@ -1,4 +1,4 @@
-// The public marketing theme (the "new" black/emerald look), lifted verbatim from
+// The public marketing theme (black + monochrome white accent), lifted from
 // the designed landing page and SCOPED under `.mkt` so it can never leak into the
 // dashboard / barber / admin portals (which keep their own look). Any public
 // marketing page renders inside <div className="mkt"> with this CSS injected once.
@@ -20,7 +20,7 @@ html{scroll-behavior:smooth}
   --bg:#000; --s1:#08080A; --s2:#0E0E11;
   --line:#17171B; --line2:#24242A;
   --t1:#F5F4F7; --t2:#9B9BA5; --t3:#82828C; --t4:#5A5A63;
-  --ok:#3BD1A1; --warn:#E0B341;
+  --ok:#F5F4F7; --warn:#E0B341;
   --max:1120px;
   --font:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -220,7 +220,7 @@ html{scroll-behavior:smooth}
 .mkt .prob{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:20px}
 .mkt .prob .ph{display:flex;align-items:flex-start;gap:10px;font-weight:600;color:var(--t1);font-size:15px;margin:0}
 .mkt .prob .pq{font-size:12.5px;color:var(--t3);font-style:italic;margin:10px 0 0 26px;border-left:1px solid var(--line2);padding-left:12px;line-height:1.5}
-.mkt .prob .pf{display:flex;align-items:flex-start;gap:10px;margin:12px 0 0 26px;padding:12px;background:rgba(59,209,161,.06);border:1px solid rgba(59,209,161,.18);border-radius:12px;font-size:14px;color:var(--t2);line-height:1.5}
+.mkt .prob .pf{display:flex;align-items:flex-start;gap:10px;margin:12px 0 0 26px;padding:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;font-size:14px;color:var(--t2);line-height:1.5}
 .mkt .cmp-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--s1)}
 .mkt .cmp{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
 .mkt .cmp th,.mkt .cmp td{padding:14px 18px;text-align:center;border-bottom:1px solid var(--line)}
@@ -255,7 +255,7 @@ html{scroll-behavior:smooth}
 .mkt .scard .book{color:var(--ok);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:5px}
 .mkt .sk{background:var(--s1);border:1px solid var(--line);border-radius:18px;height:190px;animation:mktpulse 1.2s ease-in-out infinite}
 @keyframes mktpulse{0%,100%{opacity:1}50%{opacity:.5}}
-.mkt .logo-fb{width:52px;height:52px;border-radius:12px;background:rgba(59,209,161,.14);border:1px solid rgba(59,209,161,.28);display:grid;place-items:center;flex:none}
+.mkt .logo-fb{width:52px;height:52px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);display:grid;place-items:center;flex:none}
 
 /* auth / entry pages (login, signup, password, join) — themed, minimal chrome.
    No pricing/signup nav here on purpose: the login screen renders inside the
@@ -281,7 +281,7 @@ html{scroll-behavior:smooth}
 .mkt .pill.full{display:block;width:100%;border:none;cursor:pointer;font-family:var(--font)}
 .mkt .pill.full:disabled{opacity:.6;cursor:not-allowed}
 .mkt .err{display:flex;align-items:flex-start;gap:8px;background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.28);border-radius:12px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;color:#ff8a8a;line-height:1.45}
-.mkt .ok{display:flex;align-items:flex-start;gap:8px;background:rgba(59,209,161,.1);border:1px solid rgba(59,209,161,.28);border-radius:12px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;color:#7fe6c4;line-height:1.45}
+.mkt .ok{display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;color:#F5F4F7;line-height:1.45}
 .mkt .authfoot{text-align:center;font-size:14px;color:var(--t3);margin-top:20px}
 .mkt .authfoot a{color:var(--t1);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .mkt .authrow{display:flex;align-items:center;justify-content:space-between;gap:10px}

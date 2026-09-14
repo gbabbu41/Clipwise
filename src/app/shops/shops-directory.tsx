@@ -103,7 +103,7 @@ export function ShopsDirectory() {
       {/* hero + search */}
       <section className="blk dir" style={{ paddingBottom: "clamp(32px,5vw,56px)" }}>
         <div className="wrap center" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-          <span className="badge-warn" style={{ color: "var(--ok)", background: "rgba(59,209,161,.1)", borderColor: "rgba(59,209,161,.25)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className="badge-warn" style={{ color: "var(--ok)", background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.16)", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Scissors size={14} /> Find your barber
           </span>
           <h1 style={{ fontSize: "clamp(30px,4.6vw,48px)", fontWeight: 700, letterSpacing: "-.035em", lineHeight: 1.08, margin: 0 }}>Book your next cut</h1>

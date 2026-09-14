@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
     <AuthShell title="Reset your password" subtitle="We&rsquo;ll send you a link to reset it">
       {sent ? (
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(59,209,161,.14)", borderColor: "rgba(59,209,161,.28)" }}><Check size={22} style={{ color: "var(--ok)" }} /></div>
+          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", borderColor: "rgba(255,255,255,.16)" }}><Check size={22} style={{ color: "var(--ok)" }} /></div>
           <p style={{ fontWeight: 600, color: "var(--t1)" }}>Check your inbox</p>
           <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>We sent a password reset link to <strong style={{ color: "var(--t1)" }}>{email}</strong></p>
           <p className="authfoot" style={{ marginTop: 6 }}><Link href="/login">Back to sign in</Link></p>

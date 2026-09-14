@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
     <AuthShell title="Set new password" subtitle="Choose a strong password for your account">
       {done ? (
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(59,209,161,.14)", borderColor: "rgba(59,209,161,.28)" }}><Check size={22} style={{ color: "var(--ok)" }} /></div>
+          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", borderColor: "rgba(255,255,255,.16)" }}><Check size={22} style={{ color: "var(--ok)" }} /></div>
           <p style={{ fontWeight: 600, color: "var(--t1)" }}>Password updated!</p>
           <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>Redirecting you to sign in…</p>
         </div>

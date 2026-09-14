@@ -45,7 +45,7 @@ function Problems({ items }: { items: typeof squireProblems }) {
         <div className="prob" key={i}>
           <p className="ph"><X size={16} className="text-red-400" style={{ flex: "none", marginTop: 2 }} />{item.problem}</p>
           <p className="pq">{item.quote}</p>
-          <div className="pf"><Check size={14} className="text-emerald-400" style={{ flex: "none", marginTop: 2 }} />{item.fix}</div>
+          <div className="pf"><Check size={14} className="text-white" style={{ flex: "none", marginTop: 2 }} />{item.fix}</div>
         </div>
       ))}
     </div>
@@ -105,7 +105,7 @@ export default function WhyClipWisePage() {
                       <td key={j}>
                         {typeof val === "boolean"
                           ? val
-                            ? <Check size={17} style={{ margin: "0 auto", color: j === 0 ? "var(--ok)" : "#3BD1A1" }} />
+                            ? <Check size={17} style={{ margin: "0 auto", color: j === 0 ? "var(--ok)" : "#F5F4F7" }} />
                             : <X size={17} style={{ margin: "0 auto", color: "rgba(255,90,90,.45)" }} />
                           : <span className={j === 0 ? "cw" : "muted"} style={{ fontWeight: 600 }}>{val}</span>}
                       </td>

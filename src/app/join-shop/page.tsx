@@ -93,7 +93,7 @@ export default function JoinShopPage() {
       <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
 
       {toast && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 100, background: "rgba(59,209,161,.14)", border: "1px solid rgba(59,209,161,.35)", borderRadius: 12, padding: "12px 18px", fontSize: 14, color: "#7fe6c4", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
+        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 100, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 12, padding: "12px 18px", fontSize: 14, color: "#F5F4F7", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
           <Check size={15} /> {toast}
         </div>
       )}
@@ -108,7 +108,7 @@ export default function JoinShopPage() {
 
       <section className="blk" style={{ paddingTop: "clamp(36px,6vw,64px)", paddingBottom: "clamp(28px,4vw,44px)" }}>
         <div className="wrap center" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <span className="badge-warn" style={{ color: "var(--ok)", background: "rgba(59,209,161,.1)", borderColor: "rgba(59,209,161,.25)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className="badge-warn" style={{ color: "var(--ok)", background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.16)", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Scissors size={14} /> Join a barbershop
           </span>
           <h1 style={{ fontSize: "clamp(26px,4vw,38px)", fontWeight: 700, letterSpacing: "-.03em", margin: 0 }}>Find your next barbershop</h1>
@@ -154,7 +154,7 @@ export default function JoinShopPage() {
               {filtered.map(shop => {
                 const requested = requestedIds.has(shop.id);
                 return (
-                  <div key={shop.id} className="scard" style={{ transform: "none", borderColor: requested ? "rgba(59,209,161,.3)" : undefined }}>
+                  <div key={shop.id} className="scard" style={{ transform: "none", borderColor: requested ? "rgba(255,255,255,.28)" : undefined }}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                       <div>
                         <p className="nm" style={{ fontSize: 16 }}>{shop.name}</p>

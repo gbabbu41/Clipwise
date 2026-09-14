@@ -208,7 +208,7 @@ export default function SignupPage() {
   }
 
   const onCodeStep = selectedRole && step === "code";
-  const pwColor = pwStrength.strength === "strong" ? "#3BD1A1" : pwStrength.strength === "medium" ? "#E0B341" : "#ff6b6b";
+  const pwColor = pwStrength.strength === "strong" ? "#F5F4F7" : pwStrength.strength === "medium" ? "#E0B341" : "#ff6b6b";
   const badBorder = { borderColor: "rgba(255,90,90,.55)" };
 
   return (
@@ -221,7 +221,7 @@ export default function SignupPage() {
       {/* ── Code entry step ── */}
       {onCodeStep && (
         <div>
-          <div className="logo-fb" style={{ margin: "0 auto 14px", background: "rgba(59,209,161,.12)", borderColor: "rgba(59,209,161,.28)" }}><ShieldCheck size={26} style={{ color: "var(--ok)" }} /></div>
+          <div className="logo-fb" style={{ margin: "0 auto 14px", background: "rgba(255,255,255,.07)", borderColor: "rgba(255,255,255,.16)" }}><ShieldCheck size={26} style={{ color: "var(--ok)" }} /></div>
           <h2 style={{ textAlign: "center", fontSize: 20 }}>Verify your email</h2>
           <p className="lead" style={{ textAlign: "center", fontSize: 14, marginTop: 6 }}>
             We emailed a 6-digit code to <strong style={{ color: "var(--t1)" }}>{form.email}</strong>. Enter it to finish — your account is created only after this step.
