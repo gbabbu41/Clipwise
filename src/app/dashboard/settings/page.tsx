@@ -1413,7 +1413,7 @@ export default function SettingsPage() {
                   <input
                     value={templates[key].subject}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], subject: e.target.value } }))}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                    className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1422,7 +1422,7 @@ export default function SettingsPage() {
                     rows={5}
                     value={templates[key].body}
                     onChange={e => setTemplates(prev => ({ ...prev, [key]: { ...prev[key], body: e.target.value } }))}
-                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none font-mono"
+                    className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none font-mono"
                   />
                 </div>
               </CardContent>
