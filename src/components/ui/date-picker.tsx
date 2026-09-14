@@ -37,13 +37,13 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
 
   return (
     <div className={cn("space-y-1.5", className)} ref={wrapRef}>
-      {label && <label className="text-sm font-medium text-gray-300">{label}</label>}
+      {label && <label className="text-sm font-medium text-grey">{label}</label>}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         className={cn(
-          "w-full flex items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm text-left transition-all",
-          "hover:border-gold/40 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50",
+          "w-full flex items-center gap-3 rounded-xl border border-border-strong bg-surface-sunken px-4 py-2.5 text-sm text-left transition-all",
+          "hover:border-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/25 focus:border-foreground",
           value ? "text-foreground" : "text-grey",
         )}
       >

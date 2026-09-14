@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 //                has no chair yet, adds them as a barber first (commission 0),
 //                so a brand-new solo shop can set hours in one go.
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const inputCls = "w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-grey focus:outline-none focus:border-gold/50";
+const inputCls = "w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground";
 
 export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onClose: () => void }) {
   const { shop, user, profile, accessToken, refreshShop } = useAuth();

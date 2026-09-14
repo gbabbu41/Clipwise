@@ -1124,7 +1124,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         onChange={e => setPayEmail(e.target.value)}
                         placeholder="Customer email (for the link)"
                         autoFocus
-                        className="w-full bg-surface-overlay border border-border rounded-xl px-3.5 py-3 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-border"
+                        className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
                       />
                       <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
                     </>

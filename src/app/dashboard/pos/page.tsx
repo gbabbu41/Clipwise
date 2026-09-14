@@ -880,7 +880,7 @@ export default function POSPage() {
             })}
           </div>
           <div className="flex gap-2">
-            <div className="flex-1 flex items-center gap-1 rounded-xl border border-border bg-surface-overlay px-3">
+            <div className="flex-1 flex items-center gap-1 rounded-xl border border-border-strong bg-surface-overlay px-3">
               <span className="text-grey-muted text-sm">$</span>
               <input type="number" inputMode="decimal" placeholder="Custom tip" value={customTip}
                 onChange={e => { setCustomTip(e.target.value); setTipPercent(null); }}
@@ -1054,7 +1054,7 @@ export default function POSPage() {
             {inventory.length > 0 && posTab === "products" && (
               <>
                 {inventory.length > 6 && (
-                  <div className="flex items-center gap-2 rounded-xl border border-border bg-card-raised px-3 mb-3">
+                  <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-sunken px-3 mb-3">
                     <Search size={15} className="text-grey shrink-0" />
                     <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
                       placeholder="Search products"
@@ -1208,7 +1208,7 @@ export default function POSPage() {
 
             {/* Search */}
             <div className="shrink-0 p-3 border-b border-border">
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-card-raised px-3">
+              <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-sunken px-3">
                 <Search size={15} className="text-grey flex-shrink-0" />
                 <input value={clientSearch} onChange={e => setClientSearch(e.target.value)}
                   placeholder="Search name, email, or phone"

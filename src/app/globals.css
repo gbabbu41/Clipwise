@@ -57,6 +57,9 @@
      reads as glass (the marketing nav's language). Used only where a blur is
      guaranteed via @supports; opaque --surface is the fallback everywhere else. */
   --nav-glass:      rgba(16,17,20,0.72);
+  /* Neutral focus ring for inputs (replaces black rings that were invisible on
+     the dark portal). Theme-scoped so it stays visible in light too. */
+  --focus-ring:     rgba(237,237,238,0.30);
   --surface-overlay:#282a2e;  /* tier 3 (hover fills, menus) — above the chips */
   --surface-sunken: #0b0c0e;  /* recessed — a subtle step below the lifted page ground */
   --border:         #1f2023;  /* near-invisible hairline — barely lifts off a card */
@@ -84,6 +87,7 @@ html[data-theme="light"] .portal {
   --surface:        #ffffff;
   --surface-raised: #f1f2f4;
   --nav-glass:      rgba(255,255,255,0.72);  /* light-theme frosted bottom nav */
+  --focus-ring:     rgba(26,26,26,0.22);     /* light-theme input focus ring */
   --surface-overlay:#eaebed;  /* hover fills / menus */
   --surface-sunken: #edeef0;  /* recessed (calendar canvas) */
   --border:         #e6e8ec;  /* light hairline — defines bordered cards + inputs on the white ground */
@@ -323,6 +327,40 @@ html[data-theme="light"] .portal .\[color-scheme\:dark\] { color-scheme: light; 
 
 /* Invisible white focus rings on light → visible hairline. */
 html[data-theme="light"] .portal .focus\:border-white:focus { border-color: var(--border-strong); }
+
+/* ── Form-field contrast (app-wide) ────────────────────────────────────────
+   Many raw <input>/<select>/<textarea> were styled with a fill of --card /
+   --card-raised / --surface / --surface-raised — the SAME tone as the panel they
+   sit on — plus the near-invisible --border hairline, so the field edges vanished
+   (worst in the light .portal theme, where a card is #fff). Rather than touch
+   100+ callsites, these element-scoped rules recess every such field into a
+   --surface-sunken well with a visible --border-strong edge, in BOTH themes.
+   Because each selector is `element.utility`, its specificity (0,1,1) beats the
+   bare Tailwind utility (0,1,0) AND it can only ever match a real form control —
+   never a card/div/button that happens to use the same utility. Fields already on
+   the right convention (bg-surface-sunken / border-border-strong, the shared
+   .form-control, or the scoped .mkt marketing inputs) don't match these, so they
+   are left exactly as they are. */
+input.bg-card,           select.bg-card,           textarea.bg-card,
+input.bg-card-raised,    select.bg-card-raised,    textarea.bg-card-raised,
+input.bg-surface,        select.bg-surface,        textarea.bg-surface,
+input.bg-surface-raised, select.bg-surface-raised, textarea.bg-surface-raised {
+  background-color: var(--surface-sunken);
+}
+input.border-border, select.border-border, textarea.border-border {
+  border-color: var(--border-strong);
+}
+/* Focus states that were invisible on the dark portal (black) or off-brand (the
+   one teal accent) → a neutral, always-visible foreground focus. */
+input.focus\:border-black:focus,  select.focus\:border-black:focus,  textarea.focus\:border-black:focus,
+input.focus\:border-\[\#00e5a0\]\/50:focus,
+select.focus\:border-\[\#00e5a0\]\/50:focus,
+textarea.focus\:border-\[\#00e5a0\]\/50:focus {
+  border-color: var(--foreground);
+}
+input.focus\:ring-black\/20:focus, select.focus\:ring-black\/20:focus, textarea.focus\:ring-black\/20:focus {
+  --tw-ring-color: var(--focus-ring);
+}
 
 /* Dark muted-label hexes not caught above → readable secondary. */
 html[data-theme="light"] .portal :is(.text-\[\#444\],.text-\[\#8f8f8f\],.text-\[\#777\]) { color: var(--grey); }
