@@ -1,9 +1,14 @@
-"use client";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, ArrowRight, Scissors } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Check, X, Scissors } from "lucide-react";
+import { MarketingShell } from "@/components/marketing/shell";
+
+export const metadata: Metadata = {
+  title: "Why ClipWise — built for barbers, not a marketplace",
+  description:
+    "Real complaints from barbers about Squire and Booksy — and how ClipWise fixes every one: $0 client booking fees, 0% commission, no marketplace, no contracts.",
+  alternates: { canonical: "https://clipwise.ca/why-clipwise" },
+};
 
 const squireProblems = [
   { problem: "Charges your clients $1–5 per booking", quote: '"fees mounted up to nearly $5 per client after booking online" — barber, Capterra', fix: "ClipWise charges $0 in client-side booking fees. Ever." },
@@ -21,7 +26,7 @@ const booksyProblems = [
   { problem: "Clients become loyal to Booksy, not to you", quote: '"Clients can end up loyal to Booksy rather than to you specifically" — Goldie comparison', fix: "Clients book directly through your page. They remember your shop — not ours." },
 ];
 
-const comparison = [
+const comparison: { feature: string; clipwise: string | boolean; squire: string | boolean; booksy: string | boolean }[] = [
   { feature: "Client-side booking fees", clipwise: "$0 — none ever", squire: "$1–5 per booking", booksy: "30% Boost commission" },
   { feature: "No app download for clients", clipwise: true, squire: false, booksy: false },
   { feature: "No competitor marketplace", clipwise: true, squire: false, booksy: false },
@@ -33,136 +38,101 @@ const comparison = [
   { feature: "Starting price", clipwise: "Free", squire: "No public pricing", booksy: "$29.99/mo + fees" },
 ];
 
+function Problems({ items }: { items: typeof squireProblems }) {
+  return (
+    <div className="probs">
+      {items.map((item, i) => (
+        <div className="prob" key={i}>
+          <p className="ph"><X size={16} className="text-red-400" style={{ flex: "none", marginTop: 2 }} />{item.problem}</p>
+          <p className="pq">{item.quote}</p>
+          <div className="pf"><Check size={14} className="text-emerald-400" style={{ flex: "none", marginTop: 2 }} />{item.fix}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function WhyClipWisePage() {
   return (
-    <div className="min-h-screen bg-background text-white">
-      {/* Nav */}
-      <nav className="border-b border-border/50 bg-background/80 backdrop-blur-md px-4 lg:px-8 h-16 flex items-center justify-between max-w-7xl mx-auto">
-        <Link href="/"><Logo size="sm" /></Link>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="hidden sm:block"><Button variant="ghost" size="sm">Log in</Button></Link>
-          <Link href="/signup"><Button size="sm">Get Started Free</Button></Link>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section className="py-20 px-4 text-center max-w-3xl mx-auto">
-        <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-full px-4 py-1.5 text-sm text-red-400 mb-6">
-          Barbers deserve better software
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-          Why barbers are switching<br />
-          <span className="gold-text">to ClipWise</span>
-        </h1>
-        <p className="text-[#8f8f8f] text-lg mb-8 leading-relaxed">
-          Real complaints from real barbers about Squire and Booksy — and exactly how ClipWise fixes every one of them.
-        </p>
-        <Link href="/signup"><Button size="lg">Get Started Free — No Card Needed <ArrowRight size={18} /></Button></Link>
-      </section>
-
-      {/* Squire section */}
-      <section className="py-16 px-4 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-sm font-bold text-orange-400 uppercase tracking-widest px-4">Problems with Squire</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-        <div className="space-y-4">
-          {squireProblems.map((item, i) => (
-            <div key={i} className="bg-surface border border-border rounded-2xl p-5">
-              <div className="flex items-start gap-3 mb-3">
-                <X size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="font-semibold text-white">{item.problem}</p>
-              </div>
-              <p className="text-xs text-[#8f8f8f] italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
-              <div className="flex items-start gap-3 ml-7 p-3 bg-gold/5 border border-gold/15 rounded-xl">
-                <Check size={14} className="text-gold flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-gray-300">{item.fix}</p>
-              </div>
-            </div>
-          ))}
+    <MarketingShell>
+      {/* hero */}
+      <section className="blk doc">
+        <div className="wrap center" style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
+          <span className="badge-warn">Barbers deserve better software</span>
+          <h1 style={{ fontSize: "clamp(32px,5vw,52px)", fontWeight: 700, letterSpacing: "-.035em", lineHeight: 1.08, margin: 0, textWrap: "balance" }}>
+            Why barbers are switching to <span style={{ color: "var(--ok)" }}>ClipWise</span>
+          </h1>
+          <p className="lead" style={{ textAlign: "center" }}>Real complaints from real barbers about Squire and Booksy — and exactly how ClipWise fixes every one of them.</p>
+          <Link href="/signup" className="pill w">Get started free — no card needed</Link>
         </div>
       </section>
 
-      {/* Booksy section */}
-      <section className="py-16 px-4 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-sm font-bold text-red-400 uppercase tracking-widest px-4">Problems with Booksy</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-        <div className="space-y-4">
-          {booksyProblems.map((item, i) => (
-            <div key={i} className="bg-surface border border-border rounded-2xl p-5">
-              <div className="flex items-start gap-3 mb-3">
-                <X size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="font-semibold text-white">{item.problem}</p>
-              </div>
-              <p className="text-xs text-[#8f8f8f] italic ml-7 mb-3 border-l border-border pl-3">{item.quote}</p>
-              <div className="flex items-start gap-3 ml-7 p-3 bg-gold/5 border border-gold/15 rounded-xl">
-                <Check size={14} className="text-gold flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-gray-300">{item.fix}</p>
-              </div>
-            </div>
-          ))}
+      {/* Squire */}
+      <section className="blk" style={{ paddingTop: 0 }}>
+        <div className="wrap" style={{ maxWidth: 820 }}>
+          <div className="divider"><span className="ln" /><span className="lb">Problems with Squire</span><span className="ln" /></div>
+          <Problems items={squireProblems} />
         </div>
       </section>
 
-      {/* Comparison table */}
-      <section className="py-16 px-4 max-w-4xl mx-auto">
-        <h2 className="text-2xl font-bold text-center mb-8">Side by side</h2>
-        <div className="overflow-x-auto rounded-2xl border border-border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-surface-raised">
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#8f8f8f]">Feature</th>
-                <th className="px-6 py-4 text-center"><span className="text-gold font-bold">ClipWise</span></th>
-                <th className="px-6 py-4 text-center text-sm text-[#8f8f8f]">Squire</th>
-                <th className="px-6 py-4 text-center text-sm text-[#8f8f8f]">Booksy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparison.map((row, i) => (
-                <tr key={row.feature} className={cn("border-b border-border last:border-0", i % 2 === 0 ? "bg-surface" : "bg-surface/50")}>
-                  <td className="px-6 py-3.5 text-sm text-gray-300">{row.feature}</td>
-                  {[row.clipwise, row.squire, row.booksy].map((val, j) => (
-                    <td key={j} className="px-6 py-3.5 text-center">
-                      {typeof val === "boolean"
-                        ? val
-                          ? <Check size={17} className={cn("mx-auto", j === 0 ? "text-gold" : "text-emerald-400")} />
-                          : <X size={17} className="mx-auto text-red-500/50" />
-                        : <span className={cn("text-sm font-semibold", j === 0 ? "text-gold" : "text-[#8f8f8f]")}>{val}</span>}
-                    </td>
-                  ))}
+      {/* Booksy */}
+      <section className="blk" style={{ paddingTop: 0 }}>
+        <div className="wrap" style={{ maxWidth: 820 }}>
+          <div className="divider"><span className="ln" /><span className="lb">Problems with Booksy</span><span className="ln" /></div>
+          <Problems items={booksyProblems} />
+        </div>
+      </section>
+
+      {/* comparison */}
+      <section className="blk" style={{ paddingTop: 0 }}>
+        <div className="wrap" style={{ maxWidth: 820 }}>
+          <h2 className="center" style={{ marginBottom: 28 }}>Side by side</h2>
+          <div className="cmp-wrap">
+            <table className="cmp">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th className="cw">ClipWise</th>
+                  <th>Squire</th>
+                  <th>Booksy</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {comparison.map((row) => (
+                  <tr key={row.feature}>
+                    <td>{row.feature}</td>
+                    {[row.clipwise, row.squire, row.booksy].map((val, j) => (
+                      <td key={j}>
+                        {typeof val === "boolean"
+                          ? val
+                            ? <Check size={17} style={{ margin: "0 auto", color: j === 0 ? "var(--ok)" : "#3BD1A1" }} />
+                            : <X size={17} style={{ margin: "0 auto", color: "rgba(255,90,90,.45)" }} />
+                          : <span className={j === 0 ? "cw" : "muted"} style={{ fontWeight: 600 }}>{val}</span>}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20 px-4 text-center">
-        <div className="max-w-xl mx-auto bg-surface border border-gold/20 rounded-3xl p-10 gold-glow">
-          <Scissors size={36} className="text-gold mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-3">Your page. Your clients. Your data.</h2>
-          <p className="text-[#8f8f8f] mb-6 text-sm">Join barbers who are done paying commissions, booking fees, and upsell traps. ClipWise is built for barbers — not for a marketplace.</p>
-          <Link href="/signup">
-            <Button size="lg" className="text-base px-8">Get Started Free <ArrowRight size={18} /></Button>
-          </Link>
-          <p className="text-xs text-[#8f8f8f] mt-4">No credit card · No sales call · Cancel anytime</p>
+      {/* CTA + disclaimer */}
+      <section className="blk" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="ctacard">
+            <Scissors size={34} style={{ color: "var(--ok)" }} />
+            <h2>Your page. Your clients. Your data.</h2>
+            <p className="lead" style={{ textAlign: "center" }}>Join barbers who are done paying commissions, booking fees, and upsell traps. ClipWise is built for barbers — not for a marketplace.</p>
+            <Link href="/signup" className="pill w">Get started free</Link>
+            <p className="fine">No credit card · No sales call · Cancel anytime</p>
+          </div>
+          <p className="fine" style={{ textAlign: "center", maxWidth: "64ch", margin: "28px auto 0", lineHeight: 1.6 }}>
+            Comparisons and quotes reference publicly available third-party reviews and pricing as of 2026 and reflect those users&rsquo; own experiences, not typical results. Squire&trade; and Booksy&trade; are trademarks of their respective owners; ClipWise is not affiliated with, endorsed by, or sponsored by them.
+          </p>
         </div>
       </section>
-
-      <footer className="border-t border-border py-8 px-4 text-center">
-        <Logo size="sm" className="justify-center mb-2" />
-        <p className="text-[11px] text-[#8f8f8f] max-w-2xl mx-auto mb-3 leading-relaxed">
-          Comparisons and quotes reference publicly available third-party reviews and pricing as of 2026 and
-          reflect those users&rsquo; own experiences, not typical results. Squire&trade; and Booksy&trade; are
-          trademarks of their respective owners; ClipWise is not affiliated with, endorsed by, or sponsored by them.
-        </p>
-        <p className="text-xs text-[#8f8f8f]">© 2026 ClipWise · <Link href="/" className="hover:text-gold transition-colors">Back to home</Link></p>
-      </footer>
-    </div>
+    </MarketingShell>
   );
 }

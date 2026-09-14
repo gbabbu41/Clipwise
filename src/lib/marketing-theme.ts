@@ -204,6 +204,53 @@ html{scroll-behavior:smooth}
 .mkt .prose strong,.mkt .prose b{color:var(--t1);font-weight:600}
 .mkt .doc .updated{font-size:12.5px;color:var(--t4);margin:0 0 8px}
 
+/* comparison / why-clipwise page */
+.mkt .center{text-align:center;max-width:760px;margin-left:auto;margin-right:auto}
+.mkt .badge-warn{display:inline-block;font-size:12.5px;font-weight:600;color:var(--warn);background:rgba(224,179,65,.1);border:1px solid rgba(224,179,65,.25);border-radius:999px;padding:6px 14px}
+.mkt .divider{display:flex;align-items:center;gap:16px;margin-bottom:30px}
+.mkt .divider .ln{flex:1;height:1px;background:var(--line)}
+.mkt .divider .lb{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--t3)}
+.mkt .probs{display:flex;flex-direction:column;gap:14px}
+.mkt .prob{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:20px}
+.mkt .prob .ph{display:flex;align-items:flex-start;gap:10px;font-weight:600;color:var(--t1);font-size:15px;margin:0}
+.mkt .prob .pq{font-size:12.5px;color:var(--t3);font-style:italic;margin:10px 0 0 26px;border-left:1px solid var(--line2);padding-left:12px;line-height:1.5}
+.mkt .prob .pf{display:flex;align-items:flex-start;gap:10px;margin:12px 0 0 26px;padding:12px;background:rgba(59,209,161,.06);border:1px solid rgba(59,209,161,.18);border-radius:12px;font-size:14px;color:var(--t2);line-height:1.5}
+.mkt .cmp-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--s1)}
+.mkt .cmp{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.mkt .cmp th,.mkt .cmp td{padding:14px 18px;text-align:center;border-bottom:1px solid var(--line)}
+.mkt .cmp th:first-child,.mkt .cmp td:first-child{text-align:left;color:var(--t2)}
+.mkt .cmp thead th{font-size:12.5px;font-weight:600;color:var(--t3)}
+.mkt .cmp tbody tr:last-child td{border-bottom:0}
+.mkt .cmp .cw{color:var(--ok);font-weight:700}
+.mkt .cmp .muted{color:var(--t3)}
+.mkt .ctacard{max-width:600px;margin:0 auto;background:var(--s1);border:1px solid var(--line2);border-radius:24px;padding:clamp(32px,5vw,48px) 32px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+
+/* shops directory ("Find a Barber") */
+.mkt .dir{padding-top:clamp(100px,14vh,150px)}
+.mkt .dir .search{position:relative;max-width:560px;margin:22px auto 0}
+.mkt .dir .search input{width:100%;background:var(--s1);border:1px solid var(--line2);border-radius:16px;padding:14px 16px 14px 46px;font-size:14px;color:var(--t1);font-family:var(--font)}
+.mkt .dir .search input::placeholder{color:var(--t3)}
+.mkt .dir .search input:focus{outline:none;border-color:var(--ok)}
+.mkt .dir .search .ic{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
+.mkt .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.mkt .chip{padding:7px 14px;border-radius:999px;font-size:13px;font-weight:500;border:1px solid var(--line2);background:var(--s1);color:var(--t2);cursor:pointer;transition:color .15s,background .15s}
+.mkt .chip:hover{color:var(--t1)}
+.mkt .chip.on{background:#fff;color:#000;border-color:#fff}
+.mkt .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.mkt .grid3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.mkt .grid3{grid-template-columns:1fr}}
+.mkt .scard{background:var(--s1);border:1px solid var(--line);border-radius:18px;padding:22px;display:block;transition:border-color .18s,transform .18s}
+.mkt .scard:hover{border-color:var(--line2);transform:translateY(-2px)}
+.mkt .scard .nm{font-size:17px;font-weight:700;color:var(--t1);margin:0}
+.mkt .scard:hover .nm{color:var(--ok)}
+.mkt .scard .meta{display:flex;align-items:center;gap:5px;color:var(--t3);font-size:13px;margin-top:3px}
+.mkt .scard .desc{font-size:13.5px;color:var(--t3);line-height:1.5;margin:14px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mkt .scard .srow{display:flex;align-items:center;justify-content:space-between;margin-top:16px}
+.mkt .scard .book{color:var(--ok);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:5px}
+.mkt .sk{background:var(--s1);border:1px solid var(--line);border-radius:18px;height:190px;animation:mktpulse 1.2s ease-in-out infinite}
+@keyframes mktpulse{0%,100%{opacity:1}50%{opacity:.5}}
+.mkt .logo-fb{width:52px;height:52px;border-radius:12px;background:rgba(59,209,161,.14);border:1px solid rgba(59,209,161,.28);display:grid;place-items:center;flex:none}
+
 /* our footer, fitted to the new theme */
 .mkt .site-footer{border-top:1px solid var(--line);background:#000}
 .mkt .site-footer .wrap{padding-block:48px 56px}
