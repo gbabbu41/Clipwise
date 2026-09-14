@@ -1,21 +1,38 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { SetupSheet } from "./setup-sheet";
 
-// Squire-style setup nudge pinned to the bottom of the calendar: a personalized
-// one-line prompt for the NEXT incomplete step + a circular % progress ring
-// ("30% · 2 of 7"). A brand-new shop lands on the calendar after signup, so this
-// walks them through setup one task at a time. Hides once everything's done.
+// Squire-style setup nudge on the calendar with a smart completion flow:
+//   • LOCATION + HOURS are the essentials — they keep coming back until actually
+//     done (dismissing only snoozes them for the session).
+//   • Every other step is a one-time nudge: once tapped it's resolved forever
+//     (stored per shop) and never returns.
+//   • The card is dismissible; once no essential is left it hides for good.
 interface SetupStep { key: string; prompt: string; cta: string; href: string; done: boolean }
+const MAJOR = new Set(["location", "hours"]);
 
 export function CalendarSetupNudge() {
   const { shop, profile } = useAuth();
   const [steps, setSteps] = useState<SetupStep[] | null>(null);
   const [sheet, setSheet] = useState<"location" | "hours" | null>(null);
+  const [skips, setSkips] = useState<Set<string>>(new Set());
+  const [snoozed, setSnoozed] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const router = useRouter();
+
+  // Load per-shop flags (tapped-minor skips, permanent hide, session snooze).
+  useEffect(() => {
+    if (!shop) return;
+    try {
+      setSkips(new Set((localStorage.getItem(`cw_setup_skips_${shop.id}`) || "").split(",").filter(Boolean)));
+      setHidden(!!localStorage.getItem(`cw_setup_hide_${shop.id}`));
+      setSnoozed(!!sessionStorage.getItem(`cw_setup_snooze_${shop.id}`));
+    } catch { /* storage blocked — show the card */ }
+  }, [shop]);
 
   useEffect(() => {
     if (!shop || profile?.role !== "shop_owner") { setSteps(null); return; }
@@ -34,7 +51,7 @@ export function CalendarSetupNudge() {
       let shared = false;
       try { shared = !!localStorage.getItem(`clipwise_shared_${shop.id}`); } catch { /* ignore */ }
 
-      const next: SetupStep[] = [
+      const list: SetupStep[] = [
         { key: "location", prompt: "tell your clients where you work", cta: "Set business location", href: "/dashboard/settings", done: !!(shop.address && shop.address.trim()) },
         { key: "hours", prompt: "set your working hours", cta: "Set your hours", href: "/dashboard/schedule", done: hasHours },
         { key: "services", prompt: "list the services you offer", cta: "Add your services", href: "/dashboard/services", done: (svcCount ?? 0) > 0 },
@@ -44,50 +61,72 @@ export function CalendarSetupNudge() {
         { key: "payments", prompt: "connect payments to get paid", cta: "Connect payments", href: "/dashboard/stripe", done: !!shop.stripe_account_id },
         { key: "share", prompt: "share your booking link", cta: "Share your booking link", href: "/dashboard/share", done: shared },
       ];
-      if (!cancelled) setSteps(next);
+      if (!cancelled) setSteps(list);
     })();
     return () => { cancelled = true; };
   }, [shop, profile]);
 
   if (!shop || profile?.role !== "shop_owner" || !steps) return null;
+
+  // A minor step counts as resolved once tapped; a major only when actually done.
+  const isResolved = (s: SetupStep) => s.done || (!MAJOR.has(s.key) && skips.has(s.key));
   const total = steps.length;
-  const done = steps.filter(s => s.done).length;
-  if (done >= total) return null; // fully set up → nothing to nudge
+  const doneCount = steps.filter(isResolved).length;
+  const next = steps.find(s => !isResolved(s));
+  const majorOpen = steps.some(s => MAJOR.has(s.key) && !s.done);
 
-  const next = steps.find(s => !s.done)!;
-  const pct = Math.round((done / total) * 100);
+  if (!next) return null;                       // everything handled
+  if (snoozed) return null;                     // dismissed this session (majors return next session)
+  if (hidden && !majorOpen) return null;        // permanently dismissed & nothing essential left
+
+  const pct = Math.round((doneCount / total) * 100);
   const displayName = (profile?.name || shop.name || "").trim() || "Hey";
+  const R = 25, C = 2 * Math.PI * R, ARC = 0.75, frac = doneCount / total;
 
-  // 3/4 gauge (270° arc, open at the bottom) — Squire-style. Rotating the SVG 135°
-  // moves the 90° gap to the bottom; the progress arc fills the 270° track.
-  const R = 25, C = 2 * Math.PI * R, ARC = 0.75, frac = done / total;
-
-  // location + hours open an inline form (Squire-style); other steps go to their page.
   const openNext = () => {
-    if (next.key === "location" || next.key === "hours") setSheet(next.key);
-    else router.push(next.href);
+    if (MAJOR.has(next.key)) { setSheet(next.key as "location" | "hours"); return; }
+    // Minor step → resolve it forever, then go do it.
+    const ns = new Set(skips); ns.add(next.key);
+    setSkips(ns);
+    try { localStorage.setItem(`cw_setup_skips_${shop.id}`, Array.from(ns).join(",")); } catch { /* ignore */ }
+    router.push(next.href);
+  };
+
+  const dismiss = () => {
+    if (majorOpen) {
+      // Essentials still pending → only snooze; they come back next session.
+      try { sessionStorage.setItem(`cw_setup_snooze_${shop.id}`, "1"); } catch { /* ignore */ }
+      setSnoozed(true);
+    } else {
+      try { localStorage.setItem(`cw_setup_hide_${shop.id}`, "1"); } catch { /* ignore */ }
+      setHidden(true);
+    }
   };
 
   return (
     <>
       <div className="fixed left-0 right-0 z-30 px-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom)+8px)] lg:bottom-4 pointer-events-none">
-        <button type="button" onClick={openNext}
-          className="pointer-events-auto mx-auto max-w-2xl w-full text-left bg-surface border border-border rounded-2xl px-5 py-4 shadow-xl shadow-black/40 flex items-center gap-4 animate-fade-in hover:border-white/15 transition-colors">
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-bold text-foreground leading-snug">{displayName}, {next.prompt}</p>
-            <span className="text-[15px] font-semibold mt-1.5 inline-block" style={{ color: "#0A84FF" }}>{next.cta}</span>
-          </div>
-          <div className="relative flex-shrink-0" style={{ width: 68, height: 68 }}>
-            <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(135deg)", transformOrigin: "center" }}>
-              <circle cx="34" cy="34" r={R} fill="none" stroke="#2b2b31" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${ARC * C} ${(1 - ARC) * C}`} />
-              <circle cx="34" cy="34" r={R} fill="none" stroke="#0A84FF" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${frac * ARC * C} ${C}`} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-lg font-extrabold text-foreground leading-none">{pct}%</span>
-              <span className="text-[9px] font-semibold tracking-wide text-grey mt-1">{done} OF {total}</span>
+        <div className="pointer-events-auto mx-auto max-w-2xl relative bg-surface border border-border rounded-2xl shadow-xl shadow-black/40 animate-fade-in">
+          <button type="button" onClick={openNext} className="w-full text-left px-5 py-4 pr-10 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-bold text-foreground leading-snug">{displayName}, {next.prompt}</p>
+              <span className="text-[15px] font-semibold mt-1.5 inline-block" style={{ color: "#0A84FF" }}>{next.cta}</span>
             </div>
-          </div>
-        </button>
+            <div className="relative flex-shrink-0" style={{ width: 68, height: 68 }}>
+              <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(135deg)", transformOrigin: "center" }}>
+                <circle cx="34" cy="34" r={R} fill="none" stroke="#2b2b31" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${ARC * C} ${(1 - ARC) * C}`} />
+                <circle cx="34" cy="34" r={R} fill="none" stroke="#0A84FF" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${frac * ARC * C} ${C}`} />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-extrabold text-foreground leading-none">{pct}%</span>
+                <span className="text-[9px] font-semibold tracking-wide text-grey mt-1">{doneCount} OF {total}</span>
+              </div>
+            </div>
+          </button>
+          <button type="button" onClick={dismiss} aria-label="Dismiss" className="absolute top-2.5 right-2.5 text-grey hover:text-foreground p-1 rounded-full">
+            <X size={15} />
+          </button>
+        </div>
       </div>
       {sheet && <SetupSheet step={sheet} onClose={() => setSheet(null)} />}
     </>
