@@ -12,7 +12,6 @@ export function HeroFilm() {
   useEffect(() => {
     const v = filmRef.current, bg = bgRef.current;
     if (!v || !bg) return;
-    const wide = window.matchMedia("(min-aspect-ratio: 16/9)");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     let iv: ReturnType<typeof setInterval> | undefined;
 
@@ -20,8 +19,10 @@ export function HeroFilm() {
       if (!bg.src || bg.readyState < 2 || v.readyState < 2) return;
       if (Math.abs(bg.currentTime - v.currentTime) > 0.25) bg.currentTime = v.currentTime;
     };
+    // Arm the blurred backdrop unconditionally (not gated to ultrawide) so it
+    // fills any letterbox gap on every screen instead of leaving pure black.
     const arm = () => {
-      if (!wide.matches || bg.src) return;
+      if (bg.src) return;
       bg.src = "/new/hero-film.mp4";
       bg.play().catch(() => {});
     };
@@ -30,13 +31,11 @@ export function HeroFilm() {
       v.src = "/new/hero-film.mp4";
       v.play().catch(() => {});
       v.addEventListener("loadeddata", arm);
-      wide.addEventListener?.("change", arm);
       iv = setInterval(sync, 1000);
     }
     return () => {
       if (iv) clearInterval(iv);
       v.removeEventListener("loadeddata", arm);
-      wide.removeEventListener?.("change", arm);
     };
   }, []);
 

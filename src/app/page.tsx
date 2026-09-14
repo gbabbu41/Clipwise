@@ -236,7 +236,7 @@ export default function HomePage() {
           <div className="fg">
             <div>
               <Logo size="sm" className="cw-grad" />
-              <p className="fabout">The premium barbershop management platform. Made in Canada.</p>
+              <p className="fabout">Barbershop software built for Canadian shops. Moncton, New Brunswick.</p>
             </div>
             <div>
               <h3>Product</h3>
@@ -259,7 +259,6 @@ export default function HomePage() {
           </div>
           <div className="fb">
             <span>© 2026 ClipWise</span>
-            <span>Privacy-first · PIPEDA-aware · 🇨🇦 Canadian-Made</span>
           </div>
         </div>
       </footer>

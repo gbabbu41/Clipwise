@@ -19,7 +19,7 @@ html{scroll-behavior:smooth}
 .mkt{
   --bg:#000; --s1:#08080A; --s2:#0E0E11;
   --line:#17171B; --line2:#24242A;
-  --t1:#F5F4F7; --t2:#9B9BA5; --t3:#66666F; --t4:#3E3E46;
+  --t1:#F5F4F7; --t2:#9B9BA5; --t3:#82828C; --t4:#5A5A63;
   --ok:#3BD1A1; --warn:#E0B341;
   --max:1120px;
   --font:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -62,29 +62,34 @@ html{scroll-behavior:smooth}
 @media(max-width:900px){.mkt .navbar ul{display:none}.mkt .navbar{justify-content:space-between;gap:12px}}
 
 /* hero film */
-.mkt .stage{position:relative;width:100%;height:100svh;min-height:460px;overflow:hidden;background:#000;
+/* Stage takes the FILM's 16:9 shape (not the window's) on desktop, so a normal
+   window shows the whole film with no letterbox. On portrait phones a landscape
+   film can't be letterboxed sanely, so it fills via cover. The blurred backdrop
+   (.filmbg) fills any residual gap on ultrawide / very-short windows — it's
+   always armed now, not gated to ≥16:9. */
+.mkt .stage{position:relative;width:100%;height:min(100svh,calc(100vw * 0.5625));min-height:460px;overflow:hidden;background:#000;
   display:flex;align-items:flex-end;isolation:isolate}
 .mkt .film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:0;background:transparent;
   filter:brightness(.84) contrast(1.04)}
 .mkt .filmbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;
-  transform:scale(1.14);filter:blur(64px) brightness(.30) saturate(.7);opacity:0;pointer-events:none;
-  transition:opacity .5s ease}
-.mkt .stage::before{content:'';position:absolute;inset:0;z-index:0;background:#000}
-@media (min-aspect-ratio:16/9){.mkt .filmbg{opacity:1}}
+  transform:scale(1.14);filter:blur(64px) brightness(.30) saturate(.7);opacity:1;pointer-events:none}
+@media (max-aspect-ratio:1/1){.mkt .stage{height:72svh}.mkt .film{object-fit:cover}}
 .mkt .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
   background:radial-gradient(125% 78% at 50% 48%,transparent 40%,rgba(0,0,0,.55) 100%),
     linear-gradient(180deg,rgba(0,0,0,.6) 0%,transparent 18%,transparent 60%,rgba(0,0,0,.94) 100%)}
 .mkt .grain{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.075;mix-blend-mode:screen;
   background-image:var(--grain);background-size:200px 200px}
-.mkt .bar{position:absolute;left:0;right:0;height:clamp(26px,5.2vh,64px);background:#000;z-index:3;
-  pointer-events:none;box-shadow:0 0 30px 12px rgba(0,0,0,.9)}
-.mkt .bar.t{top:0}.mkt .bar.b{bottom:0}
+/* Cinematic edge — gradients that DARKEN the film's top/bottom, not solid black
+   fills (which used to stack onto the letterbox and read as more dead space). */
+.mkt .bar{position:absolute;left:0;right:0;height:clamp(26px,5.2vh,64px);z-index:3;pointer-events:none}
+.mkt .bar.t{top:0;background:linear-gradient(180deg,rgba(0,0,0,.85),transparent)}
+.mkt .bar.b{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.85),transparent)}
 .mkt .foot{position:relative;z-index:6;width:100%;max-width:var(--max);margin:0 auto;
   padding:0 26px clamp(52px,9vh,96px);display:flex;align-items:flex-end;justify-content:space-between;
   gap:20px;flex-wrap:wrap}
 .mkt .cta{display:flex;gap:11px;flex-wrap:wrap}
 .mkt .micro{font-size:12.5px;color:var(--t2);margin:0}
-.mkt .ctl{position:absolute;right:26px;bottom:clamp(52px,9vh,96px);z-index:6;width:38px;height:38px;
+.mkt .ctl{position:absolute;right:26px;bottom:clamp(52px,9vh,96px);z-index:6;width:44px;height:44px;
   border-radius:999px;display:grid;place-items:center;cursor:pointer;background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(10px);color:rgba(255,255,255,.7);
   font-size:14px;font-family:var(--font)}
@@ -157,7 +162,8 @@ html{scroll-behavior:smooth}
 
 /* figures */
 .mkt .figs{display:grid;grid-template-columns:repeat(3,1fr);gap:52px}
-.mkt .fig .n{font-size:clamp(40px,5.6vw,58px);font-weight:700;letter-spacing:-.045em;line-height:1;margin:0 0 14px}
+/* p.n beats the sibling .fig p color rule so the loudest claims aren't the dimmest text */
+.mkt .fig p.n{font-size:clamp(40px,5.6vw,58px);font-weight:700;letter-spacing:-.045em;line-height:1;margin:0 0 14px;color:var(--t1)}
 .mkt .fig p{font-size:13.5px;color:var(--t3);line-height:1.55;margin:6px 0 0}
 @media(max-width:760px){.mkt .figs{grid-template-columns:1fr;gap:36px}}
 
@@ -185,7 +191,7 @@ html{scroll-behavior:smooth}
 .mkt .site-footer{border-top:1px solid var(--line);background:#000}
 .mkt .site-footer .wrap{padding-block:48px 56px}
 .mkt .fg{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:28px}
-.mkt .fg h5{color:var(--t1);font-size:13px;font-weight:700;margin:0 0 12px}
+.mkt .fg h3{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--t3);margin:0 0 12px}
 .mkt .fg a{display:block;padding:4px 0;color:var(--t2);font-size:13.5px}
 .mkt .fg a:hover{color:var(--t1)}
 .mkt .fg .fabout{color:var(--t3);font-size:13px;line-height:1.6;margin:12px 0 0;max-width:32ch}
