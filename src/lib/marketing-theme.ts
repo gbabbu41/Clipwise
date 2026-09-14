@@ -79,7 +79,10 @@ html{scroll-behavior:smooth}
   filter:brightness(.84) contrast(1.04)}
 .mkt .filmbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;
   transform:scale(1.14);filter:blur(64px) brightness(.30) saturate(.7);opacity:1;pointer-events:none}
-@media (max-aspect-ratio:1/1){.mkt .stage{height:72svh}.mkt .film{object-fit:cover}}
+/* Portrait phones: the hero film is 16:9 with the headline baked in, so cropping
+   it (cover) cuts the text off the edge. Show the WHOLE film (contain) as a band
+   with the blurred fill behind it — text stays composed, nothing bleeds. */
+@media (max-aspect-ratio:1/1){.mkt .stage{height:64svh}.mkt .film{object-fit:contain}}
 .mkt .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
   background:radial-gradient(125% 78% at 50% 48%,transparent 40%,rgba(0,0,0,.55) 100%),
     linear-gradient(180deg,rgba(0,0,0,.6) 0%,transparent 18%,transparent 60%,rgba(0,0,0,.94) 100%)}
