@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
@@ -667,11 +666,9 @@ export default function DashboardPage() {
         )
       )}
 
-      {/* Onboarding banner — shown to new shop owners. No wrapper margin: the
-          banner carries its own mb-6 so a dismissed (null) banner reserves NO
-          space above the header, keeping the dashboard top flush with every
-          other page. */}
-      {shop && profile?.role === "shop_owner" && <OnboardingBanner shop={shop} />}
+      {/* Setup guidance now lives on the Calendar as a Squire-style progress card
+          (CalendarSetupNudge) — where new owners land after signup — so Home stays
+          uncluttered. */}
 
       {/* Header — the mobile top bar already carries the page title ("Home") and the
           sidebar carries the shop identity, so the body just shows the day + today's
