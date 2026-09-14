@@ -472,7 +472,7 @@ export function Sidebar() {
             whisper-quiet grey label because its big greeting sits right beneath it;
             every other page — where this is the only heading on mobile — uses a small
             but SOLID dark title so the page never reads headless. */}
-        <h1 className="flex-1 min-w-0 truncate text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground">{barTitleFor(pathname)}</h1>
+        <h1 className="flex-1 min-w-0 truncate text-[22px] font-extrabold tracking-[-0.02em] text-foreground">{barTitleFor(pathname)}</h1>
         {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
             again (while on it) to return where you were. Owner-only, matching the
             sidebar's ownerOnly Clients item. Highlights while active. */}
@@ -693,7 +693,7 @@ export function Sidebar() {
       <div
         className="cw-brand cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
-          fontFamily: "'Sora', var(--font-body), system-ui, sans-serif",
+          fontFamily: "var(--font-body), system-ui, sans-serif",
           fontWeight: 800,
           fontSize: "23px",
           letterSpacing: "-0.02em",
@@ -741,9 +741,9 @@ export function Sidebar() {
                 href={item.href}
                 title={item.label}
                 className={cn(
-                  // Calm active state: a soft raised row + green accent bar + green
-                  // icon (no loud white pill, no trailing arrow) so "you are here"
-                  // reads clearly without out-shouting the page content.
+                  // Calm active state: a soft raised row + a monochrome accent bar +
+                  // matching icon (no loud pill, no trailing arrow) so "you are here"
+                  // reads clearly without out-shouting the page content or the brand.
                   // cw-nav-item is the hook the collapsed rail uses to center icons.
                   "cw-nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                   isActive
@@ -751,8 +751,8 @@ export function Sidebar() {
                     : "text-grey hover:text-foreground hover:bg-card-raised",
                 )}
               >
-                {isActive && <span aria-hidden className="absolute left-1 top-2.5 bottom-2.5 w-[3px] rounded-full bg-emerald-400" />}
-                <Icon size={18} className={cn(isActive ? "text-emerald-400" : "text-grey group-hover:text-foreground")} />
+                {isActive && <span aria-hidden className="absolute left-1 top-2.5 bottom-2.5 w-[3px] rounded-full bg-foreground" />}
+                <Icon size={18} className={cn(isActive ? "text-foreground" : "text-grey group-hover:text-foreground")} />
                 <span className="cw-nav-label flex-1">{item.label}</span>
                 {item.badge && unreadCount > 0 && (
                   <span className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">

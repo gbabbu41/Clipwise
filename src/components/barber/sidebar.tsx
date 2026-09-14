@@ -228,8 +228,8 @@ export function BarberSidebar() {
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
       >
-        {/* Page title (left) — 23px uppercase, matching the shop portal header. */}
-        <h1 className="flex-1 min-w-0 text-[23px] font-extrabold uppercase tracking-[0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
+        {/* Page title (left) — calm 22px sentence-case, matching the shop portal header. */}
+        <h1 className="flex-1 min-w-0 text-[22px] font-extrabold tracking-[-0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
         {/* Notifications bell — same control as the owner mobile header,
             scoped to this barber. Red dot when there's anything unread. */}
         <button
@@ -372,11 +372,11 @@ export function BarberSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      {/* Sidebar wordmark — clean Sora 800 24px white, centered. */}
+      {/* Sidebar wordmark — clean Manrope 800 23px, theme-aware colour, centered. */}
       <div
         className="cw-logo-fade relative whitespace-nowrap border-b border-border flex items-center justify-start pl-6"
         style={{
-          fontFamily: "'Sora', var(--font-body), system-ui, sans-serif",
+          fontFamily: "var(--font-body), system-ui, sans-serif",
           fontWeight: 800,
           fontSize: "23px",
           letterSpacing: "-0.02em",

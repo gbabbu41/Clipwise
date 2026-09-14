@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Sora, DM_Mono } from "next/font/google";
+import { Manrope, DM_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { PWARegister } from "@/components/pwa-register";
 import { OfflineBanner } from "@/components/offline-banner";
 import { ErrorLogger } from "@/components/error-logger";
 
-// Sora — primary UI face for the v2 design system. Geometric, extra-bold at
-// display sizes, clean at body sizes. Used everywhere except numerics.
-const sora = Sora({
-  weight: ["300", "400", "500", "600", "700", "800"],
+// Manrope — primary UI face, matching the marketing site so the portals and the
+// front page read as one premium brand. Geometric, tight at display sizes, clean
+// at body sizes. Used everywhere except numerics (DM Mono). (Was Sora.)
+const manrope = Manrope({
+  weight: ["400", "500", "600", "700", "800"],
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",
@@ -62,7 +63,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${sora.variable} ${dmMono.variable}`}>
+    <html lang="en" className={`dark ${manrope.variable} ${dmMono.variable}`}>
       <body className="antialiased bg-background text-white">
         <OfflineBanner />
         <ErrorLogger />

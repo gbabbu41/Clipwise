@@ -4,7 +4,7 @@
 
 :root {
   /* ── ClipWise v2 design system ─────────────────────────────────────────
-     Pure-black base, white accents, hairline borders. Sora for body,
+     Pure-black base, white accents, hairline borders. Manrope for body,
      DM Mono for numerics. No gold token color anywhere — the `gold` slot
      is preserved as `#fff` so the hundreds of legacy `bg-gold` /
      `text-gold` callsites silently become white without a sweep. */
@@ -53,6 +53,10 @@
   --card-raised:    #212226;  /* tier 2 (chips inside cards) — a step above tier 1 */
   --surface:        #1a1b1e;
   --surface-raised: #212226;
+  /* Translucent fill for the floating bottom nav so its backdrop-blur actually
+     reads as glass (the marketing nav's language). Used only where a blur is
+     guaranteed via @supports; opaque --surface is the fallback everywhere else. */
+  --nav-glass:      rgba(16,17,20,0.72);
   --surface-overlay:#282a2e;  /* tier 3 (hover fills, menus) — above the chips */
   --surface-sunken: #0b0c0e;  /* recessed — a subtle step below the lifted page ground */
   --border:         #1f2023;  /* near-invisible hairline — barely lifts off a card */
@@ -79,6 +83,7 @@ html[data-theme="light"] .portal {
                                  page base use --card/white, not this, so they lift.) */
   --surface:        #ffffff;
   --surface-raised: #f1f2f4;
+  --nav-glass:      rgba(255,255,255,0.72);  /* light-theme frosted bottom nav */
   --surface-overlay:#eaebed;  /* hover fills / menus */
   --surface-sunken: #edeef0;  /* recessed (calendar canvas) */
   --border:         #e6e8ec;  /* light hairline — defines bordered cards + inputs on the white ground */
@@ -470,7 +475,7 @@ html {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Sora', var(--font-body), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-x: none;
   -moz-osx-font-smoothing: grayscale;
@@ -1304,16 +1309,24 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    .cw-fab below is the only quick-add button now; the stale fixed rule was
    pinning it to the corner instead of the middle.) */
 
-/* Bottom nav bar (mobile) */
+/* Bottom nav bar (mobile) — floating frosted glass, matching the marketing nav.
+   Base is an OPAQUE --surface fallback; the @supports block below swaps in the
+   translucent --nav-glass + real backdrop-blur only where the browser can blur,
+   so browsers without backdrop-filter never show content bleeding through. */
 .cw-bnav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--border);
   /* Reserve the home-indicator inset below the tab row (0 in a browser tab). */
   height: calc(68px + env(safe-area-inset-bottom));
   display: flex; align-items: center; padding: 0 6px env(safe-area-inset-bottom); z-index: 30;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cw-bnav {
+    background: var(--nav-glass);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  }
 }
 .cw-ni {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
