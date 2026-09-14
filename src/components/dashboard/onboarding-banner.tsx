@@ -4,6 +4,7 @@ import { Check, X, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { isNativeApp } from "@/lib/native-app";
 import type { Shop } from "@/lib/database.types";
 
 interface Step {
@@ -42,8 +43,15 @@ export function OnboardingBanner({ shop }: Props) {
       const hasServices = (svcRes.count ?? 0) > 0;
       const hasBarbers = (barberRes.count ?? 0) > 0;
       const hasShared = !!localStorage.getItem(`clipwise_shared_${shop.id}`);
+      const hasDetails = !!(shop.address && shop.address.trim());
 
       setSteps([
+        {
+          label: "Add your shop details",
+          description: "Your address, phone & logo",
+          href: "/dashboard/settings",
+          done: hasDetails,
+        },
         {
           label: "Add your services",
           description: "List what you offer and set prices",
@@ -160,6 +168,19 @@ export function OnboardingBanner({ shop }: Props) {
           </Link>
         ))}
       </div>
+
+      {/* Starter → Pro trial nudge. Billing is an Apple-IAP surface, so it never
+          renders in the native app. Only shown while the shop is still on Starter. */}
+      {shop.subscription_plan === "starter" && !isNativeApp() && (
+        <Link href="/dashboard/billing"
+          className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-gold/25 bg-gold/5 hover:bg-gold/10 transition-all group">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Try Pro free for 21 days</p>
+            <p className="text-xs text-grey">No card — unlock payments, SMS reminders, marketing &amp; more</p>
+          </div>
+          <ArrowRight size={14} className="text-gold flex-shrink-0" />
+        </Link>
+      )}
     </div>
   );
 }

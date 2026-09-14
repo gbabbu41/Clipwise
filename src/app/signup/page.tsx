@@ -176,11 +176,36 @@ export default function SignupPage() {
     if (!res.ok) { setLoading(false); setError(data.error || "Couldn't verify your code. Please try again."); return; }
 
     // Account created + confirmed → sign in to get a session, then route on.
-    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
-    setLoading(false);
-    if (signInErr) { router.push("/login"); return; }
-    const planQ = plan ? `?plan=${plan}` : "";
-    router.push((selectedRole || "customer") === "shop_owner" ? `/onboarding/plan${planQ}` : "/");
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
+    if (signInErr) { setLoading(false); router.push("/login"); return; }
+
+    const role = selectedRole || "customer";
+    if (role !== "shop_owner") { setLoading(false); router.push("/"); return; }
+
+    // Explicit paid-plan intent (arrived from a Pro/Premium pricing card) → keep the
+    // plan/checkout flow so they start their trial or pay.
+    if (plan === "pro" || plan === "premium") {
+      setLoading(false);
+      router.push(`/onboarding/plan?plan=${plan}`);
+      return;
+    }
+
+    // Frictionless default: auto-create a Starter shop (auto-approved) so the
+    // dashboard works immediately, then drop them straight in. They finish setup
+    // from the in-app checklist — no forced wizard. The create route is idempotent
+    // and forces safe defaults (Starter/free), so this can't mint a paid shop.
+    // Full-page nav (not router.push) so the auth context re-loads the new shop.
+    const token = signInData.session?.access_token;
+    const firstName = form.name.trim().split(/\s+/)[0] || "My";
+    try {
+      await fetch("/api/shops/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ name: `${firstName}'s Barbershop`, phone: form.phone.trim() || undefined }),
+      });
+    } catch { /* non-fatal — dashboard shows a "set up my shop" fallback if it didn't create */ }
+    if (typeof window !== "undefined") window.location.href = "/dashboard";
+    else router.push("/dashboard");
   };
 
   const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
