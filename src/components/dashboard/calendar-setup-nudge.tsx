@@ -53,7 +53,7 @@ export function CalendarSetupNudge() {
 
   const next = steps.find(s => !s.done)!;
   const pct = Math.round((done / total) * 100);
-  const firstName = (profile?.name || shop.name || "").split(/\s+/)[0] || "Hey";
+  const displayName = (profile?.name || shop.name || "").trim() || "Hey";
 
   // 3/4 gauge (270° arc, open at the bottom) — Squire-style. Rotating the SVG 135°
   // moves the 90° gap to the bottom; the progress arc fills the 270° track.
@@ -64,7 +64,7 @@ export function CalendarSetupNudge() {
       <Link href={next.href}
         className="pointer-events-auto mx-auto max-w-2xl bg-surface border border-border rounded-2xl px-5 py-4 shadow-xl shadow-black/40 flex items-center gap-4 animate-fade-in hover:border-white/15 transition-colors">
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-foreground leading-snug">{firstName}, {next.prompt}</p>
+          <p className="text-[15px] font-bold text-foreground leading-snug">{displayName}, {next.prompt}</p>
           <span className="text-[15px] font-semibold mt-1.5 inline-block" style={{ color: "#0A84FF" }}>{next.cta}</span>
         </div>
         <div className="relative flex-shrink-0" style={{ width: 68, height: 68 }}>
