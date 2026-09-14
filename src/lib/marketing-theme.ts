@@ -257,6 +257,45 @@ html{scroll-behavior:smooth}
 @keyframes mktpulse{0%,100%{opacity:1}50%{opacity:.5}}
 .mkt .logo-fb{width:52px;height:52px;border-radius:12px;background:rgba(59,209,161,.14);border:1px solid rgba(59,209,161,.28);display:grid;place-items:center;flex:none}
 
+/* auth / entry pages (login, signup, password, join) — themed, minimal chrome.
+   No pricing/signup nav here on purpose: the login screen renders inside the
+   native app (Apple IAP), so its chrome must never advertise billing/sign-up. */
+.mkt .authwrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 20px 48px}
+.mkt .authbrand{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;margin-bottom:24px}
+.mkt .authbrand .wm{font-weight:800;letter-spacing:-.045em;font-size:22px;color:var(--t1)}
+.mkt .authbrand h1{font-size:clamp(22px,4vw,27px);font-weight:700;letter-spacing:-.02em;margin:0}
+.mkt .authbrand p{font-size:14px;color:var(--t3);margin:0}
+.mkt .authcard{width:100%;max-width:420px;background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:clamp(22px,4vw,30px)}
+.mkt .authcard.wide{max-width:520px}
+.mkt .field{display:flex;flex-direction:column;gap:6px;margin-bottom:15px}
+.mkt .field label{font-size:13px;font-weight:500;color:var(--t2)}
+.mkt .field .ip{position:relative}
+.mkt .field .ip .lic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
+.mkt .field .eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--t3);background:none;border:none;cursor:pointer;padding:0;display:flex}
+.mkt .field .eye:hover{color:var(--t1)}
+.mkt .authcard input,.mkt .authcard select,.mkt .authcard textarea{width:100%;background:#000;border:1px solid var(--line2);border-radius:12px;padding:11px 14px;font-size:14px;color:var(--t1);font-family:var(--font)}
+.mkt .authcard input.pl{padding-left:38px}
+.mkt .authcard input.pr{padding-right:40px}
+.mkt .authcard input::placeholder,.mkt .authcard textarea::placeholder{color:var(--t3)}
+.mkt .authcard input:focus,.mkt .authcard select:focus,.mkt .authcard textarea:focus{outline:none;border-color:var(--ok)}
+.mkt .pill.full{display:block;width:100%;border:none;cursor:pointer;font-family:var(--font)}
+.mkt .pill.full:disabled{opacity:.6;cursor:not-allowed}
+.mkt .err{display:flex;align-items:flex-start;gap:8px;background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.28);border-radius:12px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;color:#ff8a8a;line-height:1.45}
+.mkt .ok{display:flex;align-items:flex-start;gap:8px;background:rgba(59,209,161,.1);border:1px solid rgba(59,209,161,.28);border-radius:12px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;color:#7fe6c4;line-height:1.45}
+.mkt .authfoot{text-align:center;font-size:14px;color:var(--t3);margin-top:20px}
+.mkt .authfoot a{color:var(--t1);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.mkt .authrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mkt .authrow a{font-size:12.5px;color:var(--t2)}
+.mkt .authrow a:hover{color:#fff}
+.mkt .authback{font-size:13px;color:var(--t3);margin-top:22px;display:inline-flex;align-items:center;gap:6px}
+.mkt .authback:hover{color:var(--t1)}
+.mkt .ferr{font-size:12px;color:#ff8a8a;display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap}
+.mkt .ferr a{color:var(--t1);text-decoration:underline;text-underline-offset:2px}
+.mkt .authlink{background:none;border:none;cursor:pointer;font-family:var(--font)}
+.mkt .tinput{width:100%;background:#000;border:1px solid var(--line2);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--t1);font-family:var(--font)}
+.mkt .tinput::placeholder{color:var(--t3)}
+.mkt .tinput:focus{outline:none;border-color:var(--ok)}
+
 /* our footer, fitted to the new theme */
 .mkt .site-footer{border-top:1px solid var(--line);background:#000}
 .mkt .site-footer .wrap{padding-block:48px 56px}

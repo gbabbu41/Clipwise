@@ -4,10 +4,8 @@ import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, ShieldCheck, Store } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/marketing/auth-shell";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 import { formatPhone, validatePhone, validateEmail, getPasswordStrength } from "@/lib/validation";
 
 type SelectedRole = "" | "shop_owner" | "customer";
@@ -199,182 +197,140 @@ export default function SignupPage() {
 
   if (signupsPaused) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md text-center">
-          <Link href="/"><Logo size="md" className="justify-center mb-6" /></Link>
-          <div className="bg-surface border border-border rounded-2xl p-8 space-y-3">
-            <div className="w-14 h-14 bg-gold/10 border border-gold/30 rounded-2xl flex items-center justify-center mx-auto">
-              <Store size={26} className="text-gold" />
-            </div>
-            <h1 className="text-xl font-bold text-white">Sign-ups are paused</h1>
-            <p className="text-sm text-[#8f8f8f]">We&apos;re not accepting new accounts right now. Please check back soon.</p>
-            <Link href="/login" className="block pt-2 text-gold hover:underline text-sm font-medium">Already have an account? Sign in →</Link>
-          </div>
+      <AuthShell title="Sign-ups are paused">
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
+          <div className="logo-fb"><Store size={24} style={{ color: "var(--ok)" }} /></div>
+          <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>We&rsquo;re not accepting new accounts right now. Please check back soon.</p>
+          <Link href="/login" className="pill g full" style={{ marginTop: 4 }}>Already have an account? Sign in</Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   const onCodeStep = selectedRole && step === "code";
+  const pwColor = pwStrength.strength === "strong" ? "#3BD1A1" : pwStrength.strength === "medium" ? "#E0B341" : "#ff6b6b";
+  const badBorder = { borderColor: "rgba(255,90,90,.55)" };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+    <AuthShell
+      title={step === "form" ? "Create your account" : undefined}
+      subtitle={step === "form" ? "Set up your shop in minutes. No credit card required." : undefined}
+    >
       {TURNSTILE_SITE_KEY && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer strategy="afterInteractive" />}
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
-          {step === "form" && (
-            <>
-              <h1 className="text-2xl font-bold text-white">Create your account</h1>
-              <p className="text-[#8f8f8f] text-sm mt-1">Set up your shop in minutes. No credit card required.</p>
-            </>
-          )}
+
+      {/* ── Code entry step ── */}
+      {onCodeStep && (
+        <div>
+          <div className="logo-fb" style={{ margin: "0 auto 14px", background: "rgba(59,209,161,.12)", borderColor: "rgba(59,209,161,.28)" }}><ShieldCheck size={26} style={{ color: "var(--ok)" }} /></div>
+          <h2 style={{ textAlign: "center", fontSize: 20 }}>Verify your email</h2>
+          <p className="lead" style={{ textAlign: "center", fontSize: 14, marginTop: 6 }}>
+            We emailed a 6-digit code to <strong style={{ color: "var(--t1)" }}>{form.email}</strong>. Enter it to finish — your account is created only after this step.
+          </p>
+
+          {error && <div className="err" style={{ marginTop: 18 }}><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} /><span>{error}</span></div>}
+
+          <form onSubmit={handleVerify} style={{ marginTop: 18 }}>
+            <input
+              inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••••"
+              style={{ textAlign: "center", fontSize: 24, letterSpacing: "0.5em", fontWeight: 600 }}
+            />
+            <button type="submit" className="pill w full" disabled={loading} style={{ marginTop: 14 }}>
+              {loading ? "Verifying…" : "Verify & create account"}
+            </button>
+          </form>
+
+          <div className="authrow" style={{ marginTop: 18 }}>
+            <button onClick={() => { setStep("form"); setError(""); }} className="authlink authlink-a" style={{ color: "var(--t2)", fontSize: 12.5 }}>← Edit details</button>
+            <button onClick={() => handleRequestCode(undefined, { resend: true })} disabled={loading} className="authlink authlink-a" style={{ color: "var(--t2)", fontSize: 12.5 }}>Resend code</button>
+          </div>
         </div>
+      )}
 
-        {/* ── Code entry step ── */}
-        {onCodeStep && (
-          <div className="bg-surface border border-border rounded-2xl p-8">
-            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <ShieldCheck size={28} className="text-emerald-400" />
-            </div>
-            <h2 className="text-xl font-bold text-white text-center">Verify your email</h2>
-            <p className="text-sm text-[#8f8f8f] text-center mt-1">
-              We emailed a 6-digit code to <span className="text-white font-medium">{form.email}</span>. Enter it to finish — your account is created only after this step.
-            </p>
+      {/* ── Details form step ── */}
+      {step === "form" && (
+        <div>
+          {error && error !== "already_registered" && <div className="err"><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} /><span>{error}</span></div>}
 
-            {error && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mt-5">
-                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleVerify} className="space-y-4 mt-5">
-              <input
-                inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
-                value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="••••••"
-                className="w-full bg-surface-raised border border-border rounded-xl py-3 text-center text-2xl tracking-[0.5em] font-semibold text-white placeholder:text-[#3a3a3a] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
-              />
-              <Button type="submit" className="w-full" size="lg" loading={loading}>
-                {loading ? "Verifying…" : "Verify & create account"}
-              </Button>
-            </form>
-
-            <div className="flex items-center justify-between mt-5 text-sm">
-              <button onClick={() => { setStep("form"); setError(""); }} className="text-[#8f8f8f] hover:text-gold">← Edit details</button>
-              <button
-                onClick={() => handleRequestCode(undefined, { resend: true })}
-                disabled={loading}
-                className="text-gold hover:underline disabled:opacity-50"
-              >
-                Resend code
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Details form step ── */}
-        {step === "form" && (
-          <div className="bg-surface border border-border rounded-2xl p-8">
-            {error && error !== "already_registered" && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
-                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            {/* noValidate: run OUR validation (validateEmail, password match) so
-                errors show inline, instead of the browser's native bubble
-                pre-empting submit and flashing away. */}
-            <form onSubmit={handleRequestCode} className="space-y-4" noValidate>
-              {fields.map(({ key, label, placeholder, icon: Icon, type }) => (
-                <div key={key} className="space-y-1.5">
-                  <label htmlFor={`signup-${key}`} className="text-sm font-medium text-grey">{label}</label>
-                  <div className="relative">
-                    <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                    <input type={type} id={`signup-${key}`} name={key}
-                      autoComplete={key === "email" ? "email" : key === "phone" ? "tel" : key === "name" ? "name" : "off"}
-                      autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
-                      className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
-                        fieldErrors[key] ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
-                  </div>
-                  {fieldErrors[key] && (
-                    <p className="text-xs text-red-400 flex items-center gap-1">
-                      <AlertCircle size={11} /> {fieldErrors[key]}
-                      {key === "email" && error === "already_registered" && (
-                        <Link href="/login" className="ml-1 text-gold hover:underline">Sign in instead →</Link>
-                      )}
-                    </p>
-                  )}
+          {/* noValidate: run OUR validation (validateEmail, password match) so
+              errors show inline, instead of the browser's native bubble
+              pre-empting submit and flashing away. */}
+          <form onSubmit={handleRequestCode} noValidate>
+            {fields.map(({ key, label, placeholder, icon: Icon, type }) => (
+              <div key={key} className="field">
+                <label htmlFor={`signup-${key}`}>{label}</label>
+                <div className="ip">
+                  <Icon size={16} className="lic" />
+                  <input type={type} id={`signup-${key}`} name={key} className="pl"
+                    autoComplete={key === "email" ? "email" : key === "phone" ? "tel" : key === "name" ? "name" : "off"}
+                    autoFocus={key === "name"} value={form[key as keyof typeof form]} onChange={update(key as keyof typeof form)} placeholder={placeholder}
+                    style={fieldErrors[key] ? badBorder : undefined} />
                 </div>
-              ))}
-
-              <div className="space-y-1.5">
-                <label htmlFor="signup-password" className="text-sm font-medium text-grey">Password</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                  <input type={showPass ? "text" : "password"} id="signup-password" name="password" autoComplete="new-password" value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
-                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
-                      fieldErrors.password ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
-                  <button type="button" aria-label={showPass ? "Hide password" : "Show password"} onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {form.password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map(i => (
-                        <div key={i} className={cn("flex-1 h-1 rounded-full transition-colors",
-                          pwStrength.score > i
-                            ? pwStrength.strength === "strong" ? "bg-emerald-400"
-                            : pwStrength.strength === "medium" ? "bg-orange-400" : "bg-red-400"
-                            : "bg-surface-raised")} />
-                      ))}
-                    </div>
-                    <p className={cn("text-xs", pwStrength.strength === "strong" ? "text-emerald-400" : pwStrength.strength === "medium" ? "text-orange-400" : "text-red-400")}>
-                      {pwStrength.strength === "strong" ? "Strong password" : pwStrength.strength === "medium" ? "Medium — " + pwStrength.issues.join(", ") : "Weak — " + pwStrength.issues.join(", ")}
-                    </p>
-                  </div>
+                {fieldErrors[key] && (
+                  <p className="ferr">
+                    <AlertCircle size={11} /> {fieldErrors[key]}
+                    {key === "email" && error === "already_registered" && <Link href="/login">Sign in instead →</Link>}
+                  </p>
                 )}
-                {fieldErrors.password && !form.password && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} /> {fieldErrors.password}</p>}
               </div>
+            ))}
 
-              <div className="space-y-1.5">
-                <label htmlFor="signup-confirm-password" className="text-sm font-medium text-grey">Confirm Password</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                  <input type={showConfirm ? "text" : "password"} id="signup-confirm-password" name="confirmPassword" autoComplete="new-password" value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
-                    className={cn("w-full bg-surface-raised border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 transition-all",
-                      fieldErrors.confirmPassword ? "border-red-500/50 focus:ring-red-500/30" : "border-border focus:ring-gold/50 focus:border-gold/50")} />
-                  <button type="button" aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
-                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+            <div className="field">
+              <label htmlFor="signup-password">Password</label>
+              <div className="ip">
+                <Lock size={16} className="lic" />
+                <input type={showPass ? "text" : "password"} id="signup-password" name="password" className="pl pr" autoComplete="new-password" value={form.password} onChange={update("password")} placeholder="Min. 8 characters, 1 capital, 1 number"
+                  style={fieldErrors.password ? badBorder : undefined} />
+                <button type="button" aria-label={showPass ? "Hide password" : "Show password"} onClick={() => setShowPass(!showPass)} className="eye">
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {form.password && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[0, 1, 2].map(i => (
+                      <div key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: pwStrength.score > i ? pwColor : "var(--line2)" }} />
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 12, marginTop: 5, color: pwColor }}>
+                    {pwStrength.strength === "strong" ? "Strong password" : pwStrength.strength === "medium" ? "Medium — " + pwStrength.issues.join(", ") : "Weak — " + pwStrength.issues.join(", ")}
+                  </p>
                 </div>
-                {fieldErrors.confirmPassword && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} /> {fieldErrors.confirmPassword}</p>}
+              )}
+              {fieldErrors.password && !form.password && <p className="ferr"><AlertCircle size={11} /> {fieldErrors.password}</p>}
+            </div>
+
+            <div className="field">
+              <label htmlFor="signup-confirm-password">Confirm Password</label>
+              <div className="ip">
+                <Lock size={16} className="lic" />
+                <input type={showConfirm ? "text" : "password"} id="signup-confirm-password" name="confirmPassword" className="pl pr" autoComplete="new-password" value={form.confirmPassword} onChange={update("confirmPassword")} placeholder="Re-enter your password"
+                  style={fieldErrors.confirmPassword ? badBorder : undefined} />
+                <button type="button" aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)} className="eye">
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
+              {fieldErrors.confirmPassword && <p className="ferr"><AlertCircle size={11} /> {fieldErrors.confirmPassword}</p>}
+            </div>
 
-              {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="flex justify-center" />}
+            {TURNSTILE_SITE_KEY && <div ref={turnstileRef} style={{ display: "flex", justifyContent: "center", marginBottom: 15 }} />}
 
-              <p className="text-xs text-[#8f8f8f] leading-relaxed">
-                By signing up, you agree to our{" "}
-                <Link href="/terms" className="text-gold hover:underline">Terms of Service</Link> and{" "}
-                <Link href="/privacy" className="text-gold hover:underline">Privacy Policy</Link>.
-              </p>
-
-              <Button type="submit" className="w-full" size="lg" loading={loading}>
-                {loading ? "Sending code…" : "Continue"}
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-[#8f8f8f] mt-6">
-              Already have an account?{" "}
-              <Link href="/login" className="text-gold hover:underline font-medium">Sign in</Link>
+            <p className="fine" style={{ marginBottom: 15, lineHeight: 1.5 }}>
+              By signing up, you agree to our{" "}
+              <Link href="/terms" style={{ color: "var(--t1)", textDecoration: "underline" }}>Terms of Service</Link> and{" "}
+              <Link href="/privacy" style={{ color: "var(--t1)", textDecoration: "underline" }}>Privacy Policy</Link>.
             </p>
-          </div>
-        )}
-      </div>
-    </div>
+
+            <button type="submit" className="pill w full" disabled={loading}>
+              {loading ? "Sending code…" : "Continue"}
+            </button>
+          </form>
+
+          <p className="authfoot">Already have an account? <Link href="/login">Sign in</Link></p>
+        </div>
+      )}
+    </AuthShell>
   );
 }

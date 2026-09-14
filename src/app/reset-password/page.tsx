@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Lock, Eye, EyeOff, Check, AlertCircle } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/marketing/auth-shell";
 import { supabase } from "@/lib/supabase";
 
 export default function ResetPasswordPage() {
@@ -51,83 +50,48 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/"><Logo size="md" className="justify-center mb-4" /></Link>
-          <h1 className="text-2xl font-bold text-white">Set new password</h1>
-          <p className="text-[#8f8f8f] text-sm mt-1">Choose a strong password for your account</p>
+    <AuthShell title="Set new password" subtitle="Choose a strong password for your account">
+      {done ? (
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(59,209,161,.14)", borderColor: "rgba(59,209,161,.28)" }}><Check size={22} style={{ color: "var(--ok)" }} /></div>
+          <p style={{ fontWeight: 600, color: "var(--t1)" }}>Password updated!</p>
+          <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>Redirecting you to sign in…</p>
         </div>
-
-        <div className="bg-surface border border-border rounded-2xl p-8">
-          {done ? (
-            <div className="text-center py-4 space-y-3">
-              <div className="w-14 h-14 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto">
-                <Check size={24} className="text-emerald-400" />
-              </div>
-              <p className="text-white font-semibold">Password updated!</p>
-              <p className="text-[#8f8f8f] text-sm">Redirecting you to sign in…</p>
-            </div>
-          ) : recovery === "invalid" ? (
-            <div className="text-center py-4 space-y-3">
-              <div className="w-14 h-14 bg-red-500/15 rounded-full flex items-center justify-center mx-auto">
-                <AlertCircle size={24} className="text-red-400" />
-              </div>
-              <p className="text-white font-semibold">Invalid or expired link</p>
-              <p className="text-[#8f8f8f] text-sm">This password-reset link is no longer valid. Request a new one.</p>
-              <Link href="/forgot-password" className="inline-block text-gold hover:underline text-sm">Send a new reset link</Link>
-            </div>
-          ) : (
-            <>
-              {error && (
-                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
-                  <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
-                  <p className="text-sm text-red-400">{error}</p>
-                </div>
-              )}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-300">New Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                    <input
-                      type={showPass ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Min. 8 characters"
-                      required
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
-                    />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8f8f8f] hover:text-white">
-                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-300">Confirm Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]" />
-                    <input
-                      type={showPass ? "text" : "password"}
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      placeholder="Repeat your password"
-                      required
-                      className="w-full bg-surface-raised border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition-all"
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" size="lg" loading={loading}>
-                  {loading ? "Updating…" : "Update Password"}
-                </Button>
-              </form>
-              <p className="text-center text-sm text-[#8f8f8f] mt-6">
-                <Link href="/login" className="text-gold hover:underline">Back to sign in</Link>
-              </p>
-            </>
-          )}
+      ) : recovery === "invalid" ? (
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+          <div className="logo-fb" style={{ borderRadius: 999, background: "rgba(255,90,90,.12)", borderColor: "rgba(255,90,90,.3)" }}><AlertCircle size={22} style={{ color: "#ff8a8a" }} /></div>
+          <p style={{ fontWeight: 600, color: "var(--t1)" }}>Invalid or expired link</p>
+          <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>This password-reset link is no longer valid. Request a new one.</p>
+          <p className="authfoot" style={{ marginTop: 6 }}><Link href="/forgot-password">Send a new reset link</Link></p>
         </div>
-      </div>
-    </div>
+      ) : (
+        <>
+          {error && <div className="err"><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} /><span>{error}</span></div>}
+          <form onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="rp-password">New password</label>
+              <div className="ip">
+                <Lock size={16} className="lic" />
+                <input id="rp-password" className="pl pr" type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 8 characters" required />
+                <button type="button" aria-label={showPass ? "Hide password" : "Show password"} onClick={() => setShowPass(!showPass)} className="eye">
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="rp-confirm">Confirm password</label>
+              <div className="ip">
+                <Lock size={16} className="lic" />
+                <input id="rp-confirm" className="pl" type={showPass ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat your password" required />
+              </div>
+            </div>
+            <button type="submit" className="pill w full" disabled={loading} style={{ marginTop: 4 }}>
+              {loading ? "Updating…" : "Update password"}
+            </button>
+          </form>
+          <p className="authfoot"><Link href="/login">Back to sign in</Link></p>
+        </>
+      )}
+    </AuthShell>
   );
 }
