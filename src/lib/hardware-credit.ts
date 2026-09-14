@@ -41,11 +41,14 @@ export async function grantHardwareCredit(shopId: string): Promise<GrantResult> 
 
     const amountCents = hardwareCreditCents();
     // Negative balance = account credit → applied to the customer's next invoice.
+    // The idempotency key (one per shop) makes this at-most-once at Stripe: a
+    // double-click, a racing second approval, or a retry after the flag write
+    // below fails all resolve to the SAME single credit — never a double credit.
     await stripe.customers.createBalanceTransaction(shop.stripe_customer_id, {
       amount: -amountCents,
       currency: "cad",
       description: "Card reader credit (WisePad 3)",
-    });
+    }, { idempotencyKey: `hardware-credit-${shopId}` });
 
     // Mark granted so it can never double-apply. Resilient to the phase62 columns
     // not being migrated yet (drop them and still set the flag).
