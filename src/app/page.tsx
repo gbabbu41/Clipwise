@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
 import { PLAN_MARKETING } from "@/lib/plan-marketing";
-import { MKT_CSS } from "@/lib/marketing-theme";
 import { HeroFilm } from "@/components/marketing/hero-film";
+import { MarketingShell } from "@/components/marketing/shell";
 
 // Public marketing homepage. The DESIGN is the "new" black/emerald landing (ditto);
 // the SYSTEM + DATA are ours — real routes on every CTA, pricing rendered from the
@@ -31,25 +30,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <div className="mkt">
-      <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
-
-      {/* nav */}
-      <nav className="navbar">
-        <Link href="/" className="brand">CLIPWISE</Link>
-        <ul>
-          <li><a href="#app">Product</a></li>
-          <li><a href="#book">Booking</a></li>
-          <li><a href="#pay">Payments</a></li>
-          <li><a href="#price">Pricing</a></li>
-          <li><Link href="/shops">Find a Barber</Link></li>
-        </ul>
-        <div className="right">
-          <Link href="/login" className="login">Log in</Link>
-          <Link href="/signup" className="go">Get Started</Link>
-        </div>
-      </nav>
-
+    <MarketingShell>
       {/* Visually-hidden page title — the visible "headline" is baked into the hero
           film, so this gives crawlers and screen readers a real h1 with no visual
           change. */}
@@ -230,38 +211,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* our footer, fitted to the new theme */}
-      <footer className="site-footer">
-        <div className="wrap">
-          <div className="fg">
-            <div>
-              <Logo size="sm" className="cw-grad" />
-              <p className="fabout">Barbershop software built for Canadian shops. Moncton, New Brunswick.</p>
-            </div>
-            <div>
-              <h3>Product</h3>
-              <a href="#app">Features</a>
-              <a href="#price">Pricing</a>
-              <Link href="/shops">Find a Barber</Link>
-            </div>
-            <div>
-              <h3>Company</h3>
-              <Link href="/why-clipwise">Why ClipWise</Link>
-              <Link href="/support">How payments work</Link>
-              <a href="mailto:support@clipwise.ca">Contact</a>
-            </div>
-            <div>
-              <h3>Legal</h3>
-              <Link href="/privacy">Privacy</Link>
-              <Link href="/terms">Terms</Link>
-              <Link href="/cookies">Cookies</Link>
-            </div>
-          </div>
-          <div className="fb">
-            <span>© 2026 ClipWise</span>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </MarketingShell>
   );
 }

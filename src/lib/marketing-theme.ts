@@ -187,6 +187,23 @@ html{scroll-behavior:smooth}
 .mkt .close .veil{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,#000,rgba(0,0,0,.4) 45%,#000)}
 .mkt .close .wrap{position:relative;z-index:2;display:flex;flex-direction:column;gap:20px;align-items:flex-start;max-width:640px}
 
+/* content pages (legal, support, etc.) — themed prose sitting under the fixed nav */
+.mkt .doc{padding-top:clamp(110px,15vh,160px);padding-bottom:clamp(64px,9vw,110px)}
+.mkt .doc .wrap{max-width:760px}
+.mkt .prose{display:flex;flex-direction:column;gap:22px}
+.mkt .prose section{display:flex;flex-direction:column;gap:10px}
+.mkt .prose section>div{display:flex;flex-direction:column;gap:10px}
+.mkt .prose h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:0;text-wrap:balance}
+.mkt .prose h2{font-size:clamp(19px,2.4vw,23px);font-weight:700;letter-spacing:-.02em;margin:0}
+.mkt .prose h3{font-size:16px;font-weight:600;margin:0}
+.mkt .prose p{font-size:15.5px;line-height:1.7;color:var(--t2);margin:0}
+.mkt .prose ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.mkt .prose li{font-size:15px;line-height:1.6;color:var(--t2)}
+.mkt .prose a{color:var(--t1);text-decoration:underline;text-underline-offset:2px}
+.mkt .prose a:hover{color:#fff}
+.mkt .prose strong,.mkt .prose b{color:var(--t1);font-weight:600}
+.mkt .doc .updated{font-size:12.5px;color:var(--t4);margin:0 0 8px}
+
 /* our footer, fitted to the new theme */
 .mkt .site-footer{border-top:1px solid var(--line);background:#000}
 .mkt .site-footer .wrap{padding-block:48px 56px}
