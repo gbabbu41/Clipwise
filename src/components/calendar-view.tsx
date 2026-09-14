@@ -1655,9 +1655,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
       const line = nowLineRef.current;
       if (showsToday && line) {
-        // scrollIntoView handles the sticky header + row math for us; centre keeps
-        // "now" clearly in view with the past above and upcoming below.
-        line.scrollIntoView({ block: "center", behavior: "auto" });
+        // Scroll ONLY the timeline container (never ancestors). scrollIntoView
+        // bubbles up and scrolls the page/main too, which pushed the month/date/
+        // view controls off the top on load. Computing scrollTop within `el`
+        // keeps the header fixed and just moves the grid to centre "now".
+        const lineTop = line.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+        el.scrollTop = Math.max(0, lineTop - el.clientHeight / 2);
       } else {
         el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
       }
