@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { MobileMenu } from "./mobile-menu";
 
 // Shared marketing nav (the floating pill). Used by every public page via
 // MarketingShell, so the nav never drifts between pages. Section links point at
 // the homepage anchors (/#…) so they work from any page, not just the homepage.
+// On phones the section links collapse into <MobileMenu>'s hamburger.
 export function MarketingNav() {
   return (
     <nav className="navbar">
@@ -17,6 +19,7 @@ export function MarketingNav() {
       <div className="right">
         <Link href="/login" className="login">Log in</Link>
         <Link href="/signup" className="go">Get Started</Link>
+        <MobileMenu />
       </div>
     </nav>
   );

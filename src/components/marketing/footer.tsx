@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
 
 // Shared marketing footer, fitted to the theme. Used by every public page via
 // MarketingShell. Section links use homepage anchors (/#…) so they resolve from
-// any page.
+// any page. The wordmark is a plain white CLIPWISE (matching the nav brand) — the
+// app's blue/violet gradient logo would be off-palette on the emerald theme.
 export function MarketingFooter() {
   return (
     <footer className="site-footer">
       <div className="wrap">
         <div className="fg">
           <div>
-            <Logo size="sm" className="cw-grad" />
+            <Link href="/" className="fm-brand">CLIPWISE</Link>
             <p className="fabout">Barbershop software built for Canadian shops. Moncton, New Brunswick.</p>
           </div>
           <div>

@@ -59,7 +59,13 @@ html{scroll-behavior:smooth}
 .mkt .navbar .login{font-size:13.5px;font-weight:600;color:var(--t2)}
 .mkt .navbar .login:hover{color:#fff}
 .mkt .navbar .go{font-size:13.5px;font-weight:600;background:#fff;color:#000;padding:9px 18px;border-radius:999px;white-space:nowrap}
-@media(max-width:900px){.mkt .navbar ul{display:none}.mkt .navbar{justify-content:space-between;gap:12px}}
+.mkt .navbar .burger{display:none;align-items:center;justify-content:center;width:38px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--t1);cursor:pointer;flex:none}
+.mkt .navbar .burger:hover{background:rgba(255,255,255,.12)}
+.mkt .mobmenu{position:absolute;top:calc(100% + 8px);left:0;right:0;display:flex;flex-direction:column;background:rgba(16,16,18,.94);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:8px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.mkt .mobmenu a{padding:12px 14px;border-radius:10px;font-size:14.5px;font-weight:500;color:var(--t2)}
+.mkt .mobmenu a:hover{background:rgba(255,255,255,.06);color:#fff}
+@media(min-width:901px){.mkt .mobmenu{display:none}}
+@media(max-width:900px){.mkt .navbar ul{display:none}.mkt .navbar{justify-content:space-between;gap:12px}.mkt .navbar .login{display:none}.mkt .navbar .burger{display:inline-flex}}
 
 /* hero film */
 /* Stage takes the FILM's 16:9 shape (not the window's) on desktop, so a normal
@@ -254,6 +260,7 @@ html{scroll-behavior:smooth}
 /* our footer, fitted to the new theme */
 .mkt .site-footer{border-top:1px solid var(--line);background:#000}
 .mkt .site-footer .wrap{padding-block:48px 56px}
+.mkt .site-footer .fm-brand{display:inline-block;font-weight:800;letter-spacing:-.045em;font-size:18px;color:var(--t1)}
 .mkt .fg{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:28px}
 .mkt .fg h3{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--t3);margin:0 0 12px}
 .mkt .fg a{display:block;padding:4px 0;color:var(--t2);font-size:13.5px}
