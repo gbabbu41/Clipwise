@@ -54,25 +54,26 @@ export function CalendarSetupNudge() {
   const pct = Math.round((done / total) * 100);
   const firstName = (profile?.name || shop.name || "").split(/\s+/)[0] || "Hey";
 
-  // Progress ring geometry.
-  const R = 24, C = 2 * Math.PI * R, offset = C * (1 - done / total);
+  // 3/4 gauge (270° arc, open at the bottom) — Squire-style. Rotating the SVG 135°
+  // moves the 90° gap to the bottom; the progress arc fills the 270° track.
+  const R = 25, C = 2 * Math.PI * R, ARC = 0.75, frac = done / total;
 
   return (
     <div className="fixed left-0 right-0 z-30 px-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom)+8px)] lg:bottom-4 pointer-events-none">
       <Link href={next.href}
-        className="pointer-events-auto mx-auto max-w-md bg-surface border border-border rounded-2xl px-4 py-3.5 shadow-xl shadow-black/40 flex items-center gap-4 animate-fade-in hover:border-gold/30 transition-colors">
+        className="pointer-events-auto mx-auto max-w-2xl bg-surface border border-border rounded-2xl px-5 py-4 shadow-xl shadow-black/40 flex items-center gap-4 animate-fade-in hover:border-white/15 transition-colors">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground leading-snug">{firstName}, {next.prompt}</p>
-          <span className="text-sm font-semibold text-gold mt-1 inline-block">{next.cta} →</span>
+          <p className="text-[15px] font-bold text-foreground leading-snug">{firstName}, {next.prompt}</p>
+          <span className="text-[15px] font-semibold text-blue-500 mt-1.5 inline-block">{next.cta}</span>
         </div>
-        <div className="relative flex-shrink-0" style={{ width: 60, height: 60 }}>
-          <svg width="60" height="60" viewBox="0 0 60 60" className="-rotate-90">
-            <circle cx="30" cy="30" r={R} fill="none" stroke="#2b2b31" strokeWidth="5" />
-            <circle cx="30" cy="30" r={R} fill="none" className="text-gold" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={offset} />
+        <div className="relative flex-shrink-0" style={{ width: 68, height: 68 }}>
+          <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(135deg)" }}>
+            <circle cx="34" cy="34" r={R} fill="none" stroke="#2b2b31" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${ARC * C} ${(1 - ARC) * C}`} />
+            <circle cx="34" cy="34" r={R} fill="none" stroke="#3b82f6" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${frac * ARC * C} ${C}`} />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-sm font-bold text-foreground leading-none">{pct}%</span>
-            <span className="text-[9px] text-grey mt-0.5">{done} of {total}</span>
+            <span className="text-lg font-extrabold text-foreground leading-none">{pct}%</span>
+            <span className="text-[9px] font-semibold tracking-wide text-grey mt-1">{done} OF {total}</span>
           </div>
         </div>
       </Link>
