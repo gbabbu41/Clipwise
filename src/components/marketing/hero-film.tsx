@@ -48,12 +48,24 @@ export function HeroFilm() {
     if (bg?.src) { bg.currentTime = 0; bg.play().catch(() => {}); }
   };
 
+  // Tap the film to play/pause — the fallback when iOS blocks autoplay (e.g. Low
+  // Power Mode), so a visitor isn't stuck on a still poster.
+  const toggle = () => {
+    const v = filmRef.current;
+    if (!v) return;
+    if (!v.src) v.src = "/new/hero-film.mp4";
+    if (v.paused) v.play().catch(() => {}); else v.pause();
+  };
+
   return (
     <section className="stage">
-      <video ref={bgRef} className="filmbg" muted loop playsInline preload="none" aria-hidden tabIndex={-1} />
-      <video ref={filmRef} className="film" autoPlay muted loop playsInline preload="auto" poster="/new/poster.jpg" aria-label="ClipWise" />
-      <div className="scrim" /><div className="grain" />
-      <div className="bar t" /><div className="bar b" />
+      <div className="filmwrap" onClick={toggle}>
+        <video ref={bgRef} className="filmbg" muted loop playsInline preload="none" aria-hidden tabIndex={-1} />
+        <video ref={filmRef} className="film" autoPlay muted loop playsInline preload="auto" poster="/new/poster.jpg" aria-label="ClipWise" />
+        <div className="scrim" /><div className="grain" />
+        <div className="bar t" /><div className="bar b" />
+        <button className="ctl" onClick={(e) => { e.stopPropagation(); replay(); }} title="Replay" aria-label="Replay video">↻</button>
+      </div>
       <div className="foot">
         <div className="cta">
           <Link className="pill w" href="/signup">Get started free</Link>
@@ -61,7 +73,6 @@ export function HeroFilm() {
         </div>
         <p className="micro">No credit card · 60-second setup · Interac at 15¢ flat</p>
       </div>
-      <button className="ctl" onClick={replay} title="Replay" aria-label="Replay video">↻</button>
     </section>
   );
 }

@@ -68,41 +68,47 @@ html{scroll-behavior:smooth}
 @media(max-width:900px){.mkt .navbar ul{display:none}.mkt .navbar{justify-content:space-between;gap:12px}.mkt .navbar .login{display:none}.mkt .navbar .burger{display:inline-flex}}
 
 /* hero film */
-/* Stage takes the FILM's 16:9 shape (not the window's) on desktop, so a normal
-   window shows the whole film with no letterbox. On portrait phones a landscape
-   film can't be letterboxed sanely, so it fills via cover. The blurred backdrop
-   (.filmbg) fills any residual gap on ultrawide / very-short windows — it's
-   always armed now, not gated to ≥16:9. */
-.mkt .stage{position:relative;width:100%;height:min(100svh,calc(100vw * 0.5625));min-height:460px;overflow:hidden;background:#000;
-  display:flex;align-items:flex-end;isolation:isolate}
-.mkt .film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:0;background:transparent;
-  filter:brightness(.84) contrast(1.04)}
-.mkt .filmbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;
+/* DESKTOP: the stage takes the film's 16:9 shape, the film fills it (contain =
+   exact fit at 16:9), and the CTAs overlay the bottom. The blurred backdrop
+   (.filmbg) fills any residual gap on ultrawide / very-short windows.
+   MOBILE (portrait): see the media query below — the film becomes a clean 16:9
+   band and the CTAs move BELOW it on black, so nothing overlaps or bleeds. */
+.mkt .stage{position:relative;width:100%;height:min(100svh,calc(100vw * 0.5625));min-height:460px;overflow:hidden;background:#000;isolation:isolate}
+.mkt .filmwrap{position:absolute;inset:0;overflow:hidden}
+.mkt .filmbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
   transform:scale(1.14);filter:blur(64px) brightness(.30) saturate(.7);opacity:1;pointer-events:none}
-/* Portrait phones: the hero film is 16:9 with the headline baked in, so cropping
-   it (cover) cuts the text off the edge. Show the WHOLE film (contain) as a band
-   with the blurred fill behind it — text stays composed, nothing bleeds. */
-@media (max-aspect-ratio:1/1){.mkt .stage{height:64svh}.mkt .film{object-fit:contain}}
-.mkt .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+.mkt .film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:transparent;
+  filter:brightness(.84) contrast(1.04)}
+.mkt .scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
   background:radial-gradient(125% 78% at 50% 48%,transparent 40%,rgba(0,0,0,.55) 100%),
     linear-gradient(180deg,rgba(0,0,0,.6) 0%,transparent 18%,transparent 60%,rgba(0,0,0,.94) 100%)}
-.mkt .grain{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.075;mix-blend-mode:screen;
+.mkt .grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.075;mix-blend-mode:screen;
   background-image:var(--grain);background-size:200px 200px}
-/* Cinematic edge — gradients that DARKEN the film's top/bottom, not solid black
-   fills (which used to stack onto the letterbox and read as more dead space). */
-.mkt .bar{position:absolute;left:0;right:0;height:clamp(26px,5.2vh,64px);z-index:3;pointer-events:none}
+.mkt .bar{position:absolute;left:0;right:0;height:clamp(26px,5.2vh,64px);z-index:4;pointer-events:none}
 .mkt .bar.t{top:0;background:linear-gradient(180deg,rgba(0,0,0,.85),transparent)}
 .mkt .bar.b{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.85),transparent)}
-.mkt .foot{position:relative;z-index:6;width:100%;max-width:var(--max);margin:0 auto;
+.mkt .foot{position:absolute;left:0;right:0;bottom:0;z-index:6;width:100%;max-width:var(--max);margin:0 auto;
   padding:0 26px clamp(52px,9vh,96px);display:flex;align-items:flex-end;justify-content:space-between;
   gap:20px;flex-wrap:wrap}
 .mkt .cta{display:flex;gap:11px;flex-wrap:wrap}
 .mkt .micro{font-size:12.5px;color:var(--t2);margin:0}
-.mkt .ctl{position:absolute;right:26px;bottom:clamp(52px,9vh,96px);z-index:6;width:44px;height:44px;
-  border-radius:999px;display:grid;place-items:center;cursor:pointer;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(10px);color:rgba(255,255,255,.7);
+.mkt .ctl{position:absolute;right:16px;bottom:14px;z-index:6;width:40px;height:40px;
+  border-radius:999px;display:grid;place-items:center;cursor:pointer;background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(10px);color:rgba(255,255,255,.8);
   font-size:14px;font-family:var(--font)}
-.mkt .ctl:hover{background:rgba(255,255,255,.14);color:#fff}
+.mkt .ctl:hover{background:rgba(0,0,0,.6);color:#fff}
+/* MOBILE: film is a true 16:9 band (cover fills it exactly — same aspect, no crop,
+   no bleed), CTAs stack full-width BELOW it on black. */
+@media (max-aspect-ratio:1/1){
+  .mkt .stage{height:auto;min-height:0}
+  .mkt .filmwrap{position:relative;aspect-ratio:16/9;width:100%}
+  .mkt .film{object-fit:cover}
+  .mkt .foot{position:static;max-width:none;margin:0;padding:20px 20px 8px;background:#000;
+    flex-direction:column;align-items:stretch;gap:14px}
+  .mkt .foot .cta{flex-direction:column;gap:10px}
+  .mkt .foot .cta .pill{display:block;width:100%}
+  .mkt .foot .micro{text-align:center}
+}
 
 /* proof strip */
 .mkt .proof{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#000}
