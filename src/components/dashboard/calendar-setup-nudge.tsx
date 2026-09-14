@@ -38,6 +38,7 @@ export function CalendarSetupNudge() {
         { key: "barber", prompt: "add yourself to the calendar", cta: "Add yourself as a barber", href: "/dashboard/staff", done: barberIds.length > 0 },
         { key: "logo", prompt: "add your shop logo", cta: "Add a logo", href: "/dashboard/settings", done: !!shop.logo },
         { key: "phone", prompt: "add a contact number", cta: "Add your phone number", href: "/dashboard/settings", done: !!(shop.phone && shop.phone.trim()) },
+        { key: "payments", prompt: "connect payments to get paid", cta: "Connect payments", href: "/dashboard/stripe", done: !!shop.stripe_account_id },
         { key: "share", prompt: "share your booking link", cta: "Share your booking link", href: "/dashboard/share", done: shared },
       ];
       if (!cancelled) setSteps(next);
@@ -64,12 +65,12 @@ export function CalendarSetupNudge() {
         className="pointer-events-auto mx-auto max-w-2xl bg-surface border border-border rounded-2xl px-5 py-4 shadow-xl shadow-black/40 flex items-center gap-4 animate-fade-in hover:border-white/15 transition-colors">
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-bold text-foreground leading-snug">{firstName}, {next.prompt}</p>
-          <span className="text-[15px] font-semibold text-blue-500 mt-1.5 inline-block">{next.cta}</span>
+          <span className="text-[15px] font-semibold mt-1.5 inline-block" style={{ color: "#0A84FF" }}>{next.cta}</span>
         </div>
         <div className="relative flex-shrink-0" style={{ width: 68, height: 68 }}>
-          <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(135deg)" }}>
+          <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(135deg)", transformOrigin: "center" }}>
             <circle cx="34" cy="34" r={R} fill="none" stroke="#2b2b31" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${ARC * C} ${(1 - ARC) * C}`} />
-            <circle cx="34" cy="34" r={R} fill="none" stroke="#3b82f6" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${frac * ARC * C} ${C}`} />
+            <circle cx="34" cy="34" r={R} fill="none" stroke="#0A84FF" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${frac * ARC * C} ${C}`} />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-lg font-extrabold text-foreground leading-none">{pct}%</span>
