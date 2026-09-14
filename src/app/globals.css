@@ -855,9 +855,13 @@ h1, h2, h3, h4 {
   font-weight: 400;
   line-height: 1.5;
   color: var(--foreground);
-  background-color: var(--card);
+  /* Recessed "well": a step BELOW the card it sits on (was --card, i.e. the same
+     tone as the panel → the field edges vanished). Sunken fill + a visible
+     --border-strong hairline so every input reads as a distinct box on a card or
+     directly on the page, in both dark and light themes. */
+  background-color: var(--surface-sunken);
   background-clip: padding-box;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 0.875rem;
   transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
   appearance: none;
@@ -873,7 +877,10 @@ h1, h2, h3, h4 {
 }
 .form-control:disabled,
 .form-select:disabled {
-  background-color: var(--surface-sunken);
+  /* Enabled inputs are now a sunken well, so disabled goes FLAT at card level
+     (plus muted text + not-allowed) to stay clearly distinct from an editable field. */
+  background-color: var(--card);
+  border-color: var(--border);
   color: var(--grey-2);
   opacity: 1;
   cursor: not-allowed;

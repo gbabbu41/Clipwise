@@ -123,7 +123,7 @@ export default function BarberProfilePage() {
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
               placeholder="e.g. Marcus Johnson"
             />
           </div>
@@ -134,7 +134,7 @@ export default function BarberProfilePage() {
               type="email"
               value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
               placeholder="you@example.com"
             />
           </div>
@@ -145,7 +145,7 @@ export default function BarberProfilePage() {
               value={form.bio}
               onChange={e => setForm({ ...form, bio: e.target.value })}
               rows={4}
-              className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+              className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none"
               placeholder="Tell clients a bit about yourself — specialties, years of experience, style..."
             />
           </div>

@@ -573,7 +573,7 @@ export default function BillingPage() {
                   onChange={e => setCouponCode(e.target.value.toUpperCase().slice(0, 40))}
                   onKeyDown={e => { if (e.key === "Enter") redeemCoupon(); }}
                   placeholder="Enter your code"
-                  className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400 font-mono"
+                  className="flex-1 bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground font-mono"
                 />
                 <Button size="sm" loading={actionLoading === "coupon"} disabled={!couponCode.trim()} onClick={redeemCoupon}>Redeem</Button>
               </div>

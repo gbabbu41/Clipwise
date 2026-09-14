@@ -365,7 +365,7 @@ export default function TimeOffPage() {
                 <select
                   value={form.barber_id}
                   onChange={e => setForm(p => ({ ...p, barber_id: e.target.value }))}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
+                  className="w-full rounded-xl border border-border-strong bg-surface-sunken px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground"
                 >
                   <option value="">Select barber…</option>
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}

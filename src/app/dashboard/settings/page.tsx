@@ -866,7 +866,7 @@ export default function SettingsPage() {
                     const tz = tzForProvince(prov);
                     setProfile(p => ({ ...p, province: prov, ...(tz ? { timezone: tz } : {}) }));
                   }}
-                  className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-400"
+                  className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground"
                 >
                   <option value="">Select…</option>
                   {CANADA_PROVINCES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -879,7 +879,7 @@ export default function SettingsPage() {
               <select
                 value={profile.timezone}
                 onChange={e => setProfile(p => ({ ...p, timezone: e.target.value }))}
-                className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-400"
+                className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground"
               >
                 {CANADA_TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -1173,14 +1173,14 @@ export default function SettingsPage() {
                       <label className="text-xs text-grey font-medium uppercase tracking-wide">Tax rate (%)</label>
                       <input type="number" min={0} max={30} step="0.001" value={String(booking.tax_rate)}
                         onChange={e => setBooking(p => ({ ...p, tax_rate: clampTaxRate(Number(e.target.value)) }))}
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-400" />
+                        className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground" />
                     </div>
                     <div>
                       <label className="text-xs text-grey font-medium uppercase tracking-wide">Label</label>
                       <input value={booking.tax_label}
                         onChange={e => setBooking(p => ({ ...p, tax_label: e.target.value.slice(0, 12) }))}
                         placeholder="HST"
-                        className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
+                        className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
                     </div>
                   </div>
                   {/* Optional separate provincial tax (PST/QST) — BC/SK/MB/QC only */}
@@ -1199,14 +1199,14 @@ export default function SettingsPage() {
                             <label className="text-xs text-grey font-medium uppercase tracking-wide">PST/QST rate (%)</label>
                             <input type="number" min={0} max={30} step="0.001" value={String(booking.pst_rate)}
                               onChange={e => setBooking(p => ({ ...p, pst_rate: clampTaxRate(Number(e.target.value)) }))}
-                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-400" />
+                              className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground" />
                           </div>
                           <div>
                             <label className="text-xs text-grey font-medium uppercase tracking-wide">Label</label>
                             <input value={booking.pst_label}
                               onChange={e => setBooking(p => ({ ...p, pst_label: e.target.value.slice(0, 12) }))}
                               placeholder="PST"
-                              className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
+                              className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
                           </div>
                         </div>
                         <div>
@@ -1214,7 +1214,7 @@ export default function SettingsPage() {
                           <input value={booking.pst_number}
                             onChange={e => setBooking(p => ({ ...p, pst_number: e.target.value.slice(0, 40) }))}
                             placeholder="PST-1234-5678"
-                            className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
+                            className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
                           <p className="text-[11px] text-grey mt-1">Unlike GST/HST, this is set per location (it&rsquo;s a provincial number).</p>
                         </div>
                       </div>
@@ -1226,7 +1226,7 @@ export default function SettingsPage() {
                     <input value={booking.tax_number}
                       onChange={e => setBooking(p => ({ ...p, tax_number: e.target.value.slice(0, 40) }))}
                       placeholder="123456789RT0001"
-                      className="mt-1.5 w-full bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-400" />
+                      className="mt-1.5 w-full bg-surface-sunken border border-border-strong rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground" />
                     {booking.tax_enabled && !isValidGstNumber(booking.tax_number) ? (
                       <p className="text-[11px] text-red-400 mt-1">
                         {(booking.tax_number ?? "").trim()

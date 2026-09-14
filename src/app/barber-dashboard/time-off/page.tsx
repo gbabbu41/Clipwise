@@ -313,7 +313,7 @@ export default function BarberTimeOffPage() {
                 <label className="text-sm font-medium text-grey">Reason <span className="text-grey">(optional)</span></label>
                 <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                   rows={2} placeholder="e.g. Doctor appointment, family event…"
-                  className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none" />
+                  className="w-full bg-surface-sunken border border-border-strong rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none" />
               </div>
 
               <p className="text-xs text-grey bg-surface-raised border border-border rounded-xl px-3 py-2">

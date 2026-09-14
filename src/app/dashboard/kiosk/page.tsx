@@ -319,7 +319,7 @@ export default function KioskPage() {
                     value={data.name}
                     onChange={e => { const v = e.target.value; setData(d => ({ ...d, name: v })); setPickedClient(false); searchContacts(v); }}
                     placeholder="Start typing — we'll find you"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-2xl border-2 border-border-strong bg-surface-sunken px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-foreground"
                     autoComplete="off"
                     autoCorrect="off"
                   />
@@ -344,7 +344,7 @@ export default function KioskPage() {
                     value={data.phone}
                     onChange={e => setData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="e.g. 416-555-0100"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-2xl border-2 border-border-strong bg-surface-sunken px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-foreground"
                     autoComplete="off"
                   />
                 </div>
@@ -355,7 +355,7 @@ export default function KioskPage() {
                     value={data.email}
                     onChange={e => setData(d => ({ ...d, email: e.target.value }))}
                     placeholder="e.g. you@email.com"
-                    className="w-full rounded-2xl border-2 border-border bg-card-raised px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-emerald-500"
+                    className="w-full rounded-2xl border-2 border-border-strong bg-surface-sunken px-5 py-4 text-lg text-foreground placeholder:text-grey focus:outline-none focus:border-foreground"
                     autoComplete="off"
                   />
                 </div>

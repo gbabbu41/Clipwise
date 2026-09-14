@@ -88,7 +88,7 @@ export default function BarberClientsPage() {
           placeholder="Search by name or phone..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full bg-surface border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+          className="w-full bg-surface-sunken border border-border-strong rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:ring-2 focus:ring-foreground/20"
         />
       </div>
 
