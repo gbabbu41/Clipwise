@@ -97,17 +97,24 @@ html{scroll-behavior:smooth}
   border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(10px);color:rgba(255,255,255,.8);
   font-size:14px;font-family:var(--font)}
 .mkt .ctl:hover{background:rgba(0,0,0,.6);color:#fff}
-/* MOBILE: film is a true 16:9 band (cover fills it exactly — same aspect, no crop,
-   no bleed), CTAs stack full-width BELOW it on black. */
-@media (max-aspect-ratio:1/1){
-  .mkt .stage{height:auto;min-height:0}
-  .mkt .filmwrap{position:relative;aspect-ratio:16/9;width:100%}
-  .mkt .film{object-fit:cover}
-  .mkt .foot{position:static;max-width:none;margin:0;padding:20px 20px 8px;background:#000;
-    flex-direction:column;align-items:stretch;gap:14px}
-  .mkt .foot .cta{flex-direction:column;gap:10px}
-  .mkt .foot .cta .pill{display:block;width:100%}
-  .mkt .foot .micro{text-align:center}
+/* MOBILE (phones): a video hero is unreliable — iOS blocks autoplay (Low Power
+   Mode) and shows a native play button over the poster. So on phones we drop the
+   video and render a real TEXT hero over a darkened barbershop still. */
+.mkt .hero-m{display:none}
+@media (max-width:640px){
+  .mkt .stage{height:auto;min-height:0;overflow:visible}
+  .mkt .filmwrap,.mkt .stage>.foot{display:none}
+  .mkt .hero-m{display:block;position:relative;min-height:82svh;overflow:hidden}
+  .mkt .hero-m-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.4;z-index:0}
+  .mkt .hero-m-veil{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.25) 42%,#000)}
+  .mkt .hero-m .grain{z-index:2;opacity:.06}
+  .mkt .hero-m-in{position:relative;z-index:3;min-height:82svh;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:104px 22px 34px}
+  .mkt .hero-m .eyebrow{margin:0}
+  .mkt .hero-m-h{font-size:clamp(34px,9.5vw,46px);font-weight:800;letter-spacing:-.03em;line-height:1.06;margin:0;color:var(--t1);text-wrap:balance}
+  .mkt .hero-m .lead{font-size:16px}
+  .mkt .hero-m .cta{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .mkt .hero-m .cta .pill{display:block;width:100%}
+  .mkt .hero-m .micro{margin:0;font-size:12.5px;color:var(--t2)}
 }
 
 /* proof strip */

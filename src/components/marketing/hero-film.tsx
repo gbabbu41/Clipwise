@@ -73,6 +73,23 @@ export function HeroFilm() {
         </div>
         <p className="micro">No credit card · 60-second setup · Interac at 15¢ flat</p>
       </div>
+
+      {/* Mobile text hero — replaces the video on phones (no autoplay/native-control
+          issues). Darkened barbershop still behind real, legible copy. */}
+      <div className="hero-m">
+        <img className="hero-m-bg" src="/new/atmo-shop.jpg" alt="" />
+        <div className="hero-m-veil" /><div className="grain" />
+        <div className="hero-m-in">
+          <p className="eyebrow">Built for Canadian barbers</p>
+          <p className="hero-m-h">Smart software for your barbershop.</p>
+          <p className="lead">Online booking, in-person payments, payroll and no-show protection — all in one app.</p>
+          <div className="cta">
+            <Link className="pill w" href="/signup">Get started free</Link>
+            <a className="pill g" href="#day">See the product</a>
+          </div>
+          <p className="micro">No credit card · 60-second setup · Interac at 15¢ flat</p>
+        </div>
+      </div>
     </section>
   );
 }
