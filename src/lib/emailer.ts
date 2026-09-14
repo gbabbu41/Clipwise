@@ -210,6 +210,59 @@ function ownerApproved(data: Record<string, string>) {
   `);
 }
 
+// The welcome email every new shop gets the moment its account is created —
+// fired server-side from /api/shops/create so it's automatic and never depends
+// on the browser finishing an onboarding flow. Adapts to how they signed up:
+//   • trial  → "21-day free trial of <Plan>, no card, ends <date>"
+//   • paid   → "<Plan> plan is active"
+//   • free   → "free Starter plan, free forever"
+// statusKind is one of "trial" | "paid" | "free".
+function ownerWelcome(data: Record<string, string>) {
+  const kind = data.statusKind || "free";
+  const plan = data.planLabel || "Starter";
+  const planRow = kind === "trial"
+    ? `<div class="row"><span class="label">Plan</span><span class="val">${plan} — free trial</span></div>
+       <div class="row"><span class="label">Trial ends</span><span class="val">${data.trialEndsOn || "in 21 days"}</span></div>
+       <div class="row"><span class="label">Card required</span><span class="val">No</span></div>`
+    : kind === "paid"
+    ? `<div class="row"><span class="label">Plan</span><span class="val">${plan}</span></div>
+       <div class="row"><span class="label">Status</span><span class="val">Active</span></div>`
+    : `<div class="row"><span class="label">Plan</span><span class="val">Starter — free forever</span></div>`;
+  const planLine = kind === "trial"
+    ? `<p>You're on a <span class="highlight">21-day free trial</span> of ClipWise ${plan} — full access, no card needed. We'll email you before it ends, and you'll drop to the free Starter plan if you don't add a card (nothing is lost).</p>`
+    : kind === "paid"
+    ? `<p>Your <span class="highlight">${plan} plan</span> is active — thanks for being with ClipWise!</p>`
+    : `<p>You're on the <span class="highlight">free Starter plan</span> — free forever. You can upgrade any time for reminders, loyalty, multi-chair and more.</p>`;
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="green-badge">🎉 Welcome to ClipWise</div>
+    <h1>You're all set, ${data.ownerName || "there"}!</h1>
+    <p><span class="highlight">${data.shopName}</span> is live on ClipWise. Here's everything you need to start taking bookings and getting paid.</p>
+    <div class="panel">${planRow}</div>
+    ${planLine}
+    <a href="${BASE_URL}/dashboard" class="btn">Open your dashboard →</a>
+    <hr class="divider">
+    <p style="font-weight:600;color:#111827;margin-bottom:8px">Finish setting up (about 2 minutes):</p>
+    <ul class="steps">
+      <li><span class="step-num">1</span>Add your services &amp; prices</li>
+      <li><span class="step-num">2</span>Set your working hours</li>
+      <li><span class="step-num">3</span>Connect payments to get paid online</li>
+      <li><span class="step-num">4</span>Share your booking link with clients</li>
+    </ul>
+    <p style="font-weight:600;color:#111827;margin:18px 0 8px">Your booking page</p>
+    <div class="link-box"><a href="${BASE_URL}/book/${data.slug}">${BASE_URL}/book/${data.slug}</a></div>
+    <hr class="divider">
+    <p style="font-weight:600;color:#111827;margin-bottom:8px">Useful links</p>
+    <p style="margin:0 0 6px"><a href="${BASE_URL}/dashboard">Dashboard</a> — run your shop day-to-day</p>
+    <p style="margin:0 0 6px"><a href="${BASE_URL}/dashboard/settings">Settings</a> — shop profile, hours &amp; booking rules</p>
+    <p style="margin:0 0 6px"><a href="${BASE_URL}/dashboard/billing">Billing</a> — manage your plan &amp; payment method</p>
+    <p style="margin:0 0 6px"><a href="${BASE_URL}/support">Help &amp; support</a></p>
+    <hr class="divider">
+    <p style="font-size:12px;color:#6B7280">You're signed in as ${data.ownerEmail}. Manage your account any time at <a href="${BASE_URL}/dashboard">clipwise.ca</a>.</p>
+    <p style="color:#6B7280">Welcome aboard — The ClipWise Team</p>
+  `);
+}
+
 function ownerRejected(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -1061,6 +1114,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = "You're Approved! Welcome to ClipWise 🎉";
       html = ownerApproved(data);
+      break;
+    case "shop_welcome":
+      to = data.ownerEmail;
+      subject = "Welcome to ClipWise 🎉 — your shop is live";
+      html = ownerWelcome(data);
       break;
     case "shop_rejected":
       to = data.ownerEmail;

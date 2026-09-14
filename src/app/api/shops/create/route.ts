@@ -5,6 +5,43 @@ import { getPlatformSettings } from "@/lib/platform-settings";
 import { clampLen, FIELD_CAPS } from "@/lib/validation";
 import { DEFAULT_BOOKING_SETTINGS } from "@/lib/booking-defaults";
 import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
+import { sendAppEmail } from "@/lib/emailer";
+import { prettyDate } from "@/lib/utils";
+
+// Fire the welcome email to the new owner + a heads-up to the admin the moment a
+// shop is created. Server-side and best-effort: a Resend hiccup must NEVER block
+// or fail account creation, so everything is wrapped and awaited-then-ignored.
+// (This used to live in the /onboarding page; the frictionless signup skips that
+// page, so it now lives here — the one path EVERY new shop funnels through.)
+async function sendNewShopEmails(opts: {
+  ownerEmail: string; ownerName: string; shopName: string; slug: string;
+  plan: string; subscriptionStatus: string; trialEndsAt: string | null; autoApproved: boolean;
+  city: string; province: string; ownerPhone: string;
+}) {
+  const { ownerEmail, ownerName, shopName, slug, plan, subscriptionStatus, trialEndsAt, autoApproved, city, province, ownerPhone } = opts;
+  const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const statusKind = trialEndsAt ? "trial" : (subscriptionStatus === "active" && plan !== "starter" ? "paid" : "free");
+  try {
+    if (ownerEmail) {
+      // Live shop → the full welcome (booking page is up). Still-pending shop
+      // (auto-approve off) → the "we got you, under review" note instead, so we
+      // never tell someone their page is live when it isn't.
+      const ownerType = autoApproved ? "shop_welcome" : "shop_submitted_confirmation";
+      await sendAppEmail(ownerType, {
+        ownerEmail, ownerName, shopName, slug,
+        planLabel, statusKind,
+        trialEndsOn: trialEndsAt ? prettyDate(trialEndsAt.slice(0, 10)) : "",
+      });
+    }
+  } catch { /* logged inside sendAppEmail; never block signup */ }
+  try {
+    await sendAppEmail("new_shop_application", {
+      shopName, ownerName, ownerEmail, slug, ownerPhone,
+      city: city || "—", province: province || "—", services: "—",
+      plan: planLabel, autoApproved: autoApproved ? "true" : "false",
+    });
+  } catch { /* best-effort admin heads-up */ }
+}
 
 // Server-authoritative shop creation for onboarding.
 //
@@ -147,7 +184,24 @@ export async function POST(request: NextRequest) {
       const { trial_ends_at: _t, ...noTrial } = baseRow;
       ins = await supabaseAdmin.from("shops").insert({ ...noTrial, slug }).select("id, slug, status, subscription_plan").single();
     }
-    if (!ins.error && ins.data) return NextResponse.json({ ok: true, shop: ins.data });
+    if (!ins.error && ins.data) {
+      // Welcome the new owner + notify admin — best-effort, never blocks signup.
+      const { data: prof } = await supabaseAdmin.from("users").select("name").eq("id", user.id).maybeSingle();
+      await sendNewShopEmails({
+        ownerEmail: user.email ?? body.email ?? "",
+        ownerName: (prof?.name ?? "").trim(),
+        shopName: baseRow.name,
+        slug,
+        plan,
+        subscriptionStatus,
+        trialEndsAt,
+        autoApproved: status === "approved",
+        city: body.city ?? "",
+        province: province ?? "",
+        ownerPhone: body.phone ?? "",
+      });
+      return NextResponse.json({ ok: true, shop: ins.data });
+    }
     if (ins.error && !/slug|unique|duplicate|23505/i.test(ins.error.message)) {
       return NextResponse.json({ error: "Couldn't create the shop. Please try again." }, { status: 500 });
     }

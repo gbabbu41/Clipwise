@@ -232,29 +232,10 @@ export default function OnboardingPage() {
           services.map((s) => ({ shop_id: createdShopId, name: s.name, price: parseFloat(s.price), duration_minutes: parseInt(s.duration), category: s.category, is_active: true }))
         );
         if (err) throw err;
-
-        // Last setup step → fire the emails that match the shop's ACTUAL status.
-        // When auto-approve is on (admin lever), or it's a verified paid plan /
-        // Pro–Premium trial, the shop is already 'approved' — so the owner should
-        // be CONGRATULATED (booking page live), not told it's "under review", and
-        // the admin should get an FYI, not a "please review" ping. Only a genuinely
-        // pending shop gets the submitted-for-review pair.
-        const approved = createdShopStatus === "approved";
-        const emailData = {
-          shopName: shop.name,
-          ownerName: profile?.name || user?.email || "Shop Owner",
-          ownerEmail: user?.email || "",
-          ownerPhone: shop.phone,
-          city: shop.city,
-          province: shop.province,
-          services: services.map((s) => s.name).join(", "),
-          slug: createdShopSlug,
-          autoApproved: approved ? "true" : "false",
-        };
-        Promise.all([
-          fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "new_shop_application", data: emailData }) }),
-          fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: approved ? "shop_approved" : "shop_submitted_confirmation", data: emailData }) }),
-        ]).catch(() => {});
+        // (Welcome + admin-notice emails are now sent server-side from
+        // /api/shops/create the moment the shop is created — the one path every
+        // signup funnels through — so they fire even if this flow is abandoned,
+        // and we don't send them again here.)
       }
 
       setStep((s) => s + 1);
