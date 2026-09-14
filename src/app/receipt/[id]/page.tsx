@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Check, Scissors, Share2, Printer } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
-import { cn, formatCurrency } from "@/lib/utils";
+import { MKT_CSS } from "@/lib/marketing-theme";
+import { formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
 
 interface ReceiptRow extends Transaction {
@@ -63,38 +63,25 @@ export default function ReceiptPage() {
     } catch { /* clipboard unavailable (insecure context / older browser) */ }
   };
 
+  const Wrap = ({ children }: { children: React.ReactNode }) => (
+    <div className="mkt"><style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />{children}</div>
+  );
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-      </div>
-    );
+    return <Wrap><div className="authwrap"><span className="wm">CLIPWISE</span></div></Wrap>;
   }
 
-  if (loadError) {
+  if (loadError || notFound || !tx) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-        <Logo size="md" className="justify-center mb-8" />
-        <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
-          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-white mb-2">Couldn&apos;t load this receipt</h1>
-          <p className="text-[#6e6e6e] text-sm mb-4">Check your connection and try again.</p>
-          <Button onClick={() => load()}>Try again</Button>
+      <Wrap>
+        <div className="authwrap" style={{ textAlign: "center" }}>
+          <span className="wm" style={{ marginBottom: 14 }}>CLIPWISE</span>
+          <Scissors size={38} style={{ color: "var(--t3)", margin: "0 auto 12px" }} />
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>{loadError ? "Couldn’t load this receipt" : "Receipt not found"}</h1>
+          <p className="lead" style={{ textAlign: "center", marginTop: 6 }}>{loadError ? "Check your connection and try again." : "This receipt link is invalid or has expired."}</p>
+          {loadError && <button onClick={() => load()} className="pill w" style={{ marginTop: 18 }}>Try again</button>}
         </div>
-      </div>
-    );
-  }
-
-  if (notFound || !tx) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-        <Logo size="md" className="justify-center mb-8" />
-        <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
-          <Scissors size={40} className="text-[#999] mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-white mb-2">Receipt Not Found</h1>
-          <p className="text-[#6e6e6e] text-sm">This receipt link is invalid or has expired.</p>
-        </div>
-      </div>
+      </Wrap>
     );
   }
 
@@ -106,122 +93,75 @@ export default function ReceiptPage() {
   const formattedDate = txDate.toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const formattedTime = txDate.toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" });
 
+  const row = (l: string, v: React.ReactNode) => (
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+      <span style={{ color: "var(--t3)" }}>{l}</span>
+      <span style={{ color: "var(--t1)", textAlign: "right" }}>{v}</span>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-sm mx-auto px-4 py-8">
-        <Logo size="md" className="justify-center mb-8" />
+    <Wrap>
+      <div className="authwrap" style={{ justifyContent: "flex-start", paddingTop: "clamp(32px,6vw,56px)" }}>
+        <div style={{ width: "100%", maxWidth: 380 }}>
+          <div className="authbrand" style={{ marginBottom: 20 }}><Link href="/" className="wm">CLIPWISE</Link></div>
 
-        {/* Receipt card */}
-        <div className={cn(
-          "bg-surface border border-border rounded-3xl overflow-hidden",
-          "print:border-0 print:shadow-none"
-        )}>
-          {/* Header */}
-          <div className="bg-gold/10 border-b border-gold/20 px-6 py-5 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
-              <Check size={22} className="text-emerald-400" />
+          {/* Receipt card */}
+          <div style={{ background: "var(--s1)", border: "1px solid var(--line)", borderRadius: 24, overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ background: "rgba(255,255,255,.04)", borderBottom: "1px solid var(--line)", padding: "20px 24px", textAlign: "center" }}>
+              <div className="logo-fb" style={{ width: 48, height: 48, borderRadius: 14, margin: "0 auto 12px" }}><Check size={22} style={{ color: "var(--t1)" }} /></div>
+              <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{tx.shops?.name ?? "ClipWise Shop"}</h1>
+              {tx.shops?.address && <p style={{ fontSize: 12, color: "var(--t3)", marginTop: 4 }}>{tx.shops.address}, {tx.shops.city}, {tx.shops.province}</p>}
+              {tx.shops?.phone && <p style={{ fontSize: 12, color: "var(--t3)" }}>{tx.shops.phone}</p>}
+              {tx.shops?.booking_settings?.tax_number && <p style={{ fontSize: 12, color: "var(--t3)", marginTop: 4 }}>GST/HST No. {tx.shops.booking_settings.tax_number}</p>}
+              {tx.shops?.booking_settings?.pst_number && <p style={{ fontSize: 12, color: "var(--t3)" }}>PST/QST No. {tx.shops.booking_settings.pst_number}</p>}
             </div>
-            <h1 className="text-lg font-bold text-white">{tx.shops?.name ?? "ClipWise Shop"}</h1>
-            {tx.shops?.address && (
-              <p className="text-xs text-[#6e6e6e] mt-1">{tx.shops.address}, {tx.shops.city}, {tx.shops.province}</p>
-            )}
-            {tx.shops?.phone && (
-              <p className="text-xs text-[#6e6e6e]">{tx.shops.phone}</p>
-            )}
-            {tx.shops?.booking_settings?.tax_number && (
-              <p className="text-xs text-[#6e6e6e] mt-1">GST/HST No. {tx.shops.booking_settings.tax_number}</p>
-            )}
-            {tx.shops?.booking_settings?.pst_number && (
-              <p className="text-xs text-[#6e6e6e]">PST/QST No. {tx.shops.booking_settings.pst_number}</p>
-            )}
-          </div>
 
-          {/* Details */}
-          <div className="px-6 py-4 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-[#6e6e6e]">Date</span>
-              <span className="text-white text-right">{formattedDate}</span>
+            {/* Details */}
+            <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+              {row("Date", formattedDate)}
+              {row("Time", formattedTime)}
+              {row("Client", tx.client_name)}
+              {tx.barbers?.name && row("Barber", tx.barbers.name)}
+              {tx.service_name && row("Service", tx.service_name)}
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#6e6e6e]">Time</span>
-              <span className="text-white">{formattedTime}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#6e6e6e]">Client</span>
-              <span className="text-white">{tx.client_name}</span>
-            </div>
-            {tx.barbers?.name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#6e6e6e]">Barber</span>
-                <span className="text-white">{tx.barbers.name}</span>
+
+            <div style={{ padding: "0 24px" }}><div style={{ borderTop: "2px dashed var(--line2)" }} /></div>
+
+            {/* Pricing */}
+            <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {row("Subtotal", formatCurrency(tx.amount))}
+              {taxAmt > 0 && row(`${taxLabel}${taxRatePct > 0 ? ` (${taxRatePct}%)` : ""}`, formatCurrency(taxAmt))}
+              {tx.tip > 0 && row("Tip", formatCurrency(tx.tip))}
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 18, borderTop: "1px solid var(--line)", paddingTop: 8, marginTop: 4 }}>
+                <span style={{ color: "var(--t1)" }}>Total</span>
+                <span style={{ color: "var(--t1)" }}>{formatCurrency(total)}</span>
               </div>
-            )}
-            {tx.service_name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#6e6e6e]">Service</span>
-                <span className="text-white">{tx.service_name}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, paddingTop: 4 }}>
+                <span style={{ color: "var(--t3)" }}>Payment</span>
+                <span style={{ color: "var(--t1)", textTransform: "capitalize" }}>{tx.payment_method ?? "card"}</span>
               </div>
-            )}
-          </div>
-
-          {/* Dashed divider */}
-          <div className="px-6">
-            <div className="border-t-2 border-dashed border-border" />
-          </div>
-
-          {/* Pricing */}
-          <div className="px-6 py-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-[#6e6e6e]">Subtotal</span>
-              <span className="text-white">{formatCurrency(tx.amount)}</span>
             </div>
-            {taxAmt > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#6e6e6e]">{taxLabel}{taxRatePct > 0 ? ` (${taxRatePct}%)` : ""}</span>
-                <span className="text-white">{formatCurrency(taxAmt)}</span>
-              </div>
-            )}
-            {tx.tip > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#6e6e6e]">Tip</span>
-                <span className="text-emerald-400">{formatCurrency(tx.tip)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-lg border-t border-border pt-2 mt-1">
-              <span className="text-white">Total</span>
-              <span className="text-gold">{formatCurrency(total)}</span>
-            </div>
-            <div className="flex justify-between text-sm pt-1">
-              <span className="text-[#6e6e6e]">Payment</span>
-              <span className="text-white capitalize">{tx.payment_method ?? "card"}</span>
+
+            <div style={{ padding: "0 24px" }}><div style={{ borderTop: "2px dashed var(--line2)" }} /></div>
+
+            {/* Footer */}
+            <div style={{ padding: "16px 24px", textAlign: "center" }}>
+              <p style={{ fontSize: 12, color: "var(--t3)" }}>Transaction ID</p>
+              <p style={{ fontSize: 12, fontFamily: "ui-monospace, monospace", color: "var(--t2)", marginTop: 2 }}>{tx.id.slice(0, 16).toUpperCase()}</p>
+              <p style={{ fontSize: 12, color: "var(--t3)", marginTop: 12 }}>Thank you for your visit!</p>
+              <p style={{ fontSize: 12, color: "var(--t3)", marginTop: 4 }}>Powered by <span style={{ color: "var(--t1)", fontWeight: 600 }}>ClipWise</span></p>
             </div>
           </div>
 
-          {/* Dashed divider */}
-          <div className="px-6">
-            <div className="border-t-2 border-dashed border-border" />
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 12, marginTop: 16 }} className="print:hidden">
+            <button className="pill g" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => window.print()}><Printer size={15} /> Print</button>
+            <button className="pill g" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={copyLink}>{copied ? <Check size={15} /> : <Share2 size={15} />}{copied ? "Copied!" : "Share"}</button>
           </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 text-center">
-            <p className="text-xs text-[#8f8f8f]">Transaction ID</p>
-            <p className="text-xs font-mono text-gold mt-0.5">{tx.id.slice(0, 16).toUpperCase()}</p>
-            <p className="text-xs text-[#999] mt-3">Thank you for your visit!</p>
-            <p className="text-xs text-[#aaa] mt-1">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 mt-4 print:hidden">
-          <Button variant="outline" className="flex-1" onClick={() => window.print()}>
-            <Printer size={15} /> Print
-          </Button>
-          <Button variant="outline" className="flex-1" onClick={copyLink}>
-            {copied ? <Check size={15} /> : <Share2 size={15} />}
-            {copied ? "Copied!" : "Share"}
-          </Button>
         </div>
       </div>
-    </div>
+    </Wrap>
   );
 }

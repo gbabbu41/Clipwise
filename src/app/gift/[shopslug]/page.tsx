@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
-import { cn, formatCurrency } from "@/lib/utils";
+import { MKT_CSS } from "@/lib/marketing-theme";
+import { formatCurrency } from "@/lib/utils";
 import { validateEmail } from "@/lib/validation";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import type { Shop } from "@/lib/database.types";
@@ -82,86 +82,87 @@ export default function GiftCardPurchasePage() {
     }
   };
 
-  if (loading) return <div className="min-h-[100dvh] bg-black flex items-center justify-center"><Logo size="md" /></div>;
+  const inputCls = "w-full bg-black border border-[#24242A] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#66666F] focus:outline-none focus:border-white/40";
+
+  if (loading) return (
+    <div className="mkt"><style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap"><span className="wm">CLIPWISE</span></div>
+    </div>
+  );
   if (!shop) return (
-    <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center text-center px-6">
-      <Logo size="sm" showText={false} />
-      <h1 className="text-xl font-bold text-white mt-4">Shop not found</h1>
-      <p className="text-[#8f8f8f] mt-2">This gift card link isn&apos;t valid.</p>
+    <div className="mkt"><style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap" style={{ textAlign: "center" }}>
+        <span className="wm" style={{ marginBottom: 14 }}>CLIPWISE</span>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Shop not found</h1>
+        <p className="lead" style={{ textAlign: "center", marginTop: 6 }}>This gift card link isn&rsquo;t valid.</p>
+      </div>
     </div>
   );
 
   // Success screen with the code.
   if (issued) return (
-    <div className="min-h-[100dvh] bg-black flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-md text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mx-auto mb-5">
-          <Check className="text-emerald-400" size={28} />
+    <div className="mkt"><style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap">
+        <div className="center" style={{ maxWidth: 420 }}>
+          <div className="logo-fb" style={{ width: 60, height: 60, borderRadius: 999, margin: "0 auto 18px" }}><Check size={28} style={{ color: "var(--t1)" }} /></div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-.02em" }}>Gift card sent!</h1>
+          <p className="lead" style={{ textAlign: "center", marginTop: 8 }}>A {formatCurrency(issued.amount)} gift card for {shop.name}{form.recipient_email ? ` was emailed to ${form.recipient_email}` : " is ready"}.</p>
+          <div style={{ marginTop: 24, padding: 20, borderRadius: 16, border: "2px dashed var(--line2)", background: "var(--s1)" }}>
+            <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".2em", color: "var(--t3)" }}>Gift card code</p>
+            <p style={{ fontSize: 24, fontWeight: 800, fontFamily: "ui-monospace, monospace", letterSpacing: ".15em", marginTop: 8, color: "var(--t1)" }}>{issued.code}</p>
+            <button onClick={() => { navigator.clipboard?.writeText(issued.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}
+              className="authlink" style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--t1)" }}>
+              <Copy size={14} /> {copied ? "Copied!" : "Copy code"}
+            </button>
+          </div>
+          <p className="authback" style={{ marginTop: 24 }}><Link href={`/book/${shop.slug}`}>Book an appointment at {shop.name} →</Link></p>
         </div>
-        <h1 className="text-2xl font-black text-white uppercase tracking-tight">Gift card sent!</h1>
-        <p className="text-[#8a8a8a] mt-2">A {formatCurrency(issued.amount)} gift card for {shop.name}{form.recipient_email ? ` was emailed to ${form.recipient_email}` : " is ready"}.</p>
-        <div className="mt-6 p-5 rounded-2xl border-2 border-dashed border-[#333] bg-[#0d0d0d]">
-          <p className="text-[11px] uppercase tracking-widest text-[#8f8f8f]">Gift Card Code</p>
-          <p className="text-2xl font-black font-mono text-white tracking-widest mt-2">{issued.code}</p>
-          <button onClick={() => { navigator.clipboard?.writeText(issued.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm text-gold hover:text-gold/80">
-            <Copy size={14} /> {copied ? "Copied!" : "Copy code"}
-          </button>
-        </div>
-        <a href={`/book/${shop.slug}`} className="mt-6 inline-block text-sm text-[#8a8a8a] hover:text-white">Book an appointment at {shop.name} →</a>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-[100dvh] bg-black pt-[env(safe-area-inset-top)]">
-      <div className="max-w-md mx-auto px-5 py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white"><Gift size={22} /></div>
-          <div>
-            <h1 className="text-xl font-black text-white uppercase tracking-tight leading-none">{shop.name}</h1>
-            <p className="text-sm text-[#8a8a8a] mt-1">Buy a gift card</p>
+    <div className="mkt"><style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap" style={{ justifyContent: "flex-start", paddingTop: "clamp(40px,7vw,72px)" }}>
+        <div style={{ width: "100%", maxWidth: 440 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+            <div className="logo-fb" style={{ width: 48, height: 48 }}><Gift size={22} style={{ color: "var(--t1)" }} /></div>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-.02em", lineHeight: 1, margin: 0 }}>{shop.name}</h1>
+              <p style={{ fontSize: 14, color: "var(--t3)", marginTop: 4 }}>Buy a gift card</p>
+            </div>
           </div>
-        </div>
 
-        {error && <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+          {error && <div className="err">{error}</div>}
 
-        {/* Amount */}
-        <label className="text-xs text-[#8f8f8f] block mb-2">Amount</label>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {AMOUNTS.map(v => (
-            <button key={v} onClick={() => setAmount(v)}
-              className={cn("py-3 rounded-xl border font-bold transition-colors",
-                amount === v ? "bg-white text-black border-white" : "bg-[#141414] border-[#2a2a2a] text-white hover:border-[#333]")}>
-              ${v}
-            </button>
-          ))}
-        </div>
-        <input type="number" min="1" max="1000" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Custom amount"
-          className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
-
-        {/* Recipient + buyer */}
-        <div className="space-y-3 mt-5">
-          <p className="text-xs text-[#8f8f8f]">Who's it for? (optional — leave blank to get the code yourself)</p>
-          <input value={form.recipient_name} onChange={e => setForm(p => ({ ...p, recipient_name: e.target.value }))} placeholder="Recipient name"
-            className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
-          <input type="email" value={form.recipient_email} onChange={e => setForm(p => ({ ...p, recipient_email: e.target.value }))} placeholder="Recipient email (we'll send them the card)"
-            className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
-          <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Add a note (optional)" rows={2}
-            className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
-          <div className="border-t border-[#2a2a2a] pt-3 space-y-3">
-            <p className="text-xs text-[#8f8f8f]">Your details (for the receipt)</p>
-            <input value={form.purchaser_name} onChange={e => setForm(p => ({ ...p, purchaser_name: e.target.value }))} placeholder="Your name"
-              className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
-            <input type="email" value={form.purchaser_email} onChange={e => setForm(p => ({ ...p, purchaser_email: e.target.value }))} placeholder="Your email *"
-              className="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-[#333]" />
+          <label style={{ fontSize: 12.5, color: "var(--t3)", display: "block", marginBottom: 8 }}>Amount</label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
+            {AMOUNTS.map(v => (
+              <button key={v} onClick={() => setAmount(v)}
+                style={{ padding: "12px 0", borderRadius: 12, fontWeight: 700, cursor: "pointer", background: amount === v ? "#fff" : "var(--s1)", border: amount === v ? "1px solid #fff" : "1px solid var(--line2)", color: amount === v ? "#000" : "var(--t1)" }}>
+                ${v}
+              </button>
+            ))}
           </div>
-        </div>
+          <input type="number" min="1" max="1000" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Custom amount" className={inputCls} />
 
-        <Button className="w-full mt-6" loading={submitting} onClick={buy}>
-          Pay {formatCurrency(Number(amount) || 0)}
-        </Button>
-        <p className="text-[11px] text-[#8f8f8f] text-center mt-3">Secure payment via Stripe · Redeemable at {shop.name}</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+            <p style={{ fontSize: 12.5, color: "var(--t3)", margin: 0 }}>Who&rsquo;s it for? (optional — leave blank to get the code yourself)</p>
+            <input value={form.recipient_name} onChange={e => setForm(p => ({ ...p, recipient_name: e.target.value }))} placeholder="Recipient name" className={inputCls} />
+            <input type="email" value={form.recipient_email} onChange={e => setForm(p => ({ ...p, recipient_email: e.target.value }))} placeholder="Recipient email (we'll send them the card)" className={inputCls} />
+            <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Add a note (optional)" rows={2} className={inputCls} style={{ resize: "none" }} />
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              <p style={{ fontSize: 12.5, color: "var(--t3)", margin: 0 }}>Your details (for the receipt)</p>
+              <input value={form.purchaser_name} onChange={e => setForm(p => ({ ...p, purchaser_name: e.target.value }))} placeholder="Your name" className={inputCls} />
+              <input type="email" value={form.purchaser_email} onChange={e => setForm(p => ({ ...p, purchaser_email: e.target.value }))} placeholder="Your email *" className={inputCls} />
+            </div>
+          </div>
+
+          <button className="pill w full" style={{ marginTop: 22 }} disabled={submitting} onClick={buy}>
+            {submitting ? "Starting…" : `Pay ${formatCurrency(Number(amount) || 0)}`}
+          </button>
+          <p className="fine" style={{ textAlign: "center", marginTop: 12 }}>Secure payment via Stripe · Redeemable at {shop.name}</p>
+        </div>
       </div>
     </div>
   );
