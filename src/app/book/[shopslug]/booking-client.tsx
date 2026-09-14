@@ -899,27 +899,29 @@ export default function BookingClient() {
     // falls back to the platform's Stripe account when the shop hasn't done
     // Connect, so no `stripe_connected` precondition is needed here.
     //
-    // No-show protection options for "pay online":
-    //   ≤7 days out  → AUTHORIZE the full amount (card held, not charged),
-    //                  captured later on completion / no-show.
-    //   >7 days out  → card holds expire ~7 days, so instead SAVE the card
-    //                  (no charge now) and charge it on completion / no-show.
-    // "Pay at the shop" while the shop keeps a card on file → collect + SAVE a card
-    // (SetupIntent, no charge) through the same checkout, tagged pay-in-person so
-    // it lands Cash · Unpaid with the card stored ONLY for a no-show.
+    // Payment model:
+    //   "Pay online now"  → CHARGE the full amount immediately (every card, any
+    //                       booking distance). Lands the appointment as paid; the
+    //                       barber still marks it complete at the visit. No holds —
+    //                       an auth hold froze debit customers' cash and expired
+    //                       ~7 days out; an immediate charge has neither problem.
+    //   "Pay at the shop" → when the shop keeps a card on file, SAVE the card
+    //                       (SetupIntent, no charge) tagged pay-in-person so it
+    //                       lands Cash · Unpaid with the card stored ONLY for a
+    //                       no-show. This is the debit-safe no-show mechanism.
     const inPersonSaveCard = method === "in_person" && payInPersonSavesCard;
-    const useHold = method === "online" && !willSaveCard;
-    const useSaveCard = (method === "online" && willSaveCard) || inPersonSaveCard;
-    // A card is being taken (online, or the pay-in-person save-card path) — require
-    // the no-show consent first.
+    const useHold = false;                     // holds retired — pay-now charges now
+    const useSaveCard = inPersonSaveCard;      // only the pay-at-shop card-on-file path saves
+    // A card is being taken (online charge, or the pay-in-person save-card path) —
+    // require the policy consent first.
     if (((method === "online" && cardForNoShow) || inPersonSaveCard) && !noShowConsent) {
       setSaving(false);
-      showToast("Please accept the no-show policy to continue.", false);
+      showToast("Please accept the policy to continue.", false);
       return;
     }
-    // Amount to send: holds authorize the full total; saved cards + in-person +
-    // free bookings charge nothing now.
-    const chargeAmount = useHold ? total : 0;
+    // Amount to send (server recomputes authoritatively): online pay-now charges the
+    // full total now; saved-card + in-person + free bookings charge nothing now.
+    const chargeAmount = useSaveCard ? 0 : total;
     // Route to Stripe whenever a card is collected (online charge/hold/save, or the
     // pay-in-person save-card path).
     if (method === "online" || inPersonSaveCard || chargeAmount > 0) {
@@ -1187,9 +1189,6 @@ export default function BookingClient() {
       : `Free cancellation ${cancelHours}h before`;
   // The consent card uses generic "up to the full price" language (the fee % is
   // no longer owner-configurable), so no per-booking fee amount is computed here.
-  // Days until the appointment — drives hold (≤7d) vs save-card (>7d).
-  const daysOut = selectedDate ? (new Date(formatDateForDb(selectedDate) + "T00:00:00").getTime() - Date.now()) / 86400000 : 0;
-  const willSaveCard = daysOut > 7; // beyond the ~7-day card-hold window
   // Whether paying online would take a card under no-show protection — used to
   // gate the consent checkbox in the pay-method modal. (In-person never takes
   // a card, so its button is never gated.)
@@ -1582,21 +1581,20 @@ export default function BookingClient() {
           </svg>
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white">Reserve with a card</p>
+          <p className="text-sm font-semibold text-white">{effectiveMethod === "online" ? "Pay now to confirm" : "Reserve with a card"}</p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-[#9a9a9a]">
-            {willSaveCard ? (
-              <>Your visit is more than 7 days away, so your card is securely <span className="font-medium text-white">saved</span> now — not charged. You&apos;ll pay after your appointment.</>
+            {effectiveMethod === "online" ? (
+              <>You&apos;ll be charged <span className="font-medium text-white">{formatCurrency(grandTotalWithTip)}</span> now to lock in your appointment. {cancelNotice} — after that, late cancellations or no-shows aren&apos;t refunded.</>
             ) : (
-              <>Your card is securely <span className="font-medium text-white">held</span> now — not charged. You&apos;ll pay after your appointment.</>
+              <>Your card is securely <span className="font-medium text-white">saved</span> now — not charged. You&apos;ll pay after your appointment. If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-white">up to the full price</span> of your service.</>
             )}
-            {" "}If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-white">up to the full price</span> of your service.
           </p>
         </div>
       </div>
       <label className="flex items-center gap-2.5 px-4 py-3 border-t border-[#2a2a2a] bg-[#0d0d0d] cursor-pointer">
         <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
           className="h-[18px] w-[18px] rounded accent-sky-500 flex-shrink-0" />
-        <span className="text-[13px] font-medium text-white">I understand and accept the no-show policy</span>
+        <span className="text-[13px] font-medium text-white">{effectiveMethod === "online" ? "I understand and accept the cancellation policy" : "I understand and accept the no-show policy"}</span>
       </label>
     </div>
   );

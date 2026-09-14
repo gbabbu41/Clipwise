@@ -263,11 +263,12 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    // ── Save-card path (booking >7 days out) ────────────────────────────────
-    // Card holds expire ~7 days, so we can't authorize this far ahead. Instead
-    // collect + store the card now (no charge) via Checkout `setup` mode and
-    // charge it off-session on completion / no-show. Setup mode requires an
-    // explicit Customer, created on the connected account.
+    // ── Save-card path (pay-at-shop → card on file for no-show) ──────────────
+    // No charge now: collect + store the card via Checkout `setup` mode and charge
+    // it off-session ONLY if the client no-shows / cancels late. Debit-safe — no
+    // auth hold, no frozen funds. Setup mode requires an explicit Customer, created
+    // on the connected account. ("Pay online now" no longer routes here — it charges
+    // immediately below.)
     if (booking.saveCard) {
       const customer = await stripe.customers.create(
         { email: booking.client_email || undefined, name: booking.client_name || undefined },
