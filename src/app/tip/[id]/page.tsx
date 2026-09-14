@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Heart, Check, Scissors } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
+import { MKT_CSS } from "@/lib/marketing-theme";
 import { formatCurrency } from "@/lib/utils";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { TIP_PRESET_PERCENTS } from "@/lib/pricing";
@@ -15,6 +15,21 @@ interface TipBooking {
   barbers?: { name: string } | null;
   services?: { name: string } | null;
   shops?: { name: string } | null;
+}
+
+// Thin themed wrapper so every state shares the black/white theme + wordmark.
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mkt">
+      <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap" style={{ justifyContent: "flex-start" }}>
+        <div className="authbrand" style={{ marginBottom: 20 }}>
+          <Link href="/" className="wm">CLIPWISE</Link>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export default function TipPage() {
@@ -85,91 +100,79 @@ export default function TipPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+    <div className="mkt">
+      <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <div className="authwrap"><div style={{ width: 32, height: 32, border: "2px solid rgba(255,255,255,.25)", borderTopColor: "#fff", borderRadius: 999, animation: "mktspin 0.8s linear infinite" }} /></div>
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes mktspin{to{transform:rotate(360deg)}}" }} />
     </div>
   );
 
   if (paid) return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-      <Logo size="md" className="justify-center mb-8" />
-      <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm space-y-3">
-        <div className="w-16 h-16 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto">
-          <Check size={30} className="text-emerald-400" />
-        </div>
-        <h1 className="text-xl font-bold text-white">Thank you! 🎉</h1>
-        <p className="text-[#8f8f8f] text-sm">Your tip went straight to {booking?.shops?.name ?? "the shop"}. They&rsquo;ll appreciate it.</p>
+    <Shell>
+      <div className="authcard" style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+        <div className="logo-fb" style={{ width: 60, height: 60, borderRadius: 999 }}><Check size={28} style={{ color: "var(--t1)" }} /></div>
+        <h1 style={{ fontSize: 21, fontWeight: 700 }}>Thank you! 🎉</h1>
+        <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>Your tip went straight to {booking?.shops?.name ?? "the shop"}. They&rsquo;ll appreciate it.</p>
       </div>
-    </div>
+    </Shell>
   );
 
   if (notFound || !booking) return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-      <Logo size="md" className="justify-center mb-8" />
-      <div className="bg-surface border border-border rounded-2xl p-8 max-w-sm">
-        <Scissors size={40} className="text-[#999] mx-auto mb-4" />
-        <h1 className="text-xl font-bold text-white mb-2">Link not found</h1>
-        <p className="text-[#6e6e6e] text-sm">This tip link is invalid or has expired.</p>
+    <Shell>
+      <div className="authcard" style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+        <Scissors size={38} style={{ color: "var(--t3)" }} />
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Link not found</h1>
+        <p className="lead" style={{ fontSize: 14, textAlign: "center" }}>This tip link is invalid or has expired.</p>
       </div>
-    </div>
+    </Shell>
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto px-4 py-10">
-        <Logo size="md" className="justify-center mb-8" />
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-gold/15 border border-gold/30 flex items-center justify-center mx-auto mb-4">
-            <Heart size={26} className="text-gold" />
-          </div>
-          <h1 className="text-xl font-bold text-white">Leave a tip</h1>
-          <p className="text-[#8f8f8f] text-sm mt-1">
-            for {booking.barbers?.name ? <span className="text-white">{booking.barbers.name}</span> : booking.shops?.name}
-            {booking.services?.name ? ` · ${booking.services.name}` : ""}
-          </p>
-        </div>
-
-        {cancelled && <p className="text-xs text-amber-300 text-center mb-4">Payment cancelled — you can try again below.</p>}
-
-        <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
-          <div className="grid grid-cols-3 gap-2">
-            {TIP_PRESET_PERCENTS.map(p => {
-              const amt = Math.round(base * p) / 100;
-              const active = pct === p;
-              return (
-                <button key={p} onClick={() => { setPct(p); setCustom(""); setError(""); }}
-                  className={`rounded-xl border py-3 text-center transition-all ${active ? "border-gold bg-gold/15" : "border-border hover:border-gold/40"}`}>
-                  <p className={`text-lg font-bold ${active ? "text-gold" : "text-white"}`}>{p}%</p>
-                  <p className="text-xs text-[#8f8f8f]">{formatCurrency(amt)}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          <div>
-            <label className="text-xs text-[#8f8f8f]">Custom amount</label>
-            <div className="relative mt-1.5">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8f8f8f]">$</span>
-              <input
-                type="number" min={1} step="1" inputMode="decimal"
-                value={custom}
-                onChange={e => { setCustom(e.target.value); setPct(null); setError(""); }}
-                placeholder="0.00"
-                className="w-full bg-surface-raised border border-border rounded-xl pl-7 pr-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:border-gold/50"
-              />
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-400">{error}</p>}
-
-          <Button className="w-full" size="lg" loading={paying} disabled={tipAmount < 1} onClick={pay}>
-            {tipAmount >= 1 ? `Tip ${formatCurrency(tipAmount)}` : "Choose a tip"}
-          </Button>
-          <p className="text-[11px] text-[#8f8f8f] text-center">Secure payment — your tip goes directly to the shop.</p>
-        </div>
-
-        <p className="mt-8 text-center text-xs text-[#999]">Powered by <span className="text-gold font-semibold">ClipWise</span></p>
+    <Shell>
+      <div className="center" style={{ marginBottom: 20 }}>
+        <div className="logo-fb" style={{ width: 60, height: 60, borderRadius: 16, margin: "0 auto 14px" }}><Heart size={26} style={{ color: "var(--t1)" }} /></div>
+        <h1 style={{ fontSize: 21, fontWeight: 700 }}>Leave a tip</h1>
+        <p className="lead" style={{ textAlign: "center", fontSize: 14, marginTop: 4 }}>
+          for {booking.barbers?.name ? <strong style={{ color: "var(--t1)" }}>{booking.barbers.name}</strong> : booking.shops?.name}
+          {booking.services?.name ? ` · ${booking.services.name}` : ""}
+        </p>
       </div>
-    </div>
+
+      {cancelled && <p style={{ fontSize: 12.5, color: "var(--warn)", textAlign: "center", marginBottom: 14 }}>Payment cancelled — you can try again below.</p>}
+
+      <div className="authcard">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
+          {TIP_PRESET_PERCENTS.map(p => {
+            const amt = Math.round(base * p) / 100;
+            const active = pct === p;
+            return (
+              <button key={p} onClick={() => { setPct(p); setCustom(""); setError(""); }}
+                style={{ borderRadius: 12, padding: "12px 0", textAlign: "center", cursor: "pointer", background: active ? "#fff" : "#000", border: active ? "1px solid #fff" : "1px solid var(--line2)", color: active ? "#000" : "var(--t1)" }}>
+                <span style={{ display: "block", fontSize: 17, fontWeight: 700 }}>{p}%</span>
+                <span style={{ display: "block", fontSize: 12, color: active ? "rgba(0,0,0,.6)" : "var(--t3)" }}>{formatCurrency(amt)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="field">
+          <label>Custom amount</label>
+          <div className="ip">
+            <span className="lic" style={{ left: 14 }}>$</span>
+            <input type="number" min={1} step="1" inputMode="decimal" className="pl" value={custom}
+              onChange={e => { setCustom(e.target.value); setPct(null); setError(""); }} placeholder="0.00" />
+          </div>
+        </div>
+
+        {error && <p style={{ fontSize: 13.5, color: "#ff8a8a", marginBottom: 12 }}>{error}</p>}
+
+        <button className="pill w full" disabled={paying || tipAmount < 1} onClick={pay}>
+          {paying ? "Starting…" : tipAmount >= 1 ? `Tip ${formatCurrency(tipAmount)}` : "Choose a tip"}
+        </button>
+        <p className="fine" style={{ textAlign: "center", marginTop: 12 }}>Secure payment — your tip goes directly to the shop.</p>
+      </div>
+
+      <p className="authback" style={{ marginTop: 22 }}>Powered by <span style={{ color: "var(--t1)", fontWeight: 700, marginLeft: 4 }}>ClipWise</span></p>
+    </Shell>
   );
 }
