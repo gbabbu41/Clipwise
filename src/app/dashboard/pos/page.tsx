@@ -288,10 +288,16 @@ export default function POSPage() {
           </div>
         </button>
         {canDismiss && (
-          <button type="button" aria-label="Dismiss from checkout"
+          // Hit target is bigger than the visible chip (44px vs the 28px dot) —
+          // sitting right at the card's corner, a slightly-off thumb tap used to
+          // miss the small circle and fall through to the card button underneath
+          // (opening the appointment instead of dismissing it).
+          <button type="button" aria-label="Dismiss from checkout" title="Dismiss from checkout"
             onClick={(e) => { e.stopPropagation(); dismissAppt(a.id); }}
-            className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/45 text-grey-muted hover:text-foreground hover:bg-black/70 flex items-center justify-center z-10 transition-colors">
-            <X size={15} />
+            className="group absolute -top-2 -right-2 w-11 h-11 flex items-center justify-center z-10">
+            <span className="w-7 h-7 rounded-full bg-black/45 text-grey-muted group-hover:text-foreground group-hover:bg-black/70 flex items-center justify-center transition-colors">
+              <X size={15} />
+            </span>
           </button>
         )}
       </div>
