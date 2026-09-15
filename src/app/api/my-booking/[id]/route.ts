@@ -6,7 +6,9 @@ import { barberHasConflict } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
-import { stripe } from "@/lib/stripe";
+import { refundOrReleaseHold } from "@/lib/stripe-refund";
+import { recordRefundLedger } from "@/lib/refund-ledger";
+import { notifyRefundIssued } from "@/lib/payment-notify";
 import { sendAppEmail } from "@/lib/emailer";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
@@ -79,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json() as { action?: "cancel" | "reschedule"; date?: string; time_slot?: string };
 
   const { data: appt } = await supabaseAdmin
-    .from("appointments").select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, status, service_id, duration_minutes, payment_status, payment_intent_id").eq("id", id).maybeSingle();
+    .from("appointments").select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, status, service_id, duration_minutes, payment_status, payment_intent_id, total_amount, tip_amount, tax_amount, services(name)").eq("id", id).maybeSingle();
   if (!appt) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (appt.status === "cancelled" || appt.status === "completed" || appt.status === "no-show") {
     return NextResponse.json({ error: "This booking can no longer be changed." }, { status: 400 });
@@ -108,15 +110,52 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (body.action === "cancel") {
     await supabaseAdmin.from("appointments").update({ status: "cancelled" }).eq("id", id);
-    // Release a no-show card HOLD so the customer's card isn't left authorized
-    // until Stripe auto-voids (~7 days). Only a held (uncaptured) auth is
-    // released — a captured/paid booking is a refund policy decision, left alone.
-    if (appt.payment_status === "held" && appt.payment_intent_id) {
-      const { data: shopStripe } = await supabaseAdmin
-        .from("shops").select("stripe_account_id").eq("id", appt.shop_id).maybeSingle();
-      const opts = shopStripe?.stripe_account_id ? { stripeAccount: shopStripe.stripe_account_id } : {};
-      await stripe.paymentIntents.cancel(appt.payment_intent_id, {}, opts).then(null, () => null);
-      await supabaseAdmin.from("appointments").update({ payment_status: "voided" }).eq("id", id).then(null, () => null);
+    // Auto money-back on a customer self-cancel. Self-cancel is ONLY permitted with
+    // enough notice (the window check above), so an in-window cancel earns a FULL
+    // refund — the Squire model. A paid/captured booking is refunded; a legacy
+    // HELD (uncaptured) auth is just released. Late cancels / no-shows can't
+    // self-cancel — those stay on the shop side (keep the money / charge the fee).
+    if (appt.payment_intent_id && ["paid", "captured", "held"].includes(appt.payment_status ?? "")) {
+      const { data: shopPay } = await supabaseAdmin
+        .from("shops").select("stripe_account_id, name, email, slug, owner_id").eq("id", appt.shop_id).maybeSingle();
+      if (shopPay?.stripe_account_id) {
+        try {
+          const r = await refundOrReleaseHold(appt.payment_intent_id, shopPay.stripe_account_id, `cancel-refund-${appt.payment_intent_id}`);
+          await supabaseAdmin.from("appointments")
+            .update({ payment_status: r.released ? "voided" : "refunded" }).eq("id", id).then(null, () => null);
+          // Real money moved (not just a hold released) → correct the ledger, alert
+          // the shop, and email the customer their refund. Mirrors refund-payment.
+          if (!r.released) {
+            const refundedCents = r.refundedCents ?? Math.round((appt.total_amount ?? 0) * 100);
+            await supabaseAdmin.from("transactions")
+              .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund").then(null, () => null);
+            const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
+            const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
+            const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
+            const svcRel = appt.services as unknown as { name?: string } | { name?: string }[] | null;
+            const svcName = (Array.isArray(svcRel) ? svcRel[0]?.name : svcRel?.name) ?? null;
+            await recordRefundLedger({
+              shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
+              serviceName: svcName, refundedCents, taxCents: taxPart, tipCents: tipPart,
+              appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+            }).catch(() => null);
+            if (shopPay.owner_id) {
+              notifyRefundIssued({
+                ownerId: shopPay.owner_id, barberId: appt.barber_id, shopId: appt.shop_id,
+                clientName: appt.client_name, amountCents: refundedCents, date: appt.date,
+              });
+            }
+            if (appt.client_email) {
+              await sendAppEmail("refund_issued", {
+                clientName: appt.client_name ?? "there", clientEmail: appt.client_email,
+                shopName: shopPay.name ?? "", shopEmail: shopPay.email ?? "", shopSlug: shopPay.slug ?? "",
+                serviceName: svcName ?? "Your service", date: appt.date ?? "",
+                total: `$${(refundedCents / 100).toFixed(2)}`,
+              }).catch(() => null);
+            }
+          }
+        } catch { /* refund failed — leave the money state; owner can refund manually */ }
+      }
     }
     // Notify barber + waitlist + owner (server-side, fire-and-forget).
     fetch(`${base}/api/appointments/notify-cancellation`, {
