@@ -1678,6 +1678,26 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (el) focusTimeline();
   }, [focusTimeline]);
 
+  // If the screen locks / the app backgrounds while a focusTimeline() timer is still
+  // pending, mobile browsers throttle it rather than drop it — it can fire minutes
+  // later, right as you resume and start scrolling, snapping scrollTop back to "now"
+  // out from under your finger (stuck-scroll feel, today's view only since that's the
+  // only branch that re-centers instead of just resetting to 0). Cancel any pending
+  // passes the moment we go to the background so a stale one can never fire on return.
+  useEffect(() => {
+    const cancelPending = () => {
+      focusTimersRef.current.forEach(clearTimeout);
+      focusTimersRef.current = [];
+    };
+    const onVisibility = () => { if (document.hidden) cancelPending(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", cancelPending);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", cancelPending);
+    };
+  }, []);
+
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
     const el = colWrapRef.current;
@@ -2845,7 +2865,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {multiDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
+                  <div key={formatDateForDb(day)} className="border-l border-border" />
                 ))}
               </div>
             ))}
@@ -3081,7 +3101,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => openDay(day)}
-                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors", today && "bg-accent-muted")}>
+                  className="py-2 text-center border-l border-border hover:bg-card-raised transition-colors">
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
@@ -3106,7 +3126,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
+                  <div key={formatDateForDb(day)} className="border-l border-border" />
                 ))}
               </div>
             ))}
