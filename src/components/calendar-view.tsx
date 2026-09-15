@@ -2865,7 +2865,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {multiDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
+                  <div key={formatDateForDb(day)} className="border-l border-border" />
                 ))}
               </div>
             ))}
@@ -3101,7 +3101,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               const today = isToday(day);
               return (
                 <button key={dateStr} onClick={() => openDay(day)}
-                  className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors", today && "bg-accent-muted")}>
+                  className="py-2 text-center border-l border-border hover:bg-card-raised transition-colors">
                   <p className={cn("text-[10px] uppercase tracking-wider", today ? "text-foreground" : "text-grey-muted")}>
                     {day.toLocaleDateString("en-CA", { weekday: "short" })}
                   </p>
@@ -3126,7 +3126,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {weekDays.map(day => (
-                  <div key={formatDateForDb(day)} className={cn("border-l border-border", isToday(day) && "bg-accent-muted")} />
+                  <div key={formatDateForDb(day)} className="border-l border-border" />
                 ))}
               </div>
             ))}
