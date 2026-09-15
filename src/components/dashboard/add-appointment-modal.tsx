@@ -6,6 +6,7 @@ import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils"
 import { clientMatchesQuery } from "@/lib/client-search";
 import { Button } from "@/components/ui/button";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
+import { lockScroll } from "@/lib/scroll-lock";
 import { X, Plus, Search, Check, ChevronDown, Scissors } from "lucide-react";
 
 /**
@@ -155,13 +156,14 @@ export function AddAppointmentModal({
     if (barbers.length === 1) setBarberId(barbers[0].id);
   }, [barbers, lockBarber]);
 
-  // Escape closes; lock body scroll while open.
+  // Escape closes; lock body scroll while open (shared ref-counted lock so it
+  // composes with a confirm dialog / ModalChrome without stranding the page).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    const releaseScroll = lockScroll();
+    return () => { window.removeEventListener("keydown", onKey); releaseScroll(); };
   }, [open, close]);
 
   // ── Client search ──────────────────────────────────────────────────────────

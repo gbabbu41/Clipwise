@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { lockScroll } from "@/lib/scroll-lock";
 
 /**
  * Global modal chrome — mount once per portal layout. While ANY modal overlay is
@@ -26,6 +27,7 @@ const SPRING = "transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)";
 export function ModalChrome() {
   useEffect(() => {
     let open = false;
+    let releaseScroll: (() => void) | null = null;
 
     // ── rubber-band drag state ──
     let container: HTMLElement | null = null;
@@ -87,26 +89,25 @@ export function ModalChrome() {
     // because their bottom:0 anchors to the shifted body box instead of the true
     // viewport. overflow:hidden freezes the background in place (scroll position
     // preserved, no jump) while letting modals reach the real screen bottom.
+    //
+    // The body/html overflow itself is delegated to the shared ref-counted lock
+    // (lib/scroll-lock) so ModalChrome, the add-appointment sheet and the nav
+    // drawers can all be open at once without stomping each other's lock — the
+    // background stays frozen until the last one closes. ModalChrome only owns
+    // the modal-overlay extras (bottom-nav hide + rubber-band drag) here.
     const lock = () => {
       if (open) return;
       open = true;
-      const b = document.body;
-      const h = document.documentElement;
-      b.style.overflow = "hidden";
-      h.style.overflow = "hidden";
-      b.style.overscrollBehavior = "none";
-      b.classList.add("cw-modal-open");
+      releaseScroll = lockScroll();
+      document.body.classList.add("cw-modal-open");
       addListeners();
     };
     const unlock = () => {
       if (!open) return;
       open = false;
-      const b = document.body;
-      const h = document.documentElement;
-      b.style.overflow = "";
-      h.style.overflow = "";
-      b.style.overscrollBehavior = "";
-      b.classList.remove("cw-modal-open");
+      releaseScroll?.();
+      releaseScroll = null;
+      document.body.classList.remove("cw-modal-open");
       removeListeners();
     };
 
@@ -116,7 +117,10 @@ export function ModalChrome() {
     };
 
     const mo = new MutationObserver(sync);
-    mo.observe(document.body, { childList: true, subtree: true });
+    // childList+subtree catches modals that mount/unmount (the common case);
+    // attributes(class) also catches a backdrop that closes by dropping its
+    // `bg-black/…` class without unmounting, so the lock is never left stranded.
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     sync();
     return () => { mo.disconnect(); unlock(); };
   }, []);

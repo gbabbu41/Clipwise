@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
+import { lockScroll } from "@/lib/scroll-lock";
 import { UnreadBadge } from "@/components/notification-badge";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
@@ -266,13 +267,12 @@ export function Sidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  // Lock body scroll while the drawer is open
+  // Lock body scroll while the drawer is open (shared ref-counted lock so it
+  // never strands the page if a modal is open at the same time).
   useEffect(() => {
-    if (mobileOpen) {
-      const original = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = original; };
-    }
+    if (!mobileOpen) return;
+    const releaseScroll = lockScroll();
+    return () => releaseScroll();
   }, [mobileOpen]);
 
   // Desktop (lg+): let the owner collapse/expand the docked sidebar. A class on

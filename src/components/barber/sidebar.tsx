@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, CalendarDays, Clock, Users, DollarSign, User, LogOut, ChevronRight, Building2, CalendarOff, Menu, Bell, Calendar, CalendarX2, AlertTriangle, Info, ListOrdered, PanelLeft, PanelLeftClose, Plus } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo } from "@/lib/utils";
+import { lockScroll } from "@/lib/scroll-lock";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { WaitlistAssignSheet, type WaitlistRequest } from "@/components/waitlist-assign-sheet";
@@ -157,12 +158,12 @@ export function BarberSidebar() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
+  // Shared ref-counted lock so an open drawer never strands the page in
+  // overflow:hidden when it overlaps a modal.
   useEffect(() => {
-    if (mobileOpen) {
-      const original = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = original; };
-    }
+    if (!mobileOpen) return;
+    const releaseScroll = lockScroll();
+    return () => releaseScroll();
   }, [mobileOpen]);
 
   // Desktop (lg+): collapse/expand the docked sidebar, remembered across reloads.
