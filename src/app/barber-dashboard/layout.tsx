@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo } from "react";
+import { Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -109,7 +110,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🔒</span>
+            <Lock size={26} className="text-red-400" />
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Account suspended</h2>
           <p className="text-grey text-sm">Your account has been deactivated by the shop owner. Please contact them directly.</p>

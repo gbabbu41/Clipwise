@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Calendar, Bell } from "lucide-react";
+import { Calendar, Bell, Share2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
@@ -172,7 +172,7 @@ export default function BarberOverviewPage() {
           onClick={shareMyLink}
           className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-2xl border border-border bg-card text-foreground text-sm font-semibold hover:border-border-strong transition-colors"
         >
-          🔗 Share my booking link
+          <Share2 size={16} /> Share my booking link
         </button>
       )}
 

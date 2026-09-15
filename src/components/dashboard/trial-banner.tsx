@@ -103,7 +103,7 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
         <Clock size={18} className="flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">
-            {urgent ? `⚠️ Your free trial ends in ${label}` : `You're on a free trial — ${label} left`}
+            {urgent ? `Your free trial ends in ${label}` : `You're on a free trial — ${label} left`}
           </p>
           <p className="text-xs opacity-80 mt-0.5">
             Add a card to keep online payments, POS, loyalty &amp; extra barbers. No charge until you subscribe — otherwise your shop drops to the free Starter plan (your account &amp; bookings stay safe).

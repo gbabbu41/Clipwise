@@ -829,7 +829,7 @@ export default function SettingsPage() {
                 <div className="w-20 h-20 rounded-2xl bg-card-raised border-2 border-dashed border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                   {logoPreview
                     ? <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-                    : <span className="text-3xl">💈</span>}
+                    : <Building2 size={30} className="text-grey" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">

@@ -103,7 +103,7 @@ export default function BillingPage() {
           showToast(d.error ?? "Payment received, but we couldn't activate the plan — refresh in a moment.");
         }
       }
-      showToast("🎉 You're subscribed! Your plan is now active.");
+      showToast("You're subscribed. Your plan is now active.");
       await refreshShop(); // unlock premium features in sidebar immediately
       load();
     })();

@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Info, X } from "lucide-react";
+import { Info, X, Trophy } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
 import { groupClients, sameIdentity } from "@/lib/client-identity";
 
@@ -288,7 +288,7 @@ export default function LoyaltyPage() {
                   <p>Find the client in the leaderboard → tap <span className="text-foreground">Redeem</span>. It subtracts the points and shows the dollar value — then you take that amount off their bill at checkout.</p>
                 </div>
                 <div className="rounded-xl bg-card-raised border border-border p-3 space-y-1.5">
-                  <p className="text-foreground font-semibold">💡 Tips to get the most out of it</p>
+                  <p className="text-foreground font-semibold">Tips to get the most out of it</p>
                   <p>• Lean on <span className="text-foreground">points per visit</span> — it rewards coming back, which is what grows a barbershop.</p>
                   <p>• Aim so ~5–6 visits earns a meaningful reward — close enough to chase, valuable enough to matter.</p>
                   <p>• Say it out loud at checkout: <span className="text-foreground">“you’ve got ${dollarsOf(200).toFixed(2)} in points saved up.”</span> That’s what brings them back.</p>
@@ -402,7 +402,7 @@ export default function LoyaltyPage() {
                   </div>
                 </div>
                 <p className="text-xs text-grey mt-3 leading-relaxed">
-                  💡 A <span className="text-foreground">${examplePrice}</span> visit earns{" "}
+                  A <span className="text-foreground">${examplePrice}</span> visit earns{" "}
                   <span className="text-foreground font-medium">{exVisitPts} pts</span>
                   {settings.points_per_dollar > 0 ? ` (${settings.points_per_visit} per visit + ${examplePrice} × ${settings.points_per_dollar} per $1)` : ""}.
                   {" "}After about <span className="text-foreground font-medium">{visitsToReward || "—"} visit{visitsToReward === 1 ? "" : "s"}</span> they’ll have <span className="text-foreground font-medium">${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
@@ -425,7 +425,7 @@ export default function LoyaltyPage() {
                 <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-card-raised animate-pulse" />)}</div>
               ) : clients.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-3xl mb-3">🏆</p>
+                  <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Trophy size={22} /></div>
                   <h3 className="text-base font-semibold text-foreground mb-1">No clients yet</h3>
                   <p className="text-sm text-grey max-w-xs mx-auto">As clients book and check out, they earn points and this leaderboard fills in.</p>
                 </div>

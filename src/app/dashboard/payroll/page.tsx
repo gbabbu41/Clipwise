@@ -306,7 +306,7 @@ export default function PayrollPage() {
             <div className="py-12 text-center text-grey">Loading...</div>
           ) : payroll.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-2xl">💈</div>
+              <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-grey"><DollarSign size={26} /></div>
               <h3 className="text-base font-semibold text-foreground mb-1">No barber earnings yet</h3>
               <p className="text-sm text-grey max-w-xs mx-auto">Once your barbers complete paid appointments, their commission breakdown shows up here.</p>
             </div>

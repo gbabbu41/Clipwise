@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Trash2, Copy, Check, Shield, X, Camera } from "lucide-react";
+import { KeyRound, Trash2, Copy, Check, Shield, X, Camera, Users } from "lucide-react";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { uploadBarberPhoto, removeBarberPhoto } from "@/lib/upload-barber-photo";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
@@ -672,7 +672,7 @@ export default function StaffPage() {
       {barbers.length === 0 ? (
         <Card>
           <div className="py-16 text-center">
-            <p className="text-4xl mb-3">💈</p>
+            <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Users size={22} /></div>
             <p className="font-medium text-foreground mb-1">No barbers yet</p>
             <p className="text-sm text-grey mb-4 max-w-xs mx-auto">Invite your barbers by email — they&apos;ll get access to their own portal to manage their schedule and clients.</p>
             <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
