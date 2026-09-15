@@ -44,43 +44,55 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 // ── Shared email wrapper ──────────────────────────────────────────────────────
 function wrap(content: string) {
+  // Premium, high-contrast, monochrome brand — matches the ClipWise marketing site
+  // (Manrope, tight bold display, black accents) and reads clean like the best
+  // transactional emails. Manrope loads via @import where the client supports it
+  // (Apple Mail); Gmail strips it and falls back to a clean Helvetica/Arial stack,
+  // so the design holds either way. Colors are deliberately dark enough to pass
+  // contrast (the old muted greys were unreadable) — zinc-900/700/500 on white.
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
   :root{color-scheme:light;supported-color-schemes:light}
-  body{margin:0;padding:0;background:#EEF0F3;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#4B5563}
-  a{color:#111827}
+  *{box-sizing:border-box}
+  body{margin:0;padding:0;background:#F4F4F5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-family:'Manrope','Helvetica Neue',Helvetica,Arial,sans-serif;color:#3F3F46}
+  a{color:#18181B}
   .container{max-width:560px;margin:0 auto;padding:32px 16px}
-  .card{background:#FFFFFF;border:1px solid #E7E9EE;border-radius:16px;padding:32px}
-  .logo{font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;margin:0 0 24px}
-  .logo span{color:#111827}
-  h1{font-size:24px;line-height:1.25;font-weight:800;color:#111827;letter-spacing:-0.4px;margin:0 0 12px}
-  h2{font-size:16px;font-weight:700;color:#111827;margin:24px 0 10px}
-  p{font-size:15px;line-height:1.6;color:#4B5563;margin:0 0 14px}
-  .highlight{color:#111827;font-weight:700}
-  .muted{color:#9CA3AF}
-  .badge{display:inline-block;background:#F3F4F6;border:1px solid #E5E7EB;color:#374151;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
-  .btn{display:inline-block;background:#111827;color:#ffffff;font-weight:700;font-size:15px;padding:13px 30px;border-radius:10px;text-decoration:none;margin:18px 0}
-  .panel{background:#F9FAFB;border:1px solid #EDEFF2;border-radius:12px;padding:4px 18px;margin:18px 0}
-  .link-box{background:#F9FAFB;border:1px solid #E7E9EE;border-radius:10px;padding:12px 16px;margin:16px 0}
-  .link-box a{color:#111827;font-size:13px;text-decoration:none;word-break:break-all}
-  .divider{border:0;border-top:1px solid #EDEFF2;margin:22px 0}
+  .card{background:#FFFFFF;border:1px solid #E4E4E7;border-radius:18px;padding:36px 32px;box-shadow:0 1px 2px rgba(24,24,27,0.04),0 10px 28px rgba(24,24,27,0.06)}
+  /* Wordmark — uppercase + tight tracking, matching the marketing/portal CLIPWISE.
+     Templates still pass "Clip<span>Wise</span>"; text-transform renders it CLIPWISE. */
+  .logo{font-size:19px;font-weight:800;color:#18181B;letter-spacing:0.06em;text-transform:uppercase;margin:0 0 26px}
+  .logo span{color:#18181B}
+  h1{font-size:25px;line-height:1.22;font-weight:800;color:#0A0A0A;letter-spacing:-0.5px;margin:0 0 12px}
+  h2{font-size:15px;font-weight:700;color:#18181B;letter-spacing:-0.2px;margin:26px 0 10px}
+  p{font-size:15px;line-height:1.62;color:#3F3F46;margin:0 0 14px}
+  .highlight{color:#18181B;font-weight:700}
+  .muted{color:#71717A}
+  .badge{display:inline-block;background:#F4F4F5;border:1px solid #E4E4E7;color:#3F3F46;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:6px 13px;border-radius:999px;margin:0 0 18px}
+  .btn{display:inline-block;background:#18181B;color:#ffffff !important;font-weight:700;font-size:15px;padding:14px 30px;border-radius:12px;text-decoration:none;margin:20px 0;letter-spacing:0.01em}
+  .btn-outline{display:inline-block;background:#FFFFFF;color:#18181B !important;font-weight:700;font-size:15px;padding:12.5px 28px;border:1.5px solid #18181B;border-radius:12px;text-decoration:none;margin:8px 0}
+  .panel{background:#FAFAFA;border:1px solid #EFEFEF;border-radius:14px;padding:6px 18px;margin:20px 0}
+  .link-box{background:#FAFAFA;border:1px solid #E4E4E7;border-radius:12px;padding:13px 16px;margin:16px 0}
+  .link-box a{color:#18181B;font-size:13px;text-decoration:none;word-break:break-all;font-weight:600}
+  .divider{border:0;border-top:1px solid #ECECEC;margin:24px 0}
   .steps{list-style:none;padding:0;margin:16px 0}
-  .steps li{margin-bottom:12px;font-size:15px;color:#4B5563}
-  .step-num{display:inline-block;background:#111827;color:#ffffff;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;font-size:11px;font-weight:700;margin-right:8px}
-  .footer{text-align:center;margin-top:22px;font-size:12px;color:#9CA3AF}
-  .footer a{color:#6B7280;text-decoration:none}
-  .row{padding:11px 0;border-bottom:1px solid #EDEFF2;font-size:14px;overflow:hidden}
+  .steps li{margin-bottom:13px;font-size:15px;color:#3F3F46;line-height:1.5}
+  .step-num{display:inline-block;background:#18181B;color:#ffffff !important;width:23px;height:23px;line-height:23px;text-align:center;border-radius:999px;font-size:11px;font-weight:700;margin-right:9px}
+  .footer{text-align:center;margin-top:24px;font-size:12px;color:#71717A;line-height:1.6}
+  .footer a{color:#71717A;text-decoration:none}
+  .footer .fmark{font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#71717A}
+  .row{padding:12px 0;border-bottom:1px solid #F0F0F0;font-size:14px;overflow:hidden}
   .row:last-child{border-bottom:0}
-  .row .label{color:#6B7280;float:left}
-  .row .val{color:#111827;font-weight:600;float:right;text-align:right;max-width:62%}
-  .green-badge{display:inline-block;background:#DCFCE7;border:1px solid #A7F3D0;color:#166534;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
-  .red-badge{display:inline-block;background:#FEE2E2;border:1px solid #FECACA;color:#991B1B;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;margin:0 0 18px}
+  .row .label{color:#71717A;float:left}
+  .row .val{color:#18181B;font-weight:600;float:right;text-align:right;max-width:62%}
+  .green-badge{display:inline-block;background:#DCFCE7;border:1px solid #A7F3D0;color:#166534;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:6px 13px;border-radius:999px;margin:0 0 18px}
+  .red-badge{display:inline-block;background:#FEE2E2;border:1px solid #FECACA;color:#991B1B;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:6px 13px;border-radius:999px;margin:0 0 18px}
 </style></head>
 <body><div class="container"><div class="card">${content}</div>
-<div class="footer">© ClipWise · <a href="${BASE_URL}">clipwise.ca</a></div>
+<div class="footer"><span class="fmark">ClipWise</span> &middot; <a href="${BASE_URL}">clipwise.ca</a></div>
 </div></body></html>`;
 }
 
@@ -90,7 +102,7 @@ function wrap(content: string) {
 // instead (they're from the platform to its own users).
 function shopHeader(shopName?: string) {
   const name = shopName || "Your shop";
-  return `<div style="font-size:27px;line-height:1.15;font-weight:800;color:#111827;letter-spacing:-0.5px;margin:0 0 22px">${name}</div>`;
+  return `<div style="font-size:27px;line-height:1.15;font-weight:800;color:#0A0A0A;letter-spacing:-0.6px;margin:0 0 22px">${name}</div>`;
 }
 
 // A "Location" row + a Google Maps "Get directions" link. Values are resolved
@@ -569,7 +581,7 @@ function paymentReceipt(data: Record<string, string>) {
     <hr class="divider">
     <p style="font-size:13px;color:#6B7280">This is your receipt — no action needed. Questions about this charge? Reply to this email to reach ${data.shopName} directly.</p>
     <p style="font-size:12px;color:#6B7280">Sent on behalf of ${data.shopName}. ClipWise provides the booking &amp; payment software; ${data.shopName} is the merchant of record for this purchase.</p>
-    ${data.generatedAt ? `<p style="font-size:11px;color:#9CA3AF;margin-top:4px">Receipt generated ${data.generatedAt}</p>` : ""}
+    ${data.generatedAt ? `<p style="font-size:11px;color:#71717A;margin-top:4px">Receipt generated ${data.generatedAt}</p>` : ""}
   `);
 }
 
