@@ -66,6 +66,15 @@ function wrap(content: string) {
      Templates still pass "Clip<span>Wise</span>"; text-transform renders it CLIPWISE. */
   .logo{font-size:19px;font-weight:800;color:#18181B;letter-spacing:0.06em;text-transform:uppercase;margin:0 0 26px}
   .logo span{color:#18181B}
+  /* Black hero band — a brand moment for the welcome email. Inspired by the best
+     onboarding emails but built on OUR identity: near-black ground, uppercase
+     CLIPWISE wordmark with the marketing site's lilac "WISE" tail, tight display
+     headline. Reserved for celebratory emails, not everyday transactional ones. */
+  .hero{background:#0A0A0A;border-radius:14px;padding:28px 26px;margin:0 0 26px}
+  .hero-mark{font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9A9AA3;margin:0 0 14px}
+  .hero-mark span{color:#C9B3FF}
+  .hero-title{font-size:27px;line-height:1.16;font-weight:800;letter-spacing:-0.6px;color:#FFFFFF;margin:0}
+  .hero-sub{font-size:14px;line-height:1.5;color:#B4B4BD;margin:9px 0 0}
   h1{font-size:25px;line-height:1.22;font-weight:800;color:#0A0A0A;letter-spacing:-0.5px;margin:0 0 12px}
   h2{font-size:15px;font-weight:700;color:#18181B;letter-spacing:-0.2px;margin:26px 0 10px}
   p{font-size:15px;line-height:1.62;color:#3F3F46;margin:0 0 14px}
@@ -246,10 +255,12 @@ function ownerWelcome(data: Record<string, string>) {
     ? `<p>Your <span class="highlight">${plan} plan</span> is active — thanks for being with ClipWise!</p>`
     : `<p>You're on the <span class="highlight">free Starter plan</span> — free forever. You can upgrade any time for reminders, loyalty, multi-chair and more.</p>`;
   return wrap(`
-    <div class="logo">Clip<span>Wise</span></div>
-    <div class="green-badge">🎉 Welcome to ClipWise</div>
-    <h1>You're all set, ${data.ownerName || "there"}!</h1>
-    <p><span class="highlight">${data.shopName}</span> is live on ClipWise. Here's everything you need to start taking bookings and getting paid.</p>
+    <div class="hero">
+      <div class="hero-mark">Clip<span>Wise</span></div>
+      <div class="hero-title">Welcome aboard${data.ownerName ? `, ${data.ownerName}` : ""} 💈</div>
+      <div class="hero-sub">You're officially on ClipWise.</div>
+    </div>
+    <p><span class="highlight">${data.shopName}</span> is live and ready — here's everything you need to start taking bookings and getting paid.</p>
     <div class="panel">${planRow}</div>
     ${planLine}
     <a href="${BASE_URL}/dashboard" class="btn">Open your dashboard →</a>
