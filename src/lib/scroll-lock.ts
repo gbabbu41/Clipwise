@@ -62,6 +62,16 @@ export function lockScroll(): () => void {
 }
 
 /**
+ * True while any overlay holds the lock — the authoritative "an overlay is open"
+ * signal. Gesture code (swipe-between-days, pull-to-refresh) uses this instead of
+ * sniffing the raw `body.style.overflow` string, so it can't be fooled by an
+ * unrelated inline style or a future change to how the lock is applied.
+ */
+export function isScrollLocked(): boolean {
+  return count > 0;
+}
+
+/**
  * Force-release every outstanding lock and clear the styles. A safety valve for
  * recovering from an impossible-but-catastrophic desync; not used in the normal
  * open/close path.

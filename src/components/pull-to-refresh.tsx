@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isScrollLocked } from "@/lib/scroll-lock";
 
 /**
  * Pull-to-refresh for the INSTALLED PWA (standalone), where iOS Safari's native
@@ -36,7 +37,7 @@ export function PullToRefresh() {
     // scrollTop (so a mid-scrolled calendar/list never triggers a refresh);
     // otherwise the page/body scroll governs.
     const canPull = (target: EventTarget | null): boolean => {
-      if (document.body.style.overflow === "hidden") return false; // an open modal/sheet
+      if (isScrollLocked()) return false; // an open modal/sheet holds the scroll lock
       // The calendar owns its own gestures (horizontal day/3-Day swipe, vertical
       // month paging) and marks itself data-no-swipe — never hijack those to refresh.
       const t = target as HTMLElement | null;

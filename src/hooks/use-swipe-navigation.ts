@@ -19,8 +19,8 @@
  *    settle/enter animation, then clear it.
  *  • A gesture is ignored when it begins inside: a form control, an element
  *    flagged `data-no-swipe` (e.g. the calendar), a horizontally-scrollable
- *    ancestor (carousels, wide tables, chip rows), or while any modal/sheet has
- *    locked body scroll (`document.body.style.overflow === "hidden"`).
+ *    ancestor (carousels, wide tables, chip rows), or while any modal/sheet
+ *    holds the shared scroll lock (`isScrollLocked()`).
  *  • Vertical scrolling is never hijacked: we leave `touch-action: auto` (so
  *    nested carousels keep their horizontal pan) and only `preventDefault` once
  *    we've locked into a horizontal gesture, via a non-passive touchmove
@@ -40,6 +40,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { isScrollLocked } from "@/lib/scroll-lock";
 
 export interface SwipeNavConfig {
   /** Ordered list of route hrefs that participate in swipe nav (the tab order). */
@@ -170,8 +171,8 @@ export function useSwipeNavigation(
    * from the very screen edge, iOS-style), never the input / no-swipe guards.
    */
   const shouldIgnore = (target: EventTarget | null, fromEdge: boolean): boolean => {
-    // Any open sheet / modal locks body scroll — never navigate underneath it.
-    if (typeof document !== "undefined" && document.body.style.overflow === "hidden") return true;
+    // Any open sheet / modal holds the scroll lock — never navigate underneath it.
+    if (isScrollLocked()) return true;
 
     let el = target as HTMLElement | null;
     while (el && el !== document.body && el !== document.documentElement) {
@@ -419,7 +420,7 @@ export function useSwipeNavigation(
       if (!cfgRef.current.enableKeyboard) return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.body.style.overflow === "hidden") return; // modal open
+      if (isScrollLocked()) return; // modal open
       const a = document.activeElement as HTMLElement | null;
       if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable)) return;
       if (resolveIndex(pathRef.current, cfgRef.current.order) === -1) return;
