@@ -1027,16 +1027,16 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <span className="text-sm font-semibold text-foreground">Balance to collect</span>
                 <span className="text-base font-extrabold text-foreground tabular-nums">{formatCurrency(balanceDue)}</span>
               </div>
-              <div className="mt-2.5 flex flex-col gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
                 {!!appt.stripe_payment_method_id && (
-                  <DAction tone="primary" icon="✓"
+                  <DAction tile tone="primary" icon="✓"
                     label={busy === "balance-card" ? "Charging…" : `Charge card on file · ${formatCurrency(balanceDue)}`}
                     disabled={!!busy} onClick={() => actions.collectBalance(appt, "card")} />
                 )}
-                <DAction icon="↗"
+                <DAction tile icon="↗"
                   label={busy === "balance-link" ? "Sending…" : "Send payment link"}
                   disabled={!!busy} onClick={() => actions.sendBalanceLink(appt)} />
-                <DAction icon="$"
+                <DAction tile icon="$"
                   label={busy === "balance-cash" ? "Saving…" : `Mark collected · cash`}
                   disabled={!!busy} onClick={() => actions.collectBalance(appt, "cash")} />
               </div>
@@ -1115,24 +1115,34 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           ) : readOnly ? (
             <p className="px-[18px] pt-4 text-center text-xs text-grey-muted">View only</p>
           ) : payChoice ? (
-            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+            <div className="px-[18px] pt-3.5 flex flex-col gap-2.5">
               {paid ? (
-                <DAction tone="primary" icon="✓" label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <DAction tile tone="primary" icon="✓" label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
+                </div>
               ) : (
                 <>
-                  {(heldOrSaved || cardOnFile) && (
-                    <>
-                      <DAction tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
-                      {isHeld && heldBalance > 0 && (
-                        <p className="text-[11px] text-grey-muted text-center px-2 -mt-0.5">
-                          Card holds {formatCurrency(willCapture)} · {formatCurrency(heldBalance)} balance — collect in person or send a link
-                        </p>
-                      )}
-                    </>
+                  {/* Every parallel way to settle this appointment, as one grid of
+                      boxes — tapping "Send payment link" swaps it for the email
+                      form below instead of squeezing an input into a tile. */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {(heldOrSaved || cardOnFile) && (
+                      <DAction tile tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                    )}
+                    {!showEmail && (
+                      <DAction tile icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
+                    )}
+                    <DAction tile icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
+                    {appt.status !== "completed" && (
+                      <DAction tile icon="○" label={busy === "complete" ? "Completing…" : "Complete · leave unpaid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
+                    )}
+                  </div>
+                  {isHeld && heldBalance > 0 && (
+                    <p className="text-[11px] text-grey-muted text-center px-2">
+                      Card holds {formatCurrency(willCapture)} · {formatCurrency(heldBalance)} balance — collect in person or send a link
+                    </p>
                   )}
-                  {!showEmail ? (
-                    <DAction icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
-                  ) : (
+                  {showEmail && (
                     <>
                       <input
                         type="email"
@@ -1144,10 +1154,6 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                       />
                       <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
                     </>
-                  )}
-                  <DAction icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
-                  {appt.status !== "completed" && (
-                    <DAction icon="○" label={busy === "complete" ? "Completing…" : "Complete · leave unpaid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
                   )}
                 </>
               )}
@@ -1172,19 +1178,23 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     />
                     <div className="flex justify-between text-[10px] text-grey-muted mt-0.5"><span>0%</span><span>50%</span><span>100%</span></div>
                   </div>
-                  <DAction
-                    tone="danger" icon="⚠️"
-                    label={busy === "noshow"
-                      ? (noShowFeeCents > 0 ? "Charging…" : "Marking…")
-                      : (noShowFeeCents > 0 ? `Charge ${formatCurrency(noShowFee)} · mark no-show` : "Mark no-show · no charge")}
-                    disabled={!!busy}
-                    onClick={() => actions.noShow(appt, noShowFeeCents)}
-                  />
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <DAction
+                      tile tone="danger" icon="⚠️"
+                      label={busy === "noshow"
+                        ? (noShowFeeCents > 0 ? "Charging…" : "Marking…")
+                        : (noShowFeeCents > 0 ? `Charge ${formatCurrency(noShowFee)} · mark no-show` : "Mark no-show · no charge")}
+                      disabled={!!busy}
+                      onClick={() => actions.noShow(appt, noShowFeeCents)}
+                    />
+                  </div>
                 </>
               ) : (
                 <>
                   <p className="text-sm text-grey px-0.5">No card on file — you can mark this as a no-show (no fee can be charged).</p>
-                  <DAction tone="danger" icon="⚠️" label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <DAction tile tone="danger" icon="⚠️" label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                  </div>
                 </>
               )}
               <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => setNoShowMode(false)}>Cancel</button>
