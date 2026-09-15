@@ -247,7 +247,7 @@ export default function BarberNotificationsPage() {
         <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[76px] rounded-2xl bg-card-raised animate-pulse" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-2xl text-center py-16">
-          <p className="text-4xl mb-3">🔔</p>
+          <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Bell size={22} /></div>
           <p className="text-sm font-semibold text-foreground">{notifications.length === 0 ? "You’re all caught up" : "Nothing in this filter"}</p>
           <p className="text-xs text-grey mt-1">{notifications.length === 0 ? "New bookings and alerts land here." : "Try a different category above."}</p>
         </div>

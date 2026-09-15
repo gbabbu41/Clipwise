@@ -120,7 +120,7 @@ export async function notifyNoShowCharged(args: {
   const message = completed
     ? `Charged ${args.clientName ?? "a client"}'s card${amt} on completion${niceDate ? ` (${niceDate})` : ""}.`
     : `Charged ${args.clientName ?? "a client"}'s card${amt} for a no-show${niceDate ? ` on ${niceDate}` : ""}.`;
-  const title = completed ? "✅ Payment collected" : "✅ No-show fee charged";
+  const title = completed ? "Payment received" : "No-show fee charged";
 
   const recipients = new Set<string>();
   if (args.ownerId) recipients.add(args.ownerId);
@@ -170,7 +170,7 @@ export async function notifyBalancePaid(args: {
   if (recipients.size === 0) return;
 
   await insertNotifications(
-    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "✅ Balance paid", message, type: "booking" })),
+    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "Balance paid", message, type: "booking" })),
   );
 }
 
@@ -200,7 +200,7 @@ export async function notifyRefundIssued(args: {
   if (recipients.size === 0) return;
 
   await insertNotifications(
-    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "↩️ Refund issued", message, type: "cancellation" })),
+    Array.from(recipients).map(uid => ({ user_id: uid, shop_id: args.shopId ?? null, title: "Refund issued", message, type: "cancellation" })),
   );
 }
 
@@ -225,14 +225,14 @@ export async function notifyDispute(args: {
   let title: string, message: string;
   if (args.status === "opened") {
     const due = args.dueBy ? new Date(args.dueBy * 1000).toLocaleDateString("en-CA", { month: "short", day: "numeric" }) : null;
-    title = "⚠️ Chargeback opened";
-    message = `A customer disputed a card payment${amt}${who}. Stripe has held those funds. Respond with evidence in your Stripe dashboard${due ? ` by ${due}` : ""}, or the amount plus a dispute fee is lost.`;
+    title = "Chargeback opened";
+    message = `A customer disputed a card payment${amt}${who}. Respond with evidence in Stripe${due ? ` by ${due}` : ""} or the amount plus a fee is lost.`;
   } else if (args.status === "won") {
-    title = "✅ Chargeback won";
-    message = `You won the disputed payment${amt}${who} — the funds were returned to your balance.`;
+    title = "Chargeback won";
+    message = `You won the disputed payment${amt}${who}. The funds were returned to your balance.`;
   } else if (args.status === "lost") {
-    title = "❌ Chargeback lost";
-    message = `The disputed payment${amt}${who} was lost — the amount plus the dispute fee stays withdrawn from your balance.`;
+    title = "Chargeback lost";
+    message = `The disputed payment${amt}${who} was lost — the amount plus the dispute fee stays withdrawn.`;
   } else {
     title = "Chargeback closed";
     message = `The card dispute${amt}${who} was closed.`;
@@ -255,8 +255,8 @@ export async function notifyChargeFailed(args: {
   await insertNotifications({
     user_id: args.ownerId,
     shop_id: args.shopId ?? null,
-    title: "⚠️ Card charge failed",
-    message: `Couldn't charge ${args.clientName ?? "a client"}'s card for the ${what}${amt}. Open the appointment to retry or take payment another way.`,
+    title: "Card charge failed",
+    message: `Couldn't charge ${args.clientName ?? "a client"}'s card for the ${what}${amt}. Open the appointment to retry.`,
     type: "system",
   });
 }
@@ -283,9 +283,9 @@ export async function notifyDuplicatePayment(args: {
   const niceDate = prettyDate(args.date);
   const who = args.clientName ?? "A client";
   const when = niceDate ? ` (${niceDate})` : "";
-  const title = args.mode === "auto_refunded" ? "↩️ Duplicate card charge auto-refunded"
-    : args.mode === "refund_failed" ? "⚠️ Duplicate charge — refund failed"
-      : "⚠️ Possible double payment";
+  const title = args.mode === "auto_refunded" ? "Duplicate charge refunded"
+    : args.mode === "refund_failed" ? "Duplicate charge — refund failed"
+      : "Possible double payment";
   const message = args.mode === "auto_refunded"
     ? `${who} was charged${amt} twice for one appointment${when}. The duplicate card charge was auto-refunded — no action needed.`
     : args.mode === "refund_failed"

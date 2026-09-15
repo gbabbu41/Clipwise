@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Bell, X } from "lucide-react";
+import { type LucideIcon, Bell, X, Calendar, CalendarX2, UserX, Star, Package } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -10,8 +10,9 @@ import { notifBelongsToShop } from "@/lib/notify";
 
 interface Popup { id: string; title: string; message: string; type: string }
 
-const ICON: Record<string, string> = {
-  booking: "🎉", cancellation: "❌", "no-show": "⚠️", review: "⭐", inventory: "📦", system: "🔔",
+// Clean monochrome icon per type (no emoji) — industry-standard notification look.
+const ICON: Record<string, LucideIcon> = {
+  booking: Calendar, cancellation: CalendarX2, "no-show": UserX, review: Star, inventory: Package, system: Bell,
 };
 
 // Tap a pop-up → land on the page where you can actually act on it, routed by
@@ -152,29 +153,32 @@ export function NotificationListener({ shopId }: { shopId?: string | null } = {}
         width: "calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 1.5rem)",
       }}
     >
-      {popups.map(p => (
-        <button
-          key={p.id}
-          type="button"
-          onClick={() => { removeNow(p.id); router.push(popupHref(p, isBarber)); }}
-          className={`pointer-events-auto text-left flex items-start gap-3 bg-card border border-gold/40 rounded-2xl p-4 shadow-2xl ring-1 ring-gold/10 hover:border-gold transition-colors ${leaving.has(p.id) ? "cw-notif-leave" : "cw-notif-enter"}`}
-        >
-          <span className="text-xl leading-none mt-0.5">{ICON[p.type] ?? "🔔"}</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Bell size={13} className="text-gold" /> {p.title}
-            </p>
-            <p className="text-xs text-grey mt-0.5 line-clamp-2">{p.message}</p>
-          </div>
-          <span
-            onClick={(e) => { e.stopPropagation(); dismiss(p.id); }}
-            className="text-grey hover:text-foreground flex-shrink-0"
-            aria-label="Dismiss"
+      {popups.map(p => {
+        const Icon = ICON[p.type] ?? Bell;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => { removeNow(p.id); router.push(popupHref(p, isBarber)); }}
+            className={`pointer-events-auto text-left flex items-start gap-3 bg-card border border-border rounded-2xl p-4 shadow-xl hover:border-border-strong transition-colors ${leaving.has(p.id) ? "cw-notif-leave" : "cw-notif-enter"}`}
           >
-            <X size={15} />
-          </span>
-        </button>
-      ))}
+            <span className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full bg-card-raised flex items-center justify-center text-foreground">
+              <Icon size={16} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">{p.title}</p>
+              <p className="text-xs text-grey mt-0.5 line-clamp-2">{p.message}</p>
+            </div>
+            <span
+              onClick={(e) => { e.stopPropagation(); dismiss(p.id); }}
+              className="text-grey hover:text-foreground flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              <X size={15} />
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

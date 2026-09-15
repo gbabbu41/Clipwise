@@ -64,8 +64,8 @@ export async function processTrials(nowMs: number): Promise<{ reminded: number; 
       if (shop.owner_id) {
         await insertNotifications({
           user_id: shop.owner_id, shop_id: shop.id,
-          title: daysLeft <= 1 ? "⚠️ Trial ends tomorrow — add a card" : `Your free trial ends in ${label}`,
-          message: `Add a card to keep ${shopName}'s paid features (online payments, POS, loyalty, extra barbers) after your ${plan} trial ends.`,
+          title: daysLeft <= 1 ? "Your trial ends tomorrow" : `Your trial ends in ${label}`,
+          message: `Add a card to keep your ${plan} features — online payments, POS, loyalty and extra barbers.`,
           type: "system",
         });
       }
