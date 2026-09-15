@@ -186,7 +186,12 @@ export default function POSPage() {
       .select("*, services(name)")
       .eq("shop_id", shop.id)
       .neq("status", "cancelled")
-      .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed),balance_due.gt.0`)
+      // Hidden-from-till rows (owner dismissed a stale unpaid) never show again.
+      .is("checkout_dismissed_at", null)
+      // Today's (any status) + anything still OWING (unpaid/held/saved/failed/balance)
+      // + PREPAID upcoming (paid today or in the future — the pay-now case) so a
+      // prepaid future booking lists under "Paid" instead of vanishing until its day.
+      .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed),balance_due.gt.0,and(date.gte.${today},payment_status.in.(paid,captured))`)
       .order("created_at", { ascending: false })
       .limit(80);
     setAppts((data ?? []) as AppointmentWithDetails[]);
@@ -232,13 +237,18 @@ export default function POSPage() {
       items: (byDate.get(date) ?? []).sort(byTime),
     }));
     const needsCount = Array.from(byDate.values()).reduce((n, arr) => n + arr.length, 0);
-    const paid = appts.filter(a => a.date === today && !needsPayment(a)).sort(byTime);
+    // Paid section: settled bookings from today onward — today's paid AND prepaid
+    // upcoming (the pay-now case). Sorted by date then time so today sits first.
+    const isSettled = (a: AppointmentWithDetails) => a.payment_status === "paid" || a.payment_status === "captured";
+    const paid = appts
+      .filter(a => a.date >= today && isSettled(a) && !needsPayment(a))
+      .sort((a, b) => a.date === b.date ? byTime(a, b) : a.date.localeCompare(b.date));
     return { needs, needsCount, paid };
   }, [appts, needsPayment]);
 
   // One appointment BOX — same tile shape as the service/product grid. Shows the
   // amount still owed (a partial balance, or the full total) + a status chip.
-  const apptBox = (a: AppointmentWithDetails) => {
+  const apptBox = (a: AppointmentWithDetails, showDate = false) => {
     const bal = balanceDueOf(a);
     const settled = a.payment_status === "paid" || a.payment_status === "captured";
     const owed = bal > 0 ? bal : (Number(a.total_amount ?? 0) + Number(a.tip_amount ?? 0));
@@ -249,18 +259,37 @@ export default function POSPage() {
       : settled ? { t: "Paid", c: "bg-[#00e5a0]/15 text-[#00e5a0]" }
       : { t: "Unpaid", c: "bg-white/10 text-grey" };
     const svcName = (a.services as { name?: string } | null)?.name ?? "Service";
+    const today = new Date().toLocaleDateString("en-CA");
+    // Older-than-today UNPAID rows can be dismissed from the till — hides the row
+    // (doesn't cancel the appointment). Today's row is never dismissible.
+    const canDismiss = !settled && !!a.date && a.date < today;
+    // In the Paid section (showDate) a non-today row shows its date so prepaid
+    // upcoming bookings read clearly; elsewhere the day is in the group header.
+    const dateLabel = showDate && a.date && a.date !== today
+      ? new Date(a.date + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })
+      : "";
+    const sub = [svcName, dateLabel || a.time_slot].filter(Boolean).join(" · ");
     return (
-      <button key={a.id} type="button" onClick={() => setSelectedAppt(a)}
-        className="relative h-24 p-3 rounded-xl border border-border bg-card flex flex-col justify-between text-left transition-all active:scale-95 hover:border-white/20">
-        <div className="min-w-0">
-          <p className="text-[13px] font-bold text-foreground leading-tight truncate">{a.client_name || "Walk-in"}</p>
-          <p className="text-[11px] text-grey-muted leading-tight truncate mt-0.5">{svcName} · {a.time_slot}</p>
-        </div>
-        <div className="flex items-end justify-between gap-1">
-          <span className="text-[13px] font-bold text-foreground leading-none tabular-nums">{owed > 0 ? formatCurrency(owed) : ""}</span>
-          <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap", badge.c)}>{badge.t}</span>
-        </div>
-      </button>
+      <div key={a.id} className="relative">
+        <button type="button" onClick={() => setSelectedAppt(a)}
+          className="w-full h-24 p-3 rounded-xl border border-border bg-card flex flex-col justify-between text-left transition-all active:scale-95 hover:border-white/20">
+          <div className={cn("min-w-0", canDismiss && "pr-5")}>
+            <p className="text-[13px] font-bold text-foreground leading-tight truncate">{a.client_name || "Walk-in"}</p>
+            <p className="text-[11px] text-grey-muted leading-tight truncate mt-0.5">{sub}</p>
+          </div>
+          <div className="flex items-end justify-between gap-1">
+            <span className="text-[13px] font-bold text-foreground leading-none tabular-nums">{owed > 0 ? formatCurrency(owed) : ""}</span>
+            <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap", badge.c)}>{badge.t}</span>
+          </div>
+        </button>
+        {canDismiss && (
+          <button type="button" aria-label="Dismiss from checkout"
+            onClick={(e) => { e.stopPropagation(); dismissAppt(a.id); }}
+            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/45 text-grey-muted hover:text-foreground hover:bg-black/65 flex items-center justify-center z-10 transition-colors">
+            <X size={12} />
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -269,6 +298,15 @@ export default function POSPage() {
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
     setAppts(prev => prev.map(a => a.id === id ? { ...a, ...p } : a));
     setSelectedAppt(prev => prev && prev.id === id ? { ...prev, ...p } : prev);
+  }, []);
+
+  // Dismiss a stale unpaid appointment from the Checkout view (hide, NOT cancel).
+  // Persisted on the row so it stays hidden across the owner's devices. Optimistic:
+  // drop it from the list now; a failed write just means it reappears on reload.
+  const dismissAppt = useCallback(async (id: string) => {
+    setAppts(prev => prev.filter(a => a.id !== id));
+    await supabase.from("appointments")
+      .update({ checkout_dismissed_at: new Date().toISOString() }).eq("id", id).then(null, () => null);
   }, []);
 
   // The SAME action factory the calendar uses → identical buttons + behaviour.
@@ -1108,7 +1146,7 @@ export default function POSPage() {
                         <div key={g.date} className="mb-3 last:mb-0">
                           <p className="text-[11px] font-semibold text-grey-muted mb-1.5">{g.label}</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                            {g.items.map(apptBox)}
+                            {g.items.map(a => apptBox(a))}
                           </div>
                         </div>
                       ))}
@@ -1124,9 +1162,9 @@ export default function POSPage() {
                   )}
                   {apptSections.paid.length > 0 && (
                     <div>
-                      <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-6 mb-2">Paid · today ({apptSections.paid.length})</p>
+                      <p className="text-[10px] tracking-[0.15em] uppercase text-grey-muted mt-6 mb-2">Paid ({apptSections.paid.length})</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {(paidExpanded ? apptSections.paid : apptSections.paid.slice(0, APPT_PREVIEW)).map(apptBox)}
+                        {(paidExpanded ? apptSections.paid : apptSections.paid.slice(0, APPT_PREVIEW)).map(a => apptBox(a, true))}
                       </div>
                       {apptSections.paid.length > APPT_PREVIEW && (
                         <button type="button" onClick={() => setPaidExpanded(v => !v)}
