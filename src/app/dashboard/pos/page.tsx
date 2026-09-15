@@ -26,10 +26,11 @@ type PM = "card" | "cash" | "online";
 // a client row); saved flags whether they're already in the clients book.
 type ClientLite = { id: string | null; name: string; email: string | null; phone: string | null; saved?: boolean };
 
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+function Toast({ message, action, onClose }: { message: string; action?: { label: string; onClick: () => void } | null; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
       <span className="text-foreground">✓</span>{message}
+      {action && <button onClick={action.onClick} className="ml-1 font-semibold text-[#4a9eff] hover:underline">{action.label}</button>}
       <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
@@ -131,6 +132,7 @@ export default function POSPage() {
   const pickerDrag = useSheetDrag(pickerSheetRef, () => setPickerOpen(false), { enabled: pickerOpen });
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
   const [lastCharge, setLastCharge] = useState<{ total: number; subtotal: number; method: PM; items: CartItem[]; tip: number; discount: number; tax?: number; summaryLabel?: string } | null>(null);
   const [lastReceiptId, setLastReceiptId] = useState<string | null>(null);
 
@@ -139,7 +141,10 @@ export default function POSPage() {
   // React re-renders or the user refreshes (transactions has no idempotency key).
   const finalizedRef = useRef(false);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const showToast = (msg: string, action?: { label: string; onClick: () => void }) => {
+    setToast(msg); setToastAction(action ?? null);
+    setTimeout(() => { setToast(""); setToastAction(null); }, action ? 6000 : 3000);
+  };
 
   const loadData = useCallback(async () => {
     if (!shop) return;
@@ -273,7 +278,7 @@ export default function POSPage() {
       <div key={a.id} className="relative">
         <button type="button" onClick={() => setSelectedAppt(a)}
           className="w-full h-24 p-3 rounded-xl border border-border bg-card flex flex-col justify-between text-left transition-all active:scale-95 hover:border-white/20">
-          <div className={cn("min-w-0", canDismiss && "pr-5")}>
+          <div className={cn("min-w-0", canDismiss && "pr-7")}>
             <p className="text-[13px] font-bold text-foreground leading-tight truncate">{a.client_name || "Walk-in"}</p>
             <p className="text-[11px] text-grey-muted leading-tight truncate mt-0.5">{sub}</p>
           </div>
@@ -285,8 +290,8 @@ export default function POSPage() {
         {canDismiss && (
           <button type="button" aria-label="Dismiss from checkout"
             onClick={(e) => { e.stopPropagation(); dismissAppt(a.id); }}
-            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/45 text-grey-muted hover:text-foreground hover:bg-black/65 flex items-center justify-center z-10 transition-colors">
-            <X size={12} />
+            className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/45 text-grey-muted hover:text-foreground hover:bg-black/70 flex items-center justify-center z-10 transition-colors">
+            <X size={15} />
           </button>
         )}
       </div>
@@ -301,13 +306,24 @@ export default function POSPage() {
   }, []);
 
   // Dismiss a stale unpaid appointment from the Checkout view (hide, NOT cancel).
-  // Persisted on the row so it stays hidden across the owner's devices. Optimistic:
-  // drop it from the list now; a failed write just means it reappears on reload.
-  const dismissAppt = useCallback(async (id: string) => {
+  // Persisted on the row so it stays hidden across the owner's devices. Optimistic
+  // with an Undo — a mis-tap is one tap to recover, and nothing is cancelled either
+  // way (the appointment stays on the calendar).
+  const dismissAppt = async (id: string) => {
+    const removed = appts.find(a => a.id === id);
     setAppts(prev => prev.filter(a => a.id !== id));
     await supabase.from("appointments")
       .update({ checkout_dismissed_at: new Date().toISOString() }).eq("id", id).then(null, () => null);
-  }, []);
+    showToast("Removed from checkout", {
+      label: "Undo",
+      onClick: async () => {
+        setToast(""); setToastAction(null);
+        await supabase.from("appointments").update({ checkout_dismissed_at: null }).eq("id", id).then(null, () => null);
+        if (removed) setAppts(prev => prev.some(a => a.id === id) ? prev : [removed, ...prev]);
+        else loadAppts();
+      },
+    });
+  };
 
   // The SAME action factory the calendar uses → identical buttons + behaviour.
   const apptActions = useMemo(() => makeApptActions({
@@ -953,7 +969,7 @@ export default function POSPage() {
     // data-no-swipe: POS is a money workflow — never let an accidental page
     // swipe navigate away mid-sale and drop the in-progress cart.
     <div data-no-swipe className="bg-background">
-      {toast && <Toast message={toast} onClose={() => setToast("")} />}
+      {toast && <Toast message={toast} action={toastAction} onClose={() => { setToast(""); setToastAction(null); }} />}
 
       {/* Charge a booked appointment from the till — the SAME pop-up card + buttons
           the calendar uses (capture held card / take cash / send link). */}
