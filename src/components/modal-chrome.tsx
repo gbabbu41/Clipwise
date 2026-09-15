@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { lockScroll } from "@/lib/scroll-lock";
+import { lockScroll, isScrollLocked, forceUnlockScroll } from "@/lib/scroll-lock";
 
 /**
  * Global modal chrome — mount once per portal layout. While ANY modal overlay is
@@ -122,7 +122,27 @@ export function ModalChrome() {
     // `bg-black/…` class without unmounting, so the lock is never left stranded.
     mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     sync();
-    return () => { mo.disconnect(); unlock(); };
+
+    // Self-heal watchdog. If the scroll lock is somehow still held while NOTHING
+    // is actually on screen (a phantom lock from any edge-case desync), release
+    // it the instant the user tries to scroll — so the page and the calendar
+    // timeline can never be left frozen. It's guarded so it can only ever fire
+    // when there is genuinely no overlay open: every real modal, sheet and nav
+    // drawer renders a full-screen `.fixed.inset-0` element, so if none exists
+    // but we're still "locked", the lock is stale and safe to drop. When a real
+    // overlay IS open the querySelector finds it and we leave the lock alone.
+    const healIfPhantom = () => {
+      if (isScrollLocked() && !document.querySelector(".fixed.inset-0")) forceUnlockScroll();
+    };
+    document.addEventListener("touchstart", healIfPhantom, { passive: true, capture: true });
+    document.addEventListener("wheel", healIfPhantom, { passive: true, capture: true });
+
+    return () => {
+      mo.disconnect();
+      document.removeEventListener("touchstart", healIfPhantom, { capture: true });
+      document.removeEventListener("wheel", healIfPhantom, { capture: true });
+      unlock();
+    };
   }, []);
 
   return null;
