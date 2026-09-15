@@ -75,7 +75,7 @@ async function run() {
 
   const { data: shops } = await supabaseAdmin
     .from("shops")
-    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone, google_place_id");
+    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone, google_place_id, owner_id, stripe_connected, created_at, connect_nudge_sent_at");
   if (!shops?.length) return NextResponse.json({ ok: true, shops: 0 });
 
   let emails = 0, texts = 0, retagged = 0, sends = 0;
@@ -335,6 +335,28 @@ async function run() {
           scheduleHtml,
         });
         emails++; sends++;
+      }
+    }
+
+    // ── Stripe Connect completion nudge (one-time, ~2 days after signup) ─────
+    // A payments-capable shop (paid/trial plan — Starter is cash-only) that never
+    // finished Connect silently can't take online payments / deposits / no-show
+    // fees. Nudge the owner ONCE, a couple days in. connect_nudge_sent_at dedupes.
+    if (isPaidPlan(plan) && (shop as { stripe_connected?: boolean }).stripe_connected !== true
+        && !(shop as { connect_nudge_sent_at?: string | null }).connect_nudge_sent_at && sends < MAX_SENDS) {
+      const createdAt = (shop as { created_at?: string | null }).created_at;
+      const ageDays = createdAt ? (Date.now() - Date.parse(createdAt)) / 86_400_000 : 0;
+      if (ageDays >= 2) {
+        const ownerId = (shop as { owner_id?: string | null }).owner_id;
+        const { data: ownerRow } = ownerId
+          ? await supabaseAdmin.from("users").select("name, email").eq("id", ownerId).maybeSingle()
+          : { data: null as { name?: string | null; email?: string | null } | null };
+        const ownerEmail = ownerRow?.email || shop.email;
+        if (ownerEmail) {
+          await sendEmail("connect_reminder", { ownerEmail, ownerName: ownerRow?.name ?? "", shopName: shop.name });
+          await supabaseAdmin.from("shops").update({ connect_nudge_sent_at: new Date().toISOString() }).eq("id", shop.id).then(null, () => null);
+          emails++; sends++;
+        }
       }
     }
   }

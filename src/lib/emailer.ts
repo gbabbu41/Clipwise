@@ -286,6 +286,27 @@ function ownerWelcome(data: Record<string, string>) {
   `);
 }
 
+// One-time nudge for a payments-capable shop (paid/trial plan) that never finished
+// Stripe Connect — so it silently can't take online payments. Sent by the daily
+// cron a couple days after signup. Soft: cash-only shops can just ignore it.
+function connectReminder(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">One step left</div>
+    <h1>Turn on payments for ${data.shopName}</h1>
+    <p>Your shop is live${data.ownerName ? `, ${data.ownerName}` : ""} — but Stripe isn't connected yet, so <span class="highlight">online payments are still off</span>. Finishing setup takes about 2 minutes and unlocks:</p>
+    <ul class="steps">
+      <li><span class="step-num">✓</span>Get paid when clients book online</li>
+      <li><span class="step-num">✓</span>Collect deposits &amp; protect against no-shows</li>
+      <li><span class="step-num">✓</span>Card &amp; tap-to-pay at the chair</li>
+    </ul>
+    <a href="${BASE_URL}/dashboard/stripe" class="btn">Finish payment setup →</a>
+    <hr class="divider">
+    <p style="font-size:13px;color:#71717A">Cash-only for now? No problem — you can ignore this and set it up any time from your dashboard.</p>
+    <p style="color:#71717A">— The ClipWise Team</p>
+  `);
+}
+
 function ownerRejected(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -1142,6 +1163,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = "Welcome to ClipWise 🎉 — your shop is live";
       html = ownerWelcome(data);
+      break;
+    case "connect_reminder":
+      to = data.ownerEmail;
+      subject = `Turn on payments for ${data.shopName}`;
+      html = connectReminder(data);
       break;
     case "shop_rejected":
       to = data.ownerEmail;
