@@ -1678,6 +1678,26 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (el) focusTimeline();
   }, [focusTimeline]);
 
+  // If the screen locks / the app backgrounds while a focusTimeline() timer is still
+  // pending, mobile browsers throttle it rather than drop it — it can fire minutes
+  // later, right as you resume and start scrolling, snapping scrollTop back to "now"
+  // out from under your finger (stuck-scroll feel, today's view only since that's the
+  // only branch that re-centers instead of just resetting to 0). Cancel any pending
+  // passes the moment we go to the background so a stale one can never fire on return.
+  useEffect(() => {
+    const cancelPending = () => {
+      focusTimersRef.current.forEach(clearTimeout);
+      focusTimersRef.current = [];
+    };
+    const onVisibility = () => { if (document.hidden) cancelPending(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", cancelPending);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", cancelPending);
+    };
+  }, []);
+
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
     const el = colWrapRef.current;
