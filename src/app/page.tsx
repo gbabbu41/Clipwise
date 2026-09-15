@@ -117,7 +117,7 @@ export default function HomePage() {
             <div className="step"><p className="sn">01 / SHOP</p><div className="fr"><img src="/new/book-shop.jpg" alt="Shop page" loading="lazy" /></div><p>Your shop, your services, your prices.</p></div>
             <div className="step"><p className="sn">02 / SERVICE</p><div className="fr"><img src="/new/book-service.jpg" alt="Choose services" loading="lazy" /></div><p>Pick one, or combine several in a visit.</p></div>
             <div className="step"><p className="sn">03 / TIME</p><div className="fr"><img src="/new/book-time.jpg" alt="Choose a time" loading="lazy" /></div><p>Real availability, by barber or anyone.</p></div>
-            <div className="step"><p className="sn">04 / CONFIRM</p><div className="fr"><img src="/new/book-confirm.jpg" alt="Confirm and pay" loading="lazy" /></div><p>Card held, tax shown, total confirmed.</p></div>
+            <div className="step"><p className="sn">04 / CONFIRM</p><div className="fr"><img src="/new/book-confirm.jpg" alt="Confirm and pay" loading="lazy" /></div><p>Pay now or reserve — tax shown, total confirmed.</p></div>
           </div>
         </div>
       </section>
@@ -148,10 +148,10 @@ export default function HomePage() {
         <div className="wrap two">
           <div className="copy">
             <p className="eyebrow">No-shows</p>
-            <h2>The empty chair,<br /><em>charged.</em></h2>
-            <p className="lead">Every booking holds a card. Nothing is taken until the cut is done — but when someone doesn’t turn up, the fee is one tap, not a phone call you never make.</p>
+            <h2>The empty chair,<br /><em>covered.</em></h2>
+            <p className="lead">Every booking keeps a card on file. Nothing’s charged when they show — but a no-show is one tap, not a phone call you never make.</p>
             <ul className="bul">
-              <li><b>Held, not charged.</b>Authorised at booking, captured at checkout.</li>
+              <li><b>Card on file.</b>Saved at booking, charged only if they don’t show.</li>
               <li><b>One tap to charge.</b>Straight from the booking itself.</li>
               <li><b>Your rules.</b>You set the fee and the window.</li>
             </ul>

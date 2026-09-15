@@ -259,7 +259,6 @@ export default function BookingClient() {
   /** The customer's acceptance of the no-show charge disclaimer. Required
    *  before any card is taken (held ≤7 days, or saved >7 days) when the shop
    *  has no-show protection on. In-person bookings never need it. */
-  const [noShowConsent, setNoShowConsent] = useState(false);
 
   // ── CASL consent (captured with the customer's contact details) ─────────────
   // Reminders are transactional (they ride on the booking they just made), so the
@@ -866,7 +865,6 @@ export default function BookingClient() {
     // only one method is possible, else nudge the customer to pick.
     if (total > 0 && !method) {
       if (canPayOnlineNow && !canPayInPersonNow) {
-        if (cardForNoShow && !noShowConsent) { showToast("Please accept the no-show policy to continue.", false); return; }
         setPayMethodChoice("online");
         return confirmBooking("online");
       }
@@ -912,13 +910,6 @@ export default function BookingClient() {
     const inPersonSaveCard = method === "in_person" && payInPersonSavesCard;
     const useHold = false;                     // holds retired — pay-now charges now
     const useSaveCard = inPersonSaveCard;      // only the pay-at-shop card-on-file path saves
-    // A card is being taken (online charge, or the pay-in-person save-card path) —
-    // require the policy consent first.
-    if (((method === "online" && cardForNoShow) || inPersonSaveCard) && !noShowConsent) {
-      setSaving(false);
-      showToast("Please accept the policy to continue.", false);
-      return;
-    }
     // Amount to send (server recomputes authoritatively): online pay-now charges the
     // full total now; saved-card + in-person + free bookings charge nothing now.
     const chargeAmount = useSaveCard ? 0 : total;
@@ -1549,7 +1540,7 @@ export default function BookingClient() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-white/10" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setNoShowConsent(false); setTipPercent(0); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-white/10" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -1570,11 +1561,12 @@ export default function BookingClient() {
   const promoStepIndex = 2;
   const confirmStepIndex = 2;
 
-  // No-show consent checkbox — shown wherever a card is about to be taken
-  // online under no-show protection. In-person bookings never render it.
+  // Passive policy notice — shown wherever a card is taken (online charge, or a
+  // card kept on file for no-show). No checkbox to tick: booking is the agreement,
+  // like Square/Squire/Booksy. In-person no-card bookings never render it.
   const noShowConsentBox = (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-black overflow-hidden">
-      <div className="flex items-start gap-3 p-4">
+    <div className="rounded-2xl border border-[#2a2a2a] bg-black p-4">
+      <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-400">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -1587,15 +1579,11 @@ export default function BookingClient() {
               <>You&apos;ll be charged <span className="font-medium text-white">{formatCurrency(grandTotalWithTip)}</span> now to lock in your appointment. {cancelNotice} — after that, late cancellations or no-shows aren&apos;t refunded.</>
             ) : (
               <>Your card is securely <span className="font-medium text-white">saved</span> now — not charged. You&apos;ll pay after your appointment. If you don&apos;t show up or cancel late, you may be charged <span className="font-medium text-white">up to the full price</span> of your service.</>
-            )}
+            )}{" "}
+            <span className="text-[#6e6e6e]">By booking, you agree to this policy.</span>
           </p>
         </div>
       </div>
-      <label className="flex items-center gap-2.5 px-4 py-3 border-t border-[#2a2a2a] bg-[#0d0d0d] cursor-pointer">
-        <input type="checkbox" checked={noShowConsent} onChange={(e) => setNoShowConsent(e.target.checked)}
-          className="h-[18px] w-[18px] rounded accent-sky-500 flex-shrink-0" />
-        <span className="text-[13px] font-medium text-white">{effectiveMethod === "online" ? "I understand and accept the cancellation policy" : "I understand and accept the no-show policy"}</span>
-      </label>
     </div>
   );
 
@@ -2426,8 +2414,7 @@ export default function BookingClient() {
               type="button"
               disabled={saving
                 || !clientInfoValid()
-                || (bothMethods && !payMethodChoice)
-                || (effectiveMethod === "online" && cardForNoShow && !noShowConsent)}
+                || (bothMethods && !payMethodChoice)}
               onClick={() => confirmBooking(effectiveMethod ?? undefined)}
               className="rounded-full bg-white text-black px-5 py-2 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed hover:bg-white/90 transition-colors flex-shrink-0"
             >
