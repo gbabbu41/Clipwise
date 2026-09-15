@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo } from "react";
-import { Lock } from "lucide-react";
+import { Lock, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -92,7 +92,7 @@ function BarberGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="text-5xl mb-4">✂️</div>
+          <div className="w-14 h-14 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-4 text-grey"><AlertTriangle size={26} /></div>
           <h2 className="text-xl font-bold text-foreground mb-2">Account not linked</h2>
           <p className="text-grey text-sm">Your account isn&apos;t linked to a barbershop yet. Ask your shop owner to add you to the staff.</p>
           {/* Never a dead end — always a way out. */}

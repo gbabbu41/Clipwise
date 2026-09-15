@@ -7,7 +7,7 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone, MessageSquare, Mail, Users } from "lucide-react";
+import { Phone, MessageSquare, Mail, Users, Building2, Ban } from "lucide-react";
 import { groupClients, sameIdentity, clientToId, apptToId, normPhone } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -322,7 +322,7 @@ export default function ClientsPage() {
       }),
     });
     setSendingBirthday(false);
-    showToast(res.ok ? "Birthday email sent! 🎂" : "Failed to send email");
+    showToast(res.ok ? "Birthday email sent!" : "Failed to send email");
   };
 
   const addPoints = async () => {
@@ -407,7 +407,7 @@ export default function ClientsPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-2xl mb-2">👥</p>
+        <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Building2 size={22} /></div>
         <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
         <p className="text-sm text-grey">Client profiles will appear here once your shop is active.</p>
       </div>
@@ -574,9 +574,9 @@ export default function ClientsPage() {
                     : <p className="text-sm text-grey-muted">No phone on file</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  {noShowCounts[client.id] > 0 && (
+                 <Ban size={11} /> {noShowCounts[client.id] > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      ⚠ {noShowCounts[client.id]}
+                      <Ban size={11} /> {noShowCounts[client.id]}
                     </span>
                   )}
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
@@ -624,9 +624,9 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
-                      {noShowCounts[client.id] > 0 && (
+                     <Ban size={11} /> {noShowCounts[client.id] > 0 && (
                         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                          ⚠ {noShowCounts[client.id]}
+                          <Ban size={11} /> {noShowCounts[client.id]}
                         </span>
                       )}
                     </div>
@@ -661,9 +661,9 @@ export default function ClientsPage() {
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
                     {selectedClient.tag}
                   </span>
-                  {noShowCounts[selectedClient.id] > 0 && (
+                 <Ban size={11} /> {noShowCounts[selectedClient.id] > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      ⚠ {noShowCounts[selectedClient.id]} no-show{noShowCounts[selectedClient.id] > 1 ? "s" : ""}
+                      <Ban size={11} /> {noShowCounts[selectedClient.id]} no-show{noShowCounts[selectedClient.id] > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -675,7 +675,7 @@ export default function ClientsPage() {
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={cn("flex-1 py-1.5 text-xs font-medium rounded-lg transition-all capitalize",
                     activeTab === tab ? "bg-surface-overlay text-foreground border border-border" : "text-grey hover:text-foreground")}>
-                  {tab === "hair" ? "✂️ Hair Profile" : tab === "history" ? "History" : "Overview"}
+                  {tab === "hair" ? "Hair Profile" : tab === "history" ? "History" : "Overview"}
                 </button>
               ))}
             </div>
@@ -765,7 +765,7 @@ export default function ClientsPage() {
                   </div>
                   {selectedClient.email && birthday && (
                     <Button size="sm" variant="outline" className="w-full text-foreground border-border hover:bg-card-raised" loading={sendingBirthday} onClick={sendBirthdayEmail}>
-                      🎂 Send Birthday Email
+                      Send Birthday Email
                     </Button>
                   )}
                 </div>

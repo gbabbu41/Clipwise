@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/dashboard/sidebar";
 import { AddAppointmentModal } from "@/components/dashboard/add-appointment-modal";
@@ -105,7 +106,7 @@ export default function DashboardLayoutClient({ children, native }: { children: 
       return (
         <div className="min-h-screen bg-card flex items-center justify-center px-4">
           <div className="text-center max-w-sm">
-            <div className="text-4xl mb-3">⚠️</div>
+            <div className="mx-auto mb-3 text-grey w-fit"><Loader2 size={28} className="animate-spin" /></div>
             <h2 className="text-lg font-bold text-foreground mb-1">Taking longer than usual</h2>
             <p className="text-grey text-sm mb-5">We couldn&apos;t load your dashboard. This can happen if you&apos;re signed in on another tab, or your connection dropped.</p>
             <div className="flex items-center justify-center gap-3">

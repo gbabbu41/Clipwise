@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Building2 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -358,7 +358,7 @@ export default function AnalyticsPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-2xl mb-2">📊</p>
+        <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Building2 size={22} /></div>
         <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
         <p className="text-sm text-grey">Analytics will appear here once your shop is active.</p>
       </div>

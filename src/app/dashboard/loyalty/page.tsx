@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Info, X, Trophy, Ticket } from "lucide-react";
+import { Info, X, Trophy, Ticket, Building2 } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
 import { groupClients, sameIdentity } from "@/lib/client-identity";
 
@@ -226,7 +226,7 @@ export default function LoyaltyPage() {
   if (!shop) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="text-2xl mb-2">🎁</p>
+        <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Building2 size={22} /></div>
         <h2 className="text-lg font-bold text-foreground mb-1">No shop linked</h2>
         <p className="text-sm text-grey">Loyalty program will be available once your shop is set up.</p>
       </div>
