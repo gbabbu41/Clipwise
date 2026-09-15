@@ -629,24 +629,40 @@ export function makeApptActions(opts: {
 }
 
 // One stacked action row in the appointment drawer (the demo's ".daction" look).
-function DAction({ icon, label, onClick, disabled, tone = "default" }: {
+function DAction({ icon, label, onClick, disabled, tone = "default", tile = false }: {
   icon: string; label: string; onClick?: () => void; disabled?: boolean;
   tone?: "default" | "primary" | "danger" | "muted";
+  // `tile`: a bigger, self-contained "box" for the main action menu (icon chip
+  // over a centered label) instead of the full-width row used by the sequential
+  // sub-flows (pay choice, no-show, balance) — same handlers, just a clearer,
+  // more commercial-app grid of tasks to tap.
+  tile?: boolean;
 }) {
+  const toneChip = tone === "primary" ? "bg-[#00e5a0]/15 text-[#00e5a0]"
+    : tone === "danger" ? "bg-[#ff6b6b]/15 text-[#ff6b6b]"
+    : tone === "muted" ? "bg-white/5 text-grey-muted"
+    : "bg-white/10 text-foreground";
   return (
     <button type="button" onClick={onClick} disabled={disabled || tone === "muted"}
       className={cn(
         // `cwd-act cwd-act--<tone>` markers let the light theme restyle these into
         // solid/outlined buttons (see globals.css) — DARK theme keeps the tints below.
         "cwd-act", `cwd-act--${tone}`,
-        "flex items-center gap-3 w-full px-3.5 py-3 rounded-xl border text-sm font-medium text-left transition-colors disabled:opacity-50",
+        "rounded-xl border text-sm font-medium transition-colors disabled:opacity-50",
         tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
           : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
           : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
           : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]",
+        tile
+          ? "flex flex-col items-center justify-center gap-2 text-center px-3 py-4 min-h-[96px]"
+          : "flex items-center gap-3 w-full px-3.5 py-3 text-left",
       )}>
-      <span className="text-base leading-none flex-shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      {tile ? (
+        <span className={cn("w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0", toneChip)}>{icon}</span>
+      ) : (
+        <span className="text-base leading-none flex-shrink-0">{icon}</span>
+      )}
+      <span className={tile ? "leading-tight text-[13px]" : "truncate"}>{label}</span>
     </button>
   );
 }
@@ -1174,26 +1190,26 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => setNoShowMode(false)}>Cancel</button>
             </div>
           ) : (
-            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+            <div className="px-[18px] pt-3.5 grid grid-cols-2 gap-2.5">
               {/* Edit — change the time / day / client / barber before checkout. */}
               {appt.status !== "completed" && appt.status !== "cancelled" && (
-                <DAction icon="✏️" label="Edit appointment" disabled={!!busy} onClick={openEdit} />
+                <DAction tile icon="✏️" label="Edit appointment" disabled={!!busy} onClick={openEdit} />
               )}
               {appt.status === "pending" && (
-                <DAction tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
+                <DAction tile tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
               )}
               {appt.status === "confirmed" && (
-                <DAction tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                <DAction tile tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {/* No-show — only once the slot's start time (+ grace) has passed. */}
               {appt.status === "confirmed" && startedForNoShow && (
-                <DAction icon="⚠️" label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+                <DAction tile icon="⚠️" label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <DAction tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                <DAction tile tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {(appt.status === "pending" || appt.status === "confirmed") && (
-                <DAction tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
+                <DAction tile tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
               )}
             </div>
           )}
