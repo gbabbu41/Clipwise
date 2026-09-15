@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { BarChart3 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -471,7 +472,7 @@ export default function AnalyticsPage() {
       {revenueByDay.length === 0 && !loading && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-3xl mb-3">📊</p>
+            <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><BarChart3 size={22} /></div>
             <p className="text-grey text-sm">No data yet for this period. Complete appointments or process POS transactions to see analytics.</p>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { Star } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, prettyDate } from "@/lib/utils";
@@ -207,7 +208,7 @@ export default function ReviewsPage() {
             {filtered.length === 0 ? (
               <Card>
                 <div className="text-center py-12">
-                  <p className="text-4xl mb-3">⭐</p>
+                  <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Star size={22} /></div>
                   <p className="text-grey">{reviews.length === 0 ? "No reviews yet. Reviews will appear here when clients rate their experience." : "No reviews match your filters."}</p>
                 </div>
               </Card>

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { Calendar } from "lucide-react";
 import Link from "next/link";
 import { cn, formatCurrency, getStatusColor, formatDateForDb, formatFriendlyDate, friendlyDate, prettyDate, timeAgo, timeToMinutes } from "@/lib/utils";
 import { formatPhone, validatePrice, noShowFeeDollars, NO_SHOW_GRACE_MINUTES, NO_SHOW_MAX_PCT } from "@/lib/validation";
@@ -1134,7 +1135,7 @@ export default function AppointmentsPage() {
               ))
             ) : filtered.length === 0 ? (
               <div className="bg-card border border-border rounded-2xl py-12 text-center">
-                <p className="text-3xl mb-3">📅</p>
+                <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Calendar size={22} /></div>
                 <p className="text-foreground font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                 <p className="text-sm text-grey px-6">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
                 {!(search || statusFilter !== "all" || barberFilter !== "all") && (
@@ -1233,7 +1234,7 @@ export default function AppointmentsPage() {
                   <tbody>
                     {filtered.length === 0 ? (
                       <tr><td colSpan={8} className="text-center py-16">
-                        <p className="text-3xl mb-3">📅</p>
+                        <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Calendar size={22} /></div>
                         <p className="text-foreground font-medium mb-1">{search || statusFilter !== "all" || barberFilter !== "all" ? "No appointments match your filters" : "No appointments yet"}</p>
                         <p className="text-sm text-grey">{search || statusFilter !== "all" || barberFilter !== "all" ? "Try adjusting your filters" : "Bookings will appear here once clients start scheduling"}</p>
                         {!(search || statusFilter !== "all" || barberFilter !== "all") && (

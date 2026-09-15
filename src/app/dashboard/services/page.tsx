@@ -237,7 +237,7 @@ export default function ServicesPage() {
         </div>
       ) : services.length === 0 ? (
         <div className="text-center py-14 rounded-2xl border border-border bg-card">
-          <p className="text-4xl mb-3">✂️</p>
+          <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Plus size={22} /></div>
           <p className="text-base font-semibold text-foreground">Build your service menu</p>
           <p className="text-sm text-grey mt-1 mb-5 max-w-xs mx-auto">Start from our ready-made barbershop menu, then tweak prices — or add your own from scratch.</p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center px-6">

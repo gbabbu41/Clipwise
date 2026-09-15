@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Info, X, Trophy } from "lucide-react";
+import { Info, X, Trophy, Ticket } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
 import { groupClients, sameIdentity } from "@/lib/client-identity";
 
@@ -530,7 +530,7 @@ export default function LoyaltyPage() {
             </div>
           ) : promos.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-3xl mb-3">🎟️</p>
+              <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Ticket size={22} /></div>
               <p className="text-grey text-sm">No promo codes yet. Create your first promo above.</p>
             </div>
           ) : (

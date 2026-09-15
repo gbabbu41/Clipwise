@@ -1231,7 +1231,7 @@ export default function StaffPage() {
 
               {inviteSent ? (
                 <div className="py-6 text-center">
-                  <div className="text-4xl mb-3">✉️</div>
+                  <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Check size={22} /></div>
                   <p className="font-semibold text-foreground">Invite sent!</p>
                   <p className="text-sm text-grey mt-1">{addForm.name} will get an email with a link to set up their account.</p>
                   <Button className="w-full mt-5" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }}>Done</Button>

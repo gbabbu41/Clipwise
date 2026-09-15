@@ -7,7 +7,7 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone, MessageSquare, Mail } from "lucide-react";
+import { Phone, MessageSquare, Mail, Users } from "lucide-react";
 import { groupClients, sameIdentity, clientToId, apptToId, normPhone } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -543,7 +543,7 @@ export default function ClientsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">👥</p>
+          <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Users size={22} /></div>
           <p className="text-foreground font-medium mb-1">{clients.length === 0 ? "Your client list is empty" : "No clients match your filters"}</p>
           <p className="text-sm text-grey">{clients.length === 0 ? "Clients are added automatically when they book, or you can add them manually above." : "Try a different search or filter."}</p>
         </div>

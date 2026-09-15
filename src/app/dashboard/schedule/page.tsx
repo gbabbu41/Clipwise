@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CalendarRange, Check, AlertTriangle, Power } from "lucide-react";
+import { CalendarRange, Check, AlertTriangle, Power, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ScheduleEditor } from "@/components/schedule-editor";
@@ -51,7 +51,7 @@ export default function SchedulePage() {
 
       {barbers.length === 0 ? (
         <div className="text-center py-14">
-          <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-2xl">🗓️</div>
+          <div className="w-14 h-14 rounded-2xl bg-card-raised border border-border flex items-center justify-center mx-auto mb-4 text-grey"><Users size={26} /></div>
           <h3 className="text-base font-semibold text-foreground mb-1">No barbers yet</h3>
           <p className="text-sm text-grey max-w-xs mx-auto mb-4">Add a barber to set their working hours, breaks, and lunch — they&apos;ll get their schedule by email.</p>
           <Link href="/dashboard/staff" className="inline-flex items-center gap-1.5 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors">Add staff →</Link>
